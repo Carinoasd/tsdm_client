@@ -157,26 +157,40 @@ final class UserBriefProfile with UserBriefProfileMappable {
   /// ```html
   /// <td id="userinfo_${UID}", ...> ... </td>
   /// ```
-  static UserBriefProfile? buildFromUserProfileNode(uh.Element element) {
+  ///
+  /// [author] is the post author parsed from the post header, used as fallback of username, uid and avatar when they
+  /// are not available in [element].
+  static UserBriefProfile? buildFromUserProfileNode(uh.Element element, {User? author}) {
     final postId = element.id.split('_').lastOrNull;
     if (postId == null) {
       talker.error('failed to build UserBriefProfile: uid not found');
       return null;
     }
     final avatarNode = element.querySelector('div#ts_avatar_$postId');
-    if (avatarNode == null) {
+    if (avatarNode == null && author == null) {
       talker.error('failed to build UserBriefProfile: avatar node not found');
       return null;
     }
-    final username = avatarNode.querySelector('div:nth-child(1)')?.innerText;
+    // Username, in priority:
+    //
+    // 1. Hidden user info popup `<div id="userinfo${PID}"><strong><a>${USERNAME}</a></strong>`.
+    // 2. Author parsed from post header.
+    // 3. Legacy `<div class="post_username_${N}">${USERNAME}</div>`.
+    final popupNameNode = element.querySelector('div#userinfo$postId strong > a');
+    final username =
+        popupNameNode?.innerText.trim() ??
+        author?.name ??
+        avatarNode?.querySelector('div[class^="post_username"]')?.innerText.trim() ??
+        avatarNode?.querySelector('div:nth-child(1)')?.innerText.trim();
     // Allow empty value.
-    final nickname = avatarNode.querySelector('div:nth-child(2)')?.innerText;
-    final avatarUrl = avatarNode.querySelector('div.avatar > a > img')?.imageUrl();
-    if (username == null || nickname == null || avatarUrl == null) {
-      talker.error(
-        'warning when build UserBriefProfile: username or nickname or'
-        ' avatarUrl not found',
-      );
+    final nicknameRaw =
+        avatarNode?.querySelector('div.post_nickname')?.innerText.trim() ??
+        avatarNode?.querySelector('div:nth-child(2)')?.innerText.trim();
+    final nickname = (nicknameRaw?.isEmpty ?? true) ? null : nicknameRaw;
+    final avatarImgNode = avatarNode?.querySelector('div.avatar img') ?? avatarNode?.querySelector('img');
+    final avatarUrl = avatarImgNode?._lazyImageUrl() ?? author?.avatarUrl;
+    if (username == null || avatarUrl == null) {
+      talker.info('warning when build UserBriefProfile: username or avatarUrl not found');
     }
 
     final statBarNode = element.querySelector('div.tsdm_statbar');
@@ -184,10 +198,19 @@ final class UserBriefProfile with UserBriefProfileMappable {
       talker.error('failed to build UserBriefProfile: statBarNode not found');
       return null;
     }
-    final userGroup = statBarNode.children.firstOrNull?.innerText.trim();
-    final userGroupColorRaw = WebColors.fromString(
-      statBarNode.children.firstOrNull?.querySelector('font')?.attributes['color'],
-    );
+
+    // User group name.
+    //
+    // `<em><a class="stat_authortitle"><font color="blue">${GROUP_NAME}</font></a></em>`
+    //
+    // The `<em>` node is not always present, fallback to the user group badge image.
+    final userGroupNode = statBarNode.querySelector('em');
+    final badgeImgNode = avatarNode?.querySelector('div.tsdm_norm_title img');
+    final badgeAlt = badgeImgNode?.attributes['alt']?.trim();
+    final badgeFileName = badgeImgNode?.attributes['src']?.split('/').lastOrNull?.split('.').firstOrNull;
+    final userGroup =
+        userGroupNode?.innerText.trim() ?? ((badgeAlt?.isNotEmpty ?? false) ? badgeAlt : null) ?? badgeFileName;
+    final userGroupColorRaw = WebColors.fromString(userGroupNode?.querySelector('font')?.attributes['color']);
     final Color? userGroupColor;
     if (userGroupColorRaw.isValid) {
       userGroupColor = Color(userGroupColorRaw.colorValue);
@@ -217,12 +240,19 @@ final class UserBriefProfile with UserBriefProfileMappable {
 
     bool? online;
 
-    for (final pair in statBarNode.querySelectorAll('> span').slices(2)) {
-      if (pair.length < 2) {
+    // Each attribute is a pair of `<span class="tsstat_icn_c">${NAME}:</span><span class="tsstat_txt_c">${VALUE}</span>`.
+    //
+    // The "状态:" row is followed by an `<a>` node rather than `<span>`, so do not simply slice all spans by 2.
+    final keyNodes = statBarNode.children.where(
+      (e) => e.localName == 'span' && (e.classes.contains('tsstat_icn_c') || e.innerText.trim().endsWith(':')),
+    );
+    for (final keyNode in keyNodes) {
+      final valueNode = keyNode.nextElementSibling;
+      if (valueNode == null || valueNode.localName != 'span') {
         continue;
       }
-      final data = pair[1].innerText;
-      final _ = switch (pair[0].innerText) {
+      final data = valueNode.innerText.trim();
+      final _ = switch (keyNode.innerText.trim()) {
         'UID:' => uid = data,
         '头衔:' => title = data,
         '精华:' => recommended = data,
@@ -244,21 +274,26 @@ final class UserBriefProfile with UserBriefProfileMappable {
         final String v => () {
           if (specialAttr == null) {
             specialAttr = data;
-            specialAttrName = v.trim().replaceFirst(':', '');
-          } else {
+            specialAttrName = v.replaceFirst(':', '');
+          } else if (specialAttr2 == null) {
             specialAttr2 = data;
-            specialAttrName2 = v.trim().replaceFirst(':', '');
+            specialAttrName2 = v.replaceFirst(':', '');
           }
         }(),
       };
     }
 
-    online = statBarNode.querySelector('div > a')?.title?.contains('在线') ?? false;
+    // Online state.
+    //
+    // `<a title="性别:ひみつ-当前在线">` in stat bar, or `<em>当前在线</em>` in the hidden user info popup.
+    online =
+        statBarNode.querySelectorAll('a[title]').any((e) => e.attributes['title']?.contains('当前在线') ?? false) ||
+        (element.querySelector('div#userinfo$postId em')?.innerText.contains('当前在线') ?? false);
 
     return UserBriefProfile(
       username: username ?? '',
       avatarUrl: avatarUrl,
-      uid: uid ?? '',
+      uid: uid ?? author?.uid ?? '',
       nickname: nickname,
       userGroup: userGroup ?? '',
       userGroupColor: userGroupColor,

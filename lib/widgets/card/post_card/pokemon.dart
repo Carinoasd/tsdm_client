@@ -53,6 +53,56 @@ final class PostFloorPokemon with PostFloorPokemonMappable {
 
     return PostFloorPokemon(firstPokemon, others);
   }
+
+  /// Build instance from the Discuz X5 style `div.tns` node in the user info column of post floor.
+  ///
+  /// ```html
+  /// <div class="tns xg2">
+  ///   <div style="...">
+  ///     <a href="plugin.php?id=pokemon:game" target="_blank">
+  ///       <img src="${PRIMARY_IMAGE}" ...>
+  ///     </a>
+  ///     <div style="...">${PRIMARY_NAME}</div>
+  ///   </div>
+  ///   <div style="...">
+  ///     <a href="plugin.php?id=pokemon:pokemon&index=ajax_pm&petid=${ID}&action=show&cshu=2" ...>
+  ///       <img src="${IMAGE}" title="${NAME}">
+  ///     </a>
+  ///     ...
+  ///   </div>
+  /// </div>
+  /// ```
+  ///
+  /// The detail info dialog of pokemon plugin is gone on server side, [PokemonInfo.detailInfo] only carries the
+  /// original url in `href` and is not expected to work.
+  static PostFloorPokemon? fromTnsDiv(uh.Element element) {
+    final primaryLink = element.querySelector('a[href*="pokemon:game"]');
+    final primaryImage = primaryLink?.querySelector('img')?.imageUrl();
+    final primaryName = primaryLink?.parent?.querySelector('div')?.innerText.trim();
+    if (primaryImage == null || primaryName == null) {
+      return null;
+    }
+    final firstPokemon = PokemonInfo(
+      name: primaryName,
+      image: primaryImage,
+      detailInfo: primaryLink?.attributes['href'] ?? '',
+    );
+
+    final others = element
+        .querySelectorAll('a[href*="pokemon:pokemon"]')
+        .map((e) {
+          final image = e.querySelector('img')?.imageUrl();
+          final name = e.querySelector('img')?.attributes['title']?.trim();
+          if (image != null && name != null) {
+            return PokemonInfo(name: name, image: image, detailInfo: e.attributes['href'] ?? '');
+          }
+          return null;
+        })
+        .whereType<PokemonInfo>()
+        .toList();
+
+    return PostFloorPokemon(firstPokemon, others.isEmpty ? null : others);
+  }
 }
 
 /// Info about a single pokemon

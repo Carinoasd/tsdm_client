@@ -177,7 +177,7 @@ final class RateWindowInfo with RateWindowInfoMappable {
 
   /// Build a row of score to rate in rate table.
   static RateWindowScore? _buildRateScoreRowFromTrNode(uh.Element element) {
-    final name = element.querySelector('td')?.firstEndDeepText();
+    final name = element.querySelector('td')?.firstEndDeepText()?.trim();
     final id = element.querySelector('td:nth-child(2) > input')?.id;
     final allowedRange = element
         .querySelector('td:nth-child(2) > ul')

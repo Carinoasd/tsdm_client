@@ -15,13 +15,28 @@ final class ThreadRepositoryV2 {
       '$baseUrl/forum.php?mobile=yes&tsdmapp=1&mod=viewthread&tid=$tid&page=$page';
 
   /// Fetch thread [tid]'s content in the given [page].
+  ///
+  /// # CAUTION
+  ///
+  /// The json api used here (`mobile=yes&tsdmapp=1`) is GONE since the server upgraded to Discuz X5, the server now
+  /// responds with plain html. In that case a [ServerRespFailure] is returned instead of throwing on decoding.
   AsyncEither<ThreadV2> fetchThreadContent({required String tid, required int page}) =>
       getIt.get<NetClientProvider>().get(_buildUrl(tid: tid, page: page)).andThenHttp((v) {
-        final result = jsonDecode(v.data as String) as Map<String, dynamic>;
-        final status = result['status'];
-        if (status == null || status is! int || status != 0) {
-          return AsyncEither.right(ThreadV2Mapper.fromJson(v.data as String));
+        final data = v.data;
+        if (data is! String || !data.trimLeft().startsWith('{')) {
+          talker.error('thread v2 api is unavailable: response is not json');
+          return AsyncEither.left(ServerRespFailure(status: 1, message: 'response is not json'));
         }
-        return AsyncEither.left(ServerRespFailure(status: 1, message: null));
+        try {
+          final result = jsonDecode(data) as Map<String, dynamic>;
+          final status = result['status'];
+          if (status == null || status is! int || status != 0) {
+            return AsyncEither.right(ThreadV2Mapper.fromJson(data));
+          }
+          return AsyncEither.left(ServerRespFailure(status: 1, message: null));
+        } on Exception catch (e) {
+          talker.error('failed to decode thread v2 response: $e');
+          return AsyncEither.left(ServerRespFailure(status: 1, message: '$e'));
+        }
       });
 }

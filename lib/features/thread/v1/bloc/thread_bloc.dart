@@ -1,12 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/universal_html.dart';
-import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_medal_menu_info.dart';
@@ -206,163 +204,35 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
   }
 
   IO<ThreadState> _parseFromDocument(uh.Document document, int pageNumber, {bool? clearOnlyVisibleUid}) => IO(() {
-    // Reset the thread id from document.
-    final threadLink = document.querySelector('head > link')?.attributes['href'];
-    final tid = threadLink?.tryParseAsUri().tryGetQueryParameters()?['tid'];
-
-    final threadSoftClosed = document.querySelector('div#postlist h1.ts img[title="关闭"]') != null;
-    final threadClosed = document.querySelector('form#fastpostform') == null;
-    final threadDataNode = document.querySelector('div#postlist');
-    final postList = Post.buildListFromThreadDataNode(threadDataNode, document.currentPage() ?? 1);
-    // Title node ALWAYS has an `a` node with id `thread_subject`.
-    // It's invisible in most styles and visible in 爱丽丝 style.
-    final title = document.querySelector('a#thread_subject')?.text?.trim();
-
-    final allLinksInBreadCrumb = document.querySelectorAll('div#pt a');
-    final forumName = switch (allLinksInBreadCrumb.length < 2) {
-      true => null,
-      false => allLinksInBreadCrumb.elementAtOrNull(allLinksInBreadCrumb.length - 2)?.innerText.trim(),
-    };
-
-    final currentPage = document.currentPage() ?? pageNumber;
-    final totalPages = document.totalPages() ?? pageNumber;
-
-    var needLogin = false;
-    var havePermission = true;
-    uh.Element? permissionDeniedMessage;
-    if (postList.isEmpty) {
-      // Here both normal thread list and subreddit is empty,
-      // check permission.
-      final docMessage = document.getElementById('messagetext');
-      final docLogin = document.getElementById('messagelogin');
-      if (docLogin != null) {
-        needLogin = true;
-      } else if (docMessage != null) {
-        havePermission = false;
-        permissionDeniedMessage = docMessage.querySelector('p');
-      }
-    }
-
-    /// Parse thread type from thread page document.
-    /// This should only run once.
-    final filterTypeNode = document.querySelector('div#postlist h1.ts > a');
-    final threadTypeName = filterTypeNode?.firstEndDeepText()?.replaceFirst('[', '').replaceFirst(']', '');
-    final threadTypeID = filterTypeNode?.attributes['href']?.tryParseAsUri().tryGetQueryParameters()?['typeid'];
-    final FilterType? threadType;
-    if (threadTypeName != null) {
-      threadType = FilterType(name: threadTypeName, typeID: threadTypeID);
-    } else {
-      threadType = null;
-    }
-
-    // Update reply parameters.
-    // These reply parameters should be sent to [ReplyBar] later.
-    //
-    // In some themes without search bar we can not find fid by the global input with name 'srhfid',
-    // parse fid from the query parameters in form action url instead.
-    final fid =
-        document.querySelector('input[name="srhfid"]')?.attributes['value']?.parseToInt() ??
-        document
-            .querySelector('#fastpostform')
-            ?.attributes['action']
-            ?.prependHost()
-            .tryParseAsUri()
-            .tryGetQueryParameters()?['fid']
-            ?.parseToInt();
-    final postTime = document.querySelector('input[name="posttime"]')?.attributes['value'];
-    final formHash = document.querySelector('input[name="formhash"]')?.attributes['value'];
-    final subject = document.querySelector('input[name="subject"]')?.attributes['value'];
-
-    // If the post time parameter is null, only warn in log.
-    // Because some subreddits do not have it.
-    if (postTime == null) {
-      warning(
-        'null post time found in thread, '
-        'reply parameter may be invalid',
-      );
-    }
-
-    ReplyParameters? replyParameters;
-    if (fid == null || formHash == null || subject == null) {
-      error(
-        'failed to get reply form hash: fid=$fid '
-        'formHash=$formHash subject=$subject',
-      );
-    } else {
-      replyParameters = ReplyParameters(
-        fid: '$fid',
-        tid: tid!,
-        postTime: postTime,
-        formHash: formHash,
-        subject: subject,
-      );
-    }
-
-    final isDraft = threadDataNode?.querySelector('div#postlist h1.ts > span')?.nodes.firstOrNull?.text?.contains('草稿');
-
-    final latestModAct = document.querySelector('div.modact')?.innerText;
-
-    // Parse breadcrumb.
-    final breadcrumbs = document
-        .querySelectorAll('div#pt > div.z > a')
-        .map((e) => (e.innerText, Uri.tryParse(e.attributes['href']!.prependHost())))
-        .whereType<(String, Uri)>()
-        .skipWhile((e) => !(e.$2.tryGetQueryParameters()?.containsKey('gid') ?? false))
-        .map((e) => ThreadBreadcrumb(description: e.$1, link: e.$2))
-        .toList();
-    if (breadcrumbs.isNotEmpty) {
-      breadcrumbs.removeLast();
-    }
-
-    // Parse available medals. and designation-card
-    final medalsAvailable = document
-        .querySelectorAll(r'div[id^="md_"][id$="_menu"]')
-        .map(PostMedalMenuItem.fromDiv)
-        .whereType<PostMedalMenuItem>()
-        .toList();
-
-    final statisticsInfo = document
-        .querySelectorAll('div#postlist > table:nth-child(1) span.xi1')
-        .map((e) => e.firstEndDeepText()?.parseToInt())
-        .whereType<int>();
-    final int? viewCount;
-    final int? replyCount;
-
-    if (statisticsInfo.length == 2) {
-      viewCount = statisticsInfo.first;
-      replyCount = statisticsInfo.elementAt(1);
-    } else {
-      viewCount = null;
-      replyCount = null;
-    }
+    final info = parseThreadDocument(document, pageNumber);
 
     final threadState = ThreadState(
-      tid: tid,
+      tid: info.tid,
       pid: state.pid,
-      replyParameters: replyParameters,
+      replyParameters: info.replyParameters,
       status: ThreadStatus.success,
-      title: title ?? state.title,
-      fid: fid,
-      forumName: forumName,
-      canLoadMore: currentPage < totalPages,
-      currentPage: currentPage,
-      totalPages: totalPages,
-      havePermission: havePermission,
-      permissionDeniedMessage: permissionDeniedMessage,
-      needLogin: needLogin,
-      threadSoftClosed: threadSoftClosed,
-      threadClosed: threadClosed,
-      postList: [...state.postList, ...postList],
-      threadType: threadType,
+      title: info.title ?? state.title,
+      fid: info.fid,
+      forumName: info.forumName,
+      canLoadMore: info.currentPage < info.totalPages,
+      currentPage: info.currentPage,
+      totalPages: info.totalPages,
+      havePermission: info.havePermission,
+      permissionDeniedMessage: info.permissionDeniedMessage,
+      needLogin: info.needLogin,
+      threadSoftClosed: info.threadSoftClosed,
+      threadClosed: info.threadClosed,
+      postList: [...state.postList, ...info.postList],
+      threadType: info.threadType,
       onlyVisibleUid: (clearOnlyVisibleUid ?? false) ? null : state.onlyVisibleUid,
       reverseOrder: state.reverseOrder,
       exactOrder: state.exactOrder,
-      isDraft: isDraft ?? false,
-      latestModAct: latestModAct,
-      breadcrumbs: breadcrumbs,
-      postMedals: medalsAvailable,
-      viewCount: viewCount,
-      replyCount: replyCount,
+      isDraft: info.isDraft,
+      latestModAct: info.latestModAct,
+      breadcrumbs: info.breadcrumbs,
+      postMedals: info.postMedals,
+      viewCount: info.viewCount,
+      replyCount: info.replyCount,
     );
 
     return threadState;

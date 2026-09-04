@@ -397,7 +397,10 @@ final class _Muncher with LoggerMixin {
   }
 
   List<InlineSpan>? _buildImg(uh.Element element) {
-    final url = element.imageUrl();
+    // Discuz X5 lazy loads some images with `data-src` and attachment images only have the `file` attribute, the
+    // latter one is handled in `imageUrl()`.
+    final dataSrc = element.attributes['data-src'];
+    final url = (dataSrc != null && dataSrc.isNotEmpty) ? dataSrc.prependHost() : element.imageUrl();
     if (url == null) {
       return null;
     }

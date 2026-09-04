@@ -189,21 +189,33 @@ final class PostEditContent with PostEditContentMappable {
     }
 
     // Additional options;
-    final options = rootNode
-        ?.querySelectorAll('div#psd p.mbn')
-        .where((e) => e.querySelector('input') != null && e.querySelector('label') != null)
+    //
+    // Legacy style: `<div id="psd"><p class="mbn"><input ...><label>...</label></p></div>`.
+    // Discuz X5: `<div id="extra_additional_c"><label for="usesig"><input type="checkbox" name="usesig" ...>使用个人签名</label>`.
+    final optionNodes = [
+      ...?rootNode?.querySelectorAll('div#psd p.mbn'),
+      ...?rootNode?.querySelectorAll('div#extra_additional_c label'),
+    ];
+    final options = optionNodes
+        .where((e) => e.querySelector('input') != null)
         .map((e) {
           final input = e.querySelector('input')!;
-          final label = e.querySelector('label')!;
+          final label = e.localName == 'label' ? e : e.querySelector('label');
+          final name = input.attributes['name'] ?? input.id;
+          final value = input.attributes['value'];
+          if (name.isEmpty || value == null) {
+            return null;
+          }
 
           return PostEditContentOption(
-            name: input.id,
-            readableName: label.innerText,
+            name: name,
+            readableName: label?.innerText.trim() ?? name,
             disabled: input.attributes.containsKey('disabled'),
             checked: input.attributes.containsKey('checked'),
-            value: input.attributes['value']!,
+            value: value,
           );
         })
+        .whereType<PostEditContentOption>()
         .toList();
 
     final permListNode = rootNode?.querySelector('select#readperm');

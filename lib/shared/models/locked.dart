@@ -18,7 +18,7 @@ sealed class _LockedInfo extends Equatable {
 
   const factory _LockedInfo.banned() = _LockedWithBlocked;
 
-  const factory _LockedInfo.sale({required int price, required int salesCount, required String tid}) =
+  const factory _LockedInfo.sale({required int price, required int? salesCount, required String tid}) =
       _LockedWithSale._;
 
   @override
@@ -77,7 +77,9 @@ final class _LockedWithSale extends _LockedInfo {
   final int price;
 
   /// Users count of sales.
-  final int salesCount;
+  ///
+  /// Null if not available: Discuz X5 does not render the sales count for moderators.
+  final int? salesCount;
 
   /// Thread if of current thread, to format log history url.
   final String tid;
@@ -137,6 +139,7 @@ class Locked extends Equatable {
        );
 
   static final _purchareRe = RegExp(r'forum.php\?mod=misc&action=pay&tid=(?<tid>\d+)&pid=(?<pid>\d+)');
+  static final _salesCountRe = RegExp(r'已购买人数\s*[:：]\s*(?<count>\d+)');
 
   final _LockedInfo? _info;
 
@@ -278,16 +281,30 @@ class Locked extends Equatable {
     }
 
     // Check for locked with sale.
-    final salesTid = element.querySelector('em > a')?.attributes['href']?.tryParseAsUri()?.queryParameters['tid'];
+    //
+    // ```html
+    // <div class="locked">
+    //   <em class="y"><a href="forum.php?mod=misc&action=viewpayments&tid=${TID}">记录</a></em>
+    //   付费主题, 价格: <strong>${PRICE} 天使币 </strong>
+    //   <span class="pipe">|</span><span>已购买人数: ${COUNT}</span>   <!-- Optional -->
+    // </div>
+    // ```
+    final salesTid = element
+        .querySelector('em > a[href*="action=viewpayments"]')
+        ?.attributes['href']
+        ?.tryParseAsUri()
+        ?.queryParameters['tid'];
     // Only for current user on selling side.
-    final salesCount = element
-        .querySelector('span.pipe')
-        ?.nextElementSibling
-        ?.firstEndDeepText()
-        ?.split(' ')
-        .lastOrNull
-        ?.parseToInt();
-    if (price != null && salesTid != null && salesCount != null) {
+    final salesCount =
+        element
+            .querySelector('span.pipe')
+            ?.nextElementSibling
+            ?.firstEndDeepText()
+            ?.split(' ')
+            .lastOrNull
+            ?.parseToInt() ??
+        _salesCountRe.firstMatch(element.innerText)?.namedGroup('count')?.parseToInt();
+    if (price != null && salesTid != null) {
       if (!allowWithSale) {
         return null;
       }

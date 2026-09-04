@@ -9,7 +9,25 @@ extension _ParseExtension on uh.Element {
   String? _parseRateAction() {
     return _rateActionRe.firstMatch(attributes['onclick'] ?? '')?.namedGroup('url');
   }
+
+  /// Get the image url from an `<img>` node, prefer the lazy load attributes.
+  ///
+  /// Discuz X5 lazy loads images with `data-src`, older styles use `data-original`.
+  String? _lazyImageUrl() {
+    final url = attributes['data-src'] ?? attributes['data-original'] ?? attributes['src'] ?? attributes['file'];
+    if (url == null || url.isEmpty) {
+      return null;
+    }
+    if (url.startsWith('./')) {
+      return url.substring(2).prependHost();
+    }
+    return url.prependHost();
+  }
 }
+
+/// Parse the uid from user space url.
+String? _uidFromUrl(String? url) =>
+    url?.tryParseAsUri()?.queryParameters['uid'] ?? url?.split('uid=').elementAtOrNull(1);
 
 /// Post model.
 ///
@@ -155,14 +173,44 @@ class Post with PostMappable {
     }
     final avatarId = 'ts_avatar_$postID';
     // <td class="pls">
-    final postInfoNode = trRootNode?.querySelector('td:nth-child(1) > div#$avatarId');
+    //
+    // Note that on Discuz X5 the user info column is EMPTY for guests.
+    final userProfileNode =
+        trRootNode?.children.firstWhereOrNull((e) => e.localName == 'td' && e.classes.contains('pls')) ??
+        trRootNode?.querySelector('td:nth-child(1)');
+    final postInfoNode = userProfileNode?.querySelector('div#$avatarId');
     // <td class="plc tsdm_ftc">
-    final postAuthorName = postInfoNode?.querySelector('div')?.firstEndDeepText();
-    final postAuthorUrl = postInfoNode?.querySelector('div.avatar > a')?.attributes['href'];
-    final postAuthorUid = postAuthorUrl?.split('uid=').elementAtOrNull(1);
-    final postAuthorAvatarNode = postInfoNode?.querySelector('div.avatar > a > img');
-    final postAuthorAvatarUrl =
-        postAuthorAvatarNode?.attributes['data-original'] ?? postAuthorAvatarNode?.attributes['src'];
+    final postDataNode =
+        trRootNode?.children.firstWhereOrNull((e) => e.localName == 'td' && e.classes.contains('plc')) ??
+        trRootNode?.querySelector('td:nth-child(2)');
+
+    // Author info.
+    //
+    // Sources of author name and uid, in priority:
+    //
+    // 1. Post header: `<div class="authi"><a href="home.php?mod=space&uid=${UID}" class="xi2">${NAME}</a>`. This one is
+    //    always available, even for guests.
+    // 2. Hidden user info popup: `<div id="userinfo${PID}"> <strong><a href="...uid=${UID}">${NAME}</a></strong>`.
+    // 3. Legacy: `<div id="ts_avatar_${PID}"><div class="post_username_${N}">${NAME}</div>`.
+    final authorHeaderNode = postDataNode
+        ?.querySelectorAll('div.pi div.authi > a[href*="uid="]')
+        .firstWhereOrNull((e) => e.firstEndDeepText()?.trim().isNotEmpty ?? false);
+    final authorPopupNode = userProfileNode?.querySelector('div#userinfo$postID strong > a[href*="uid="]');
+    final legacyNameNode = postInfoNode?.querySelector('div[class^="post_username"]');
+
+    final avatarLinkNode = postInfoNode?.querySelector('div.avatar > a');
+    final postAuthorUrl =
+        authorHeaderNode?.attributes['href'] ??
+        authorPopupNode?.attributes['href'] ??
+        avatarLinkNode?.attributes['href'];
+    final postAuthorName =
+        authorHeaderNode?.firstEndDeepText()?.trim() ??
+        authorPopupNode?.firstEndDeepText()?.trim() ??
+        legacyNameNode?.firstEndDeepText()?.trim() ??
+        postInfoNode?.querySelector('div')?.firstEndDeepText()?.trim();
+    final postAuthorUid = _uidFromUrl(postAuthorUrl);
+    final postAuthorAvatarUrl = (postInfoNode?.querySelector('div.avatar img') ?? postInfoNode?.querySelector('img'))
+        ?._lazyImageUrl();
     final postAuthor = User(
       name: postAuthorName ?? '',
       uid: postAuthorUid,
@@ -174,8 +222,6 @@ class Post with PostMappable {
       talker.error('failed to build post: invalid author: $postAuthor');
       return null;
     }
-
-    final postDataNode = trRootNode?.querySelector('td:nth-child(2)');
     final postPublishTimeNode = postDataNode?.querySelector('#authorposton$postID');
     // Recent post can grep [publishTime] in the the "title" attribute
     // in first child.
@@ -227,8 +273,11 @@ class Post with PostMappable {
             allowWithReply: false,
             allowWithAuthor: false,
             allowWithBlocked: false,
+            // Sale info is rendered inline in post content.
+            allowWithSales: false,
           ),
         )
+        .where((e) => e.isValid())
         .toList();
 
     final hasPoll = postDataNode?.querySelector('form#poll') != null;
@@ -244,12 +293,15 @@ class Post with PostMappable {
     //           'div > em > a[href*="action=reply"]',
     //
     // Should use a more permissive one.
-    final replyAction = element
-        .querySelector(
-          'table > tbody > tr:nth-child(2) > td.tsdm_replybar div.pob em > '
-          'a[href*="action=reply"]',
-        )
-        ?.firstHref();
+    final replyAction =
+        element
+            .querySelector(
+              'table > tbody > tr:nth-child(2) > td.tsdm_replybar div.pob em > '
+              'a[href*="action=reply"]',
+            )
+            ?.firstHref() ??
+        element.querySelector('td.tsdm_replybar div.pob a[href*="action=reply"]')?.firstHref() ??
+        element.querySelector('div.pob a.fastre')?.firstHref();
 
     final rateNode = postDataNode?.querySelector('div.pct > div.pcb > dl.rate');
     final rate = Rate.fromRateLogNode(rateNode);
@@ -269,15 +321,20 @@ class Post with PostMappable {
 
     rateAction ??= element.querySelector('div#fj > a[onclick*="action=rate"]')?._parseRateAction()?.prependHost();
 
-    rateAction?.prependHost();
-
     // Url to edit the post is also in the `<div id=fj>` node.
     // We can only find it by the content text "编辑"。
-    final editUrl = element
-        .querySelectorAll('div#fj > a')
-        .firstWhereOrNull((e) => e.firstEndDeepText() == '编辑')
-        ?.attributes['href']
-        ?.prependHost();
+    //
+    // For posts not in the first floor, the edit url is in the reply bar: `<div class="pob"><em><a class="editp">`.
+    final editUrl =
+        element
+            .querySelectorAll('div#fj > a')
+            .firstWhereOrNull((e) => e.firstEndDeepText() == '编辑')
+            ?.attributes['href']
+            ?.prependHost() ??
+        element
+            .querySelector('td.tsdm_replybar div.pob em > a[href*="action=edit"]')
+            ?.attributes['href']
+            ?.prependHost();
 
     // Check for last edit status.
     final lastEditText = element.querySelector('i.pstatus')?.innerText.trim().split(' ');
@@ -298,39 +355,61 @@ class Post with PostMappable {
     }
 
     // User profile
-    final userProfileNode = element.querySelector('table > tbody > tr:nth-child(1) > td.pls');
+    //
+    // The user info column is empty for guests (and the profile is not available), do not treat it as an error.
     UserBriefProfile? userBriefProfile;
-    if (userProfileNode != null) {
-      userBriefProfile = UserBriefProfile.buildFromUserProfileNode(userProfileNode);
+    if (userProfileNode != null && userProfileNode.querySelector('div.tsdm_statbar') != null) {
+      userBriefProfile = UserBriefProfile.buildFromUserProfileNode(userProfileNode, author: postAuthor);
     } else {
-      talker.error('post $postID: user profile node not found');
+      talker.info('post $postID: user profile node not found, maybe not logged in');
     }
 
     final isDraft = element.querySelector('a.psave') != null;
 
     // Medals used by the current posts' author.
-    final postMedals = element
-        .querySelectorAll('div.md_ctrl > a > img')
+    //
+    // Discuz X5: `<div class="tsdm_medalbar"><a><img id="md_${PID}_${MID}"><img ...></a></div>`, not all `<img>` are
+    // wrapped in `<a>`.
+    // Legacy: `<div class="md_ctrl"><a><img></a></div>`.
+    var postMedals = element
+        .querySelectorAll('div.tsdm_medalbar img[id^="md_"]')
         .map(PostMedal.fromImg)
         .whereType<PostMedal>()
         .toList();
+    if (postMedals.isEmpty) {
+      postMedals = element
+          .querySelectorAll('div.md_ctrl > a > img')
+          .map(PostMedal.fromImg)
+          .whereType<PostMedal>()
+          .toList();
+    }
 
     // User group badge and optional second badge.
-    final badge = element.querySelector('div#$avatarId > div.tsdm_norm_title > img')?.imageUrl();
+    final badge = element.querySelector('div#$avatarId div.tsdm_norm_title > img')?._lazyImageUrl();
     // We can not use `:is(.tsdmtitles, .tsdm_lv_title)` here.
+    //
+    // Discuz X5: `<div class="tsdmtitle-badges"><div class="tsdmtitle-title"><img></div></div>`.
     final secondBadge =
-        element.querySelector('div.tsdm_statbar > a > img.tsdmtitles')?.imageUrl() ??
-        element.querySelector('div.tsdm_statbar > a > img.tsdm_lv_title')?.imageUrl();
+        userProfileNode?.querySelector('div.tsdmtitle-badges div.tsdmtitle-title > img')?._lazyImageUrl() ??
+        element.querySelector('div.tsdm_statbar > a > img.tsdmtitles')?._lazyImageUrl() ??
+        element.querySelector('div.tsdm_statbar > a > img.tsdm_lv_title')?._lazyImageUrl();
     final signature = element.querySelector('div.sign_inner')?.innerHtml;
 
-    final PostFloorPokemon? pokemon;
+    // Pokemon, optional.
+    //
+    // Legacy: `<div class="tsdm_pokemon">`.
+    // Discuz X5: `<div class="tns xg2">` in the user info column.
+    PostFloorPokemon? pokemon;
     final pokemonNode = element.querySelector('div.tsdm_pokemon');
     if (pokemonNode != null) {
       pokemon = PostFloorPokemon.fromDiv(pokemonNode);
-    } else {
-      pokemon = null;
+    }
+    final pokemonNodeX5 = userProfileNode?.querySelector('div.tns');
+    if (pokemon == null && pokemonNodeX5 != null) {
+      pokemon = PostFloorPokemon.fromTnsDiv(pokemonNodeX5);
     }
 
+    // Checkin status, optional.
     final PostCheckinStatus? checkin;
     final checkinNode = element.querySelector('div.qdsmile');
     if (checkinNode != null) {

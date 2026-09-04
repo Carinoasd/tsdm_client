@@ -92,12 +92,16 @@ class ThreadRepository {
   /// Fetch the operation log for thread [tid].
   AsyncEither<List<OperationLogItem>> fetchOperationLog(String tid) =>
       getIt.get<NetClientProvider>().get(_buildOperationUrl(tid)).mapHttp((resp) {
-        final htmlData = parseXmlDocument(resp.data as String).documentElement?.nodes.first.text;
+        final htmlData = parseXmlDocument(resp.data as String).documentElement?.nodes.firstOrNull?.text;
         if (htmlData == null) {
           // Safe to throw because we use it in a future builder.
           throw Exception('html data not found');
         }
 
+        // The log table is `<table class="list">` with a `<thead>` row of `<td>` headers and one `<tr>` per action.
+        //
+        // When no operation log is available the server responds with a notice `<div class="alert_error">`, in
+        // which case an empty list is returned.
         final doc = parseHtmlDocument(htmlData);
         final items = doc
             .querySelectorAll('table tr')

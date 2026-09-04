@@ -1,4 +1,5 @@
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -36,7 +37,9 @@ final class PostMedal with PostMedalMappable {
   static PostMedal? fromImg(uh.Element element) {
     // Use the `attributes` method here so the `id` is nullable.
     final id = element.attributes['id'];
-    final image = element.attributes['src'];
+    // Image may be lazy loaded.
+    final image = (element.attributes['data-src'] ?? element.attributes['data-original'] ?? element.attributes['src'])
+        ?.prependHost();
     final alter = element.attributes['alt'];
     // onmouseover="showMenu({'ctrlid':this.id, 'menuid':'${MENU_ITEM_ID}', 'pos':'12!'});"
     final menuItemId = element.attributes['onmouseover']?.split("'").elementAtOrNull(5);

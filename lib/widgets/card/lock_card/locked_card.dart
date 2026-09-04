@@ -240,7 +240,12 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
     } else if (widget.locked.lockedWithSale) {
       title = Text(tr.sale.title, style: primaryStyle);
       widgets.addAll([
-        Text(tr.sale.detail(price: '${widget.locked.price!}', count: '${widget.locked.purchasedCount!}')),
+        // Sales count is not available for moderators on Discuz X5, only show the price line in that case.
+        Text(
+          widget.locked.purchasedCount != null
+              ? tr.sale.detail(price: '${widget.locked.price!}', count: '${widget.locked.purchasedCount!}')
+              : tr.sale.detail(price: '${widget.locked.price!}', count: '').split('\n').first,
+        ),
         OutlinedButton(
           child: Text(tr.sale.viewLog),
           onPressed: () async {

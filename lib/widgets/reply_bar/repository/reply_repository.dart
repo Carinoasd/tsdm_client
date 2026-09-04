@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -32,7 +33,7 @@ final class ReplyRepository with LoggerMixin {
     required String replyMessage,
   }) => AsyncVoidEither(() async {
     final netClient = getIt.get<NetClientProvider>();
-    final replyWindowUrl = '$baseUrl/$replyAction/$replyPostWindowSuffix';
+    final replyWindowUrl = '${replyAction.prependHost()}$replyPostWindowSuffix';
     final respEither = await netClient.get(replyWindowUrl).run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
@@ -43,26 +44,44 @@ final class ReplyRepository with LoggerMixin {
       return left(HttpRequestFailedException(replyWindowResp.statusCode));
     }
 
-    final replyWindowDoc = parseHtmlDocument(replyWindowResp.data as String);
-    final formHash = replyWindowDoc.querySelector('input[name="formhash"]')?.attributes['value'];
-    final handleKey = replyWindowDoc.querySelector('input[name="handlekey"]')?.attributes['value'];
-    final noticeAuthor = replyWindowDoc.querySelector('input[name="noticeauthor"]')?.attributes['value'];
-    final noticeTrimStr = replyWindowDoc.querySelector('input[name="noticetrimstr"]')?.attributes['value'];
-    final noticeAuthorMsg = replyWindowDoc.querySelector('input[name="noticeauthormsg"]')?.attributes['value'];
-    final replyUid = replyWindowDoc.querySelector('input[name="replyuid"]')?.attributes['value'];
-    final repPid = replyWindowDoc.querySelector('input[name="reppid"]')?.attributes['value'];
-    final repPost = replyWindowDoc.querySelector('input[name="reppost"]')?.attributes['value'];
-    if (formHash == null ||
-        handleKey == null ||
-        noticeAuthor == null ||
-        noticeTrimStr == null ||
-        noticeAuthorMsg == null ||
-        replyUid == null ||
-        repPid == null ||
-        repPost == null) {
+    // The response is an ajax xml document with the html form wrapped in CDATA.
+    //
+    // Expected hidden inputs in the form:
+    //
+    // * formhash
+    // * handlekey
+    // * noticeauthor
+    // * noticetrimstr
+    // * noticeauthormsg
+    // * usesig
+    // * reppid
+    // * reppost
+    //
+    // Note that `replyuid` is NOT in the form on Discuz X5, it is only a query parameter in the reply action url.
+    final rawData = replyWindowResp.data as String;
+    String? htmlData;
+    try {
+      htmlData = parseXmlDocument(rawData).documentElement?.nodes.firstOrNull?.text;
+    } on Exception catch (_) {
+      htmlData = null;
+    }
+    final replyWindowDoc = parseHtmlDocument(htmlData ?? rawData);
+    String? inputValue(String name) => replyWindowDoc.querySelector('input[name="$name"]')?.attributes['value'];
+    final formHash = inputValue('formhash');
+    final handleKey = inputValue('handlekey');
+    final noticeAuthor = inputValue('noticeauthor');
+    final noticeTrimStr = inputValue('noticetrimstr');
+    final noticeAuthorMsg = inputValue('noticeauthormsg');
+    final replyUid = inputValue('replyuid') ?? replyAction.tryParseAsUri()?.queryParameters['replyuid'];
+    final repPid = inputValue('reppid');
+    final repPost = inputValue('reppost');
+    final useSig = inputValue('usesig');
+    final subject = inputValue('subject');
+    if (formHash == null || handleKey == null || repPid == null || repPost == null) {
+      final errorText = replyWindowDoc.querySelector('div.alert_error')?.innerText.trim();
       error(
         'failed to fetch reply to post parameters: formHash=$formHash, '
-        'handleKey=$handleKey, noticeAuthor=$noticeAuthor',
+        'handleKey=$handleKey, noticeAuthor=$noticeAuthor, error=$errorText',
       );
       error(
         'failed to fetch reply to post parameters: '
@@ -75,14 +94,15 @@ final class ReplyRepository with LoggerMixin {
     final formData = <String, String>{
       'formhash': formHash,
       'handlekey': handleKey,
-      'noticeauthor': noticeAuthor,
-      'noticetrimstr': noticeTrimStr,
-      'noticeauthormsg': noticeAuthorMsg,
-      'replyuid': replyUid,
+      'noticeauthor': ?noticeAuthor,
+      'noticetrimstr': ?noticeTrimStr,
+      'noticeauthormsg': ?noticeAuthorMsg,
+      'replyuid': ?replyUid,
       'reppid': repPid,
       'reppost': repPost,
+      'usesig': useSig ?? '1',
       // TODO: Build subject instead of const empty string.
-      'subject': '',
+      'subject': subject ?? '',
       // TODO: Support reply with rich text.
       'message': replyMessage,
     };

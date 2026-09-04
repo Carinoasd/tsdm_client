@@ -46,32 +46,78 @@ class Rate with RateMappable {
   final String? rateStatus;
 
   /// Build a [Rate] from element <dl id="ratelog_xxx" class="rate">.
+  ///
+  /// ```html
+  /// <dl id="ratelog_${PID}" class="rate">
+  ///   <dd>
+  ///     <table class="ratl">
+  ///       <tr>
+  ///         <th><a href="...action=viewratings..."> 参与人数 <span class="xi1">${USER_COUNT}</span></a></th>
+  ///         <th>${ATTR_NAME} <i><span class="xi1">${ATTR_TOTAL}</span></i></th>
+  ///         ...
+  ///         <th><a class="y xi2 op">收起</a><i class="txt_h">理由</i></th>
+  ///       </tr>
+  ///       <tbody class="ratl_l">
+  ///         <tr id="rate_${PID}_${UID}">
+  ///           <td><a href="...uid=${UID}"><img data-src="${AVATAR}"></a> <a href="...uid=${UID}">${NAME}</a></td>
+  ///           <td class="xi1"> + 100</td>
+  ///           ...
+  ///           <td class="xg1">${REASON}</td>
+  ///         </tr>
+  ///       </tbody>
+  ///     </table>
+  ///     <p class="ratc"><a>查看全部评分</a></p>
+  ///   </dd>
+  /// </dl>
+  /// ```
   static Rate? fromRateLogNode(uh.Element? element) {
     if (element == null) {
       return null;
     }
-    final rateHeaders = element.querySelectorAll('table > tbody:nth-child(1) > tr > th');
-    if (rateHeaders.length < 2) {
+    // The header row may be directly in `<table>` (and parsed into a `<tbody>` by the html parser) or in `<thead>`.
+    final rateHeaders = element.querySelectorAll('table.ratl > tbody:nth-child(1) > tr > th');
+    final headers = rateHeaders.isNotEmpty ? rateHeaders : element.querySelectorAll('table th');
+    if (headers.length < 2) {
       talker.error('failed to build rate: invalid rate header');
       return null;
     }
 
-    final infoNode = rateHeaders.firstOrNull?.querySelector('a');
+    final infoNode = headers.firstOrNull?.querySelector('a');
     final userCount = infoNode?.querySelector('span.xi1')?.firstEndDeepText()?.parseToInt();
     if (userCount == null) {
       talker.error('failed to build rate: user count not found');
       return null;
     }
-    final detailUrl = infoNode?.firstHref();
+    final detailUrl = infoNode?.firstHref()?.prependHost();
     if (detailUrl == null) {
       talker.error('failed to build rate: detail url not found');
       return null;
     }
-    final attrList = rateHeaders
-        .skip(1)
-        .map((e) => e.querySelector('i')?.firstEndDeepText()?.trim())
-        .whereType<String>()
-        .toList();
+
+    // Attribute columns: `${ATTR_NAME} <i><span class="xi1">${ATTR_TOTAL}</span></i>`.
+    //
+    // Attribute name is in the text nodes directly under `<th>`, total value is inside `<i>`.
+    // The last column is rate reason: `<i class="txt_h">理由</i>`.
+    final attrList = <String>[];
+    final totalList = <String>[];
+    for (final th in headers.skip(1)) {
+      final name = th.nodes
+          .where((e) => e.nodeType == uh.Node.TEXT_NODE)
+          .map((e) => e.text?.trim() ?? '')
+          .where((e) => e.isNotEmpty)
+          .join(' ');
+      final iNode = th.querySelector('i');
+      final iText = iNode?.innerText.trim();
+      if (name.isNotEmpty) {
+        attrList.add(name);
+        if (iText != null && iText.isNotEmpty) {
+          totalList.add('$name $iText');
+        }
+      } else if (iText != null && iText.isNotEmpty) {
+        // Legacy style where the attr name is inside `<i>`, or the reason column.
+        attrList.add(iText);
+      }
+    }
     if (attrList.isEmpty) {
       talker.error('failed to build rate: rate attr list is empty');
       return null;
@@ -84,17 +130,17 @@ class Rate with RateMappable {
       return null;
     }
 
-    final rateStatus = element
+    // Total rate status.
+    //
+    // Legacy style has it in `<p class="ratc"><span>...</span></p>`, Discuz X5 has only totals in headers.
+    final ratcSpans = element
         .querySelector('p.ratc')
         ?.querySelectorAll('span')
-        .map((e) => e.firstEndDeepText())
+        .map((e) => e.firstEndDeepText()?.trim())
         .whereType<String>()
-        .toList()
-        .join(' ');
-    if (rateStatus == null) {
-      talker.error('failed to build rate: rate status not found');
-      return null;
-    }
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final rateStatus = (ratcSpans?.isNotEmpty ?? false) ? ratcSpans!.join(' ') : totalList.join(' ');
 
     return Rate(
       userCount: userCount,
@@ -112,16 +158,20 @@ class Rate with RateMappable {
       return null;
     }
     final userNode = tdList.firstOrNull;
-    final url = userNode?.querySelector('a:nth-child(1)')?.firstHref();
-    final avatarUrl = userNode?.querySelector('a:nth-child(1) > img')?.imageUrl();
-    final name = userNode?.querySelector('a:nth-child(2)')?.firstEndDeepText();
-    final attrValueList = tdList.skip(1).map((e) => e.firstEndDeepText()?.trim() ?? '').toList();
+    final linkNodes = userNode?.querySelectorAll('a[href*="uid="]') ?? <uh.Element>[];
+    final url = linkNodes.firstOrNull?.attributes['href']?.prependHost() ?? userNode?.querySelector('a')?.firstHref();
+    final avatarUrl = userNode?.querySelector('a > img')?._lazyImageUrl();
+    final name =
+        linkNodes.map((e) => e.innerText.trim()).firstWhereOrNull((e) => e.isNotEmpty) ??
+        userNode?.querySelector('a:nth-child(2)')?.firstEndDeepText();
+    final uid = _uidFromUrl(url);
+    final attrValueList = tdList.skip(1).map((e) => e.innerText.trim().replaceAll(RegExp(r'\s+'), ' ')).toList();
 
     if (url == null || name == null) {
       return null;
     }
     return SingleRate(
-      user: User(name: name, url: url, avatarUrl: avatarUrl),
+      user: User(name: name, url: url, uid: uid, avatarUrl: avatarUrl),
       attrValueList: attrValueList,
     );
   }
