@@ -21,8 +21,13 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
 
   final Dio _dio;
 
-  /// Header used to mark a resent request, avoid resolving challenge endlessly.
-  static const _retryFlag = 'tsdm_antitheft_retry';
+  /// Key in request extra recording how many times the request has been resent, avoid resolving challenge endlessly.
+  ///
+  /// A resent request may be challenged again when the thread redirects to another thread (e.g. merged threads).
+  static const _retryCountKey = 'tsdm_antitheft_retry';
+
+  /// Maximum times to resend a request.
+  static const _maxRetry = 3;
 
   /// Cache of `tid` -> `_dsign`.
   ///
@@ -65,9 +70,9 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
       return;
     }
 
-    if (options.extra[_retryFlag] == true) {
-      // Already retried once and still get a challenge, give up.
-      error('antitheft: still challenged after retry: ${options.uri}');
+    final retryCount = (options.extra[_retryCountKey] as int?) ?? 0;
+    if (retryCount >= _maxRetry) {
+      error('antitheft: still challenged after $retryCount retries: ${options.uri}');
       handler.next(response);
       return;
     }
@@ -100,7 +105,7 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
         options.copyWith(
           path: target.replace(queryParameters: retryQuery).toString(),
           queryParameters: {AntitheftDecoder.dsignKey: challenge.dsign},
-          extra: {...options.extra, _retryFlag: true},
+          extra: {...options.extra, _retryCountKey: retryCount + 1},
         ),
       );
       handler.resolve(resp);
