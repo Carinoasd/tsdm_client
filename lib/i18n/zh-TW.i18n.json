@@ -46,7 +46,12 @@
       "myThread": "我的貼文",
       "latestThread": "最新貼文"
     },
-    "showMoreUserOperationsTip": "顯示更多使用者操作"
+    "showMoreUserOperationsTip": "顯示更多使用者操作",
+    "forumStatus": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "threads": "帖子"
+    }
   },
   "topicPage": {
     "title": "分割區",

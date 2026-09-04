@@ -62,30 +62,44 @@ class _WelcomeSectionState extends State<WelcomeSection> with LoggerMixin {
     );
   }
 
-  // Widget _buildForumStatusRow(BuildContext context, ForumStatus forumStatus)
-  // {
-  //   return Padding(
-  //     padding: edgeInsetsL12T12R12,
-  //     child: SingleLineText(
-  //       '今日:${forumStatus.todayCount} 昨日:${forumStatus.yesterdayCount} '
-  //       '帖子:${forumStatus.threadCount}',
-  //       style: TextStyle(
-  //         color: Theme.of(context).colorScheme.secondary,
-  //       ),
-  //       textAlign: TextAlign.center,
-  //     ),
-  //   );
-  // }
+  /// Forum status row, shown when the swiper is not available.
+  Widget _buildForumStatusRow(BuildContext context, ForumStatus forumStatus) {
+    final tr = context.t.homepage.forumStatus;
+    final style = TextStyle(color: Theme.of(context).colorScheme.secondary);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: edgeInsetsL12T12R12B12,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Text('${tr.today}: ${forumStatus.todayCount}', style: style),
+            Text('${tr.yesterday}: ${forumStatus.yesterdayCount}', style: style),
+            Text('${tr.threads}: ${forumStatus.threadCount}', style: style),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSection(BuildContext context) {
     if (!context.mounted) {
       return sizedBoxEmpty;
     }
 
+    // The swiper contents come from a customized block in forum homepage which no longer exists after the server
+    // upgraded to Discuz! X5. Keep the swiper in case it comes back one day, show forum status instead when empty.
+    if (widget.swiperUrlList.isEmpty) {
+      return _buildForumStatusRow(context, widget.forumStatus);
+    }
+
     return _buildKahrpbaSwiper(context, widget.swiperUrlList);
   }
 
   void setupSwiperTimer(int itemCount) {
+    if (itemCount == 0) {
+      return;
+    }
     _swiperTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       double? target;
       if (_reverseSwiper) {

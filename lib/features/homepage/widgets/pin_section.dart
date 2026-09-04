@@ -108,6 +108,11 @@ class PinSection extends StatelessWidget with LoggerMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Pinned threads come from a customized block in forum homepage which no longer exists after the server upgraded
+    // to Discuz! X5. Show nothing when empty.
+    if (pinnedThreadGroup.isEmpty) {
+      return sizedBoxEmpty;
+    }
     final textScaleFactor = context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.textScaleFactor);
     return _buildSection(context, textScaleFactor);
   }

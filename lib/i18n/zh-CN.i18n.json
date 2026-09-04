@@ -46,7 +46,12 @@
       "myThread": "我的帖子",
       "latestThread": "最新帖子"
     },
-    "showMoreUserOperationsTip": "显示更多用户操作"
+    "showMoreUserOperationsTip": "显示更多用户操作",
+    "forumStatus": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "threads": "帖子"
+    }
   },
   "topicPage": {
     "title": "分区",

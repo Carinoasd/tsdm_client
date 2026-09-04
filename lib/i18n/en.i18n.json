@@ -46,7 +46,12 @@
       "myThread": "My thread",
       "latestThread": "Latest thread"
     },
-    "showMoreUserOperationsTip": "Show more user operations"
+    "showMoreUserOperationsTip": "Show more user operations",
+    "forumStatus": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "threads": "Posts"
+    }
   },
   "topicPage": {
     "title": "Topics",

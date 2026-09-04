@@ -96,6 +96,11 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
     }
 
+    // Discuz! built-in guide pages: 最新回复 (view=new), 最新发表 (view=newthread), 热门 (view=hot), 精华 (view=digest).
+    if (mod == 'guide') {
+      return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
+    }
+
     if (mod == 'redirect' && queryParameters['tid'] != null) {
       // TODO: Migrate to v2 when supported.
       return RecognizedRoute(
