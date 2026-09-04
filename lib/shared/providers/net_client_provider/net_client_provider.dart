@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/antitheft_interceptor.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -74,6 +75,7 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_ErrorHandler());
       d.interceptors.add(_PointsChangesChecker());
       d.interceptors.add(_GzipEncodingChecker());
+      d.interceptors.add(AntitheftInterceptor(d));
       // decode br content-type.
       d.transformer = DioBrotliTransformer();
     }
@@ -101,6 +103,7 @@ final class NetClientProvider with LoggerMixin {
     if (forceDesktop) {
       d.interceptors.add(_ForceDesktopLayoutInterceptor());
     }
+    d.interceptors.add(AntitheftInterceptor(d));
     // decode br content-type.
     d.transformer = DioBrotliTransformer();
     return NetClientProvider._(d);
