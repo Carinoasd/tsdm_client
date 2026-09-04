@@ -117,7 +117,11 @@ const feelingImageSize = Size(60, 60);
 const htmlContentMaxWidth = 712.0;
 
 /// Prefix of all cookie.
-const cookiePrefix = 's_gkr8_682f';
+///
+/// Updated for the Discuz! X5 migration: the forum regenerated its cookie
+/// prefix (seen in Set-Cookie as `Ystv_2132_*`). The old value `s_gkr8_682f`
+/// no longer matches the `<prefix>_auth` cookie, so logins could not be saved.
+const cookiePrefix = 'Ystv_2132';
 
 /// The maximum count of recent used custom colors in editor.
 const editorRecentUsedCustomColorsMaxCount = 8;
