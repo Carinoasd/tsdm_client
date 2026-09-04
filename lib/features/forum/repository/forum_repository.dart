@@ -63,7 +63,11 @@ class ForumRepository {
       queryMap['filter'] = filterState.filter!;
     }
 
-    return Uri.https('tsdm39.com', '/forum.php', queryMap);
+    // Use the same host as every other request. Since the Discuz! X5 migration
+    // the forum sets host-only cookies (no `domain=` attribute) bound to
+    // `www.tsdm39.com`, so requesting the bare `tsdm39.com` host sends no
+    // cookies and the server treats the user as a guest.
+    return Uri.https(baseHost, '/forum.php', queryMap);
   }
 
   /// Fetch the page data on a forum group specified by group id [gid].

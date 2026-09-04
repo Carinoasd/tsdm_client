@@ -12,7 +12,10 @@ import 'package:universal_html/parsing.dart';
 
 /// Repository of purchasing.
 final class PurchaseRepository with LoggerMixin {
-  static const _purchaseTarget = 'https://tsdm39.com/forum.php?mod=misc&action=pay&paysubmit=yes&infloat=yes&inajax=1';
+  // Keep the same host as every other request: the forum's cookies are
+  // host-only (bound to `www.tsdm39.com`), so the bare `tsdm39.com` host would
+  // be treated as a guest and the purchase would fail.
+  static const _purchaseTarget = '$baseUrl/forum.php?mod=misc&action=pay&paysubmit=yes&infloat=yes&inajax=1';
 
   /// Parse the purchase confirm dialog.
   ///
