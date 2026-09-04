@@ -14,9 +14,14 @@ final class SwitchUserGroupRepository with LoggerMixin {
   /// Page to fetch available user groups info.
   static const _infoPageUrl = '$baseUrl/home.php?mod=spacecp&ac=usergroup&do=expiry';
 
+  /// Handle key used in the switch dialog.
+  ///
+  /// `home.php?mod=spacecp&ac=usergroup&do=switch&groupid=3&handlekey=switchgrouphk`
+  static const _handleKey = 'switchgrouphk';
+
   /// Url to submit the user group switching request.
   static String _buildSubmitUrl(int gid) =>
-      '$baseUrl/home.php?mod=spacecp&ac=usergroup&do=switch&groupid=$gid&inajax=1';
+      '$baseUrl/home.php?mod=spacecp&ac=usergroup&do=switch&groupid=$gid&handlekey=$_handleKey&inajax=1';
 
   /// Fetch the document page of all available user groups.
   AsyncEither<uh.Document> fetchAvailableGroupDocument() =>
@@ -31,14 +36,15 @@ final class SwitchUserGroupRepository with LoggerMixin {
           'referer': '$baseUrl/?mod=spacecp&ac=usergroup&do=expiry',
           'groupsubmit': 'true',
           'gid': '',
-          'handlekey': 'group',
+          // Discuz X5 uses "switchgrouphk" as handle key in the switch link, X3 used "group".
+          'handlekey': _handleKey,
           'formhash': formHash,
         },
       )
       .mapHttp((resp) => resp.data as String)
       .flatMap((respData) {
         // If succeeded.
-        if (respData.contains('succeedhandle_group')) {
+        if (respData.contains('succeedhandle_$_handleKey') || respData.contains('succeedhandle_group')) {
           return AsyncEither.right(());
         }
 

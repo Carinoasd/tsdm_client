@@ -29,9 +29,25 @@ final class BroadcastMessageDetailCubit extends Cubit<BroadcastMessageDetailStat
           },
           (v) {
             final (document, _) = v;
+            // ```html
+            // <div id="pm_ul" class="xld xlda mbm pml">
+            // <dl class="cl">
+            // <dd class="m avt"><a href="home.php?mod=space&uid=1"><img data-src="..."></a></dd>
+            // <dd class="ptm">
+            // <a href="home.php?mod=space&uid=1" class="xw1">USERNAME</a>
+            // <span class="xg1"><span title="2026-9-1 10:00">3 天前</span></span><br />
+            // <p class="pm_smry">MESSAGE</p>
+            // </dd></dl></div>
+            // ```
+            //
+            // No Discuz X5 sample available, keep the layout above with fallbacks.
             final infoNode = document.querySelector('div#pm_ul');
-            final datetime = infoNode?.querySelector('dl > dd.ptm > span.xg1')?.dateTime();
-            final messageNode = infoNode?.querySelector('dl > dd > p.pm_smry');
+            final datetime = (infoNode?.querySelector('dl > dd.ptm > span.xg1') ?? infoNode?.querySelector('span.xg1'))
+                ?.dateTime();
+            final messageNode =
+                infoNode?.querySelector('dl > dd > p.pm_smry') ??
+                infoNode?.querySelector('p.pm_smry') ??
+                infoNode?.querySelector('dd.ptm');
             if (datetime == null || messageNode == null) {
               error(
                 'failed to build broadcast detail message page: '

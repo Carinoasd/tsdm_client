@@ -1,18 +1,16 @@
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
-import 'package:collection/collection.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/checkin/utils/parse_checkin.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/parsing.dart';
 
 const _checkInPageUrl = '$baseUrl/plugin.php?id=dsu_paulsign:sign';
 const _checkInRequestUrl = '$baseUrl/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1&inajax=1';
-
-final _re = RegExp(r'formhash" value="(?<FormHash>\w+)"');
 
 /// Do a checkin work for a specified user with given [feeling] and [message].
 ///
@@ -40,7 +38,7 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
 
     final document = parseHtmlDocument(resp.data as String);
 
-    final maybeCheckinMessage = document.querySelector('h1.mt')?.innerText;
+    final maybeCheckinMessage = parseCheckinPageMessage(document);
     if (maybeCheckinMessage != null) {
       final r2 = _checkCheckinResultText(maybeCheckinMessage);
       if (r2 != null) {
@@ -48,8 +46,7 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
       }
     }
 
-    final formHashMatch = _re.firstMatch(document.body?.innerHtml ?? '');
-    final formHash = formHashMatch?.namedGroup('FormHash');
+    final formHash = parseCheckinFormHash(document);
     if (formHash == null) {
       return const CheckinResultFormHashNotFound();
     }
@@ -68,17 +65,13 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
     }
 
     final checkInResp = checkInRespEither.unwrap();
-    final checkInRespData = (checkInResp.data as String).split('\n');
-
-    final checkInResult = checkInRespData
-        .firstWhereOrNull((e) => e.contains('</div>'))
-        ?.replaceFirst('</div>', '')
-        .trim();
+    final checkInRespData = checkInResp.data as String;
+    final checkInResult = parseCheckinResponseMessage(checkInRespData);
 
     // Return results.
     if (checkInResult == null) {
-      talker.error('check in result in null: $checkInResult');
-      return CheckinResultOtherError(resp.data as String);
+      talker.error('check in result in null: $checkInRespData');
+      return CheckinResultOtherError(checkInRespData);
     }
 
     final r2 = _checkCheckinResultText(checkInResult);
@@ -87,7 +80,7 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
     }
 
     talker.error('check in with other error: $checkInResult');
-    return CheckinResultOtherError(resp.data as String);
+    return CheckinResultOtherError(checkInResult);
   });
 }
 
@@ -107,7 +100,7 @@ CheckinResult? _checkCheckinResultText(String result) {
     return const CheckinResultLateInTime();
   }
 
-  if (result.contains('签到时间还没有到')) {
+  if (result.contains('签到时间还没有到') || result.contains('签到时间还未开始')) {
     talker.error('check in failed: early in time');
     return const CheckinResultEarlyInTime();
   }

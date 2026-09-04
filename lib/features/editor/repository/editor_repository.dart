@@ -71,7 +71,18 @@ final class EditorRepository with LoggerMixin {
     r"smilies_type\['_(?<groupId>\d+)'\] = \['(?<groupName>[^']+)', '(?<routeName>[^']+)'\]",
   );
 
-  static final _emojiGroupDataRe = RegExp(r'smilies_array\[(?<groupId>\d+)\]\[\d+\] = \[(?<data>.+)\]');
+  /// Expected to match data:
+  ///
+  /// smilies_array[1][1] = [['1', '{:1_1:}','smile.gif','20','20','20'],['2', ':(','sad.gif','20','20','20']];
+  ///
+  /// Note that bbcode of emoji in the default group may contain ";" (e.g. ";P") so the whole file can NOT be split
+  /// into statements by ";". Match till the end of the array "];" instead.
+  ///
+  /// Groups may be empty: `smilies_array[12][1] = [];`
+  static final _emojiGroupDataRe = RegExp(r'smilies_array\[(?<groupId>\d+)\]\[\d+\] = \[(?<data>.*?)\];');
+
+  /// Placeholder of escaped single quote in bbcode (e.g. `':\'('`) when splitting emoji data.
+  static const _escapedQuotePlaceholder = '\u0001';
 
   /// Url to get random recommend friends.
   ///
@@ -122,6 +133,11 @@ final class EditorRepository with LoggerMixin {
   /// But this solution add implicit requirements for the caller:
   /// MUST call random friend api before search user, otherwise search will
   /// fail due to lack of form hash.
+  ///
+  /// ## CAUTION
+  ///
+  /// The plugin `amucallme_dzx` is GONE since the server upgraded to Discuz X5, the server responds an error
+  /// `插件不存在或已关闭` in `div.alert_error`, [_checkPluginError] detects it.
   (List<String>, String?) _parseUserFromXmlDocument(String xml, {bool parseFormHash = false}) {
     //<?xml version="1.0" encoding="utf-8"?>
     // <root><![CDATA[
@@ -164,64 +180,59 @@ final class EditorRepository with LoggerMixin {
   /// The input [info] is expected in format described above [_emojiInfoUrl]
   /// document.
   List<EmojiGroup> _parseEmojiInfo(String info) {
-    // Flag to record the parse state.
-    // 1: Parsing group info, group name, group id...
-    // 2: Parsing emoji in each group.
-    var phase = 0;
-
     // Key: group id.
     // Value: group.
     final emojiGroupMap = <String, EmojiGroup>{};
 
-    // Split into lines.
-    final lines = info.split(';');
-    for (final line in lines) {
+    // Parse group info: smilies_type['_12'] = ['梦予馨', 'TSDM']
+    for (final m in _emojiGroupInfoRe.allMatches(info)) {
       if (_disposed) {
         // Closed, it's ok to return nothing.
         return [];
       }
-      // Try parse group info
-      if (phase <= 1 && _emojiGroupInfoRe.hasMatch(line)) {
-        if (phase < 0) {
-          // Proceed into group info parsing.
-          phase += 1;
-        }
-        // smilies_type['_12'] = ['梦予馨', 'TSDM']
-        final m = _emojiGroupInfoRe.firstMatch(line)!;
-        emojiGroupMap[m.namedGroup('groupId')!] = EmojiGroup(
-          name: m.namedGroup('groupName')!,
-          id: m.namedGroup('groupId')!,
-          routeName: m.namedGroup('routeName')!,
-          emojiList: [],
-        );
-      }
-      if (phase == 1) {
-        // Proceed into emoji in group parsing.
-        phase += 1;
-      }
-      if (_emojiGroupDataRe.hasMatch(line)) {
-        final m = _emojiGroupDataRe.firstMatch(line)!;
-        final groupId = m.namedGroup('groupId')!;
-        final data = m.namedGroup('data')!;
-        final routeName = emojiGroupMap[groupId]!.routeName;
-        final emojiList = <Emoji>[];
-        for (final d in data.split('],[')) {
-          //  ['694', '{:10_694:}','14.jpg','20','20','50'
-          final dd = d.split("'");
-          if (dd.length != 13) {
-            continue;
-          }
-          final id = dd[1];
-          final code = dd[3];
-          final fileName = dd[5];
-          emojiList.add(Emoji(id: id, code: code, url: '$_emojiFileUrlHead/$routeName/$fileName'));
-        }
-        emojiGroupMap[groupId] = emojiGroupMap[groupId]!.copyWith(
-          emojiList: [...emojiGroupMap[groupId]!.emojiList, ...emojiList],
-        );
-      }
+      emojiGroupMap[m.namedGroup('groupId')!] = EmojiGroup(
+        name: m.namedGroup('groupName')!,
+        id: m.namedGroup('groupId')!,
+        routeName: m.namedGroup('routeName')!,
+        emojiList: [],
+      );
     }
-    return emojiGroupMap.values.toList();
+
+    // Parse emoji in each group.
+    for (final m in _emojiGroupDataRe.allMatches(info)) {
+      if (_disposed) {
+        return [];
+      }
+      final groupId = m.namedGroup('groupId')!;
+      final group = emojiGroupMap[groupId];
+      if (group == null) {
+        warning('emoji group $groupId not found in group info, skip');
+        continue;
+      }
+      final data = m.namedGroup('data')!.replaceAll(r"\'", _escapedQuotePlaceholder);
+      if (data.isEmpty) {
+        continue;
+      }
+      final emojiList = <Emoji>[];
+      for (final d in data.split('],[')) {
+        //  ['694', '{:10_694:}','14.jpg','20','20','50'
+        final dd = d.split("'");
+        if (dd.length != 13) {
+          continue;
+        }
+        final id = dd[1];
+        final code = dd[3].replaceAll(_escapedQuotePlaceholder, "'");
+        final fileName = dd[5];
+        emojiList.add(Emoji(id: id, code: code, url: '$_emojiFileUrlHead${group.routeName}/$fileName'));
+      }
+      emojiGroupMap[groupId] = group.copyWith(emojiList: [...group.emojiList, ...emojiList]);
+    }
+    // Groups without emoji are useless in editor (all custom groups are empty on server since Discuz X5 upgrade).
+    final emptyGroups = emojiGroupMap.values.where((e) => e.emojiList.isEmpty).map((e) => '${e.id}:${e.name}');
+    if (emptyGroups.isNotEmpty) {
+      warning('empty emoji groups skipped: ${emptyGroups.join(', ')}');
+    }
+    return emojiGroupMap.values.where((e) => e.emojiList.isNotEmpty).toList();
   }
 
   Future<bool> _generateDownloadEmojiTask(
@@ -350,13 +361,54 @@ final class EditorRepository with LoggerMixin {
     return rightVoid();
   });
 
+  /// Check the server error in response [xml] of user mention plugin, if any.
+  ///
+  /// ```xml
+  /// <root><![CDATA[
+  /// <div class="c altw"><div class="alert_error">插件不存在或已关闭<script>...</script></div></div>
+  /// ]]></root>
+  /// ```
+  AppException? _checkPluginError(String xml) {
+    if (!xml.contains('alert_error')) {
+      return null;
+    }
+    final xmlDoc = parseXmlDocument(xml);
+    final htmlDoc = parseHtmlDocument(xmlDoc.documentElement?.innerText ?? '');
+    final errNode = htmlDoc.querySelector('div.alert_error');
+    if (errNode == null) {
+      return null;
+    }
+    errNode.querySelectorAll('script').forEach((e) => e.remove());
+    final message = errNode.innerText.trim();
+    error('user mention plugin error: $message');
+    return ServerRespondedErrorException(message);
+  }
+
   /// Search user by name.
+  ///
+  /// Fails with [ServerRespondedErrorException] if the plugin is not available on server.
   AsyncEither<List<String>> searchUserByName({required String keyword, required String formHash}) => getIt
       .get<NetClientProvider>()
       .postForm(_searchUserByName, data: {'handlekey': 'amucallme_dzx_add', 'formhash': formHash, 'keywords': keyword})
-      .mapHttp((e) => _parseUserFromXmlDocument(e.data as String).$1);
+      .mapHttp((e) => e.data as String)
+      .flatMap(
+        (data) => switch (_checkPluginError(data)) {
+          final AppException e => TaskEither.left(e),
+          null => TaskEither.right(_parseUserFromXmlDocument(data).$1),
+        },
+      );
 
   /// Get random recommended user from server.
-  AsyncEither<(List<String>, String?)> recommendUser() =>
-      getIt.get<NetClientProvider>().get(_userRecommendUrl).mapHttp((e) => _parseUserFromXmlDocument(e.data as String));
+  ///
+  /// Fails with [ServerRespondedErrorException] if the plugin is not available on server.
+  AsyncEither<(List<String>, String?)> recommendUser() => getIt
+      .get<NetClientProvider>()
+      .get(_userRecommendUrl)
+      .mapHttp((e) => e.data as String)
+      .flatMap(
+        (data) => switch (_checkPluginError(data)) {
+          final AppException e => TaskEither.left(e),
+          null => TaskEither.right(_parseUserFromXmlDocument(data, parseFormHash: true)),
+        },
+      );
 }

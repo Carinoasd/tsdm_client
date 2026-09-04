@@ -378,22 +378,24 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
               onValueUpdated: (p, v) => p.copyWith(favoriteBangumi: v),
             ),
           ),
-          _buildProfileListTile(
-            context: context,
-            title: tr.pageStyle.title,
-            value: _PageStyleInfo(profile.pageStyle, profile.availablePageStyles),
-            subtitle: profile.pageStyle?.name ?? '-',
-            onTap: (gender) async => _spawnSelectionDialog<int>(
+          // Page style is not editable on Discuz X5 (no "styleid" select in form), hide it if no style available.
+          if (profile.availablePageStyles.isNotEmpty)
+            _buildProfileListTile(
               context: context,
-              profile: profile,
               title: tr.pageStyle.title,
-              currentValue: profile.pageStyle?.value ?? 0,
-              valueNamePairs: profile.availablePageStyles.map((v) => (v.value, v.name)).toList(),
-              onValueUpdated: (p, v) => p.copyWith(
-                pageStyle: profile.availablePageStyles.firstWhereOrNull((e) => e.value == v),
+              value: _PageStyleInfo(profile.pageStyle, profile.availablePageStyles),
+              subtitle: profile.pageStyle?.name ?? '-',
+              onTap: (gender) async => _spawnSelectionDialog<int>(
+                context: context,
+                profile: profile,
+                title: tr.pageStyle.title,
+                currentValue: profile.pageStyle?.value ?? 0,
+                valueNamePairs: profile.availablePageStyles.map((v) => (v.value, v.name)).toList(),
+                onValueUpdated: (p, v) => p.copyWith(
+                  pageStyle: profile.availablePageStyles.firstWhereOrNull((e) => e.value == v),
+                ),
               ),
             ),
-          ),
           _buildProfileListTile(
             context: context,
             title: tr.customTitle,

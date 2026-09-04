@@ -100,16 +100,87 @@ class Notice with NoticeMappable {
   /// Only useful when NoticeType is batchRate.
   final String? taskId;
 
+  /// Parse the notice id from the `<dl>` node.
+  ///
+  /// ```html
+  /// <dl class="cl" notice="1331" id="notice_1331">
+  /// ```
+  static int? parseNoticeId(uh.Element element) =>
+      element.attributes['notice']?.parseToInt() ?? element.id.split('_').elementAtOrNull(1)?.parseToInt();
+
+  /// Parse the notice time from the `<dl>` node.
+  ///
+  /// ```html
+  /// <dt>
+  ///   <a class="d b" ...>屏蔽</a>
+  ///   <span class="xg1 xw0"><span title="2026-9-4 19:50">半小时前</span></span>
+  /// </dt>
+  /// ```
+  ///
+  /// The outer span may be missing when notice time is more than 7 days ago, so fallback to the outer span's text.
+  static DateTime? parseNoticeTime(uh.Element element) {
+    final outer = element.querySelector('dt > span.xg1') ?? element.querySelector('dt > span');
+    if (outer == null) {
+      return null;
+    }
+    final inner = outer.querySelector('span[title]');
+    if (inner != null) {
+      return inner.attributes['title']?.parseToDateTimeUtc8();
+    }
+    return outer.attributes['title']?.parseToDateTimeUtc8() ?? outer.innerText.trim().parseToDateTimeUtc8();
+  }
+
+  /// Build the html data of a notice, the html content in `dd.ntc_body` with all urls converted to absolute ones.
+  ///
+  /// Return null if body not found.
+  static String? buildBodyHtml(uh.Element element) {
+    final body = element.querySelector('dd.ntc_body');
+    if (body == null) {
+      return null;
+    }
+    final clone = body.clone(true) as uh.Element;
+    for (final a in clone.querySelectorAll('a[href]')) {
+      final href = a.attributes['href'];
+      if (href != null && !href.startsWith('http') && !href.startsWith('javascript')) {
+        a.attributes['href'] = href.unescapeHtml()?.prependHost() ?? href;
+      }
+    }
+    for (final img in clone.querySelectorAll('img')) {
+      final src = _imgUrl(img);
+      if (src != null) {
+        img.attributes['src'] = src;
+      }
+    }
+    return clone.innerHtml?.trim();
+  }
+
+  /// Convert a `<dl>` notice node in the notice page into [NoticeV2].
+  ///
+  /// Return null if any of id, time or body not found.
+  static NoticeV2? toV2(uh.Element element) {
+    final id = parseNoticeId(element);
+    final time = parseNoticeTime(element);
+    final data = buildBodyHtml(element);
+    if (id == null || time == null || data == null) {
+      talker.error('failed to build notice v2: id=$id, time=$time, hasData=${data != null}');
+      return null;
+    }
+    // Unread notices carry an extra class (rendered by `{if $value[new]}`).
+    final alreadyRead = !element.classes.any((e) => e != 'cl' && e != 'bbda');
+    return NoticeV2(id: id, timestamp: time.millisecondsSinceEpoch ~/ 1000, data: data, alreadyRead: alreadyRead);
+  }
+
   /// Build a [Notice] from html node [element] :
-  /// div#ct > div.mn > div.bm.bw0 > div.xld.xlda > div.nts > div.cl
+  /// div#ct > div.mn > div.bm.bw0 > div.xld.xlda > div.nts > dl (Discuz X5)
+  /// div#ct > div.mn > div.bm.bw0 > div.xld.xlda > div.nts > div.cl (Discuz X3)
   ///
   /// This css selector may work in all web page styles.
   static Notice? fromClNode(uh.Element element) {
-    final userAvatarUrl = element.querySelector('dd.avt > a > img')?.imageUrl();
-    var userSpaceUrl = element.querySelector('dd.avt > a')?.firstHref()?.prependHost();
+    final userAvatarUrl = _imgUrl(element.querySelector('dd.avt > a > img'));
+    var userSpaceUrl = element.querySelector('dd.avt > a')?.firstHref()?.unescapeHtml()?.prependHost();
 
-    final noticeNode = element.querySelector('dt > span > span');
-    final noticeTime = noticeNode?.attributes['title']?.parseToDateTimeUtc8();
+    final noticeNode = element.querySelector('dt > span > span') ?? element.querySelector('dt > span');
+    final noticeTime = parseNoticeTime(element);
     final noticeTimeString = noticeNode?.firstEndDeepText();
 
     String? score;
@@ -156,7 +227,8 @@ class Notice with NoticeMappable {
       noticeType = NoticeType.mention;
     } else if (litNode?.attributes['href']?.contains('&tid=') ?? false) {
       noticeType = NoticeType.invite;
-    } else if (element.querySelectorAll('dd.ntc_body > a').length == 1) {
+    } else if (element.querySelectorAll('dd.ntc_body > a').length == 1 &&
+        (element.querySelector('dd.ntc_body')?.innerText.contains('好友') ?? false)) {
       noticeType = NoticeType.newFriend;
     } else if (element.querySelectorAll('dd.ntc_body > b').lastOrNull?.innerText.contains('任务ID') ?? false) {
       noticeType = NoticeType.batchRate;
@@ -173,7 +245,7 @@ class Notice with NoticeMappable {
     final a2Node = element.querySelector('dd.ntc_body > a:nth-child(2)');
     if (noticeType == NoticeType.reply || noticeType == NoticeType.invite) {
       username = a1Node?.firstEndDeepText();
-      noticeThreadUrl = a2Node?.firstHref();
+      noticeThreadUrl = a2Node?.firstHref()?.unescapeHtml()?.prependHost();
       noticeThreadTitle = a2Node?.firstEndDeepText();
       redirectUrl = element.querySelector('dd.ntc_body > a:nth-child(3)')?.firstHref()?.prependHost();
     } else if (noticeType == NoticeType.mention) {
@@ -185,7 +257,7 @@ class Notice with NoticeMappable {
       quotedMessage = mentionNode!.firstEndDeepText()?.trim();
     } else if (noticeType == NoticeType.newFriend) {
       username = a1Node?.firstEndDeepText();
-      userSpaceUrl = a1Node?.attributes['href'];
+      userSpaceUrl = a1Node?.attributes['href']?.unescapeHtml()?.prependHost();
     } else if (noticeType == NoticeType.batchRate) {
       noticeThreadTitle = a1Node?.firstEndDeepText();
       redirectUrl = a1Node?.firstHref()?.prependHost();
@@ -194,7 +266,7 @@ class Notice with NoticeMappable {
       //
       // Assume the user node is always the 5th child.
       final a3Node = element.querySelector('dd.ntc_body > a:nth-child(5)');
-      userSpaceUrl = a3Node?.firstHref();
+      userSpaceUrl = a3Node?.firstHref()?.unescapeHtml()?.prependHost();
       username = a3Node?.firstEndDeepText();
       final n = element.querySelector('dd.ntc_body');
       score = n?.nodes.elementAtOrNull(4)?.text?.trim().replaceFirst('评分 ', '');
@@ -207,7 +279,7 @@ class Notice with NoticeMappable {
       noticeThreadTitle = a1Node?.firstEndDeepText();
       redirectUrl = a1Node?.firstHref()?.prependHost();
       // Fix user space url here.
-      userSpaceUrl = a2Node?.firstHref();
+      userSpaceUrl = a2Node?.firstHref()?.unescapeHtml()?.prependHost();
       username = a2Node?.firstEndDeepText();
     }
 
@@ -271,4 +343,16 @@ class Notice with NoticeMappable {
       taskId: taskId,
     );
   }
+}
+
+/// Get the image url of an `<img>` node, lazy loaded images use `data-src`.
+String? _imgUrl(uh.Element? element) {
+  if (element == null) {
+    return null;
+  }
+  final dataSrc = element.attributes['data-src'];
+  if (dataSrc != null && dataSrc.isNotEmpty) {
+    return dataSrc.startsWith('http') ? dataSrc : '$baseUrl/${dataSrc.replaceFirst('./', '')}';
+  }
+  return element.imageUrl();
 }

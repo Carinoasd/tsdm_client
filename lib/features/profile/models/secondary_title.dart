@@ -44,6 +44,42 @@ final class SecondaryTitle with SecondaryTitleMappable {
     return SecondaryTitle(id: id, name: name, imageUrl: imageUrl, activated: false);
   }
 
+  /// Find the table under the block whose title is [title].
+  static uh.Element? _findTable(uh.Document doc, String title) {
+    for (final h in doc.querySelectorAll('div.bm > div.bm_h > h2')) {
+      if (h.innerText.trim() == title) {
+        return h.parent?.parent?.querySelector('table.dt');
+      }
+    }
+    return null;
+  }
+
+  /// Parse the titles page [doc] into list of [SecondaryTitle], the activated one is marked.
+  ///
+  /// Marked as public for testing.
+  ///
+  /// Page layout (Discuz X5, plugin tsdmtitle):
+  ///
+  /// ```html
+  /// <div class="bm"><div class="bm_h"><h2>当前使用的称号</h2></div><div class="bm_c"><table class="dt">...</table></div></div>
+  /// <div class="bm"><div class="bm_h"><h2>当前拥有的称号</h2></div><div class="bm_c"><table class="dt">...</table></div></div>
+  /// ```
+  static List<SecondaryTitle> parseTitlesPage(uh.Document doc) {
+    final ownedTable = _findTable(doc, '当前拥有的称号') ?? doc.querySelectorAll('table.dt').lastOrNull;
+    final currentTable = _findTable(doc, '当前使用的称号') ?? doc.querySelectorAll('table.dt').firstOrNull;
+    final allAvailableTitles = (ownedTable?.querySelectorAll('tbody > tr') ?? <uh.Element>[])
+        .where((e) => e.querySelector('td') != null)
+        .map(SecondaryTitle.fromTr)
+        .whereType<SecondaryTitle>()
+        .toList();
+    final currentTitleId = currentTable?.querySelector('tbody > tr > td')?.innerText.trim().parseToInt();
+    final idx = allAvailableTitles.indexWhere((v) => v.id == currentTitleId);
+    if (idx >= 0) {
+      allAvailableTitles[idx] = allAvailableTitles[idx].copyWith(activated: true);
+    }
+    return allAvailableTitles;
+  }
+
   /// Title id.
   final int id;
 

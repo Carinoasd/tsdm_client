@@ -4,12 +4,16 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/profile/models/models.dart';
+import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
+
+// Re-export the avatar parser for users of the profile page document (e.g. homepage bloc).
+export 'package:tsdm_client/features/profile/utils/parse_profile.dart' show parseProfileAvatarUrl;
 
 /// Repository to get profile page.
 final class ProfileRepository with LoggerMixin {
@@ -83,9 +87,30 @@ final class ProfileRepository with LoggerMixin {
   });
 
   /// Fetch user avatar for current user.
-  AsyncEither<String> fetchAvatarUrl() => fetchProfileV2().map((v) => v.avatarUrl);
+  ///
+  /// Parsed from the html profile page of current logged user because the v2 API is gone.
+  AsyncEither<String> fetchAvatarUrl({bool force = false}) => fetchProfile(force: force).flatMap((doc) {
+    if (!isLoggedInDocument(doc)) {
+      // Session expired, the server rendered a guest page.
+      error('failed to fetch avatar url: not logged in');
+      return TaskEither<AppException, String>.left(ProfileNeedLoginException());
+    }
+    return switch (parseProfileAvatarUrl(doc)) {
+      final String url => TaskEither.right(url),
+      null => () {
+        error('failed to fetch avatar url: avatar not found in profile page');
+        return TaskEither<AppException, String>.left(ProfileStatusNotFoundException());
+      }(),
+    };
+  });
 
   /// Fetch user profile through API.
+  ///
+  /// ## CAUTION
+  ///
+  /// The API is GONE since the server upgraded to Discuz X5: the server responds a normal html page instead of json.
+  /// This function detects the non-json response and returns [ProfileStatusNotFoundException] gracefully, prefer
+  /// [fetchProfile] with html parsing.
   ///
   /// ## Return value
   ///
@@ -136,7 +161,18 @@ final class ProfileRepository with LoggerMixin {
         case Left(:final value):
           return left(value);
         case Right(:final value):
-          final jsonMap = jsonDecode(value.data as String) as Map<String, dynamic>;
+          final Map<String, dynamic> jsonMap;
+          try {
+            final decoded = jsonDecode(value.data as String);
+            if (decoded is! Map<String, dynamic>) {
+              error('failed to fetch profile v2: response is not a json object');
+              return left(ProfileStatusNotFoundException());
+            }
+            jsonMap = decoded;
+          } on FormatException catch (e) {
+            error('failed to fetch profile v2: response is not json (API gone?): $e');
+            return left(ProfileStatusNotFoundException());
+          }
           if (!jsonMap.containsKey('status')) {
             error('failed to fetch profile v2: status not found');
             return left(ProfileStatusNotFoundException());
@@ -186,6 +222,6 @@ final class ProfileRepository with LoggerMixin {
   /// Upload the new avatar [url] to server.
   AsyncVoidEither uploadAvatarUrl({required String url, required String formHash}) => getIt
       .get<NetClientProvider>()
-      .postForm(_editAvatarPage, data: <String, String>{'headedit': url, 'formhash': formHash, 'headsubmit': '提交'})
+      .postForm(_editAvatarPage, data: <String, String>{'headedit': url, 'formhash': formHash, 'headsubmit': 'true'})
       .mapHttp((v) => v);
 }

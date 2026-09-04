@@ -26,6 +26,54 @@ final class NotificationV2 with NotificationV2Mappable {
   @MappableField(key: 'public_message')
   final List<BroadcastMessageV2> broadcastMessageList;
 
+  /// All notice nodes in notice page.
+  ///
+  /// `div.nts > dl#notice_XXX` on Discuz X5, `form#deletepmform > div > dl` on older versions.
+  static List<uh.Element> noticeNodes(uh.Document document) {
+    final nodes = document.querySelectorAll('div.nts > dl[id^="notice_"]');
+    if (nodes.isNotEmpty) {
+      return nodes;
+    }
+    return document.querySelectorAll('form#deletepmform > div > dl');
+  }
+
+  /// All personal message nodes in private message page.
+  static List<uh.Element> personalMessageNodes(uh.Document document) => document.querySelectorAll('dl[id^="pmlist_"]');
+
+  /// All broadcast message nodes in broadcast message page.
+  static List<uh.Element> broadcastMessageNodes(uh.Document document) =>
+      document.querySelectorAll('dl[id^="gpmlist_"]');
+
+  /// Parse all kinds of notification from the three html documents.
+  ///
+  /// * [noticeDoc]: `home.php?mod=space&do=notice`.
+  /// * [personalMessageDoc]: `home.php?mod=space&do=pm&filter=privatepm`.
+  /// * [broadcastMessageDoc]: `home.php?mod=space&do=pm&filter=announcepm`.
+  ///
+  /// Only notifications not earlier than [since] (timestamp in seconds) are kept, if provided.
+  // ignore: prefer_constructors_over_static_methods
+  static NotificationV2 fromDocuments({
+    required uh.Document noticeDoc,
+    required uh.Document personalMessageDoc,
+    required uh.Document broadcastMessageDoc,
+    int? since,
+  }) {
+    final noticeList = noticeNodes(noticeDoc).map(Notice.toV2).whereType<NoticeV2>().toList();
+    final pmList = personalMessageNodes(
+      personalMessageDoc,
+    ).map(PersonalMessage.toV2).whereType<PersonalMessageV2>().toList();
+    final bmList = broadcastMessageNodes(
+      broadcastMessageDoc,
+    ).map(BroadcastMessage.toV2).whereType<BroadcastMessageV2>().toList();
+
+    return NotificationV2(
+      status: 0,
+      noticeList: since == null ? noticeList : noticeList.where((e) => e.timestamp >= since).toList(),
+      personalMessageList: since == null ? pmList : pmList.where((e) => e.timestamp >= since).toList(),
+      broadcastMessageList: since == null ? bmList : bmList.where((e) => e.timestamp >= since).toList(),
+    );
+  }
+
   /// Return the datetime of latest notification, no matter the notification is a notice, personal message or
   /// broadcast message.
   ///

@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
+import 'package:tsdm_client/features/points/utils/parse_points.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -45,7 +46,7 @@ final class PointsStatisticsBloc extends Bloc<PointsStatisticsEvent, PointsStati
           },
           (v) {
             final document = v;
-            final result = _parseDocument(document);
+            final result = parseStatisticsDocument(document);
             if (result == null) {
               emit(state.copyWith(status: PointsStatus.failed));
               return;
@@ -54,28 +55,6 @@ final class PointsStatisticsBloc extends Bloc<PointsStatisticsEvent, PointsStati
           },
         )
         .run();
-  }
-
-  (Map<String, String>, List<PointsChange>)? _parseDocument(uh.Document document) {
-    final rootNode = document.querySelector('div#ct_shell div.bm.bw0');
-    if (rootNode == null) {
-      error('points change root node not found');
-      return null;
-    }
-    final pointsMapEntries = rootNode
-        .querySelectorAll('ul.creditl > li')
-        .map((e) => e.parseLiEmNode(second: true))
-        .whereType<(String, String)>()
-        .map((e) => MapEntry(e.$1.split(':').first.trim(), e.$2.trim()));
-    final pointsMap = Map<String, String>.fromEntries(pointsMapEntries);
-
-    final tableNode = rootNode.querySelector('table.dt');
-    if (tableNode == null) {
-      error('points change table not found');
-      return null;
-    }
-    final pointsChangeList = _buildChangeListFromTable(tableNode);
-    return (pointsMap, pointsChangeList);
   }
 }
 
@@ -109,7 +88,7 @@ final class PointsChangelogBloc extends Bloc<PointsChangelogEvent, PointsChangel
           (v) {
             final document = v;
             final s = _parseDocument(document, state.currentPage);
-            final allParameters = _parseAllParameters(document);
+            final allParameters = parseAllParameters(document);
             emit(s.copyWith(allParameters: allParameters));
           },
         )
@@ -142,42 +121,11 @@ final class PointsChangelogBloc extends Bloc<PointsChangelogEvent, PointsChangel
           (v) {
             final document = v;
             final s = _parseDocument(document, state.currentPage);
-            final allParameters = _parseAllParameters(document);
+            final allParameters = parseAllParameters(document);
             emit(s.copyWith(allParameters: allParameters));
           },
         )
         .run();
-  }
-
-  ChangelogAllParameters _parseAllParameters(uh.Document document) {
-    // These options seem invisible in browser but exist.
-    // <select id="optype" name="optype">
-    //   <option value="">Choose</option>
-    //   <option value="TRC">Task</option>
-    //   ...
-    // </select>
-    final extTypeList = document
-        .querySelectorAll('select#exttype > option')
-        .where((e) => e.attributes['value'] != null)
-        .map((e) => ChangelogPointsType(name: e.innerText.trim(), extType: e.attributes['value']!))
-        .toList();
-    final optTypeList = document
-        .querySelectorAll('select#optype > option')
-        .where((e) => e.attributes['value'] != null)
-        .map((e) => ChangelogOperationType(name: e.innerText.trim(), operation: e.attributes['value']!))
-        .toList();
-
-    final changeTypeList = document
-        .querySelectorAll('select#income > option')
-        .where((e) => e.attributes['value'] != null)
-        .map((e) => ChangelogChangeType(name: e.innerText.trim(), changeType: e.attributes['value']!))
-        .toList();
-
-    return ChangelogAllParameters(
-      extTypeList: extTypeList,
-      operationTypeList: optTypeList,
-      changeTypeList: changeTypeList,
-    );
   }
 
   /// parse [document] into state.
@@ -190,7 +138,7 @@ final class PointsChangelogBloc extends Bloc<PointsChangelogEvent, PointsChangel
       error('points change table not found');
       return state.copyWith(status: PointsStatus.failed);
     }
-    final changeList = _buildChangeListFromTable(tableNode);
+    final changeList = buildChangeListFromTable(tableNode);
     final currentPage = document.currentPage() ?? pageNumber;
     final totalPages = document.totalPages() ?? pageNumber;
     return state.copyWith(
@@ -200,15 +148,4 @@ final class PointsChangelogBloc extends Bloc<PointsChangelogEvent, PointsChangel
       totalPages: totalPages,
     );
   }
-}
-
-/// Build a list of [PointsChange] from <table class="dt">
-List<PointsChange> _buildChangeListFromTable(uh.Element element) {
-  final ret = element
-      .querySelectorAll('table > tbody > tr')
-      .skip(1)
-      .map(PointsChange.fromTrNode)
-      .whereType<PointsChange>()
-      .toList();
-  return ret;
 }

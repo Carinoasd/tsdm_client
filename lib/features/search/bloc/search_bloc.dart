@@ -1,7 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/search/repository/search_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -152,19 +150,5 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
         .run();
   }
 
-  Future<SearchResult> _parseSearchResult(uh.Document document) async {
-    final threadList = document
-        .querySelectorAll('div#ct > div#ct_shell > div#left_s > div.ts_se_rs')
-        .map(SearchedThread.fromDivNode)
-        .whereType<SearchedThread>()
-        .toList();
-
-    /// Filter out "Results about: ".
-    final count = document.querySelector('h3')?.firstEndDeepText()?.split(' ').firstOrNull?.parseToInt();
-
-    final currentPage = document.currentPage() ?? 1;
-    final totalPages = document.totalPages() ?? currentPage;
-
-    return SearchResult(currentPage: currentPage, totalPages: totalPages, count: count, data: threadList);
-  }
+  Future<SearchResult> _parseSearchResult(uh.Document document) async => SearchResult.fromDocument(document);
 }

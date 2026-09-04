@@ -436,7 +436,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         'formhash': widget.chatSendTarget!.formHash,
         'handlekey': widget.chatSendTarget!.handleKey,
         'message': _replyRichController.toBBCode(),
-        'messageappand': widget.chatSendTarget!.messageAppend,
+        'messageappend': widget.chatSendTarget!.messageAppend,
       }),
     );
   }

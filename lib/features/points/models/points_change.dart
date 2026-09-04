@@ -87,15 +87,27 @@ class PointsChange with PointsChangeMappable {
   ///   <td>datetime</td>
   ///
   /// This function tries to build [PointsChange] from <tr> [element].
+  ///
+  /// Discuz X5 adds a column "变更后" (points after change) after the change column:
+  ///
+  /// <tr>
+  ///   <td><a>operation</a></td>
+  ///   <td>attr1 <span class="xi1">+200</span><br/>attr2 <span class="xi1">+200</span></td>
+  ///   <td>attr1 27253<br/>attr2 27250</td>
+  ///   <td><a href=link_to_the_thread>detail</a></td>
+  ///   <td>2026-09-04 19:25:28</td>
+  /// </tr>
   static PointsChange? fromTrNode(uh.Element element) {
-    final tdList = element.querySelectorAll('td');
-    if (tdList.length != 4) {
+    final allTd = element.querySelectorAll('td');
+    if (allTd.length != 4 && allTd.length != 5) {
       talker.error(
         'failed to build PointsChange instance: '
-        'invalid td count: ${tdList.length}',
+        'invalid td count: ${allTd.length}',
       );
       return null;
     }
+    // Drop the "points after change" column on X5.
+    final tdList = allTd.length == 5 ? [allTd[0], allTd[1], allTd[3], allTd[4]] : allTd.toList();
 
     final operation = tdList[0].querySelector('a')?.innerText;
     final operationFilterUrl = tdList[0].querySelector('a')?.attributes['href'];

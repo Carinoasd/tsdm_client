@@ -4,20 +4,40 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
 /// Repository of searching.
-class SearchRepository {
-  static const _searchUrl = '$baseUrl/plugin.php';
+///
+/// Uses the Discuz built-in forum search `search.php?mod=forum` because the old plugin `Kahrpba:search` is gone.
+///
+/// ## How Discuz search works
+///
+/// * A new search is a GET request `search.php?mod=forum&srchtxt=KEYWORD&searchsubmit=yes` (form hash is NOT
+///   required for GET), optionally with `srchuid=UID` (author) and `srchfid[]=FID` (forum).
+/// * The server caches the search result and assigns a `searchid`, other pages of the same search are fetched
+///   through `search.php?mod=forum&searchid=ID&orderby=lastpost&ascdesc=desc&searchsubmit=yes&page=N`. The
+///   `searchid` is parsed from the page links in the result page.
+/// * Starting a new search too frequently is rejected by server ("搜索过于频繁"), so the search id is cached here and
+///   reused when only page number changes.
+class SearchRepository with LoggerMixin {
+  static const _searchUrl = '$baseUrl/search.php';
+
+  /// Parameters of the last search, used to reuse [_searchId].
+  (String keyword, String fid, String uid)? _lastParameters;
+
+  /// Search id assigned by server for the last search.
+  String? _searchId;
 
   /// An search action with given parameters:
   ///
   /// * [keyword]: Query keyword.
   /// * [fid]: Forum id, 0 represents any forum.
-  /// * [uid]: Author user id, 0represents any user.
+  /// * [uid]: Author user id, 0 represents any user.
   /// * [pageNumber]: Page number of search result.
   AsyncEither<uh.Document> searchWithParameters({
     required String keyword,
@@ -25,13 +45,28 @@ class SearchRepository {
     required String uid,
     required int pageNumber,
   }) => AsyncEither(() async {
-    final queryParameters = <String, String>{
-      'id': 'Kahrpba:search',
-      'query': keyword,
-      'authorid': uid,
-      'fid': fid,
-      'page': '$pageNumber',
-    };
+    final parameters = (keyword, fid, uid);
+    final Map<String, String> queryParameters;
+    if (pageNumber > 1 && _searchId != null && _lastParameters == parameters) {
+      // Other pages of the cached search.
+      queryParameters = <String, String>{
+        'mod': 'forum',
+        'searchid': _searchId!,
+        'orderby': 'lastpost',
+        'ascdesc': 'desc',
+        'searchsubmit': 'yes',
+        'page': '$pageNumber',
+      };
+    } else {
+      queryParameters = <String, String>{
+        'mod': 'forum',
+        'srchtxt': keyword,
+        if (uid.isNotEmpty && uid != '0') 'srchuid': uid,
+        if (fid.isNotEmpty && fid != '0') 'srchfid[]': fid,
+        'searchsubmit': 'yes',
+        if (pageNumber > 1) 'page': '$pageNumber',
+      };
+    }
 
     final netClient = getIt.get<NetClientProvider>();
     final respEither = await netClient.get(_searchUrl, queryParameters: queryParameters).run();
@@ -44,6 +79,19 @@ class SearchRepository {
     }
 
     final document = parseHtmlDocument(resp.data as String);
+
+    // Server side error, e.g. "抱歉，您的搜索过于频繁" or "没有找到匹配结果".
+    final errorText = document.querySelector('div#messagetext > p')?.innerText.trim();
+    if (errorText != null && !errorText.contains('没有找到')) {
+      error('search failed: $errorText');
+      return left(ServerRespondedErrorException(errorText));
+    }
+
+    final searchId = SearchResult.parseSearchId(document);
+    if (searchId != null) {
+      _searchId = searchId;
+      _lastParameters = parameters;
+    }
     return right(document);
   });
 }

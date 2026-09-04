@@ -46,4 +46,30 @@ final class AvailableUserGroup {
 
     return AvailableUserGroup(name: name, infoUrl: infoUrl, gid: gid);
   }
+
+  /// Parse current user group name and all available user groups in the info page.
+  ///
+  /// Marked as public for testing.
+  static (String? currentUserGroup, List<AvailableUserGroup> availableGroups) parseInfoDocument(
+    uh.Document document,
+  ) {
+    // Discuz X5: `div#ct`, Discuz X3: `div#ct_shell`.
+    final rootNode = document.querySelector('div#ct_shell') ?? document.querySelector('div#ct');
+    // ```html
+    // <p class="tbmu"><span class="y">您目前有 <span class="xi1"> 10532 天使币</span></span>
+    // 当前用户组: <font color="Red">超级版主</font></p>
+    // ```
+    //
+    // The name of current user group is in the trailing part of `p.tbmu` and there's no better to grep it.
+    final tbmuNode = rootNode?.querySelector('p.tbmu');
+    final currentUserGroup =
+        tbmuNode?.querySelector('font')?.innerText.trim() ?? tbmuNode?.innerText.trim().split(' ').lastOrNull;
+    // Rows in header `tbody.th` have no `<td>` so they are filtered out by the parser.
+    final availableUserGroups = (rootNode?.querySelectorAll('table.dt tr') ?? <uh.Element>[])
+        .where((e) => e.querySelector('td') != null)
+        .map(AvailableUserGroup.fromTr)
+        .whereType<AvailableUserGroup>()
+        .toList();
+    return (currentUserGroup, availableUserGroups);
+  }
 }

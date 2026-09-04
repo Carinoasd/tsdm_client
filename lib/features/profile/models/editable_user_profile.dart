@@ -34,8 +34,7 @@ enum Gender {
   male(1),
 
   /// Female.
-  female(2)
-  ;
+  female(2);
 
   /// Constructor.
   const Gender(this.value);
@@ -61,8 +60,7 @@ enum Visibility {
   friendsOnly(1),
 
   /// Not public to anyone.
-  private(3)
-  ;
+  private(3);
 
   /// Constructor.
   const Visibility(this.value);
