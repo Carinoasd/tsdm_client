@@ -3,12 +3,11 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/instance.dart';
-import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
-import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/fallback_picture.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -22,11 +21,12 @@ const _renderHeight = 52.0;
 const double _indicatorBoxWidth = (_renderHeight / _captchaImageHeight) * _captchaImageWidth;
 
 /// The captcha image used in login form.
+///
+/// The image is fetched in the current login session held by [AuthenticationRepository], as the captcha is bound to
+/// the cookie session used to login.
 class CaptchaImage extends StatefulWidget {
   /// Constructor.
   const CaptchaImage(this.controller, {super.key});
-
-  static final Uri _fakeFormVerifyUri = Uri.https('tsdm39.com', '/plugin.php', {'id': 'oracle:verify'});
 
   /// Injected controller.
   final CaptchaImageController controller;
@@ -51,13 +51,9 @@ class _VerityImageState extends State<CaptchaImage> with LoggerMixin {
       return;
     }
     debug('fetching login captcha');
-    f = getIt
-        .get<NetClientProvider>(instanceName: ServiceKeys.noCookie)
-        .getImageFromUri(CaptchaImage._fakeFormVerifyUri)
-        .run()
-        .whenComplete(() {
-          futureComplete = true;
-        });
+    f = context.read<AuthenticationRepository>().fetchCaptchaImage().run().whenComplete(() {
+      futureComplete = true;
+    });
 
     setState(() {
       refreshDebounce = true;

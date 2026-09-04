@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
+import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -9,8 +9,8 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
-// import 'package:tsdm_client/features/authentication/repository/internal/login_result.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/authentication/utils/login_parser.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -33,20 +33,21 @@ class AuthenticationRepository with LoggerMixin {
 
   static const _checkAuthUrl = '$baseUrl/home.php?mod=spacecp';
 
-  // FIXME: Refactor login base url.
-  static const _loginBaseUrl = '$baseUrl/member.php?mobile=yes&tsdmapp=1&mod=logging&action=login&loginsubmit=yes';
+  /// Url of the login form.
+  ///
+  /// Response is an xml wrapping the html form in CDATA, the same one used by the web page when opening the login
+  /// floating window.
+  static const _loginFormUrl =
+      '$baseUrl/member.php?mod=logging&action=login&infloat=yes&handlekey=login&inajax=1&ajaxtarget=fwin_content_login';
+
+  /// Url to post the login form, `loginhash` is the one parsed from login form.
+  static const _loginBaseUrl = '$baseUrl/member.php?mod=logging&action=login&loginsubmit=yes&handlekey=login&inajax=1';
   static const _logoutBaseUrl = '$baseUrl/member.php?mod=logging&action=logout&formhash=';
-  static const _fakeFormUrl =
-      '$baseUrl/member.php?mod=logging&action=login&infloat=yes&frommessage&inajax=1&ajaxtarget=messagelogin';
-  static final _layerLoginRe = RegExp(r'layer_login_(?<Hash>\w+)');
   static final _formHashRe = RegExp(r'formhash" value="(?<FormHash>\w+)"');
 
-  /// Url to check authentication status using v2 API.
-  static const _checkAuthUrlV2 = '$baseUrl/home.php?mobile=yes&tsdmapp=1&mod=space&do=profile';
-
-  // static String _buildLoginUrl(String formHash) {
-  //   return '$_loginBaseUrl$formHash';
-  // }
+  static String _buildLoginUrl(String loginHash) {
+    return '$_loginBaseUrl&loginhash=$loginHash';
+  }
 
   static String _buildLogoutUrl(String formHash) {
     return '$_logoutBaseUrl$formHash';
@@ -59,6 +60,12 @@ class AuthenticationRepository with LoggerMixin {
 
   UserLoginInfo? _authedUser;
 
+  /// Cookie used in the current login session.
+  CookieProvider? _loginCookie;
+
+  /// Hashes in the current login session.
+  LoginHash? _loginHash;
+
   /// The current logged user.
   UserLoginInfo? get currentUser => _authedUser;
 
@@ -70,37 +77,51 @@ class AuthenticationRepository with LoggerMixin {
     await _controller.close();
   }
 
-  /// Fetch login hash and form hash for logging in.
-  AsyncEither<LoginHash> fetchHash() =>
-      getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie).get(_fakeFormUrl).flatMap((v) {
-        // TODO: Parse CDATA.
-        // 返回的data是xml：
-        //
-        // <?xml version="1.0" encoding="utf-8"?>
-        // <root><![CDATA[
-        // <div id="main_messaqge_L5hJN">
-        // <div id="layer_login_L5hJN">
-        //
-        // 其中"main_message_"后面的是本次登录的loginHash，登录时需要加到url上
-        if (v.statusCode != HttpStatus.ok) {
-          return taskLeft(HttpRequestFailedException(v.statusCode));
-        }
-        final data = v.data as String;
-        final match = _layerLoginRe.firstMatch(data);
-        final loginHash = match?.namedGroup('Hash');
-        if (loginHash == null) {
-          return taskLeft(LoginFormHashNotFoundException());
-        }
+  /// Fetch the login form with [netClient] and parse hashes in it.
+  ///
+  /// Note that `formhash` is bound to the cookie session, so the login request MUST be sent with the same
+  /// cookie used here.
+  AsyncEither<LoginHash> _fetchHashWithClient(NetClientProvider netClient) => netClient.get(_loginFormUrl).flatMap((v) {
+    if (v.statusCode != HttpStatus.ok) {
+      return taskLeft(HttpRequestFailedException(v.statusCode));
+    }
+    return AsyncEither.fromEither(LoginParser.parseLoginHash(v.data as String));
+  });
 
-        final formHashMatch = _formHashRe.firstMatch(data);
-        final formHash = formHashMatch?.namedGroup('FormHash');
-        if (formHash == null) {
-          return taskLeft(LoginInvalidFormHashException());
-        }
+  /// Start a new login session: use a clean cookie and fetch the login form.
+  ///
+  /// Form hash and captcha are bound to the cookie session, so all requests in the login progress ([fetchHash],
+  /// [fetchCaptchaImage] and [loginWithPassword]) share the same [_loginCookie].
+  ///
+  /// Use a clean cookie because:
+  ///
+  /// * Want to use a pure and clean cookie when start login, to avoid using current authed user's cookie.
+  /// * Control when and what user info to save with the cookie stored in it, so that the token is successfully saved
+  ///   in storage.
+  AsyncEither<LoginHash> fetchHash() {
+    final cookie = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
+    _loginCookie = cookie;
+    _loginHash = null;
+    return _fetchHashWithClient(NetClientProvider.buildNoCookie(cookie: cookie)).map((v) {
+      _loginHash = v;
+      return v;
+    });
+  }
 
-        debug('get login hash $loginHash');
-        return taskRight(LoginHash(formHash: formHash, loginHash: loginHash));
-      });
+  /// Fetch the captcha image in current login session.
+  ///
+  /// Only available when [LoginHash.needCaptcha] is true.
+  AsyncEither<Response<dynamic>> fetchCaptchaImage() {
+    final cookie = _loginCookie;
+    final secCodeHash = _loginHash?.secCodeHash;
+    if (cookie == null || secCodeHash == null) {
+      return taskLeft(LoginFormHashNotFoundException());
+    }
+    final rand = DateTime.now().millisecondsSinceEpoch;
+    return NetClientProvider.buildNoCookie(
+      cookie: cookie,
+    ).getImage('$baseUrl/misc.php?mod=seccode&update=$rand&idhash=$secCodeHash');
+  }
 
   /// Login with password and other parameters in [credential].
   ///
@@ -108,18 +129,25 @@ class AuthenticationRepository with LoggerMixin {
   AsyncVoidEither loginWithPassword(UserCredential credential) => AsyncVoidEither(() async {
     debug('login with passwd');
     await _markUnauthenticated();
-    // When login with password, use an empty and injected cookie when
-    // performing login request. Because :
-    //
-    // * Want to use a pure and clean cookie when start login, to avoid
-    //   using current authed user's cookie.
-    // * Control when and what user info to save with the cookie stored in
-    //   it, so that the token is successfully saved in storage.
-    final cookie = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
-    // Inject cookie provider.
-    final netClient = NetClientProvider.buildNoCookie(cookie: cookie, forceDesktop: false);
 
-    final respEither = await netClient.postForm(_loginBaseUrl, data: credential.toJson()).run();
+    // Reuse the login session if exists.
+    if (_loginCookie == null || _loginHash == null) {
+      final hashEither = await fetchHash().run();
+      if (hashEither.isLeft()) {
+        return left(hashEither.unwrapErr());
+      }
+    }
+    final cookie = _loginCookie!;
+    final hash = _loginHash!;
+    // Inject cookie provider.
+    final netClient = NetClientProvider.buildNoCookie(cookie: cookie);
+
+    final respEither = await netClient
+        .postForm(_buildLoginUrl(hash.loginHash), data: credential.toFormData(hash))
+        .run();
+    // Every login attempt requires a new form hash.
+    _loginCookie = null;
+    _loginHash = null;
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }
@@ -129,49 +157,26 @@ class AuthenticationRepository with LoggerMixin {
       return left(HttpRequestFailedException(resp.statusCode));
     }
 
-    return Option.tryCatch(() => LoginResultMapper.fromJson(resp.data as String)).match(
-      () {
-        // Can not convert to regular login success result.
-        final json = jsonDecode(resp.data as String) as Map<String, dynamic>?;
-        final message = json?['message'] as String?;
+    final data = resp.data as String;
+    final resultEither = LoginParser.parseLoginResult(data);
+    if (resultEither.isLeft()) {
+      error('failed to login: ${resultEither.unwrapErr()}, response: ${data.truncate(300)}');
+      return left(resultEither.unwrapErr());
+    }
+    // Here we get complete user info.
+    final userInfo = resultEither.unwrap();
+    // First combine user info and cookie together.
+    await cookie.updateUserInfo(userInfo);
+    // Second, save credential in storage.
+    await cookie.saveCookieToStorage();
+    // Refresh the cookie in global cookie provider.
+    await getIt.get<CookieProvider>().loadCookieFromStorage(userInfo);
+    // Finally save authed user info and update authentication status to
+    // let auth stream subscribers update their status.
+    await _markAuthenticated(userInfo);
+    debug('end login with success');
 
-        if (message == null) {
-          return left(LoginOtherErrorException('message not found'));
-        }
-
-        final err = switch (message) {
-          'login_invalid' => LoginInvalidCredentialException(),
-          'login_strike' => LoginAttemptLimitException(),
-          'err_login_captcha_invalid' => LoginIncorrectCaptchaException(),
-          final String v => LoginOtherErrorException('unknown error message $v'),
-        };
-        return left(err);
-      },
-      (loginResult) async {
-        if (loginResult.status != 0) {
-          error('failed to login: $loginResult}');
-          return left(LoginOtherErrorException('login failed, status=${loginResult.status}'));
-        }
-
-        // Here we get complete user info.
-        final userInfo = UserLoginInfo(
-          username: loginResult.values!.username,
-          uid: int.parse(loginResult.values!.uid!),
-        );
-        // First combine user info and cookie together.
-        await cookie.updateUserInfo(userInfo);
-        // Second, save credential in storage.
-        await cookie.saveCookieToStorage();
-        // Refresh the cookie in global cookie provider.
-        await getIt.get<CookieProvider>().loadCookieFromStorage(userInfo);
-        // Finally save authed user info and update authentication status to
-        // let auth stream subscribers update their status.
-        await _markAuthenticated(userInfo);
-        debug('end login with success');
-
-        return rightVoid();
-      },
-    );
+    return rightVoid();
   });
 
   /// Parse logged user info from html [document].
@@ -252,17 +257,17 @@ class AuthenticationRepository with LoggerMixin {
     if (!await getIt.get<CookieProvider>().loadCookieFromStorage(userInfo)) {
       return left(LoginInvalidCredentialException());
     }
-    final resp = await getIt.get<NetClientProvider>().get(_checkAuthUrlV2).run();
+    final resp = await getIt.get<NetClientProvider>().get(_checkAuthUrl).run();
     if (resp.isLeft()) {
       return left(resp.unwrapErr());
     }
 
-    final result = jsonDecode(resp.unwrap().data as String) as Map<String, dynamic>;
-    if (result['status'] != 0) {
+    final document = parseHtmlDocument(resp.unwrap().data as String);
+    final parsedUserInfo = _parseUserInfoFromDocument(document);
+    if (parsedUserInfo == null || parsedUserInfo.uid != userInfo.uid) {
       error(
         'failed to switch user to uid=${"${userInfo.uid}".obscured(4)}, '
-        'status=${result["status"]}, '
-        'message=${result["message"]}',
+        'parsed uid=${"${parsedUserInfo?.uid}".obscured(4)}',
       );
       return left(SwitchUserNotAuthedException());
     }
@@ -304,22 +309,6 @@ class AuthenticationRepository with LoggerMixin {
     // }
     return UserLoginInfo(uid: uid, username: username /*email: email*/);
   }
-
-  /// Parse the login result.
-  ///
-  /// Do nothing if login succeed.
-  // SyncVoidEither _mapLoginResult(LoginResult loginResult) =>
-  //     switch (loginResult) {
-  //       LoginResult.success => rightVoid(),
-  //       LoginResult.incorrectCaptcha => left(LoginIncorrectCaptchaException()),
-  //       LoginResult.invalidUsernamePassword =>
-  //         left(LoginInvalidCredentialException()),
-  //       LoginResult.incorrectQuestionOrAnswer =>
-  //         left(LoginIncorrectSecurityQuestionException()),
-  //       LoginResult.attemptLimit => left(LoginAttemptLimitException()),
-  //     LoginResult.otherError => left(LoginOtherErrorException('other error')),
-  //     LoginResult.unknown => left(LoginOtherErrorException('unknown result')),
-  //     };
 
   Future<void> _saveLoggedUserInfo(UserLoginInfo userInfo) async {
     debug('save logged user info: $userInfo');

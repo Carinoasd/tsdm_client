@@ -1,4 +1,5 @@
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 
 part 'auth_status.dart';

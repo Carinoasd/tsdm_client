@@ -153,23 +153,26 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
             obscureText: !_showPassword,
             validator: (v) => v!.trim().isNotEmpty ? null : tr.passwordEmpty,
           ),
-          sizedBoxW12H12,
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: verifyCodeController,
-                  decoration: InputDecoration(prefixIcon: const Icon(Icons.pin), labelText: tr.verifyCode),
-                  validator: (v) => v!.trim().isNotEmpty ? null : tr.verifyCodeEmpty,
+          // Captcha is only required when the server says so.
+          if (state.loginHash?.needCaptcha ?? false) ...[
+            sizedBoxW12H12,
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: verifyCodeController,
+                    decoration: InputDecoration(prefixIcon: const Icon(Icons.pin), labelText: tr.verifyCode),
+                    validator: (v) => v!.trim().isNotEmpty ? null : tr.verifyCodeEmpty,
+                  ),
                 ),
-              ),
-              sizedBoxW12H12,
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 150),
-                child: CaptchaImage(captchaImageController),
-              ),
-            ],
-          ),
+                sizedBoxW12H12,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
+                  child: CaptchaImage(captchaImageController),
+                ),
+              ],
+            ),
+          ],
           sizedBoxW12H12,
           InputDecorator(
             decoration: InputDecoration(
@@ -272,8 +275,9 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
           }
           context.read<AutoNotificationCubit>().resume('login success');
         } else if (state.status == AuthenticationStatus.failure) {
-          captchaImageController.reload();
+          // Every login attempt requires a new form hash (and captcha, if any).
           verifyCodeController.clear();
+          context.read<AuthenticationBloc>().add(AuthenticationFetchLoginHashRequested());
           context.read<AutoNotificationCubit>().resume('login failure');
         }
       },

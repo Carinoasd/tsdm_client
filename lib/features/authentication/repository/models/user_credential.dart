@@ -85,22 +85,28 @@ class UserCredential with UserCredentialMappable {
   /// Can be null.
   final SecurityQuestion? securityQuestion;
 
-  /// Method to convert to json.
-  Map<String, String> toJson() {
+  /// Build the form data to post in login request.
+  ///
+  /// Same as the login form in web page `member.php?mod=logging&action=login`.
+  ///
+  /// Hash values in [hash] are also included.
+  Map<String, String> toFormData(LoginHash hash) {
     final m = {
-      'fastloginfield': loginField.toString(),
+      'formhash': hash.formHash,
+      'referer': homePage,
+      'loginfield': loginField.toString(),
       'username': loginFieldValue,
       'password': password,
-      // 'formhash': formHash,
-      'tsdm_verify': tsdmVerify,
-      // 'referer': referer,
-      // 'cookietime': cookieTime,
-      // 'loginsubmit': loginSubmit,
+      'questionid': securityQuestion?.questionId ?? '0',
+      'answer': securityQuestion?.answer ?? '',
+      'cookietime': '$defaultCookieTime',
+      'loginsubmit': 'true',
     };
 
-    if (securityQuestion != null) {
-      m['questionid'] = securityQuestion!.questionId;
-      m['answer'] = securityQuestion!.answer;
+    if (hash.secCodeHash != null) {
+      m['seccodehash'] = hash.secCodeHash!;
+      m['seccodemodid'] = 'member::logging';
+      m['seccodeverify'] = tsdmVerify;
     }
 
     return m;
