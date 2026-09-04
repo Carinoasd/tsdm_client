@@ -45,6 +45,76 @@ extension _ParseThreadState on uh.Element {
 
     return ret;
   }
+
+  /// Parse the [ThreadStateModel] represented by the font icon node `<i class="fico-xxx">` used in Discuz X5.
+  ///
+  /// * Thread icon: `<i class="fico-lock">`, `<i class="fico-reward">`, `<i class="fico-vote">`,
+  ///   `<i class="tpin tpin3">` (pinned, 3: globally, 2: in type, 1: in subreddit).
+  /// * Marks after thread title: `<i class="fico-thumbup" title="帖子被加分">`, `<i class="fico-image" title="图片附件">`,
+  ///   `<i class="fico-attachment" title="附件">`.
+  ///
+  /// Return an empty set if current node is not <i> node.
+  Set<ThreadStateModel> _parseThreadStateFromI() {
+    final ret = <ThreadStateModel>{};
+    if (tagName != 'I') {
+      return ret;
+    }
+
+    for (final c in classes) {
+      switch (c) {
+        case 'fico-lock':
+          ret.add(ThreadStateModel.closed);
+        case 'fico-reward':
+          ret.add(ThreadStateModel.rewarded);
+        case 'fico-vote':
+          ret.add(ThreadStateModel.poll);
+        case 'tpin3':
+          ret.add(ThreadStateModel.pinnedGlobally);
+        case 'tpin2':
+          ret.add(ThreadStateModel.pinnedInType);
+        case 'tpin1':
+          ret.add(ThreadStateModel.pinnedInSubreddit);
+        case 'fico-thumbup':
+          ret.add(ThreadStateModel.upVoted);
+        case 'fico-image':
+          ret.add(ThreadStateModel.pictureAttached);
+        case 'fico-attachment':
+          // Generic attachment, use the closest state available.
+          ret.add(ThreadStateModel.pictureAttached);
+      }
+    }
+    return ret;
+  }
+
+  /// Parse the [ThreadStateModel] from the `title` attribute on the icon link `<td class="icn"><a title="...">`.
+  ///
+  /// Title text is a `-` separated description, e.g. "全局置顶主题 - 关闭的主题 - 新窗口打开".
+  ///
+  /// Only one icon is rendered in the link but the title carries all states so parse states from it.
+  Set<ThreadStateModel> _parseThreadStateFromIconLinkTitle() {
+    final ret = <ThreadStateModel>{};
+    final title = attributes['title'];
+    if (title == null) {
+      return ret;
+    }
+    for (final part in title.split('-').map((e) => e.trim())) {
+      switch (part) {
+        case '全局置顶主题':
+          ret.add(ThreadStateModel.pinnedGlobally);
+        case '分类置顶主题':
+          ret.add(ThreadStateModel.pinnedInType);
+        case '本版置顶主题':
+          ret.add(ThreadStateModel.pinnedInSubreddit);
+        case '关闭的主题':
+          ret.add(ThreadStateModel.closed);
+        case '悬赏':
+          ret.add(ThreadStateModel.rewarded);
+        case '投票':
+          ret.add(ThreadStateModel.poll);
+      }
+    }
+    return ret;
+  }
 }
 
 /// Thread state shown on thread entry.
@@ -98,10 +168,22 @@ enum ThreadStateModel {
   static Set<ThreadStateModel> buildSetFromTr(uh.Element threadElement) {
     final stateSet = <ThreadStateModel>{};
 
+    // Legacy: <td><a><img src="..." alt="..."></a></td>
     final threadIconNode = threadElement.querySelector('td > a > img');
     if (threadIconNode != null) {
       stateSet.addAll(threadIconNode._parseThreadStateFromImg());
     }
+
+    // X5: <td class="icn"><a title="全局置顶主题 - 关闭的主题 - 新窗口打开"><i class="fico-lock ..."></i></a></td>
+    final iconLinkNode = threadElement.querySelector('td.icn > a');
+    if (iconLinkNode != null) {
+      stateSet.addAll(iconLinkNode._parseThreadStateFromIconLinkTitle());
+      final iconNode = iconLinkNode.querySelector('i');
+      if (iconNode != null) {
+        stateSet.addAll(iconNode._parseThreadStateFromI());
+      }
+    }
+
     // Parse thread state from images following title text.
     final stateList = threadElement
         .querySelectorAll('th > img')
@@ -109,7 +191,16 @@ enum ThreadStateModel {
         .toList()
         .flattened
         .toList();
-    stateSet.addAll(stateList);
+    // X5: font icons following title text.
+    final iconStateList = threadElement.querySelectorAll('th > i').map((e) => e._parseThreadStateFromI()).flattened;
+    stateSet
+      ..addAll(stateList)
+      ..addAll(iconStateList);
+
+    // X5: <span class="tbox tdigest">精华1</span>
+    if (threadElement.querySelector('th > span.tdigest') != null) {
+      stateSet.add(ThreadStateModel.digested);
+    }
 
     return stateSet;
   }
@@ -215,23 +306,57 @@ class NormalThread with NormalThreadMappable {
 
   /// Build a [NormalThread] model with the given [uh.Element]
   ///
-  /// <tbody id="normalthread_xxxxxxx"
-  ///   class="tsdm_normalthread"
-  ///   name="tsdm_normalthread">
+  /// Discuz X5 layout (forum page, guide page `forum.php?mod=guide&view=new`):
+  ///
+  /// <tbody id="normalthread_xxxxxxx">
+  ///   <tr>
+  ///     <td class="icn">
+  ///       <a href="forum.php?mod=viewthread&tid=xxx" title="关闭的主题 - 新窗口打开"><i class="fico-lock fic6 fc-s"></i></a>
+  ///     </td>
+  ///     <td class="o">...</td>                                   <- moderator only, checkbox
+  ///     <th class="common">
+  ///       <a href="javascript:;" class="showcontent y"></a>      <- optional
+  ///       <em>[<a href="forum.php?mod=forumdisplay&fid=200&filter=typeid&typeid=4552">版务</a>]</em>
+  ///       <a href="forum.php?mod=viewthread&tid=xxx" style="color: #EE1B2E;" class="s xst">title</a>
+  ///       - [售价 <span class="xw1">15</span> 天使币]
+  ///       - [阅读权限 <span class="xw1">10</span>]
+  ///       <span class="tbox tdigest">精华1</span>
+  ///       <i class="fico-thumbup fic4 fc-l fnmr vm" title="帖子被加分"></i>
+  ///       <i class="fico-image fic4 fc-p fnmr vm" title="图片附件"></i>
+  ///       <span class="tps">...<a>2</a><a>3</a></span>
+  ///       <a href="forum.php?mod=redirect&tid=xxx&goto=lastpost#lastpost" class="xi1">New</a>
+  ///     </th>
+  ///     <td class="by"><a href="forum.php?mod=forumdisplay&fid=4">forum name</a></td>  <- guide page only
+  ///     <td class="by">
+  ///       <cite><a href="home.php?mod=space&uid=2" c="1">author</a></cite>
+  ///       <em><span class="xi1"><span title="2026-8-31">4 天前</span></span></em>
+  ///     </td>
+  ///     <td class="num"><a href="forum.php?mod=viewthread&tid=xxx" class="xi2">1271</a><em>5522</em></td>
+  ///     <td class="by">
+  ///       <cite><a href="home.php?mod=space&username=xxx" c="1">xxx</a></cite>
+  ///       <em><a href="forum.php?mod=redirect&tid=xxx&goto=lastpost#lastpost"><span title="2026-9-4 20:34">6 分钟前</span></a></em>
+  ///     </td>
+  ///   </tr>
+  /// </tbody>
+  ///
+  /// Legacy layout (Discuz X3):
+  ///
+  /// <tbody id="normalthread_xxxxxxx" class="tsdm_normalthread" name="tsdm_normalthread">
   static NormalThread? fromTBody(uh.Element threadElement) {
+    // X5 uses font icons `<i class="fico-thread">` as thread icon, no image url available. Allow empty.
     final threadIconNode = threadElement.querySelector('tr > td > a > img');
-    final threadIconUrl = threadIconNode?.attributes['src']?.prependHost();
-    if (threadIconUrl == null) {
-      talker.error('failed to build thread: invalid thread icon url');
-      return null;
-    }
+    final threadIconUrl = threadIconNode?.dataOriginalOrSrcImgUrl()?.prependHost() ?? '';
 
     // Allow not found.
-    final threadTypeNode = threadElement.querySelector('tr > th > em > a:nth-child(1)');
+    final threadTypeNode = threadElement.querySelector('tr > th > em > a');
     final threadTypeUrl = threadTypeNode?.attributes['href'];
-    final threadTypeName = threadTypeNode?.firstEndDeepText();
+    final threadTypeName = threadTypeNode?.firstEndDeepText()?.trim();
 
-    final threadUrlNode = threadElement.querySelector('tr > th > span > a');
+    final threadUrlNode =
+        // X5: forum page `<a class="s xst">`, guide page `<a class="xst">`.
+        threadElement.querySelector('tr > th > a.xst') ??
+        // Legacy.
+        threadElement.querySelector('tr > th > span > a');
     final threadUrl = threadUrlNode?.attributes['href'];
     final threadTitle = threadUrlNode?.firstEndDeepText()?.trim();
     final css = parseCssString(threadUrlNode?.attributes['style'] ?? '');
@@ -254,23 +379,27 @@ class NormalThread with NormalThreadMappable {
       }
     }
 
-    // Two <td class="by"> nodes:
+    // Two (or three in guide page) <td class="by"> nodes:
     //
-    // 1. Thread author node. <- need this one.
+    // 0. Forum node, only in guide page, without <cite>.
+    // 1. Thread author node. <- need this one, the first one with <cite>.
     // 2. Last reply author node.
-    final threadAuthorNode = threadElement.querySelector('tr > td.by');
+    final threadByNodeList = threadElement.querySelectorAll('tr > td.by').toList();
+    final threadAuthorNode = threadByNodeList.firstWhereOrNull((e) => e.querySelector('cite > a') != null);
     final threadAuthorUrl = threadAuthorNode?.querySelector('cite > a')?.attributes['href'];
-    final threadAuthorUid = threadAuthorUrl?.split('uid=').elementAtOrNull(1);
+    final threadAuthorUid = threadAuthorUrl?.uriQueryParameter('uid');
     final threadAuthorName = threadAuthorNode?.querySelector('cite > a')?.firstEndDeepText()?.trim();
-    final threadPublishDate = threadAuthorNode
-        ?.querySelector('em > span')
-        ?.firstEndDeepText()
-        ?.trim()
-        .parseToDateTimeUtc8();
+    final threadPublishDateNode = threadAuthorNode?.querySelector('em');
+    final threadPublishDate =
+        // In recent 7 days: <em><span><span title="2026-8-31">4 天前</span></span></em>
+        threadPublishDateNode?.querySelector('span[title]')?.attributes['title']?.parseToDateTimeUtc8() ??
+        // <em><span>2019-4-1</span></em>
+        threadPublishDateNode?.querySelector('span')?.firstEndDeepText()?.trim().parseToDateTimeUtc8() ??
+        threadPublishDateNode?.innerText.trim().parseToDateTimeUtc8();
 
     // Thread published in 24 hours get highlight on its publish time with
     // css class `xi1`.
-    final isRecentThread = threadAuthorNode?.querySelector('em > span')?.classes.contains('xi1') ?? false;
+    final isRecentThread = threadPublishDateNode?.querySelector('span.xi1') != null;
 
     if (threadAuthorUrl == null || threadAuthorName == null || threadPublishDate == null) {
       talker.error(
@@ -288,7 +417,7 @@ class NormalThread with NormalThreadMappable {
     //
     // 1. Thread author node.
     // 2. Last reply author node. <- need this one.
-    final threadLastReplyNode = threadElement.querySelectorAll('tr > td.by').lastOrNull;
+    final threadLastReplyNode = threadByNodeList.lastOrNull;
     final threadLastReplyAuthorUrl = threadLastReplyNode?.querySelector('cite > a')?.attributes['href'];
     // We only have username here.
     final threadLastReplyAuthorName = threadLastReplyNode?.querySelector('cite > a')?.firstEndDeepText();

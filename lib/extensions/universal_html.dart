@@ -25,6 +25,14 @@ extension GrepDocumentExtension on Document {
     }
     currentPage = paginateNode.querySelector('strong')?.firstEndDeepText()?.parseToInt() ?? 1;
 
+    // Discuz X5: the pagination bar carries a jump-to-page input followed by a text with total pages count:
+    //
+    // <label><input type="text" name="custompage" .../><span title="共 4 页"> / 4 页</span></label>
+    final x5TotalPages = paginateNode.totalPagesInLabel();
+    if (x5TotalPages != null) {
+      return x5TotalPages;
+    }
+
     final lastNode = paginateNode.children.lastOrNull;
     final skippedLastNode = paginateNode.querySelector('a.last');
     if (lastNode != null && lastNode.nodeType == Node.ELEMENT_NODE && lastNode.localName == 'strong') {
@@ -47,6 +55,51 @@ extension GrepDocumentExtension on Document {
     return ret;
   }
 }
+
+/// Extension on pagination node `<div class="pg">`.
+extension PaginationExtension on Element {
+  /// Total pages count carried by the Discuz X5 style pagination bar.
+  ///
+  /// <div class="pg">
+  ///   <strong>1</strong><a>2</a>...
+  ///   <label><input type="text" name="custompage"/><span title="共 4 页"> / 4 页</span></label>
+  ///   <a class="nxt">下一页</a>
+  /// </div>
+  ///
+  /// Call on `<div class="pg">`, return null if not found.
+  int? totalPagesInLabel() {
+    final spanNode = this.querySelector('label > span');
+    if (spanNode == null) {
+      return null;
+    }
+    final text = spanNode.attributes['title'] ?? spanNode.innerText;
+    return _pagesCountRe.firstMatch(text)?.namedGroup('count')?.parseToInt();
+  }
+
+  /// Check whether a next page exists in current pagination bar.
+  ///
+  /// Call on `<div class="pg">`.
+  ///
+  /// * Discuz X5 style: the "next page" link `<a class="nxt">` only exists when there is a next page.
+  /// * Legacy style: current page mark `<strong>` is the last child when in the last page.
+  bool hasNextPage() {
+    if (this.querySelector('a.nxt') != null) {
+      return true;
+    }
+    if (this.querySelector('label > input[name="custompage"]') != null) {
+      // X5 style pagination bar without next page link: already in the last page.
+      return false;
+    }
+    final lastNode = children.lastOrNull;
+    if (lastNode == null) {
+      return false;
+    }
+    return lastNode.localName != 'strong';
+  }
+}
+
+final _pagesCountRe = RegExp(r'(?<count>\d+)\s*页');
+final _digitsRe = RegExp(r'\d+');
 
 /// Extension for [Element] type to access children.
 extension AccessExtension on Element {
@@ -208,22 +261,29 @@ extension GrepExtension on Element {
 
   /// Return the img url in [Element]'s attribute.
   ///
-  /// Priority: data-original > src.
+  /// Priority: data-original > data-src > src.
+  ///
+  /// `data-src` is used by lazy-loaded images in Discuz X5.
+  ///
   /// If not found, return null.
   String? dataOriginalOrSrcImgUrl() {
-    return attributes['data-original'] ?? attributes['src'];
+    return attributes['data-original'] ?? attributes['data-src'] ?? attributes['src'];
   }
 
   /// Return the image url in attributes in current node.
   ///
   /// There is a priority difference between different node attributes.
   ///
-  /// zoomfile > data-original > src > file.
+  /// zoomfile > data-original > data-src > src > file.
   ///
   /// Return null if no available image url found.
   String? imageUrl() {
     final str =
-        attributes['zoomfile']?.prependHost() ?? attributes['data-original'] ?? attributes['src'] ?? attributes['file'];
+        attributes['zoomfile']?.prependHost() ??
+        attributes['data-original'] ??
+        attributes['data-src'] ??
+        attributes['src'] ??
+        attributes['file'];
 
     if (str == null) {
       return null;
@@ -232,6 +292,38 @@ extension GrepExtension on Element {
       return str;
     }
     return '$baseUrl/$str';
+  }
+
+  /// Parse a count number in current node.
+  ///
+  /// Discuz X5 abbreviates large numbers and keeps the exact value in the `title` attribute:
+  ///
+  /// * `<span class="xi2"><span title="228800">22万</span></span>` -> 228800
+  /// * `<em>帖数: <span title="352345">35万</span></em>` -> 352345
+  /// * `<em>主题: 6822</em>` -> 6822
+  /// * `<span class="xg1"> / 2</span>` -> 2
+  ///
+  /// The `title` attribute (on current node or descendant) has the highest priority, then digits in text.
+  ///
+  /// Return null if no number found.
+  int? parseCountNumber() {
+    final titleNode = attributes.containsKey('title') ? this : this.querySelector('[title]');
+    final titleValue = titleNode?.attributes['title']?.trim();
+    if (titleValue != null) {
+      final v = _digitsRe.firstMatch(titleValue)?.group(0)?.parseToInt();
+      if (v != null) {
+        return v;
+      }
+    }
+    final text = innerText.replaceAll(',', '');
+    final v = _digitsRe.firstMatch(text)?.group(0)?.parseToInt();
+    if (v == null) {
+      return null;
+    }
+    if (text.contains('万')) {
+      return v * 10000;
+    }
+    return v;
   }
 
   /// Parse data in a table row, return the first header <th> and all data <td>.

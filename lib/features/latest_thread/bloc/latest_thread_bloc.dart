@@ -81,14 +81,30 @@ final class LatestThreadBloc extends Bloc<LatestThreadEvent, LatestThreadState> 
         .run();
   }
 
+  /// Parse thread list and next page url from [document].
+  ///
+  /// * X5: standard guide page `forum.php?mod=guide&view=new|newthread`, threads are in
+  ///   `<tbody id="normalthread_xxx">` rows, pagination in `<div class="pg">` with `<a class="nxt">`.
+  /// * Legacy: `<div id="threadlist"><ul><li>` rows from the vanished plugin page.
   (List<LatestThread>?, String? nextPageUrl) _parseThreadList(uh.Document document) {
-    final data = document
-        .querySelector('div#threadlist > ul')
-        ?.querySelectorAll('li')
-        .map(LatestThread.fromLi)
-        .whereType<LatestThread>()
-        .toList();
-    final nextPageUrl = document.querySelector('div#ct_shell div.pg > a.nxt')?.firstHref()?.prependHost();
-    return (data ?? const [], nextPageUrl);
+    final tbodyList = document.querySelectorAll('tbody[id^="normalthread_"]');
+    final List<LatestThread> data;
+    if (tbodyList.isNotEmpty) {
+      data = tbodyList.map(LatestThread.fromTBody).where((e) => e.isValid).toList();
+    } else {
+      data =
+          document
+              .querySelector('div#threadlist > ul')
+              ?.querySelectorAll('li')
+              .map(LatestThread.fromLi)
+              .where((e) => e.isValid)
+              .toList() ??
+          const [];
+    }
+    final nextPageUrl =
+        (document.querySelector('div#ct_shell div.pg > a.nxt') ?? document.querySelector('div.pg > a.nxt'))
+            ?.firstHref()
+            ?.prependHost();
+    return (data, nextPageUrl);
   }
 }

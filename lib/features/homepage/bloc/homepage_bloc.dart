@@ -26,10 +26,8 @@ part 'homepage_state.dart';
 
 /// Extension on [uh.Document] to extract user info.
 extension ExtractProfileAvatar on uh.Document {
-  /// Extract the user avatar url.
-  String? extractAvatar() {
-    return querySelector('div#wp.wp div#ct.ct2 div.sd div.hm > p > a > img')?.imageUrl();
-  }
+  /// Extract the user avatar url from the profile page.
+  String? extractAvatar() => parseProfileAvatarUrl(this);
 }
 
 /// Bloc for the homepage of the app.
@@ -73,9 +71,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   final AuthenticationRepository _authenticationRepository;
   late final StreamSubscription<List<AuthStatus>> _authStatusSub;
 
+  /// Build the swiper picture list from the `Kahrpba` plugin block.
+  ///
+  /// The plugin is gone since Discuz X5 so the node is usually null, returns an empty list silently.
   static List<String?> _buildKahrpbaPicUrlList(uh.Element? styleNode) {
     if (styleNode == null) {
-      talker.error('failed to build kahrpba picture url list: node is null');
       return [];
     }
 
@@ -87,9 +87,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         .toList();
   }
 
+  /// Build the swiper link list from the `Kahrpba` plugin block.
+  ///
+  /// The plugin is gone since Discuz X5 so the node is usually null, returns an empty list silently.
   static List<String?> _buildKahrpbaPicHrefList(uh.Element? scriptNode) {
     if (scriptNode == null) {
-      talker.error('failed to build kahrpba picture href list: node is null');
       return [];
     }
 
@@ -232,7 +234,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
           emit(state.copyWith(status: HomepageStatus.failure));
           return;
         }
-        final avatarUrl = d2.unwrap().querySelector('div#wp.wp div#ct.ct2 div.sd div.hm > p > a > img')?.imageUrl();
+        final avatarUrl = d2.unwrap().extractAvatar();
         // Parse data and change state.
         final s = _parseStateFromDocument(value, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
         emit(s);
@@ -292,8 +294,8 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     final picUrlList = _buildKahrpbaPicUrlList(styleNode).whereType<String>().toList();
     final picHrefList = _buildKahrpbaPicHrefList(scriptNode).whereType<String>().toList();
     if ((picUrlList.isEmpty && picHrefList.isEmpty) || (picUrlList.length != picHrefList.length)) {
-      talker.error('root content pinned pic not found: maybe not login');
-      // There's no pinned recent threads when not login, just return
+      // The Kahrpba swiper block is gone since Discuz X5, an empty swiper list is the expected result now.
+      talker.debug('homepage swiper block not found, skip');
     } else {
       for (var i = 0; i < picUrlList.length; i++) {
         swiperUrlList.add(SwiperUrl(coverUrl: picUrlList[i], linkUrl: picHrefList[i]));
@@ -309,10 +311,30 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       );
     }
 
-    final welcomeNode = document.querySelector('div#wp.wp div#ct.wp.cl div#chart.bm.bw0.cl div.y');
-    final loggedUsername = username ?? '';
+    // X5 and legacy: related links in the forum status bar.
+    //
+    // <div id="chart" class="bm bw0 cl">
+    //   <p class="chart z">今日: <em>2855</em> | 昨日: <em>3880</em> | 帖子: <em>28277448</em> | 会员: <em>2218006</em> ...</p>
+    //   <div class="y">
+    //     <a href="home.php?mod=space&do=thread&view=me">我的帖子</a> | <a href="forum.php?mod=guide&view=new">最新回复</a>
+    //   </div>
+    // </div>
+    final welcomeNode =
+        document.querySelector('div#wp.wp div#ct.wp.cl div#chart.bm.bw0.cl div.y') ??
+        document.querySelector('div#chart > div.y');
+    // X5 header user block:
+    //
+    // <div id="um">
+    //   <div class="avt y"><a href="home.php?mod=space&uid=xxx"><img data-src="..." class="_avt user_avatar"></a></div>
+    //   <p><strong class="vwmy"><a href="home.php?mod=space&uid=xxx">username</a></strong>...</p>
+    // </div>
+    final userBlockNode = document.querySelector('div#um');
+    final loggedUsername = username ?? userBlockNode?.querySelector('strong.vwmy > a')?.innerText.trim() ?? '';
     final loggedUserAvatar =
-        avatarUrl ?? document.querySelector('div#hd div.wp div.hdc.cl div#um div.avt.y a img')?.attributes['src'];
+        avatarUrl ??
+        (userBlockNode?.querySelector('div.avt img') ??
+                document.querySelector('div#hd div.wp div.hdc.cl div#um div.avt.y a img'))
+            ?.dataOriginalOrSrcImgUrl();
     final navigateHrefsPairs = welcomeNode
         ?.querySelectorAll('a')
         .where((e) => e.attributes.containsKey('href'))

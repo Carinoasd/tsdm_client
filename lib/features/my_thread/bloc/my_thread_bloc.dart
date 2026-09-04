@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -179,26 +180,42 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         .run();
   }
 
+  /// Parse thread list and next page url.
+  ///
+  /// X5: `<div class="tl"><form id="delform"><table><tr class="th">header</tr><tr>thread</tr>...</table></form></div>`
+  /// followed by `<div class="pgs cl mtm"><div class="pg"><a class="nxt">下一页</a></div></div>`.
   (List<MyThread>, String? nextPageurl) _parseThreadList(uh.Document document) {
-    final data = document
-        .querySelectorAll('div.bm.bw0 > div.tl > form > table > tbody > tr')
-        .skip(1)
+    final data = _threadRows(document)
+        // Skip the header row.
+        .where((e) => !e.classes.contains('th'))
         .map(MyThread.fromTr)
         .whereType<MyThread>()
         .toList();
 
-    final nextPageUrl = document.querySelector('div.pgs.cl.mtm > div.pg > a.nxt')?.firstHref()?.prependHost();
-
-    return (data, nextPageUrl);
+    return (data, _nextPageUrl(document));
   }
 
+  /// Parse reply list and next page url.
+  ///
+  /// Each `<tr class="bw0_all">` thread row is followed by one or more reply rows, every reply becomes an item.
   (List<MyThread>, String? nextPageUrl) _parseReplyList(uh.Document document) {
-    final data = document
-        .querySelectorAll('div.bm.bw0 > div.tl > form > table > tbody > tr.bw0_all')
-        .map(MyThread.fromTr)
-        .whereType<MyThread>()
-        .toList();
-    final nextPageUrl = document.querySelector('div.pgs.cl.mtm > div.pg > a.nxt')?.firstHref()?.prependHost();
-    return (data, nextPageUrl);
+    final data = _threadRows(
+      document,
+    ).where((e) => e.classes.contains('bw0_all')).map(MyThread.buildReplyListFromTr).flattened.toList();
+    return (data, _nextPageUrl(document));
   }
+
+  static List<uh.Element> _threadRows(uh.Document document) {
+    var rows = document.querySelectorAll('div.bm.bw0 > div.tl > form > table > tbody > tr');
+    if (rows.isEmpty) {
+      // X5.
+      rows = document.querySelectorAll('div.tl > form#delform > table > tbody > tr');
+    }
+    return rows.toList();
+  }
+
+  static String? _nextPageUrl(uh.Document document) =>
+      (document.querySelector('div.pgs.cl.mtm > div.pg > a.nxt') ?? document.querySelector('div.pgs > div.pg > a.nxt'))
+          ?.firstHref()
+          ?.prependHost();
 }

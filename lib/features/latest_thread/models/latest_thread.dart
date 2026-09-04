@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/instance.dart';
@@ -59,11 +60,33 @@ class _LatestThreadInfo {
 }
 
 /// Latest thread model.
+///
+/// Since Discuz X5 the data source is the standard guide page (`forum.php?mod=guide&view=new` for latest replies and
+/// `forum.php?mod=guide&view=newthread` for latest threads), see [LatestThread.fromTBody].
 class LatestThread {
   /// Build from <li> node.
+  ///
+  /// Legacy layout used by the vanished `Kahrpba` plugin page.
   LatestThread.fromLi(uh.Element element) : _info = _buildFromLiNode(element);
 
+  /// Build from `<tbody id="normalthread_xxx">` node in guide page.
+  ///
+  /// <tbody id="normalthread_1264906">
+  ///   <tr>
+  ///     <td class="icn">...</td>
+  ///     <th class="common"><a href="forum.php?mod=viewthread&tid=1264906&extra=" class="xst">title</a>...</th>
+  ///     <td class="by"><a href="forum.php?mod=forumdisplay&fid=4" target="_blank">若闲小阁</a></td>
+  ///     <td class="by"><cite><a href="home.php?mod=space&uid=1116">author</a></cite><em>...</em></td>
+  ///     <td class="num"><a class="xi2">11</a><em>76</em></td>
+  ///     <td class="by"><cite><a href="home.php?mod=space&username=xxx">xxx</a></cite><em><a><span title="2026-9-4 20:25">29 分钟前</span></a></em></td>
+  ///   </tr>
+  /// </tbody>
+  LatestThread.fromTBody(uh.Element element) : _info = _buildFromTBodyNode(element);
+
   final _LatestThreadInfo? _info;
+
+  /// Whether this thread is successfully parsed.
+  bool get isValid => _info != null;
 
   static final _re = RegExp(r'(?<count>\d+)');
 
@@ -96,6 +119,38 @@ class LatestThread {
 
   /// Quoted message to show.
   String? get quotedMessage => _info?.quotedMessage;
+
+  static _LatestThreadInfo? _buildFromTBodyNode(uh.Element element) {
+    final thread = NormalThread.fromTBody(element);
+    if (thread == null) {
+      talker.error('failed to parse LatestThread from tbody: invalid thread row');
+      return null;
+    }
+
+    // The forum cell is the first <td class="by"> which has no <cite>.
+    final forumNode = element
+        .querySelectorAll('tr > td.by > a')
+        .firstWhereOrNull((e) => e.attributes['href']?.contains('mod=forumdisplay') ?? false);
+    final forumName = forumNode?.firstEndDeepText()?.trim();
+    final forumUrl = forumNode?.firstHref()?.prependHost();
+    if (forumName == null || forumUrl == null) {
+      talker.error('failed to parse LatestThread from tbody: forum not found: name=$forumName, url=$forumUrl');
+      return null;
+    }
+
+    return _LatestThreadInfo(
+      title: thread.title,
+      url: thread.url.prependHost(),
+      threadID: thread.threadID,
+      forumName: forumName,
+      forumUrl: forumUrl,
+      replyCount: thread.replyCount,
+      viewCount: thread.viewCount,
+      latestReplyAuthor: thread.latestReplyAuthor,
+      latestReplyTime: thread.latestReplyTime,
+      quotedMessage: null,
+    );
+  }
 
   /// <div id="threadlist">
   ///   <ul>
