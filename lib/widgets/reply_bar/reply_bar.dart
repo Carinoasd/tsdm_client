@@ -123,7 +123,9 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
   @override
   void initState() {
     super.initState();
-    widget.controller.onSetHintText = showEditor;
+    widget.controller
+      ..onSetHintText = showEditor
+      .._outerTextController = controller;
   }
 
   @override
@@ -131,6 +133,9 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.controller.dispose();
     });
+    if (identical(widget.controller._outerTextController, controller)) {
+      widget.controller._outerTextController = null;
+    }
     controller.dispose();
     super.dispose();
   }
@@ -717,7 +722,11 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       // `_ReplyBar` is manually disposed (by calling _manuallyDispose()).
       // Use the [_canSyncBBCodeOnDispose] to avoid that.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.outerTextController.text = text;
+        // The wrapper can go away in the same frame as this editor (the page was popped with the editor open, or
+        // the thread reloaded): its controller is disposed by then and must not be written to.
+        if (identical(widget.controller._outerTextController, widget.outerTextController)) {
+          widget.outerTextController.text = text;
+        }
       });
     }
     _replyRichController
@@ -782,6 +791,12 @@ final class ReplyBarController with LoggerMixin {
 
   /// Controller of the expanded editor (a bottom sheet), non-null while one is showing.
   PersistentBottomSheetController? _sheet;
+
+  /// Text controller of the collapsed reply box currently on screen, null while no [ReplyBar] is mounted.
+  ///
+  /// The expanded editor syncs its draft back into it when it closes; the identity check tells whether that
+  /// controller is still alive.
+  TextEditingController? _outerTextController;
 
   /// Flag indicating currently popping up the editor or not.
   ///
