@@ -128,6 +128,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   final _replyBarController = ReplyBarController();
 
+  /// Floor to scroll to when the thread reloads after a reply: the post the user just wrote. Read by the next
+  /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
+  String? _scrollToPidOnReload;
+
   Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight) {
     final infoTextStyle = Theme.of(
       context,
@@ -226,6 +230,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   Widget _buildContent(BuildContext context, ThreadState state) {
     final tr = context.t.threadPage;
+    if (_scrollToPidOnReload != null) {
+      // Consumed by the PostList created in this build.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPidOnReload = null);
+    }
 
     return Column(
       children: [
@@ -234,7 +242,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             threadID: state.tid ?? widget.threadID,
             title: state.title ?? widget.title,
             pageNumber: context.read<JumpPageCubit>().state.currentPage,
-            initialPostID: widget.findPostID?.parseToInt(),
+            initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
             scrollController: _listScrollController,
             widgetBuilder: (context, post) => PostCard(post, replyCallback: replyPostCallback),
             useDivider: true,
@@ -402,13 +410,18 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 // Close the reply bar when sent success. Through the controller, never `context.pop()`: the reload
                 // below disposes the reply bar and its own close would then pop this page.
                 _replyBarController.closeEditor();
-                // Reload so the new floor shows up. It lands on the last page unless the thread is read in reverse.
+                // Reload and land on the floor just posted. The success hook names the new post and its page;
+                // newest-first threads show it at the top of page 1, otherwise load that page (the page count held
+                // here is stale when the reply opened a new page) and scroll to the post.
                 final threadBloc = context.read<ThreadBloc>();
                 final threadState = threadBloc.state;
-                if (threadState.totalPages > 1 &&
-                    threadState.reverseOrder != true &&
-                    threadState.currentPage != threadState.totalPages) {
-                  threadBloc.add(ThreadJumpPageRequested(threadState.totalPages));
+                _scrollToPidOnReload = state.postedPid.isEmpty ? null : state.postedPid;
+                final newestFirst =
+                    threadState.exactOrder == 1 ||
+                    (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
+                final page = state.postedPage > 0 ? state.postedPage : threadState.totalPages;
+                if (!newestFirst && page > 1) {
+                  threadBloc.add(ThreadJumpPageRequested(page));
                 } else {
                   threadBloc.add(ThreadRefreshRequested());
                 }

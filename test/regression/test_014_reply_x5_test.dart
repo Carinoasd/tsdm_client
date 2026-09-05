@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -100,6 +101,7 @@ void main() {
       serve((_, _) => _fixture('reply_success_fastpost_x5.xml'));
       final result = await const ReplyRepository().replyToThread(replyParameters: _params, replyMessage: 'hi').run();
       expect(result.isRight(), isTrue, reason: '$result');
+      expect(result.unwrap(), (pid: '77983909', page: 1), reason: 'the new post and its page come from the hook url');
       final req = adapter.requests.single;
       expect(req.method, 'POST');
       expect(req.uri.queryParameters, containsPair('handlekey', 'fastpost'));
@@ -122,6 +124,15 @@ void main() {
       );
       final result = await const ReplyRepository().replyToThread(replyParameters: _params, replyMessage: 'hi').run();
       expect(result.isRight(), isTrue, reason: '$result');
+      expect(result.unwrap(), (pid: null, page: null), reason: 'no forward url with a pid: unknown');
+    });
+
+    test('the bloc carries the new post and page on success', () async {
+      serve((_, _) => _fixture('reply_success_fastpost_x5.xml'));
+      final states = await drive(const ReplyToThreadRequested(replyParameters: _params, replyMessage: 'hi'));
+      expect(states.last.status, ReplyStatus.success);
+      expect(states.last.postedPid, '77983909');
+      expect(states.last.postedPage, 1);
     });
 
     test('flood control rejection carries the server reason', () async {
@@ -182,6 +193,7 @@ void main() {
           .replyToPost(replyParameters: _params, replyAction: _floorAction, replyMessage: 'hi')
           .run();
       expect(result.isRight(), isTrue, reason: '$result');
+      expect(result.unwrap(), (pid: '77983907', page: 1));
       expect(adapter.requests, hasLength(2));
       final window = adapter.requests.first;
       expect(window.uri.queryParameters, containsPair('ajaxtarget', 'fwin_content_reply'));

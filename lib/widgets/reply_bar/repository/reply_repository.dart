@@ -11,6 +11,10 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
 
+/// Where a stored reply landed: the id of the new post and the page it is on (server default order), when the
+/// server told them in the success hook.
+typedef PostedReply = ({String? pid, int? page});
+
 /// Repository of reply.
 final class ReplyRepository with LoggerMixin {
   /// Constructor.
@@ -30,7 +34,7 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// Emitted by Discuz! `showmessage()` only when the reply was stored (a forward url exists), for both the plain
   /// success message and the "needs moderation" one, so it is a more reliable marker than one language string.
-  static final _succeedHandleRe = RegExp(r"succeedhandle_\w*\('(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)'");
+  static final _succeedHandleRe = RegExp(r"succeedhandle_\w*\('((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)'");
 
   /// `errorhandle_<handlekey>('<message>', {...})` carries the rejection reason.
   static final _errorHandleRe = RegExp(r"errorhandle_\w*\('((?:[^'\\]|\\.)*)'");
@@ -40,7 +44,17 @@ final class ReplyRepository with LoggerMixin {
       _succeedHandleRe.hasMatch(data) || data.contains('回复发布成功') || data.contains('回复需要审核');
 
   /// The message inside the success hook, if any.
-  static String? _storedMessage(String data) => _succeedHandleRe.firstMatch(data)?.group(1)?.replaceAll(r"\'", "'");
+  static String? _storedMessage(String data) => _succeedHandleRe.firstMatch(data)?.group(2)?.replaceAll(r"\'", "'");
+
+  /// Where a stored reply landed, from the forward url inside the success hook
+  /// (`forum.php?mod=viewthread&tid=…&pid=<new post>&page=<page>…`). Parts the server did not tell are null.
+  static PostedReply postedReplyOf(String data) {
+    final url = _succeedHandleRe.firstMatch(data)?.group(1) ?? '';
+    return (
+      pid: RegExp(r'[?&]pid=(\d+)').firstMatch(url)?.group(1),
+      page: int.tryParse(RegExp(r'[?&]page=(\d+)').firstMatch(url)?.group(1) ?? ''),
+    );
+  }
 
   /// Human readable reason from a Discuz! inajax `showmessage()` response, if any.
   static String? _serverMessage(String data) {
@@ -64,11 +78,11 @@ final class ReplyRepository with LoggerMixin {
   static String _bodyText(Object? data) => data is String ? data : (data?.toString() ?? '');
 
   /// Reply to a post.
-  AsyncVoidEither replyToPost({
+  AsyncEither<PostedReply> replyToPost({
     required ReplyParameters replyParameters,
     required String replyAction,
     required String replyMessage,
-  }) => AsyncVoidEither(() async {
+  }) => AsyncEither(() async {
     final netClient = getIt.get<NetClientProvider>();
     final replyWindowUrl = '${replyAction.prependHost()}$replyPostWindowSuffix';
     final respEither = await netClient.get(replyWindowUrl).run();
@@ -161,7 +175,7 @@ final class ReplyRepository with LoggerMixin {
     }
     info('reply to post stored: ${_storedMessage(data2)}');
 
-    return rightVoid();
+    return right(postedReplyOf(data2));
   });
 
   /// Post reply to thread tid/fid.
@@ -172,8 +186,8 @@ final class ReplyRepository with LoggerMixin {
   /// * **HttpRequestFailedException** when http request failed.
   /// * **ReplyToThreadResultFailedException** when reply finished but no
   /// successful result found in response, carrying the server's reason.
-  AsyncVoidEither replyToThread({required ReplyParameters replyParameters, required String replyMessage}) =>
-      AsyncVoidEither(() async {
+  AsyncEither<PostedReply> replyToThread({required ReplyParameters replyParameters, required String replyMessage}) =>
+      AsyncEither(() async {
         final formData = <String, String>{
           'message': replyMessage,
           'usesig': '1',
@@ -203,7 +217,7 @@ final class ReplyRepository with LoggerMixin {
           return left(ReplyToThreadResultFailedException(reason));
         }
         info('reply to thread stored: ${_storedMessage(data)}');
-        return rightVoid();
+        return right(postedReplyOf(data));
       });
 
   /// Reply personalMessage in history page.

@@ -60,7 +60,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       emit(_failed(err));
       return;
     }
-    emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
+    emit(_stored(ret.unwrap()));
   }
 
   Future<void> _onReplyToThreadRequested(ReplyToThreadRequested event, _Emit emit) async {
@@ -74,8 +74,16 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       emit(_failed(err));
       return;
     }
-    emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
+    emit(_stored(ret.unwrap()));
   }
+
+  /// Success state carrying where the new post landed, so the thread page can jump to it.
+  ReplyState _stored(PostedReply posted) => state.copyWith(
+    status: ReplyStatus.success,
+    needClearText: true,
+    postedPid: posted.pid ?? '',
+    postedPage: posted.page ?? 0,
+  );
 
   /// Failure state for [e]: the server's own words when it gave any, the HTTP status when a broken answer came
   /// back, or the network flag when nothing came back at all (offline, DNS failure, timeout).

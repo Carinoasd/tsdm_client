@@ -27,6 +27,8 @@ class ReplyState with ReplyStateMappable {
     this.replyTypes = ReplyTypes.thread,
     this.failedReason,
     this.networkFailure = false,
+    this.postedPid = '',
+    this.postedPage = 0,
   });
 
   /// Current usage of reply.
@@ -56,6 +58,12 @@ class ReplyState with ReplyStateMappable {
   /// fixed network hint instead of the raw exception text.
   final bool networkFailure;
 
+  /// Id of the post created by the last successful reply, empty when the server did not tell.
+  final String postedPid;
+
+  /// Page (in the server's default order) the last successful reply landed on, 0 when unknown.
+  final int postedPage;
+
   /// Copy with, but make the `replyParameters` to null.
   ReplyState copyWithNullReplyParameters() {
     return ReplyState(
@@ -64,6 +72,8 @@ class ReplyState with ReplyStateMappable {
       needClearText: needClearText,
       failedReason: failedReason,
       networkFailure: networkFailure,
+      postedPid: postedPid,
+      postedPage: postedPage,
     );
   }
 }
