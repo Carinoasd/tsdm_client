@@ -13,10 +13,10 @@ import 'package:tsdm_client/features/settings/models/historical_log.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
-import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// Debug page for show all caught log since this start.
 class DebugLogPage extends StatefulWidget {
