@@ -25,7 +25,7 @@ bool isThreadFavorited(BuildContext context, {required String tid}) {
 Future<bool> toggleThreadFavorite(BuildContext context, {required String tid}) async {
   final uid = context.read<AuthenticationRepository>().currentUser?.uid;
   if (uid == null) {
-    showSnackBar(context: context, message: context.t.threadPage.needLogin);
+    showSnackBar(context: context, clearPrevious: true, message: context.t.threadPage.needLogin);
     return false;
   }
   final repository = context.repo<FavoriteRepository>();
@@ -53,21 +53,21 @@ Future<bool> _add(
   }
   switch (result) {
     case Left(:final value):
-      showSnackBar(context: context, message: tr.failed(err: value.message ?? '$value'));
+      showSnackBar(context: context, clearPrevious: true, message: tr.failed(err: value.message ?? '$value'));
       return false;
     case Right(value: FavoriteAdded(:final favid)):
       if (favid != null) {
         repository.remember(uid: uid, tid: tid, favid: favid);
       }
-      showSnackBar(context: context, message: tr.added);
+      showSnackBar(context: context, clearPrevious: true, message: tr.added);
       return favid != null;
     case Right(value: FavoriteAlreadyExists()):
-      showSnackBar(context: context, message: tr.alreadyAdded);
+      showSnackBar(context: context, clearPrevious: true, message: tr.alreadyAdded);
       // The forum does not tell which record it is; look it up so the menu can offer to remove it.
       final known = (await repository.findFavid(tid: tid, uid: uid).run()).toNullable();
       return known != null;
     case Right(value: FavoriteAddFailed(:final message)):
-      showSnackBar(context: context, message: tr.failed(err: message));
+      showSnackBar(context: context, clearPrevious: true, message: tr.failed(err: message));
       return false;
   }
 }
@@ -95,14 +95,14 @@ Future<bool> _remove(
   }
   switch (result) {
     case Left(:final value):
-      showSnackBar(context: context, message: tr.failed(err: value.message ?? '$value'));
+      showSnackBar(context: context, clearPrevious: true, message: tr.failed(err: value.message ?? '$value'));
       return false;
     case Right(value: FavoriteRemoveResult(removed: true)):
       repository.forget(uid: uid, tid: tid);
-      showSnackBar(context: context, message: tr.removed);
+      showSnackBar(context: context, clearPrevious: true, message: tr.removed);
       return true;
     case Right(:final value):
-      showSnackBar(context: context, message: tr.failed(err: value.message ?? ''));
+      showSnackBar(context: context, clearPrevious: true, message: tr.failed(err: value.message ?? ''));
       return false;
   }
 }

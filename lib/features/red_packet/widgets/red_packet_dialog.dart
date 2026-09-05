@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' hide State;
-import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/red_packet/models/models.dart';
 import 'package:tsdm_client/features/red_packet/repository/red_packet_repository.dart';
@@ -173,6 +172,8 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
     final claimedBest = grabbed?.best ?? info.claimedBest;
     final canClaim = !claimed && info.state == RedPacketState.open;
     final canSeeRecords = claimed || info.isSender;
+    // The server reports `claimed` instead of `open` once the user has a share; do the same after a grab in this dialog.
+    final shownState = claimed && info.state == RedPacketState.open ? RedPacketState.claimed : info.state;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,20 +183,26 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
         sizedBoxW4H4,
         Text(info.bless, style: theme.textTheme.titleLarge),
         sizedBoxW4H4,
-        Text('${info.isRandom ? tr.modeRandom : tr.modeEven} · ${_stateText(context.t, info.state)}', style: secondary),
+        Text('${info.isRandom ? tr.modeRandom : tr.modeEven} · ${_stateText(context.t, shownState)}', style: secondary),
         if (claimed) ...[
           sizedBoxW12H12,
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(Icons.redeem, color: theme.colorScheme.primary),
-              sizedBoxW8H8,
-              Expanded(
-                child: Text(
-                  grabbed != null && !grabbed.already
-                      ? tr.grabbed(amount: claimedAmount ?? '?', unit: grabbed.unit ?? info.unit)
-                      : tr.claimed(amount: claimedAmount ?? '?', unit: info.unit),
-                  style: theme.textTheme.titleMedium,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.redeem, color: theme.colorScheme.primary),
+                  sizedBoxW8H8,
+                  Text(
+                    grabbed != null && !grabbed.already
+                        ? tr.grabbed(amount: claimedAmount ?? '?', unit: grabbed.unit ?? info.unit)
+                        : tr.claimed(amount: claimedAmount ?? '?', unit: info.unit),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ],
               ),
               if (claimedBest) Chip(label: Text(tr.best), visualDensity: VisualDensity.compact),
             ],
@@ -313,7 +320,7 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
     return AlertDialog(
       title: Row(children: [const Icon(Icons.redeem_outlined), sizedBoxW8H8, Text(tr.title)]),
       content: SizedBox(width: 360, child: SingleChildScrollView(child: _buildBody(context))),
-      actions: [TextButton(onPressed: () => context.pop(), child: Text(context.t.general.close))],
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.close))],
     );
   }
 }

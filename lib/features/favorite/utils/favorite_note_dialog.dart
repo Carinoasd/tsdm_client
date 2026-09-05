@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -41,8 +40,11 @@ class _FavoriteNoteDialogState extends State<_FavoriteNoteDialog> {
         decoration: InputDecoration(hintText: tr.noteHint, border: const OutlineInputBorder()),
       ),
       actions: [
-        TextButton(onPressed: () => context.pop(), child: Text(context.t.general.cancel)),
-        TextButton(onPressed: () => context.pop(_controller.text.trim()), child: Text(context.t.general.ok)),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(context.t.general.ok),
+        ),
       ],
     );
   }

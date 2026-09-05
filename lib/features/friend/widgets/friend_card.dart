@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/friend/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/css_parser.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -21,7 +22,15 @@ class FriendCard extends StatelessWidget {
   static const _avatarRadius = 22.0;
   static const _groupIconHeight = 18.0;
 
-  Color? _color(String? cssColor) => cssColor == null ? null : parseCssString('color:$cssColor')?.color;
+  /// Forum colors (e.g. `Red`, `blue`) are chosen for the light web page; in dark mode they are adapted the same way
+  /// the post renderer does.
+  Color? _color(BuildContext context, String? cssColor) {
+    final color = cssColor == null ? null : parseCssString('color:$cssColor')?.color;
+    if (color == null) {
+      return null;
+    }
+    return Theme.of(context).brightness == Brightness.dark ? color.adaptiveDark() : color;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +64,7 @@ class FriendCard extends StatelessWidget {
                   children: [
                     Text(
                       friend.username,
-                      style: theme.textTheme.titleMedium?.copyWith(color: _color(friend.nameColor)),
+                      style: theme.textTheme.titleMedium?.copyWith(color: _color(context, friend.nameColor)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -79,7 +88,7 @@ class FriendCard extends StatelessWidget {
                                   child: Text(
                                     groupName,
                                     style: secondaryStyle?.copyWith(
-                                      color: _color(friend.groupColor) ?? secondaryStyle.color,
+                                      color: _color(context, friend.groupColor) ?? secondaryStyle.color,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

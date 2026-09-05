@@ -68,7 +68,7 @@ class RedPacketCard extends StatelessWidget {
                   ),
                 ),
                 sizedBoxW8H8,
-                Text(tr.cardHint, style: textTheme.labelSmall?.copyWith(color: _envelopeGold)),
+                const Icon(Icons.chevron_right, color: _envelopeGold),
               ],
             ),
           ),

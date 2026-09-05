@@ -613,7 +613,6 @@
   },
   "redPacket": {
     "title": "紅包",
-    "cardHint": "點擊開啟",
     "modeRandom": "拼手氣紅包",
     "modeEven": "均分紅包",
     "stateOpen": "可領取",

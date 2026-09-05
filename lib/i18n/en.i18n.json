@@ -613,7 +613,6 @@
   },
   "redPacket": {
     "title": "Red packet",
-    "cardHint": "Tap to open",
     "modeRandom": "Random amounts",
     "modeEven": "Equal shares",
     "stateOpen": "Available",
