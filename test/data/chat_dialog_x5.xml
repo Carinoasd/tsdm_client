@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<div class="pm">
+<h3 class="flb">
+<em>正在与Bob聊天中……[在线]</em>
+<span><a href="javascript:;" onclick="hideWindow('showmsg_1000');" class="flbc" title="关闭">关闭</a></span></h3>
+<div class="pm_tac bbda cl">
+<a href="home.php?mod=space&amp;do=pm&amp;subop=view&amp;touid=1000#last" class="y" target="_blank">查看与Bob的聊天记录</a>
+<a href="home.php?mod=space&amp;uid=1000" target="_blank">访问Bob的空间</a>
+</div>
+<div class="c">
+<ul class="pmb" id="msglist"><li class="cl">
+<h4 class="xg1">2026-09-05</h4>
+</li><li class="cl pmm">
+<div class="pmt">Alice: </div>
+<div class="pmd">[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。</div>
+</li>
+</ul>
+<script type="text/javascript">
+var refresh = true;
+var refreshHandle = -1;
+</script>
+<div class="pmfm">
+<form id="pmform_1000" name="pmform_1000" method="post" autocomplete="off" action="home.php?mod=spacecp&amp;ac=pm&amp;op=send&amp;touid=1000" onsubmit="this.message.value = parseurl(this.message.value);ajaxpost(this.id,  'return_showmsg_1000');refreshMsg();">
+<input type="hidden" name="pmsubmit" value="true" />
+<input type="hidden" name="touid" value="1000" />
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<div id="return_showmsg_1000" class="xi1" style="margin-bottom:5px"></div>
+<input type="hidden" name="handlekey" value="showmsg_1000" />
+<div class="tedt">
+<div class="bar"><script src="static/js/seditor.js?oCT" type="text/javascript"></script>
+<div class="fpd">
+<a href="javascript:;" title="文字加粗" class="fbld" onclick="seditor_insertunit('pm', '[b]', '[/b]');doane(event);">B</a>
+<a href="javascript:;" title="设置文字颜色" class="fclr" id="pmforecolor" onclick="showColorBox(this.id, 2, 'pm');doane(event);">Color</a>
+<a id="pmimg" href="javascript:;" title="图片" class="fmg" onclick="seditor_menu('pm', 'img');doane(event);">Image</a>
+<a id="pmurl" href="javascript:;" title="添加链接" class="flnk" onclick="seditor_menu('pm', 'url');doane(event);">Link</a>
+<a id="pmquote" href="javascript:;" title="引用" class="fqt" onclick="seditor_menu('pm', 'quote');doane(event);">Quote</a>
+<a id="pmcode" href="javascript:;" title="代码" class="fcd" onclick="seditor_menu('pm', 'code');doane(event);">Code</a>
+<a href="javascript:;" class="fsml" id="pmsml" onclick="showMenu({'ctrlid':this.id,'evt':'click','layer':2});return false;">Smilies</a>
+<script type="text/javascript" reload="1">smilies_show('pmsmiliesdiv', 8, 'pm');</script>
+</div></div>
+<div class="area">
+<textarea rows="3" cols="80" name="message" class="pt" id="pmmessage" onkeydown="ctrlEnter(event, 'pmsubmit_btn');" autofocus></textarea>
+<input type="hidden" name="messageappend" id="messageappend" value="" />
+<script type="text/javascript">$('pmmessage').focus();</script>
+</div>
+</div>
+<div class="mtn pns cl">
+ 					<button type="submit" class="pn pnc" id="pmsubmit_btn"><strong>发送</strong></button>
+ 					<div class="pma mtn z">
+<a href="javascript:;" title="刷新" onclick="refreshMsg();"><i class="fico-refresh fic4 vm" alt="刷新"></i>刷新</a>
+ 					</div>
+</div>
+</form>
+<script type="text/javascript">var forumallowhtml = 0,allowhtml = 0,allowsmilies = true,allowbbcode = parseInt('1'),allowimgcode = parseInt('1');var DISCUZCODE = [];DISCUZCODE['num'] = '-1';DISCUZCODE['html'] = [];</script>
+<script src="static/js/bbcode.js?oCT" type="text/javascript"></script>
+<script type="text/javascript">
+var msgListObj = $('msglist');
+msgListObj.scrollTop = msgListObj.scrollHeight;
+function succeedhandle_showmsg_1000(url, msg, values) {
+var liObj = document.createElement("li");
+var pmMsg = $('pmmessage');
+liObj.className = 'cl pmm';
+pmMsg.value = ($('messageappend').value ? $('messageappend').value + '\n' : '') + pmMsg.value;
+$('messageappend').value = '';
+liObj.innerHTML = '<div class="pmt">Alice: </div><div class="pmd">'+bbcode2html(parseurl(pmMsg.value))+'</div>';
+msgListObj.appendChild(liObj);
+msgListObj.scrollTop = msgListObj.scrollHeight;
+pmMsg.value = "";
+showCreditPrompt();
+}
+
+function refreshMsg() {
+if(refresh) {
+var x = new Ajax();
+x.get('home.php?mod=spacecp&ac=pm&op=showmsg&msgonly=1&touid=1000&pmid=0&inajax=1&daterange=2', function(s){
+msgListObj.innerHTML = s;
+msgListObj.scrollTop = msgListObj.scrollHeight;
+   						});
+} else {
+window.clearInterval(refreshHandle);
+}
+}
+refreshHandle = window.setInterval('refreshMsg();', 8000);
+hideMenu();
+</script>
+</div>
+</div>
+</div>
+]]></root>

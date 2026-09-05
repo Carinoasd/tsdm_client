@@ -46,7 +46,11 @@ final class ChatMessageCard extends StatelessWidget {
                   : null,
               child: Align(alignment: Alignment.centerLeft, child: Text(chatMessage.author ?? '')),
             ),
-            subtitle: chatMessage.dateTime == null ? null : Text(chatMessage.dateTime!.yyyyMMDDHHMMSS()),
+            subtitle: switch (chatMessage.dateTime) {
+              null => null,
+              final t when chatMessage.dateOnly => Text(t.yyyyMMDD()),
+              final t => Text(t.yyyyMMDDHHMMSS()),
+            },
           ),
           Align(
             alignment: Alignment.centerLeft,

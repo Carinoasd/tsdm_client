@@ -16,6 +16,7 @@ final class ChatMessage with ChatMessageMappable {
     required this.authorAvatarUrl,
     required this.message,
     required this.dateTime,
+    this.dateOnly = false,
   });
 
   /// Username of message author.
@@ -40,6 +41,10 @@ final class ChatMessage with ChatMessageMappable {
   ///
   /// Make this field optional because we do not have it in the chat dialog.
   final DateTime? dateTime;
+
+  /// True when [dateTime] only carries a day: the chat dialog on Discuz! X5 groups messages under date separators and
+  /// shows no time per message, so the time of day must not be displayed for it.
+  final bool dateOnly;
 
   /// Parse the message html in the content node `dd.ptm` of the chat history page.
   ///
@@ -144,7 +149,14 @@ final class ChatMessage with ChatMessageMappable {
       return null;
     }
 
-    return ChatMessage(author: username, authorUid: null, authorAvatarUrl: null, message: message, dateTime: date);
+    return ChatMessage(
+      author: username,
+      authorUid: null,
+      authorAvatarUrl: null,
+      message: message,
+      dateTime: date,
+      dateOnly: date != null,
+    );
   }
 
   /// Parse the date in date separator `<li class="cl"><h4 class="xg1">2026-09-03</h4></li>`.

@@ -288,10 +288,11 @@ extension GrepExtension on Element {
     if (str == null) {
       return null;
     }
-    if (str.startsWith('http')) {
-      return str;
+    final s = str.trim();
+    if (s.startsWith('http')) {
+      return s;
     }
-    return '$baseUrl/$str';
+    return '$baseUrl/$s';
   }
 
   /// Parse a count number in current node.

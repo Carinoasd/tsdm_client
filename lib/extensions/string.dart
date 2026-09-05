@@ -252,10 +252,12 @@ extension EnhanceModification on String {
 
   /// Prepend host url.
   String prependHost() {
-    if (startsWith('https://') || startsWith('http://') || startsWith('mailto:')) {
-      return this;
+    // Attribute values scraped from html may carry stray whitespace; an absolute url must stay absolute.
+    final s = trim();
+    if (s.startsWith('https://') || s.startsWith('http://') || s.startsWith('mailto:')) {
+      return s;
     }
-    return '$baseUrl/$this';
+    return '$baseUrl/$s';
   }
 
   /// Prepend [suffix].
