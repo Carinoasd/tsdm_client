@@ -11,7 +11,6 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/constants.dart';
-import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
@@ -80,14 +79,12 @@ final class ImageCacheProvider with LoggerMixin {
   // ignore: prefer_const_constructor_declarations
   /// Constructor.
   ///
-  /// The first client carries the current user's cookie and is used for attachments on the forum host, so that
-  /// permission-gated attachments are evaluated for the logged-in user. `noCookieClient` (defaults to the first
-  /// one) fetches every other image without exposing the session to third-party hosts.
-  ImageCacheProvider(this._forumClient, {NetClientProvider? noCookieClient})
-    : _noCookieClient = noCookieClient ?? _forumClient;
+  /// Images are fetched without the user's session on purpose: third-party hosts must not see the forum cookie, and
+  /// forum attachments do not need it because the `aid` token already carries the viewer's identity (verified live:
+  /// an attachment of a purchased thread loads for the buyer's token with and without the cookie).
+  ImageCacheProvider(this._netClientProvider);
 
-  final NetClientProvider _forumClient;
-  final NetClientProvider _noCookieClient;
+  final NetClientProvider _netClientProvider;
 
   /// Messages the server answered instead of image bytes, by image url (e.g. `附件所在主题需要付费，请您付费后下载`).
   final _htmlMessages = <String, String>{};
@@ -95,13 +92,6 @@ final class ImageCacheProvider with LoggerMixin {
   /// The message the server answered instead of an image for [imageUrl], if any.
   String? htmlMessageOf(String imageUrl) => _htmlMessages[imageUrl];
 
-  /// Attachments are served by `forum.php?mod=attachment` on the forum host and need the user's session.
-  static bool _isForumAttachment(String imageUrl) {
-    final uri = Uri.tryParse(imageUrl);
-    return uri != null &&
-        (uri.host == baseHost || uri.host == baseHostAlt) &&
-        uri.queryParameters['mod'] == 'attachment';
-  }
 
   /// Regexp that matches emoji bbcode.
   ///
@@ -228,8 +218,7 @@ final class ImageCacheProvider with LoggerMixin {
     _controller.add(ImageCacheLoadingResponse(imageId, respType));
 
     try {
-      final client = _isForumAttachment(imageUrl) ? _forumClient : _noCookieClient;
-      final respEither = await client.getImage(imageUrl).run();
+      final respEither = await _netClientProvider.getImage(imageUrl).run();
       if (respEither.isLeft()) {
         final err = respEither.unwrapErr();
         if (err is ImageResponseNotImageException) {

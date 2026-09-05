@@ -62,10 +62,7 @@ Future<void> initProviders() async {
   await getIt.allReady();
 
   getIt.registerSingleton(
-    ImageCacheProvider(
-      getIt.get<NetClientProvider>(),
-      noCookieClient: getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie),
-    ),
+    ImageCacheProvider(getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie)),
     dispose: (s) async => s.dispose(),
   );
   await getIt.allReady();
