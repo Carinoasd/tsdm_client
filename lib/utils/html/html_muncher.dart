@@ -17,6 +17,8 @@ import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/html/netease_card.dart';
 // Newcomer card
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
+// Review (post comment) parser
+import 'package:tsdm_client/utils/html/review_parser.dart';
 // Table
 import 'package:tsdm_client/utils/html/table_width.dart';
 import 'package:tsdm_client/utils/html/types.dart';
@@ -661,13 +663,9 @@ final class _Muncher with LoggerMixin {
     if (element.children.length <= 1) {
       return null;
     }
-    final avatarUrl = element.querySelector('div.psta > a > img')?.imageUrl();
-    final name = element.querySelector('div.psti > a')?.firstEndDeepText();
-    final content = element.querySelector('div.psti')?.nodes.elementAtOrNull(2)?.text?.trim();
-    // final time = element
-    //     .querySelector('div.psti > span > span')
-    //     ?.attributes['title']
-    //     ?.parseToDateTimeUtc8();
+    // Since Discuz! X5 the author link lives in `div.psta` and the comment text is a bare text node in
+    // `div.psti`, so the fields are parsed without relying on a fixed child index.
+    final (:avatarUrl, :name, :content) = parseReviewElement(element);
 
     return [
       WidgetSpan(
