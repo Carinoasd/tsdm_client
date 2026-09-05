@@ -361,7 +361,7 @@ class NormalThread with NormalThreadMappable {
     final threadTitle = threadUrlNode?.firstEndDeepText()?.trim();
     final css = parseCssString(threadUrlNode?.attributes['style'] ?? '');
     if (threadUrl == null || threadTitle == null) {
-      talker.error('failed to build thread: url or title not found');
+      talker.error('failed to build thread: url or title not found, tbody=${threadElement.id}');
       return null;
     }
 
@@ -404,7 +404,7 @@ class NormalThread with NormalThreadMappable {
     if (threadAuthorUrl == null || threadAuthorName == null || threadPublishDate == null) {
       talker.error(
         'failed to build thread: invalid author or thread publish '
-        'date not found',
+        'date not found, tbody=${threadElement.id}',
       );
       return null;
     }
@@ -417,24 +417,31 @@ class NormalThread with NormalThreadMappable {
     //
     // 1. Thread author node.
     // 2. Last reply author node. <- need this one.
+    //
+    // Never drop the whole thread because this cell is incomplete: an anonymous or deleted last replier has no
+    // link (`<cite>匿名</cite>`) and the reply time may be rendered without `<a>`. Fall back to plain text / null.
     final threadLastReplyNode = threadByNodeList.lastOrNull;
-    final threadLastReplyAuthorUrl = threadLastReplyNode?.querySelector('cite > a')?.attributes['href'];
+    final threadLastReplyCite = threadLastReplyNode?.querySelector('cite');
+    final threadLastReplyAuthorUrl = threadLastReplyCite?.querySelector('a')?.attributes['href'] ?? '';
     // We only have username here.
-    final threadLastReplyAuthorName = threadLastReplyNode?.querySelector('cite > a')?.firstEndDeepText();
-    final threadLastReplyTime = threadLastReplyNode?.querySelector('em > a')?.dateTime();
-
-    if (threadLastReplyAuthorName == null || threadLastReplyAuthorUrl == null || threadLastReplyTime == null) {
-      talker.error(
-        'failed to build thread: invalid last reply user info or last '
-        'reply time not found',
-      );
-      return null;
-    }
+    final threadLastReplyAuthorName =
+        threadLastReplyCite?.querySelector('a')?.firstEndDeepText()?.trim() ?? threadLastReplyCite?.innerText.trim() ?? '';
+    final threadLastReplyTimeNode = threadLastReplyNode?.querySelector('em');
+    final threadLastReplyTime =
+        threadLastReplyTimeNode?.querySelector('a')?.dateTime() ??
+        threadLastReplyTimeNode?.querySelector('span[title]')?.attributes['title']?.parseToDateTimeUtc8() ??
+        threadLastReplyTimeNode?.innerText.trim().parseToDateTimeUtc8();
 
     final threadID = threadUrl.uriQueryParameter('tid');
     if (threadID == null) {
-      talker.error('failed to build thread: thread ID not found');
+      talker.error('failed to build thread: thread ID not found, url=$threadUrl');
       return null;
+    }
+    if (threadLastReplyAuthorName.isEmpty || threadLastReplyTime == null) {
+      talker.warning(
+        'thread $threadID: incomplete last reply info, name="$threadLastReplyAuthorName" '
+        'time=$threadLastReplyTime, keep the thread',
+      );
     }
 
     final stateTrNode = threadElement.querySelector('tr');
