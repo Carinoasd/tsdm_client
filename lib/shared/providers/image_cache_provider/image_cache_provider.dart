@@ -25,6 +25,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/safe_path.dart';
 
 const _contentTypeImageAvif = 'image/avif';
 
@@ -134,7 +135,7 @@ final class ImageCacheProvider with LoggerMixin {
     }
 
     final cacheFile = getCacheFile(cacheInfo.cacheName);
-    if (!cacheFile.existsSync()) {
+    if (cacheFile == null || !cacheFile.existsSync()) {
       _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
       return;
     }
@@ -160,8 +161,8 @@ final class ImageCacheProvider with LoggerMixin {
     if (!force) {
       final cacheInfo = _getCacheInfo(req.imageUrl);
       if (cacheInfo != null) {
-        final cacheFile = File('${_imageCacheDirectory.path}/${cacheInfo.fileName}');
-        if (cacheFile.existsSync()) {
+        final cacheFile = getCacheFile(cacheInfo.fileName);
+        if (cacheFile != null && cacheFile.existsSync()) {
           final imageData = await cacheFile.readAsBytes();
 
           // Cached loaded from disk, update last used time.
@@ -299,7 +300,7 @@ final class ImageCacheProvider with LoggerMixin {
     // Cache found.
 
     final cacheFile = getCacheFile(cacheInfo.cacheName);
-    if (!cacheFile.existsSync()) {
+    if (cacheFile == null || !cacheFile.existsSync()) {
       return const Option.none();
     }
 
@@ -312,12 +313,16 @@ final class ImageCacheProvider with LoggerMixin {
     return Option.of(await cacheFile.readAsBytes());
   }
 
-  /// Get the cached file with [fileName] synchronously.
+  /// The cache file called [fileName] inside the image cache directory.
   ///
-  /// **WARNING**: Make sure the [fileName] exists and safe to read before
-  /// calling this function.
-  File getCacheFile(String fileName) {
-    return File('${_imageCacheDirectory.path}/$fileName');
+  /// Null when [fileName] is not a plain file name or would resolve outside of the directory: names come back from
+  /// the database, which a restored backup may have filled with anything. Callers treat null as "not cached".
+  File? getCacheFile(String fileName) {
+    final file = fileInside(_imageCacheDirectory, fileName);
+    if (file == null) {
+      error('refuse cache file name outside the image cache directory (${fileName.length} chars)');
+    }
+    return file;
   }
 
   /// Save latest cache data and info into database.
@@ -332,7 +337,10 @@ final class ImageCacheProvider with LoggerMixin {
     await getIt.get<StorageProvider>().updateImageCache(imageUrl, fileName: fileName);
 
     // Make cache.
-    final cache = File('${_imageCacheDirectory.path}/$fileName');
+    final cache = getCacheFile(fileName);
+    if (cache == null) {
+      return;
+    }
     await cache.writeAsBytes(imageData);
 
     // Update other cache ref tables, if necessary.
@@ -395,7 +403,7 @@ final class ImageCacheProvider with LoggerMixin {
     final clearedCache = await storage.clearImageCacheOutdated(dateTime);
     for (final cache in clearedCache) {
       final cacheFile = getCacheFile(cache.fileName);
-      if (cacheFile.existsSync()) {
+      if (cacheFile != null && cacheFile.existsSync()) {
         await cacheFile.delete();
       }
     }
@@ -471,8 +479,12 @@ final class ImageCacheProvider with LoggerMixin {
     for (final emojiGroup in info.emojiGroupList) {
       for (final emoji in emojiGroup.emojiList) {
         // All emoji are saved with ".jpg" suffix.
+        final cacheTarget = _formatEmojiCachePath(emojiGroup.id, emoji.id);
+        if (cacheTarget == null) {
+          warning('skip emoji with unsafe id (${emojiGroup.id.length}/${emoji.id.length} chars)');
+          continue;
+        }
         final emojiBytes = await rootBundle.load('$assetEmojiDir${emojiGroup.id}_${emoji.id}.jpg');
-        final cacheTarget = '${_emojiCacheDirectory.path}/${emojiGroup.id}_${emoji.id}.jpg';
         await File(cacheTarget).writeAsBytes(emojiBytes.buffer.asUint8List());
       }
     }
@@ -481,12 +493,20 @@ final class ImageCacheProvider with LoggerMixin {
   }
 
   /// Emoji cache is save as jpg file no matter the real content.
-  String _formatEmojiCachePath(String groupId, String id) => '${_emojiCacheDirectory.path}/${groupId}_$id.jpg';
+  ///
+  /// Null when an id is not a plain `[A-Za-z0-9_-]` token: ids come from the forum's smilies script and from the cache
+  /// info file, and must never form a path outside the emoji cache directory.
+  String? _formatEmojiCachePath(String groupId, String id) {
+    if (!isSafeEmojiId(groupId) || !isSafeEmojiId(id)) {
+      return null;
+    }
+    return '${_emojiCacheDirectory.path}/${groupId}_$id.jpg';
+  }
 
   /// Check have the cache file for emoji with [groupId] and [id].
   bool hasEmojiCacheFile(String groupId, String id) {
-    final cacheFile = File(_formatEmojiCachePath(groupId, id));
-    return cacheFile.existsSync();
+    final cachePath = _formatEmojiCachePath(groupId, id);
+    return cachePath != null && File(cachePath).existsSync();
   }
 
   /// Try get the emoji cache from raw bbcode.
@@ -517,7 +537,11 @@ final class ImageCacheProvider with LoggerMixin {
 
   /// Get the cached file of emoji with specified [groupId] and [id].
   Future<Uint8List?> getEmojiCache(String groupId, String id) async {
-    final cacheFile = File(_formatEmojiCachePath(groupId, id));
+    final cachePath = _formatEmojiCachePath(groupId, id);
+    if (cachePath == null) {
+      return null;
+    }
+    final cacheFile = File(cachePath);
     if (!cacheFile.existsSync()) {
       warning('$cacheFile cache file not exists');
       return null;
@@ -527,7 +551,11 @@ final class ImageCacheProvider with LoggerMixin {
 
   /// Get the cached file of emoji with specified [groupId] and [id].
   Uint8List? getEmojiCacheSync(String groupId, String id) {
-    final cacheFile = File(_formatEmojiCachePath(groupId, id));
+    final cachePath = _formatEmojiCachePath(groupId, id);
+    if (cachePath == null) {
+      return null;
+    }
+    final cacheFile = File(cachePath);
     if (!cacheFile.existsSync()) {
       warning('$cacheFile cache file not exists');
       return null;
@@ -545,6 +573,10 @@ final class ImageCacheProvider with LoggerMixin {
   /// Update emoji cache.
   Future<void> updateEmojiCache(String groupId, String id, List<int> imageData) async {
     final fileName = _formatEmojiCachePath(groupId, id);
+    if (fileName == null) {
+      warning('refuse to cache emoji with unsafe id (${groupId.length}/${id.length} chars)');
+      return;
+    }
     // Make cache.
     final cache = File(fileName);
     await cache.writeAsBytes(imageData);

@@ -17,6 +17,11 @@ class EmojiGroupList with EmojiGroupListMappable, LoggerMixin {
   bool validateCache(String rootDir) {
     for (final emojiGroup in emojiGroupList) {
       for (final emoji in emojiGroup.emojiList) {
+        // Ids form file names; never let one escape the cache directory.
+        if (!isSafeEmojiId(emojiGroup.id) || !isSafeEmojiId(emoji.id)) {
+          error('invalid emoji id in cache info (${emojiGroup.id.length}/${emoji.id.length} chars)');
+          return false;
+        }
         final cachePath = '$rootDir/${emojiGroup.id}_${emoji.id}.jpg';
         if (!File(cachePath).existsSync()) {
           error('invalid emoji at $cachePath');
