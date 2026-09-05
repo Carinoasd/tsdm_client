@@ -38,7 +38,13 @@ extension ParseUrl on String {
   /// Try parse string to [RecognizedRoute] with arguments.
   /// Return null if string is unsupported route.
   RecognizedRoute? parseUrlToRoute() {
-    final queryParameters = tryParseAsUri().tryGetQueryParameters();
+    final uri = tryParseAsUri();
+    // Urls come from page contents; only the forum's own (or relative) urls become in-app routes. A foreign url with
+    // forum-looking query parameters, a `javascript:` url or a `user@host` trick is never routed.
+    if (uri == null || !uri.isForumOrRelative) {
+      return null;
+    }
+    final queryParameters = uri.tryGetQueryParameters();
     if (queryParameters == null) {
       return null;
     }
@@ -98,13 +104,14 @@ extension ParseUrl on String {
       return const RecognizedRoute(ScreenPaths.favorite);
     }
 
+    // These routes fetch the url itself: always the canonical https forum host, whatever the link said.
     if (mod == 'forum' && queryParameters['srchfrom'] != null) {
-      return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
+      return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': canonicalForumUrl()});
     }
 
     // Discuz! built-in guide pages: 最新回复 (view=new), 最新发表 (view=newthread), 热门 (view=hot), 精华 (view=digest).
     if (mod == 'guide') {
-      return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
+      return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': canonicalForumUrl()});
     }
 
     if (mod == 'redirect' && queryParameters['tid'] != null) {
@@ -266,6 +273,21 @@ extension EnhanceModification on String {
   /// Prepend [prefix].
   String? prepend(String prefix) {
     return '$prefix$this';
+  }
+
+  /// This url as an absolute url on the canonical forum host (`https://www.tsdm39.com`).
+  ///
+  /// Relative urls are prepended with the host like [prependHost]; absolute forum urls (http, or the host without www)
+  /// are rebased. Foreign urls are returned unchanged.
+  String canonicalForumUrl() {
+    final uri = tryParseAsUri();
+    if (uri == null) {
+      return prependHost();
+    }
+    if (!uri.hasScheme && !uri.hasAuthority) {
+      return prependHost();
+    }
+    return uri.isForumHost ? uri.toCanonicalForumUri().toString() : this;
   }
 
   /// Prepend host url.
