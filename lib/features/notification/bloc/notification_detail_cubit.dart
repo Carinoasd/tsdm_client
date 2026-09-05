@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -40,7 +41,7 @@ class NotificationDetailCubit extends Cubit<NotificationDetailState> with Logger
           (v) {
             final (document, page) = v;
 
-            final threadClosed = document.querySelector('form#fastpostform') == null;
+            final threadClosed = isThreadClosedForReply(document);
 
             final match = _pidRe.firstMatch(url);
             final pid = match?.namedGroup('pid');

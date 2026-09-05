@@ -98,6 +98,23 @@ final class ThreadPageInfo {
   final int? replyCount;
 }
 
+/// Whether the thread page says the thread accepts no more replies.
+///
+/// Discuz! X5 always renders `form#fastpostform` when fast post is enabled, even for closed threads; the message
+/// textarea is then replaced by a hint (`抱歉，本主题已关闭，不再接受新内容`). Guests get a "log in to reply" hint in the
+/// same place, which is not a closed thread.
+bool isThreadClosedForReply(uh.Document document) {
+  final form = document.querySelector('form#fastpostform');
+  if (form == null) {
+    return true;
+  }
+  if (form.querySelector('textarea[name="message"]') != null) {
+    return false;
+  }
+  final hint = form.querySelector('div.area div.pt.hm')?.innerText ?? '';
+  return !hint.contains('登录');
+}
+
 /// Parse thread page info from [document].
 ///
 /// [pageNumber] is the fallback page number when not found in document.
@@ -111,7 +128,7 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
       document.querySelector('div#postlist h1.ts img[title="关闭"]') != null ||
       document.querySelector('div#postlist td.vwthd i[title="关闭"]') != null ||
       document.querySelector('div#postlist h1.ts i[title="关闭"]') != null;
-  final threadClosed = document.querySelector('form#fastpostform') == null;
+  final threadClosed = isThreadClosedForReply(document);
   final threadDataNode = document.querySelector('div#postlist');
   final postList = Post.buildListFromThreadDataNode(threadDataNode, document.currentPage() ?? 1);
   // Title node ALWAYS has a node with id `thread_subject`.
