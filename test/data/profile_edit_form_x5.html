@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>个人资料 - fixture</title></head><body>
+<form action="home.php?mod=spacecp&ac=profile&op=base" method="post" enctype="multipart/form-data" autocomplete="off" target="frame_profile" onsubmit="clearErrorInfo();">
+<input type="hidden" value="XXXXXXXX" name="formhash" />
+<table cellspacing="0" cellpadding="0" class="tfm" id="profilelist">
+<tr>
+<th>用户名</th>
+<td>Alice</td>
+<td>&nbsp;</td>
+</tr><tr id="tr_bio">
+<th id="th_bio">自我介绍</th>
+<td id="td_bio">
+<textarea name="bio" id="bio" class="pt" rows="3" cols="40"></textarea><div class="rq mtn" id="showerror_bio"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[bio]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_msn">
+<th id="th_msn">MSN</th>
+<td id="td_msn">
+<input type="text" name="msn" id="msn" class="px" value="" placeholder="MSN" /><div class="rq mtn" id="showerror_msn"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[msn]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_site">
+<th id="th_site">个人主页</th>
+<td id="td_site">
+<input type="text" name="site" id="site" class="px" value="" placeholder="个人主页" /><div class="rq mtn" id="showerror_site"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[site]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_field6">
+<th id="th_field6">最想说的话</th>
+<td id="td_field6">
+<input type="text" name="field6" id="field6" class="px" value="" placeholder="最想说的话" /><div class="rq mtn" id="showerror_field6"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[field6]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_birthday">
+<th id="th_birthday">生日</th>
+<td id="td_birthday">
+<select name="birthyear" id="birthyear" class="ps" onchange="showbirthday();"><option value="">年</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option><option value="1999">1999</option><option value="1998">1998</option><option value="1997">1997</option><option value="1996">1996</option><option value="1995">1995</option><option value="1994">1994</option><option value="1993">1993</option><option value="1992">1992</option><option value="1991">1991</option><option value="1990">1990</option><option value="1989">1989</option><option value="1988">1988</option><option value="1987">1987</option><option value="1986">1986</option><option value="1985">1985</option><option value="1984">1984</option><option value="1983">1983</option><option value="1982">1982</option><option value="1981">1981</option><option value="1980">1980</option><option value="1979">1979</option><option value="1978">1978</option><option value="1977">1977</option><option value="1976">1976</option><option value="1975">1975</option><option value="1974">1974</option><option value="1973">1973</option><option value="1972">1972</option><option value="1971">1971</option><option value="1970">1970</option><option value="1969">1969</option><option value="1968">1968</option><option value="1967">1967</option><option value="1966">1966</option><option value="1965">1965</option><option value="1964">1964</option><option value="1963">1963</option><option value="1962">1962</option><option value="1961">1961</option><option value="1960">1960</option><option value="1959">1959</option><option value="1958">1958</option><option value="1957">1957</option><option value="1956">1956</option><option value="1955">1955</option><option value="1954">1954</option><option value="1953">1953</option><option value="1952">1952</option><option value="1951">1951</option><option value="1950">1950</option><option value="1949">1949</option><option value="1948">1948</option><option value="1947">1947</option><option value="1946">1946</option><option value="1945">1945</option><option value="1944">1944</option><option value="1943">1943</option><option value="1942">1942</option><option value="1941">1941</option><option value="1940">1940</option><option value="1939">1939</option><option value="1938">1938</option><option value="1937">1937</option><option value="1936">1936</option><option value="1935">1935</option><option value="1934">1934</option><option value="1933">1933</option><option value="1932">1932</option><option value="1931">1931</option><option value="1930">1930</option><option value="1929">1929</option><option value="1928">1928</option><option value="1927">1927</option></select>&nbsp;&nbsp;<select name="birthmonth" id="birthmonth" class="ps" onchange="showbirthday();"><option value="">月</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select>&nbsp;&nbsp;<select name="birthday" id="birthday" class="ps"><option value="">日</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select><div class="rq mtn" id="showerror_birthday"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[birthday]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_field1">
+<th id="th_field1">昵称</th>
+<td id="td_field1">
+<input type="text" name="field1" id="field1" class="px" value="" placeholder="昵称" /><div class="rq mtn" id="showerror_field1"></div><p class="d">用户昵称，设置后会显示在发帖状态栏</p></td>
+<td class="p">
+<select name="privacy[field1]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_gender">
+<th id="th_gender">性别</th>
+<td id="td_gender">
+<select name="gender" id="gender" class="ps"><option value="0" selected="selected">保密</option><option value="1">男</option><option value="2">女</option></select><div class="rq mtn" id="showerror_gender"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[gender]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_field2">
+<th id="th_field2">来自</th>
+<td id="td_field2">
+<input type="text" name="field2" id="field2" class="px" value="" placeholder="来自" /><div class="rq mtn" id="showerror_field2"></div><p class="d">你来自的地方，会显示在发帖状态栏</p></td>
+<td class="p">
+<select name="privacy[field2]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_interest">
+<th id="th_interest">兴趣爱好</th>
+<td id="td_interest">
+<textarea name="interest" id="interest" class="pt" rows="3" cols="40"></textarea><div class="rq mtn" id="showerror_interest"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[interest]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_qq">
+<th id="th_qq">QQ</th>
+<td id="td_qq">
+<input type="text" name="qq" id="qq" class="px" value="" placeholder="" /><p><a href="" class="xi2" onclick="this.href='//wp.qq.com/set.html?from=discuz&uin='+$('qq').value" target="_blank">设置我的QQ在线状态</a></p><div class="rq mtn" id="showerror_qq"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[qq]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_field4">
+<th id="th_field4">最喜欢的动漫</th>
+<td id="td_field4">
+<input type="text" name="field4" id="field4" class="px" value="" placeholder="最喜欢的动漫" /><div class="rq mtn" id="showerror_field4"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[field4]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr id="tr_field5">
+<th id="th_field5">技能</th>
+<td id="td_field5">
+<input type="text" name="field5" id="field5" class="px" value="" placeholder="技能" /><div class="rq mtn" id="showerror_field5"></div><p class="d"></p></td>
+<td class="p">
+<select name="privacy[field5]">
+<option value="0" selected="selected">公开</option>
+<option value="1">好友可见</option>
+<option value="3">保密</option>
+</select>
+</td>
+</tr>
+<tr>
+<th id="th_customstatus">自定义头衔</th>
+<td id="td_customstatus">
+<input type="text" value="" name="customstatus" id="customstatus" class="px" />
+<div class="rq mtn" id="showerror_customstatus"></div>
+</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<th id="th_sightml">个人签名</th>
+<td id="td_sightml">
+<div class="tedt">
+<div class="bar">
+<span class="y"><a href="javascript:;" onclick="$('signhtmlpreview').innerHTML = bbcode2html($('sightmlmessage').value)">预览</a></span>
+<script src="static/js/seditor.js?rtq" type="text/javascript"></script>
+<div class="fpd">
+<a href="javascript:;" title="文字加粗" class="fbld" onclick="seditor_insertunit('sightml', '[b]', '[/b]');doane(event);">B</a>
+<a href="javascript:;" title="设置文字颜色" class="fclr" id="sightmlforecolor" onclick="showColorBox(this.id, 2, 'sightml');doane(event);">Color</a>
+<a id="sightmlimg" href="javascript:;" title="图片" class="fmg" onclick="seditor_menu('sightml', 'img');doane(event);">Image</a>
+<a id="sightmlurl" href="javascript:;" title="添加链接" class="flnk" onclick="seditor_menu('sightml', 'url');doane(event);">Link</a>
+<a href="javascript:;" class="fsml" id="sightmlsml" onclick="showMenu({'ctrlid':this.id,'evt':'click','layer':2});return false;">Smilies</a>
+<script type="text/javascript" reload="1">smilies_show('sightmlsmiliesdiv', 8, 'sightml');</script>
+</div></div>
+<div class="area">
+<textarea rows="3" cols="80" name="sightml" id="sightmlmessage" class="pt" onkeydown="ctrlEnter(event, 'profilesubmitbtn');"></textarea>
+</div>
+</div>
+<div id="signhtmlpreview"></div>
+<div id="showerror_sightml" class="rq mtn"></div>
+<script src="static/js/bbcode.js?rtq" type="text/javascript"></script>
+<script type="text/javascript">var forumallowhtml = 0,allowhtml = 0,allowsmilies = 0,allowbbcode = parseInt('1'),allowimgcode = parseInt('1');var DISCUZCODE = [];DISCUZCODE['num'] = '-1';DISCUZCODE['html'] = [];</script>
+</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<th id="th_timeoffset">时区</th>
+<td id="td_timeoffset"><select name="timeoffset"><option value="9999" selected="selected">使用系统默认</option>
+<option value="-12">(GMT -12:00) 埃尼威托克岛, 夸贾林环礁</option>
+<option value="-11">(GMT -11:00) 中途岛, 萨摩亚群岛</option>
+<option value="-10">(GMT -10:00) 夏威夷</option>
+<option value="-9">(GMT -09:00) 阿拉斯加</option>
+<option value="-8">(GMT -08:00) 太平洋时间(美国和加拿大), 提华纳</option>
+<option value="-7">(GMT -07:00) 山区时间(美国和加拿大), 亚利桑那</option>
+<option value="-6">(GMT -06:00) 中部时间(美国和加拿大), 墨西哥城</option>
+<option value="-5">(GMT -05:00) 东部时间(美国和加拿大), 波哥大, 利马, 基多</option>
+<option value="-4">(GMT -04:00) 大西洋时间(加拿大), 加拉加斯, 拉巴斯</option>
+<option value="-3.5">(GMT -03:30) 纽芬兰</option>
+<option value="-3">(GMT -03:00) 巴西利亚, 布宜诺斯艾利斯, 乔治敦, 福克兰群岛</option>
+<option value="-2">(GMT -02:00) 中大西洋, 阿森松群岛, 圣赫勒拿岛</option>
+<option value="-1">(GMT -01:00) 亚速群岛, 佛得角群岛 [格林尼治标准时间] 都柏林, 伦敦, 里斯本, 卡萨布兰卡</option>
+<option value="0">(GMT) 卡萨布兰卡，都柏林，爱丁堡，伦敦，里斯本，蒙罗维亚</option>
+<option value="1">(GMT +01:00) 柏林, 布鲁塞尔, 哥本哈根, 马德里, 巴黎, 罗马</option>
+<option value="2">(GMT +02:00) 赫尔辛基, 加里宁格勒, 南非, 华沙</option>
+<option value="3">(GMT +03:00) 巴格达, 利雅得, 莫斯科, 奈洛比</option>
+<option value="3.5">(GMT +03:30) 德黑兰</option>
+<option value="4">(GMT +04:00) 阿布扎比, 巴库, 马斯喀特, 特比利斯</option>
+<option value="4.5">(GMT +04:30) 坎布尔</option>
+<option value="5">(GMT +05:00) 叶卡特琳堡, 伊斯兰堡, 卡拉奇, 塔什干</option>
+<option value="5.5">(GMT +05:30) 孟买, 加尔各答, 马德拉斯, 新德里</option>
+<option value="5.75">(GMT +05:45) 加德满都</option>
+<option value="6">(GMT +06:00) 阿拉木图, 科伦坡, 达卡, 新西伯利亚</option>
+<option value="6.5">(GMT +06:30) 仰光</option>
+<option value="7">(GMT +07:00) 曼谷, 河内, 雅加达</option>
+<option value="8">(GMT +08:00) 北京, 香港, 帕斯, 新加坡, 台北</option>
+<option value="9">(GMT +09:00) 大阪, 札幌, 首尔, 东京, 雅库茨克</option>
+<option value="9.5">(GMT +09:30) 阿德莱德, 达尔文</option>
+<option value="10">(GMT +10:00) 堪培拉, 关岛, 墨尔本, 悉尼, 海参崴</option>
+<option value="11">(GMT +11:00) 马加丹, 新喀里多尼亚, 所罗门群岛</option>
+<option value="12">(GMT +12:00) 奥克兰, 惠灵顿, 斐济, 马绍尔群岛</option>
+</select>
+<p class="mtn">当前时间 : 2026-9-5 21:33</p>
+<p class="d">如果发现当前显示的时间与您本地时间相差几个小时，那么您需要更改自己的时区设置 </p>
+</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td colspan="2">
+<input type="hidden" name="profilesubmit" value="true" />
+<button type="submit" name="profilesubmitbtn" id="profilesubmitbtn" value="true" class="pn pnc" /><strong>保存</strong></button>
+<span id="submit_result" class="rq"></span>
+</td>
+</tr>
+</table>
+</form>
+</body></html>

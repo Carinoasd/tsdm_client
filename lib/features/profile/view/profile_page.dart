@@ -21,6 +21,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/profile/bloc/profile_bloc.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
@@ -507,9 +508,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final userProfile = state.userProfile!;
 
     // Friends count info.
-    final friendsInfoNode = parseHtmlDocument(userProfile.friendsCount ?? '0').body;
-    final friendsCount = friendsInfoNode?.innerText.split(' ').lastOrNull?.trim() ?? '-';
-    final friendsPage = friendsInfoNode?.querySelector('a')?.attributes['href']?.prependHost();
+    final (count: friendsCount, url: friendsPage) = parseFriendsInfo(userProfile.friendsCount);
 
     // Birthday.
     final birthDayText = [

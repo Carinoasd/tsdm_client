@@ -155,6 +155,19 @@ final class UserProfile with UserProfileMappable {
     required this.availableTimeZones,
   });
 
+  /// The selected `<option>` of the `<select>` matched by [selectSelector] under [root].
+  ///
+  /// Falls back to the first option, which is what a browser submits when no option carries `selected`: Discuz! X5
+  /// renders several privacy selects that way (no `selected` on any option), the X3 template always marked one.
+  static uh.Element? _selectedOption(uh.Element root, String selectSelector) {
+    final select = root.querySelector(selectSelector);
+    return select?.querySelector('option[selected]') ?? select?.querySelector('option');
+  }
+
+  /// Visibility chosen in the privacy select of the row for [key].
+  static Visibility? _visibilityOf(uh.Element root, String key) =>
+      _selectedOption(root, 'tr#tr_$key select[name="${key.visibility()}"]')?.attributes['value']?.parseToInt().toVisibility();
+
   /// Build model from the user profile form in web page.
   static UserProfile? fromForm(uh.Element root) {
     final formHash = root.querySelector('input[name="formhash"]')?.attributes['value'];
@@ -167,22 +180,13 @@ final class UserProfile with UserProfileMappable {
     final username = t.querySelector('tr:nth-child(1) > td')?.innerText;
 
     final gender = Gender.fromValue(
-      t
-          .querySelector('td#td_${_Keys.gender} > select#${_Keys.gender} > option[selected="selected"]')
-          ?.attributes['value']
-          ?.parseToInt(),
+      _selectedOption(t, 'td#td_${_Keys.gender} > select#${_Keys.gender}')?.attributes['value']?.parseToInt(),
     );
     if (gender == null) {
       talker.error('failed to parse editable user profile: invalid gender');
       return null;
     }
-    final genderVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.gender} select[name="${_Keys.gender.visibility()}"] > option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final genderVisibility = _visibilityOf(t, _Keys.gender);
 
     final birthdayAvailableYears = <int>[];
     int? birthdayYear;
@@ -217,114 +221,37 @@ final class UserProfile with UserProfileMappable {
         )
         ?.attributes['value']
         ?.parseToInt();
-    final birthdayVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.birthday} select[name="${_Keys.birthday.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final birthdayVisibility = _visibilityOf(t, _Keys.birthday);
 
     final qq = t.querySelector('td#td_${_Keys.qq} > input')?.attributes['value']?.parseToInt();
-    final qqVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.qq} select[name="${_Keys.qq.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final qqVisibility = _visibilityOf(t, _Keys.qq);
 
     final msn = t.querySelector('td#td_${_Keys.msn} > input')?.attributes['value'];
-    final msnVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.msn} select[name="${_Keys.msn.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final msnVisibility = _visibilityOf(t, _Keys.msn);
 
     final homepage = t.querySelector('td#td_${_Keys.homepage} > input')?.attributes['value']?.trim();
-    final homepageVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.homepage} select[name="${_Keys.homepage.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final homepageVisibility = _visibilityOf(t, _Keys.homepage);
 
     final bio = t.querySelector('td#td_${_Keys.bio} > textarea')?.innerText.trim() ?? '';
-    final bioVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.bio} select[name="${_Keys.bio.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final bioVisibility = _visibilityOf(t, _Keys.bio);
 
     final hobby = t.querySelector('td#td_${_Keys.hobby} > textarea')?.innerText.trim();
-    final hobbyVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.hobby} select[name="${_Keys.hobby.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final hobbyVisibility = _visibilityOf(t, _Keys.hobby);
 
     final location = t.querySelector('td#td_${_Keys.location} > input')?.attributes['value'];
-    final locationVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.location} select[name="${_Keys.location.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final locationVisibility = _visibilityOf(t, _Keys.location);
 
     final nickname = t.querySelector('td#td_${_Keys.nickname} > input')?.attributes['value'];
-    final nicknameVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.nickname} select[name="${_Keys.nickname.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final nicknameVisibility = _visibilityOf(t, _Keys.nickname);
 
     final wordsToSay = t.querySelector('td#td_${_Keys.wordsToSay} > input')?.attributes['value'];
-    final wordsToSayVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.wordsToSay} select[name="${_Keys.wordsToSay.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final wordsToSayVisibility = _visibilityOf(t, _Keys.wordsToSay);
 
     final skill = t.querySelector('td#td_${_Keys.skill} > input')?.attributes['value'];
-    final skillVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.skill} select[name="${_Keys.skill.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final skillVisibility = _visibilityOf(t, _Keys.skill);
 
     final favoriteBangumi = t.querySelector('td#td_${_Keys.favoriteBangumi} > input')?.attributes['value'];
-    final favoriteBangumiVisibility = t
-        .querySelector(
-          'tr#tr_${_Keys.favoriteBangumi} select[name="${_Keys.favoriteBangumi.visibility()}"] '
-          '> option[selected="selected"]',
-        )
-        ?.attributes['value']
-        ?.parseToInt()
-        .toVisibility();
+    final favoriteBangumiVisibility = _visibilityOf(t, _Keys.favoriteBangumi);
 
     final availablePageStyles = <PageStyle>[];
     PageStyle? pageStyle;

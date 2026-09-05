@@ -8,10 +8,29 @@ import 'package:tsdm_client/features/profile/models/managed_forum.dart';
 import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/models/profile_medal.dart';
 import 'package:universal_html/html.dart' as uh;
+import 'package:universal_html/parsing.dart';
 
 final RegExp _qqRe = RegExp(r'uin=(?<qq>\d+)');
 
 final RegExp _birthdayRe = RegExp(r'((?<y>\d+) 年)? ?((?<m>\d+) 月)? ?((?<d>\d+) 日)?');
+
+/// Friends count and the link to the friends page, from the `统计信息` html fragment kept in
+/// `UserProfile.friendsCount`.
+///
+/// Discuz! X3 put a single `<a>好友数 N</a>` in that fragment. Discuz! X5 lists every statistic in the same
+/// fragment (`好友数 0 | 关注数 0 | 粉丝数 0 | ... | 主题数 0`), so the last number of the fragment is no longer the
+/// friends count: pick the anchor that says `好友数`, fall back to the old behaviour for the X3 layout.
+({String count, String? url}) parseFriendsInfo(String? fragment) {
+  if (fragment == null || fragment.trim().isEmpty) {
+    return (count: '-', url: null);
+  }
+  final body = parseHtmlDocument(fragment).body;
+  final anchors = body?.querySelectorAll('a') ?? const <uh.Element>[];
+  final friendsNode = anchors.firstWhereOrNull((e) => e.innerText.contains('好友数')) ?? anchors.firstOrNull;
+  final text = (friendsNode?.innerText ?? body?.innerText ?? '').trim();
+  final count = RegExp(r'\d+').firstMatch(text)?.group(0) ?? text.split(' ').lastOrNull?.trim() ?? '';
+  return (count: count.isEmpty ? '-' : count, url: friendsNode?.attributes['href']?.prependHost());
+}
 
 /// Parse the avatar url of the user in profile page [document].
 ///
