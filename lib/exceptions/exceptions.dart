@@ -331,11 +331,17 @@ class ReplyToPostFetchParameterFailedException extends AppException
 
 /// Reply to a post, but no successful result found in response.
 @MappableClass()
-class ReplyToPostResultFailedException extends AppException with ReplyToPostResultFailedExceptionMappable {}
+class ReplyToPostResultFailedException extends AppException with ReplyToPostResultFailedExceptionMappable {
+  /// Constructor, [message] is the reason told by the server if any.
+  ReplyToPostResultFailedException([String? message]) : super(message: message);
+}
 
 /// Reply to thread, but no successful result found in response.
 @MappableClass()
-class ReplyToThreadResultFailedException extends AppException with ReplyToThreadResultFailedExceptionMappable {}
+class ReplyToThreadResultFailedException extends AppException with ReplyToThreadResultFailedExceptionMappable {
+  /// Constructor, [message] is the reason told by the server if any.
+  ReplyToThreadResultFailedException([String? message]) : super(message: message);
+}
 
 /// Reply personal message, but failed in response.
 @MappableClass()

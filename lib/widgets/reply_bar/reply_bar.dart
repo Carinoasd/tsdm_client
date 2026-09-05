@@ -148,6 +148,9 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     }
 
     return BlocConsumer<ReplyBloc, ReplyState>(
+      // Only a status change may clear the draft: later states with an unchanged `success` status (e.g. reply
+      // parameters refreshed after the thread reloaded) must keep the text and the pending floor target.
+      listenWhen: (prev, curr) => prev.status != curr.status,
       listener: (_, state) {
         // Clear the outer controller text.
         if (state.status == ReplyStatus.success) {

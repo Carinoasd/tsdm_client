@@ -393,6 +393,21 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 if (_replyBarController.showingEditor) {
                   context.pop();
                 }
+                // Reload so the new floor shows up. It lands on the last page unless the thread is read in reverse.
+                final threadBloc = context.read<ThreadBloc>();
+                final threadState = threadBloc.state;
+                if (threadState.totalPages > 1 &&
+                    threadState.reverseOrder != true &&
+                    threadState.currentPage != threadState.totalPages) {
+                  threadBloc.add(ThreadJumpPageRequested(threadState.totalPages));
+                } else {
+                  threadBloc.add(ThreadRefreshRequested());
+                }
+              } else if (state.status == ReplyStatus.failure) {
+                showSnackBar(
+                  context: context,
+                  message: context.t.threadPage.replyFailed(err: state.failedReason ?? ''),
+                );
               }
             },
           ),

@@ -109,6 +109,8 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
         listener: (context, state) {
           if (state.status == ReplyStatus.success) {
             showSnackBar(context: context, message: context.t.threadPage.replySuccess);
+          } else if (state.status == ReplyStatus.failure) {
+            showSnackBar(context: context, message: context.t.threadPage.replyFailed(err: state.failedReason ?? ''));
           }
         },
         child: BlocBuilder<NotificationDetailCubit, NotificationDetailState>(

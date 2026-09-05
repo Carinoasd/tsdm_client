@@ -26,6 +26,43 @@ final class ReplyRepository with LoggerMixin {
   /// errorhandle_pmsend('${ERR}', {});
   static final _messageErrorRe = RegExp(r"\('(?<err>.+)', \{\}\);\}");
 
+  /// `succeedhandle_<handlekey>('<url>', '<message>', {...})`.
+  ///
+  /// Emitted by Discuz! `showmessage()` only when the reply was stored (a forward url exists), for both the plain
+  /// success message and the "needs moderation" one, so it is a more reliable marker than one language string.
+  static final _succeedHandleRe = RegExp(r"succeedhandle_\w*\('(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)'");
+
+  /// `errorhandle_<handlekey>('<message>', {...})` carries the rejection reason.
+  static final _errorHandleRe = RegExp(r"errorhandle_\w*\('((?:[^'\\]|\\.)*)'");
+
+  /// Whether the reply response says the reply was stored.
+  static bool _isReplyStored(String data) =>
+      _succeedHandleRe.hasMatch(data) || data.contains('回复发布成功') || data.contains('回复需要审核');
+
+  /// The message inside the success hook, if any.
+  static String? _storedMessage(String data) => _succeedHandleRe.firstMatch(data)?.group(1)?.replaceAll(r"\'", "'");
+
+  /// Human readable reason from a Discuz! inajax `showmessage()` response, if any.
+  static String? _serverMessage(String data) {
+    final fromHandle = _errorHandleRe.firstMatch(data)?.group(1);
+    if (fromHandle != null && fromHandle.isNotEmpty) {
+      return fromHandle.replaceAll(r"\'", "'");
+    }
+    String? htmlData;
+    try {
+      htmlData = parseXmlDocument(data).documentElement?.nodes.firstOrNull?.text;
+    } on Exception catch (_) {
+      htmlData = null;
+    }
+    final doc = parseHtmlDocument(htmlData ?? data);
+    doc.querySelectorAll('script').forEach((e) => e.remove());
+    final text = (doc.querySelector('div.alert_error') ?? doc.querySelector('div#messagetext'))?.innerText.trim();
+    return (text == null || text.isEmpty) ? null : text;
+  }
+
+  /// Response body as text no matter how Dio decoded it.
+  static String _bodyText(Object? data) => data is String ? data : (data?.toString() ?? '');
+
   /// Reply to a post.
   AsyncVoidEither replyToPost({
     required ReplyParameters replyParameters,
@@ -116,9 +153,13 @@ final class ReplyRepository with LoggerMixin {
     }
 
     final resp2 = respEither2.unwrap();
-    if (!(resp2.data as String).contains('回复发布成功')) {
-      return left(ReplyToPostResultFailedException());
+    final data2 = _bodyText(resp2.data);
+    if (!_isReplyStored(data2)) {
+      final reason = _serverMessage(data2);
+      error('reply to post rejected by server: $reason');
+      return left(ReplyToPostResultFailedException(reason));
     }
+    info('reply to post stored: ${_storedMessage(data2)}');
 
     return rightVoid();
   });
@@ -130,34 +171,40 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// * **HttpRequestFailedException** when http request failed.
   /// * **ReplyToThreadResultFailedException** when reply finished but no
-  /// successful result found in response.
-  Future<void> replyToThread({required ReplyParameters replyParameters, required String replyMessage}) async {
-    final formData = <String, String>{
-      'message': replyMessage,
-      'usesig': '1',
-      'formhash': replyParameters.formHash,
-      'subject': replyParameters.subject,
-    };
-    // Only apply post time when not null.
-    if (replyParameters.postTime != null) {
-      formData['posttime'] = replyParameters.postTime.toString();
-    }
-    final e = await getIt
-        .get<NetClientProvider>()
-        .postForm(formatReplyThreadUrl(replyParameters.fid, replyParameters.tid), data: formData)
-        .run();
-    if (e.isLeft()) {
-      handle(e.unwrapErr());
-    }
+  /// successful result found in response, carrying the server's reason.
+  AsyncVoidEither replyToThread({required ReplyParameters replyParameters, required String replyMessage}) =>
+      AsyncVoidEither(() async {
+        final formData = <String, String>{
+          'message': replyMessage,
+          'usesig': '1',
+          'formhash': replyParameters.formHash,
+          'subject': replyParameters.subject,
+        };
+        // Only apply post time when not null.
+        if (replyParameters.postTime != null) {
+          formData['posttime'] = replyParameters.postTime.toString();
+        }
+        final respEither = await getIt
+            .get<NetClientProvider>()
+            .postForm(formatReplyThreadUrl(replyParameters.fid, replyParameters.tid), data: formData)
+            .run();
+        if (respEither.isLeft()) {
+          return left(respEither.unwrapErr());
+        }
 
-    final resp = e.unwrap();
-    if (resp.statusCode != HttpStatus.ok) {
-      throw HttpRequestFailedException(resp.statusCode);
-    }
-    if (!(resp.data as String).contains('回复发布成功')) {
-      throw ReplyToThreadResultFailedException();
-    }
-  }
+        final resp = respEither.unwrap();
+        if (resp.statusCode != HttpStatus.ok) {
+          return left(HttpRequestFailedException(resp.statusCode));
+        }
+        final data = _bodyText(resp.data);
+        if (!_isReplyStored(data)) {
+          final reason = _serverMessage(data);
+          error('reply to thread rejected by server: $reason');
+          return left(ReplyToThreadResultFailedException(reason));
+        }
+        info('reply to thread stored: ${_storedMessage(data)}');
+        return rightVoid();
+      });
 
   /// Reply personalMessage in history page.
   AsyncVoidEither replyHistoryPersonalMessage({
