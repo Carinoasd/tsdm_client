@@ -354,14 +354,16 @@ String _absoluteImageUrls(String html) =>
 ///
 /// Marked as public for testing.
 (int unreadNoticeCount, bool hasUnreadMessage) buildUnreadInfoStatus(uh.Document document) {
-  // Check notice status.
-  var hasUnreadNotice = 0;
-  final noticeNode = document.querySelector('a#myprompt');
-  if (noticeNode?.classes.contains('new') ?? false) {
-    hasUnreadNotice = noticeNode?.innerText.split('(').lastOrNull?.split(')').firstOrNull?.parseToInt() ?? 0;
-  }
+  // Discuz! X5 renders `a#pm_ntc` twice: once inside `ul#myprompt_menu`, which comes FIRST in the document and
+  // never carries `.new`, and once inside `div#um`. Look at every copy instead of the first one only.
+  final noticeNode = document.querySelectorAll('a#myprompt').where((e) => e.classes.contains('new')).firstOrNull;
+  final unreadNotice = noticeNode == null
+      ? 0
+      : int.tryParse(RegExp(r'\((\d+)\)').firstMatch(noticeNode.innerText)?.group(1) ?? '') ?? 0;
+  final hasUnreadMessage =
+      document.querySelectorAll('a#pm_ntc').any((e) => e.classes.contains('new')) ||
+      // header.htm: `<em class="prompt_news{if empty($_G[member][newpm])}_0{/if}">`, a bare `prompt_news` means new.
+      document.querySelector('ul#myprompt_menu em.prompt_news') != null;
 
-  final hasUnreadMessage = document.querySelector('a#pm_ntc')?.classes.contains('new') ?? false;
-
-  return (hasUnreadNotice, hasUnreadMessage);
+  return (unreadNotice, hasUnreadMessage);
 }

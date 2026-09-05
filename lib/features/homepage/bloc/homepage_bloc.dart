@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -386,12 +387,16 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
           ..swap(5, 6);
       }
     }
+    // Discuz! X5 renders the unread state in the page header; keep it so the badge can show up right away.
+    final (unreadNoticeCount, hasUnreadMessage) = buildUnreadInfoStatus(document);
     return HomepageState(
       status: loggedUsername.isNotEmpty ? HomepageStatus.success : HomepageStatus.needLogin,
       forumStatus: forumStatus ?? const ForumStatus.empty(),
       loggedUserInfo: loggedUserInfo,
       pinnedThreadGroupList: pinnedThreadGroupList,
       swiperUrlList: swiperUrlList,
+      unreadNoticeCount: unreadNoticeCount,
+      hasUnreadMessage: hasUnreadMessage,
     );
   }
 

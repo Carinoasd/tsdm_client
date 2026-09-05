@@ -36,10 +36,16 @@ class _NoticeButtonState extends State<NoticeButton> {
     }
 
     final Widget noticeIcon;
-    if (noticeState.status == NotificationStatus.initial || noticeState.status == NotificationStatus.loading) {
+    if (showUnreadHint && unreadNoticeCount > 0) {
+      // Keep the red badge on screen during background syncs so the unread hint never blinks away.
+      noticeIcon = Badge(
+        label: Text('$unreadNoticeCount'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        textColor: Theme.of(context).colorScheme.onError,
+        child: iconData,
+      );
+    } else if (noticeState.status == NotificationStatus.initial || noticeState.status == NotificationStatus.loading) {
       noticeIcon = sizedCircularProgressIndicator;
-    } else if (showUnreadHint && unreadNoticeCount > 0) {
-      noticeIcon = Badge(label: Text('$unreadNoticeCount'), child: iconData);
     } else {
       noticeIcon = iconData;
     }
@@ -76,10 +82,16 @@ class _NoticeIconState extends State<NoticeIcon> {
     }
 
     final Widget noticeIcon;
-    if (noticeState.status == NotificationStatus.initial || noticeState.status == NotificationStatus.loading) {
+    if (showUnreadHint && unreadNoticeCount > 0) {
+      // Keep the red badge on screen during background syncs so the unread hint never blinks away.
+      noticeIcon = Badge(
+        label: Text('$unreadNoticeCount'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        textColor: Theme.of(context).colorScheme.onError,
+        child: iconData,
+      );
+    } else if (noticeState.status == NotificationStatus.initial || noticeState.status == NotificationStatus.loading) {
       noticeIcon = sizedCircularProgressIndicator;
-    } else if (showUnreadHint && unreadNoticeCount > 0) {
-      noticeIcon = Badge(label: Text('$unreadNoticeCount'), child: iconData);
     } else {
       noticeIcon = iconData;
     }

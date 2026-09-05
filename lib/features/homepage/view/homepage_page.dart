@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart
 import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
+import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -120,7 +121,13 @@ class _HomepagePageState extends State<HomepagePage> {
           ),
           BlocListener<HomepageBloc, HomepageState>(
             listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
-            listener: (context, _) {
+            listener: (context, state) {
+              // The freshly fetched page header already tells whether there are unread items: show the badge now
+              // instead of waiting for the full notification sync.
+              context.read<NotificationInfoRepository>().applyServerHint(
+                noticeCount: state.unreadNoticeCount,
+                hasPersonalMessage: state.hasUnreadMessage,
+              );
               // From loading state to success state, refresh notice.
               context.read<NotificationBloc>().add(NotificationUpdateAllRequested());
             },

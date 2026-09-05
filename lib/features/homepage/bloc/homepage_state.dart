@@ -46,6 +46,8 @@ final class HomepageState with HomepageStateMappable {
     this.pinnedThreadGroupList = const [],
     this.swiperUrlList = const [],
     this.scrollSwiper = true,
+    this.unreadNoticeCount = 0,
+    this.hasUnreadMessage = false,
   });
 
   /// Loading status.
@@ -69,4 +71,12 @@ final class HomepageState with HomepageStateMappable {
   ///
   /// Should only scroll when current screen is home tab.
   final bool scrollSwiper;
+
+  /// Unread notice count shown in the header of the fetched homepage (`提醒(N)`).
+  ///
+  /// Server side truth at the time the page was fetched, used as a hint for the notification badge.
+  final int unreadNoticeCount;
+
+  /// Whether the header of the fetched homepage marks unread personal messages.
+  final bool hasUnreadMessage;
 }

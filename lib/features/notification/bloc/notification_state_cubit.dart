@@ -79,6 +79,7 @@ final class NotificationStateCubit extends Cubit<NotificationStateInfo> {
   /// Set unread broadcast message count to [count].
   void setBroadcastMessage(int count) => emit(state.copyWith(broadcastMessage: count));
 
+
   /// Update all count of types of notification.
   void setAll({required int noticeCount, required int personalMessageCount, required int broadcastMessageCount}) =>
       emit(
