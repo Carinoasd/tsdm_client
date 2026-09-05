@@ -121,7 +121,7 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
       body[e.key] = v == '0' ? '' : v;
     }
     body['sendreasonpm'] = noticeAuthor ? 'on' : 'off';
-    debug('going to rate: $body');
+    debug('going to rate pid=$pid with ${body.length} fields');
 
     context.read<RateBloc>().add(RateRateRequested(body));
   }

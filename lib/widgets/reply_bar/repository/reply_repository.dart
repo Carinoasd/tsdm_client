@@ -174,7 +174,7 @@ final class ReplyRepository with LoggerMixin {
       error('reply to post rejected by server: $reason');
       return left(ReplyToPostResultFailedException(reason));
     }
-    info('reply to post stored: ${_storedMessage(data2)}');
+    info('reply to post stored: ${_storedMessage(data2)?.length ?? 0} chars');
 
     return right(postedReplyOf(data2));
   });
@@ -217,7 +217,7 @@ final class ReplyRepository with LoggerMixin {
           error('reply to thread rejected by server: $reason');
           return left(ReplyToThreadResultFailedException(reason));
         }
-        info('reply to thread stored: ${_storedMessage(data)}');
+        info('reply to thread stored: ${_storedMessage(data)?.length ?? 0} chars');
         return right(postedReplyOf(data));
       });
 

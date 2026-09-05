@@ -1,11 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/cmd.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/redacting_talker.dart';
 
 /// Global service locator instance.
 final GetIt getIt = GetIt.instance;
@@ -52,29 +55,23 @@ class _TalkerObserver implements TalkerObserver {
   /// Init the file to save log, this function MUST be called as early as possible.
   Future<void> initLogFile() async {}
 
-  @override
-  void onError(TalkerError err) {
+  /// Entries are already redacted by [RedactingTalker]; redact the generated text once more so the file never carries
+  /// a secret even if an entry was built outside the talker methods.
+  void _write(TalkerData data) {
     if (_logSinkClosed) {
       return;
     }
-    _logSink.write('${err.generateTextMessage()}\n');
+    _logSink.write('${redactSensitive(data.generateTextMessage())}\n');
   }
 
   @override
-  void onException(TalkerException err) {
-    if (_logSinkClosed) {
-      return;
-    }
-    _logSink.write('${err.generateTextMessage()}\n');
-  }
+  void onError(TalkerError err) => _write(err);
 
   @override
-  void onLog(TalkerData log) {
-    if (_logSinkClosed) {
-      return;
-    }
-    _logSink.write('${log.generateTextMessage()}\n');
-  }
+  void onException(TalkerException err) => _write(err);
+
+  @override
+  void onLog(TalkerData log) => _write(log);
 }
 
 /// Init talker logger.
@@ -100,7 +97,10 @@ Future<void> initLogger() async {
   _logFile = File('${logDir.path}${sep}tsdm_client_$logFileTime.log');
   _logSink = _logFile.openWrite(mode: FileMode.append);
 
-  talker = TalkerFlutter.init(
+  // Secrets (cookies, passwords, form hashes, private form contents) are redacted before a log entry exists, see
+  // [RedactingTalker]; the console output mirrors TalkerFlutter.init on Android.
+  talker = RedactingTalker(
+    logger: TalkerLogger(output: (message) => debugPrint(message)),
     settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
     observer: _TalkerObserver(),
   );

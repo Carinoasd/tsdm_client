@@ -71,7 +71,7 @@ final class NetClientProvider with LoggerMixin {
   factory NetClientProvider.build({Dio? dio, UserLoginInfo? userLoginInfo, bool forceDesktop = true}) {
     final d = dio ?? getIt.get<SettingsRepository>().buildDefaultDio();
     if (!isWeb) {
-      talker.debug('build cookie with user info: $userLoginInfo');
+      talker.debug('build client with cookie');
       final cookie = getIt.get<CookieProvider>();
       final cookieJar = PersistCookieJar(ignoreExpires: true, storage: cookie);
       d.interceptors.add(CookieManager(cookieJar));
@@ -99,7 +99,7 @@ final class NetClientProvider with LoggerMixin {
   /// * Set [forceDesktop] to false when desire server response with a mobile
   ///   layout page.
   factory NetClientProvider.buildNoCookie({Dio? dio, bool forceDesktop = true, CookieProvider? cookie}) {
-    talker.debug('build no-cookie with cookie: $cookie');
+    talker.debug('build client without stored cookie');
     final d = dio ?? getIt.get<SettingsRepository>().buildDefaultDio();
     d.interceptors.add(_ErrorHandler());
     final cookieJar = PersistCookieJar(

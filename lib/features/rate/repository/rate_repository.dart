@@ -101,7 +101,7 @@ final class RateRepository with LoggerMixin {
           }
           return left(RateInfoInvalidDivCNode());
         }
-        debug('get rate formHash: ${rateWindowInfo.formHash}');
+        debug('got rate form hash');
         return right(rateWindowInfo);
     }
   });

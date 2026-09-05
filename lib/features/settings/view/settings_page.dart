@@ -39,6 +39,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/co
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -836,7 +837,8 @@ class _SettingsPageState extends State<SettingsPage> {
             title: Text(tr.exportLog.title),
             subtitle: _logExportPath == null ? null : Text(tr.exportLog.detail(path: _logExportPath!)),
             onTap: () async {
-              final logData = talker.history.map((e) => e.generateTextMessage()).join('\n');
+              // Entries are redacted when logged; redact the export once more so it never carries a secret.
+              final logData = talker.history.map((e) => redactSensitive(e.generateTextMessage())).join('\n');
 
               final outputFile = await FilePicker.platform.saveFile(
                 fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt',

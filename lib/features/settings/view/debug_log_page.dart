@@ -16,6 +16,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// Debug page for show all caught log since this start.
 class DebugLogPage extends StatefulWidget {
@@ -138,7 +139,8 @@ class _DebugHistoricalLogDetailPageState extends State<DebugHistoricalLogDetailP
           return Center(child: Text('${context.t.general.failedToLoad}: ${snapshot.error}'));
         }
 
-        _logData = snapshot.data;
+        // Older log files may predate redaction; never show or export a secret from them.
+        _logData = redactSensitive(snapshot.data!);
 
         return SingleChildScrollView(child: SelectableText(_logData!));
       },
