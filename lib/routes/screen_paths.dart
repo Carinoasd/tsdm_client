@@ -179,6 +179,18 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=thread&view=me
   static const String myThread = '/myThread';
 
+  /// Page to show the favorites (收藏) of the current user.
+  ///
+  /// https://tsdm39.com/home.php?mod=space&do=favorite&type=thread
+  static const String favorite = '/favorite';
+
+  /// Page to show the friends list of a user.
+  ///
+  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
+  ///
+  /// Query parameters: `uid` or `username` of the user; none for the current user.
+  static const String friend = '/friend';
+
   /// Page to show "Latest thread" on web side.
   ///
   /// https://tsdm39.com/home.php?mod=forum&searchid=xxx&orderby...
@@ -348,6 +360,12 @@ class DialogPaths {
 
   /// Dialog to edit user profile.
   static const String editUserProfile = '/dialog/editUserProfile';
+
+  /// Dialog asking the optional note of a new favorite.
+  static const String favoriteNote = '/dialog/favoriteNote';
+
+  /// Dialog showing a red packet in a thread.
+  static const String redPacket = '/dialog/redPacket';
 }
 
 /// Route path for a screen.

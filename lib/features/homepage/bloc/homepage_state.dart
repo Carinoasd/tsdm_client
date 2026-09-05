@@ -48,6 +48,8 @@ final class HomepageState with HomepageStateMappable {
     this.scrollSwiper = true,
     this.unreadNoticeCount = 0,
     this.hasUnreadMessage = false,
+    this.dailyRedPacket,
+    this.formHash,
   });
 
   /// Loading status.
@@ -79,4 +81,10 @@ final class HomepageState with HomepageStateMappable {
 
   /// Whether the header of the fetched homepage marks unread personal messages.
   final bool hasUnreadMessage;
+
+  /// Today's daily red packet offered by the forum footer, null when there is none or it was already claimed.
+  final DailyRedPacketConfig? dailyRedPacket;
+
+  /// Form hash of the current session found in the homepage, required to claim the daily red packet.
+  final String? formHash;
 }

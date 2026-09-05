@@ -138,4 +138,39 @@
 - 使用者已定案：好友列表採版面 A；帖子頁頂部下拉維持「重新載入回第 1 頁」不改；身分組 @ 不接手機。
 
 ---
+
+## 5. 實作狀態（2026-09-06）
+
+三個功能皆已實作於 `feat/discuz-x5`，以測試帳號實測通過；與上文規格的差異或補充如下。
+
+### 5.1 收藏
+
+- 程式：`lib/features/favorite/`（列表頁 `FavoritePage`、`FavoriteRepository`、`FavoriteBloc`）；帖子頁 App bar 選單新增
+  「收藏／取消收藏」（`thread_favorite_action.dart`）；首頁頭像選單新增「收藏」入口；`home.php?mod=space&do=favorite`
+  網址改在 App 內開啟。
+- 實測發現：對「已收藏」的帖子再按收藏，論壇在**第一步取表單時**就直接回 `errorhandle_k_favorite('抱歉，您已收藏…')`，
+  沒有表單；取消一個已不存在的收藏也是在取表單時回 `抱歉，您指定的收藏不存在`。App 對這兩種情況都直接解析對話框內容：
+  前者視為已收藏（提示「已在收藏中」並掃描列表補上 favid），後者視為已取消。
+- 收藏狀態快取為 App 執行期間的記憶體快取（uid → tid → favid），由列表頁與成功加入時填入；重新啟動 App 後，
+  帖子頁選單會先顯示「收藏」，按下後若論壇回已收藏則自動補上狀態並改顯示「取消收藏」。未持久化到資料庫。
+
+### 5.2 好友列表（版面 A）
+
+- 程式：`lib/features/friend/`；網址 `home.php?mod=space&uid=…&do=friend`／`username=…`／不帶參數（自己）皆開此頁；
+  個人頁好友數按鈕不再丟瀏覽器。
+- 自己的頁面在沒有好友時會列出「在線成員」推薦（`li#friend_UID_li`，無 `bbda` class），App 只取 `li.bbda`，不會誤當好友。
+- 隱私限制頁（`div.nfl h2.xs2` 的「抱歉！由于 … 的隐私设置，您不能访问当前内容」）直接顯示原文。
+- 好友卡片右側「訊息」按鈕開聊天頁（帶 uid 與用戶名）；點卡片進個人頁。
+
+### 5.3 紅包
+
+- 程式：`lib/features/red_packet/`；帖內 `div.hb-entry` 改為紅包卡片（`RedPacketCard`），點擊開對話框呼叫 `open`，
+  依狀態顯示領取按鈕（口令包有口令欄）／已領金額／看手氣榜；`grab` 的 `needreply`、`badpw`、`done` 各有提示。
+- 帖內同時發現插件的彈窗骨架 `div#hb_mask`（含「開」「撤回 剩餘」「已存入你的帳戶」「看看大家的手氣 ›」「手 氣 爆 發 !」等文字）
+  也在 1 樓 `div.pcbs` 內，先前會被當純文字渲染出來；現已一併隱藏。
+- 每日紅包：首頁解析 footer 的 `hongbaoDailyInit({...})` 與登出連結中的 `formhash`，有設定時在首頁 App bar 顯示「今日紅包」
+  按鈕（採規格預設的按鈕方案，非自動彈窗）；領取成功或「今天已經領過」後按鈕隱藏。
+- `formhash` 錯誤或缺失時論壇回 Discuz! System Error 的 HTML 頁（非 JSON），App 視為一般失敗。
+
+---
 (C) 2026 Carinoasd

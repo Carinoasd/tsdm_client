@@ -44,7 +44,8 @@
       "notice": "Notification",
       "checkin": "Checkin",
       "myThread": "My thread",
-      "latestThread": "Latest thread"
+      "latestThread": "Latest thread",
+      "favorite": "Favorites"
     },
     "showMoreUserOperationsTip": "Show more user operations",
     "latestReplySection": {
@@ -494,7 +495,17 @@
       "threadUrlBBCode": "Url BBCode",
       "threadUrlBBCodeWithDomain": "Url BBCode (with domain)"
     },
-    "copyTid": "Copy tid(${tid: String})"
+    "copyTid": "Copy tid(${tid: String})",
+    "favorite": {
+      "add": "Add to favorites",
+      "remove": "Remove from favorites",
+      "removeConfirm": "Remove this thread from favorites?",
+      "noteHint": "Note (optional)",
+      "added": "Added to favorites",
+      "alreadyAdded": "Already in favorites",
+      "removed": "Removed from favorites",
+      "failed": "Failed: $err"
+    }
   },
   "noticePage": {
     "title": "Notifications",
@@ -582,6 +593,54 @@
       "title": "ReplyThread"
     },
     "forum": "Forum"
+  },
+  "favoritePage": {
+    "title": "Favorites",
+    "empty": "No favorites yet",
+    "remove": "Remove from favorites",
+    "removeConfirm": "Remove \"${title}\" from favorites?",
+    "removed": "Removed from favorites",
+    "actionFailed": "Failed: $err",
+    "favoritedAt": "Favorited at $time"
+  },
+  "friendPage": {
+    "title": "Friends",
+    "subtitle": "${name} · ${count: int} friends",
+    "subtitleCountOnly": "${count: int} friends",
+    "empty": "No friends yet",
+    "credits": "Credits ${count}",
+    "sendMessage": "Send message"
+  },
+  "redPacket": {
+    "title": "Red packet",
+    "cardHint": "Tap to open",
+    "modeRandom": "Random amounts",
+    "modeEven": "Equal shares",
+    "stateOpen": "Available",
+    "stateDone": "All taken",
+    "stateWithdrawn": "Withdrawn",
+    "stateExpired": "Expired",
+    "stateClosed": "Closed",
+    "claim": "Claim",
+    "passwordHint": "Enter the password",
+    "claimed": "You got ${amount} ${unit}",
+    "best": "Best luck",
+    "grabbed": "You got ${amount} ${unit}",
+    "needReply": "Reply in the thread first",
+    "badPassword": "Wrong password",
+    "needLogin": "Please login first",
+    "needFormHash": "Form parameters not found, reload the thread and try again",
+    "records": "Show records",
+    "recordsTitle": "${claimed: int}/${shares: int} shares claimed",
+    "noRecords": "Nobody claimed yet",
+    "noPacket": "No red packet here",
+    "failed": "Failed: ${err}",
+    "daily": {
+      "tooltip": "Daily red packet",
+      "claimed": "Daily red packet: you got ${amount} ${unit}",
+      "alreadyClaimed": "Already claimed today, come back tomorrow",
+      "failed": "Failed to claim: ${err}"
+    }
   },
   "latestThreadPage": {
     "title": "Latest Thread"

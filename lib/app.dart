@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.dart';
 import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart';
+import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
@@ -225,6 +226,7 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
         ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(create: (_) => ForumHomeRepository()),
+        RepositoryProvider<FavoriteRepository>(create: (_) => FavoriteRepository()),
         RepositoryProvider<ProfileRepository>(create: (_) => ProfileRepository()),
         RepositoryProvider<FragmentsRepository>(create: (_) => FragmentsRepository()),
         RepositoryProvider<ForumRepository>(create: (_) => ForumRepository()),

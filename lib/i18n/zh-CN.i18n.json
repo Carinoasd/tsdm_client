@@ -44,7 +44,8 @@
       "notice": "消息",
       "checkin": "签到",
       "myThread": "我的帖子",
-      "latestThread": "最新帖子"
+      "latestThread": "最新帖子",
+      "favorite": "收藏"
     },
     "showMoreUserOperationsTip": "显示更多用户操作",
     "latestReplySection": {
@@ -494,7 +495,17 @@
       "threadUrlBBCode": "链接BBCode",
       "threadUrlBBCodeWithDomain": "链接BBCode（有域名）"
     },
-    "copyTid": "复制tid（${tid: String}）"
+    "copyTid": "复制tid（${tid: String}）",
+    "favorite": {
+      "add": "收藏",
+      "remove": "取消收藏",
+      "removeConfirm": "确定要取消收藏这篇帖子吗？",
+      "noteHint": "收藏备注（可留空）",
+      "added": "收藏成功",
+      "alreadyAdded": "已在收藏中",
+      "removed": "已取消收藏",
+      "failed": "操作失败：$err"
+    }
   },
   "noticePage": {
     "title": "通知",
@@ -582,6 +593,54 @@
       "title": "回复"
     },
     "forum": "分区"
+  },
+  "favoritePage": {
+    "title": "收藏",
+    "empty": "还没有收藏",
+    "remove": "取消收藏",
+    "removeConfirm": "确定要取消收藏「${title}」吗？",
+    "removed": "已取消收藏",
+    "actionFailed": "操作失败：$err",
+    "favoritedAt": "收藏于 $time"
+  },
+  "friendPage": {
+    "title": "好友",
+    "subtitle": "${name} · ${count: int} 位好友",
+    "subtitleCountOnly": "${count: int} 位好友",
+    "empty": "还没有好友",
+    "credits": "积分 ${count}",
+    "sendMessage": "发送消息"
+  },
+  "redPacket": {
+    "title": "红包",
+    "cardHint": "点击打开",
+    "modeRandom": "拼手气红包",
+    "modeEven": "均分红包",
+    "stateOpen": "可领取",
+    "stateDone": "已被抢光",
+    "stateWithdrawn": "已撤回",
+    "stateExpired": "已过期",
+    "stateClosed": "已关闭",
+    "claim": "领取",
+    "passwordHint": "输入口令",
+    "claimed": "已领取 ${amount} ${unit}",
+    "best": "手气最佳",
+    "grabbed": "获得 ${amount} ${unit}",
+    "needReply": "需要先回帖才能领取",
+    "badPassword": "口令错误",
+    "needLogin": "请先登录",
+    "needFormHash": "无法取得表单参数，请重新加载帖子后再试",
+    "records": "看手气榜",
+    "recordsTitle": "已领取 ${claimed: int}/${shares: int} 份",
+    "noRecords": "还没有人领取",
+    "noPacket": "这里没有红包",
+    "failed": "操作失败：${err}",
+    "daily": {
+      "tooltip": "今日红包",
+      "claimed": "今日红包：获得 ${amount} ${unit}",
+      "alreadyClaimed": "今天已经领过了，明天再来",
+      "failed": "领取失败：${err}"
+    }
   },
   "latestThreadPage": {
     "title": "最新主题"

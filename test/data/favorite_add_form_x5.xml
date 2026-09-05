@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb">
+<em id="return_k_favorite">收藏</em>
+<span><a href="javascript:;" onclick="hideWindow('k_favorite');" class="flbc" title="关闭">关闭</a></span></h3>
+<form method="post" autocomplete="off" id="favoriteform_1264928" name="favoriteform_1264928" action="home.php?mod=spacecp&amp;ac=favorite&amp;type=thread&amp;id=1264928&amp;spaceuid=0" onsubmit="ajaxpost(this.id, 'return_k_favorite', null, null, null, 'favoriteupdate()');">
+<input type="hidden" name="favoritesubmit" value="true" />
+<input type="hidden" name="referer" value="https://www.tsdm39.com/./" />
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<input type="hidden" name="handlekey" value="k_favorite" /><div class="c">
+<p>已有 <b>0</b> 人收藏</p>
+<p>收藏说明:</p>
+<textarea id="general_1264928" name="description" cols="50" rows="5" class="pt mtn" style="width: 400px;" onkeydown="ctrlEnter(event, 'favoritesubmit_btn')"></textarea>
+</div>
+<p class="o pns">
+<button type="submit" name="favoritesubmit_btn" id="favoritesubmit_btn" class="pn pnc" value="true"><strong>确定</strong></button>
+</p>
+</form>
+<script type="text/javascript">
+function favorite_delete(favid) {
+var el = $('fav_' + favid);
+if(el) {
+el.style.display = "none";
+}
+}
+function succeedhandle_k_favorite(url, msg, values) {
+favorite_delete(values['favid']);            
+hideWindow('k_favorite');
+}
+</script>
+]]></root>

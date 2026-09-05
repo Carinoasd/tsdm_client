@@ -78,6 +78,13 @@ class UserOperationDialog extends StatelessWidget with LoggerMixin {
             },
           ),
           ListTile(
+            title: Text(tr.favorite),
+            onTap: () async {
+              context.pop();
+              await context.pushNamed(ScreenPaths.favorite);
+            },
+          ),
+          ListTile(
             title: Text(tr.latestThread),
             onTap: latestThreadUrl == null
                 ? null

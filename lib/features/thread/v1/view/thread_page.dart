@@ -11,6 +11,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -494,12 +495,28 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                     _listScrollController.animateTo(0, curve: Curves.ease, duration: const Duration(milliseconds: 500)),
                 onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
                 customMenuItems: [
-                  if (state.tid != null)
+                  if (state.tid != null) ...[
+                    MenuCustomItem(
+                      icon: isThreadFavorited(context, tid: state.tid!)
+                          ? Icons.bookmark_remove_outlined
+                          : Icons.bookmark_add_outlined,
+                      description: isThreadFavorited(context, tid: state.tid!)
+                          ? context.t.threadPage.favorite.remove
+                          : context.t.threadPage.favorite.add,
+                      onSelected: () async {
+                        final changed = await toggleThreadFavorite(context, tid: state.tid!);
+                        if (changed && mounted) {
+                          // Relabel the menu item.
+                          setState(() {});
+                        }
+                      },
+                    ),
                     MenuCustomItem(
                       icon: Icons.numbers_outlined,
                       description: context.t.threadPage.copyTid(tid: state.tid!),
                       onSelected: () async => copyToClipboard(context, state.tid!),
                     ),
+                  ],
                 ],
               ),
               body: SafeArea(bottom: false, child: _buildBody(context, state)),

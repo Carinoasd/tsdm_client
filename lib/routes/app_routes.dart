@@ -5,9 +5,11 @@ import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
+import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
+import 'package:tsdm_client/features/friend/view/friend_page.dart';
 import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_detail_page.dart';
@@ -219,6 +221,12 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.noticeSearch, builder: (_) => const NotificationSearchPage()),
   AppRoute(path: ScreenPaths.myThread, builder: (_) => const MyThreadPage()),
+  AppRoute(path: ScreenPaths.favorite, builder: (_) => const FavoritePage()),
+  AppRoute(
+    path: ScreenPaths.friend,
+    builder: (state) =>
+        FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
+  ),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {

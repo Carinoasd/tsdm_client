@@ -8,6 +8,8 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
+import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
+import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
@@ -614,8 +616,14 @@ final class _Muncher with LoggerMixin {
       'rusld': _buildUnresolvedBounty,
       'rsld': _buildResolvedBounty,
       'rwdbst': _buildBountyBestAnswer,
-      'hb-entry': _skipRedPacketEntry,
+      'hb-entry': _buildRedPacketEntry,
     };
+
+    // The popup markup of the forum's red packet plugin (envelope animation, password box, buttons) only works with
+    // its javascript; it must not leak into the post as text.
+    if (element.id == 'hb_mask') {
+      return null;
+    }
 
     state.inDiv = true;
     // Find the first munch executor, use `_munch` if none found.
@@ -630,9 +638,19 @@ final class _Muncher with LoggerMixin {
   }
 
   /// The red packet entry of the forum's `hongbao` plugin, `<div class="hb-entry" data-tid="...">` at the top of a
-  /// post body: it only works together with the plugin's javascript on the web page and red packets are not offered
-  /// in the app, so render nothing instead of its inner texts (blessing, remaining shares).
-  List<InlineSpan>? _skipRedPacketEntry(uh.Element _) => null;
+  /// post body, rendered as a [RedPacketCard] which talks to the plugin api when tapped.
+  List<InlineSpan>? _buildRedPacketEntry(uh.Element element) {
+    final entry = parseRedPacketEntry(element);
+    if (entry == null) {
+      return null;
+    }
+    state
+      ..headingBrNodePassed = true
+      ..elevation += _elevationStep;
+    final ret = [WidgetSpan(child: RedPacketCard(entry, elevation: state.elevation)), emptySpan];
+    state.elevation -= _elevationStep;
+    return ret;
+  }
 
   List<InlineSpan>? _buildBlockCode(uh.Element element) {
     // Usually each line in the block code is ended with `<br>` tag, but rarely it does not.

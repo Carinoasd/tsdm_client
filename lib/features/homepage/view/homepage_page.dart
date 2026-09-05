@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
@@ -212,6 +213,12 @@ class _HomepagePageState extends State<HomepagePage> {
                         ),
                       ),
                     ),
+                    if (state.dailyRedPacket != null && state.formHash != null)
+                      DailyRedPacketButton(
+                        key: ValueKey('dailyRedPacket-${state.dailyRedPacket!.dateFlag}'),
+                        config: state.dailyRedPacket!,
+                        formHash: state.formHash!,
+                      ),
                     const NoticeButton(),
                     const CheckinButton(enableSnackBar: true),
                   ],

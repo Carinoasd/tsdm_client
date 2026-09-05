@@ -125,7 +125,9 @@ void main() {
     });
   });
 
-  testWidgets('the red packet entry of a post renders nothing', (tester) async {
+  // Since the red packet feature the entry becomes a card (a WidgetSpan); its texts and the plugin css never show up
+  // as plain text in the post body.
+  testWidgets('the red packet entry of a post does not render as text', (tester) async {
     String? plain;
     await tester.pumpWidget(
       MaterialApp(

@@ -92,6 +92,12 @@ extension ParseUrl on String {
       return const RecognizedRoute(ScreenPaths.myThread);
     }
 
+    // Favorites list, with or without uid: home.php?mod=space[&uid=xxx]&do=favorite[&view=me][&type=thread]
+    // Only the list of the current user is visible.
+    if (mod == 'space' && queryParameters['do'] == 'favorite') {
+      return const RecognizedRoute(ScreenPaths.favorite);
+    }
+
     if (mod == 'forum' && queryParameters['srchfrom'] != null) {
       return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
     }
@@ -123,6 +129,18 @@ extension ParseUrl on String {
           // to avoid incorrect page loaded when loading more pages.
           'overrideReverseOrder': 'false',
           if (queryParameters.containsKey('authorid')) 'onlyVisibleUid': "${queryParameters['authorid']}",
+        },
+      );
+    }
+
+    // Friends list: home.php?mod=space&uid=xxx&do=friend[&view=me][&page=N], home.php?mod=space&username=xxx&do=friend
+    // or home.php?mod=space&do=friend (the current user).
+    if (mod == 'space' && queryParameters['do'] == 'friend') {
+      return RecognizedRoute(
+        ScreenPaths.friend,
+        queryParameters: {
+          if (queryParameters['uid'] != null) 'uid': queryParameters['uid']!,
+          if (queryParameters['username'] != null) 'username': queryParameters['username']!,
         },
       );
     }

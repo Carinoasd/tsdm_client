@@ -14,6 +14,8 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
+import 'package:tsdm_client/features/red_packet/models/models.dart';
+import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -397,6 +399,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       swiperUrlList: swiperUrlList,
       unreadNoticeCount: unreadNoticeCount,
       hasUnreadMessage: hasUnreadMessage,
+      // The forum embeds today's daily red packet in the footer until it is claimed.
+      dailyRedPacket: loggedUsername.isEmpty ? null : parseDailyRedPacketConfig(document),
+      formHash: parseFormHash(document),
     );
   }
 
