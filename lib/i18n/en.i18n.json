@@ -280,6 +280,7 @@
         "automatedOnPlatform": "Proxy settings are automatically configured on this platform"
       },
       "exportData": "Export data",
+      "exportDataDetail": "Contains no cookies or passwords of any account; log in again after importing a backup",
       "importData": {
         "title": "Import data",
         "invalidData": "Invalid data",

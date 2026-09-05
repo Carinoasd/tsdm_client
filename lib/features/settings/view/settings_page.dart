@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/view/debug_showcase_page.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_clear_image_cache_duration_dialog.dart';
@@ -699,9 +700,10 @@ class _SettingsPageState extends State<SettingsPage> {
       SectionListTile(
         leading: const Icon(Icons.download_outlined),
         title: Text(tr.exportData),
+        subtitle: Text(tr.exportDataDetail),
         onTap: () async {
-          final db = await databaseFile;
-          final data = await db.readAsBytes();
+          // Never the raw database file: cookies, passwords and the logged in account are removed from the copy.
+          final data = await const BackupRepository().exportSanitized(await databaseFile);
           final name = 'tsdm_client_data_${DateTime.now().microsecondsSinceEpoch}.db';
 
           if (isDesktop) {
