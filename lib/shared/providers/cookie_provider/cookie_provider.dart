@@ -58,6 +58,9 @@ final class CookieProvider with LoggerMixin implements Storage {
   /// Info of the user currently login.
   UserLoginInfo _userLoginInfo;
 
+  /// Info of the user this cookie belongs to.
+  UserLoginInfo get userLoginInfo => _userLoginInfo;
+
   /// Update current recorded user info.
   Future<void> updateUserInfo(UserLoginInfo userInfo) async {
     debug('update user info: $userInfo');

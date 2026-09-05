@@ -29,6 +29,10 @@ AppException mapException(Object error, StackTrace st) {
   if (error is AppException) {
     return error;
   }
+  // Interceptors reject with an app exception wrapped in a DioException.
+  if (error case DioException(error: final AppException inner)) {
+    return inner;
+  }
   if (error case DioException(:final response)) {
     return HttpHandshakeFailedException(
       error.message ?? '<unknown error>',
@@ -66,6 +70,9 @@ final class NetClientProvider with LoggerMixin {
   ///
   /// ## Parameters
   ///
+  /// * [userLoginInfo] is the account this client acts for, the current account by default. The client is bound to
+  ///   that account: once another account becomes current, pending requests of this client are dropped and their
+  ///   cookies are neither read nor saved, see [_IdentityGuard] and [_IdentityScopedStorage].
   /// * Set [forceDesktop] to false when desire server response with a mobile
   ///   layout page.
   factory NetClientProvider.build({Dio? dio, UserLoginInfo? userLoginInfo, bool forceDesktop = true}) {
@@ -73,7 +80,9 @@ final class NetClientProvider with LoggerMixin {
     if (!isWeb) {
       talker.debug('build client with cookie');
       final cookie = getIt.get<CookieProvider>();
-      final cookieJar = PersistCookieJar(ignoreExpires: true, storage: cookie);
+      final identity = userLoginInfo?.uid ?? cookie.userLoginInfo.uid;
+      final cookieJar = PersistCookieJar(ignoreExpires: true, storage: _IdentityScopedStorage(cookie, identity));
+      d.interceptors.add(_IdentityGuard(cookie, identity));
       d.interceptors.add(CookieManager(cookieJar));
       if (forceDesktop) {
         d.interceptors.add(_ForceDesktopLayoutInterceptor());
@@ -238,6 +247,89 @@ final class NetClientProvider with LoggerMixin {
             ),
         mapException,
       );
+}
+
+/// Cookie storage of one account.
+///
+/// Reads and writes reach the shared [CookieProvider] only while that account is still the current one. After a
+/// switch, a client built for the previous account neither sends its cookies nor saves the cookies of a late answer
+/// into the new account.
+final class _IdentityScopedStorage with LoggerMixin implements Storage {
+  _IdentityScopedStorage(this._provider, this._uid);
+
+  final CookieProvider _provider;
+  final int? _uid;
+
+  bool get _current => _provider.userLoginInfo.uid == _uid;
+
+  @override
+  Future<void> init(bool persistSession, bool ignoreExpires) => _provider.init(persistSession, ignoreExpires);
+
+  @override
+  Future<String?> read(String key) async => _current ? _provider.read(key) : null;
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (!_current) {
+      warning('drop cookie write of a client bound to a previous account');
+      return;
+    }
+    await _provider.write(key, value);
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    if (_current) {
+      await _provider.delete(key);
+    }
+  }
+
+  @override
+  Future<void> deleteAll(List<String> keys) async {
+    if (_current) {
+      await _provider.deleteAll(keys);
+    }
+  }
+}
+
+/// Drops requests and answers of a client whose account is no longer the current one.
+///
+/// A request started as account A must not go out as account B (reply, rate, favorite with A's form hash but B's
+/// cookies), and an answer for A must not land on B's screen.
+final class _IdentityGuard extends Interceptor with LoggerMixin {
+  _IdentityGuard(this._provider, this._uid);
+
+  final CookieProvider _provider;
+  final int? _uid;
+
+  bool get _changed => _provider.userLoginInfo.uid != _uid;
+
+  DioException _dropped(RequestOptions options) => DioException(
+    requestOptions: options,
+    type: DioExceptionType.cancel,
+    error: IdentityChangedException(),
+    message: 'account changed, request dropped',
+  );
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (_changed) {
+      warning('drop request of a previous account: ${options.method} ${options.uri.path}');
+      handler.reject(_dropped(options));
+      return;
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+    if (_changed) {
+      warning('drop answer for a previous account: ${response.requestOptions.uri.path}');
+      handler.reject(_dropped(response.requestOptions), true);
+      return;
+    }
+    handler.next(response);
+  }
 }
 
 /// Handle exceptions during web request.

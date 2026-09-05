@@ -194,6 +194,16 @@ final class LoginUserInfoIncompleteException extends AppException with LoginUser
 @MappableClass()
 final class SwitchUserNotAuthedException extends AppException with SwitchUserNotAuthedExceptionMappable {}
 
+/// The logged in account changed while a request bound to the previous account was pending.
+///
+/// The request is dropped (not sent, or its answer discarded) so that data of one account never reaches the screen or
+/// the server as another account.
+@MappableClass()
+final class IdentityChangedException extends AppException with IdentityChangedExceptionMappable {
+  /// Constructor.
+  IdentityChangedException() : super(message: 'account changed, request dropped');
+}
+
 /// The form hash used to logout is not found.
 @MappableClass()
 final class LogoutFormHashNotFoundException extends AppException with LogoutFormHashNotFoundExceptionMappable {}
