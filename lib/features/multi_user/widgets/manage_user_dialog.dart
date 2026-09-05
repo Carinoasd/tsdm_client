@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -30,16 +32,22 @@ Future<void> openManageUserDialog({
   required UserLoginInfo userInfo,
   required String heroTag,
   bool isCurrentUser = false,
-}) async => showDialog(
-  context: context,
-  builder: (_) => BlocProvider.value(
-    value: context.watch<SwitchUserBloc>(),
-    child: RootPage(
-      DialogPaths.manageUser,
-      _ManageUserDialog(userInfo: userInfo, heroTag: heroTag, isCurrentUser: isCurrentUser),
+}) async {
+  // Resolve the bloc once, outside the dialog builder. The builder runs again whenever the dialog rebuilds, and
+  // by then the list tile that opened it may already be gone (e.g. its account was logged out), so looking up an
+  // ancestor through that tile's context would throw "Looking up a deactivated widget's ancestor is unsafe".
+  final switchUserBloc = context.read<SwitchUserBloc>();
+  return showDialog(
+    context: context,
+    builder: (_) => BlocProvider.value(
+      value: switchUserBloc,
+      child: RootPage(
+        DialogPaths.manageUser,
+        _ManageUserDialog(userInfo: userInfo, heroTag: heroTag, isCurrentUser: isCurrentUser),
+      ),
     ),
-  ),
-);
+  );
+}
 
 /// Dialog to manage a given user, single one.
 class _ManageUserDialog extends StatelessWidget with LoggerMixin {
@@ -139,7 +147,18 @@ class _ManageUserDialog extends StatelessWidget with LoggerMixin {
         if (!context.mounted || confirmed != true) {
           return;
         }
-        final result = await context.repo<AuthenticationRepository>().logout().run();
+        // Cover the screen while logging out so the action cannot be repeated by tapping again.
+        final repo = context.repo<AuthenticationRepository>();
+        final navigator = Navigator.of(context, rootNavigator: true);
+        unawaited(
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => const PopScope(canPop: false, child: Center(child: CircularProgressIndicator())),
+          ),
+        );
+        final result = await repo.logout().run();
+        navigator.pop();
         if (!context.mounted) {
           return;
         }

@@ -245,7 +245,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     if (event.curr is AuthStatusNotAuthed &&
         state.status != HomepageStatus.loading &&
         state.status != HomepageStatus.needLogin) {
-      emit(state.copyWith(status: HomepageStatus.needLogin));
+      // Start from a clean state: keeping the old `loggedUserInfo` would leave the avatar and the logged-in
+      // actions in the app bar after logging out.
+      emit(const HomepageState(status: HomepageStatus.needLogin));
       return;
     }
     if (event.curr is AuthStatusAuthed &&
