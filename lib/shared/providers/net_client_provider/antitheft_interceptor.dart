@@ -34,7 +34,16 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
   /// Shared across all client instances because the sign only depends on the thread.
   static final Map<String, String> _signCache = {};
 
-  static bool _isForumHost(Uri uri) => uri.host == baseHost || uri.host == baseHostAlt;
+  static bool _isForumHost(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == baseHost || host == baseHostAlt;
+  }
+
+  /// Whether the challenge may redirect us to [target]: https, on a forum host.
+  ///
+  /// The redirect url is taken from a script in the server's answer; a tampered page must not be able to make the
+  /// client resend the request (with its cookies) somewhere else or over plain http.
+  static bool isAllowedRedirect(Uri target) => target.scheme == 'https' && _isForumHost(target);
 
   /// Look up the cached sign for [uri] if it's a thread page.
   static String? cachedSignOf(Uri uri) {
@@ -88,6 +97,11 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
     // (e.g. `forum.php?mod=redirect&goto=findpost`), `realUri` may be a relative url, so resolve it
     // with the request uri first.
     final target = options.uri.resolveUri(response.realUri).resolve(challenge.redirectUrl);
+    if (!isAllowedRedirect(target)) {
+      error('antitheft: refuse redirect to ${target.scheme}://${target.host} from ${options.uri}');
+      handler.next(response);
+      return;
+    }
     final tid = target.queryParameters['tid'];
     if (tid != null) {
       _signCache[tid] = challenge.dsign;
