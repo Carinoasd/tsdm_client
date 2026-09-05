@@ -60,25 +60,34 @@ class FriendCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     sizedBoxW4H4,
-                    Row(
+                    // Group and credits; a long group name pushes the credits to the next line instead of being cut.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (groupIconUrl != null) ...[
-                          CachedImage(groupIconUrl, height: _groupIconHeight, maxWidth: 64),
-                          sizedBoxW4H4,
-                        ],
-                        if (groupName != null)
-                          Flexible(
-                            child: Text(
-                              groupName,
-                              style: secondaryStyle?.copyWith(color: _color(friend.groupColor) ?? secondaryStyle.color),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        if (groupIconUrl != null || groupName != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (groupIconUrl != null) ...[
+                                CachedImage(groupIconUrl, height: _groupIconHeight, maxWidth: 64),
+                                sizedBoxW4H4,
+                              ],
+                              if (groupName != null)
+                                Flexible(
+                                  child: Text(
+                                    groupName,
+                                    style: secondaryStyle?.copyWith(
+                                      color: _color(friend.groupColor) ?? secondaryStyle.color,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
                           ),
-                        if (credits != null) ...[
-                          if (groupName != null || groupIconUrl != null) sizedBoxW8H8,
-                          Text(tr.credits(count: credits), style: secondaryStyle),
-                        ],
+                        if (credits != null) Text(tr.credits(count: credits), style: secondaryStyle),
                       ],
                     ),
                   ],
