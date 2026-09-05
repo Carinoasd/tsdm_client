@@ -286,6 +286,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
     return switch (state.status) {
       ThreadStatus.initial || ThreadStatus.loading => const CenteredCircularIndicator(),
+      // A failed reload keeps the previous posts (see ThreadBloc); only an empty page gets the retry button.
+      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state),
       ThreadStatus.failure => buildRetryButton(context, () {
         context.read<ThreadBloc>().add(ThreadLoadMoreRequested(state.currentPage));
       }),
@@ -337,6 +339,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         listeners: [
           BlocListener<ThreadBloc, ThreadState>(
             listener: (context, state) {
+              if (state.status == ThreadStatus.failure && state.postList.isNotEmpty) {
+                // A reload (for example after a reply) failed: the posts stay on screen, only tell the user.
+                showSnackBar(context: context, message: context.t.general.failedToLoad);
+              }
+
               // Update reply parameters to reply bar.
               context.read<ReplyBloc>().add(ReplyParametersUpdated(state.replyParameters));
 
@@ -387,12 +394,14 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           BlocListener<ReplyBloc, ReplyState>(
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {
+              if (!mounted) {
+                return;
+              }
               if (state.status == ReplyStatus.success) {
                 showSnackBar(context: context, message: context.t.threadPage.replySuccess);
-                // Close the reply bar when sent success.
-                if (_replyBarController.showingEditor) {
-                  context.pop();
-                }
+                // Close the reply bar when sent success. Through the controller, never `context.pop()`: the reload
+                // below disposes the reply bar and its own close would then pop this page.
+                _replyBarController.closeEditor();
                 // Reload so the new floor shows up. It lands on the last page unless the thread is read in reverse.
                 final threadBloc = context.read<ThreadBloc>();
                 final threadState = threadBloc.state;
@@ -404,9 +413,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   threadBloc.add(ThreadRefreshRequested());
                 }
               } else if (state.status == ReplyStatus.failure) {
+                final tr = context.t.threadPage;
                 showSnackBar(
                   context: context,
-                  message: context.t.threadPage.replyFailed(err: state.failedReason ?? ''),
+                  message: state.networkFailure ? tr.replyFailedNetwork : tr.replyFailed(err: state.failedReason ?? ''),
+                  // The editor and the keyboard stay open on failure and this page does not resize for the keyboard
+                  // (`resizeToAvoidBottomInset: false`), so lift the hint above it.
+                  bottomInset: MediaQuery.viewInsetsOf(context).bottom,
                 );
               }
             },

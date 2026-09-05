@@ -70,6 +70,8 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
   }
 
   Future<void> _onThreadRefreshRequested(ThreadRefreshRequested event, ThreadEmitter emit) async {
+    // Keep the posts: when the reload fails they go back on screen instead of a bare retry button.
+    final previousPosts = state.postList;
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
     await _threadRepository
         .fetchThread(
@@ -81,12 +83,14 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
         )
         .match((e) {
           handle(e);
-          emit(state.copyWith(status: ThreadStatus.failure));
+          emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
         }, (v) => _parseFromDocument(v, 1).map((v) => emit(v)).run())
         .run();
   }
 
   Future<void> _onThreadJumpPageRequested(ThreadJumpPageRequested event, ThreadEmitter emit) async {
+    // Keep the posts: when the reload fails they go back on screen instead of a bare retry button.
+    final previousPosts = state.postList;
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
     await _threadRepository
         .fetchThread(
@@ -100,7 +104,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
         .map((v) => _parseFromDocument(v, event.pageNumber).map((v) => emit(v)).run())
         .mapLeft((e) {
           handle(e);
-          emit(state.copyWith(status: ThreadStatus.failure));
+          emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
         })
         .run();
   }

@@ -107,10 +107,17 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     );
 
     rootLocationStream.add(const RootLocationEventEnter('<editor>'));
-    widget.controller._showingEditor = true;
+    widget.controller
+      .._sheet = c
+      .._showingEditor = true;
     await c.closed;
     rootLocationStream.add(const RootLocationEventLeave('<editor>'));
-    widget.controller._showingEditor = false;
+    // Another editor may already be open by the time this one finished closing: only forget our own sheet.
+    if (identical(widget.controller._sheet, c) || widget.controller._sheet == null) {
+      widget.controller
+        .._sheet = null
+        .._showingEditor = false;
+    }
   }
 
   @override
@@ -335,7 +342,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   /// avoid using the outer text controller after it disposed.
   void _manuallyDispose() {
     _canSyncBBCodeOnDispose = false;
-    context.pop();
+    widget.controller.closeEditor();
   }
 
   void _clearTextAndHint() {
@@ -649,7 +656,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
                 },
               ),
               const Spacer(),
-              FilledButton.tonal(onPressed: () => context.pop(), child: const Icon(Icons.unfold_less)),
+              FilledButton.tonal(onPressed: widget.controller.closeEditor, child: const Icon(Icons.unfold_less)),
               sizedBoxW8H8,
               // Send Button
               FilledButton(
@@ -773,6 +780,9 @@ final class ReplyBarController with LoggerMixin {
 
   void Function()? _onSetHintTextCallback;
 
+  /// Controller of the expanded editor (a bottom sheet), non-null while one is showing.
+  PersistentBottomSheetController? _sheet;
+
   /// Flag indicating currently popping up the editor or not.
   ///
   /// Use this flag to keep only one editor popup.
@@ -782,6 +792,21 @@ final class ReplyBarController with LoggerMixin {
 
   /// Flag indicating whe editor is expanded or not.
   bool get showingEditor => _showingEditor;
+
+  /// Close the expanded editor if it is showing, do nothing otherwise.
+  ///
+  /// Closes the bottom sheet through its own controller instead of popping the navigator: a pop issued once the
+  /// sheet is already gone closes the page underneath. That is how a successful reply used to close the thread page:
+  /// the page popped the sheet, reloaded the thread, the reload disposed the reply bar and the bar popped again.
+  void closeEditor() {
+    if (!_showingEditor) {
+      return;
+    }
+    _showingEditor = false;
+    final sheet = _sheet;
+    _sheet = null;
+    sheet?.close();
+  }
 
   /// All values temporarily saved here MUST be cleared when [_unbind] called.
   ///

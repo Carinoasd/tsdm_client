@@ -57,7 +57,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
       handle(err);
-      emit(state.copyWith(status: ReplyStatus.failure, failedReason: _describe(err)));
+      emit(_failed(err));
       return;
     }
     emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
@@ -71,16 +71,30 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
       handle(err);
-      emit(state.copyWith(status: ReplyStatus.failure, failedReason: _describe(err)));
+      emit(_failed(err));
       return;
     }
     emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
   }
 
-  /// Text shown to the user for a failed reply: the server's own words when it gave any.
-  static String _describe(AppException e) => switch (e) {
-    HttpRequestFailedException(:final statusCode) => 'HTTP $statusCode',
-    _ => e.message ?? e.runtimeType.toString(),
+  /// Failure state for [e]: the server's own words when it gave any, the HTTP status when a broken answer came
+  /// back, or the network flag when nothing came back at all (offline, DNS failure, timeout).
+  ReplyState _failed(AppException e) => switch (e) {
+    HttpHandshakeFailedException(statusCode: null) || HttpRequestFailedException(statusCode: null) => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: '',
+      networkFailure: true,
+    ),
+    HttpHandshakeFailedException(:final statusCode) || HttpRequestFailedException(:final statusCode) => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: 'HTTP $statusCode',
+      networkFailure: false,
+    ),
+    _ => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: e.message ?? e.runtimeType.toString(),
+      networkFailure: false,
+    ),
   };
 
   Future<void> _onReplyResetClearTextStateTriggered(ReplyResetClearTextStateTriggered event, _Emit emit) async {

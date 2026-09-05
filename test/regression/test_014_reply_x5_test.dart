@@ -26,7 +26,11 @@ final class _FakeAdapter implements HttpClientAdapter {
   final requests = <({String method, Uri uri, Map<String, String> form})>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     var body = '';
     if (requestStream != null) {
       final bytes = await requestStream.fold<List<int>>([], (a, b) => a..addAll(b));
@@ -44,11 +48,18 @@ final class _FakeAdapter implements HttpClientAdapter {
 ResponseBody _fixture(String name) => ResponseBody.fromString(
   File('test/data/$name').readAsStringSync(),
   200,
-  headers: {Headers.contentTypeHeader: ['text/xml; charset=utf-8']},
+  headers: {
+    Headers.contentTypeHeader: ['text/xml; charset=utf-8'],
+  },
 );
 
-ResponseBody _text(String body, {int status = 200}) =>
-    ResponseBody.fromString(body, status, headers: {Headers.contentTypeHeader: ['text/html; charset=utf-8']});
+ResponseBody _text(String body, {int status = 200}) => ResponseBody.fromString(
+  body,
+  status,
+  headers: {
+    Headers.contentTypeHeader: ['text/html; charset=utf-8'],
+  },
+);
 
 const _params = ReplyParameters(fid: '4', tid: '1264975', postTime: '1788597210', formHash: 'XXXXXXXX', subject: '  ');
 const _floorAction =
@@ -126,7 +137,31 @@ void main() {
       serve((_, _) => _text('<html><body>503 Service Unavailable</body></html>', status: 503));
       final states = await drive(const ReplyToThreadRequested(replyParameters: _params, replyMessage: 'hi'));
       expect(states.map((s) => s.status), [ReplyStatus.loading, ReplyStatus.failure]);
-      expect(states.last.failedReason, isNotEmpty);
+      expect(states.last.failedReason, 'HTTP 503');
+      expect(states.last.networkFailure, isFalse);
+    });
+
+    test('no answer at all (offline, DNS, timeout) is flagged as a network failure', () async {
+      serve((options, _) => throw DioException.connectionError(requestOptions: options, reason: 'offline'));
+      final states = await drive(const ReplyToThreadRequested(replyParameters: _params, replyMessage: 'hi'));
+      expect(states.map((s) => s.status), [ReplyStatus.loading, ReplyStatus.failure]);
+      expect(states.last.networkFailure, isTrue);
+      expect(states.last.failedReason, isEmpty);
+    });
+
+    test('a later server rejection clears the network flag', () async {
+      serve((options, _) => throw DioException.connectionError(requestOptions: options, reason: 'offline'));
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      bloc.add(const ReplyToThreadRequested(replyParameters: _params, replyMessage: 'hi'));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(bloc.state.networkFailure, isTrue);
+      await getIt.reset();
+      serve((_, _) => _fixture('reply_error_flood_x5.xml'));
+      bloc.add(const ReplyToThreadRequested(replyParameters: _params, replyMessage: 'hi'));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(bloc.state.networkFailure, isFalse);
+      expect(bloc.state.failedReason, contains('10 秒'));
     });
 
     test('a server rejection reaches the state as the server text', () async {
@@ -139,7 +174,10 @@ void main() {
 
   group('reply to a floor', () {
     test('window inputs are sent back and the X5 success hook is accepted', () async {
-      serve((options, _) => options.method == 'GET' ? _fixture('reply_window_x5.xml') : _fixture('reply_success_reply_x5.xml'));
+      serve(
+        (options, _) =>
+            options.method == 'GET' ? _fixture('reply_window_x5.xml') : _fixture('reply_success_reply_x5.xml'),
+      );
       final result = await const ReplyRepository()
           .replyToPost(replyParameters: _params, replyAction: _floorAction, replyMessage: 'hi')
           .run();
@@ -163,7 +201,10 @@ void main() {
     });
 
     test('flood control rejection reaches the state as the server text', () async {
-      serve((options, _) => options.method == 'GET' ? _fixture('reply_window_x5.xml') : _fixture('reply_error_flood_x5.xml'));
+      serve(
+        (options, _) =>
+            options.method == 'GET' ? _fixture('reply_window_x5.xml') : _fixture('reply_error_flood_x5.xml'),
+      );
       final states = await drive(
         const ReplyToPostRequested(replyParameters: _params, replyAction: _floorAction, replyMessage: 'hi'),
       );

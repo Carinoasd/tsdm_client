@@ -24,6 +24,7 @@ void showSnackBar({
   SnackBarAction? action,
   bool clearPrevious = false,
   bool showCloseIcon = false,
+  double bottomInset = 0,
 }) {
   final messenger = snackbarKey.currentState;
   if (clearPrevious) {
@@ -33,6 +34,8 @@ void showSnackBar({
   messenger?.showSnackBar(
     SnackBar(
       behavior: floating ? SnackBarBehavior.floating : null,
+      // Lift a floating snack bar above the keyboard when the page underneath does not resize for it.
+      margin: floating && bottomInset > 0 ? EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset) : null,
       content: Text(message),
       action: action,
       showCloseIcon: showCloseIcon,

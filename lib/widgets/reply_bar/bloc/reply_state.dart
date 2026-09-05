@@ -26,6 +26,7 @@ class ReplyState with ReplyStateMappable {
     this.needClearText = false,
     this.replyTypes = ReplyTypes.thread,
     this.failedReason,
+    this.networkFailure = false,
   });
 
   /// Current usage of reply.
@@ -51,8 +52,18 @@ class ReplyState with ReplyStateMappable {
   /// Why failed.
   final String? failedReason;
 
+  /// The last failure never reached the server (offline, DNS, timeout): [failedReason] is empty and the UI shows a
+  /// fixed network hint instead of the raw exception text.
+  final bool networkFailure;
+
   /// Copy with, but make the `replyParameters` to null.
   ReplyState copyWithNullReplyParameters() {
-    return ReplyState(status: status, closed: closed, needClearText: needClearText, failedReason: failedReason);
+    return ReplyState(
+      status: status,
+      closed: closed,
+      needClearText: needClearText,
+      failedReason: failedReason,
+      networkFailure: networkFailure,
+    );
   }
 }

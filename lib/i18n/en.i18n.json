@@ -478,6 +478,7 @@
     "needLogin": "Need login",
     "replySuccess": "Reply success",
     "replyFailed": "Failed to reply: $err",
+    "replyFailedNetwork": "Failed to reply: the network is unreachable, check the connection and retry",
     "draft": "Draft",
     "operationLog": {
       "title": "Operation Log"

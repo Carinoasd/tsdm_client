@@ -478,6 +478,7 @@
     "needLogin": "需要登录",
     "replySuccess": "回复成功",
     "replyFailed": "回复失败：$err",
+    "replyFailedNetwork": "回复失败：网络不可用，请检查网络后重试",
     "draft": "草稿",
     "operationLog": {
       "title": "操作记录"
