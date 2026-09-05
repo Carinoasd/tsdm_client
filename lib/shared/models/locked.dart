@@ -268,7 +268,14 @@ class Locked extends Equatable {
     final purchasedCount = element.querySelector('em')?.firstEndDeepText()?.split(' ').elementAtOrNull(1)?.parseToInt();
 
     // Check for locked with purchase.
-    final purchaseMatch = _purchareRe.firstMatch(element.querySelector('a')?.attributes['onclick'] ?? '');
+    //
+    // Discuz! X3 kept the pay url inside `onclick="showWindow('pay', 'forum.php?mod=misc&action=pay&...')"` with
+    // `href="javascript:;"`. Discuz! X5 moved the url to `href` and uses `onclick="showWindow('pay', this.href)"`,
+    // so try the onclick first and fall back to the href.
+    final purchaseAnchor = element.querySelector('a.viewpay') ?? element.querySelector('a');
+    final purchaseMatch =
+        _purchareRe.firstMatch(purchaseAnchor?.attributes['onclick'] ?? '') ??
+        _purchareRe.firstMatch(purchaseAnchor?.attributes['href'] ?? '');
     final purchaseTid = purchaseMatch?.namedGroup('tid');
     final purchasePid = purchaseMatch?.namedGroup('pid');
     if (price != null && purchaseTid != null && purchasePid != null) {

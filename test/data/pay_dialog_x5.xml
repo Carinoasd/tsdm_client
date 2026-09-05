@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<form id="payform" method="post" autocomplete="off" action="forum.php?mod=misc&amp;action=pay&amp;paysubmit=yes&amp;infloat=yes" onsubmit="ajaxpost('payform', 'return_pay', 'return_pay', 'onerror');return false;">
+<div class="f_c">
+<h3 class="flb">
+<em id="return_pay">购买主题</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('pay')" title="关闭">关闭</a></span>
+</h3>
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<input type="hidden" name="referer" value="forum.php" />
+<input type="hidden" name="tid" value="1264966" />
+<input type="hidden" name="handlekey" value="pay" /><div class="c">
+<table class="list" cellspacing="0" cellpadding="0" style="width:200px">
+<tr>
+<th>作者</th>
+<td><a href="home.php?mod=space&amp;uid=1115">Victor</a></td>
+</tr>
+<tr>
+<th valign="top">售价(天使币)</th>
+<td>15 </td>
+</tr>
+<tr>
+<th valign="top">作者所得(天使币)</th>
+<td>15 </td>
+</tr>
+<tr>
+<th valign="top">购买后余额(天使币)</th>
+<td>1987 </td>
+</tr>
+</table>
+</div>
+</div>
+<div class="o pns">
+<button type="submit" name="paysubmit" class="pn pnc" value="true"><span>提交</span></button>
+</div>
+</form>
+
+<script type="text/javascript" reload="1">
+function succeedhandle_pay(locationhref) {
+ajaxget('forum.php?mod=viewthread&tid=1264966&viewpid=77983102', 'post_77983102');
+hideWindow('pay');
+showCreditPrompt();
+}
+</script>
+]]></root>
