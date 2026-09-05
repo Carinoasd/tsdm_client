@@ -47,6 +47,11 @@
       "latestThread": "最新貼文"
     },
     "showMoreUserOperationsTip": "顯示更多使用者操作",
+    "latestReplySection": {
+      "title": "最新回覆",
+      "more": "查看更多",
+      "retry": "載入失敗，點一下重試"
+    },
     "forumStatus": {
       "today": "今日",
       "yesterday": "昨日",
@@ -1061,6 +1066,7 @@
     },
     "allUsers": "所有使用者",
     "addUser": "新增使用者",
+    "logoutDetail": "登出論壇，並清除本機保存的登入狀態",
     "loginAnother": "登入其他帳號",
     "logout": "退出登入",
     "online": "線上"

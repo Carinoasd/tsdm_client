@@ -47,6 +47,11 @@
       "latestThread": "最新帖子"
     },
     "showMoreUserOperationsTip": "显示更多用户操作",
+    "latestReplySection": {
+      "title": "最新回复",
+      "more": "查看更多",
+      "retry": "加载失败，点击重试"
+    },
     "forumStatus": {
       "today": "今日",
       "yesterday": "昨日",
@@ -1061,6 +1066,7 @@
     },
     "allUsers": "所有用户",
     "addUser": "添加用户",
+    "logoutDetail": "退出论坛登录，并清除本机保存的登录状态",
     "loginAnother": "登录其他账户",
     "logout": "退出登录",
     "online": "在线"

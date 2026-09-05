@@ -47,6 +47,11 @@
       "latestThread": "Latest thread"
     },
     "showMoreUserOperationsTip": "Show more user operations",
+    "latestReplySection": {
+      "title": "Latest replies",
+      "more": "More",
+      "retry": "Failed to load, tap to retry"
+    },
     "forumStatus": {
       "today": "Today",
       "yesterday": "Yesterday",
@@ -1061,6 +1066,7 @@
     },
     "allUsers": "All users",
     "addUser": "Add user",
+    "logoutDetail": "Log out of the forum and clear the login saved on this device",
     "loginAnother": "Login another account",
     "logout": "Logout",
     "online": "Online"

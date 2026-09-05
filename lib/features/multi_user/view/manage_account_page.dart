@@ -148,9 +148,14 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
                   ),
                 )
               : null,
-          onTap: (loading || isCurrentUser)
+          onTap: loading
               ? null
-              : () async => openManageUserDialog(context: context, userInfo: userInfo, heroTag: ''),
+              : () async => openManageUserDialog(
+                  context: context,
+                  userInfo: userInfo,
+                  heroTag: '',
+                  isCurrentUser: isCurrentUser,
+                ),
         );
       },
     );
