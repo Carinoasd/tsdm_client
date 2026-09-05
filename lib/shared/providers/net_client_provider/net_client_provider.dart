@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
+import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -19,9 +21,14 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
+import 'package:universal_html/parsing.dart';
 
 /// Map exception to [AppException].
 AppException mapException(Object error, StackTrace st) {
+  // Exceptions raised on purpose inside a tryCatch body already carry the right type.
+  if (error is AppException) {
+    return error;
+  }
   if (error case DioException(:final response)) {
     return HttpHandshakeFailedException(
       error.message ?? '<unknown error>',
@@ -137,6 +144,7 @@ final class NetClientProvider with LoggerMixin {
         if (resp.statusCode != HttpStatus.ok) {
           throw HttpRequestFailedException(resp.statusCode);
         }
+        _ensureImageBody(resp);
         return resp;
       }, mapException);
 
@@ -157,6 +165,7 @@ final class NetClientProvider with LoggerMixin {
         if (resp.statusCode != HttpStatus.ok) {
           throw HttpRequestFailedException(resp.statusCode);
         }
+        _ensureImageBody(resp);
         return resp;
       }, mapException);
 
@@ -338,4 +347,37 @@ final class _GzipEncodingChecker extends Interceptor with LoggerMixin {
 
     super.onRequest(options, handler);
   }
+}
+
+/// Throw [ImageResponseNotImageException] when an image request was answered with an HTML page.
+///
+/// Discuz! X5 answers permission failures on attachments with HTTP 200 and a 提示信息 page, and serves real
+/// attachments with a bare `Content-Type: image`, so only reject what is provably a page: a `text/html` content type
+/// or a body that starts with a tag.
+void _ensureImageBody(Response<dynamic> resp) {
+  final contentType = resp.headers.value(Headers.contentTypeHeader) ?? '';
+  final data = resp.data;
+  final looksHtml = contentType.startsWith('text/html') || (data is Uint8List && _startsWithTag(data));
+  if (!looksHtml) {
+    return;
+  }
+  String? message;
+  if (data is Uint8List) {
+    final node = parseHtmlDocument(utf8.decode(data, allowMalformed: true)).querySelector('div#messagetext > p');
+    node?.querySelectorAll('script').forEach((e) => e.remove());
+    message = node?.text?.trim();
+  }
+  throw ImageResponseNotImageException(message, contentType: contentType);
+}
+
+/// Whether [data] starts with `<` after an optional UTF-8 BOM and whitespace.
+bool _startsWithTag(Uint8List data) {
+  var i = 0;
+  if (data.length >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+    i = 3;
+  }
+  while (i < data.length && (data[i] == 0x20 || data[i] == 0x09 || data[i] == 0x0A || data[i] == 0x0D)) {
+    i++;
+  }
+  return i < data.length && data[i] == 0x3C;
 }

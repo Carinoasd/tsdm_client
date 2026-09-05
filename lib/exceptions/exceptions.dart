@@ -96,6 +96,19 @@ final class HttpRequestFailedException extends AppException with HttpRequestFail
   final int? statusCode;
 }
 
+/// Server answered an image request with an HTML page (Discuz! 提示信息) instead of image bytes.
+///
+/// Discuz! X5 does this with HTTP 200 for permission failures on attachments, e.g.
+/// `附件所在主题需要付费，请您付费后下载` for attachments inside priced threads.
+@MappableClass()
+final class ImageResponseNotImageException extends AppException with ImageResponseNotImageExceptionMappable {
+  /// Constructor, [message] is the text of `div#messagetext > p` when found.
+  ImageResponseNotImageException(String? message, {this.contentType}) : super(message: message);
+
+  /// Content-Type header of the offending response.
+  final String? contentType;
+}
+
 /// Exception represents that the SSL handshake process is terminated
 /// abnormally.
 ///

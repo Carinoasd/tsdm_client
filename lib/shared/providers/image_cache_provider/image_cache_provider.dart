@@ -11,6 +11,8 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/constants.dart';
+import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/extensions/string.dart';
@@ -77,9 +79,29 @@ final class ImageCacheProvider with LoggerMixin {
   // Can not be const.
   // ignore: prefer_const_constructor_declarations
   /// Constructor.
-  ImageCacheProvider(this._netClientProvider);
+  ///
+  /// The first client carries the current user's cookie and is used for attachments on the forum host, so that
+  /// permission-gated attachments are evaluated for the logged-in user. `noCookieClient` (defaults to the first
+  /// one) fetches every other image without exposing the session to third-party hosts.
+  ImageCacheProvider(this._forumClient, {NetClientProvider? noCookieClient})
+    : _noCookieClient = noCookieClient ?? _forumClient;
 
-  final NetClientProvider _netClientProvider;
+  final NetClientProvider _forumClient;
+  final NetClientProvider _noCookieClient;
+
+  /// Messages the server answered instead of image bytes, by image url (e.g. `附件所在主题需要付费，请您付费后下载`).
+  final _htmlMessages = <String, String>{};
+
+  /// The message the server answered instead of an image for [imageUrl], if any.
+  String? htmlMessageOf(String imageUrl) => _htmlMessages[imageUrl];
+
+  /// Attachments are served by `forum.php?mod=attachment` on the forum host and need the user's session.
+  static bool _isForumAttachment(String imageUrl) {
+    final uri = Uri.tryParse(imageUrl);
+    return uri != null &&
+        (uri.host == baseHost || uri.host == baseHostAlt) &&
+        uri.queryParameters['mod'] == 'attachment';
+  }
 
   /// Regexp that matches emoji bbcode.
   ///
@@ -206,10 +228,15 @@ final class ImageCacheProvider with LoggerMixin {
     _controller.add(ImageCacheLoadingResponse(imageId, respType));
 
     try {
-      final respEither = await _netClientProvider.getImage(imageUrl).run();
+      final client = _isForumAttachment(imageUrl) ? _forumClient : _noCookieClient;
+      final respEither = await client.getImage(imageUrl).run();
       if (respEither.isLeft()) {
         final err = respEither.unwrapErr();
-        // handle(err);
+        if (err is ImageResponseNotImageException) {
+          // Remember the server's message so the widget can explain the placeholder.
+          _htmlMessages[imageUrl] = err.message ?? '';
+          info('image url returned a page instead of an image: $imageUrl: ${err.message}');
+        }
         throw err;
       }
       final resp = respEither.unwrap();

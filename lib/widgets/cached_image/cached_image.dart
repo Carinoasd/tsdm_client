@@ -133,10 +133,40 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
         height: widget.height,
         errorBuilder: (context, e, st) {
           handleRaw(e, st);
-          return FallbackPicture(
+          final picture = FallbackPicture(
             fit: widget.fit,
             width: widget.width ?? widget.maxWidth,
             height: widget.height ?? widget.maxHeight,
+          );
+          // When the server answered with a page (e.g. attachments in a paid thread) show its message.
+          final message = getIt.get<ImageCacheProvider>().htmlMessageOf(widget.imageUrl);
+          if (message == null || message.isEmpty) {
+            return picture;
+          }
+          return Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              picture,
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Padding(
+                    padding: edgeInsetsL4R4,
+                    child: Text(
+                      message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         },
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
