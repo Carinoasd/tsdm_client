@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:core';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -82,6 +84,12 @@ class _PostListState extends State<PostList> with LoggerMixin {
 
   late ListController _listController;
 
+  /// Marks the card of [PostList.initialPostID] so it can be kept in view while the freshly built list settles, see
+  /// [_scrollToInitialPost].
+  final GlobalKey _initialPostKey = GlobalKey();
+  Timer? _holdTimer;
+  int _holdCorrections = 0;
+
   /// Current page number
   int pageNumber = 1;
 
@@ -109,33 +117,91 @@ class _PostListState extends State<PostList> with LoggerMixin {
 
     if (widget.initialPostID != null) {
       // Scroll to post, if any.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        debug('scroll to pid: ${widget.initialPostID}');
-        var pos = -1;
-        final p = '${widget.initialPostID}';
-        for (final (index, post) in widget.postList.indexed) {
-          if (post.postID == p) {
-            pos = index;
-            break;
-          }
-        }
-        if (pos < 0) {
-          return;
-        }
-        debug('scroll to position: ${pos * 2}');
-        _listController.animateToItem(
-          index: pos * 2,
-          scrollController: _listScrollController,
-          alignment: 0,
-          duration: (_) => duration200,
-          curve: (_) => Curves.ease,
-        );
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToInitialPost());
+    }
+  }
+
+  /// Item index (separators included) of the post with [postID], null when it is not in the list.
+  int? _itemIndexOf(int postID) {
+    final id = '$postID';
+    for (final (index, post) in widget.postList.indexed) {
+      if (post.postID == id) {
+        return index * 2;
+      }
+    }
+    return null;
+  }
+
+  /// Scroll to [PostList.initialPostID] and hold it there while the list settles.
+  ///
+  /// Right after a thread (re)load the list is built from estimated extents: avatars, medals and attachments are
+  /// still loading and `super_sliver_list` keeps correcting the scroll offset while real extents replace the
+  /// estimates, so the post we just revealed drifts away (up to the top of the page once the offset gets clamped).
+  /// The list's own `animateToItem` also aims at the item's raw offset, which lies past the end for the last post.
+  ///
+  /// So: approach the post with the list's estimate, then for about two seconds re-align its card with the exact,
+  /// range-clamped offset from the viewport every 100 ms. The hold ends as soon as the user touches the list.
+  Future<void> _scrollToInitialPost() async {
+    if (!mounted || !_listScrollController.hasClients || !_listController.isAttached) {
+      return;
+    }
+    debug('scroll to pid: ${widget.initialPostID}');
+    final index = _itemIndexOf(widget.initialPostID!);
+    if (index == null) {
+      return;
+    }
+    debug('scroll to position: $index');
+    _listController.animateToItem(
+      index: index,
+      scrollController: _listScrollController,
+      alignment: 0,
+      duration: (_) => duration200,
+      curve: (_) => Curves.ease,
+    );
+    _holdCorrections = 0;
+    _holdTimer?.cancel();
+    var ticks = 0;
+    _holdTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted || !_listScrollController.hasClients || ++ticks > 20) {
+        _stopHold();
+        return;
+      }
+      _alignInitialPost();
+    });
+  }
+
+  /// Put the card of the initial post at the top of the viewport (or as close as the end of the list allows).
+  void _alignInitialPost() {
+    final renderObject = _initialPostKey.currentContext?.findRenderObject();
+    if (renderObject == null || !renderObject.attached) {
+      // Not built yet: the approach animation is still on its way.
+      return;
+    }
+    final position = _listScrollController.position;
+    final target = RenderAbstractViewport.of(
+      renderObject,
+    ).getOffsetToReveal(renderObject, 0).offset.clamp(position.minScrollExtent, position.maxScrollExtent);
+    if ((position.pixels - target).abs() > 2) {
+      _holdCorrections++;
+      position.jumpTo(target);
+    }
+  }
+
+  /// End the hold started by [_scrollToInitialPost]: the settle window passed or the user took over.
+  void _stopHold() {
+    if (_holdTimer == null) {
+      return;
+    }
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    if (_holdCorrections > 0) {
+      debug('scroll hold: re-aligned the post $_holdCorrections times');
     }
   }
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _refreshController.dispose();
     _listController
       ..removeListener(_updatePageNumber)
@@ -152,7 +218,9 @@ class _PostListState extends State<PostList> with LoggerMixin {
       listController: _listController,
       itemCount: widget.postList.length,
       itemBuilder: (context, index) {
-        return widget.widgetBuilder(context, widget.postList[index]);
+        final post = widget.postList[index];
+        final card = widget.widgetBuilder(context, post);
+        return post.postID == '${widget.initialPostID}' ? KeyedSubtree(key: _initialPostKey, child: card) : card;
       },
       separatorBuilder: (context, index) => widget.useDivider ? const Divider(thickness: 0.5) : sizedBoxW4H4,
     );
@@ -190,29 +258,34 @@ class _PostListState extends State<PostList> with LoggerMixin {
         context.read<ThreadBloc>().add(ThreadLoadMoreRequested(context.read<JumpPageCubit>().state.currentPage + 1));
       },
       childBuilder: (context, physics) {
-        return CustomScrollView(
-          physics: physics,
-          controller: _listScrollController,
-          slivers: [
-            const HeaderLocator.sliver(),
-            if (widget.latestModAct != null && widget.latestModAct!.isNotEmpty && widget.threadID != null)
-              SliverToBoxAdapter(
-                child: Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: edgeInsetsL12T4R12B4,
-                    child: OperationLogCard(latestAction: widget.latestModAct!, tid: widget.threadID!),
+        return Listener(
+          // The user taking over ends the settle hold of [_scrollToInitialPost].
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _stopHold(),
+          child: CustomScrollView(
+            physics: physics,
+            controller: _listScrollController,
+            slivers: [
+              const HeaderLocator.sliver(),
+              if (widget.latestModAct != null && widget.latestModAct!.isNotEmpty && widget.threadID != null)
+                SliverToBoxAdapter(
+                  child: Align(
+                    alignment: Alignment.bottomRight,
+                    child: Padding(
+                      padding: edgeInsetsL12T4R12B4,
+                      child: OperationLogCard(latestAction: widget.latestModAct!, tid: widget.threadID!),
+                    ),
                   ),
                 ),
+              SliverPadding(
+                padding: edgeInsetsL12T4R12B4,
+                sliver: SliverToBoxAdapter(
+                  child: Text(widget.title ?? '', style: Theme.of(context).textTheme.titleLarge),
+                ),
               ),
-            SliverPadding(
-              padding: edgeInsetsL12T4R12B4,
-              sliver: SliverToBoxAdapter(
-                child: Text(widget.title ?? '', style: Theme.of(context).textTheme.titleLarge),
-              ),
-            ),
-            _buildPostList(),
-          ],
+              _buildPostList(),
+            ],
+          ),
         );
       },
     );
