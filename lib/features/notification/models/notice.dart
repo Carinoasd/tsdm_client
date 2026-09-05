@@ -154,6 +154,20 @@ class Notice with NoticeMappable {
     return clone.innerHtml?.trim();
   }
 
+  /// Whether the server rendered the notice `<dl>` node as unread.
+  ///
+  /// Discuz! X3 adds an extra class to the node (`{if $value[new]}`); Discuz! X5 keeps `<dl class="cl ">` without any
+  /// extra class and renders the flag as an inline bold style on the body instead:
+  /// `<dd style="color:#000;font-weight:bold;" class="ntc_body">`. The marker is only there until the notice page is
+  /// listed once, the server flips it to read on that first listing.
+  static bool isUnreadNoticeNode(uh.Element element) {
+    if (element.classes.any((e) => e != 'cl' && e != 'bbda')) {
+      return true;
+    }
+    final style = element.querySelector('dd.ntc_body')?.attributes['style'] ?? '';
+    return style.replaceAll(' ', '').contains('font-weight:bold');
+  }
+
   /// Convert a `<dl>` notice node in the notice page into [NoticeV2].
   ///
   /// Return null if any of id, time or body not found.
@@ -165,8 +179,7 @@ class Notice with NoticeMappable {
       talker.error('failed to build notice v2: id=$id, time=$time, hasData=${data != null}');
       return null;
     }
-    // Unread notices carry an extra class (rendered by `{if $value[new]}`).
-    final alreadyRead = !element.classes.any((e) => e != 'cl' && e != 'bbda');
+    final alreadyRead = !isUnreadNoticeNode(element);
     return NoticeV2(id: id, timestamp: time.millisecondsSinceEpoch ~/ 1000, data: data, alreadyRead: alreadyRead);
   }
 

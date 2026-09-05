@@ -48,8 +48,9 @@ class NoticeCardV2 extends StatefulWidget {
 
 class _NoticeCardV2State extends State<NoticeCardV2> {
   void _onUrlLaunched({required bool markAsRead}) {
-    // Update state to read if any link in rendered html launched.
-    if (!context.mounted) {
+    // Update state to read if any link in rendered html launched. `mounted`, not `context.mounted`: reading `context`
+    // on an unmounted state throws (the card is rebuilt while the pushed page is open).
+    if (!mounted) {
       return;
     }
 

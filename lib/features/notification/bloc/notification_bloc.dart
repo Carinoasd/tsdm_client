@@ -19,6 +19,27 @@ part 'notification_bloc.mapper.dart';
 part 'notification_event.dart';
 part 'notification_state.dart';
 
+/// Read state of freshly [fetched] notices reconciled with the copies already [stored] for the same user.
+///
+/// * A notice seen for the first time keeps the flag the server rendered. Discuz! X5 shows the unread marker only
+///   until the notice page is listed once, and our own fetch is that listing, so this is the only chance to read it.
+/// * A notice already stored keeps the local flag (the user may have read it in the app meanwhile), unless the
+///   server copy is newer: Discuz merges repeated replies in one thread into the same notice and bumps its time, so
+///   a newer copy is a new event and becomes unread again.
+List<NoticeV2> reconcileNoticeReadState({required List<NoticeV2> fetched, required List<NoticeEntity> stored}) {
+  final byNid = {for (final e in stored) e.nid: e};
+  return fetched.map((n) {
+    final local = byNid[n.id];
+    if (local == null) {
+      return n;
+    }
+    if (n.timestamp > local.timestamp) {
+      return n.copyWith(alreadyRead: false);
+    }
+    return n.copyWith(alreadyRead: local.alreadyRead ?? false);
+  }).toList();
+}
+
 /// Emitter
 typedef _Emit = Emitter<NotificationState>;
 
@@ -99,7 +120,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
   }
 
   Future<void> _onNoticeInfoFetched(_Emit emit, NotificationInfoState infoState) async {
-    late final NotificationV2 info;
+    late NotificationV2 info;
     late final int uid;
     switch (infoState) {
       case NotificationInfoStateFailure():
@@ -117,6 +138,13 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final latestMessageTime = info.latestTimestamp();
 
+    // Reconcile the read state of the fetched notices with the stored copies before saving, see
+    // [reconcileNoticeReadState].
+    final storedNotices = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    info = info.copyWith(
+      noticeList: reconcileNoticeReadState(fetched: info.noticeList, stored: storedNotices.noticeList),
+    );
+
     // Save fetched notice.
     debug(
       'saving notification: notice=${info.noticeList.length} '
@@ -130,7 +158,15 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
           uid: uid,
           notificationGroup: NotificationGroup(
             noticeList: info.noticeList
-                .map((e) => NoticeEntity(uid: uid, nid: e.id, timestamp: e.timestamp, data: e.data, alreadyRead: false))
+                .map(
+                  (e) => NoticeEntity(
+                    uid: uid,
+                    nid: e.id,
+                    timestamp: e.timestamp,
+                    data: e.data,
+                    alreadyRead: e.alreadyRead,
+                  ),
+                )
                 .toList(),
             personalMessageList: info.personalMessageList
                 .map(
