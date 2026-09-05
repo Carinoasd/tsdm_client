@@ -155,6 +155,7 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
 
   String _stateText(Translations t, RedPacketState state) => switch (state) {
     RedPacketState.open => t.redPacket.stateOpen,
+    RedPacketState.claimed => t.redPacket.stateClaimed,
     RedPacketState.done => t.redPacket.stateDone,
     RedPacketState.withdrawn => t.redPacket.stateWithdrawn,
     RedPacketState.expired => t.redPacket.stateExpired,
@@ -190,8 +191,8 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
               sizedBoxW8H8,
               Expanded(
                 child: Text(
-                  grabbed != null
-                      ? tr.grabbed(amount: claimedAmount ?? '?', unit: info.unit)
+                  grabbed != null && !grabbed.already
+                      ? tr.grabbed(amount: claimedAmount ?? '?', unit: grabbed.unit ?? info.unit)
                       : tr.claimed(amount: claimedAmount ?? '?', unit: info.unit),
                   style: theme.textTheme.titleMedium,
                 ),

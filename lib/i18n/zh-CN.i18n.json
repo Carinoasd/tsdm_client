@@ -617,6 +617,7 @@
     "modeRandom": "拼手气红包",
     "modeEven": "均分红包",
     "stateOpen": "可领取",
+    "stateClaimed": "已领取",
     "stateDone": "已被抢光",
     "stateWithdrawn": "已撤回",
     "stateExpired": "已过期",

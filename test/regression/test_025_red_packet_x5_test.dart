@@ -38,6 +38,21 @@ const _recordRefused = '{"ok":false,"error":"開包後才能看大家的手氣"}
 const _grabDone = '{"ok":false,"error":"紅包已被搶光","state":"done"}';
 const _dailyOk = '{"ok":true,"amount":5,"unit":"天使币","redirect":""}';
 const _dailyAlready = '{"ok":false,"already":1,"amount":5,"error":"今天已經領過囉,明天再來"}';
+// A live packet (tid 1265042, random amounts) before and after the test account claimed a share.
+const _openLive =
+    '{"ok":true,"tid":1265042,"from":"Bob 的紅包","bless":"恭喜發財,大吉大利","haspw":0,"cond":0,"appoint":0,"splitmode":1, '
+    '"unit":"天使币","state":"open","is_sender":0,"mine":{"claimed":0}}';
+const _grabLive = '{"ok":true,"amount":17,"unit":"天使币","iscat":true,"best":true,"already":false}';
+const _grabLiveAgain = '{"ok":true,"amount":17,"unit":"天使币","iscat":false,"best":true,"already":true}';
+const _openLiveAfter =
+    '{"ok":true,"tid":1265042,"from":"Bob 的紅包","bless":"恭喜發財,大吉大利","haspw":0,"cond":0,"appoint":0,"splitmode":1, '
+    '"unit":"天使币","state":"claimed","is_sender":0,"mine":{"claimed":1,"amount":17,"best":1}}';
+const _recordLive =
+    '{"ok":true,"shares":10,"claimed":1,"unit":"天使币","recs":[{"username":"Alice","time":"9-6 03:45","amount":17,"isbest":1}]}';
+const _openEntryHtml =
+    '<div class="hb-entry" data-tid="1265042" onclick="hongbaoOpen(this)"><div class="icon"></div><div> '
+    '<div class="t1">恭喜發財,大吉大利</div><div class="t2">拼手氣紅包 · 剩 10/10 份 · 點擊領取</div></div> '
+    '<div class="claimed-mark" style="display:none">點擊領取</div></div>';
 const _dailyScript =
     '(function(){function go(){if(window.hongbaoDailyInit){hongbaoDailyInit({"entry":2,"dateflag":"20260906", '
     '"from":"系統 每日紅包","bless":"今日登入紅包,明天還可以再領","unit":"天使币"});}else{setTimeout(go,50);}}go();})();';
@@ -85,6 +100,13 @@ void main() {
       expect(entry.statusText, '均分紅包 · 剩 0/25 份 · 已被搶光');
       expect(entry.claimed, isTrue);
       expect(parseRedPacketEntry(parseHtmlDocument('<div class="hb-entry"></div>').querySelector('div')!), isNull);
+
+      // An open packet carries the same mark element hidden with display:none; only the class means claimed.
+      final open = parseRedPacketEntry(parseHtmlDocument(_openEntryHtml).querySelector('div.hb-entry')!);
+      expect(open!.tid, '1265042');
+      expect(open.bless, '恭喜發財,大吉大利');
+      expect(open.statusText, '拼手氣紅包 · 剩 10/10 份 · 點擊領取');
+      expect(open.claimed, isFalse);
     });
 
     testWidgets('the post body renders the card, the post text and none of the plugin popup', (tester) async {
@@ -148,6 +170,44 @@ void main() {
       expect(claimed.info!.claimed, isTrue);
       expect(claimed.info!.claimedAmount, '12');
       expect(claimed.info!.claimedBest, isTrue);
+    });
+
+    test('a live packet before and after claiming', () {
+      final before = RedPacketOpenResult.fromJson(jsonDecode(_openLive) as Map<String, dynamic>).info!;
+      expect(before.state, RedPacketState.open);
+      expect(before.isRandom, isTrue);
+      expect(before.hasPassword, isFalse);
+      expect(before.claimed, isFalse);
+
+      final grab = RedPacketGrabResult.fromJson(jsonDecode(_grabLive) as Map<String, dynamic>);
+      expect(grab.ok, isTrue);
+      expect(grab.amount, '17');
+      expect(grab.unit, '天使币');
+      expect(grab.best, isTrue);
+      expect(grab.isCat, isTrue);
+      expect(grab.already, isFalse);
+
+      // Claiming again answers ok with the same amount and already=true.
+      final again = RedPacketGrabResult.fromJson(jsonDecode(_grabLiveAgain) as Map<String, dynamic>);
+      expect(again.ok, isTrue);
+      expect(again.already, isTrue);
+      expect(again.amount, '17');
+
+      // After claiming the state is "claimed" rather than "open".
+      final after = RedPacketOpenResult.fromJson(jsonDecode(_openLiveAfter) as Map<String, dynamic>).info!;
+      expect(after.state, RedPacketState.claimed);
+      expect(after.claimed, isTrue);
+      expect(after.claimedAmount, '17');
+      expect(after.claimedBest, isTrue);
+
+      final records = RedPacketRecordsResult.fromJson(jsonDecode(_recordLive) as Map<String, dynamic>);
+      expect(records.error, isNull);
+      expect(records.shares, 10);
+      expect(records.claimed, 1);
+      expect(records.records.single.username, 'Alice');
+      expect(records.records.single.time, '9-6 03:45');
+      expect(records.records.single.amount, '17');
+      expect(records.records.single.isBest, isTrue);
     });
 
     test('grab, record and daily', () {

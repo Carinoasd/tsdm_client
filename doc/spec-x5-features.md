@@ -171,6 +171,12 @@
 - 每日紅包：首頁解析 footer 的 `hongbaoDailyInit({...})` 與登出連結中的 `formhash`，有設定時在首頁 App bar 顯示「今日紅包」
   按鈕（採規格預設的按鈕方案，非自動彈窗）；領取成功或「今天已經領過」後按鈕隱藏。
 - `formhash` 錯誤或缺失時論壇回 Discuz! System Error 的 HTML 頁（非 JSON），App 視為一般失敗。
+- 2026-09-06 以管理員發的測試紅包（tid 1265042，拼手氣 10 份）實測補充，皆已處理：
+  - 可領的入口標記也帶著 `.claimed-mark`（`style="display:none"`，文字「點擊領取」），只有 `hb-entry` 上的 `claimed` class 才代表已領；
+    `.t2` 為「拼手氣紅包 · 剩 10/10 份 · 點擊領取」。
+  - 領取成功後 `open` 的 `state` 是 **`claimed`**（不是 `open`），`mine` 帶 `claimed/amount/best`；App 新增此狀態，顯示「已領取」。
+  - 重複呼叫 `grab` 回 `{ok:true, amount, unit, iscat:false, best, already:true}`，App 依 `already` 顯示「已領取 N」而非「獲得 N」。
+  - `record` 的 `time` 為短格式「9-6 03:45」，`isbest` 只標在手氣最佳者。
 
 ---
 (C) 2026 Carinoasd

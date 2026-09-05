@@ -9,7 +9,7 @@ import 'package:universal_html/html.dart' as uh;
 /// <div class="hb-entry claimed" data-tid="TID" onclick="hongbaoOpen(this)">
 ///   <div class="icon"></div>
 ///   <div><div class="t1">BLESS</div><div class="t2">均分紅包 · 剩 0/25 份 · 已被搶光</div></div>
-///   <div class="claimed-mark">已被搶光</div>
+///   <div class="claimed-mark">已被搶光</div>          <!-- hidden (display:none) while the packet is open -->
 /// </div>
 /// ```
 final class RedPacketEntry {
@@ -42,7 +42,8 @@ RedPacketEntry? parseRedPacketEntry(uh.Element element) {
     tid: tid,
     bless: element.querySelector('.t1')?.innerText.trim() ?? '',
     statusText: element.querySelector('.t2')?.innerText.trim() ?? '',
-    claimed: element.classes.contains('claimed') || element.querySelector('.claimed-mark') != null,
+    // The mark element is always present, hidden with display:none while the packet is open; only the class counts.
+    claimed: element.classes.contains('claimed'),
   );
 }
 

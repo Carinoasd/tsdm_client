@@ -33,6 +33,9 @@ enum RedPacketState {
   /// Can be claimed.
   open,
 
+  /// Still open, and the current user already claimed a share (the server answers `claimed` instead of `open`).
+  claimed,
+
   /// All shares taken.
   done,
 
@@ -51,6 +54,7 @@ enum RedPacketState {
   /// Parse the server value.
   static RedPacketState parse(String? value) => switch (value) {
     'open' => RedPacketState.open,
+    'claimed' => RedPacketState.claimed,
     'done' => RedPacketState.done,
     'withdrawn' => RedPacketState.withdrawn,
     'expired' => RedPacketState.expired,
@@ -160,8 +164,10 @@ final class RedPacketGrabResult {
   const RedPacketGrabResult({
     required this.ok,
     this.amount,
+    this.unit,
     this.isCat = false,
     this.best = false,
+    this.already = false,
     this.state,
     this.error,
   });
@@ -170,17 +176,25 @@ final class RedPacketGrabResult {
   factory RedPacketGrabResult.fromJson(Map<String, dynamic> json) => RedPacketGrabResult(
     ok: _jsonFlag(json['ok']),
     amount: _jsonAmount(json['amount']),
+    unit: _jsonText(json['unit']),
     isCat: _jsonFlag(json['iscat']),
     best: _jsonFlag(json['best']),
+    already: _jsonFlag(json['already']),
     state: _jsonText(json['state']),
     error: _jsonText(json['error']),
   );
 
-  /// Claimed.
+  /// Claimed (right now, or [already] before).
   final bool ok;
 
   /// Amount claimed.
   final String? amount;
+
+  /// Currency unit.
+  final String? unit;
+
+  /// The share was claimed earlier; the server repeats the amount with `ok: true`.
+  final bool already;
 
   /// The web page plays a special animation for this share; nothing special in the app.
   final bool isCat;

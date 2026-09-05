@@ -617,6 +617,7 @@
     "modeRandom": "Random amounts",
     "modeEven": "Equal shares",
     "stateOpen": "Available",
+    "stateClaimed": "Claimed",
     "stateDone": "All taken",
     "stateWithdrawn": "Withdrawn",
     "stateExpired": "Expired",
