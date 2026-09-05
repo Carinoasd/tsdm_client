@@ -930,9 +930,11 @@
       "visitUserSpace": "存取TA的主頁",
       "search": "搜尋",
       "searchResult": "結果",
-      "randomFriend": "隨機好友",
+      "randomFriend": "好友",
       "viewUserSpaceTip": "檢視使用者資料",
-      "refreshRecommendTip": "刷新推薦好友"
+      "refreshRecommendTip": "重新載入好友名單",
+      "noFriends": "@ 名單裡還沒有好友，可直接輸入使用者名稱",
+      "noMatch": "好友裡沒有符合的使用者"
     }
   },
   "imageBottomSheet": {

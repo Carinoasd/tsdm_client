@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -69,7 +70,7 @@ final class PostEditRepository with LoggerMixin {
       'checkbox': '0',
       'page': page,
       'subject': threadTitle ?? '',
-      'message': data,
+      'message': toOfficialMentions(data),
       'editsubmit': 'true',
       'save': save,
       'price': '${price ?? ""}',

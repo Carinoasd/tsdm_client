@@ -39,8 +39,8 @@ class _UsernameText extends StatelessWidget {
 
 /// Show a dialog to let user pick a user and return the username picked.
 ///
-/// This dialog wrapped extra functionality more than the original one in editor
-/// package so that user could do the same quick search as what server provides.
+/// This dialog wraps the plain one in the editor package: it lists the users the current user may mention (the
+/// official `@` list of Discuz! X5, friends only) and searches inside that list. Any username can still be typed.
 Future<String?> showUsernamePickerDialog(BuildContext context, {String? username}) async => showDialog<String>(
   context: context,
   builder: (_) => RootPage(DialogPaths.usernamePicker, _UsernamePickerDialog(username)),
@@ -48,7 +48,7 @@ Future<String?> showUsernamePickerDialog(BuildContext context, {String? username
 
 /// A dialog to let user pick user to mention.
 ///
-/// With extra user searching features.
+/// With the official `@` user list and a local search in it.
 class _UsernamePickerDialog extends StatefulWidget {
   const _UsernamePickerDialog(this.initialName);
 
@@ -107,13 +107,8 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
             ),
             sizedBoxW4H4,
             TextButton(
-              // Only available when form hash is not null.
-              // Currently means friend recommendation succeeded.
-              onPressed: userNameNotEmpty && state.formHash != null && state.searchStatus != UserMentionStatus.loading
-                  ? () async => context.read<UserMentionCubit>().searchUserByName(
-                      keyword: controller.text.trim(),
-                      formHash: state.formHash!,
-                    )
+              onPressed: userNameNotEmpty && state.searchStatus != UserMentionStatus.loading
+                  ? () async => context.read<UserMentionCubit>().searchUserByName(keyword: controller.text.trim())
                   : null,
               child: Text(tr.search),
             ),
@@ -125,6 +120,7 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
         switch (state.searchStatus) {
           UserMentionStatus.initial => sizedBoxW8H8,
           UserMentionStatus.loading => const LinearProgressIndicator(),
+          UserMentionStatus.success when state.searchResult.isEmpty => Text(tr.noMatch),
           UserMentionStatus.success => Wrap(
             children: state.searchResult
                 .map((e) => _UsernameText(controller, e) as Widget)
@@ -137,7 +133,7 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
     );
   }
 
-  Widget _buildRandomFriend(BuildContext context, UserMentionState state) {
+  Widget _buildFriends(BuildContext context, UserMentionState state) {
     final tr = context.t.bbcodeEditor.userMention;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,13 +146,14 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
               tooltip: tr.refreshRecommendTip,
               onPressed: state.recommendStatus == UserMentionStatus.loading
                   ? null
-                  : () async => context.read<UserMentionCubit>().recommendFriend(),
+                  : () async => context.read<UserMentionCubit>().loadFriends(),
             ),
           ],
         ),
         sizedBoxW4H4,
         switch (state.recommendStatus) {
           UserMentionStatus.initial || UserMentionStatus.loading => const LinearProgressIndicator(),
+          UserMentionStatus.success when state.randomFriend.isEmpty => Text(tr.noFriends),
           UserMentionStatus.success => Wrap(
             children: state.randomFriend
                 .map((e) => _UsernameText(controller, e) as Widget)
@@ -193,7 +190,7 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
           create: (context) {
             final cubit = UserMentionCubit(context.repo());
             // TODO: Make it sync.
-            unawaited(cubit.recommendFriend());
+            unawaited(cubit.loadFriends());
             return cubit;
           },
         ),
@@ -210,7 +207,7 @@ class _UsernamePickerDialogState extends State<_UsernamePickerDialog> with Logge
                 sizedBoxW8H8,
                 _buildSearch(context, state),
                 sizedBoxW16H16,
-                _buildRandomFriend(context, state),
+                _buildFriends(context, state),
               ],
             ),
           ),

@@ -930,9 +930,11 @@
       "visitUserSpace": "Visit user space",
       "search": "Search",
       "searchResult": "Result",
-      "randomFriend": "Random friend",
+      "randomFriend": "Friends",
       "viewUserSpaceTip": "View user space",
-      "refreshRecommendTip": "Refresh recommended friends"
+      "refreshRecommendTip": "Reload the friend list",
+      "noFriends": "No friend on your @ list yet, type the username directly",
+      "noMatch": "No friend matches the keyword"
     }
   },
   "imageBottomSheet": {

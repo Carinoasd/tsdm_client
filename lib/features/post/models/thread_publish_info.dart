@@ -33,7 +33,7 @@ final class ThreadPublishInfo with ThreadPublishInfoMappable {
       'wysiwyg': wysiwyg,
       'checkbox': '0',
       'subject': subject,
-      'message': message,
+      'message': toOfficialMentions(message),
       'save': save,
       'mastertid': '',
       'price': '${price ?? ""}',

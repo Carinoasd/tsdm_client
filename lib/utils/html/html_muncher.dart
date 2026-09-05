@@ -614,6 +614,7 @@ final class _Muncher with LoggerMixin {
       'rusld': _buildUnresolvedBounty,
       'rsld': _buildResolvedBounty,
       'rwdbst': _buildBountyBestAnswer,
+      'hb-entry': _skipRedPacketEntry,
     };
 
     state.inDiv = true;
@@ -627,6 +628,11 @@ final class _Muncher with LoggerMixin {
     }
     return ret;
   }
+
+  /// The red packet entry of the forum's `hongbao` plugin, `<div class="hb-entry" data-tid="...">` at the top of a
+  /// post body: it only works together with the plugin's javascript on the web page and red packets are not offered
+  /// in the app, so render nothing instead of its inner texts (blessing, remaining shares).
+  List<InlineSpan>? _skipRedPacketEntry(uh.Element _) => null;
 
   List<InlineSpan>? _buildBlockCode(uh.Element element) {
     // Usually each line in the block code is ended with `<br>` tag, but rarely it does not.

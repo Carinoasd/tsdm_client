@@ -10,20 +10,20 @@ part 'user_mention_state.dart';
 
 /// Cubit of user mention.
 ///
-/// * Search user
-/// * Get random recommended user.
+/// * Load the users the current user may mention.
+/// * Search in that list.
 final class UserMentionCubit extends Cubit<UserMentionState> with LoggerMixin {
   /// Constructor.
   UserMentionCubit(this._repo) : super(UserMentionState.empty());
 
   final EditorRepository _repo;
 
-  /// Search user by part of username [keyword].
+  /// Search the `@` user list by part of username [keyword].
   ///
   /// Only update search result in state.
-  Future<void> searchUserByName({required String keyword, required String formHash}) async {
+  Future<void> searchUserByName({required String keyword}) async {
     emit(state.copyWith(searchStatus: UserMentionStatus.loading));
-    switch (await _repo.searchUserByName(keyword: keyword, formHash: formHash).run()) {
+    switch (await _repo.searchUserByName(keyword: keyword).run()) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(searchStatus: UserMentionStatus.failure));
@@ -32,15 +32,17 @@ final class UserMentionCubit extends Cubit<UserMentionState> with LoggerMixin {
     }
   }
 
-  /// Get random friend from server.
-  Future<void> recommendFriend() async {
+  /// Load the users the current user may mention (the official `@` list, friends on Discuz! X5).
+  ///
+  /// Kept in `randomFriend` of the state.
+  Future<void> loadFriends() async {
     emit(state.copyWith(recommendStatus: UserMentionStatus.loading));
-    switch (await _repo.recommendUser().run()) {
+    switch (await _repo.loadAtUsers().run()) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(recommendStatus: UserMentionStatus.failure));
       case Right(:final value):
-        emit(state.copyWith(recommendStatus: UserMentionStatus.success, randomFriend: value.$1, formHash: value.$2));
+        emit(state.copyWith(recommendStatus: UserMentionStatus.success, randomFriend: value));
     }
   }
 }

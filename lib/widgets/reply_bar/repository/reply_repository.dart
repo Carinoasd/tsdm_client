@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -155,7 +156,7 @@ final class ReplyRepository with LoggerMixin {
       // TODO: Build subject instead of const empty string.
       'subject': subject ?? '',
       // TODO: Support reply with rich text.
-      'message': replyMessage,
+      'message': toOfficialMentions(replyMessage),
     };
 
     final respEither2 = await netClient
@@ -189,7 +190,7 @@ final class ReplyRepository with LoggerMixin {
   AsyncEither<PostedReply> replyToThread({required ReplyParameters replyParameters, required String replyMessage}) =>
       AsyncEither(() async {
         final formData = <String, String>{
-          'message': replyMessage,
+          'message': toOfficialMentions(replyMessage),
           'usesig': '1',
           'formhash': replyParameters.formHash,
           'subject': replyParameters.subject,
@@ -226,7 +227,7 @@ final class ReplyRepository with LoggerMixin {
     required String formHash,
     required String message,
   }) => AsyncVoidEither(() async {
-    final formData = <String, String>{'message': message, 'formhash': formHash};
+    final formData = <String, String>{'message': toOfficialMentions(message), 'formhash': formHash};
 
     final e = await getIt.get<NetClientProvider>().postForm(targetUrl, data: formData).run();
     if (e.isLeft()) {

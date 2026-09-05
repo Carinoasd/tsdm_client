@@ -930,9 +930,11 @@
       "visitUserSpace": "访问TA的主页",
       "search": "搜索",
       "searchResult": "结果",
-      "randomFriend": "随机好友",
+      "randomFriend": "好友",
       "viewUserSpaceTip": "查看用户资料",
-      "refreshRecommendTip": "刷新推荐好友"
+      "refreshRecommendTip": "重新加载好友列表",
+      "noFriends": "@ 列表里还没有好友，可直接输入用户名",
+      "noMatch": "好友里没有符合的用户"
     }
   },
   "imageBottomSheet": {
