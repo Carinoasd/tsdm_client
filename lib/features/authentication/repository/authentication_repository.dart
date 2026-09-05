@@ -29,7 +29,14 @@ import 'package:universal_html/parsing.dart';
 /// **Need to call dispose.**
 class AuthenticationRepository with LoggerMixin {
   /// Constructor.
-  AuthenticationRepository({UserLoginInfo? user}) : _authedUser = user;
+  AuthenticationRepository({UserLoginInfo? user, NetClientProvider Function(CookieProvider)? clientFactory})
+    : _authedUser = user,
+      _clientFactory = clientFactory ?? _defaultClientFactory;
+
+  final NetClientProvider Function(CookieProvider) _clientFactory;
+
+  static NetClientProvider _defaultClientFactory(CookieProvider cookie) =>
+      NetClientProvider.buildNoCookie(cookie: cookie);
 
   static const _checkAuthUrl = '$baseUrl/home.php?mod=spacecp';
 
@@ -100,9 +107,11 @@ class AuthenticationRepository with LoggerMixin {
   ///   in storage.
   AsyncEither<LoginHash> fetchHash() {
     final cookie = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
-    _loginCookie = cookie;
+    _loginCookie = null;
     _loginHash = null;
-    return _fetchHashWithClient(NetClientProvider.buildNoCookie(cookie: cookie)).map((v) {
+    return _fetchHashWithClient(_clientFactory(cookie)).map((v) {
+      // Publish the cookie and hash from the same response together.
+      _loginCookie = cookie;
       _loginHash = v;
       return v;
     });
@@ -118,9 +127,7 @@ class AuthenticationRepository with LoggerMixin {
       return taskLeft(LoginFormHashNotFoundException());
     }
     final rand = DateTime.now().millisecondsSinceEpoch;
-    return NetClientProvider.buildNoCookie(
-      cookie: cookie,
-    ).getImage('$baseUrl/misc.php?mod=seccode&update=$rand&idhash=$secCodeHash');
+    return _clientFactory(cookie).getImage('$baseUrl/misc.php?mod=seccode&update=$rand&idhash=$secCodeHash');
   }
 
   /// Login with password and other parameters in [credential].
@@ -128,7 +135,7 @@ class AuthenticationRepository with LoggerMixin {
   /// Will not change authentication status if failed to login.
   AsyncVoidEither loginWithPassword(UserCredential credential) => AsyncVoidEither(() async {
     debug('login with passwd');
-    await _markUnauthenticated();
+    // Keep the current account active until another login succeeds.
 
     // Reuse the login session if exists.
     if (_loginCookie == null || _loginHash == null) {
@@ -140,7 +147,7 @@ class AuthenticationRepository with LoggerMixin {
     final cookie = _loginCookie!;
     final hash = _loginHash!;
     // Inject cookie provider.
-    final netClient = NetClientProvider.buildNoCookie(cookie: cookie);
+    final netClient = _clientFactory(cookie);
 
     final respEither = await netClient
         .postForm(_buildLoginUrl(hash.loginHash), data: credential.toFormData(hash))
@@ -254,12 +261,17 @@ class AuthenticationRepository with LoggerMixin {
   ///
   /// Return [SwitchUserNotAuthedException] if failed.
   AsyncVoidEither switchUser(UserLoginInfo userInfo) => AsyncVoidEither(() async {
-    if (!await getIt.get<CookieProvider>().loadCookieFromStorage(userInfo)) {
+    final candidate = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
+    if (!await candidate.loadCookieFromStorage(userInfo)) {
       return left(LoginInvalidCredentialException());
     }
-    final resp = await getIt.get<NetClientProvider>().get(_checkAuthUrl).run();
+    // Validate with an isolated session; failures must leave the active account untouched.
+    final resp = await _clientFactory(candidate).get(_checkAuthUrl).run();
     if (resp.isLeft()) {
       return left(resp.unwrapErr());
+    }
+    if (resp.unwrap().statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(resp.unwrap().statusCode));
     }
 
     final document = parseHtmlDocument(resp.unwrap().data as String);
@@ -272,10 +284,12 @@ class AuthenticationRepository with LoggerMixin {
       return left(SwitchUserNotAuthedException());
     }
 
-    // Succeed.
-    // Here we get complete user info.
-    await getIt.get<CookieProvider>().saveCookieToStorage();
-    await _markAuthenticated(userInfo);
+    // Commit the verified session before notifying authentication subscribers.
+    await candidate.saveCookieToStorage();
+    if (!await getIt.get<CookieProvider>().loadCookieFromStorage(parsedUserInfo)) {
+      return left(LoginInvalidCredentialException());
+    }
+    await _markAuthenticated(parsedUserInfo);
 
     debug('login with document: user $userInfo');
     return rightVoid();

@@ -660,18 +660,25 @@ final class _Muncher with LoggerMixin {
   }
 
   List<InlineSpan>? _buildReview(uh.Element element) {
-    if (element.children.length <= 1) {
-      return null;
+    final rows = element.querySelectorAll('div.pstl').toList();
+    if (rows.isEmpty && element.querySelector('div.psti') != null) {
+      rows.add(element);
     }
-    // Since Discuz! X5 the author link lives in `div.psta` and the comment text is a bare text node in
-    // `div.psti`, so the fields are parsed without relying on a fixed child index.
-    final (:avatarUrl, :name, :content) = parseReviewElement(element);
-
-    return [
-      WidgetSpan(
-        child: ReviewCard(name: name ?? '', content: content ?? '', avatarUrl: avatarUrl),
-      ),
-    ];
+    final spans = <InlineSpan>[];
+    for (final row in rows) {
+      final (:avatarUrl, :name, :content) = parseReviewElement(row);
+      if ((name == null || name.isEmpty) && (content == null || content.isEmpty)) {
+        continue;
+      }
+      spans
+        ..add(
+          WidgetSpan(
+            child: ReviewCard(name: name ?? '', content: content ?? '', avatarUrl: avatarUrl),
+          ),
+        )
+        ..add(emptySpan);
+    }
+    return spans.isEmpty ? null : spans;
   }
 
   /// Spoiler is a button with an area of contents.

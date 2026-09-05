@@ -2,7 +2,6 @@ import 'package:collection/collection.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/checkin/utils/do_checkin.dart';
@@ -44,7 +43,8 @@ final class AutoCheckinRepository with LoggerMixin {
     required CheckinFeeling feeling,
     required String message,
   }) => AsyncVoidEither(() async {
-    // Initialize state.
+    // Initialize each run without retaining the previous batch results.
+    _currentInfo = AutoCheckinInfo.empty();
     _updateSkipped(skippedList);
     _updateWaiting(waitingList);
 
@@ -56,16 +56,16 @@ final class AutoCheckinRepository with LoggerMixin {
       );
       _updateRunning(pg);
 
-      // FIXME: Reduce complexity.
-      final tasks = pg
-          .map(
-            (userInfo) => _prepareCheckin(userInfo)
-                .mapLeft((e) => _updateFailure(e, const CheckinResultNotAuthorized()))
-                .map((netClient) async => (userInfo, await doCheckin(netClient, feeling, message).run())),
-          )
-          .map((e) async => e.run());
-      final info = await Future.wait(tasks);
-      final results = await Future.wait(info.map((e) => e.unwrap()));
+      final results = await Future.wait(
+        pg.map((userInfo) async {
+          final prepared = await _prepareCheckin(userInfo).run();
+          final result = switch (prepared) {
+            Left() => const CheckinResultNotAuthorized(),
+            Right(:final value) => await doCheckin(value, feeling, message).run(),
+          };
+          return (userInfo, result);
+        }),
+      );
       // FIXME: This message extracting step is anti-pattern.
       for (final result in results) {
         final (userInfo, checkinResult) = result;
@@ -73,7 +73,7 @@ final class AutoCheckinRepository with LoggerMixin {
           case CheckinResultSuccess(:final message):
             _updateSuccess(userInfo, CheckinResultSuccess(message));
           case CheckinResultNotAuthorized():
-            _updateNotAuthed(userInfo);
+            _updateFailure(userInfo, const CheckinResultNotAuthorized());
           case CheckinResultWebRequestFailed(:final statusCode):
             _updateFailure(userInfo, CheckinResultWebRequestFailed(statusCode));
           case CheckinResultFormHashNotFound():
@@ -112,10 +112,7 @@ final class AutoCheckinRepository with LoggerMixin {
 
   /// Update status: [userInfoList] is in unauthenticated state.
   void _updateWaiting(List<UserLoginInfo> userInfoList) {
-    _currentInfo = _currentInfo.copyWith(
-      waiting: _currentInfo.waiting.toList()..removeWhere((e) => userInfoList.contains(e)),
-      running: [..._currentInfo.running, ...userInfoList],
-    );
+    _currentInfo = _currentInfo.copyWith(waiting: [..._currentInfo.waiting, ...userInfoList]);
     _stream.add(_currentInfo);
   }
 
@@ -131,7 +128,7 @@ final class AutoCheckinRepository with LoggerMixin {
   /// Update status: [userInfo] ends up with failure in checkin progress.
   void _updateFailure(UserLoginInfo userInfo, CheckinResult checkinResult) {
     _currentInfo = _currentInfo.copyWith(
-      running: _currentInfo.running..removeWhere((e) => e == userInfo),
+      running: _currentInfo.running.where((e) => e != userInfo).toList(),
       failed: [..._currentInfo.failed, (userInfo, checkinResult)],
     );
     _stream.add(_currentInfo);
@@ -145,17 +142,8 @@ final class AutoCheckinRepository with LoggerMixin {
     // So it's better to make a lock when doing checkin.
     _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now());
     _currentInfo = _currentInfo.copyWith(
-      running: _currentInfo.running..removeWhere((e) => e == userInfo),
+      running: _currentInfo.running.where((e) => e != userInfo).toList(),
       succeeded: [..._currentInfo.succeeded, (userInfo, checkinResult)],
-    );
-    _stream.add(_currentInfo);
-  }
-
-  /// Update status: [userInfo] is in unauthenticated state.
-  void _updateNotAuthed(UserLoginInfo userInfo) {
-    _currentInfo = _currentInfo.copyWith(
-      running: _currentInfo.running..removeWhere((e) => e == userInfo),
-      notAuthed: [..._currentInfo.notAuthed],
     );
     _stream.add(_currentInfo);
   }

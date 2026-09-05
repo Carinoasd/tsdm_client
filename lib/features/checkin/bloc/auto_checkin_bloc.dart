@@ -94,7 +94,9 @@ final class AutoCheckinBloc extends Bloc<AutoCheckinEvent, AutoCheckinState> {
   }
 
   Future<void> _onUserStateChanged(AutoCheckinInfo checkinInfo, _Emit emit) async {
-    if (checkinInfo.running.isEmpty && (checkinInfo.succeeded.isNotEmpty || checkinInfo.failed.isNotEmpty)) {
+    if (checkinInfo.waiting.isEmpty &&
+        checkinInfo.running.isEmpty &&
+        (checkinInfo.succeeded.isNotEmpty || checkinInfo.failed.isNotEmpty)) {
       final now = DateTime.now();
       for (final (user, _) in checkinInfo.succeeded) {
         await _storageProvider.updateLastCheckinTime(user.uid!, now).run();

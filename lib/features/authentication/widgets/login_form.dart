@@ -54,6 +54,10 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
   late final FocusNode passwordFieldFocus;
 
   Future<void> _login(BuildContext context, LoginField loginField, AuthenticationState state) async {
+    if (state.status == AuthenticationStatus.failure) {
+      context.read<AuthenticationBloc>().add(AuthenticationFetchLoginHashRequested());
+      return;
+    }
     if (formKey.currentState == null || !(formKey.currentState!).validate()) {
       return;
     }
@@ -85,7 +89,7 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
 
   Widget _buildForm(BuildContext context, AuthenticationState state) {
     // Only allow to press login button when got hash but not logged in.
-    final pending = state.status != AuthenticationStatus.gotHash;
+    final pending = state.status != AuthenticationStatus.gotHash && state.status != AuthenticationStatus.failure;
     final tr = context.t.loginPage;
 
     return Form(
@@ -211,7 +215,7 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
           DebounceFilledButton(
             shouldDebounce: pending,
             onPressed: () async => _login(context, loginField, state),
-            child: Text(tr.login),
+            child: Text(state.status == AuthenticationStatus.failure ? context.t.general.retry : tr.login),
           ),
           sizedBoxW12H12,
           Center(
@@ -275,9 +279,8 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
           }
           context.read<AutoNotificationCubit>().resume('login success');
         } else if (state.status == AuthenticationStatus.failure) {
-          // Every login attempt requires a new form hash (and captcha, if any).
+          // The bloc owns form refresh; listeners must not start duplicate sessions.
           verifyCodeController.clear();
-          context.read<AuthenticationBloc>().add(AuthenticationFetchLoginHashRequested());
           context.read<AutoNotificationCubit>().resume('login failure');
         }
       },

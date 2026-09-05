@@ -31,18 +31,28 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
   final AuthenticationRepository _authenticationRepository;
 
   Future<void> _onFetchLoginHashRequested(_Emitter emit) async {
-    emit(state.copyWith(status: AuthenticationStatus.fetchingHash));
+    if (state.status == AuthenticationStatus.fetchingHash || state.status == AuthenticationStatus.loggingIn) {
+      return;
+    }
+    emit(state.copyWith(status: AuthenticationStatus.fetchingHash, loginHash: null, loginException: null));
     await _authenticationRepository.fetchHash().match((e) {
       handle(e);
-      emit(state.copyWith(status: AuthenticationStatus.failure));
+      emit(state.copyWith(status: AuthenticationStatus.failure, loginHash: null, loginException: e));
     }, (v) => emit(state.copyWith(status: AuthenticationStatus.gotHash, loginHash: v))).run();
   }
 
   Future<void> _onLoginRequested(_Emitter emit, UserCredential userCredential) async {
+    if (state.status != AuthenticationStatus.gotHash) {
+      return;
+    }
     emit(state.copyWith(status: AuthenticationStatus.loggingIn));
     await _authenticationRepository.loginWithPassword(userCredential).match((e) {
       handle(e);
-      emit(state.copyWith(status: AuthenticationStatus.failure, loginException: e));
+      emit(state.copyWith(status: AuthenticationStatus.failure, loginHash: null, loginException: e));
     }, (_) => emit(state.copyWith(status: AuthenticationStatus.success))).run();
+    // Refresh once after a login attempt. A failed form load waits for manual retry.
+    if (state.status == AuthenticationStatus.failure) {
+      await _onFetchLoginHashRequested(emit);
+    }
   }
 }

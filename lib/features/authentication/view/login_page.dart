@@ -47,7 +47,6 @@ class _LoginPageState extends State<LoginPage> {
                 _ => context.t.general.failedToLoad,
               };
               showSnackBar(context: context, message: errorText);
-              context.read<AuthenticationBloc>().add(AuthenticationFetchLoginHashRequested());
             }
           },
           child: Padding(
