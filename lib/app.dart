@@ -339,9 +339,14 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
               listenWhen: (prev, curr) => prev is! AutoCheckinStateFinished && curr is AutoCheckinStateFinished,
               listener: (context, state) {
                 if (state is AutoCheckinStateFinished) {
+                  talker.debug(
+                    'auto checkin finished: succeeded=${state.succeeded.length} failed=${state.failed.length}',
+                  );
                   showSnackBar(
                     context: context,
                     message: tr.autoCheckinFinished,
+                    clearPrevious: true,
+                    showCloseIcon: true,
                     action: SnackBarAction(
                       label: tr.viewDetail,
                       onPressed: () async => router.pushNamed(ScreenPaths.autoCheckinDetail),

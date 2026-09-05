@@ -162,14 +162,15 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
         return ColoredBox(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
           child: Padding(
-            padding: edgeInsetsL12T12R12.add(context.safePadding()),
+            padding: edgeInsetsL12T12R12B12.add(context.safePadding()),
             child: TextField(
               controller: controller,
               readOnly: true,
               enabled: onTapCallback != null,
+              // Follow the app theme (outlined) like the expanded editor does, so both states of the reply box
+              // share the same look.
               decoration: InputDecoration(
                 hintText: context.t.threadPage.sendReplyHint,
-                border: const UnderlineInputBorder(),
                 suffix: loading ? sizedCircularProgressIndicator : null,
               ),
               onTap: onTapCallback,
