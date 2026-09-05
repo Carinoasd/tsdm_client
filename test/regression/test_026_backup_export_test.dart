@@ -57,7 +57,13 @@ void main() {
     final exportedFile = File('${dir.path}/exported.db')..writeAsBytesSync(bytes);
     final exported = sqlite3.open(exportedFile.path, mode: OpenMode.readOnly);
     try {
-      expect(count(exported, 'cookie'), 0, reason: 'no account cookies in the backup');
+      // The account list survives, without anything that logs in.
+      final accounts = exported.select('SELECT username, uid, cookie, password, question_id, answer FROM cookie ORDER BY uid');
+      expect(accounts.map((r) => r['username']), ['Alice', 'Bob']);
+      expect(accounts.map((r) => r['uid']), [1000, 1001]);
+      expect(accounts.map((r) => r['cookie']), everyElement('{}'), reason: 'no session cookies in the backup');
+      expect(accounts.map((r) => r['password']), everyElement(isNull));
+      expect(accounts.map((r) => r['answer']), everyElement(isNull));
       final settingNames = exported.select('SELECT name FROM settings').map((r) => r['name'] as String).toList();
       expect(settingNames, isNot(contains(SettingsKeys.loginUid.name)));
       expect(settingNames, isNot(contains(SettingsKeys.loginUsername.name)));
@@ -83,15 +89,19 @@ void main() {
     expect(dir.listSync().map((e) => e.path.split('/').last), unorderedEquals(['mainV2.db', 'exported.db']));
   });
 
-  test('stripCredentials also works on a database without the optional tables', () {
+  test('stripCredentials also works on databases without the optional tables or columns', () {
     final other = sqlite3.openInMemory();
     try {
       other
         ..execute('CREATE TABLE settings (name TEXT PRIMARY KEY, int_value INTEGER, string_value TEXT)')
         ..execute("INSERT INTO settings (name, int_value) VALUES ('${SettingsKeys.loginUid.name}', 7)")
-        ..execute("INSERT INTO settings (name, string_value) VALUES ('other', 'x')");
+        ..execute("INSERT INTO settings (name, string_value) VALUES ('other', 'x')")
+        // An old schema: cookie table without the legacy password columns.
+        ..execute('CREATE TABLE cookie (username TEXT, uid INTEGER PRIMARY KEY, cookie TEXT)')
+        ..execute("INSERT INTO cookie VALUES ('Carol', 1, '{\"Ystv_2132_auth\":\"tok\"}')");
       BackupRepository.stripCredentials(other);
       expect(other.select('SELECT name FROM settings').map((r) => r['name']), ['other']);
+      expect(other.select('SELECT username, cookie FROM cookie').first.values, ['Carol', '{}']);
     } finally {
       other.dispose();
     }

@@ -284,7 +284,19 @@
       "importData": {
         "title": "导入数据",
         "invalidData": "无效的数据",
-        "tip": "所有现有数据都会被覆盖，并且需要重启应用生效。\n导入成功后应用会自动退出，是否继续导入？"
+        "tip": "所有现有数据都会被覆盖。备份不含登录凭证，导入后各账号需要重新登录；导入完成后应用会自动关闭，重新打开即生效。\n是否继续导入？",
+        "invalidDetail": "无法导入这个文件：${reason}。现有数据未变更。",
+        "success": "导入完成。应用将关闭，重新打开后请重新登录。",
+        "restored": "导入失败，已还原原有数据。应用将关闭。",
+        "replaceFailed": "导入失败，且无法还原原有数据；请重新打开应用，必要时重新导入备份。",
+        "problem": {
+          "unreadable": "文件无法读取",
+          "notSqlite": "不是 SQLite 数据库文件",
+          "corrupted": "数据库损坏或无法打开",
+          "missingTables": "缺少必要的数据表或字段",
+          "invalidVersion": "结构版本无效",
+          "newerSchema": "备份来自较新版本的应用（${version}），请先更新应用再导入"
+        }
       }
     },
     "debugSection": {

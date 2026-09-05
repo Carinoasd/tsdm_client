@@ -284,7 +284,19 @@
       "importData": {
         "title": "Import data",
         "invalidData": "Invalid data",
-        "tip": "All existing data will be OVERWRITTEN, and a restart is needed to take effect.\nApp will exit if succeed, continue?"
+        "tip": "All current data will be replaced. Backups carry no login credentials, so every account has to log in again; the app closes when the import is done and the data is in place on the next start.\nContinue?",
+        "invalidDetail": "This file can not be imported: ${reason}. Current data is unchanged.",
+        "success": "Import done. The app will close; log in again after reopening it.",
+        "restored": "Import failed, the previous data has been restored. The app will close.",
+        "replaceFailed": "Import failed and the previous data could not be restored; reopen the app and import a backup again if needed.",
+        "problem": {
+          "unreadable": "the file can not be read",
+          "notSqlite": "not a SQLite database file",
+          "corrupted": "the database is damaged or can not be opened",
+          "missingTables": "required tables or columns are missing",
+          "invalidVersion": "invalid schema version",
+          "newerSchema": "the backup comes from a newer app (${version}), update the app first"
+        }
       }
     },
     "debugSection": {

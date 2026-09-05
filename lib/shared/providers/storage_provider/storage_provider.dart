@@ -680,6 +680,12 @@ class StorageProvider with LoggerMixin {
   /// WARNING: avoid to use this function when possible as reconnect is not in
   /// consideration.
   Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
     await _db.close();
   }
+
+  bool _disposed = false;
 }

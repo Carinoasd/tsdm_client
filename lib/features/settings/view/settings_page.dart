@@ -36,6 +36,8 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
@@ -741,17 +743,74 @@ class _SettingsPageState extends State<SettingsPage> {
             showSnackBar(context: context, message: tr.importData.invalidData);
             return;
           }
-          final data = await File(file.path!).readAsBytes();
-
-          // TODO: Validate database
-
-          final db = await databaseFile;
-          await db.writeAsBytes(data);
-
-          await exitApp();
+          await _importBackup(context, File(file.path!));
         },
       ),
     ];
+  }
+
+  /// Import [source] as the app database: check it first, replace with a fallback copy, then restart the app.
+  Future<void> _importBackup(BuildContext context, File source) async {
+    final tr = context.t.settingsPage.advancedSection.importData;
+    const repository = BackupRepository();
+    final schemaVersion = getIt.get<AppDatabase>().schemaVersion;
+
+    // An invalid file never touches the current data.
+    final check = await repository.validate(source, currentSchemaVersion: schemaVersion);
+    if (!context.mounted) {
+      return;
+    }
+    if (!check.ok) {
+      await showMessageSingleButtonDialog(
+        context: context,
+        title: tr.title,
+        message: tr.invalidDetail(reason: _backupProblemText(context, check)),
+      );
+      return;
+    }
+
+    final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.tip);
+    if (ok != true || !context.mounted) {
+      return;
+    }
+
+    BackupValidation? invalid;
+    BackupReplaceException? replaceFailure;
+    try {
+      // Close the connection so the file can be swapped underneath.
+      await getIt.get<StorageProvider>().dispose();
+      await repository.replaceDatabase(target: await databaseFile, source: source, currentSchemaVersion: schemaVersion);
+    } on BackupInvalidException catch (e) {
+      invalid = e.validation;
+    } on BackupReplaceException catch (e) {
+      replaceFailure = e;
+    }
+    if (context.mounted) {
+      final String message;
+      if (invalid != null) {
+        message = tr.invalidDetail(reason: _backupProblemText(context, invalid));
+      } else if (replaceFailure != null) {
+        message = replaceFailure.restored ? tr.restored : tr.replaceFailed;
+      } else {
+        message = tr.success;
+      }
+      await showMessageSingleButtonDialog(context: context, title: tr.title, message: message);
+    }
+    // The database connection is closed either way; restart the app.
+    await exitApp();
+  }
+
+  String _backupProblemText(BuildContext context, BackupValidation check) {
+    final tr = context.t.settingsPage.advancedSection.importData;
+    return switch (check.problem) {
+        BackupProblem.unreadable => tr.problem.unreadable,
+        BackupProblem.notSqlite => tr.problem.notSqlite,
+        BackupProblem.corrupted => tr.problem.corrupted,
+        BackupProblem.missingTables => tr.problem.missingTables,
+        BackupProblem.invalidVersion => tr.problem.invalidVersion,
+        BackupProblem.newerSchema => tr.problem.newerSchema(version: check.detail ?? ''),
+        null => '',
+      };
   }
 
   List<Widget> _buildDebugSection(BuildContext context, SettingsState state) {
