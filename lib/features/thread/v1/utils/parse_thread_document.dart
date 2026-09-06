@@ -205,7 +205,7 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
 
   ReplyParameters? replyParameters;
   if (fid == null || formHash == null || subject == null || tid == null) {
-    talker.error('failed to get reply form hash: tid=$tid fid=$fid formHash=$formHash subject=$subject');
+    talker.error('failed to get reply form hash: tid=$tid fid=$fid hasFormHash=${formHash != null} hasSubject=${subject != null}');
   } else {
     replyParameters = ReplyParameters(
       fid: '$fid',
