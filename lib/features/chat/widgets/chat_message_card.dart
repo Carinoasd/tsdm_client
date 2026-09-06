@@ -4,9 +4,8 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/chat/models/models.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
-import 'package:universal_html/parsing.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 
 /// Widget to show a chat message.
 final class ChatMessageCard extends StatelessWidget {
@@ -56,7 +55,7 @@ final class ChatMessageCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: edgeInsetsL16R16,
-              child: munchElement(context, parseHtmlDocument(chatMessage.message).body!),
+              child: MunchedHtml(chatMessage.message),
             ),
           ),
         ],

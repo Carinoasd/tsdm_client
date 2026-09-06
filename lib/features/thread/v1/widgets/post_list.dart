@@ -219,7 +219,8 @@ class _PostListState extends State<PostList> with LoggerMixin {
       itemCount: widget.postList.length,
       itemBuilder: (context, index) {
         final post = widget.postList[index];
-        final card = widget.widgetBuilder(context, post);
+        // Each floor paints into its own layer, so scrolling moves layers instead of repainting every card.
+        final card = RepaintBoundary(child: widget.widgetBuilder(context, post));
         return post.postID == '${widget.initialPostID}' ? KeyedSubtree(key: _initialPostKey, child: card) : card;
       },
       separatorBuilder: (context, index) => widget.useDivider ? const Divider(thickness: 0.5) : sizedBoxW4H4,

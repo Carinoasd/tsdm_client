@@ -23,6 +23,7 @@ class CachedImage extends StatefulWidget {
     this.width,
     this.height,
     this.maxWidth,
+    this.boundDecodeToDisplay = true,
     this.maxHeight,
     this.minWidth,
     this.minHeight,
@@ -45,6 +46,9 @@ class CachedImage extends StatefulWidget {
 
   /// Max image width.
   final double? maxWidth;
+
+  /// Decode at most as wide as the image is displayed (the screen by default). Off for viewers that zoom.
+  final bool boundDecodeToDisplay;
 
   /// Max image height.
   final double? maxHeight;
@@ -127,7 +131,20 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
       );
     } else {
       body = Image(
-        image: widget._imageProvider,
+        // Decode no larger than the image is shown: a 4000px picture in a post used to be decoded whole and
+        // uploaded to the GPU at full size, which stuttered the scroll and ate memory.
+        image: ResizeImage.resizeIfNeeded(
+          widget.boundDecodeToDisplay
+              ? decodeWidthFor(
+                  width: widget.width,
+                  maxWidth: widget.maxWidth,
+                  displayWidth: MediaQuery.sizeOf(context).width,
+                  devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                )
+              : null,
+          null,
+          widget._imageProvider,
+        ),
         fit: widget.fit,
         width: widget.width,
         height: widget.height,
@@ -203,4 +220,25 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
       child: body,
     );
   }
+}
+
+/// Pixel width to decode an image at so it is no larger than it will be shown: the smallest of the requested
+/// [width], [maxWidth] and the [displayWidth], in physical pixels. Null when nothing bounds it.
+int? decodeWidthFor({
+  required double? width,
+  required double? maxWidth,
+  required double displayWidth,
+  required double devicePixelRatio,
+}) {
+  double? bound;
+  for (final candidate in [width, maxWidth, displayWidth]) {
+    if (candidate == null || !candidate.isFinite || candidate <= 0) {
+      continue;
+    }
+    bound = bound == null ? candidate : (candidate < bound ? candidate : bound);
+  }
+  if (bound == null) {
+    return null;
+  }
+  return (bound * devicePixelRatio).ceil();
 }

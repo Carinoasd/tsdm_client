@@ -17,7 +17,6 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
-import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/card/lock_card/locked_card.dart';
 import 'package:tsdm_client/widgets/card/packet_card.dart';
@@ -26,6 +25,7 @@ import 'package:tsdm_client/widgets/card/post_card/show_user_brief_profile_dialo
 import 'package:tsdm_client/widgets/card/rate_card.dart';
 import 'package:tsdm_client/widgets/copy_content_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -229,7 +229,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
         Expanded(
           child: Padding(
             padding: edgeInsetsL16R16,
-            child: munchElement(context, parseHtmlDocument(widget.post.data).body!),
+            child: MunchedHtml(widget.post.data),
           ),
         ),
       ],

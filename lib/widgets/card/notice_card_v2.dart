@@ -15,11 +15,10 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
-import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
-import 'package:universal_html/parsing.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 
 enum _Actions { markAsRead, markAsUnread, deleteItem, copyRawContent }
 
@@ -163,9 +162,8 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
           ),
           Padding(
             padding: edgeInsetsL16R16B12,
-            child: munchElement(
-              context,
-              parseHtmlDocument(widget.data.data).body!,
+            child: MunchedHtml(
+              widget.data.data,
               options: MunchOptions(onUrlLaunched: () => _onUrlLaunched(markAsRead: true)),
             ),
           ),
@@ -313,7 +311,7 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
             ),
             Padding(
               padding: edgeInsetsL16R16B12,
-              child: munchElement(context, parseHtmlDocument(widget.data.data).body!),
+              child: MunchedHtml(widget.data.data),
             ),
           ],
         ),
@@ -447,7 +445,7 @@ class _BroadcastMessageCardV2State extends State<BroadcastMessageCardV2> {
             ),
             Padding(
               padding: edgeInsetsL16R16B12,
-              child: munchElement(context, parseHtmlDocument(widget.data.data).body!),
+              child: MunchedHtml(widget.data.data),
             ),
           ],
         ),
