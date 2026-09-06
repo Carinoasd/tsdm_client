@@ -1,0 +1,124 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Alice的好友 -  天使动漫 -  Powered by Discuz!</title></head><body>
+<div id="ct"><div class="mn"><div class="bm bw0"><div class="bm_c">
+<div class="tbmu cl">
+<p class="y">
+当前共有 <span class="xw1">1</span> 个好友
+</p>
+<p class="z">
+按照<a href="home.php?mod=space&amp;do=friend&amp;order=num" class="xw1" onmouseover="showTip(this)" tip="好友热度是系统根据您与好友之间交互的动作自动累计的一个参考值，数值越大，表示您与这位好友互动越频繁">好友热度</a>排序
+</p>
+</div>
+
+<div class="cl" style="padding-right: 263px;">
+<div style="float: right; margin-right: -263px; width: 263px; display: inline;">
+<div class="bm mtm">
+<div class="bm_h">
+<h3>查找好友</h3>
+</div>
+<div class="bm_c">
+<form method="get" autocomplete="off" action="home.php" class="pns">
+<input type="hidden" name="mod" value="space" />
+<input type="hidden" name="do" value="friend" />
+<input type="hidden" name="searchmode" value="1" />
+<input type="hidden" name="searchsubmit" value="1" />
+<input type="text" name="searchkey" class="px vm" size="20" value="" onclick="if(this.value=='查找好友')this.value='';" />&nbsp;<button type="submit" class="pn vm"><em>搜索</em></button>
+</form>
+</div>
+</div>							
+
+<div class="bm mtm">
+<div class="bm_h cl">
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=group" class="y xi2">批量分组</a>
+<h3>好友分组</h3>
+</div>
+<div class="bm_c">
+<ul class="buddy_group">
+<li><a href="home.php?mod=space&amp;do=friend&amp;group=-1">全部好友</a></li><li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=0&amp;handlekey=ignorehk_0" id="c_ignore_0" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=0" id="friend_groupname_0" groupname="其他">其他</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=1&amp;handlekey=ignorehk_1" id="c_ignore_1" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=1&amp;handlekey=edithk_1" id="c_edit_1" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=1" id="friend_groupname_1" groupname="通过本站认识">通过本站认识</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=2&amp;handlekey=ignorehk_2" id="c_ignore_2" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=2&amp;handlekey=edithk_2" id="c_edit_2" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=2" id="friend_groupname_2" groupname="通过活动认识">通过活动认识</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=3&amp;handlekey=ignorehk_3" id="c_ignore_3" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=3&amp;handlekey=edithk_3" id="c_edit_3" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=3" id="friend_groupname_3" groupname="通过朋友认识">通过朋友认识</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=4&amp;handlekey=ignorehk_4" id="c_ignore_4" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=4&amp;handlekey=edithk_4" id="c_edit_4" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=4" id="friend_groupname_4" groupname="亲人">亲人</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=5&amp;handlekey=ignorehk_5" id="c_ignore_5" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=5&amp;handlekey=edithk_5" id="c_edit_5" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=5" id="friend_groupname_5" groupname="同事">同事</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=6&amp;handlekey=ignorehk_6" id="c_ignore_6" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=6&amp;handlekey=edithk_6" id="c_edit_6" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=6" id="friend_groupname_6" groupname="同学">同学</a>
+</li>
+<li>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupignore&amp;group=7&amp;handlekey=ignorehk_7" id="c_ignore_7" onclick="showWindow('ignoregroup', this.href, 'get', 0);" title="屏蔽用户组动态" class="b">屏蔽</a>
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=groupname&amp;group=7&amp;handlekey=edithk_7" id="c_edit_7" onclick="showWindow(this.id, this.href, 'get', 0);" title="编辑用户组名" class="o">编辑</a>
+<a href="home.php?mod=space&amp;do=friend&amp;group=7" id="friend_groupname_7" groupname="不认识">不认识</a>
+</li>
+</ul>
+</div>
+</div>
+<script type="text/javascript">
+function succeedhandle_ignoregroup(url, msg, values) {
+var liObj = $('friend_groupname_'+values['group']);
+var prefix = '';
+if(values['ignore']) {
+prefix = '<span class="xg1">[屏蔽]</span>';
+}
+$('c_ignore_'+values['group']).innerHTML = values['ignore'] ? '取消' : '屏蔽';
+liObj.innerHTML = prefix + liObj.getAttribute('groupname');
+}
+</script>
+</div>
+<div>
+<div id="friend_ul">
+<ul class="buddy cl"><li id="friend_1001_li">
+<div class="avt">
+<a href="home.php?mod=space&amp;uid=1001" c="1">
+<em class="gol" title="在线 12:00"></em><img data-src="https://example.com/avatar/1.png" class="_avt user_avatar"></a>
+</div>
+<h4>
+<span class="xg1 xw0 y">
+<a href="home.php?mod=spacecp&amp;ac=friend&amp;op=changenum&amp;uid=1001&amp;handlekey=hotuserhk_1001" id="friendnum_1001" onclick="showWindow(this.id, this.href, 'get', 0);" title="热度">热度(<span id="spannum_1001">0</span>)</a>
+</span>
+<a href="home.php?mod=space&amp;uid=1001">Bob</a><img src="data/attachment/common/group/梦幻天使.gif" alt="" class="vm" style="width:auto;height:20px" /><span id="friend_note_1001" class="note xw0" title=""></span>
+</h4>
+<p class="maxh"></p>
+<div class="xg1">
+<a href="home.php?mod=spacecp&amp;ac=follow&amp;op=add&amp;fuid=1001&amp;hash=XXXXXXXX&amp;from=a_followmod_" id="a_followmod_1001" onclick="showWindow('followmod', this.href, 'get', 0)">关注TA</a>
+<span class="pipe">|</span><a href="javascript:;" id="interaction_1001" onmouseover="showMenu(this.id);" class="showmenu">互动</a>
+<span class="pipe">|</span><a href="javascript:;" id="opfrd_1001" onmouseover="showMenu(this.id);" class="showmenu">管理</a>
+</div>
+<div id="opfrd_1001_menu" class="p_pop" style="display: none; width: 80px;">
+<p><a href="home.php?mod=spacecp&amp;ac=friend&amp;op=changegroup&amp;uid=1001&amp;handlekey=editgrouphk_1001" id="friend_group_1001" onclick="showWindow(this.id, this.href, 'get', 0);" title="好友分组">好友分组</a></p>
+<p><a href="home.php?mod=spacecp&amp;ac=friend&amp;op=editnote&amp;uid=1001&amp;handlekey=editnote_1001" id="friend_editnote_1001" onclick="showWindow(this.id, this.href, 'get', 0);" title="备注">备注</a></p>
+<p><a href="home.php?mod=spacecp&amp;ac=friend&amp;op=ignore&amp;uid=1001&amp;handlekey=delfriendhk_1001" id="a_ignore_1001" onclick="showWindow(this.id, this.href, 'get', 0);" title="删除">删除</a></p>
+</div>
+<div id="interaction_1001_menu" class="p_pop" style="display: none; width: 80px;">
+<p><a href="home.php?mod=space&amp;uid=1001&amp;do=profile" target="_blank" title="查看资料">查看资料</a></p>
+<p><a href="home.php?mod=space&amp;uid=1001" target="_blank" title="去串个门">去串个门</a></p>
+<p><a href="home.php?mod=spacecp&amp;ac=poke&amp;op=send&amp;uid=1001" id="a_poke_1001" onclick="showWindow(this.id, this.href, 'get', 0);" title="打个招呼">打个招呼</a></p>
+<p><a href="home.php?mod=spacecp&amp;ac=pm&amp;op=showmsg&amp;handlekey=showmsg_1001&amp;touid=1001&amp;pmid=0&amp;daterange=2" id="a_sendpm_1001" onclick="showWindow('showMsgBox', this.href, 'get', 0)" title="发送消息">发送消息</a></p>
+</div>
+</li>
+</ul>
+
+</div></div></div></div>
+</body></html>

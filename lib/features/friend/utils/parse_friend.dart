@@ -53,13 +53,15 @@ final _cssColorRe = RegExp(r'color\s*:\s*([^;]+)');
 /// <div class="pg">...<a href="...&page=2" class="nxt">下一页</a></div>
 /// ```
 ///
-/// The owner's own page lists "在线成员" suggestions in the same `ul.buddy` as `<li id="friend_UID_li">` without the
-/// `bbda` class; they are not friends and are skipped.
+/// Two shapes share `ul.buddy`. Another member's list has `<li class="bbda">` items. The owner's own list has
+/// `<li id="friend_UID_li">` items whose `h4` starts with a "热度" link and carries the group icon, with a manage menu
+/// (分组／备注／删除); when the owner has no friends yet the same shape lists "在线成员" suggestions instead, each with a
+/// "加为好友" link, and those are not friends.
 FriendListPage parseFriendListPage(uh.Document document) {
   final title = document.querySelector('title')?.text ?? '';
   final ownerName = _ownerRe.firstMatch(title)?.group(1)?.trim();
-  final listNode = document.querySelector('ul.buddy');
-  if (listNode == null) {
+  final lists = document.querySelectorAll('ul.buddy');
+  if (lists.isEmpty) {
     final privacyMessage = document.querySelector('div.nfl h2.xs2')?.innerText.trim();
     final noticeMessage = document.querySelector('div#messagetext')?.innerText.trim();
     final message = privacyMessage ?? noticeMessage;
@@ -73,7 +75,17 @@ FriendListPage parseFriendListPage(uh.Document document) {
           (noticeMessage?.contains('登入') ?? false),
     );
   }
-  final items = listNode.querySelectorAll('li.bbda').map(_parseItem).whereType<Friend>().toList();
+  final items = <Friend>[];
+  for (final list in lists) {
+    for (final li in list.children.where((e) => e.localName == 'li')) {
+      if (li.classes.contains('bbda') || (_isOwnListItem(li) && !_hasAddFriendLink(li))) {
+        final friend = _parseItem(li);
+        if (friend != null) {
+          items.add(friend);
+        }
+      }
+    }
+  }
   final totalCount = (document.querySelector('p.tbmu span.xw1') ?? document.querySelector('div.tbmu span.xw1'))
       ?.innerText
       .trim()
@@ -90,8 +102,28 @@ String? _colorInStyle(String? style) {
   return color == null || color.isEmpty ? null : color;
 }
 
+/// `<li id="friend_UID_li">`: the owner's own list, or the 在线成员 suggestions shown while it is empty.
+bool _isOwnListItem(uh.Element li) => li.id.startsWith('friend_') && li.id.endsWith('_li');
+
+/// A suggestion carries a "加为好友" link; a friend carries the manage menu instead.
+bool _hasAddFriendLink(uh.Element li) => li.querySelectorAll('a').any((a) {
+  final href = a.attributes['href'] ?? '';
+  return href.contains('ac=friend') && href.contains('op=add');
+});
+
+/// The link into the member's space inside the `h4`; the owner's own list puts a "热度" link (into spacecp) first.
+uh.Element? _nameLink(uh.Element li) {
+  for (final a in li.querySelectorAll('h4 a')) {
+    final href = a.attributes['href'] ?? '';
+    if (href.contains('mod=space&') && href.contains('uid=') && !href.contains('mod=spacecp')) {
+      return a;
+    }
+  }
+  return null;
+}
+
 Friend? _parseItem(uh.Element li) {
-  final nameNode = li.querySelector('h4 > a');
+  final nameNode = _nameLink(li);
   final uid = nameNode?.attributes['href']?.uriQueryParameter('uid');
   if (nameNode == null || uid == null || uid.isEmpty) {
     return null;
@@ -126,7 +158,10 @@ Friend? _parseItem(uh.Element li) {
     nameColor: _colorInStyle(nameNode.attributes['style']),
     groupName: groupName == null || groupName.isEmpty ? null : groupName,
     groupColor: groupColor == null || groupColor.isEmpty ? null : groupColor,
-    groupIconUrl: infoNode?.querySelector('img')?.attributes['src']?.trim().prependHost(),
+    // The owner's own list keeps the group icon next to the name instead of in the info line.
+    groupIconUrl: (infoNode?.querySelector('img') ?? li.querySelector('h4 img'))?.attributes['src']
+        ?.trim()
+        .prependHost(),
     credits: credits,
   );
 }
