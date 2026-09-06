@@ -258,3 +258,53 @@
 
 ---
 (C) 2026 Carinoasd
+
+## 8. v22（1.17.0+60）：折疊標籤、編輯器巢狀修正、帶密碼的帳號資料備份
+
+### 8.1 折疊標籤 `[spoiler]`（測試者回報「折叠标签不行」）
+- 論壇端：X5 **仍支援** `[spoiler=標題]…[/spoiler]`，但輸出的 HTML 改了 class 名：
+  `div.spoiler > div.spoilerheader > input.spoilerbutton[value=標題]`＋提示文字「（點擊展開 / 收起）」、
+  `div.spoilerbody > table > td > 內容`（舊論壇是 `spoiler_control` / `spoiler_btn` / `spoiler_content`）。
+- App：`html_muncher.dart` 的 `_buildSpoiler` 只認舊 class，找不到就放棄，X5 上所有折疊都變平文字。改為兩代 selector 都接受，並把
+  `table>td` 單格包裝剝掉再 munch，折疊卡只含內容。舊結構仍可用。
+- fixture `test/data/spoiler_post_x5.html`：2026-09-06 用測試帳號在測試帖發的回覆（pid 洗成 1000），A 為正確巢狀、B 為編輯器上色後的錯誤巢狀，
+  皆為論壇實際輸出。test_037 驗證兩者都成卡、舊結構仍成卡。
+
+### 8.2 編輯器把折疊頭標記寫壞（測試者那帖真正的原因）
+- 現象：論壇裡存的是兩個 `[/spoiler]`、沒有開頭標記；論壇對未配對的關閉標籤原樣輸出，App 與網頁都顯示黑字 `[/spoiler]`。
+- 機制（往返探針證實）：編輯器把 `[spoiler]`/`[hide]`/`[free]` 當頭尾兩個標記，對含標記的範圍上色時匯出成
+  `[color=#0cc][spoiler=X][/color]…[color=#0cc][/spoiler][/color]`（論壇容忍、仍會折疊）。但這段文字再進 `parseBBCodeTextToDelta`
+  （編輯帖子、匯入 BBCode、從模板插入都走它）時，**被樣式標籤單獨包住的頭標記會被解析成尾標記**：`heads=0, tails=2`。
+  純文字路徑（`initialText`、`setDocumentFromRawText`）不解析 BBCode，不受影響。
+- 根因在上游子模組 `dart_bbcode_parser`／`flutter_bbcode_editor`，本分支不動子模組；改在 App 邊界修：
+  `lib/utils/bbcode/spoiler_normalizer.dart` 的 `normalizeBlockMarkerNesting` 把「只包著一個頭或尾標記」的樣式標籤
+  （color/size/font/backcolor/b/i/u/s，可多層、含空白、不分大小寫）剝掉，其他文字不動、可重複套用。
+- 掛載點——進：`post_edit_page`（解析器與純文字兩支）、toolbar 匯入 BBCode、`insertBBCode`×2（模板插入）、`initialText`×3；
+  出：`BBCodeEditorController.toForumBBCode()`（`lib/extensions/bbcode_editor_controller.dart`）取代 App 內全部 10 處 `toBBCode()`，
+  送論壇、存模板、複製／匯出的 BBCode 都是乾淨巢狀。
+- 已壞掉的帖子不會自己好：內容在伺服器端已是兩個 `[/spoiler]`，需重新編輯（開頭 `[spoiler=…]` 放在顏色標籤外）。
+
+### 8.3 匯出資料可帶帳號登入資料（密碼加密）
+- 需求：多帳號、多裝置的測試者以備份同步，v18 起備份一律去除憑證後每台都要重登。使用者決定採「安全密碼」方案並加密。
+- 格式：仍是單一 SQLite 檔。有密碼時 `cookie` 表四欄（`cookie`/`password`/`question_id`/`answer`）與 `loginUid`/`loginUsername`/`loginEmail`
+  設定照樣清空，另存進一張 **`backup_secrets`** 表（單列 `id=1`）：`version=1`、`kdf='pbkdf2-hmac-sha256'`、`iterations`、
+  `salt`(16B)、`nonce`(12B)、`mac`(16B)、`ciphertext`。明文為 JSON `{version, accounts:[{uid, username, cookie, password,
+  question_id, answer}], login_settings:{…}}`，只收有 cookie 或密碼的帳號。
+- 加密：PBKDF2-HMAC-SHA256（預設 200,000 次，成本寫在檔內、匯入照檔內值）→ AES-256-GCM，AAD 固定 `tsdm_client.backup_secrets.v1`。
+  套件 `cryptography` 2.9.0（純 Dart）。密碼不存、不寫檔、不進日誌；salt/nonce 每次隨機。
+- 匯出（`BackupRepository.exportSanitized(file, secretsPassword:)`）：`VACUUM INTO` 快照 → 讀憑證 → 清空 → 寫加密表 → `VACUUM`。
+  即時資料庫不動。檔名 `tsdm_client_data_<ts>_accounts.db`。
+- 匯入：`validate` → 若檔內有表則 `unlockSecrets(file, password:)`（唯讀、只解密；密碼錯拋 `BackupSecretsPasswordException`，
+  **在關閉資料庫或搬動任何檔案之前**，可重試或略過；版本/演算法不認得 → `unsupported`）→ `replaceDatabase(…, secrets:)`
+  在匯入副本清空後套回憑證與登入設定，**一律 `DROP TABLE backup_secrets`**（即時資料庫永遠沒有這張表）→ `VACUUM` → 換檔 → 驗證。
+- UI：匯出對話框（開關「包含帳號登入資料」＋密碼、確認密碼，至少 8 字元）；匯入時偵測到表跳「還原帳號登入資料」對話框
+  （可略過、密碼錯顯示錯誤重試）；成功訊息區分有無還原帳號。i18n en/zh-CN/zh-TW。
+- 限制：安全性取決於密碼強度（離線暴力只受 KDF 成本限制）；純 Dart PBKDF2 200k 在手機約 1 秒；不同裝置的 App 版本須都認得 `version=1`。
+- 測試 test_038（KDF 1,000 次以加速）：檔內無明文 token／密碼、表與參數正確、密碼對可解、錯拒絕、新版本報 unsupported、
+  匯入還原＋表已刪、不解鎖則全部登出＋表已刪。
+
+### 8.4 v21 測試回饋（兩位）
+- 全過：email 連結三種形式、面板／複製／開郵件 App；帖內連結、回覆、評分、收藏、私訊。第二位另回報折疊標籤（→ 8.1/8.2），email 已可。
+- 通知條目要點「查看」才跳轉：上游原本行為，使用者決定不改。
+- 待測：多帳號簽到集中一次跑、網頁登出後「登入已過期」提示（兩位都略過）；紅包未標記。
+
