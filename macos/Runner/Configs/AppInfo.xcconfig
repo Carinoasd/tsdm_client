@@ -8,7 +8,7 @@
 PRODUCT_NAME = tsdm_client
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = kzs.th000.tsdmClient
+PRODUCT_BUNDLE_IDENTIFIER = com.tsdm.tsdmClient
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2024 kzs.th000. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright (C) 2026 Carinoasd. MIT License.

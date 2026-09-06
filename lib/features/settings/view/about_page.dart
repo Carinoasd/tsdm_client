@@ -55,7 +55,7 @@ class AboutPage extends StatelessWidget {
           SectionListTile(
             leading: const Icon(Icons.app_shortcut_outlined),
             title: Text(tr.packageName),
-            subtitle: const Text('kzs.th000.tsdm_client'),
+            subtitle: const Text('com.tsdm.tsdm_client'),
           ),
           SectionListTile(
             leading: const Icon(Icons.terminal_outlined),

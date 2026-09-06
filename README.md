@@ -31,7 +31,9 @@
 | Android（舊 32 位元機） | `tsdm_client-armeabi_v7a.apk` |
 | iOS（未簽章，需自行側載） | `tsdm_client.ipa` |
 
-不上架任何商店。Android 直接安裝 APK；App 內「檢查更新」會開啟本頁。
+不上架任何商店。Android 直接安裝 APK；App 內「偵測最新版本」讀取本倉庫的 `version.json`，「更新日誌」與 Releases 同步。
+
+套件名為 `com.tsdm.tsdm_client`，使用論壇官方的簽章金鑰，可與原作者發布的舊版（`kzs.th000.tsdm_client`）並存。從舊版搬過來：舊版「設定 → 匯出資料」勾選帳號資料並設定密碼 → 安裝本版 → 「匯入資料」輸入同一密碼 → 移除舊版。
 
 ## 主要功能
 

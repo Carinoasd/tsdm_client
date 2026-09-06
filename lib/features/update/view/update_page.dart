@@ -35,7 +35,7 @@ class _UpdatePageState extends State<UpdatePage> {
             ),
           ),
         ],
-        bottom: Tips(tr.fDroidTip, sizePreferred: true),
+        bottom: Tips(tr.sourceTip, sizePreferred: true),
       ),
       body: ListView(
         children: [

@@ -366,3 +366,10 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   `FriendRepository.fetchAddFriendForm／addFriend`、`parse_add_friend.dart`、`add_friend_dialog.dart`。i18n `friendPage.addFriend`。
 - fixture 皆去識別化（uid 1000/1001、Alice/Bob、example.com、XXXXXXXX）。
 
+## 11. v1.18.0（1.18.0+65）：官方發布——套件名、簽章、檢查更新
+
+- **套件名** `com.tsdm.tsdm_client`（iOS `com.tsdm.tsdmClient`）。上游 `kzs.th000.tsdm_client` 由原作者金鑰簽章，拿不到金鑰就無法就地升級，因此改名讓新舊版並存，使用者以 v22 的加密備份搬帳號。Android `namespace`／Kotlin 套件路徑與 MethodChannel 名稱維持 `kzs.th000.tsdm_client`：它們只是程式內部識別，改了沒有好處。
+- **簽章**：論壇官方金鑰（見 doc/release-signing-proposal.md 頂部）。debug 金鑰的測試版（v20–v22.3）與本版套件名不同，測試者需先匯出、裝新版、匯入、再移除測試版。
+- **檢查更新**：上游 `UpdateCubit` 讀的是原作者論壇帖（`ptid=1233425&pid=75311834`）裡的 JSON，官方版無法維護那篇帖子。改為讀取本倉庫 `version.json`（`upgradeVersionInfoUrl`），格式與 `LatestVersionInfo` 相同；`scripts/write_version_json.dart` 從 pubspec 與 CHANGELOG 對應版本段產生，`test_042` 保證檔案與 pubspec 一致。解析函式 `parseLatestVersionInfo` 接受字串／已解碼 Map／位元組，其他一律 `FormatException`，被 Cloudflare 擋下回傳 HTML 時只會顯示「檢查失敗」而不會崩潰。
+- **更新頁**：F-Droid 提示改為說明正式版來源；「公告帖」連結維持上游 tid=628244，待官方公告帖建立後再改。
+

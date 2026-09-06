@@ -6,15 +6,14 @@ import 'package:tsdm_client/features/update/models/latest_version_info.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:universal_html/parsing.dart';
 
 part 'update_cubit.mapper.dart';
 
 /// Url checking for updates.
-const updateInfoUrl = '$baseUrl/forum.php?mod=redirect&goto=findpost&ptid=1233425&pid=75311834';
-
-/// The id of node holding latest version info.
-const updatePostDomId = 'postmessage_75311834';
+///
+/// Version info used to be a JSON blob inside a forum post owned by the upstream author; the official Discuz! X5
+/// edition reads `version.json` from its own repository instead so that releases and the in-app check stay in sync.
+const String updateInfoUrl = upgradeVersionInfoUrl;
 
 /// State of update cubit.
 @MappableClass()
@@ -49,21 +48,15 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
     await getIt
         .get<NetClientProvider>()
         .get(updateInfoUrl)
-        .mapHttp((v) => parseHtmlDocument(v.data as String))
-        .map((v) => v.querySelector('td#$updatePostDomId > div')?.innerText)
+        .map((v) => v.data as Object?)
         .handle(
           (e) {
             error('failed to check latest version: $e');
             emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
           },
           (v) {
-            if (v == null) {
-              emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
-              return;
-            }
-
             try {
-              final latestVersionInfo = LatestVersionInfoMapper.fromJson(v);
+              final latestVersionInfo = parseLatestVersionInfo(v);
               emit(state.copyWith(loading: false, latestVersionInfo: latestVersionInfo, notice: false));
             } on Exception catch (e) {
               error('failed to deserialize latest version info: $e');

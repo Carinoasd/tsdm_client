@@ -1,4 +1,12 @@
-# tsdm_client Discuz! X5 修復版 — Keystore 儲存、正式簽章與發佈設定方案（提案，尚未實作）
+# tsdm_client Discuz! X5 修復版 — Keystore 儲存、正式簽章與發佈設定方案
+
+> **2026-09-07 已實作。** 決定：拿不到上游金鑰，改用論壇官方自己的金鑰並換套件名。
+> - 金鑰：PKCS12、RSA 4096、有效期至 2054 年、別名 `tsdm_client`，存放在建置機 `~/.tsdm_release_key/`（權限 600），`android/key.properties` 指向它（已在 `.gitignore`）。正本另由官方離線保管。
+> - 套件名：Android `com.tsdm.tsdm_client`（`namespace` 與 Kotlin 套件路徑維持 `kzs.th000.tsdm_client`，不影響安裝識別）、iOS／macOS `com.tsdm.tsdmClient`、Linux `com.tsdm.tsdm_client`。與上游舊版並存，使用者用加密備份搬資料。
+> - 版本：`1.18.0+65` 起；`version.json` 由 `scripts/write_version_json.dart` 從 pubspec 與 CHANGELOG 產生，App 從 `raw.githubusercontent.com/Carinoasd/tsdm_client/master/version.json` 讀取。
+> - CI：`release_build.yml` 在 `v*` tag 上建 Release，Android 用 repository secrets `KEYSTORE`（base64）與 `KEY_PROPERTIES` 簽章。
+>
+> 以下為當時的提案原文。
 
 狀態：提案。目前仍是測試階段（v18 起），APK 沿用 debug 簽章與套件名稱 `kzs.th000.tsdm_client`，每次交付提高 `versionCode`。
 以下方案待本輪測試結果確認後再實作。

@@ -1198,7 +1198,7 @@
   },
   "updatePage": {
     "title": "取得更新",
-    "fDroidTip": "如果這個應用程式是從F-Droid安裝的，建議仍然走F-Droid升級",
+    "sourceTip": "正式版由論壇官方在 GitHub 發布；「偵測最新版本」讀取最新發布的版本檔案",
     "announcementThread": "公告帖",
     "checkLatest": "偵測最新版本",
     "availableDialog": {

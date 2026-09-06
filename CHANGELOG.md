@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-07
+
+首个由论坛官方发布的 Discuz! X5 版本。
+
 ### Added
 
+- 发布：应用包名改为 `com.tsdm.tsdm_client`，使用论坛官方的签名密钥。它与原作者发布的旧版（`kzs.th000.tsdm_client`）可以同时安装：先在旧版「设置 → 导出数据」勾选账号数据并设置密码，安装本版后导入，再卸载旧版即可。
+- 更新：「检测最新版本」改为读取官方仓库的 `version.json`，「更新日志」与 GitHub Releases 保持一致；下载入口指向 <https://github.com/Carinoasd/tsdm_client/releases/latest>。F-Droid 入口移除。
 - 好友：个人资料页可发送好友请求（附言、分组），论坛的回复原样显示（已发送／正在等待验证／已是好友等）。
 - 设置：导出数据可选择包含各账号的 Cookie 与密码，用自设密码加密（PBKDF2 + AES-256-GCM）后写入备份；导入时输入同一密码即可恢复登录状态，多设备同步不必逐个重新登录。不勾选时与以前完全相同。
 

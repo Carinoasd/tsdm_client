@@ -1198,7 +1198,7 @@
   },
   "updatePage": {
     "title": "Get updates",
-    "fDroidTip": "It is recommended to upgrade this app through F-Droid if you installed from there",
+    "sourceTip": "Official builds are published on GitHub; checking for the latest version reads the version file of the newest release",
     "announcementThread": "Announcement thread",
     "checkLatest": "Check latest version",
     "availableDialog": {
