@@ -310,3 +310,32 @@
 - 通知條目要點「查看」才跳轉：上游原本行為，使用者決定不改。
 - 待測：多帳號簽到集中一次跑、網頁登出後「登入已過期」提示（兩位都略過）；紅包未標記。
 
+## 9. v22.2（1.17.2+63）：順暢度
+
+測試者回報「不是加載慢、是幀數低、畫面不流暢」。兩層原因：
+
+### 9.1 建置模式（最主要）
+交付的一直是 debug build（JIT、assert、除錯服務、右上角 DEBUG 標）。release build 是 AOT 原生機器碼，差距通常 3–5 倍。
+本機 `flutter build apk --release` 在沒有 `key.properties` 時會直接失敗（不會退回 debug 簽章，見 release-signing-proposal §1），
+預覽版的做法是臨時放一個指向 `~/.android/debug.keystore` 的 `key.properties`（建完刪除），出「release 模式＋測試簽章」的 APK，
+測試者可覆蓋安裝直接比較。注意 `--split-per-abi` 會覆寫 `app-release.apk`（變成 arm64 那份），universal 要單獨建、先複製。
+release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
+
+### 9.2 程式碼（靜態掃描找到、與量測無關的確定問題）
+- **HTML 每次 build 重新解析**：`PostCard._buildPostBody`、`NoticeCardV2`（三種卡）、`ChatMessageCard` 都在 `build()` 裡
+  `parseHtmlDocument`＋`munchElement`；PostCard 又是 `AutomaticKeepAlive`，頁面任何重建（紅點、回覆列、鍵盤）都讓所有存活樓層重解析。
+  新增 `lib/widgets/munched_html.dart` `MunchedHtml`：解析結果快取在 State，只在 html／主題／字級／語言變動時重做
+  （`didChangeDependencies` 讀 `Theme.of`、`MediaQuery.textScalerOf`、`Localizations.maybeLocaleOf` 註冊依賴）。
+  `MunchOptions` 的 callback 取第一次 build 的，callback 內必須透過 State 讀即時狀態（通知卡 `_onUrlLaunched` 是這樣寫的）。
+  主題切換動畫期間每幀 ThemeData 都不同 → 每幀重做一次，與原本行為相同（不劣化）。
+- **樓層列表** `post_list.dart` 每項包 `RepaintBoundary`：捲動時移動圖層而不是重繪每張卡。
+- **圖片解碼尺寸**：`CachedImage` 用 `ResizeImage.resizeIfNeeded(decodeWidthFor(...))` 把解碼寬度限制在
+  min(要求寬, maxWidth, 螢幕寬)×dpr（`allowUpscaling` 預設 false）；`CachedImageProvider.loadImage` 走 `decode` callback 所以生效。
+  看圖器 `image_detail_page` 直接用 `PhotoView(CachedImageProvider)`，不受影響（縮放需要全解析度）；`boundDecodeToDisplay` 可關。
+- 不動：`_holdTimer`（100ms×最多 20 次、有 cancel）；通知 cubit 的 1 秒 timer 只比時間。
+- test_040：父層重建保留同一份 spans；html／主題／字級變動則重做；`decodeWidthFor` 邊界。
+
+### 9.3 還沒做、要量測才知道
+若 release 預覽版仍不順，請測試者說明**哪個頁面、什麼操作**（捲樓層？首頁？通知？開圖？），再用 `--profile` build＋DevTools timeline 找；
+可考慮在偵錯選項加「效能疊層」開關讓測試者截圖幀時間。
+
