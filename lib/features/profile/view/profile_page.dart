@@ -153,7 +153,10 @@ class _ProfilePageState extends State<ProfilePage> {
         IconButton(
           icon: const Icon(Icons.person_search_outlined),
           tooltip: tr.searchAsThreadAuthor,
-          onPressed: () async => context.pushNamed(ScreenPaths.search, queryParameters: {'authorUid': userProfile.uid}),
+          onPressed: () async => context.pushNamed(
+            ScreenPaths.search,
+            queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
+          ),
         ),
         PopupMenuButton<_ProfileActions>(
           onSelected: (action) async {
@@ -284,7 +287,10 @@ class _ProfilePageState extends State<ProfilePage> {
         IconButton(
           icon: const Icon(Icons.person_search_outlined),
           tooltip: tr.searchAsThreadAuthor,
-          onPressed: () async => context.pushNamed(ScreenPaths.search, queryParameters: {'authorUid': userProfile.uid}),
+          onPressed: () async => context.pushNamed(
+            ScreenPaths.search,
+            queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.email_outlined),

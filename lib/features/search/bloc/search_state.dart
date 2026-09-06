@@ -27,6 +27,7 @@ class SearchState with SearchStateMappable {
     this.keyword,
     this.fid = '0',
     this.uid = '0',
+    this.authorName = '',
     this.searchResult,
     this.pageNumber = 1,
     this.hasNextPage = false,
@@ -44,6 +45,9 @@ class SearchState with SearchStateMappable {
 
   /// Search for which user.
   final String uid;
+
+  /// Search for which user, by name. Empty for any user.
+  final String authorName;
 
   /// Current search page number.
   final int pageNumber;

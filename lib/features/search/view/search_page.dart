@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -19,13 +20,18 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// results.
 class SearchPage extends StatefulWidget {
   /// Constructor.
-  const SearchPage({this.keyword, this.authorUid, this.fid, this.page, super.key});
+  const SearchPage({this.keyword, this.authorUid, this.authorName, this.fid, this.page, super.key});
 
   /// Keyword to search.
   final String? keyword;
 
   /// Author's uid.
   final String? authorUid;
+
+  /// Author's user name.
+  ///
+  /// Preferred over [authorUid] when both are given, see [buildSearchQuery].
+  final String? authorName;
 
   /// Forum id to search.
   final String? fid;
@@ -40,12 +46,12 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> with LoggerMixin {
   final formKey = GlobalKey<FormState>();
   final keywordController = TextEditingController();
-  final authorUidController = TextEditingController(text: '0');
+  final authorController = TextEditingController();
   final fidController = TextEditingController(text: '0');
   final scrollController = ScrollController();
 
-  /// Flags on limiting author uid or fid.
-  bool unlimitedAuthorUid = true;
+  /// Flags on limiting author or fid.
+  bool unlimitedAuthor = true;
   bool unlimitedFid = true;
 
   /// Flag on expand search form.
@@ -58,7 +64,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// Use these when search form is collapsed and get no state.
   String lastKeyword = '';
   String lastAuthorUid = '0';
+  String lastAuthorName = '';
   String lastFid = '0';
+
+  /// Run the search once the page is built, when opened with an author from a profile page.
+  bool _searchOnBuild = false;
 
   @override
   void initState() {
@@ -71,18 +81,25 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
         unlimitedFid = false;
       });
     }
-    if (widget.authorUid != null) {
+    final author = switch ((widget.authorName, widget.authorUid)) {
+      (final String name, _) when name.isNotEmpty => name,
+      (_, final String uid) when uid.isNotEmpty && uid != '0' => uid,
+      _ => null,
+    };
+    if (author != null) {
       setState(() {
-        authorUidController.text = widget.authorUid!;
-        unlimitedAuthorUid = true;
+        authorController.text = author;
+        unlimitedAuthor = false;
       });
+      // "Search this member's posts" on a profile page: the user came for the results, not for the form.
+      _searchOnBuild = true;
     }
   }
 
   @override
   void dispose() {
     keywordController.dispose();
-    authorUidController.dispose();
+    authorController.dispose();
     fidController.dispose();
     scrollController.dispose();
     super.dispose();
@@ -96,15 +113,18 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     BuildContext context, {
     required String keyword,
     required String authorUid,
+    required String authorName,
     required String fid,
     required int page,
   }) async {
     debug(
-      'search with args: keyword=$keyword, authorUid=$authorUid, '
+      'search with args: keyword=$keyword, authorUid=$authorUid, authorName=$authorName, '
       'fid=$fid, page=$page',
     );
 
-    context.read<SearchBloc>().add(SearchRequested(keyword: keyword, uid: authorUid, fid: fid, pageNumer: page));
+    context.read<SearchBloc>().add(
+      SearchRequested(keyword: keyword, uid: authorUid, authorName: authorName, fid: fid, pageNumer: page),
+    );
 
     // Only return to top when attached (not the first search).
     if (scrollController.hasClients) {
@@ -122,8 +142,15 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       // If lastKeyword is not empty, indicates there is a valid last search.
       // User want to jump to another page so use the last used parameters
       // and parameter page.
-      if (lastKeyword.isNotEmpty || unlimitedAuthorUid || unlimitedFid) {
-        await _doSearch(context, keyword: lastKeyword, authorUid: lastAuthorUid, fid: lastFid, page: page);
+      if (lastKeyword.isNotEmpty || lastAuthorUid != '0' || lastAuthorName.isNotEmpty || lastFid != '0') {
+        await _doSearch(
+          context,
+          keyword: lastKeyword,
+          authorUid: lastAuthorUid,
+          authorName: lastAuthorName,
+          fid: lastFid,
+          page: page,
+        );
       }
       return;
     }
@@ -134,20 +161,15 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     }
 
     final keyword = keywordController.text;
-
-    final authorUid = switch (authorUidController.text) {
-      '' => '0',
-      _ => authorUidController.text,
-    };
-
+    final (authorUid, authorName) = _authorOf(authorController.text);
     final fid = switch (fidController.text) {
       '' => '0',
       _ => fidController.text,
     };
-
-    await _doSearch(context, keyword: keyword, authorUid: authorUid, fid: fid, page: page);
+    await _doSearch(context, keyword: keyword, authorUid: authorUid, authorName: authorName, fid: fid, page: page);
     lastKeyword = keyword;
     lastAuthorUid = authorUid;
+    lastAuthorName = authorName;
     lastFid = fid;
   }
 
@@ -218,21 +240,32 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     );
   }
 
-  String? _validateAuthorUid(BuildContext context, String? v) {
-    // Allow empty value because the default parameter in searching
-    // is zero.
-    if (v!.isEmpty) {
+  /// The author field takes a uid or a user name; empty means any author.
+  String? _validateAuthor(BuildContext context, String? v) {
+    final text = v?.trim() ?? '';
+    if (text.isEmpty) {
       setState(() {
-        authorUidController.text = '0';
-        unlimitedAuthorUid = true;
+        unlimitedAuthor = true;
       });
       return null;
     }
-    final i = int.tryParse(v);
-    if (i == null || i < 0) {
-      return context.t.searchPage.form.authorUidInvalid;
+    // Same restriction as the keyword: the server rejects the wildcard.
+    if (text.contains('%')) {
+      return context.t.searchPage.form.authorInvalid;
     }
     return null;
+  }
+
+  /// Split the author field into the (uid, name) pair sent to the server: digits only is a uid, anything else a name.
+  (String uid, String name) _authorOf(String text) {
+    final author = text.trim();
+    if (author.isEmpty) {
+      return ('0', '');
+    }
+    if (int.tryParse(author) case final int uid when uid >= 0) {
+      return ('$uid', '');
+    }
+    return ('0', author);
   }
 
   String? _validateFid(BuildContext context, String? v) {
@@ -266,18 +299,16 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             ),
             validator: (v) {
               // FIXME: Extra validation not graceful at all.
-              // Purpose is to skip keyword validation when both author uid and forum id are valid and not `any`.
-              // The server allows searching without keyword when author uid or forum id is set.
-
-              // If author uid or forum id is not valid, it's unnecessary to validate keyword.
-              if (_validateAuthorUid(context, authorUidController.text) != null ||
+              // Purpose is to skip keyword validation when both author and forum id are valid and not `any`.
+              // The server allows searching without keyword when author or forum id is set.
+              // If author or forum id is not valid, it's unnecessary to validate keyword.
+              if (_validateAuthor(context, authorController.text) != null ||
                   _validateFid(context, fidController.text) != null) {
                 return null;
               }
-
-              // Validation only fails when running with keyword field, in other words author uid and forum id are `any`.
-              // It's fine to have an empty keyword when author uid or forum id is not `any`.
-              if (v == null || v.isEmpty && authorUidController.text == '0' && fidController.text == '0') {
+              // Validation only fails when running with keyword field, in other words author and forum id are `any`.
+              // It's fine to have an empty keyword when author or forum id is not `any`.
+              if (v == null || v.isEmpty && authorController.text.trim().isEmpty && fidController.text == '0') {
                 return context.t.searchPage.form.keywordEmpty;
               }
               if (v.contains('%')) {
@@ -287,19 +318,18 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             },
           ),
           TextFormField(
-            controller: authorUidController,
-            keyboardType: TextInputType.number,
+            controller: authorController,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.person_outline),
-              labelText: context.t.searchPage.form.authorUid,
-              suffixText: unlimitedAuthorUid ? context.t.searchPage.form.any : null,
+              labelText: context.t.searchPage.form.author,
+              suffixText: unlimitedAuthor ? context.t.searchPage.form.any : null,
             ),
             onChanged: (v) {
               setState(() {
-                unlimitedAuthorUid = v == '0';
+                unlimitedAuthor = v.trim().isEmpty;
               });
             },
-            validator: (v) => _validateAuthorUid(context, v),
+            validator: (v) => _validateAuthor(context, v),
           ),
           TextFormField(
             controller: fidController,
@@ -404,6 +434,15 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       ],
       child: BlocBuilder<SearchBloc, SearchState>(
         builder: (context, state) {
+          if (_searchOnBuild) {
+            _searchOnBuild = false;
+            // The form exists once this frame is built; `context` here is below the bloc provider.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                unawaited(_search(context));
+              }
+            });
+          }
           return Scaffold(
             appBar: AppBar(
               title: Text(context.t.searchPage.title),

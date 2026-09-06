@@ -190,9 +190,10 @@ final List<RouteBase> _appRoutes = [
     builder: (state) {
       final keyword = state.uri.queryParameters['keyword'];
       final authorUid = state.uri.queryParameters['authorUid'];
+      final authorName = state.uri.queryParameters['authorName'];
       final fid = state.uri.queryParameters['fid'];
       final page = state.uri.queryParameters['page'];
-      return SearchPage(keyword: keyword, authorUid: authorUid, fid: fid, page: page);
+      return SearchPage(keyword: keyword, authorUid: authorUid, authorName: authorName, fid: fid, page: page);
     },
   ),
   AppRoute(path: ScreenPaths.notice, builder: (_) => const NotificationPage()),

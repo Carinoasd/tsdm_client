@@ -10,8 +10,13 @@ sealed class SearchEvent with SearchEventMappable {
 @MappableClass()
 final class SearchRequested extends SearchEvent with SearchRequestedMappable {
   /// Constructor.
-  const SearchRequested({required this.keyword, required this.fid, required this.uid, required this.pageNumer})
-    : super();
+  const SearchRequested({
+    required this.keyword,
+    required this.fid,
+    required this.uid,
+    required this.pageNumer,
+    this.authorName = '',
+  }) : super();
 
   /// Keyword to search.
   final String keyword;
@@ -25,6 +30,9 @@ final class SearchRequested extends SearchEvent with SearchRequestedMappable {
   ///
   /// '0' represents any published by user.
   final String uid;
+
+  /// Author user name to search for, empty for any user.
+  final String authorName;
 
   /// Page number of search result.
   final int pageNumer;

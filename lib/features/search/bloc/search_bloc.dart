@@ -31,7 +31,13 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
   Future<void> _onSearchRequested(SearchRequested event, SearchEmitter emit) async {
     emit(state.copyWith(status: SearchStatus.loading, hasPreviousPage: false, hasNextPage: false));
     await await _searchRepository
-        .searchWithParameters(keyword: event.keyword, fid: event.fid, uid: event.uid, pageNumber: event.pageNumer)
+        .searchWithParameters(
+          keyword: event.keyword,
+          fid: event.fid,
+          uid: event.uid,
+          authorName: event.authorName,
+          pageNumber: event.pageNumer,
+        )
         .match(
           (e) {
             handle(e);
@@ -48,6 +54,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
                 keyword: event.keyword,
                 fid: event.fid,
                 uid: event.uid,
+                authorName: event.authorName,
                 searchResult: searchResult,
                 pageNumber: event.pageNumer,
                 hasPreviousPage: searchResult.currentPage > 1,
