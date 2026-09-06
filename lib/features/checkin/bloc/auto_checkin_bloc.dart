@@ -86,7 +86,6 @@ final class AutoCheckinBloc extends Bloc<AutoCheckinEvent, AutoCheckinState> {
         .checkinAll(
           waitingList: waitingList,
           skippedList: skippedList,
-          concurrencyLimit: 4,
           feeling: CheckinFeeling.from(checkinFeeling),
           message: checkinMessage,
         )

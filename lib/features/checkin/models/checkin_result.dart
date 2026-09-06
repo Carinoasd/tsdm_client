@@ -12,7 +12,8 @@ sealed class CheckinResult with CheckinResultMappable {
     return switch (result) {
       CheckinResultSuccess() => tr.success(msg: result.message),
       CheckinResultNotAuthorized() => tr.failedNotAuthorized,
-      CheckinResultWebRequestFailed() => tr.failedNotAuthorized,
+      CheckinResultWebRequestFailed(statusCode: 429) => tr.failedRateLimited,
+      CheckinResultWebRequestFailed(:final statusCode) => tr.failedRequest(err: '${statusCode ?? '-'}'),
       CheckinResultFormHashNotFound() => tr.failedFormHashNotFound,
       CheckinResultAlreadyChecked() => tr.failedAlreadyCheckedIn,
       CheckinResultEarlyInTime() => tr.failedEarlyInTime,
@@ -43,10 +44,13 @@ final class CheckinResultNotAuthorized extends CheckinResult with CheckinResultN
 @MappableClass()
 final class CheckinResultWebRequestFailed extends CheckinResult with CheckinResultWebRequestFailedMappable {
   /// Constructor.
-  const CheckinResultWebRequestFailed(this.statusCode) : super();
+  const CheckinResultWebRequestFailed(this.statusCode, {this.retryAfterSeconds}) : super();
 
   /// Response status code.
   final int? statusCode;
+
+  /// Seconds the server asked to wait before trying again (`Retry-After` header of a 429 answer), if it said so.
+  final int? retryAfterSeconds;
 }
 
 /// Form hash used in checkin request is not found.

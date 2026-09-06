@@ -203,7 +203,6 @@ void main() {
         .checkinAll(
           waitingList: users,
           skippedList: [],
-          concurrencyLimit: 2,
           feeling: CheckinFeeling.from('kx'),
           message: 'test',
         )

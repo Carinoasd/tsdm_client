@@ -54,6 +54,11 @@ String? parseCheckinResponseMessage(String data) {
           htmlDoc.querySelector('div.c')?.innerText.trim() ??
           htmlDoc.querySelector('div#messagetext')?.innerText.trim() ??
           htmlDoc.querySelector('div.alert_error, div.alert_right, div.alert_info')?.innerText.trim();
+      if (fromXml == null || fromXml.isEmpty) {
+        // Bare message followed by a script, e.g. "您需要先登录才能继续本操作<script>…</script>" when the session expired.
+        htmlDoc.querySelectorAll('script').forEach((e) => e.remove());
+        fromXml = htmlDoc.body?.innerText.trim();
+      }
     }
   } on Exception catch (_) {
     // Not xml, use fallback below.

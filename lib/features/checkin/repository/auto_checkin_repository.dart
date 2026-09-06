@@ -1,5 +1,5 @@
-import 'package:collection/collection.dart';
-import 'package:fpdart/fpdart.dart';
+import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
+
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
@@ -16,9 +16,33 @@ import 'package:tsdm_client/utils/logger.dart';
 /// Repository for the auto checkin feature.
 final class AutoCheckinRepository with LoggerMixin {
   /// Constructor.
-  AutoCheckinRepository({required StorageProvider storageProvider}) : _storageProvider = storageProvider;
+  ///
+  /// [clientFactory] builds the client of one account from its loaded cookie, replaceable in tests.
+  AutoCheckinRepository({
+    required StorageProvider storageProvider,
+    NetClientProvider Function(CookieProvider cookie)? clientFactory,
+    this.gap = const Duration(seconds: 2),
+    this.retryDelays = const [Duration(seconds: 30), Duration(seconds: 60), Duration(seconds: 60)],
+  }) : _storageProvider = storageProvider,
+       _clientFactory = clientFactory ?? _defaultClient;
+
+  static NetClientProvider _defaultClient(CookieProvider cookie) => NetClientProvider.buildNoCookie(cookie: cookie);
 
   final StorageProvider _storageProvider;
+  final NetClientProvider Function(CookieProvider cookie) _clientFactory;
+
+  /// Pause between two accounts.
+  ///
+  /// Accounts check in one after another: the forum answered 429 when four were sent at once, and every account left
+  /// unsigned that way was tried again on the next app start only ("签了好几次才签完").
+  final Duration gap;
+
+  /// Waits before trying an account again after the server rate-limited it (429), one entry per retry. A longer
+  /// `Retry-After` from the server wins, capped at five minutes.
+  final List<Duration> retryDelays;
+
+  /// Longest wait accepted from a `Retry-After` header.
+  static const _maxRetryAfter = Duration(minutes: 5);
 
   /// Controller of stream providing current checkin info status.
   final _stream = BehaviorSubject<AutoCheckinInfo>();
@@ -29,17 +53,10 @@ final class AutoCheckinRepository with LoggerMixin {
   /// Current status.
   var _currentInfo = AutoCheckinInfo.empty();
 
-  /// Run checkin progress on all users.
-  ///
-  /// [concurrencyLimit] is the maximum checkin task running at the same time.
-  /// To simplify the control progress, all tasks are chunked into pieces with
-  /// the length of [concurrencyLimit] and each group is waiting for its
-  /// previous groups. Not fully a regular throttle but simple and easy to
-  /// implement.
+  /// Run checkin progress on all users in [waitingList], one at a time, [skippedList] are reported as skipped.
   AsyncVoidEither checkinAll({
     required List<UserLoginInfo> waitingList,
     required List<UserLoginInfo> skippedList,
-    required int concurrencyLimit,
     required CheckinFeeling feeling,
     required String message,
   }) => AsyncVoidEither(() async {
@@ -47,62 +64,61 @@ final class AutoCheckinRepository with LoggerMixin {
     _currentInfo = AutoCheckinInfo.empty();
     _updateSkipped(skippedList);
     _updateWaiting(waitingList);
-
-    final progressGroups = waitingList.slices(concurrencyLimit);
-    for (final pg in progressGroups) {
-      debug(
-        'run auto checkin for uid '
-        '${pg.map((e) => "${e.uid}".obscured(4)).join(", ")}',
-      );
-      _updateRunning(pg);
-
-      final results = await Future.wait(
-        pg.map((userInfo) async {
-          final prepared = await _prepareCheckin(userInfo).run();
-          final result = switch (prepared) {
-            Left() => const CheckinResultNotAuthorized(),
-            Right(:final value) => await doCheckin(value, feeling, message).run(),
-          };
-          return (userInfo, result);
-        }),
-      );
-      // FIXME: This message extracting step is anti-pattern.
-      for (final result in results) {
-        final (userInfo, checkinResult) = result;
-        switch (checkinResult) {
-          case CheckinResultSuccess(:final message):
-            _updateSuccess(userInfo, CheckinResultSuccess(message));
-          case CheckinResultNotAuthorized():
-            _updateFailure(userInfo, const CheckinResultNotAuthorized());
-          case CheckinResultWebRequestFailed(:final statusCode):
-            _updateFailure(userInfo, CheckinResultWebRequestFailed(statusCode));
-          case CheckinResultFormHashNotFound():
-            _updateFailure(userInfo, const CheckinResultFormHashNotFound());
-          case CheckinResultAlreadyChecked():
-            _updateFailure(userInfo, const CheckinResultAlreadyChecked());
-          case CheckinResultEarlyInTime():
-            _updateFailure(userInfo, const CheckinResultEarlyInTime());
-          case CheckinResultLateInTime():
-            _updateFailure(userInfo, const CheckinResultLateInTime());
-          case CheckinResultOtherError(:final message):
-            _updateFailure(userInfo, CheckinResultOtherError(message));
-        }
+    for (final (index, userInfo) in waitingList.indexed) {
+      if (index > 0 && gap > Duration.zero) {
+        await Future<void>.delayed(gap);
+      }
+      debug('run auto checkin for uid ${"${userInfo.uid}".obscured(4)}');
+      _updateRunning([userInfo]);
+      final result = await _checkinWithRetry(userInfo, feeling, message);
+      if (result is CheckinResultSuccess) {
+        _updateSuccess(userInfo, result);
+      } else {
+        _updateFailure(userInfo, result);
       }
     }
-
     return rightVoid();
   });
 
-  TaskEither<UserLoginInfo, NetClientProvider> _prepareCheckin(UserLoginInfo userInfo) => TaskEither(() async {
+  /// Check in [userInfo], trying again after each 429 up to [retryDelays] times.
+  Future<CheckinResult> _checkinWithRetry(UserLoginInfo userInfo, CheckinFeeling feeling, String message) async {
+    final client = await _prepareCheckin(userInfo);
+    if (client == null) {
+      return const CheckinResultNotAuthorized();
+    }
+    for (var attempt = 0; ; attempt++) {
+      final result = await doCheckin(client, feeling, message).run();
+      if (result case CheckinResultWebRequestFailed(statusCode: HttpStatus.tooManyRequests, :final retryAfterSeconds)
+          when attempt < retryDelays.length) {
+        final wait = _retryWait(retryDelays[attempt], retryAfterSeconds);
+        debug('check in rate limited, retry ${attempt + 1}/${retryDelays.length} in ${wait.inSeconds}s');
+        await Future<void>.delayed(wait);
+        continue;
+      }
+      return result;
+    }
+  }
+
+  Duration _retryWait(Duration scheduled, int? retryAfterSeconds) {
+    if (retryAfterSeconds == null || retryAfterSeconds <= 0) {
+      return scheduled;
+    }
+    final told = Duration(seconds: retryAfterSeconds);
+    if (told <= scheduled) {
+      return scheduled;
+    }
+    return told > _maxRetryAfter ? _maxRetryAfter : told;
+  }
+
+  /// The client of [userInfo], null when its cookie is not stored any more.
+  Future<NetClientProvider?> _prepareCheckin(UserLoginInfo userInfo) async {
     final cookieProvider = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
     final loaded = await cookieProvider.loadCookieFromStorage(userInfo);
     if (!loaded) {
-      return left(userInfo);
+      return null;
     }
-    // FIXME: anti-pattern.
-    final netClient = NetClientProvider.buildNoCookie(cookie: cookieProvider);
-    return right(netClient);
-  });
+    return _clientFactory(cookieProvider);
+  }
 
   /// Update status: [userInfoList] is in unauthenticated state.
   void _updateSkipped(List<UserLoginInfo> userInfoList) {
