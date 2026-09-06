@@ -21,13 +21,13 @@ body:
             我已确认网页端论坛的相应页面（如果有）不存在相应的错误行为，这个问题只存在于客户端。
           required: true
         - label: |
-            我已在[最新稳定版](https://github.com/realth000/tsdm_client/releases/latest)上验证，该问题依然存在。
+            我已在[最新稳定版](https://github.com/Carinoasd/tsdm_client/releases/latest)上验证，该问题依然存在。
           required: true
         - label: |
-            我已在[issue](https://github.com/realth000/tsdm_client/issues?q=sort%3Aupdated-desc%20is%3Aissue)中搜索，确认没有重复或类似issue。
+            我已在[issue](https://github.com/Carinoasd/tsdm_client/issues?q=sort%3Aupdated-desc%20is%3Aissue)中搜索，确认没有重复或类似issue。
           required: true
         - label: |
-            我已确认这个问题不属于[已知问题](https://github.com/realth000/tsdm_client#%E5%B7%B2%E7%9F%A5%E9%97%AE%E9%A2%98)。
+            我已确认这个问题不属于[已知问题](https://github.com/Carinoasd/tsdm_client#%E5%B7%B2%E7%9F%A5%E9%97%AE%E9%A2%98)。
           required: true
         - label: |
             我确认这个问题不属于安全漏洞（例如账号cookie超时、泄露）。**安全漏洞问题不要在此上报，请论坛私信联系ruik0**
