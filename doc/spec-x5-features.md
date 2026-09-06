@@ -299,6 +299,8 @@
   在匯入副本清空後套回憑證與登入設定，**一律 `DROP TABLE backup_secrets`**（即時資料庫永遠沒有這張表）→ `VACUUM` → 換檔 → 驗證。
 - UI：匯出對話框（開關「包含帳號登入資料」＋密碼、確認密碼，至少 8 字元）；匯入時偵測到表跳「還原帳號登入資料」對話框
   （可略過、密碼錯顯示錯誤重試）；成功訊息區分有無還原帳號。i18n en/zh-CN/zh-TW。
+- v22.1（1.17.1+61）裝置回報修正：解鎖對話框在檔案選擇器關閉的瞬間被外圍觸控關掉→靜默略過帳號資料；匯出對話框鍵盤彈出時溢出 20px。
+  兩個對話框改為 `barrierDismissible: false`＋`PopScope(canPop: false)`（只能按按鈕）、`AlertDialog(scrollable: true)`；PBKDF2 以 `Isolate.run` 離開 UI isolate。test_039。
 - 限制：安全性取決於密碼強度（離線暴力只受 KDF 成本限制）；純 Dart PBKDF2 200k 在手機約 1 秒；不同裝置的 App 版本須都認得 `version=1`。
 - 測試 test_038（KDF 1,000 次以加速）：檔內無明文 token／密碼、表與參數正確、密碼對可解、錯拒絕、新版本報 unsupported、
   匯入還原＋表已刪、不解鎖則全部登出＋表已刪。
