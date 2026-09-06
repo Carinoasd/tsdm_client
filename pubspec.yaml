@@ -18,6 +18,7 @@ dependencies:
   # Blocked by flutter
   collection: any
   cookie_jar: ^4.0.8
+  cryptography: ^2.9.0
   dart_bbcode_parser:
     path: ./packages/dart_bbcode_parser
   dart_bbcode_web_colors:

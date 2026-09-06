@@ -280,13 +280,24 @@
         "automatedOnPlatform": "Proxy settings are automatically configured on this platform"
       },
       "exportData": "Export data",
-      "exportDataDetail": "Contains no cookies or passwords of any account; log in again after importing a backup",
+      "exportDataDetail": "Without cookies and passwords by default; optionally include them, encrypted with a password of your own",
+      "exportBackup": {
+        "title": "Export data",
+        "includeAccounts": "Include account logins",
+        "includeAccountsDetail": "Write the cookies and passwords of every account into the backup, encrypted (AES-256) with the password below. The password is not stored anywhere; you need it again when importing.",
+        "password": "Backup password",
+        "confirmPassword": "Repeat the password",
+        "passwordTooShort": "At least ${min} characters",
+        "passwordMismatch": "The two passwords differ",
+        "export": "Export"
+      },
       "importData": {
         "title": "Import data",
         "invalidData": "Invalid data",
-        "tip": "All current data will be replaced. Backups carry no login credentials, so every account has to log in again; the app closes when the import is done and the data is in place on the next start.\nContinue?",
+        "tip": "All existing data will be overwritten. Without the backup password every account has to log in again. The app closes when the import finishes; reopen it to continue.\nImport now?",
         "invalidDetail": "This file can not be imported: ${reason}. Current data is unchanged.",
         "success": "Import done. The app will close; log in again after reopening it.",
+        "successWithAccounts": "Imported, account logins restored. The app will close; reopen it to continue.",
         "restored": "Import failed, the previous data has been restored. The app will close.",
         "replaceFailed": "Import failed and the previous data could not be restored; reopen the app and import a backup again if needed.",
         "problem": {
@@ -296,6 +307,15 @@
           "missingTables": "required tables or columns are missing",
           "invalidVersion": "invalid schema version",
           "newerSchema": "the backup comes from a newer app (${version}), update the app first"
+        },
+        "unlock": {
+          "title": "Restore account logins",
+          "tip": "This backup carries encrypted account logins. Enter the password chosen when it was exported to restore them, so the accounts need not log in again.",
+          "password": "Backup password",
+          "wrongPassword": "Wrong password, the account logins stay locked",
+          "unsupported": "The account logins in this backup were written by a newer app and can not be read; importing without them",
+          "skip": "Skip, import the rest",
+          "restore": "Restore"
         }
       }
     },

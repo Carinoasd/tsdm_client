@@ -280,13 +280,24 @@
         "automatedOnPlatform": "在本平台上代理设置会自动配置"
       },
       "exportData": "导出数据",
-      "exportDataDetail": "不含任何账号的 Cookie 与密码；导入备份后需要重新登录",
+      "exportDataDetail": "默认不含任何账号的 Cookie 与密码；可选择用自设密码加密后一并导出",
+      "exportBackup": {
+        "title": "导出数据",
+        "includeAccounts": "包含账号登录数据",
+        "includeAccountsDetail": "把各账号的 Cookie 与密码一并写入备份，并用下方密码加密（AES-256）。密码不会保存在任何地方，导入时需要再次输入。",
+        "password": "备份密码",
+        "confirmPassword": "再输入一次",
+        "passwordTooShort": "至少 ${min} 个字符",
+        "passwordMismatch": "两次输入不一致",
+        "export": "导出"
+      },
       "importData": {
         "title": "导入数据",
         "invalidData": "无效的数据",
-        "tip": "所有现有数据都会被覆盖。备份不含登录凭证，导入后各账号需要重新登录；导入完成后应用会自动关闭，重新打开即生效。\n是否继续导入？",
+        "tip": "所有现有数据都会被覆盖。未输入备份密码时各账号需要重新登录；导入完成后应用会自动关闭，重新打开即生效。\n是否继续导入？",
         "invalidDetail": "无法导入这个文件：${reason}。现有数据未变更。",
         "success": "导入完成。应用将关闭，重新打开后请重新登录。",
+        "successWithAccounts": "导入完成，账号登录数据已恢复。应用将关闭，重新打开即生效。",
         "restored": "导入失败，已还原原有数据。应用将关闭。",
         "replaceFailed": "导入失败，且无法还原原有数据；请重新打开应用，必要时重新导入备份。",
         "problem": {
@@ -296,6 +307,15 @@
           "missingTables": "缺少必要的数据表或字段",
           "invalidVersion": "结构版本无效",
           "newerSchema": "备份来自较新版本的应用（${version}），请先更新应用再导入"
+        },
+        "unlock": {
+          "title": "恢复账号登录数据",
+          "tip": "这个备份含加密的账号登录数据。输入导出时设置的密码即可一并恢复，各账号无需重新登录。",
+          "password": "备份密码",
+          "wrongPassword": "密码错误，无法解开账号数据",
+          "unsupported": "备份里的账号数据由更新的版本写入，本版本无法读取；将不含账号数据导入",
+          "skip": "跳过，只导入其他数据",
+          "restore": "恢复"
         }
       }
     },

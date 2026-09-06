@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/settings/view/debug_showcase_page.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_clear_image_cache_duration_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_sync_notice_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/backup_secrets_dialogs.dart';
 import 'package:tsdm_client/features/settings/widgets/check_in_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/clear_cache_bottom_sheet.dart';
 import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
@@ -705,9 +706,18 @@ class _SettingsPageState extends State<SettingsPage> {
         title: Text(tr.exportData),
         subtitle: Text(tr.exportDataDetail),
         onTap: () async {
-          // Never the raw database file: cookies, passwords and the logged in account are removed from the copy.
-          final data = await const BackupRepository().exportSanitized(await databaseFile);
-          final name = 'tsdm_client_data_${DateTime.now().microsecondsSinceEpoch}.db';
+          final choice = await showExportBackupDialog(context);
+          if (choice == null || !context.mounted) {
+            return;
+          }
+          // Never the raw database file: cookies, passwords and the logged in account are removed from the copy; with
+          // a password they travel inside it encrypted instead.
+          final data = await const BackupRepository().exportSanitized(
+            await databaseFile,
+            secretsPassword: choice.password,
+          );
+          final stamp = DateTime.now().microsecondsSinceEpoch;
+          final name = choice.password == null ? 'tsdm_client_data_$stamp.db' : 'tsdm_client_data_${stamp}_accounts.db';
 
           if (isDesktop) {
             // On desktop platforms, `saveFiles` only return the selected path.
@@ -770,6 +780,18 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
+    // Account logins travel encrypted; unlock them before anything is touched, so a wrong password changes nothing.
+    BackupSecretsPayload? secrets;
+    if (await repository.containsSecrets(source)) {
+      if (!context.mounted) {
+        return;
+      }
+      secrets = await _unlockSecrets(context, repository, source);
+    }
+    if (!context.mounted) {
+      return;
+    }
+
     final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.tip);
     if (ok != true || !context.mounted) {
       return;
@@ -780,7 +802,12 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       // Close the connection so the file can be swapped underneath.
       await getIt.get<StorageProvider>().dispose();
-      await repository.replaceDatabase(target: await databaseFile, source: source, currentSchemaVersion: schemaVersion);
+      await repository.replaceDatabase(
+        target: await databaseFile,
+        source: source,
+        currentSchemaVersion: schemaVersion,
+        secrets: secrets,
+      );
     } on BackupInvalidException catch (e) {
       invalid = e.validation;
     } on BackupReplaceException catch (e) {
@@ -793,12 +820,38 @@ class _SettingsPageState extends State<SettingsPage> {
       } else if (replaceFailure != null) {
         message = replaceFailure.restored ? tr.restored : tr.replaceFailed;
       } else {
-        message = tr.success;
+        message = secrets == null ? tr.success : tr.successWithAccounts;
       }
       await showMessageSingleButtonDialog(context: context, title: tr.title, message: message);
     }
     // The database connection is closed either way; restart the app.
     await exitApp();
+  }
+
+  /// Ask for the backup password until the account logins unlock or the user skips them.
+  Future<BackupSecretsPayload?> _unlockSecrets(BuildContext context, BackupRepository repository, File source) async {
+    final tr = context.t.settingsPage.advancedSection.importData.unlock;
+    var wrongPassword = false;
+    while (true) {
+      if (!context.mounted) {
+        return null;
+      }
+      final password = await showUnlockBackupDialog(context, wrongPassword: wrongPassword);
+      if (password == null) {
+        return null;
+      }
+      try {
+        return await repository.unlockSecrets(source, password: password);
+      } on BackupSecretsPasswordException catch (e) {
+        if (e.unsupported) {
+          if (context.mounted) {
+            showSnackBar(context: context, message: tr.unsupported);
+          }
+          return null;
+        }
+        wrongPassword = true;
+      }
+    }
   }
 
   String _backupProblemText(BuildContext context, BackupValidation check) {

@@ -280,13 +280,24 @@
         "automatedOnPlatform": "在本平台上代理設定會自動設定"
       },
       "exportData": "匯出資料",
-      "exportDataDetail": "不含任何帳號的 Cookie 與密碼；匯入備份後需要重新登入",
+      "exportDataDetail": "預設不含任何帳號的 Cookie 與密碼；可選擇用自設密碼加密後一併匯出",
+      "exportBackup": {
+        "title": "匯出資料",
+        "includeAccounts": "包含帳號登入資料",
+        "includeAccountsDetail": "把各帳號的 Cookie 與密碼一併寫入備份，並用下方密碼加密（AES-256）。密碼不會存在任何地方，匯入時需要再輸入一次。",
+        "password": "備份密碼",
+        "confirmPassword": "再輸入一次",
+        "passwordTooShort": "至少 ${min} 個字元",
+        "passwordMismatch": "兩次輸入不一致",
+        "export": "匯出"
+      },
       "importData": {
         "title": "導入資料",
         "invalidData": "無效的資料",
-        "tip": "所有現有資料都會被覆蓋。備份不含登入憑證，匯入後各帳號需要重新登入；匯入完成後應用程式會自動關閉，重新開啟即生效。\n是否繼續匯入？",
+        "tip": "所有現有資料都會被覆蓋。未輸入備份密碼時各帳號需要重新登入；匯入完成後應用程式會自動關閉，重新開啟即生效。\n是否繼續匯入？",
         "invalidDetail": "無法匯入這個檔案：${reason}。現有資料未變更。",
         "success": "匯入完成。應用程式將關閉，重新開啟後請重新登入。",
+        "successWithAccounts": "匯入完成，帳號登入資料已還原。應用程式將關閉，重新開啟即生效。",
         "restored": "匯入失敗，已還原原有資料。應用程式將關閉。",
         "replaceFailed": "匯入失敗，且無法還原原有資料；請重新開啟應用程式，必要時重新匯入備份。",
         "problem": {
@@ -296,6 +307,15 @@
           "missingTables": "缺少必要的資料表或欄位",
           "invalidVersion": "結構版本無效",
           "newerSchema": "備份來自較新版本的應用程式（${version}），請先更新應用程式再匯入"
+        },
+        "unlock": {
+          "title": "還原帳號登入資料",
+          "tip": "這個備份含加密的帳號登入資料。輸入匯出時設定的密碼即可一併還原，各帳號不必重新登入。",
+          "password": "備份密碼",
+          "wrongPassword": "密碼錯誤，無法解開帳號資料",
+          "unsupported": "備份裡的帳號資料由更新的版本寫入，本版本無法讀取；將不含帳號資料匯入",
+          "skip": "略過，只匯入其他資料",
+          "restore": "還原"
         }
       }
     },
