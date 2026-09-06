@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
+import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/css_parser.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 // Netease card
@@ -81,6 +82,8 @@ Widget munchElement(
 }) {
   final muncher = _Muncher(context, parseLockedWithPurchase: parseLockedWithPurchase, options: options);
 
+  // Undo Cloudflare's email obfuscation first, so addresses read and tap like the author wrote them.
+  rewriteCloudflareEmails(rootElement);
   final ret = muncher._munch(rootElement);
   if (ret == null) {
     return const SizedBox.shrink();
@@ -312,19 +315,20 @@ final class _Muncher with LoggerMixin {
             if (isMobile) {
               recognizer = LongPressGestureRecognizer()
                 ..onLongPressCancel = () async {
-                  // Report before navigating: the pushed page pops much later, if ever.
-                  options.onUrlLaunched?.call();
-                  await context.dispatchAsUrl(url!);
+                  await _openUrl(url!);
                 }
-                ..onLongPress = () async => showUrlInfoBottomSheet(context: context, url: url!);
+                ..onLongPress = () async {
+                  await _showUrlInfo(url!);
+                };
             } else {
               // Desktop or web.
               recognizer = TapGestureRecognizer()
                 ..onTapDown = (_) async {
-                  options.onUrlLaunched?.call();
-                  await context.dispatchAsUrl(url!);
+                  await _openUrl(url!);
                 }
-                ..onSecondaryTap = () async => showUrlInfoBottomSheet(context: context, url: url!);
+                ..onSecondaryTap = () async {
+                  await _showUrlInfo(url!);
+                };
             }
           }
           state
@@ -825,6 +829,29 @@ final class _Muncher with LoggerMixin {
     ];
   }
 
+  /// Open a tapped [url].
+  ///
+  /// An email address is shown first (copy, or hand to the mail app) instead of being launched, see
+  /// [showEmailBottomSheet]. Everything else is reported through [MunchOptions.onUrlLaunched] before navigating: the
+  /// pushed page pops much later, if ever.
+  Future<void> _openUrl(String url) async {
+    options.onUrlLaunched?.call();
+    if (url.startsWith('mailto:')) {
+      await showEmailBottomSheet(context: context, address: url.substring('mailto:'.length));
+      return;
+    }
+    await context.dispatchAsUrl(url);
+  }
+
+  /// Show what a [url] is: the email sheet for an address, the url info sheet for the rest.
+  Future<void> _showUrlInfo(String url) async {
+    if (url.startsWith('mailto:')) {
+      await showEmailBottomSheet(context: context, address: url.substring('mailto:'.length));
+      return;
+    }
+    await showUrlInfoBottomSheet(context: context, url: url);
+  }
+
   List<InlineSpan>? _buildA(uh.Element element) {
     if (!element.attributes.containsKey('href') || !options.renderUrl) {
       return _munch(element);
@@ -890,10 +917,7 @@ final class _Muncher with LoggerMixin {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
-                  onTap: () async {
-                    options.onUrlLaunched?.call();
-                    await context.dispatchAsUrl(url);
-                  },
+                  onTap: () async => _openUrl(url),
                   child: content,
                 ),
               ),

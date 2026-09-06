@@ -299,12 +299,56 @@ Future<void> showUrlInfoBottomSheet({
           leading: const Icon(Icons.copy_outlined),
           title: Text(tr.copyUrl),
           onTap: () async {
-            await context.dispatchAsUrl(url);
-            if (!context.mounted) {
-              return;
-            }
-            context.pop();
+            // Copy only: this used to dispatch the url as well, opening the page the user only wanted to copy.
             await copyToClipboard(context, url);
+            if (context.mounted) {
+              context.pop();
+            }
+          },
+        ),
+      ];
+    },
+  );
+}
+
+/// Show a bottom sheet for an email [address]: copy it, or hand it to the mail app.
+///
+/// The address is shown before anything is launched. Addresses come from posts (Cloudflare-obfuscated `mailto:`
+/// links decoded by the muncher), so the user sees where a tap would lead first.
+Future<void> showEmailBottomSheet({required BuildContext context, required String address}) async {
+  final tr = context.t.emailBottomSheet;
+  final theme = Theme.of(context);
+  await showCustomBottomSheet<void>(
+    context: context,
+    title: tr.title,
+    childrenBuilder: (context) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: edgeInsetsL12T12R12B12.add(edgeInsetsL8R8),
+          color: theme.colorScheme.surfaceContainerHighest.withAlpha(160),
+          child: SingleLineText(address, style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.primary)),
+        ),
+        sizedBoxW12H12,
+        ListTile(
+          leading: const Icon(Icons.copy_outlined),
+          title: Text(tr.copy),
+          onTap: () async {
+            await copyToClipboard(context, address);
+            if (context.mounted) {
+              context.pop();
+            }
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.email_outlined),
+          title: Text(tr.send),
+          onTap: () async {
+            // Only ever a plain `mailto:` with the address, nothing appended.
+            await context.dispatchAsUrl('mailto:$address', external: true);
+            if (context.mounted) {
+              context.pop();
+            }
           },
         ),
       ];

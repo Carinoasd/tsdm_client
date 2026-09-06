@@ -1339,5 +1339,10 @@
     "copyUrl": "複製連結",
     "open": "開啟",
     "openInBrowser": "在瀏覽器中開啟"
+  },
+  "emailBottomSheet": {
+    "title": "電子郵件地址",
+    "copy": "複製地址",
+    "send": "用郵件 App 開啟"
   }
 }

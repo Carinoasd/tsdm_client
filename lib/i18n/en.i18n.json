@@ -1339,5 +1339,10 @@
     "copyUrl": "Copy url",
     "open": "Open",
     "openInBrowser": "Open in browser"
+  },
+  "emailBottomSheet": {
+    "title": "Email address",
+    "copy": "Copy address",
+    "send": "Open in mail app"
   }
 }

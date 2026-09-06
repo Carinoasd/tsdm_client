@@ -1339,5 +1339,10 @@
     "copyUrl": "复制链接",
     "open": "打开",
     "openInBrowser": "在浏览器中打开"
+  },
+  "emailBottomSheet": {
+    "title": "电子邮件地址",
+    "copy": "复制地址",
+    "send": "用邮件应用打开"
   }
 }
