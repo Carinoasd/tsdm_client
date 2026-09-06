@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -347,7 +348,9 @@ final class BackupRepository with LoggerMixin {
       if (!hasSecrets(db)) {
         throw ArgumentError('backup has no encrypted account logins');
       }
-      row = db.select('SELECT version, kdf, iterations, salt, nonce, mac, ciphertext FROM $secretsTable WHERE id = 1').first;
+      row = db
+          .select('SELECT version, kdf, iterations, salt, nonce, mac, ciphertext FROM $secretsTable WHERE id = 1')
+          .first;
     } finally {
       db.dispose();
     }
@@ -393,9 +396,19 @@ final class BackupRepository with LoggerMixin {
     );
   }
 
-  static Future<SecretKey> _deriveKey(String password, List<int> salt, int iterations) =>
-      Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: iterations, bits: 256)
-          .deriveKeyFromPassword(password: password, nonce: salt);
+  /// PBKDF2 is pure Dart and takes about a second on a phone; run it off the UI isolate so the dialogs stay live.
+  static Future<SecretKey> _deriveKey(String password, List<int> salt, int iterations) async {
+    final nonce = List<int>.unmodifiable(salt);
+    final bytes = await Isolate.run(() async {
+      final key = await Pbkdf2(
+        macAlgorithm: Hmac.sha256(),
+        iterations: iterations,
+        bits: 256,
+      ).deriveKeyFromPassword(password: password, nonce: nonce);
+      return key.extractBytes();
+    });
+    return SecretKey(bytes);
+  }
 
   static List<int> _randomBytes(int length) {
     final random = Random.secure();
