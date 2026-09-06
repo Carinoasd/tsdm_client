@@ -6,7 +6,9 @@
 ## 1. 現況
 
 - `android/app/build.gradle` 的 `signingConfigs.release` 讀取 `keystoreProperties`（`key.properties`），檔案不存在時 `storeFile` 為 null，
-  release build 實際上退回 debug 簽章（gradle 內建的 `~/.android/debug.keystore`）。
+  **release build 直接失敗**（`SigningConfig "release" is missing required property "storeFile"`，2026-09-06 實測）——不會退回 debug 簽章，
+  3.2 要求的「缺 keystore 就失敗」已經成立，gradle 不必改。要用 debug 金鑰出 release 模式的預覽版時，臨時放一個指向 `~/.android/debug.keystore`
+  的 `key.properties`（`android`/`androiddebugkey`/`android`），建完刪掉。
 - 測試 APK 一律 `flutter build apk --debug`，測試者靠同一把 debug 憑證覆蓋安裝。
 - `versionCode` 來自 `pubspec.yaml` 的 `version: x.y.z+N`；分 ABI 建置時 gradle 以 `N*10 + abi` 覆寫。
 
