@@ -61,7 +61,11 @@ final class NotificationInfoRepository with LoggerMixin {
     if (!isAndroid) {
       return;
     }
-    debug('update auto sync info: $info');
+    // Counts only: the info carries the notice / message text shown in the push notification.
+    debug(
+      'update auto sync info: ${info.runtimeType} notice=${info.notice} pm=${info.personalMessage} '
+      'bm=${info.broadcastMessage}',
+    );
     _autoSyncController.add(info);
   }
 

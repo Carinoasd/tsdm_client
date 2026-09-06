@@ -144,7 +144,7 @@ final class ChatMessage with ChatMessageMappable {
     if (username == null || message == null) {
       talker.error(
         'failed to build chat message: '
-        'username=$username, message=$message',
+        'hasUsername=${username != null}, hasMessage=${message != null}',
       );
       return null;
     }

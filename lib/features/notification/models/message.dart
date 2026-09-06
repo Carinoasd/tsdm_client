@@ -112,8 +112,8 @@ final class PersonalMessage with PersonalMessageMappable {
     final message = contentNode == null ? null : parseLastMessage(contentNode);
     if (contentNode == null || peerUid == null || peerUsername == null || time == null || message == null) {
       talker.error(
-        'failed to build personal message v2: peerUid=$peerUid, peerUsername=$peerUsername, time=$time, '
-        'message=$message',
+        'failed to build personal message v2: hasPeerUid=${peerUid != null}, hasPeerUsername=${peerUsername != null}, '
+        'time=$time, hasMessage=${message != null}',
       );
       return null;
     }
@@ -172,8 +172,8 @@ final class PersonalMessage with PersonalMessageMappable {
     if (username == null || lastMessageTime == null || chatUrl == null || message == null) {
       talker.error(
         'failed to parse private message: '
-        'username=$username, lastMessageTime=$lastMessageTime, '
-        'chatUrl=$chatUrl, message=$message',
+        'hasUsername=${username != null}, lastMessageTime=$lastMessageTime, '
+        'hasChatUrl=${chatUrl != null}, hasMessage=${message != null}',
       );
       return null;
     }
