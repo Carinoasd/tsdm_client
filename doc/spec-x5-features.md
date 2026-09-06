@@ -334,6 +334,10 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   看圖器 `image_detail_page` 直接用 `PhotoView(CachedImageProvider)`，不受影響（縮放需要全解析度）；`boundDecodeToDisplay` 可關。
 - 不動：`_holdTimer`（100ms×最多 20 次、有 cancel）；通知 cubit 的 1 秒 timer 只比時間。
 - test_040：父層重建保留同一份 spans；html／主題／字級變動則重做；`decodeWidthFor` 邊界。
+- **基準（2026-09-06，`flutter test` 於 WSL2 桌機 CPU、JIT、無 GPU；30 個樓層、每層平均 6.5KB 真實 X5 HTML、去掉 `<img>`）**：
+  頁面重建一次的 UI thread 成本——改前 9.2 ms（JIT 冷 14.1 ms），改後 1.5 ms（冷 2.0 ms），**約 6–7 倍**；首次建置 22 ms → 16 ms。
+  換算：中階手機單核約慢桌機 3–6 倍，改前一次重建約 30–80 ms＝掉 2–5 幀（60Hz 每幀 16.7 ms），改後 5–12 ms 在預算內。
+  此基準不含圖片與 PostCard 外框成本，也量不到真機 fps；真機數據需測試者比較或 `--profile`＋DevTools。
 
 ### 9.3 還沒做、要量測才知道
 若 release 預覽版仍不順，請測試者說明**哪個頁面、什麼操作**（捲樓層？首頁？通知？開圖？），再用 `--profile` build＋DevTools timeline 找；
