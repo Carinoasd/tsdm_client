@@ -343,3 +343,26 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 若 release 預覽版仍不順，請測試者說明**哪個頁面、什麼操作**（捲樓層？首頁？通知？開圖？），再用 `--profile` build＋DevTools timeline 找；
 可考慮在偵錯選項加「效能疊層」開關讓測試者截圖幀時間。
 
+## 10. v22.3（1.17.3+64）：自己的好友列表、加好友
+
+### 10.1 自己的好友列表顯示為空（測試者 52 位好友卻「还没有好友」）
+- 同一個 `home.php?mod=space&uid=U&do=friend` 有兩種版面，**由「誰在看」決定，跟 `view=me` 參數無關**（自己的 uid 不帶 `view=me` 也是自己版面）：
+  - 看別人：`p.tbmu` 總數 ＋ `ul.buddy > li.bbda`（`h4 > a` 名字、`p.maxh` 群組名＋圖示＋積分、`div.pg` 分頁）。
+  - 看自己：`ul.buddy > li#friend_UID_li`，`h4` 第一個連結是「热度」（`spacecp&ac=friend&op=changenum`），名字連結在後；群組**圖示**在 `h4`、`p.maxh` 空；
+    有「管理」選單（`op=changegroup`／`op=editnote`／`op=ignore` 刪除）；`p.tbmu` 有總數。
+  - 自己且**沒有好友**：同樣的 `li#friend_UID_li` 形狀列出「在线成员」推薦（`h2.mtw`），每項帶「加为好友」（`ac=friend&op=add`）連結——不是好友。
+- 舊解析器只認 `li.bbda`，且 `h4 > a` 會抓到「热度」。改為：走訪所有 `ul.buddy`，收 `li.bbda` 與「`friend_*_li` 且沒有加好友連結」的項目；名字取 `h4 a` 中 href 含 `mod=space&`＋`uid=` 且不含 `spacecp` 者；群組圖示 `p.maxh img ?? h4 img`。
+- fixture `friend_list_own_x5.html`：2026-09-06 用測試帳號 A（1000）看自己、好友 B（1001）——為此先由 A 送請求、B 登入同意。test_041；原 test_024 全部照過。
+
+### 10.2 加好友（測試者要求）
+- 協定（皆 `inajax=1`，回 XML 包 CDATA）：
+  - GET `home.php?mod=spacecp&ac=friend&op=add&uid=U&handlekey=addfriendhk_U` → 表單：`formhash`、`referer`、`addsubmit=true`、`handlekey`、`note`（附言，「最多 10 个字」）、
+    `select[name=gid]`（0 其他／1 通过本站认识（預選）／2 通过活动认识／3 通过朋友认识／4 亲人／5 同事／6 同学／7 不认识）。
+    已是好友／請求待驗證／加自己時**GET 就直接回** `errorhandle_addfriendhk_U('你们已成为好友'｜'正在等待验证'｜'抱歉，您不能加自己为好友')`。
+  - POST 同網址（不帶 handlekey 也可）：成功回 `succeedhandle_addfriendhk_U('url', '好友请求已发送，请等待对方验证', {})`＋`showDialog(..., 'notice')`。
+  - 對方同意：`op=add&uid=請求者&handlekey=afrfriendhk_自己` 的表單用 **`add2submit=true`**＋`gid`（radio），成功 `succeedhandle_afrfriendhk_*('…', '您已和X成为好友')`。
+    待驗證清單在 `home.php?mod=spacecp&ac=friend&op=request`（批准全部 `op=addconfirm&key=`）。**App 這版只做「送出請求」**，同意流程 fixture 已存（`friend_accept_*_x5.xml`），之後可做。
+- App：個人頁（看別人）動作列加「加好友」→ 先 GET 表單（被拒就直接以 snackbar 顯示論壇訊息）→ 對話框（附言 ≤10 字、分組下拉、預選論壇給的）→ POST → snackbar 顯示論壇回覆。
+  `FriendRepository.fetchAddFriendForm／addFriend`、`parse_add_friend.dart`、`add_friend_dialog.dart`。i18n `friendPage.addFriend`。
+- fixture 皆去識別化（uid 1000/1001、Alice/Bob、example.com、XXXXXXXX）。
+

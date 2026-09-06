@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- 好友：个人资料页可发送好友请求（附言、分组），论坛的回复原样显示（已发送／正在等待验证／已是好友等）。
 - 设置：导出数据可选择包含各账号的 Cookie 与密码，用自设密码加密（PBKDF2 + AES-256-GCM）后写入备份；导入时输入同一密码即可恢复登录状态，多设备同步不必逐个重新登录。不勾选时与以前完全相同。
 
 ### Changed
@@ -16,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- 好友：自己的好友列表不再显示为空——自己的页面用的是 `li#friend_UID_li` 结构（与查看他人时的 `li.bbda` 不同），且名字前多了一个「热度」链接。
 - 帖子：适配 Discuz! X5 折叠区域`[spoiler]`的新结构，折叠内容重新显示为可展开的卡片。
 - 设置：备份密码的两个对话框只能用按钮关闭，从文件选择器回来时不再被误触关掉而略过账号数据；对话框内容可滚动，键盘弹出时不再溢出；PBKDF2 改在后台线程计算，导出/导入时界面不再卡顿。
 - 编辑：修复对折叠区域的头尾标记上色后，再次编辑会把开头标记变成`[/spoiler]`、折叠失效的问题；进出编辑器的 BBCode 会自动修正这种嵌套（也适用于`[hide]`、`[free]`）。
