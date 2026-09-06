@@ -1,6 +1,6 @@
-# tsdm_client Discuz! X5 修復版 — 安全修正摘要（2026-09-06，測試版 v18）
+# tsdm_client Discuz! X5 修復版 — 安全修正摘要（2026-09-06，測試版 v18／v19）
 
-狀態：**測試版**。套件名稱 `kzs.th000.tsdm_client` 與 debug 簽章不變，`versionCode` 55 → 56（`pubspec.yaml` `1.15.0+56`）。
+狀態：**測試版**。套件名稱 `kzs.th000.tsdm_client` 與 debug 簽章不變，`versionCode` 55 → 56（v18）→ 57（v19，`pubspec.yaml` `1.15.0+57`）。
 正式簽章、Keystore 儲存遷移與 release 發佈設定見 `doc/release-signing-proposal.md`（提案，待本輪測試結果後實作）。
 
 ## 1. 修正項目（各為獨立提交，建立在 `4a773943` 之上）
@@ -13,6 +13,7 @@
 | `27f07a4b` | 快取檔案操作驗證目錄邊界 | `isSafeFileName`／`fileInside`：只接受單一路徑片段且解析後仍在快取目錄內；`getCacheFile` 回 null 時所有呼叫端視為未快取。表情 id 限制 `[A-Za-z0-9_-]`，快取資訊檔含非法 id 視為無效。 | test_029 |
 | `eef8908c` | 防採集重新導向限制 | 只在目標為 https 且主機為 `www.tsdm39.com`／`tsdm39.com` 時重送請求；其他目標記錄並直接回傳挑戰頁。 | test_030 |
 | `9e426a96` | 站內路由先驗證網址來源 | `parseUrlToRoute` 只把相對網址或論壇主機的 http/https 網址轉成 App 內路由；外站（含 `user@host` 手法、`javascript:`/`data:`）不路由。會自行抓取網址的路由（最新主題、guide）改用 canonical https 主機，`LatestThreadRepository` 拒絕非論壇網址。 | test_031 |
+| `dda576cb`、`17bfda66` | 日誌補強（v19） | 通知自動同步只記錄類型與數量，不再印出通知／私訊摘要文字；私訊、聊天訊息、帖子回覆表單解析失敗時只記錄欄位是否存在，不再印出訊息內容或 formhash。來源：早上測試回報附的裝置日誌。 | 既有解析測試 |
 | `499032c5` | 帳號切換時請求身分不混用 | `NetClientProvider.build` 把每個 client 綁定建立當時的帳號：`_IdentityGuard` 在送出前與收到回應後檢查，帳號已切換即以 `IdentityChangedException` 丟棄；`_IdentityScopedStorage` 讓 cookie jar 只在綁定帳號仍為當前帳號時讀寫，A 的遲到回應不會寫進 B 的 cookie。切換本身沿用隔離驗證：候選失敗時維持原帳號；登出只刪除當前帳號的列。 | test_032 |
 
 ## 2. 驗證結果
