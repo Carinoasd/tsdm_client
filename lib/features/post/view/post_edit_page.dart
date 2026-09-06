@@ -11,6 +11,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/extensions/string.dart';
@@ -25,6 +26,7 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -340,7 +342,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         pid: widget.pid!,
         threadType: threadType,
         threadTitle: threadTitleController.text,
-        data: bbcodeController.toBBCode(),
+        data: bbcodeController.toForumBBCode(),
         options: additionalOptionsMap?.values.toList() ?? [],
         save: saveDraft ? '1' : '',
         perm: threadPerm?.perm,
@@ -356,7 +358,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           threadType: threadType,
           checkbox: '0',
           subject: threadTitleController.text,
-          message: bbcodeController.toBBCode(),
+          message: bbcodeController.toForumBBCode(),
           perm: threadPerm?.perm,
           price: price,
           save: saveDraft ? '1' : '',
@@ -624,7 +626,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       return;
                     }
                     if (pickResult != null) {
-                      bbcodeController.insertBBCode(pickResult.data);
+                      bbcodeController.insertBBCode(normalizeBlockMarkerNesting(pickResult.data));
                     }
                     focusNode.requestFocus();
                   },
@@ -710,10 +712,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       final data = state.content?.data;
       if (data != null) {
         if (context.read<SettingsBloc>().state.settingsMap.enableEditorBBCodeParser) {
-          final delta = parseBBCodeTextToDelta(data);
+          final delta = parseBBCodeTextToDelta(normalizeBlockMarkerNesting(data));
           bbcodeController.setDocumentFromDelta(delta);
         } else {
-          bbcodeController.setDocumentFromRawText(data);
+          bbcodeController.setDocumentFromRawText(normalizeBlockMarkerNesting(data));
         }
       }
       initialized = true;

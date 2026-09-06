@@ -7,6 +7,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
@@ -20,6 +21,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
@@ -387,7 +389,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       return;
     }
     context.read<ReplyBloc>().add(
-      ReplyToThreadRequested(replyParameters: _replyParameters!, replyMessage: _replyRichController.toBBCode()),
+      ReplyToThreadRequested(replyParameters: _replyParameters!, replyMessage: _replyRichController.toForumBBCode()),
     );
   }
 
@@ -408,7 +410,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       ReplyToPostRequested(
         replyParameters: _replyParameters!,
         replyAction: _replyAction!,
-        replyMessage: _replyRichController.toBBCode(), // data,
+        replyMessage: _replyRichController.toForumBBCode(), // data,
       ),
     );
   }
@@ -429,7 +431,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       ReplyChatHistoryRequested(
         targetUrl: widget.chatHistorySendTarget!.targetUrl,
         formHash: widget.chatHistorySendTarget!.formHash,
-        message: _replyRichController.toBBCode(),
+        message: _replyRichController.toForumBBCode(),
       ),
     );
   }
@@ -451,7 +453,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         'touid': widget.chatSendTarget!.touid,
         'formhash': widget.chatSendTarget!.formHash,
         'handlekey': widget.chatSendTarget!.handleKey,
-        'message': _replyRichController.toBBCode(),
+        'message': _replyRichController.toForumBBCode(),
         'messageappend': widget.chatSendTarget!.messageAppend,
       }),
     );
@@ -655,7 +657,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
                     return;
                   }
                   if (pickResult != null) {
-                    _replyRichController.insertBBCode(pickResult.data);
+                    _replyRichController.insertBBCode(normalizeBlockMarkerNesting(pickResult.data));
                   }
                   focusNode.requestFocus();
                 },
@@ -697,7 +699,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         initialDelta: parseBBCodeTextToDelta(widget.outerTextController.text),
       );
     } else {
-      _replyRichController = buildBBCodeEditorController(initialText: widget.outerTextController.text);
+      _replyRichController = buildBBCodeEditorController(initialText: normalizeBlockMarkerNesting(widget.outerTextController.text));
     }
     _replyRichController.addListener(_checkEditorContent);
     _authStatusSub = authRepo.status.listen((status) {
@@ -713,7 +715,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   void dispose() {
     _replyFocusNode.dispose();
     unawaited(_authStatusSub.cancel());
-    final text = _replyRichController.toBBCode();
+    final text = _replyRichController.toForumBBCode();
     if (_canSyncBBCodeOnDispose) {
       // Only save text that intend to reply when that text is not empty.
       //

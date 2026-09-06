@@ -1,0 +1,5 @@
+<div class="t_f" id="postmessage_1000">
+折叠标签测试（测试账号发的，可忽略）<br />
+A 正确嵌套：<div class="spoiler"><div class="spoilerheader"><input type="button" class="spoilerbutton" value="测试折叠A" onClick="n = this.parentNode.parentNode.lastChild;if(n.style.display == 'none') {n.style.display = 'block';} else {n.style.display = 'none';} return false;"/> （點擊展開 / 收起）</div><div class="spoilerbody" style="display: none;border-style:groove;padding-right:5px; "><table><td>内容A：这一行应该被折叠</td></table></div></div><br />
+B 错误嵌套（模拟编辑器上色）：<font color="#0cc"><div class="spoiler"><div class="spoilerheader"><input type="button" class="spoilerbutton" value="测试折叠B" onClick="n = this.parentNode.parentNode.lastChild;if(n.style.display == 'none') {n.style.display = 'block';} else {n.style.display = 'none';} return false;"/> （點擊展開 / 收起）</div><div class="spoilerbody" style="display: none;border-style:groove;padding-right:5px; "><table><td></font>内容B：这一行也应该被折叠<font color="#0cc"></td></table></div></div></font>
+</div>

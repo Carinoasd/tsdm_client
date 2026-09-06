@@ -5,6 +5,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
@@ -13,6 +14,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -172,7 +174,7 @@ class _FastReplyTemplateEditPageState extends State<FastReplyTemplateEditPage> w
         initialDelta: parseBBCodeTextToDelta(widget.initialValue?.data ?? '\n'),
       );
     } else {
-      dataController = buildBBCodeEditorController(initialText: widget.initialValue?.data);
+      dataController = buildBBCodeEditorController(initialText: switch (widget.initialValue?.data) { final d? => normalizeBlockMarkerNesting(d), null => null });
     }
     focusNode = FocusNode();
     fullScreen = isDesktop;
@@ -303,7 +305,7 @@ class _FastReplyTemplateEditPageState extends State<FastReplyTemplateEditPage> w
                 return;
               }
 
-              context.pop(FastReplyTemplateModel(name: nameController.text, data: dataController.toBBCode()));
+              context.pop(FastReplyTemplateModel(name: nameController.text, data: dataController.toForumBBCode()));
               showSnackBar(context: context, message: tr.editPageTemplateAdded);
             },
           ),

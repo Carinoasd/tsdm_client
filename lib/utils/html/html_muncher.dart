@@ -710,15 +710,33 @@ final class _Muncher with LoggerMixin {
     return spans.isEmpty ? null : spans;
   }
 
+  /// Discuz! X5 wraps the spoiler body in `<table><td>...</td></table>`; return that single cell so the one-cell
+  /// table is not rendered as a table. Anything else is returned as is.
+  static uh.Element _unwrapSpoilerBody(uh.Element body) {
+    final children = body.children;
+    if (children.length == 1 && children.first.localName == 'table') {
+      final cells = children.first.querySelectorAll('td');
+      if (cells.length == 1) {
+        return cells.first;
+      }
+    }
+    return body;
+  }
+
   /// Spoiler is a button with an area of contents.
   /// Button is used to control the visibility of contents.
   List<InlineSpan>? _buildSpoiler(uh.Element element) {
-    final title = element.querySelector('div.spoiler_control > input.spoiler_btn')?.attributes['value'];
-    final contentNode = element.querySelector('div.spoiler_content');
-    if (title == null || contentNode == null) {
-      // Impossible.
+    // Two generations of markup share the outer `div.spoiler`. The old forum rendered `div.spoiler_control` /
+    // `input.spoiler_btn` / `div.spoiler_content`; Discuz! X5 renders `div.spoilerheader` / `input.spoilerbutton` /
+    // `div.spoilerbody` and wraps the body in a one-cell table, which is unwrapped so the card holds the text alone.
+    final title =
+        element.querySelector('div.spoiler_control > input.spoiler_btn')?.attributes['value'] ??
+        element.querySelector('div.spoilerheader > input.spoilerbutton')?.attributes['value'];
+    final body = element.querySelector('div.spoiler_content') ?? element.querySelector('div.spoilerbody');
+    if (title == null || body == null) {
       return null;
     }
+    final contentNode = _unwrapSpoilerBody(body);
     state.elevation += _elevationStep;
     final elevation = state.elevation;
     final content = _munch(contentNode);

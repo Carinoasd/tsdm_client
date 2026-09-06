@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
@@ -17,6 +18,7 @@ import 'package:tsdm_client/features/editor/widgets/url_dialog.dart';
 import 'package:tsdm_client/features/editor/widgets/username_picker_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
@@ -212,7 +214,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
         ListTile(
           title: Text(tr.copyBBCode),
           onTap: () async {
-            await Clipboard.setData(ClipboardData(text: controller.toBBCode()));
+            await Clipboard.setData(ClipboardData(text: controller.toForumBBCode()));
             if (!context.mounted) {
               return;
             }
@@ -245,7 +247,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
         ListTile(
           title: Text(tr.exportBBCode),
           onTap: () async {
-            await _exportFile(context, 'bbcode_', 'txt', controller.toBBCode());
+            await _exportFile(context, 'bbcode_', 'txt', controller.toForumBBCode());
             if (!context.mounted) {
               return;
             }
@@ -263,7 +265,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
               return;
             }
             try {
-              final delta = parseBBCodeTextToDelta(data.replaceAll('\r', ''));
+              final delta = parseBBCodeTextToDelta(normalizeBlockMarkerNesting(data.replaceAll('\r', '')));
               controller.setDocumentFromDelta(delta);
             } on Exception catch (e, st) {
               error('failed to import bbcode: exception thrown');
