@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
@@ -38,6 +37,74 @@ List<NoticeV2> reconcileNoticeReadState({required List<NoticeV2> fetched, requir
     }
     return n.copyWith(alreadyRead: local.alreadyRead ?? false);
   }).toList();
+}
+
+/// Read state of freshly [fetched] personal message conversations reconciled with the copies already [stored] for
+/// the same user.
+///
+/// A conversation is one entry per peer holding its last message. The server flag is trustworthy: Discuz keeps the
+/// "new" marker until the conversation is viewed on the server. But the user may have read it in the app only (the
+/// notice card menu), so:
+///
+/// * A conversation seen for the first time keeps the server flag.
+/// * A newer copy, or the same time with another last message, carries a new message and keeps the server flag.
+/// * Otherwise the conversation is read when either side says so.
+List<PersonalMessageV2> reconcilePersonalMessageReadState({
+  required List<PersonalMessageV2> fetched,
+  required List<PersonalMessageEntity> stored,
+}) {
+  final byPeer = {for (final e in stored) e.peerUid: e};
+  return fetched.map((m) {
+    final local = byPeer[m.peerUid];
+    if (local == null || m.timestamp > local.timestamp || m.data != local.data) {
+      return m;
+    }
+    return m.copyWith(alreadyRead: m.alreadyRead || local.alreadyRead);
+  }).toList();
+}
+
+/// Read state of freshly [fetched] broadcast messages reconciled with the copies already [stored] for the same user.
+///
+/// A broadcast message never changes once sent: a message seen for the first time is unread, a stored one keeps the
+/// local flag. Saving every fetched copy as unread, as done before, resurrected read messages whenever the last three
+/// days were listed again.
+List<BroadcastMessageV2> reconcileBroadcastMessageReadState({
+  required List<BroadcastMessageV2> fetched,
+  required List<BroadcastMessageEntity> stored,
+}) {
+  final byPmid = {for (final e in stored) e.pmid: e};
+  return fetched.map((m) {
+    final local = byPmid[m.pmid];
+    if (local == null) {
+      return m.copyWith(alreadyRead: false);
+    }
+    return m.copyWith(alreadyRead: local.alreadyRead ?? false);
+  }).toList();
+}
+
+/// The part of [fetched] that is news to the user: not [stored] yet, or stored as an older copy (a notice merged with
+/// a later reply, a conversation with another last message from the peer).
+///
+/// Only these feed the push notification of the background sync. Copies fetched again (the newest minute is fetched
+/// once more on purpose, see [NotificationBloc]) and the user's own replies must not notify.
+NotificationV2 freshNotifications({required NotificationV2 fetched, required NotificationGroup stored}) {
+  final notices = {for (final e in stored.noticeList) e.nid: e};
+  final conversations = {for (final e in stored.personalMessageList) e.peerUid: e};
+  final broadcasts = {for (final e in stored.broadcastMessageList) e.pmid: e};
+  return fetched.copyWith(
+    noticeList: fetched.noticeList.where((n) {
+      final local = notices[n.id];
+      return local == null || n.timestamp > local.timestamp;
+    }).toList(),
+    personalMessageList: fetched.personalMessageList.where((m) {
+      if (m.sender) {
+        return false;
+      }
+      final local = conversations[m.peerUid];
+      return local == null || m.timestamp > local.timestamp || m.data != local.data;
+    }).toList(),
+    broadcastMessageList: fetched.broadcastMessageList.where((m) => !broadcasts.containsKey(m.pmid)).toList(),
+  );
 }
 
 /// Emitter
@@ -107,7 +174,10 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     if (lastFetchTimeEither.isRight()) {
       final datetime = lastFetchTimeEither.unwrap();
       if (datetime != null) {
-        timestamp = datetime.millisecondsSinceEpoch ~/ 1000 + 1;
+        // Inclusive bound: notification times carry minute precision only, so a message arriving later in the same
+        // minute as the newest one fetched last time is stamped with that very minute and an exclusive bound would
+        // never fetch it. Copies fetched twice are reconciled with the stored ones, not duplicated.
+        timestamp = datetime.millisecondsSinceEpoch ~/ 1000;
       }
       debug('fetch notification since ${datetime?.yyyyMMDDHHMMSS()}');
     } else {
@@ -125,6 +195,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     switch (infoState) {
       case NotificationInfoStateFailure():
         emit(state.copyWith(status: NotificationStatus.failure));
+        // The badge may still hold the header hint of the homepage: fall back to what is stored so the hint does not
+        // outlive a failed sync.
+        final currentUid = _authRepo.currentUser?.uid;
+        if (currentUid != null) {
+          await _publishUnreadCounts(currentUid);
+        }
         return;
       case NotificationInfoStateLoading():
         emit(state.copyWith(status: NotificationStatus.loading));
@@ -138,11 +214,23 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final latestMessageTime = info.latestTimestamp();
 
-    // Reconcile the read state of the fetched notices with the stored copies before saving, see
-    // [reconcileNoticeReadState].
-    final storedNotices = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    // Reconcile the read state of the fetched copies with the stored ones before saving, see
+    // [reconcileNoticeReadState], [reconcilePersonalMessageReadState] and [reconcileBroadcastMessageReadState].
+    // Saving the server copies as they come resurrected items the user had read in the app: the last three days are
+    // listed again when the last fetch is older than that, and the newest minute is fetched again on purpose.
+    final stored = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    // What is actually news, decided before the reconciled copies overwrite the stored ones.
+    final fresh = freshNotifications(fetched: info, stored: stored);
     info = info.copyWith(
-      noticeList: reconcileNoticeReadState(fetched: info.noticeList, stored: storedNotices.noticeList),
+      noticeList: reconcileNoticeReadState(fetched: info.noticeList, stored: stored.noticeList),
+      personalMessageList: reconcilePersonalMessageReadState(
+        fetched: info.personalMessageList,
+        stored: stored.personalMessageList,
+      ),
+      broadcastMessageList: reconcileBroadcastMessageReadState(
+        fetched: info.broadcastMessageList,
+        stored: stored.broadcastMessageList,
+      ),
     );
 
     // Save fetched notice.
@@ -188,7 +276,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
                     timestamp: e.timestamp,
                     data: e.data,
                     pmid: e.pmid,
-                    alreadyRead: false,
+                    alreadyRead: e.alreadyRead,
                   ),
                 )
                 .toList(),
@@ -276,37 +364,38 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // cubit.
     //
     // Here the state posted only including ones received from server in this
-    // sync action, not former ones or local storage ones.
+    // sync action that are news to the user, not former ones, local storage
+    // ones or copies fetched again.
     //
     // MARK: flnp
-    if (info.personalMessageList.isNotEmpty) {
+    if (fresh.personalMessageList.isNotEmpty) {
       _infoRepository.updateAutoSyncInfo(
         NotificationAutoSyncInfoPm(
-          user: info.personalMessageList.last.peerUsername,
-          msg: info.personalMessageList.last.data.truncate(40, ellipsis: true),
-          notice: info.noticeList.length,
-          personalMessage: info.personalMessageList.length,
-          broadcastMessage: info.broadcastMessageList.length,
+          user: fresh.personalMessageList.last.peerUsername,
+          msg: fresh.personalMessageList.last.data.truncate(40, ellipsis: true),
+          notice: fresh.noticeList.length,
+          personalMessage: fresh.personalMessageList.length,
+          broadcastMessage: fresh.broadcastMessageList.length,
           timestamp: DateTime.now().millisecondsSinceEpoch,
         ),
       );
-    } else if (info.broadcastMessageList.isNotEmpty) {
+    } else if (fresh.broadcastMessageList.isNotEmpty) {
       _infoRepository.updateAutoSyncInfo(
         NotificationAutoSyncInfoBm(
-          msg: info.broadcastMessageList.last.data.truncate(40, ellipsis: true),
-          notice: info.noticeList.length,
-          personalMessage: info.personalMessageList.length,
-          broadcastMessage: info.broadcastMessageList.length,
+          msg: fresh.broadcastMessageList.last.data.truncate(40, ellipsis: true),
+          notice: fresh.noticeList.length,
+          personalMessage: fresh.personalMessageList.length,
+          broadcastMessage: fresh.broadcastMessageList.length,
           timestamp: DateTime.now().millisecondsSinceEpoch,
         ),
       );
-    } else if (info.noticeList.isNotEmpty) {
+    } else if (fresh.noticeList.isNotEmpty) {
       _infoRepository.updateAutoSyncInfo(
         NotificationAutoSyncInfoNotice(
-          msg: parseHtmlDocument(info.noticeList.last.data).body?.innerText.truncate(40, ellipsis: true) ?? '<null>',
-          notice: info.noticeList.length,
-          personalMessage: info.personalMessageList.length,
-          broadcastMessage: info.broadcastMessageList.length,
+          msg: parseHtmlDocument(fresh.noticeList.last.data).body?.innerText.truncate(40, ellipsis: true) ?? '<null>',
+          notice: fresh.noticeList.length,
+          personalMessage: fresh.personalMessageList.length,
+          broadcastMessage: fresh.broadcastMessageList.length,
           timestamp: DateTime.now().millisecondsSinceEpoch,
         ),
       );
@@ -333,6 +422,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     emit(state.copyWith(status: NotificationStatus.loading));
 
     await _storageProvider.markTypeAsRead(notificationType: markType, uid: uid, alreadyRead: markAsRead).run();
+    await _publishUnreadCounts(uid);
 
     switch (markType) {
       case NotificationType.notice:
@@ -364,43 +454,63 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
   /// The event handler of marking some kind of notice as read or unread.
   ///
-  /// This function does not update state because it only changes the
-  /// read/unread status in local storage and it's the presentation layer first
-  /// know the notice has been read so do not need to give the mark solution
-  /// back to the presentation layer, it handles by itself.
+  /// The mark is always written to storage, the source of truth for the unread badge, even when the item is not in
+  /// the current state: the state is empty until a sync succeeded, while a conversation can be opened from a profile
+  /// or a friend card at any time. The state copy, when there is one, is updated in place for the list on screen and
+  /// the unread counts are recounted from storage afterwards, see [_publishUnreadCounts].
   Future<void> _onMarkReadRequested(_Emit emit, RecordMark recordMark) async {
     debug('mark notice: $recordMark');
-    final task = switch (recordMark) {
-      RecordMarkNotice(:final uid, :final nid, alreadyRead: final read) => () {
-        final targetIndex = state.noticeList.indexWhere((e) => e.id == nid);
-        if (targetIndex < 0) {
-          // target not found.
-          return AsyncVoidEither(() async => left(NotificationNotFound()));
-        }
-        final target = state.noticeList[targetIndex];
+    final int uid;
+    final AsyncVoidEither task;
+    switch (recordMark) {
+      case RecordMarkNotice(uid: final u, :final nid, alreadyRead: final read):
+        uid = u;
         final list = state.noticeList.toList();
-        list[targetIndex] = target.copyWith(alreadyRead: read);
-        emit(state.copyWith(noticeList: list));
-        return _storageProvider.markNoticeAsRead(uid: uid, nid: nid, read: read);
-      }(),
-      RecordMarkPersonalMessage(:final uid, :final peerUid, alreadyRead: final read) => () {
-        final targetIndex = state.personalMessageList.indexWhere((e) => e.peerUid == peerUid);
-        final target = state.personalMessageList[targetIndex];
+        final targetIndex = list.indexWhere((e) => e.id == nid);
+        if (targetIndex >= 0) {
+          list[targetIndex] = list[targetIndex].copyWith(alreadyRead: read);
+          emit(state.copyWith(noticeList: list));
+        }
+        task = _storageProvider.markNoticeAsRead(uid: uid, nid: nid, read: read);
+      case RecordMarkPersonalMessage(uid: final u, :final peerUid, alreadyRead: final read):
+        uid = u;
         final list = state.personalMessageList.toList();
-        list[targetIndex] = target.copyWith(alreadyRead: read);
-        emit(state.copyWith(personalMessageList: list));
-        return _storageProvider.markPersonalMessageAsRead(uid: uid, peerUid: peerUid, read: read);
-      }(),
-      RecordMarkBroadcastMessage(:final uid, :final timestamp, alreadyRead: final read) => () {
-        final targetIndex = state.broadcastMessageList.indexWhere((e) => e.timestamp == timestamp);
-        final target = state.broadcastMessageList[targetIndex];
+        final targetIndex = list.indexWhere((e) => e.peerUid == peerUid);
+        if (targetIndex >= 0) {
+          list[targetIndex] = list[targetIndex].copyWith(alreadyRead: read);
+          emit(state.copyWith(personalMessageList: list));
+        }
+        task = _storageProvider.markPersonalMessageAsRead(uid: uid, peerUid: peerUid, read: read);
+      case RecordMarkBroadcastMessage(uid: final u, :final timestamp, alreadyRead: final read):
+        uid = u;
         final list = state.broadcastMessageList.toList();
-        list[targetIndex] = target.copyWith(alreadyRead: read);
-        emit(state.copyWith(broadcastMessageList: list));
-        return _storageProvider.markBroadcastMessageAsRead(uid: uid, timestamp: timestamp, read: read);
-      }(),
-    };
+        final targetIndex = list.indexWhere((e) => e.timestamp == timestamp);
+        if (targetIndex >= 0) {
+          list[targetIndex] = list[targetIndex].copyWith(alreadyRead: read);
+          emit(state.copyWith(broadcastMessageList: list));
+        }
+        task = _storageProvider.markBroadcastMessageAsRead(uid: uid, timestamp: timestamp, read: read);
+    }
     await task.run();
+    await _publishUnreadCounts(uid);
+  }
+
+  /// Recount the unread notifications of [uid] from storage and publish them to the global unread state.
+  ///
+  /// Cards adjust the badge by one for instant feedback, which drifts (a card tapped twice, a mark that never
+  /// reached storage); the recount makes the badge follow what the notification page lists. Skipped when [uid] is no
+  /// longer the current user.
+  Future<void> _publishUnreadCounts(int uid) async {
+    if (_authRepo.currentUser?.uid != uid) {
+      debug('skip publishing unread counts: not the current user');
+      return;
+    }
+    final group = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    _infoRepository.updateInfo(
+      unreadNoticeCount: group.noticeList.where((e) => !(e.alreadyRead ?? false)).length,
+      unreadPersonalMessageCount: group.personalMessageList.where((e) => !e.alreadyRead).length,
+      unreadBroadcastMessageCount: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
+    );
   }
 
   Future<void> _onDeleteNotice(_Emit emit, {required int uid, required int nid}) async {

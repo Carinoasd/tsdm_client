@@ -4,10 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/chat/bloc/chat_bloc.dart';
 import 'package:tsdm_client/features/chat/models/editor_features.dart';
 import 'package:tsdm_client/features/chat/repository/chat_repository.dart';
 import 'package:tsdm_client/features/chat/widgets/chat_message_card.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
+import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -96,6 +99,19 @@ final class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _refreshController = EasyRefreshController(controlFinishLoad: true);
+    _markConversationRead();
+  }
+
+  /// Opening the conversation reads it, however the page was reached (the notification list, a profile, a friend
+  /// card), so record that on the unread state right away.
+  void _markConversationRead() {
+    final peerUid = int.tryParse(widget.uid);
+    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    final bloc = context.readOrNull<NotificationBloc>();
+    if (peerUid == null || uid == null || bloc == null) {
+      return;
+    }
+    bloc.add(NotificationMarkReadRequested(RecordMarkPersonalMessage(uid: uid, peerUid: peerUid, alreadyRead: true)));
   }
 
   @override

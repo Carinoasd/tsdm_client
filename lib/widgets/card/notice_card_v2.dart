@@ -189,28 +189,27 @@ class PersonalMessageCardV2 extends StatefulWidget {
 
 class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
   Future<void> _onTap(BuildContext context, {required bool markAsRead, required bool launch}) async {
+    // Record the read state before navigating. Recording it once the chat page popped lost the mark whenever this card
+    // was gone by then (the list refreshed, the user left the notification page), and the badge stayed on.
+    if (markAsRead != widget.data.alreadyRead) {
+      if (markAsRead) {
+        context.read<NotificationStateCubit>().decreasePersonalMessage();
+      } else {
+        context.read<NotificationStateCubit>().increasePersonalMessage();
+      }
+    }
     final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    if (uid != null) {
+      context.read<NotificationBloc>().add(
+        NotificationMarkReadRequested(
+          RecordMarkPersonalMessage(uid: uid, peerUid: widget.data.peerUid, alreadyRead: markAsRead),
+        ),
+      );
+    }
 
     if (launch) {
       await context.pushNamed(ScreenPaths.chatHistory, pathParameters: {'uid': '${widget.data.peerUid}'});
     }
-
-    if (!context.mounted) {
-      return;
-    }
-    if (markAsRead) {
-      context.read<NotificationStateCubit>().decreasePersonalMessage();
-    } else {
-      context.read<NotificationStateCubit>().increasePersonalMessage();
-    }
-    if (uid == null) {
-      return;
-    }
-    context.read<NotificationBloc>().add(
-      NotificationMarkReadRequested(
-        RecordMarkPersonalMessage(uid: uid, peerUid: widget.data.peerUid, alreadyRead: markAsRead),
-      ),
-    );
   }
 
   @override
@@ -339,29 +338,26 @@ class BroadcastMessageCardV2 extends StatefulWidget {
 
 class _BroadcastMessageCardV2State extends State<BroadcastMessageCardV2> {
   Future<void> _onTap(BuildContext context, {required bool markAsRead, required bool launch}) async {
+    // Record the read state before navigating, see the personal message card above.
+    if (markAsRead != widget.data.alreadyRead) {
+      if (markAsRead) {
+        context.read<NotificationStateCubit>().decreaseBroadcastMessage();
+      } else {
+        context.read<NotificationStateCubit>().increaseBroadcastMessage();
+      }
+    }
     final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    if (uid != null) {
+      context.read<NotificationBloc>().add(
+        NotificationMarkReadRequested(
+          RecordMarkBroadcastMessage(uid: uid, timestamp: widget.data.timestamp, alreadyRead: markAsRead),
+        ),
+      );
+    }
 
     if (launch) {
       await context.dispatchAsUrl('${BroadcastMessageCardV2._detailPageUrl}${widget.data.pmid}');
     }
-
-    if (!context.mounted) {
-      return;
-    }
-
-    if (markAsRead) {
-      context.read<NotificationStateCubit>().decreaseBroadcastMessage();
-    } else {
-      context.read<NotificationStateCubit>().increaseBroadcastMessage();
-    }
-    if (uid == null) {
-      return;
-    }
-    context.read<NotificationBloc>().add(
-      NotificationMarkReadRequested(
-        RecordMarkBroadcastMessage(uid: uid, timestamp: widget.data.timestamp, alreadyRead: markAsRead),
-      ),
-    );
   }
 
   @override

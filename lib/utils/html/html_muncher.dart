@@ -312,16 +312,17 @@ final class _Muncher with LoggerMixin {
             if (isMobile) {
               recognizer = LongPressGestureRecognizer()
                 ..onLongPressCancel = () async {
-                  await context.dispatchAsUrl(url!);
+                  // Report before navigating: the pushed page pops much later, if ever.
                   options.onUrlLaunched?.call();
+                  await context.dispatchAsUrl(url!);
                 }
                 ..onLongPress = () async => showUrlInfoBottomSheet(context: context, url: url!);
             } else {
               // Desktop or web.
               recognizer = TapGestureRecognizer()
                 ..onTapDown = (_) async {
-                  await context.dispatchAsUrl(url!);
                   options.onUrlLaunched?.call();
+                  await context.dispatchAsUrl(url!);
                 }
                 ..onSecondaryTap = () async => showUrlInfoBottomSheet(context: context, url: url!);
             }
@@ -890,8 +891,8 @@ final class _Muncher with LoggerMixin {
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () async {
-                    await context.dispatchAsUrl(url);
                     options.onUrlLaunched?.call();
+                    await context.dispatchAsUrl(url);
                   },
                   child: content,
                 ),

@@ -75,8 +75,11 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
         //
         // NotificationBloc only exists in notice page so can not trigger actions
         // below by adding events to it.
-        debug('update last fetch notification time to started time $startedTime');
-        await _storageProvider.updateLastFetchNoticeTime(uid, startedTime).run();
+        // Whole minute only: notification times have minute precision, so a message arriving later in the minute the
+        // fetch started in is stamped with that minute and must still be inside the next window.
+        final since = startedTime.truncateToMinute();
+        debug('update last fetch notification time to started minute ${since.yyyyMMDDHHMMSS()}');
+        await _storageProvider.updateLastFetchNoticeTime(uid, since).run();
       } else {
         // Unreachable.
         final now = DateTime.now();
@@ -120,7 +123,9 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
     if (lastFetchTimeEither.isRight()) {
       final t = lastFetchTimeEither.unwrap();
       if (t != null) {
-        lastFetchTime = t.millisecondsSinceEpoch ~/ 1000 + 1;
+        // Inclusive, see NotificationBloc: copies fetched again are reconciled, a later message in the same minute
+        // would otherwise be missed.
+        lastFetchTime = t.millisecondsSinceEpoch ~/ 1000;
       }
     }
     debug('auto fetch since $lastFetchTime');

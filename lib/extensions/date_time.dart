@@ -3,6 +3,11 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 
 /// Extension of [DateTime] that provides some transformation and calculation.
 extension DateTimeExtension on DateTime {
+  /// This time with seconds and below dropped.
+  ///
+  /// Notification times on the forum carry minute precision, compare against them with this.
+  DateTime truncateToMinute() => DateTime(year, month, day, hour, minute);
+
   /// Format [DateTime] to format yyyy-MM-DD.
   String yyyyMMDD() {
     return '$year-${month.toString().padLeft(2, '0')}-'

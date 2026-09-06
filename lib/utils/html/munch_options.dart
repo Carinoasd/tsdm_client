@@ -20,5 +20,8 @@ final class MunchOptions with MunchOptionsMappable {
   final bool renderUrl;
 
   /// Callback on url launched.
+  ///
+  /// Called when the user taps a url, right before it is dispatched: the page it opens may only pop much later, or
+  /// never, and the caller (a notice card marking itself read) must not wait for that.
   final VoidCallback? onUrlLaunched;
 }
