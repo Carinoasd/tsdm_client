@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -50,11 +49,6 @@ class _UpdatePageState extends State<UpdatePage> {
             leading: Icon(MdiIcons.github),
             title: const Text('GitHub'),
             onTap: () async => launchUrl(Uri.parse(upgradeGithubReleaseUrl), mode: LaunchMode.externalApplication),
-          ),
-          ListTile(
-            leading: SvgPicture.asset(assetsFDroidLogoPath, width: 22, height: 22),
-            title: const Text('F-Droid'),
-            onTap: () async => launchUrl(Uri.parse(upgradeFDroidHomepageUrl), mode: LaunchMode.externalApplication),
           ),
         ],
       ),

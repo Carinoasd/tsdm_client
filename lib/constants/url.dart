@@ -67,10 +67,7 @@ const modifyUserCredentialUrl = '$baseUrl/home.php?mod=spacecp&ac=profile&op=pas
 const String checkAuthenticationStateUrl = modifyUserCredentialUrl;
 
 /// Url to get the latest app on Github.
-const upgradeGithubReleaseUrl = 'https://github.com/realth000/tsdm_client/releases/latest';
-
-/// F-Droid homepage.
-const upgradeFDroidHomepageUrl = 'https://f-droid.org/packages/kzs.th000.tsdm_client';
+const upgradeGithubReleaseUrl = 'https://github.com/Carinoasd/tsdm_client/releases/latest';
 
 /// Target url to post a reply to thread [tid], forum [fid].
 String formatReplyThreadUrl(String fid, String tid) {

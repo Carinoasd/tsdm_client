@@ -73,10 +73,10 @@ class AboutPage extends StatelessWidget {
           SectionListTile(
             leading: const Icon(Icons.home_outlined),
             title: Text(context.t.aboutPage.homepage),
-            subtitle: const Text('https://github.com/realth000/tsdm_client'),
+            subtitle: const Text('https://github.com/Carinoasd/tsdm_client'),
             onTap: () async {
               await launchUrl(
-                Uri.parse('https://github.com/realth000/tsdm_client'),
+                Uri.parse('https://github.com/Carinoasd/tsdm_client'),
                 mode: LaunchMode.externalApplication,
               );
             },
