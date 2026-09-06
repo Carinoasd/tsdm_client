@@ -1,7 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -143,21 +142,17 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
           BlocListener<ReplyBloc, ReplyState>(
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {
+              // Close the editor through its controller and drop the focus first, the snack bar last: a `context.pop()`
+              // issued once the sheet is already gone pops this page, and when the snack bar threw (a debug assertion
+              // while a scaffold was being torn down) the editor and the keyboard used to stay up.
               if (state.status == ReplyStatus.success) {
+                _replyBarController.closeEditor();
+                FocusManager.instance.primaryFocus?.unfocus();
                 showSnackBar(context: context, message: tr.success);
-                // Close the reply bar when sent success.
-                if (_replyBarController.showingEditor) {
-                  context.pop();
-                }
               } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
-                // Close the reply bar when sent failed.
-                if (_replyBarController.showingEditor) {
-                  context.pop();
-                }
-                showSnackBar(
-                  context: context,
-                  message: tr.failed(message: state.failedReason!),
-                );
+                _replyBarController.closeEditor();
+                FocusManager.instance.primaryFocus?.unfocus();
+                showSnackBar(context: context, message: tr.failed(message: state.failedReason!));
               }
             },
           ),

@@ -1,7 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -144,11 +143,11 @@ final class _ChatPageState extends State<ChatPage> {
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {
               if (state.status == ReplyStatus.success) {
+                // Close the editor through its controller and drop the focus first, the snack bar last, see the chat
+                // history page.
+                _replyBarController.closeEditor();
+                FocusManager.instance.primaryFocus?.unfocus();
                 showSnackBar(context: context, message: tr.success);
-                // Close the reply bar when sent success.
-                if (_replyBarController.showingEditor) {
-                  context.pop();
-                }
               } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
                 showSnackBar(
                   context: context,
