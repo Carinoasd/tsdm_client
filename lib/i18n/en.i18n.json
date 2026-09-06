@@ -643,7 +643,15 @@
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",
     "credits": "Credits ${count}",
-    "sendMessage": "Send message"
+    "sendMessage": "Send message",
+    "addFriend": {
+      "tooltip": "Add friend",
+      "title": "Add ${name} as a friend",
+      "note": "Note (optional)",
+      "group": "Group",
+      "send": "Send request",
+      "failed": "The friend request could not be sent"
+    }
   },
   "redPacket": {
     "title": "Red packet",

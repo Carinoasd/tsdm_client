@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<h3 class="flb">
+<em id="return_afrfriendhk_1001">批准请求</em>
+<span><a href="javascript:;" onclick="hideWindow('afrfriendhk_1001');" class="flbc" title="关闭">关闭</a></span></h3>
+<form method="post" autocomplete="off" id="addratifyform_1000" name="addratifyform_1000" action="home.php?mod=spacecp&amp;ac=friend&amp;op=add&amp;uid=1000" onsubmit="ajaxpost(this.id, 'return_afrfriendhk_1001');">
+<input type="hidden" name="referer" value="https://www.tsdm39.com/forum.php" />
+<input type="hidden" name="add2submit" value="true" />
+<input type="hidden" name="from" value="" />
+<input type="hidden" name="handlekey" value="afrfriendhk_1001" /><input type="hidden" name="formhash" value="XXXXXXXX" />
+<div class="c">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th valign="top" width="60" class="avt"><a href="home.php?mod=space&amp;uid=1000"><img data-src="https://example.com/avatar/1.png" class="_avt user_avatar"></a></th>
+<td valign="top">
+<p>批准 <strong>Alice</strong> 的好友请求，并分组:</p>
+<table><tr><td style="padding:8px 8px 0 0;"><label for="group_0"><input type="radio" name="gid" id="group_0" value="0" />其他</label></td>
+<td style="padding:8px 8px 0 0;"><label for="group_1"><input type="radio" name="gid" id="group_1" value="1" checked />通过本站认识</label></td>
+</tr><tr><td style="padding:8px 8px 0 0;"><label for="group_2"><input type="radio" name="gid" id="group_2" value="2" />通过活动认识</label></td>
+<td style="padding:8px 8px 0 0;"><label for="group_3"><input type="radio" name="gid" id="group_3" value="3" />通过朋友认识</label></td>
+</tr><tr><td style="padding:8px 8px 0 0;"><label for="group_4"><input type="radio" name="gid" id="group_4" value="4" />亲人</label></td>
+<td style="padding:8px 8px 0 0;"><label for="group_5"><input type="radio" name="gid" id="group_5" value="5" />同事</label></td>
+</tr><tr><td style="padding:8px 8px 0 0;"><label for="group_6"><input type="radio" name="gid" id="group_6" value="6" />同学</label></td>
+<td style="padding:8px 8px 0 0;"><label for="group_7"><input type="radio" name="gid" id="group_7" value="7" />不认识</label></td>
+</tr><tr></tr></table>
+</td>
+</tr>
+</table>
+</div>
+<p class="o pns">
+<button type="submit" name="add2submit_btn" value="true" class="pn pnc"><strong>批准</strong></button>
+</p>
+</form>
+<script type="text/javascript">
+function succeedhandle_afrfriendhk_1001(url, msg, values) {
+if(values['from'] == 'notice') {
+deleteQueryNotice(values['uid'], 'pendingFriend');
+} else {
+myfriend_post(values['uid']);
+}
+}
+</script>
+]]></root>

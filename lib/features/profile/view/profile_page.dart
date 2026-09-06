@@ -18,6 +18,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
+import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/profile/bloc/profile_bloc.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
@@ -292,6 +293,13 @@ class _ProfilePageState extends State<ProfilePage> {
             queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
           ),
         ),
+        if ((widget.uid ?? userProfile.uid) != null)
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+            tooltip: context.t.friendPage.addFriend.tooltip,
+            onPressed: () async =>
+                showAddFriendDialog(context, uid: widget.uid ?? userProfile.uid!, username: userProfile.username),
+          ),
         IconButton(
           icon: const Icon(Icons.email_outlined),
           tooltip: context.t.postCard.profileDialog.pmTooltip,

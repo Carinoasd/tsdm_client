@@ -643,7 +643,15 @@
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "還沒有好友",
     "credits": "積分 ${count}",
-    "sendMessage": "傳送訊息"
+    "sendMessage": "傳送訊息",
+    "addFriend": {
+      "tooltip": "加好友",
+      "title": "將 ${name} 加為好友",
+      "note": "附言（可選）",
+      "group": "分組",
+      "send": "送出請求",
+      "failed": "好友請求送出失敗"
+    }
   },
   "redPacket": {
     "title": "紅包",

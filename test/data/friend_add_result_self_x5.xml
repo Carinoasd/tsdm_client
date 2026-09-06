@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>提示信息</em><span><a href="javascript:;" class="flbc" onclick="hideWindow('addfriendhk_1000');" title="关闭">关闭</a></span></h3>
+<div class="c altw">
+<div class="alert_error">抱歉，您不能加自己为好友<script type="text/javascript" reload="1">if(typeof errorhandle_addfriendhk_1000=='function') {errorhandle_addfriendhk_1000('抱歉，您不能加自己为好友', {});}</script></div>
+</div>
+<p class="o pns">
+<button type="button" class="pn pnc" id="closebtn" onclick="hideWindow('addfriendhk_1000');"><strong>确定</strong></button>
+<script type="text/javascript" reload="1">if($('closebtn')) {$('closebtn').focus();}</script>
+</p>
+]]></root>
