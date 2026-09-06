@@ -227,5 +227,34 @@
 - 無頭渲染（手機尺寸 1080×2340@3，正體中文）：搜尋頁「從個人頁開啟自動搜尋出結果」「無結果」「收合表單」三態。
 - 現場：以測試帳號抓取私訊列表確認 X5 未讀標記；聊天送出流程與紅點行為需實機回報。
 
+## 7. 第三輪：郵件連結與自動簽到（2026-09-06，v21）
+
+### 7.1 `[email=]` 變成 Cloudflare 保護頁
+
+- 論壇在 Cloudflare 之後，頁面裡所有電子郵件都被「Email Address Obfuscation」改寫：`mailto:` 連結變成
+  `/cdn-cgi/l/email-protection#HASH`，連結文字或內文中的地址變成 `<span class="__cf_email__" data-cfemail="HASH">[email&#160;protected]</span>`
+  （純文字地址則是同樣屬性的 `<a>`）。App 點下去以瀏覧器開 Cloudflare 提示頁。三種寫法的實際樣本在
+  `test/data/email_protection_post_x5.html`（2026-09-06 以測試帳號發在測試帖 tid 1264975，地址皆為 example.com）。
+- 解法（`lib/utils/html/cloudflare_email.dart`）：與瀏覽器端腳本相同的 XOR 還原，`munchElement` 進場先把節點改回 `mailto:` 連結
+  與可讀地址。解出的文字必須符合 email 格式才採用，否則原樣保留；由它產生的只有 `mailto:地址`，不帶任何參數。
+- 點地址不直接跳出：先開底部面板顯示地址，提供「複製地址」「用郵件 App 開啟」（`showEmailBottomSheet`）；長按同樣開這個面板。
+- 順手修正：連結訊息面板的「複製連結」原本會先開啟該連結再複製。
+- 回歸測試 `test_035_cloudflare_email_test.dart`（真實 hash、任意 key 往返、畸形 hash、非地址內容一律拒絕、DOM 改寫、muncher 渲染）。
+
+### 7.2 自動簽到「签了好几次才签完」
+
+- 日誌顯示：11 個帳號分成每批 4 個同時簽到、批次之間不停，論壇對第一批 POST 回「您需要先登录才能继续本操作」，接著回 HTTP 429；
+  失敗的帳號不會記「今天已簽」，下次啟動再跑又只過幾個。另外「您需要先登录」的 XML 回應 App 認不出，整段當錯誤訊息顯示。
+- 修正（`auto_checkin_repository.dart`、`do_checkin.dart`、`parse_checkin.dart`）：帳號逐一簽到、之間停 2 秒；遇 429 等 30／60／60 秒
+  重試同一帳號最多 3 次，伺服器給 `Retry-After` 且更長時照它（上限 5 分）；簽到頁若是登入表單（`form#lsform` 且無 `div#um`）
+  直接判定登入過期、不送 POST；回應含「需要先登录」也判為登入過期。429 不再記成錯誤，訊息改為「論壇限制了請求頻率」。
+- 回歸測試 `test_036_auto_checkin_throttle_test.dart`（逐一執行順序、429 重試、重試用盡、Retry-After、登入表單、需要先登录）。
+
+### 7.3 本輪驗證
+
+- `dart analyze` 只剩既有提示；`flutter test` 全數通過（見交付說明的數字）。
+- 無頭渲染：含三種郵件寫法的帖子內容、郵件地址面板。
+- 現場：測試帖新增一則含 `[email=]`、`[email]`、純文字地址的回覆並抓回頁面，確認 Cloudflare 改寫形式；簽到限流行為需實機（多帳號）回報。
+
 ---
 (C) 2026 Carinoasd
