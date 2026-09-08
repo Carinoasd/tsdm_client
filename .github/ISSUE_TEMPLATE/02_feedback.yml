@@ -1,0 +1,12 @@
+name: 建议 / 问题反馈（简版）
+description: 想提建议或反馈问题，不想填完整表单时用这个。
+title: "[反馈] "
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: content
+    attributes:
+      label: 内容
+      description: 想说什么直接写；如果是问题，顺手写一下机型、系统版本和用的哪个安装包。
+    validations:
+      required: true
