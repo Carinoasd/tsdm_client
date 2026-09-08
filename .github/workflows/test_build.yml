@@ -1,3 +1,5 @@
+# Manual runs: Actions -> "Test build" -> Run workflow; tick only the platforms
+# you need and untick dry_run to get the build as a workflow artifact.
 name: Test build
 
 on:
