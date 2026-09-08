@@ -31,6 +31,9 @@
 | Android（舊 32 位元機） | `tsdm_client-armeabi_v7a.apk` |
 | Android（不確定機型時用這個，較大） | `tsdm_client-universal.apk` |
 | iOS（未簽章，需自行側載） | `tsdm_client.ipa` |
+| Windows 10/11（64 位元，解壓即用） | `tsdm_client-windows.zip` |
+| macOS | `tsdm_client-universal.dmg` |
+| Linux | `tsdm_client-linux.tar.gz` |
 
 不上架任何商店。Android 直接安裝 APK；App 內「偵測最新版本」讀取本倉庫的 `version.json`，「更新日誌」與 Releases 同步。
 
