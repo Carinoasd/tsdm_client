@@ -12,6 +12,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
+import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
@@ -51,6 +52,7 @@ class _CardLayout extends StatelessWidget {
     this.stateSet,
     this.disableTap = false,
     this.isRecentThread = false,
+    this.replied = false,
   });
 
   final String threadID;
@@ -70,6 +72,9 @@ class _CardLayout extends StatelessWidget {
   final CssTypes? css;
   final Set<ThreadStateModel>? stateSet;
   final bool isRecentThread;
+
+  /// The current account replied in this thread (local mark, issue #21): a small reply icon in the trailing row.
+  final bool replied;
 
   Card _wrapWithCard(BuildContext context, Widget child) => Card(
     margin: EdgeInsets.zero,
@@ -285,6 +290,7 @@ class _CardLayout extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            if (replied) _buildRepliedMark(context),
             if (stateSet != null) ...stateSet!.map((e) => Icon(e.icon, size: 16)),
             Text(threadType?.name ?? ''),
           ].insertBetween(sizedBoxW4H4),
@@ -300,12 +306,19 @@ class _CardLayout extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          if (replied) _buildRepliedMark(context),
           if (stateSet != null) ...stateSet!.map((e) => Icon(e.icon, size: 16)),
           Text(threadType?.name ?? ''),
         ].insertBetween(sizedBoxW4H4),
       ),
     );
   }
+
+  /// Subtle marker of a thread the current account replied to: theme tertiary color, tooltip with the words.
+  Widget _buildRepliedMark(BuildContext context) => Tooltip(
+    message: context.t.threadCard.replied,
+    child: Icon(Icons.reply_outlined, size: 16, color: Theme.of(context).colorScheme.tertiary),
+  );
 
   /// Build a thread card that has [author] (or [forum] when [author] is null)
   /// info like title, thread title or
@@ -400,6 +413,7 @@ class NormalThreadCard extends StatelessWidget {
       stateSet: thread.stateSet,
       disableTap: disableTap,
       isRecentThread: thread.isRecentThread,
+      replied: isThreadReplied(context, thread.threadID),
     );
   }
 }

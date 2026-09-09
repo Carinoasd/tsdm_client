@@ -9,7 +9,9 @@ import 'package:tsdm_client/features/notification/bloc/notification_detail_cubit
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -94,7 +96,13 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
       providers: [
         RepositoryProvider(create: (_) => NotificationRepository()),
         RepositoryProvider(create: (_) => const ReplyRepository()),
-        BlocProvider(create: (context) => ReplyBloc(replyRepository: context.repo())),
+        BlocProvider(
+          create: (context) => ReplyBloc(
+            replyRepository: context.repo(),
+            storageProvider: getIt.get<StorageProvider>(),
+            authenticationRepository: context.repo(),
+          ),
+        ),
         BlocProvider(
           create: (context) {
             final cubit = NotificationDetailCubit(notificationRepository: context.repo());

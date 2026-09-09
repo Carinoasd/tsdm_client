@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
@@ -15,17 +16,20 @@ import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart'
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
+import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
+import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -133,7 +137,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
   String? _scrollToPidOnReload;
 
-  Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight) {
+  Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight, {required bool replied}) {
     final infoTextStyle = Theme.of(
       context,
     ).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.outline);
@@ -208,6 +212,19 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               if (state.viewCount != null || state.replyCount != null)
                 Text('[${context.t.threadPage.statistics(view: state.viewCount ?? 0, reply: state.replyCount ?? 0)}]'),
               if (state.isDraft) Text('[${context.t.threadPage.draft}]'),
+              // The current account replied in this thread (local mark, issue #21).
+              if (replied)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.reply_outlined, size: 16, color: Theme.of(context).colorScheme.tertiary),
+                    sizedBoxW4H4,
+                    Text(
+                      context.t.threadPage.repliedMark,
+                      style: infoTextStyle?.copyWith(color: Theme.of(context).colorScheme.tertiary),
+                    ),
+                  ],
+                ),
             ].reversed.toList(),
           ),
         ),
@@ -341,7 +358,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             exactOrder: widget.overrideWithExactOrder,
           )..add(ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1)),
         ),
-        BlocProvider(create: (context) => ReplyBloc(replyRepository: context.repo())),
+        BlocProvider(
+          create: (context) => ReplyBloc(
+            replyRepository: context.repo(),
+            storageProvider: getIt.get<StorageProvider>(),
+            authenticationRepository: context.repo(),
+          ),
+        ),
         BlocProvider(create: (context) => JumpPageCubit()),
       ],
       child: MultiBlocListener(
@@ -379,6 +402,16 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   );
                   return;
                 }
+                // A floor of the current user on this page: mark the thread as replied (issue #21).
+                unawaited(
+                  seedRepliedThreadFromPosts(
+                    storageProvider: getIt.get<StorageProvider>(),
+                    uid: uid,
+                    tid: state.tid,
+                    fid: state.fid,
+                    posts: state.postList,
+                  ),
+                );
                 if (state.tid == null || state.title == null || state.fid == null || state.forumName == null) {
                   info('not prepared to save visit history yet');
                   return;
@@ -448,6 +481,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             );
 
             final title = widget.title ?? state.title;
+            final replied = isThreadReplied(context, state.tid ?? widget.threadID);
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {
               context.read<JumpPageCubit>().markLoading();
@@ -475,7 +509,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 title: title,
                 bottom: PreferredSize(
                   preferredSize: Size.fromHeight(20 + textScaleExtraBreadHeight),
-                  child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight),
+                  child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
                 ),
                 showReverseOrderAction: true,
                 onJumpPage: (pageNumber) async {
