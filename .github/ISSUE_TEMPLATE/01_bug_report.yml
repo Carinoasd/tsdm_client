@@ -1,7 +1,7 @@
 name: 报告bug
 description: |
   上报有关应用的错误和异常等。
-  安全漏洞类的bug（例如账号cookie泄露）不要在此上报，请论坛私信联系ruik0
+  安全漏洞类的问题（例如账号 cookie 泄露）请不要在此公开上报：改用本仓库 Security → Report a vulnerability 私密回报，或在论坛私信站长
 title: '[BUG] '
 labels: 'bug'
 body:
@@ -30,7 +30,7 @@ body:
             我已确认这个问题不属于[已知问题](https://github.com/Carinoasd/tsdm_client#%E5%B7%B2%E7%9F%A5%E9%97%AE%E9%A2%98)。
           required: true
         - label: |
-            我确认这个问题不属于安全漏洞（例如账号cookie超时、泄露）。**安全漏洞问题不要在此上报，请论坛私信联系ruik0**
+            我确认这个问题不属于安全漏洞（例如账号 cookie 超时、泄露）。**安全漏洞请不要在此公开上报：用本仓库 Security → Report a vulnerability 私密回报，或在论坛私信站长**
           required: true
   - type: textarea
     attributes:
