@@ -14,8 +14,9 @@ typedef _Emit = Emitter<ManageAccountState>;
 /// Bloc of the manage accounts page: selection of accounts and deleting them from this device.
 ///
 /// Deleting is local only, the forum is never asked to log out: accounts other than the current one lose their saved
-/// login through [StorageProvider.deleteCookiesByUids], the current one through
-/// [AuthenticationRepository.forgetCurrentUser] which also signs this device out.
+/// login through [StorageProvider.deleteCookiesByUids], the current one ([AuthenticationRepository.effectiveCurrentUid],
+/// also when its session was not verified yet) through [AuthenticationRepository.forgetCurrentUser] which also signs
+/// this device out.
 final class ManageAccountBloc extends Bloc<ManageAccountEvent, ManageAccountState> with LoggerMixin {
   /// Constructor.
   ManageAccountBloc({
@@ -31,7 +32,7 @@ final class ManageAccountBloc extends Bloc<ManageAccountEvent, ManageAccountStat
         ManageAccountSelectAllRequested(:final uids) => emit(
           state.copyWith(selecting: true, selectedUids: uids.toSet(), status: ManageAccountStatus.idle),
         ),
-        ManageAccountSelectionCleared() => emit(const ManageAccountState()),
+        ManageAccountSelectionCleared() => _onCleared(emit),
         ManageAccountDeleteSelectedRequested() => _onDeleteSelected(emit),
       },
     );
@@ -48,15 +49,25 @@ final class ManageAccountBloc extends Bloc<ManageAccountEvent, ManageAccountStat
     emit(state.copyWith(selecting: true, selectedUids: selected, status: ManageAccountStatus.idle));
   }
 
+  void _onCleared(_Emit emit) {
+    if (state.status == ManageAccountStatus.deleting) {
+      // Back was pressed while deleting: the selection is needed until the delete finished.
+      return;
+    }
+    emit(const ManageAccountState());
+  }
+
   Future<void> _onDeleteSelected(_Emit emit) async {
-    if (state.selectedUids.isEmpty || state.status == ManageAccountStatus.deleting) {
+    // Snapshot: events handled while the delete is in flight must not change what is deleted.
+    final selected = Set<int>.of(state.selectedUids);
+    if (selected.isEmpty || state.status == ManageAccountStatus.deleting) {
       return;
     }
     emit(state.copyWith(status: ManageAccountStatus.deleting));
-    final currentUid = _authenticationRepository.currentUser?.uid;
-    final others = state.selectedUids.where((uid) => uid != currentUid);
+    final currentUid = _authenticationRepository.effectiveCurrentUid;
+    final others = selected.where((uid) => uid != currentUid);
     var deleted = await _storageProvider.deleteCookiesByUids(others);
-    if (currentUid != null && state.selectedUids.contains(currentUid)) {
+    if (currentUid != null && selected.contains(currentUid)) {
       switch (await _authenticationRepository.forgetCurrentUser().run()) {
         case Left(:final value):
           handle(value);

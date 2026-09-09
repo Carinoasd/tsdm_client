@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -11,6 +12,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.dart';
+import 'package:tsdm_client/features/multi_user/bloc/manage_account_bloc.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
@@ -34,13 +36,20 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 const _bob = UserLoginInfo(username: 'Bob', uid: 1001);
 const _carol = UserLoginInfo(username: 'Carol', uid: 1002);
 
-const _guestPage = '<html><body><div id="messagetext"><p>请先登录后才能继续浏览</p></div></body></html>';
+/// What the forum renders for a guest: the login form, no user node.
+const _guestPage =
+    '<html><body><form id="lsform" method="post"><input type="hidden" name="formhash" value="XXXXXXXX" /> '
+    '<input name="username" /></form><div id="messagetext"><p>请先登录后才能继续浏览</p></div></body></html>';
 
-/// Answers every request with the guest page and an optional Set-Cookie, records requests.
+/// A 200 answer that is neither a logged-in page nor the guest page (maintenance, interstitial).
+const _maintenancePage = '<html><body><p>系统繁忙，请稍后再试</p></body></html>';
+
+/// Answers every request with [body] (the guest page by default) and an optional Set-Cookie, records requests.
 final class _FakeAdapter implements HttpClientAdapter {
-  _FakeAdapter({this.setCookie});
+  _FakeAdapter({this.setCookie, this.body = _guestPage});
 
   final String? setCookie;
+  final String body;
   final requests = <RequestOptions>[];
 
   @override
@@ -51,7 +60,7 @@ final class _FakeAdapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     return ResponseBody.fromString(
-      _guestPage,
+      body,
       200,
       headers: {
         Headers.contentTypeHeader: ['text/html; charset=utf-8'],
@@ -62,6 +71,21 @@ final class _FakeAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// Storage whose batch delete waits until [release] completes, so an event can be handled while it is in flight.
+final class _SlowStorage extends StorageProvider {
+  _SlowStorage(AppDatabase db) : super(db, {}, {});
+
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<int> deleteCookiesByUids(Iterable<int> uids) async {
+    started.complete();
+    await release.future;
+    return super.deleteCookiesByUids(uids);
+  }
 }
 
 /// Never answers: avatars are not loaded in these tests.
@@ -172,6 +196,110 @@ void main() {
     expect(auth.currentUser, isNull);
     expect(statuses, contains(isA<AuthStatusNotAuthed>()));
     await auth.dispose();
+  });
+
+  test('logout keeps the saved login when the forum answers a page it can not read', () async {
+    final adapter = _FakeAdapter(body: _maintenancePage);
+    final auth = AuthenticationRepository(
+      user: _alice,
+      currentUserClientFactory: (_) => NetClientProvider.buildNoCookie(
+        dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter,
+        cookie: current,
+      ),
+    );
+    final statuses = <AuthStatus>[];
+    final sub = auth.status.listen(statuses.add);
+
+    final result = await auth.logout().run();
+    expect(result.isRight(), isTrue, reason: '$result');
+    await Future<void>.delayed(Duration.zero);
+    await sub.cancel();
+
+    expect(adapter.requests, hasLength(1));
+    expect(await uids(), [1000, 1001, 1002], reason: 'the page says nothing about the session: the row stays');
+    expect(auth.currentUser, isNull, reason: 'the previous behaviour: only the authed state is left');
+    expect(statuses, contains(isA<AuthStatusNotAuthed>()));
+    await auth.dispose();
+  });
+
+  test('a back press while deleting neither resets the selection nor skips the current account', () async {
+    final slow = _SlowStorage(db);
+    final auth = AuthenticationRepository(user: _alice);
+    final bloc = ManageAccountBloc(storageProvider: slow, authenticationRepository: auth)
+      ..add(const ManageAccountSelectAllRequested([1000, 1001]))
+      ..add(const ManageAccountDeleteSelectedRequested());
+    await slow.started.future;
+    expect(bloc.state.status, ManageAccountStatus.deleting);
+
+    // The system back while the rows are being deleted.
+    bloc.add(const ManageAccountSelectionCleared());
+    await Future<void>.delayed(Duration.zero);
+    expect(bloc.state.status, ManageAccountStatus.deleting, reason: 'clearing is ignored while deleting');
+    expect(bloc.state.selectedUids, {1000, 1001});
+
+    slow.release.complete();
+    await bloc.stream.firstWhere((s) => s.status == ManageAccountStatus.deleted).timeout(const Duration(seconds: 10));
+    expect(bloc.state.deletedCount, 2, reason: 'the current account used to be skipped after the back press');
+    expect(bloc.state.selecting, isFalse);
+    expect(await uids(), [1002]);
+    expect(auth.currentUser, isNull);
+    await bloc.close();
+    await auth.dispose();
+  });
+
+  group('the current account whose session was not verified in this run', () {
+    late CookieProvider global;
+
+    setUp(() async {
+      // At startup the global provider is built from the stored row of settings.loginUid; the repository has no user
+      // until the homepage verifies the session, which never happens offline or once the session expired.
+      await getIt.unregister<CookieProvider>();
+      global = CookieProvider.build();
+      getIt.registerSingleton<CookieProvider>(global);
+    });
+
+    test('is the effective current account and forgetCurrentUser removes it', () async {
+      final auth = AuthenticationRepository();
+      expect(auth.currentUser, isNull);
+      expect(auth.effectiveCurrentUid, 1000);
+      // A client of the current account built before the removal, its late answer carries a Set-Cookie.
+      final adapter = _FakeAdapter(setCookie: 'Ystv_2132_auth=fresh-alice-token; Path=/');
+      final client = NetClientProvider.build(dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter);
+
+      final result = await auth.forgetCurrentUser().run();
+      expect(result.isRight(), isTrue, reason: '$result');
+      expect(await uids(), [1001, 1002]);
+      expect(await settings.getValue<int>(SettingsKeys.loginUid), SettingsKeys.loginUid.defaultValue);
+      expect(settings.currentSettings.loginUid, SettingsKeys.loginUid.defaultValue, reason: 'in memory as well');
+      expect(global.userLoginInfo.uid, isNull);
+      expect(auth.effectiveCurrentUid, isNull);
+
+      // The client is bound to the removed account: its request is dropped and the Set-Cookie never reaches the
+      // provider (a Set-Cookie that does reach it is covered below).
+      final late = await client.get('$baseUrl/forum.php').run();
+      expect(late.isLeft(), isTrue, reason: '$late');
+      expect(adapter.requests, isEmpty);
+      expect(await uids(), [1001, 1002], reason: 'the late Set-Cookie must not recreate the row');
+      expect(storage.getCookieByUidSync(1000), isNull);
+      await auth.dispose();
+    });
+
+    test('a Set-Cookie after a plain row delete does not recreate the row of a provider built at startup', () async {
+      expect(await storage.deleteCookieByUid(1000), isTrue);
+      await global.write('.domains', '{"$baseHost":{"/":{"Ystv_2132_auth":"fresh-alice-token"}}}');
+      expect(
+        storage.getCookieByUidSync(1000),
+        isNull,
+        reason: 'build() mirrors a stored row like loadCookieFromStorage',
+      );
+      expect(await uids(), [1001, 1002]);
+    });
+
+    test('control: without a deletion the same Set-Cookie is saved into the row', () async {
+      await global.write('.domains', '{"$baseHost":{"/":{"Ystv_2132_auth":"fresh-alice-token"}}}');
+      expect(storage.getCookieByUidSync(1000)!.values.join(), contains('fresh-alice-token'));
+      expect(await uids(), [1000, 1001, 1002]);
+    });
   });
 
   group('a deleted account does not come back', () {
@@ -354,6 +482,37 @@ void main() {
       await tester.pump();
       expect(find.text('Manage account'), findsOneWidget, reason: 'back leaves selection mode instead of the page');
       expect(await uids(), [1000, 1001, 1002], reason: 'nothing was deleted');
+      await dispose(tester);
+    });
+
+    testWidgets('the account of an expired session shows as online and is removed for good', (tester) async {
+      // Expired-session start: the global provider still holds Alice, the repository has no verified user.
+      await auth.dispose();
+      auth = AuthenticationRepository();
+      await getIt.unregister<CookieProvider>();
+      getIt.registerSingleton<CookieProvider>(CookieProvider.build());
+
+      await tester.pumpWidget(host());
+      await settle(tester, find.text('Alice'));
+      expect(find.text('Online'), findsOneWidget, reason: 'the account in use is current, verified or not');
+
+      await tester.longPress(find.text('Alice'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('signed out'), findsOneWidget, reason: 'removing it signs this device out');
+      await tester.tap(find.text('Ok'));
+      await tester.pump();
+      await settle(tester, find.text('Deleted 1 account(s)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Alice'), findsNothing);
+      expect(find.text('Online'), findsNothing);
+      expect(await uids(), [1001, 1002]);
+      expect(await settings.getValue<int>(SettingsKeys.loginUid), SettingsKeys.loginUid.defaultValue);
+
+      // The next answer of the global client carries a Set-Cookie: the row must stay gone.
+      await getIt.get<CookieProvider>().write('.domains', '{"$baseHost":{"/":{"Ystv_2132_auth":"alice"}}}');
+      expect(await uids(), [1001, 1002], reason: 'the account used to come back with the next Set-Cookie');
       await dispose(tester);
     });
   });
