@@ -88,6 +88,25 @@ class AuthenticationRepository with LoggerMixin {
   /// The current logged user.
   UserLoginInfo? get currentUser => _authedUser;
 
+  /// Uid of the account this device acts as, also before the stored session was verified.
+  ///
+  /// [currentUser] is only set by a login or a successful check of the stored session; at an offline start or when
+  /// that session expired it stays null although the global [CookieProvider] and the settings still name the account
+  /// whose cookie every request carries. The manage accounts page treats that account as the current one so removing
+  /// it goes through [forgetCurrentUser] instead of only deleting its row. Null when no account is in use.
+  int? get effectiveCurrentUid =>
+      _validUid(_authedUser?.uid) ??
+      _validUid(getIt.get<CookieProvider>().userLoginInfo.uid) ??
+      _validUid(getIt.get<SettingsRepository>().currentSettings.loginUid);
+
+  static int? _validUid(int? uid) => uid != null && uid > 0 ? uid : null;
+
+  /// Whether [document] is the page the forum renders for a guest: the login form without the user node.
+  ///
+  /// Same rule as the check-in and notification fetches.
+  static bool _isGuestPage(uh.Document document) =>
+      document.querySelector('form#lsform') != null && document.querySelector('div#um') == null;
+
   /// Authentication status stream.
   Stream<AuthStatus> get status => _controller.asBroadcastStream();
 
@@ -222,8 +241,10 @@ class AuthenticationRepository with LoggerMixin {
   /// Check authentication status first then try to logout.
   /// Do nothing if already unauthenticated.
   ///
-  /// When the forum no longer knows the session (expired, or logged out elsewhere) the saved login is removed like
-  /// after a successful logout: keeping the row left the account listed as online with nothing able to remove it.
+  /// When the forum answers with the guest page (session expired, or logged out elsewhere) the saved login is removed
+  /// like after a successful logout: keeping the row left the account listed as online with nothing able to remove
+  /// it. Any other page without a logged user (maintenance, an unresolved interstitial) only leaves the authed state
+  /// and keeps the saved login, it says nothing about the session.
   AsyncVoidEither logout() => AsyncVoidEither(() async {
     if (_authedUser == null) {
       return rightVoid();
@@ -242,9 +263,14 @@ class AuthenticationRepository with LoggerMixin {
     final document = parseHtmlDocument(resp.data as String);
     final userInfo = _parseUserInfoFromDocument(document);
     if (userInfo == null) {
-      // Not logged in any more: nothing to end on the server, drop the saved login.
-      info('logout: session already gone on the server, remove the saved login');
-      await _forgetCurrentUser();
+      if (_isGuestPage(document)) {
+        // Not logged in any more: nothing to end on the server, drop the saved login.
+        info('logout: session already gone on the server, remove the saved login');
+        await _forgetCurrentUser();
+        return rightVoid();
+      }
+      warning('logout: no logged user on an unrecognized page, keep the saved login');
+      await _markUnauthenticated();
       return rightVoid();
     }
     final formHash = _formHashRe.firstMatch(document.body?.innerHtml ?? '')?.namedGroup('FormHash');
@@ -274,9 +300,10 @@ class AuthenticationRepository with LoggerMixin {
   /// Remove the current account from this device without telling the forum.
   ///
   /// Clears the cookie in memory, deletes the saved login and marks the app as unauthenticated; no request is sent,
-  /// so it works offline and the forum session stays valid elsewhere. Does nothing when nobody is logged in.
+  /// so it works offline and the forum session stays valid elsewhere. The account is [effectiveCurrentUid], so it
+  /// also works when the stored session was never verified in this run; does nothing when no account is in use.
   AsyncVoidEither forgetCurrentUser() => AsyncVoidEither(() async {
-    if (_authedUser == null) {
+    if (effectiveCurrentUid == null) {
       return rightVoid();
     }
     await _forgetCurrentUser();
@@ -284,8 +311,9 @@ class AuthenticationRepository with LoggerMixin {
   });
 
   Future<void> _forgetCurrentUser() async {
+    // Resolve the account before the provider forgets it.
+    final uid = effectiveCurrentUid;
     getIt.get<CookieProvider>().clearUserInfoAndCookie();
-    final uid = _authedUser?.uid;
     if (uid != null) {
       await getIt.get<StorageProvider>().deleteCookieByUid(uid);
     }

@@ -421,9 +421,10 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   - 管理帳號頁新增 `ManageAccountBloc`（`selecting`、`selectedUids`、`status idle/deleting/deleted/failed`、`deletedCount`）：長按帳號或 App bar「選擇」進入選取模式，點按切換、App bar 顯示數量、全選、刪除；關閉鈕／返回鍵離開選取模式（`PopScope`）。
     刪除前 `showQuestionDialog(dangerous)`，訊息說明只刪本機登入記錄、不向論壇登出；包含目前帳號時加註「本機將退出登入狀態」。完成後 snackbar 顯示刪除數量並離開選取模式。
   - 非目前帳號：`StorageProvider.deleteCookiesByUids`（先清 `_cookieCache`、一個 transaction，stream 只發一次）；目前帳號：`AuthenticationRepository.forgetCurrentUser()`（清 CookieProvider、刪列、`_markUnauthenticated`，不連網）。
+    「目前帳號」取 `AuthenticationRepository.effectiveCurrentUid`（`currentUser` → 全域 `CookieProvider.userLoginInfo.uid` → settings `loginUid`），離線啟動或 session 已過期、`currentUser` 仍為 null 時，在線 chip 與刪除路徑仍把它當目前帳號；刪除中忽略返回鍵的清除選取，選取快照在第一個 await 之前取得。
   - 單帳號對話框：原「清除登录记录」改名為「刪除帳號」（i18n `switchAccount.dialog.deleteAccount`），加確認與 snackbar；目前帳號多一個「從本機移除」（`forgetCurrentUser`），與連網「退出登入」並列。
-  - `logout()`：論壇回沒有登入者時也清 CookieProvider、刪列再 `_markUnauthenticated`（原本只標記、列留著，帳號卡在「在线」無法刪除）；改走可注入的 `currentUserClientFactory`（預設仍是 `NetClientProvider.build(userLoginInfo:)`），離線可測。
-  - 復活防護：`CookieProvider` 記住自己是否由 `loadCookieFromStorage` 載入（`_mirrorsStoredRow`）；是的話 `_syncCookie` 在 `getCookieByUidSync(uid) == null`（列已被刪）時不再 upsert，避免自動簽到進行中收到 Set-Cookie 把剛刪的帳號寫回。`updateUserInfo`（登入取得身分）與 `clearUserInfoAndCookie` 會重設旗標，登入建列不受影響。
+  - `logout()`：論壇回訪客頁（有 `form#lsform`、無 `div#um`，與簽到／通知同一規則）時也清 CookieProvider、刪列再 `_markUnauthenticated`（原本只標記、列留著，帳號卡在「在线」無法刪除）；其他認不出的 200 頁（維護頁、攔截頁）只 `_markUnauthenticated`、列保留；改走可注入的 `currentUserClientFactory`（預設仍是 `NetClientProvider.build(userLoginInfo:)`），離線可測。
+  - 復活防護：`CookieProvider` 記住自己是否由 `loadCookieFromStorage` 或 `CookieProvider.build()` 載入（`_mirrorsStoredRow`）；是的話 `_syncCookie` 在 `getCookieByUidSync(uid) == null`（列已被刪）時不再 upsert，避免自動簽到進行中收到 Set-Cookie 把剛刪的帳號寫回。`updateUserInfo`（登入取得身分）與 `clearUserInfoAndCookie` 會重設旗標，登入建列不受影響。
 - 測試：test_045（#4）、test_046（同日判定邊界、stream 重發、repository 立即寫入、bloc＋頁面顯示已簽到／未簽到／失敗原因）、test_047（批次刪除、`forgetCurrentUser`、訪客頁 `logout()` 刪列、Set-Cookie 不復活但登入仍建列、頁面長按→計數→刪除→確認→列消失、全選／關閉／返回）。
 
 ## 14. 通知權限與電池最佳化（GitHub #13、#3，2026-09-09）

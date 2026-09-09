@@ -115,7 +115,8 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
     final tr = context.t.manageAccountPage;
     final switching = state is SwitchUserLoading;
     final deleting = selection.status == ManageAccountStatus.deleting;
-    final currentUser = context.read<AuthenticationRepository>().currentUser;
+    // Also the account whose stored session was not verified yet (offline start, expired session).
+    final currentUid = context.read<AuthenticationRepository>().effectiveCurrentUid;
     final busy = switching || deleting;
 
     final Widget body;
@@ -148,7 +149,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
                     (e) => _UserInfoListTile(
                       userInfo: e.$1,
                       lastCheckin: e.$2,
-                      currentUserInfo: currentUser,
+                      currentUid: currentUid,
                       selecting: selection.selecting,
                       selected: selection.selectedUids.contains(e.$1.uid),
                       enabled: !busy,
@@ -171,14 +172,14 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
     return PopScope(
       canPop: !selection.selecting,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          // Back leaves selection mode first.
+        // Back leaves selection mode first; while deleting it is swallowed like the disabled close button.
+        if (!didPop && !deleting) {
           context.read<ManageAccountBloc>().add(const ManageAccountSelectionCleared());
         }
       },
       child: Scaffold(
         appBar: selection.selecting
-            ? _buildSelectionAppBar(context, selection, users, currentUser)
+            ? _buildSelectionAppBar(context, selection, users, currentUid)
             : AppBar(
                 title: Text(tr.title),
                 actions: [
@@ -217,7 +218,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
     BuildContext context,
     ManageAccountState selection,
     List<(UserLoginInfo, DateTime?)> users,
-    UserLoginInfo? currentUser,
+    int? currentUid,
   ) {
     final tr = context.t.manageAccountPage.selection;
     final bloc = context.read<ManageAccountBloc>();
@@ -243,7 +244,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
           onPressed: deleting || selection.selectedUids.isEmpty
               ? null
               : () async {
-                  final includesCurrent = currentUser?.uid != null && selection.selectedUids.contains(currentUser!.uid);
+                  final includesCurrent = currentUid != null && selection.selectedUids.contains(currentUid);
                   final confirmed = await showQuestionDialog(
                     context: context,
                     title: tr.delete,
@@ -268,7 +269,7 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
   const _UserInfoListTile({
     required this.userInfo,
     required this.lastCheckin,
-    required this.currentUserInfo,
+    required this.currentUid,
     required this.selecting,
     required this.selected,
     required this.enabled,
@@ -280,8 +281,8 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
   /// When this account last checked in from this device, null when never.
   final DateTime? lastCheckin;
 
-  /// Current login user.
-  final UserLoginInfo? currentUserInfo;
+  /// Uid of the current account, see [AuthenticationRepository.effectiveCurrentUid].
+  final int? currentUid;
 
   /// Whether the page is in selection mode.
   final bool selecting;
@@ -314,7 +315,7 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
     final tr = context.t.manageAccountPage;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final isCurrentUser = userInfo.uid! == currentUserInfo?.uid;
+    final isCurrentUser = userInfo.uid! == currentUid;
     final checkedIn = isCheckedInToday(lastCheckin);
     final failure = checkedIn ? null : _autoCheckinFailure(context);
     final bloc = context.read<ManageAccountBloc>();

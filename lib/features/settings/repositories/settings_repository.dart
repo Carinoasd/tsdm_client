@@ -190,7 +190,8 @@ final class SettingsRepository with LoggerMixin {
   /// Delete the settings record in database.
   Future<void> deleteValue<T>(SettingsKeys<T> key) async {
     await _storage.deleteKey(key.name);
-    _state = _state.copyWithKey(key, null);
+    // `copyWith` keeps a field when given null: the key reads as its default from now on, like after a restart.
+    _state = _state.copyWithKey(key, key.defaultValue);
     _controller.add(_state);
   }
 
