@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 浏览记录：新增账号筛选。页面顶部的筛选按钮可选「全部账号」或某个账号，只看该账号的浏览记录；账号来自本机记录，已从 App 移除的账号仍可选到；同名账号在菜单里以 UID 区分，选中后按钮上会带 UID；下拉刷新时保持筛选；没有记录时给出提示。(#19)
+
 ## [1.21.1] - 2026-09-09
 
 ### Fixed
