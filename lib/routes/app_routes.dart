@@ -242,7 +242,7 @@ final List<RouteBase> _appRoutes = [
     path: ScreenPaths.latestThread,
     builder: (state) {
       final url = state.uri.queryParameters['url']!;
-      return LatestThreadPage(url: url);
+      return LatestThreadPage(url: url, title: state.uri.queryParameters['title']);
     },
   ),
   AppRoute(
