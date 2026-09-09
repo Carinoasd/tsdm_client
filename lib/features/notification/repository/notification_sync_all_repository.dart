@@ -81,11 +81,25 @@ final class NotificationSyncAllRepository with LoggerMixin {
   });
 
   /// Fetch and store the notifications of [user] with its own client.
+  ///
+  /// Anything thrown on the way (cookie load, page decoding, the database writes) is reported as
+  /// [NotificationSyncResultFailed] for this account only: the batch goes on with the next one.
   Future<NotificationSyncResult> _syncOne(UserLoginInfo user) async {
     final uid = user.uid;
     if (uid == null) {
       return const NotificationSyncResultNotAuthorized();
     }
+    try {
+      return await _syncOneUnguarded(uid, user);
+      // Anything thrown here must be reported, not escape the run.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, st) {
+      error('sync notification for uid ${"$uid".obscured(4)} threw: $e', e, st);
+      return NotificationSyncResultFailed('$e');
+    }
+  }
+
+  Future<NotificationSyncResult> _syncOneUnguarded(int uid, UserLoginInfo user) async {
     final cookie = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
     if (!await cookie.loadCookieFromStorage(user)) {
       return const NotificationSyncResultNotAuthorized();

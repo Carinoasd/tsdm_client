@@ -486,6 +486,15 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       error('failed to update last fetch notice time: uid not found');
       return;
     }
+    // Never move the time backwards: the state keeps the latest message time of an earlier fetch and publishes it
+    // again on every success (reload from storage, mark as read), while the auto sync and the sync of all accounts
+    // have already moved the time to the minute their fetch started in. A fetched message is never older than the
+    // inclusive bound it was fetched since, so a record from a real fetch is never skipped here.
+    final stored = (await _storageProvider.fetchLastFetchNoticeTime(uid).run()).getOrElse((_) => null);
+    if (stored != null && !time.isAfter(stored)) {
+      debug('keep last fetch notification time ${stored.yyyyMMDDHHMMSS()}, ${time.yyyyMMDDHHMMSS()} is not later');
+      return;
+    }
     debug('update last fetch notification time to ${time.yyyyMMDDHHMMSS()}');
     await _storageProvider.updateLastFetchNoticeTime(uid, time).run();
   }

@@ -60,6 +60,12 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
   /// Timer calculating fetch actions.
   Timer? _timer;
 
+  /// Who holds the pause, one entry per [pause] reason.
+  ///
+  /// The login, the account switch and the sync of all accounts can overlap: the timer restarts only when the last
+  /// holder calls [resume], so none of them can lift a pause another one still relies on.
+  final _pauseReasons = <String>{};
+
   /// Check is fetching the task or not.
   ///
   /// Fetching means doing the fetch action, so other conflict actions shall waiting for the sync process till it
@@ -150,6 +156,7 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
     // Note that here is no check on whether already running a auto fetch action
     // because it's the callback to do the actual fetch job so changing duration
     // or timer here breaks nothing.
+    _pauseReasons.clear();
 
     if (duration != null) {
       this.duration = duration;
@@ -190,6 +197,7 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
     _timer?.cancel();
     _timer = null;
     _remainingTick = Duration.zero;
+    _pauseReasons.clear();
     emit(const AutoNoticeStateStopped());
   }
 
@@ -198,6 +206,8 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
   /// If not running, do nothing.
   ///
   /// Return `true` if the cubit is pending data. The caller shall only enter the critical section when return `false`.
+  /// A pause taken while already paused by another [reason] is recorded too: the process resumes only when every
+  /// holder has called [resume] with its own reason.
   bool pause(String reason) {
     if (state is AutoNoticeStatePending) {
       return true;
@@ -207,8 +217,14 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
       info('auto fetch paused at total=$total remain=$remain reason=$reason');
       _timer?.cancel();
       _timer = null;
+      _pauseReasons.add(reason);
       emit(AutoNoticeStatePaused(total: total, remain: remain));
       return false;
+    }
+
+    if (state is AutoNoticeStatePaused) {
+      _pauseReasons.add(reason);
+      debug('auto fetch already paused, holders=$_pauseReasons reason=$reason');
     }
 
     return false;
@@ -216,9 +232,14 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
 
   /// Continue the paused fetch process.
   ///
-  /// If not paused, do nothing.
+  /// If not paused, do nothing. Stays paused while another [pause] reason is still held.
   void resume(String reason) {
+    _pauseReasons.remove(reason);
     if (state case AutoNoticeStatePaused(:final total, :final remain)) {
+      if (_pauseReasons.isNotEmpty) {
+        debug('auto fetch stays paused, holders=$_pauseReasons reason=$reason');
+        return;
+      }
       info('auto fetch resumes with total=$total remain=$remain reason=$reason');
       _timer?.cancel();
       _timer = null;
