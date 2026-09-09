@@ -310,26 +310,7 @@ final class _Muncher with LoggerMixin {
           // Attach url to open when `onTap`.
           GestureRecognizer? recognizer;
           if (state.tapUrl != null) {
-            // Copy to save the url.
-            final url = state.tapUrl;
-            if (isMobile) {
-              recognizer = LongPressGestureRecognizer()
-                ..onLongPressCancel = () async {
-                  await _openUrl(url!);
-                }
-                ..onLongPress = () async {
-                  await _showUrlInfo(url!);
-                };
-            } else {
-              // Desktop or web.
-              recognizer = TapGestureRecognizer()
-                ..onTapDown = (_) async {
-                  await _openUrl(url!);
-                }
-                ..onSecondaryTap = () async {
-                  await _showUrlInfo(url!);
-                };
-            }
+            recognizer = _buildUrlRecognizer(state.tapUrl!);
           }
           state
             ..headingBrNodePassed = true
@@ -339,6 +320,10 @@ final class _Muncher with LoggerMixin {
           // state.wrapInWord ? text?.split('').join('\u200B') : text;
 
           // TODO: Support text-shadow.
+          if (recognizer == null && text != null && text.contains('://')) {
+            // Bare urls in plain text (the forum does not link them in notices, e.g. the reason of a rating).
+            return _linkifySpans(text, _buildTextStyle());
+          }
           return [TextSpan(text: text, recognizer: recognizer, style: _buildTextStyle())];
         }
 
@@ -846,6 +831,73 @@ final class _Muncher with LoggerMixin {
       ),
     ];
   }
+
+  /// Gesture recognizer that opens [url] on tap (desktop) or long-press cancel (mobile) and shows its info on
+  /// long press / secondary tap.
+  GestureRecognizer _buildUrlRecognizer(String url) {
+    if (isMobile) {
+      return LongPressGestureRecognizer()
+        ..onLongPressCancel = () async {
+          await _openUrl(url);
+        }
+        ..onLongPress = () async {
+          await _showUrlInfo(url);
+        };
+    }
+    // Desktop or web.
+    return TapGestureRecognizer()
+      ..onTapDown = (_) async {
+        await _openUrl(url);
+      }
+      ..onSecondaryTap = () async {
+        await _showUrlInfo(url);
+      };
+  }
+
+  /// Split [text] into plain spans and tappable spans for every bare `http(s)://` url in it (GitHub #24).
+  ///
+  /// Trailing punctuation that is not part of a url (closing brackets, full-width punctuation, quotes) stays plain
+  /// text; urls that are not inside an anchor are the only ones reaching here because anchors set `tapUrl`.
+  List<InlineSpan> _linkifySpans(String text, TextStyle? style) {
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final match in _bareUrlRe.allMatches(text)) {
+      var url = match.group(0)!;
+      // Strip the punctuation a sentence appends to the url.
+      while (url.isNotEmpty && _urlTrailingPunctuation.contains(url[url.length - 1])) {
+        url = url.substring(0, url.length - 1);
+      }
+      if (url.length <= 'https://'.length) {
+        continue;
+      }
+      final start = match.start;
+      final end = start + url.length;
+      if (start > last) {
+        spans.add(TextSpan(text: text.substring(last, start), style: style));
+      }
+      spans.add(
+        TextSpan(
+          text: url,
+          recognizer: _buildUrlRecognizer(url),
+          style: (style ?? const TextStyle()).copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      );
+      last = end;
+    }
+    if (last == 0) {
+      return [TextSpan(text: text, style: style)];
+    }
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last), style: style));
+    }
+    return spans;
+  }
+
+  static final _bareUrlRe = RegExp(r'https?://[^\s<>"\u3000-\u303f\uff00-\uffef]+');
+  static const _urlTrailingPunctuation = '.,;:!?)]}\'"';
 
   /// Open a tapped [url].
   ///
