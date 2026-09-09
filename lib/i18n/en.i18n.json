@@ -1066,7 +1066,11 @@
       "viewUserSpaceTip": "View user space",
       "refreshRecommendTip": "Reload the friend list",
       "noFriends": "No friend on your @ list yet, type the username directly",
-      "noMatch": "No friend matches the keyword"
+      "noMatch": "No friend matches the keyword",
+      "filterHint": "Type to filter, or enter any username",
+      "others": "Other @ list",
+      "useTyped": "Mention “${name}”",
+      "friendsUnavailable": "Friends list unavailable: ${message}"
     }
   },
   "imageBottomSheet": {

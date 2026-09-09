@@ -1,48 +1,52 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
+import 'package:tsdm_client/features/editor/repository/mention_repository.dart';
+import 'package:tsdm_client/features/friend/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'user_mention_cubit.mapper.dart';
 
 part 'user_mention_state.dart';
 
-/// Cubit of user mention.
+/// Cubit of the mention picker.
 ///
-/// * Load the users the current user may mention.
-/// * Search in that list.
+/// Loads the candidates once through [MentionRepository] and filters them locally by keyword; a keyword change never
+/// touches the network.
 final class UserMentionCubit extends Cubit<UserMentionState> with LoggerMixin {
   /// Constructor.
-  UserMentionCubit(this._repo) : super(UserMentionState.empty());
+  UserMentionCubit(this._repo, {required String? selfUid}) : _selfUid = selfUid, super(UserMentionState.empty());
 
-  final EditorRepository _repo;
+  final MentionRepository _repo;
 
-  /// Search the `@` user list by part of username [keyword].
-  ///
-  /// Only update search result in state.
-  Future<void> searchUserByName({required String keyword}) async {
-    emit(state.copyWith(searchStatus: UserMentionStatus.loading));
-    switch (await _repo.searchUserByName(keyword: keyword).run()) {
-      case Left(:final value):
-        handle(value);
-        emit(state.copyWith(searchStatus: UserMentionStatus.failure));
-      case Right(:final value):
-        emit(state.copyWith(searchStatus: UserMentionStatus.success, searchResult: value));
-    }
-  }
+  /// Uid of the current user, null when nobody is logged in (then only the official `@` list is loaded).
+  final String? _selfUid;
 
-  /// Load the users the current user may mention (the official `@` list, friends on Discuz! X5).
-  ///
-  /// Kept in `randomFriend` of the state.
-  Future<void> loadFriends() async {
+  /// Load the candidates, from the repository cache unless [force].
+  Future<void> load({bool force = false}) async {
     emit(state.copyWith(recommendStatus: UserMentionStatus.loading));
-    switch (await _repo.loadAtUsers().run()) {
+    switch (await _repo.loadCandidates(selfUid: _selfUid, force: force).run()) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(recommendStatus: UserMentionStatus.failure));
       case Right(:final value):
-        emit(state.copyWith(recommendStatus: UserMentionStatus.success, randomFriend: value));
+        emit(
+          state.copyWith(
+            recommendStatus: UserMentionStatus.success,
+            friends: value.friends,
+            others: value.others,
+            friendsMessage: value.friendsMessage,
+          ),
+        );
     }
+  }
+
+  /// Filter the candidates by [keyword], case insensitive.
+  void setKeyword(String keyword) {
+    final k = keyword.trim();
+    if (k == state.keyword) {
+      return;
+    }
+    emit(state.copyWith(keyword: k));
   }
 }
