@@ -4,7 +4,7 @@ part of 'models.dart';
 @MappableClass()
 final class ForumGroup with ForumGroupMappable {
   /// Constructor.
-  const ForumGroup({required this.name, required this.url, required this.forumList});
+  const ForumGroup({required this.name, required this.url, required this.forumList, this.moderators = const []});
 
   /// Forum name.
   final String name;
@@ -14,6 +14,9 @@ final class ForumGroup with ForumGroupMappable {
 
   /// All subreddit in the forum.
   final List<Forum> forumList;
+
+  /// Names of the group moderators ("分区版主" in the group header on `forum.php`), empty when the site lists none.
+  final List<String> moderators;
 
   /// True for the "我收藏的版块" panel Discuz! renders on `forum.php` for a member with favorite forums.
   ///
