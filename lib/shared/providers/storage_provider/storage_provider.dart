@@ -531,6 +531,21 @@ class StorageProvider with LoggerMixin {
     await RepliedThreadDao(_db).deleteByUid(uid);
   }
 
+  /// Save an image sticker [url] with an optional [name] (#5); returns the row id.
+  Future<int> addCustomImage({required String url, String name = ''}) async =>
+      CustomImageDao(_db).add(url: url, name: name);
+
+  /// All saved image stickers in display order.
+  Future<List<CustomImageEntity>> fetchCustomImages() async => CustomImageDao(_db).selectAll();
+
+  /// Watch the saved image stickers in display order.
+  Stream<List<CustomImageEntity>> watchCustomImages() => CustomImageDao(_db).watchAll();
+
+  /// Delete the image sticker with row [id].
+  Future<void> deleteCustomImage(int id) async {
+    await CustomImageDao(_db).deleteById(id);
+  }
+
   /*        notification        */
 
   /// Fetch the timestamp for user [uid] when fetch notification last time.
