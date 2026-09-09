@@ -1066,7 +1066,11 @@
       "viewUserSpaceTip": "檢視使用者資料",
       "refreshRecommendTip": "重新載入好友名單",
       "noFriends": "@ 名單裡還沒有好友，可直接輸入使用者名稱",
-      "noMatch": "好友裡沒有符合的使用者"
+      "noMatch": "好友裡沒有符合的使用者",
+      "filterHint": "輸入以篩選，或直接輸入使用者名稱",
+      "others": "其他 @ 名單",
+      "useTyped": "提醒 “${name}”",
+      "friendsUnavailable": "無法讀取好友名單：${message}"
     }
   },
   "imageBottomSheet": {

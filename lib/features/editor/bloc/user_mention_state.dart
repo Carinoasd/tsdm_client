@@ -15,45 +15,49 @@ enum UserMentionStatus {
   failure,
 }
 
-/// Basic state
+/// State of the mention picker: the loaded candidates and the keyword they are filtered by.
 @MappableClass()
 final class UserMentionState with UserMentionStateMappable {
   /// Constructor.
   const UserMentionState({
-    required this.searchStatus,
     required this.recommendStatus,
-    required this.searchResult,
-    required this.randomFriend,
-    this.formHash,
+    required this.friends,
+    required this.others,
+    required this.keyword,
+    this.friendsMessage,
   });
 
   /// Empty state.
-  factory UserMentionState.empty() => const UserMentionState(
-    searchStatus: UserMentionStatus.initial,
-    recommendStatus: UserMentionStatus.initial,
-    searchResult: [],
-    randomFriend: [],
-  );
+  factory UserMentionState.empty() =>
+      const UserMentionState(recommendStatus: UserMentionStatus.initial, friends: [], others: [], keyword: '');
 
-  /// Current status of searching user.
-  final UserMentionStatus searchStatus;
-
-  /// Current status of random recommend friend.
+  /// Status of loading the candidates.
   final UserMentionStatus recommendStatus;
 
-  /// Form hash used when searching user by name.
-  ///
-  /// It's hard to inject form hash from outside so we use the one when getting
-  /// random friends, it is the same with regular one in thread page or else
-  /// where editor exists but easier to fetch.
-  final String? formHash;
+  /// The current user's own friends.
+  final List<Friend> friends;
 
-  /// Search result.
-  final List<String> searchResult;
+  /// Names on the official `@` list that are not friends.
+  final List<String> others;
 
-  /// Random recommended friends.
-  ///
-  /// None value means http request failed.
-  /// We don't have to show the detail error.
-  final List<String> randomFriend;
+  /// Keyword the lists are filtered by, trimmed; empty shows everyone.
+  final String keyword;
+
+  /// Why the friends list could not be read, see [MentionCandidates.friendsMessage].
+  final String? friendsMessage;
+
+  bool _matches(String name) => keyword.isEmpty || name.toLowerCase().contains(keyword.toLowerCase());
+
+  /// Friends matching the keyword.
+  List<Friend> get visibleFriends => friends.where((e) => _matches(e.username)).toList();
+
+  /// Other names matching the keyword.
+  List<String> get visibleOthers => others.where(_matches).toList();
+
+  /// Whether a candidate has exactly the keyword as name (case insensitive).
+  bool get hasExactMatch {
+    final k = keyword.toLowerCase();
+    return k.isNotEmpty &&
+        (friends.any((e) => e.username.toLowerCase() == k) || others.any((e) => e.toLowerCase() == k));
+  }
 }

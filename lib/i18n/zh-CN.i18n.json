@@ -1066,7 +1066,11 @@
       "viewUserSpaceTip": "查看用户资料",
       "refreshRecommendTip": "重新加载好友列表",
       "noFriends": "@ 列表里还没有好友，可直接输入用户名",
-      "noMatch": "好友里没有符合的用户"
+      "noMatch": "好友里没有符合的用户",
+      "filterHint": "输入以筛选，或直接输入用户名",
+      "others": "其他 @ 名单",
+      "useTyped": "提醒 “${name}”",
+      "friendsUnavailable": "无法读取好友列表：${message}"
     }
   },
   "imageBottomSheet": {
