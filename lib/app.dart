@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/notification/repository/notification_info_r
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/points_changes_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -301,6 +302,12 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
             },
           ),
           BlocProvider(create: (_) => PointsChangesCubit()),
+          // Local "replied" marks of the current account for thread lists and the thread page (issue #21); not lazy
+          // so the marks are loaded before the first list shows.
+          BlocProvider(
+            create: (context) => RepliedThreadCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
+            lazy: false,
+          ),
           BlocProvider(
             create: (context) {
               final settings = context.read<SettingsBloc>().state.settingsMap;

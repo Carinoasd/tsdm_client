@@ -567,7 +567,8 @@
       "alreadyAdded": "已在收藏中",
       "removed": "已取消收藏",
       "failed": "操作失败：$err"
-    }
+    },
+    "repliedMark": "已回复"
   },
   "noticePage": {
     "title": "通知",
@@ -1368,7 +1369,8 @@
   },
   "workaroundRedirect": "查看对话",
   "threadCard": {
-    "viewInfo": "查看帖子信息"
+    "viewInfo": "查看帖子信息",
+    "replied": "已回复"
   },
   "myTitlesPage": {
     "title": "我的称号",

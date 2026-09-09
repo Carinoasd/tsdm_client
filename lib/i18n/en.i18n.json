@@ -567,7 +567,8 @@
       "alreadyAdded": "Already in favorites",
       "removed": "Removed from favorites",
       "failed": "Failed: $err"
-    }
+    },
+    "repliedMark": "Replied"
   },
   "noticePage": {
     "title": "Notifications",
@@ -1368,7 +1369,8 @@
   },
   "workaroundRedirect": "View conversation",
   "threadCard": {
-    "viewInfo": "View thread info"
+    "viewInfo": "View thread info",
+    "replied": "Replied"
   },
   "myTitlesPage": {
     "title": "My titles",

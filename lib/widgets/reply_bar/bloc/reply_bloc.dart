@@ -2,7 +2,9 @@ import 'package:dart_mappable/dart_mappable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
@@ -19,9 +21,18 @@ typedef _Emit = Emitter<ReplyState>;
 /// Bloc of reply
 class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   /// Constructor.
-  ReplyBloc({required ReplyRepository replyRepository})
-    : _replyRepository = replyRepository,
-      super(const ReplyState()) {
+  ///
+  /// With both [storageProvider] and [authenticationRepository], every reply stored in a thread (to the thread or
+  /// to one of its floors) is recorded as a local "replied" mark of the current account (issue #21); the chat pages
+  /// leave them out, they never reply in threads.
+  ReplyBloc({
+    required ReplyRepository replyRepository,
+    StorageProvider? storageProvider,
+    AuthenticationRepository? authenticationRepository,
+  }) : _replyRepository = replyRepository,
+       _storageProvider = storageProvider,
+       _authenticationRepository = authenticationRepository,
+       super(const ReplyState()) {
     on<ReplyParametersUpdated>(_onReplyParametersUpdated);
     on<ReplyThreadClosed>(_onReplyThreadClosed);
     on<ReplyToPostRequested>(_onReplyToPostRequested);
@@ -32,6 +43,28 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   }
 
   final ReplyRepository _replyRepository;
+  final StorageProvider? _storageProvider;
+  final AuthenticationRepository? _authenticationRepository;
+
+  /// Remember that the current account replied in the thread of [parameters] (local "replied" mark, issue #21).
+  ///
+  /// Skipped without a logged user; a storage error is logged, the reply itself was stored on the server.
+  Future<void> _recordReplied(ReplyParameters parameters) async {
+    final storage = _storageProvider;
+    final uid = _authenticationRepository?.currentUser?.uid;
+    final tid = int.tryParse(parameters.tid);
+    final fid = int.tryParse(parameters.fid);
+    if (storage == null || uid == null || tid == null || fid == null) {
+      return;
+    }
+    try {
+      await storage.recordRepliedThread(uid: uid, tid: tid, fid: fid);
+      // Keep the success state no matter what the local mark did.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, st) {
+      error('failed to record replied thread tid=$tid: $e', e, st);
+    }
+  }
 
   Future<void> _onReplyParametersUpdated(ReplyParametersUpdated event, _Emit emit) async {
     if (event.replyParameters == null) {
@@ -60,6 +93,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       emit(_failed(err));
       return;
     }
+    await _recordReplied(event.replyParameters);
     emit(_stored(ret.unwrap()));
   }
 
@@ -74,6 +108,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       emit(_failed(err));
       return;
     }
+    await _recordReplied(event.replyParameters);
     emit(_stored(ret.unwrap()));
   }
 
