@@ -65,7 +65,9 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
           loggedIn: context.read<AuthenticationRepository>().effectiveCurrentUid != null,
           topLocation: top,
         );
-        info('notification tap: action=${action.name} top=$top location=${context.read<RootLocationCubit>().currentPath}');
+        info(
+          'notification tap: action=${action.name} top=$top location=${context.read<RootLocationCubit>().currentPath}',
+        );
         switch (action) {
           case LocalNoticeTapAction.needLogin:
             debug('refuse to push to unavailable notification page: need login');
