@@ -31,6 +31,12 @@ class Cookie extends Table {
   /// Answer text of question id.
   TextColumn get answer => text().nullable()();
 
+  /// When the app last learned that the forum session of this account is dead (issue #25).
+  ///
+  /// Set by whatever got the guest page with this account's cookie (auto check-in, the notification sync, the
+  /// homepage), cleared when a login or an account switch verifies the session again. Null while nothing is known.
+  DateTimeColumn get sessionExpiredAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {uid};
 }
