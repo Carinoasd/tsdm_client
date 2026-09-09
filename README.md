@@ -21,6 +21,10 @@
 
 本專案延續自 [realth000/tsdm_client](https://github.com/realth000/tsdm_client)（MIT），保留其全部歷史與版權聲明；X5 適配與後續開發由 Carinoasd 負責。
 
+## English summary
+
+tsdm_client is the official mobile and desktop client of the 天使动漫 (Angel Anime) forum, a Discuz! X5 community with over two million registered members and several thousand new posts a day. The forum has no public API: the app talks to the same pages a browser does, parses them, and adds what a phone needs on top: multi-account login, check-in, notifications for replies and private messages, favorites, friends, red packets, an offline-friendly BBCode editor, and encrypted backup and restore. Releases for Android, iOS (unsigned), Windows, macOS and Linux are built by GitHub Actions; the in-app update check reads `version.json` from this repository. The project continues [realth000/tsdm_client](https://github.com/realth000/tsdm_client) (MIT) and is maintained by Carinoasd; user feedback arrives through the forum and the issue tracker here.
+
 ## 下載
 
 到 [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest) 下載：
