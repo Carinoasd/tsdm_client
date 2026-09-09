@@ -55,4 +55,16 @@ final class CookieDao extends DatabaseAccessor<AppDatabase> with _$CookieDaoMixi
   Future<int> updateLastFetchNoticeTime(int uid, DateTime datetime) async {
     return (update(cookie)..where((e) => e.uid.equals(uid))).write(CookieCompanion(lastFetchNotice: Value(datetime)));
   }
+
+  /// Set (or clear, with null) the time the session of user [uid] was found expired.
+  ///
+  /// Returns the number of rows touched: 0 when the account is not stored.
+  Future<int> updateSessionExpiredAt(int uid, DateTime? datetime) async {
+    return (update(cookie)..where((e) => e.uid.equals(uid))).write(CookieCompanion(sessionExpiredAt: Value(datetime)));
+  }
+
+  /// Watch the accounts whose session is known to be expired.
+  Stream<List<CookieEntity>> watchSessionExpired() {
+    return (select(cookie)..where((e) => e.sessionExpiredAt.isNotNull())).watch();
+  }
 }

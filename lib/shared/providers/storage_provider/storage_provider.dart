@@ -3,9 +3,11 @@ import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart';
@@ -33,6 +35,12 @@ final class NotificationGroup {
   /// All fetched broadcast message.
   final List<BroadcastMessageEntity> broadcastMessageList;
 }
+
+/// One account saved on this device with what the app knows about it, for pages listing every account.
+///
+/// `lastCheckin` is when it last checked in from this device (null when never); `sessionExpiredAt` is when the app
+/// last learned that its forum session is dead (null while nothing is known, see [StorageProvider.markSessionExpired]).
+typedef StoredAccount = ({UserLoginInfo user, DateTime? lastCheckin, DateTime? sessionExpiredAt});
 
 /// Load all cookie info from database without any dependency except [db].
 ///
@@ -104,6 +112,24 @@ class StorageProvider with LoggerMixin {
     );
   }
 
+  /// Get the stream of every account in storage with its last check-in and session expiry state.
+  ///
+  /// Emits again whenever the cookie table changes ([updateLastCheckinTime], [markSessionExpired], a login...), so
+  /// the manage accounts page stays current.
+  Stream<List<StoredAccount>> allAccountsStream() {
+    return CookieDao(_db).watchAll().map(
+      (e) => e
+          .map(
+            (entity) => (
+              user: UserLoginInfo(username: entity.username, uid: entity.uid),
+              lastCheckin: entity.lastCheckin,
+              sessionExpiredAt: entity.sessionExpiredAt,
+            ),
+          )
+          .toList(),
+    );
+  }
+
   /*             User             */
 
   /// Get all recorded login user.
@@ -124,9 +150,11 @@ class StorageProvider with LoggerMixin {
     return cookies.map((e) => (UserLoginInfo(username: e.username, uid: e.uid), e.lastCheckin)).toList();
   }
 
-  /// Delete the user login info for the user specified by [uid].
+  /// Delete the user login info for the user specified by [uid], with the local marks of the account.
   Future<int> deleteUserLoginInfo(int uid) async {
-    return CookieDao(_db).deleteCookieByUid(uid);
+    final deleted = await CookieDao(_db).deleteCookieByUid(uid);
+    await RepliedThreadDao(_db).deleteByUid(uid);
+    return deleted;
   }
 
   /*             cookie             */
@@ -196,10 +224,13 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete cookie for [uid].
+  ///
+  /// The local marks of the account ([recordRepliedThread]) go with it.
   Future<bool> deleteCookieByUid(int uid) async {
     // Update cookie cache.
     _cookieCache.removeWhere((e, _) => e.uid == uid);
     final affectedRows = await CookieDao(_db).deleteCookieByUid(uid);
+    await RepliedThreadDao(_db).deleteByUid(uid);
     return affectedRows != 0;
   }
 
@@ -214,10 +245,12 @@ class StorageProvider with LoggerMixin {
     }
     _cookieCache.removeWhere((e, _) => targets.contains(e.uid));
     final dao = CookieDao(_db);
+    final marks = RepliedThreadDao(_db);
     return _db.transaction(() async {
       var deleted = 0;
       for (final uid in targets) {
         deleted += await dao.deleteCookieByUid(uid);
+        await marks.deleteByUid(uid);
       }
       return deleted;
     });
@@ -234,6 +267,7 @@ class StorageProvider with LoggerMixin {
     if (uid != null) {
       _cookieCache.removeWhere((e, _) => e.uid == uid);
       affectedRows = await CookieDao(_db).deleteCookieByUid(uid);
+      await RepliedThreadDao(_db).deleteByUid(uid);
     } else if (username != null) {
       _cookieCache.removeWhere((e, _) => e.username == username);
       affectedRows = await CookieDao(_db).deleteCookieByUsername(username);
@@ -433,6 +467,69 @@ class StorageProvider with LoggerMixin {
     await ThreadVisitHistoryDao(_db).deleteAll();
     return rightVoid();
   });
+
+  /*        session expiry        */
+
+  /// Remember that the forum session of the account [uid] is dead (issue #25), as of [at] (now by default).
+  ///
+  /// Call it whenever a request made with that account's cookie got the guest page. Nothing happens when the account
+  /// is not stored. Cleared by [clearSessionExpired] once a login or an account switch verified the session again.
+  Future<void> markSessionExpired(int uid, {DateTime? at}) async {
+    final touched = await CookieDao(_db).updateSessionExpiredAt(uid, at ?? DateTime.now());
+    if (touched > 0) {
+      info('session of uid ${"$uid".obscured(4)} marked expired');
+    }
+  }
+
+  /// Forget the session expiry of the account [uid]: its session was verified alive again.
+  Future<void> clearSessionExpired(int uid) async {
+    await CookieDao(_db).updateSessionExpiredAt(uid, null);
+  }
+
+  /// The accounts whose session is known to be expired.
+  Future<List<StoredAccount>> fetchExpiredSessions() async {
+    final rows = await CookieDao(_db).selectAll();
+    return rows
+        .where((e) => e.sessionExpiredAt != null)
+        .map(
+          (e) => (
+            user: UserLoginInfo(username: e.username, uid: e.uid),
+            lastCheckin: e.lastCheckin,
+            sessionExpiredAt: e.sessionExpiredAt,
+          ),
+        )
+        .toList();
+  }
+
+  /// Watch the uids of the accounts whose session is known to be expired.
+  ///
+  /// Emits again on every change of the cookie table; identical sets are not repeated.
+  Stream<Set<int>> watchExpiredSessionUids() =>
+      CookieDao(_db).watchSessionExpired().map((e) => e.map((entity) => entity.uid).toSet()).distinct(setEquals);
+
+  /*        replied threads        */
+
+  /// Remember that user [uid] replied to thread [tid] in forum [fid] (issue #21).
+  ///
+  /// A local mark only, refreshed when recorded again. Removed with the account.
+  Future<void> recordRepliedThread({required int uid, required int tid, required int fid}) async {
+    await RepliedThreadDao(_db).record(uid: uid, tid: tid, fid: fid);
+  }
+
+  /// The ids of the threads user [uid] replied to, only those in forum [fid] when given.
+  Future<Set<int>> fetchRepliedTids(int uid, {int? fid}) async =>
+      (await RepliedThreadDao(_db).selectByUid(uid, fid: fid)).map((e) => e.tid).toSet();
+
+  /// Watch the ids of the threads user [uid] replied to, only those in forum [fid] when given.
+  ///
+  /// Emits the current set first and again after every change of the marks of any user.
+  Stream<Set<int>> watchRepliedTids(int uid, {int? fid}) =>
+      RepliedThreadDao(_db).watchByUid(uid, fid: fid).map((e) => e.map((entity) => entity.tid).toSet());
+
+  /// Delete every replied mark of user [uid].
+  Future<void> deleteRepliedThreadsByUid(int uid) async {
+    await RepliedThreadDao(_db).deleteByUid(uid);
+  }
 
   /*        notification        */
 

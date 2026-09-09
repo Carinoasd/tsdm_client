@@ -21,6 +21,7 @@ part 'database.g.dart';
     Image,
     Notice,
     PersonalMessage,
+    RepliedThread,
     Settings,
     ThreadVisitHistory,
     UserAvatar,
@@ -31,7 +32,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -146,6 +147,13 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
         info('migrating database schema from 10 to 11...');
         await m.addColumn(schema.fastRateTemplate, schema.fastRateTemplate.special2);
         info('migrating database schema from 10 to 11... ok!');
+      },
+      from11To12: (m, schema) async {
+        info('migrating database schema from 11 to 12...');
+        // Local "already replied" marks (#21) and the per-account session expiry hint (#25).
+        await m.create(schema.repliedThread);
+        await m.addColumn(schema.cookie, schema.cookie.sessionExpiredAt);
+        info('migrating database schema from 11 to 12... ok!');
       },
     ),
   );
