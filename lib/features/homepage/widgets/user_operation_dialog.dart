@@ -84,6 +84,14 @@ class UserOperationDialog extends StatelessWidget with LoggerMixin {
               await context.pushNamed(ScreenPaths.favorite);
             },
           ),
+          // Switching or adding an account was only reachable through the settings page (#16).
+          ListTile(
+            title: Text(context.t.manageAccountPage.title),
+            onTap: () async {
+              context.pop();
+              await context.pushNamed(ScreenPaths.manageAccount);
+            },
+          ),
           ListTile(
             title: Text(tr.latestThread),
             onTap: latestThreadUrl == null
