@@ -104,8 +104,11 @@ class CustomImageTab extends StatelessWidget {
           children: [
             if (snapshot.hasData && images.isEmpty)
               Padding(
-                padding: edgeInsetsL12T4R12,
-                child: Text(tr.empty, style: Theme.of(context).textTheme.bodySmall),
+                padding: edgeInsetsL12T4R12B12,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(tr.empty, style: Theme.of(context).textTheme.bodySmall),
+                ),
               ),
             Flexible(
               child: GridView.builder(
@@ -123,6 +126,11 @@ class CustomImageTab extends StatelessWidget {
                     return Tooltip(
                       message: tr.add,
                       child: OutlinedButton(
+                        // Same square with rounded corners as the thumbnails next to it.
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: EdgeInsets.zero,
+                        ),
                         onPressed: () async => showCustomImageAddDialog(context),
                         child: const Icon(Icons.add_outlined),
                       ),
