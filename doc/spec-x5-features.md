@@ -406,6 +406,8 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 
 - 1.19.1：分區頁解析後記錄分區名、收藏版塊 fid 與「頁面裡是否有收藏面板連結」（`forum index parsed:` 一行），單看日誌即可分辨「論壇沒渲染」與「解析失手」。登入者辨識加上「默认毛坯」風格的 `div.block_name` 名字連結，並以每頁都有的 `discuz_uid` 腳本變數作 uid 後備（`parseLoggedUidFromDocument`）。「我收藏的版块」分頁第一次出現時自動選取它（原本沿用先前的分頁索引，新分頁可能在可捲動分頁列的畫面外）；TabBarView 以控制器為 key 重建，避免舊頁面位置把新控制器的索引拖回去。
 
+- **1.19.2 真因**：Discuz `forum_index.php` 有 `if($_G['uid'] && empty($_G['cookie']['nofavfid']))`：某 session 第一次列首頁時帳號沒有收藏版塊，伺服器種 `<prefix>_nofavfid=1`（一年），之後該 session 一律不輸出「我收藏的版块」；只有在同一 session 收藏才會清掉。App 的 session 在網頁收藏後因此永遠看不到面板，重新登入（新 session）才正常——測試帳號實測重現。修法：`_DropServerFlagCookies` 攔截器在 CookieManager 之前把 `Set-Cookie` 的 `*_nofavfid` 丟掉；`stripServerFlagCookies` 在 CookieProvider 載入／寫入時清掉舊資料裡的旗標（test_058）。
+
 ## 13. 自動簽到提示列、各帳號今日簽到狀態、刪除帳號（GitHub #4、#9、#6，2026-09-09）
 
 ### 13.1 論壇端事實

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/extensions/string.dart';
@@ -6,6 +7,60 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
+
+/// Cookie names the server uses as a per-session flag and the app must never keep.
+///
+/// Discuz! sets `<prefix>_nofavfid=1` (one year) when a session first lists the forum index while the account has no
+/// favorite forums, and then skips the "我收藏的版块" panel for that session as long as the cookie is there. It is
+/// only cleared for the session that adds a favorite, so a favorite added in the browser stayed invisible to the app
+/// until a new login (issue #1). Without the flag the server simply queries the favorites on every index page.
+const serverFlagCookieSuffixes = ['_nofavfid'];
+
+bool _isServerFlagCookie(String name) => serverFlagCookieSuffixes.any(name.endsWith);
+
+Object? _stripServerFlagsInJson(Object? node) {
+  if (node is Map) {
+    final out = <String, Object?>{};
+    for (final entry in node.entries) {
+      final key = '${entry.key}';
+      if (_isServerFlagCookie(key)) {
+        continue;
+      }
+      out[key] = _stripServerFlagsInJson(entry.value);
+    }
+    return out;
+  }
+  if (node is List) {
+    return node.map(_stripServerFlagsInJson).toList();
+  }
+  return node;
+}
+
+/// Remove the server flag cookies (see [serverFlagCookieSuffixes]) from a persisted cookie jar map.
+///
+/// Values are the JSON documents `cookie_jar` stores per key (domain -> path -> name -> cookie), names are map keys,
+/// so they are removed at any depth; values that are not JSON objects are kept as they are.
+Map<String, String> stripServerFlagCookies(Map<String, String> cookieMap) {
+  final out = <String, String>{};
+  for (final entry in cookieMap.entries) {
+    if (_isServerFlagCookie(entry.key)) {
+      continue;
+    }
+    var value = entry.value;
+    if (value.contains('_nofavfid')) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) {
+          value = jsonEncode(_stripServerFlagsInJson(decoded));
+        }
+      } on FormatException {
+        // Not JSON, keep as is.
+      }
+    }
+    out[entry.key] = value;
+  }
+  return out;
+}
 
 /// Manage cookie in http requests.
 ///
@@ -47,7 +102,7 @@ final class CookieProvider with LoggerMixin implements Storage {
     }
 
     // Loaded from a row like [loadCookieFromStorage]: must not bring the row back once the account was removed.
-    return CookieProvider(userInfo, Map.castFrom(databaseCookie)).._mirrorsStoredRow = true;
+    return CookieProvider(userInfo, stripServerFlagCookies(Map.castFrom(databaseCookie))).._mirrorsStoredRow = true;
   }
 
   /// Construct a instance with no preload cookie or user info
@@ -119,7 +174,7 @@ final class CookieProvider with LoggerMixin implements Storage {
     }
     debug('cookie switch to user $userInfo');
     _userLoginInfo = userInfo;
-    _cookieMap = Map.castFrom(databaseCookie);
+    _cookieMap = stripServerFlagCookies(Map.castFrom(databaseCookie));
     _mirrorsStoredRow = true;
     return true;
   }
@@ -259,6 +314,9 @@ final class CookieProvider with LoggerMixin implements Storage {
       return;
     }
     _cookieMap[key] = value;
+    if (value.contains('_nofavfid')) {
+      _cookieMap = stripServerFlagCookies(_cookieMap);
+    }
     await _syncCookie();
 
     // Check points changes events.
