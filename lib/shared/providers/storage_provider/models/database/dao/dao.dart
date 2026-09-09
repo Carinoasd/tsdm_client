@@ -8,6 +8,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/sc
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'cookie.dart';
+part 'custom_image.dart';
 part 'dao.g.dart';
 part 'fast_rate_template.dart';
 part 'fast_reply_template.dart';
