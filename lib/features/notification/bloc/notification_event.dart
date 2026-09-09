@@ -10,6 +10,13 @@ sealed class NotificationEvent with NotificationEventMappable {
 @MappableClass()
 final class NotificationUpdateAllRequested extends NotificationEvent with NotificationUpdateAllRequestedMappable {}
 
+/// Rebuild the lists from what is stored for the current user, without fetching.
+///
+/// Sent when another path wrote the current user's rows (the sync of all accounts).
+@MappableClass()
+final class NotificationReloadFromStorageRequested extends NotificationEvent
+    with NotificationReloadFromStorageRequestedMappable {}
+
 /// Need to update the last fetch notification timestamp for current user in
 /// storage.
 @MappableClass()

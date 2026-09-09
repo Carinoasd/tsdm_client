@@ -5,9 +5,11 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -107,6 +109,105 @@ NotificationV2 freshNotifications({required NotificationV2 fetched, required Not
   );
 }
 
+/// Result of [persistFetchedNotification]: what was news in the fetched copies, the copies as stored (read state
+/// reconciled) and the unread counts of the user recounted from storage after saving.
+typedef PersistedNotification = ({NotificationV2 fresh, NotificationV2 reconciled, NotificationStateInfo unread});
+
+/// Store the notifications [fetched] for user [uid] into [storage], reconciling their read state with the copies
+/// already stored, and recount the user's unread notifications from storage afterwards.
+///
+/// This is the one place that turns a fetch result into stored rows: the current-user sync ([NotificationBloc]) and
+/// the sync of all accounts (`NotificationSyncAllRepository`) both go through it so the two store identically.
+///
+/// * `fresh` is [freshNotifications] decided before the reconciled copies overwrite the stored ones: the items that
+///   are news to the user.
+/// * `reconciled` is [fetched] with the read state as saved.
+/// * `unread` is the recount from storage, the same numbers the unread badge shows when [uid] is the current user.
+///
+/// Saving the server copies as they come resurrected items the user had read in the app: the last three days are
+/// listed again when the last fetch is older than that, and the newest minute is fetched again on purpose. See
+/// [reconcileNoticeReadState], [reconcilePersonalMessageReadState] and [reconcileBroadcastMessageReadState].
+Future<PersistedNotification> persistFetchedNotification({
+  required StorageProvider storage,
+  required int uid,
+  required NotificationV2 fetched,
+}) async {
+  final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
+  final fresh = freshNotifications(fetched: fetched, stored: stored);
+  final info = fetched.copyWith(
+    noticeList: reconcileNoticeReadState(fetched: fetched.noticeList, stored: stored.noticeList),
+    personalMessageList: reconcilePersonalMessageReadState(
+      fetched: fetched.personalMessageList,
+      stored: stored.personalMessageList,
+    ),
+    broadcastMessageList: reconcileBroadcastMessageReadState(
+      fetched: fetched.broadcastMessageList,
+      stored: stored.broadcastMessageList,
+    ),
+  );
+  talker.debug(
+    'saving notification: uid=${"$uid".obscured(4)} notice=${info.noticeList.length} '
+    'personalMessage=${info.personalMessageList.length} '
+    'broadcastMessage=${info.broadcastMessageList.length}',
+  );
+  await storage
+      .saveNotification(
+        uid: uid,
+        notificationGroup: NotificationGroup(
+          noticeList: info.noticeList
+              .map(
+                (e) => NoticeEntity(
+                  uid: uid,
+                  nid: e.id,
+                  timestamp: e.timestamp,
+                  data: e.data,
+                  alreadyRead: e.alreadyRead,
+                ),
+              )
+              .toList(),
+          personalMessageList: info.personalMessageList
+              .map(
+                (e) => PersonalMessageEntity(
+                  uid: uid,
+                  timestamp: e.timestamp,
+                  data: e.data,
+                  peerUid: e.peerUid,
+                  peerUsername: e.peerUsername,
+                  sender: e.sender,
+                  alreadyRead: e.alreadyRead,
+                ),
+              )
+              .toList(),
+          broadcastMessageList: info.broadcastMessageList
+              .map(
+                (e) => BroadcastMessageEntity(
+                  uid: uid,
+                  timestamp: e.timestamp,
+                  data: e.data,
+                  pmid: e.pmid,
+                  alreadyRead: e.alreadyRead,
+                ),
+              )
+              .toList(),
+        ),
+      )
+      .run();
+  return (fresh: fresh, reconciled: info, unread: await countUnreadNotification(storage: storage, uid: uid));
+}
+
+/// Recount the unread notifications of [uid] from [storage].
+///
+/// Storage is the source of truth of the unread badge; this is what `NotificationBloc` publishes for the current
+/// user after every mark and every sync.
+Future<NotificationStateInfo> countUnreadNotification({required StorageProvider storage, required int uid}) async {
+  final group = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
+  return NotificationStateInfo(
+    notice: group.noticeList.where((e) => !(e.alreadyRead ?? false)).length,
+    personalMessage: group.personalMessageList.where((e) => !e.alreadyRead).length,
+    broadcastMessage: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
+  );
+}
+
 /// Emitter
 typedef _Emit = Emitter<NotificationState>;
 
@@ -126,6 +227,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     on<NotificationEvent>(
       (e, emit) => switch (e) {
         NotificationUpdateAllRequested() => _onUpdateAllRequested(emit),
+        NotificationReloadFromStorageRequested() => _onReloadFromStorageRequested(emit),
         NotificationRecordFetchTimeRequested(:final time) => _onRecordFetchTimeRequested(time),
         NotificationMarkReadRequested(:final recordMark) => _onMarkReadRequested(emit, recordMark),
         NotificationInfoFetched(:final info) => _onNoticeInfoFetched(emit, info),
@@ -214,75 +316,11 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final latestMessageTime = info.latestTimestamp();
 
-    // Reconcile the read state of the fetched copies with the stored ones before saving, see
-    // [reconcileNoticeReadState], [reconcilePersonalMessageReadState] and [reconcileBroadcastMessageReadState].
-    // Saving the server copies as they come resurrected items the user had read in the app: the last three days are
-    // listed again when the last fetch is older than that, and the newest minute is fetched again on purpose.
-    final stored = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
-    // What is actually news, decided before the reconciled copies overwrite the stored ones.
-    final fresh = freshNotifications(fetched: info, stored: stored);
-    info = info.copyWith(
-      noticeList: reconcileNoticeReadState(fetched: info.noticeList, stored: stored.noticeList),
-      personalMessageList: reconcilePersonalMessageReadState(
-        fetched: info.personalMessageList,
-        stored: stored.personalMessageList,
-      ),
-      broadcastMessageList: reconcileBroadcastMessageReadState(
-        fetched: info.broadcastMessageList,
-        stored: stored.broadcastMessageList,
-      ),
-    );
-
-    // Save fetched notice.
-    debug(
-      'saving notification: notice=${info.noticeList.length} '
-      'personalMessage=${info.personalMessageList.length} '
-      'broadcastMessage=${info.broadcastMessageList.length} '
-      'latestTime=${latestMessageTime?.yyyyMMDDHHMMSS()}',
-    );
-    // Save fetched notifications.
-    await _storageProvider
-        .saveNotification(
-          uid: uid,
-          notificationGroup: NotificationGroup(
-            noticeList: info.noticeList
-                .map(
-                  (e) => NoticeEntity(
-                    uid: uid,
-                    nid: e.id,
-                    timestamp: e.timestamp,
-                    data: e.data,
-                    alreadyRead: e.alreadyRead,
-                  ),
-                )
-                .toList(),
-            personalMessageList: info.personalMessageList
-                .map(
-                  (e) => PersonalMessageEntity(
-                    uid: uid,
-                    timestamp: e.timestamp,
-                    data: e.data,
-                    peerUid: e.peerUid,
-                    peerUsername: e.peerUsername,
-                    sender: e.sender,
-                    alreadyRead: e.alreadyRead,
-                  ),
-                )
-                .toList(),
-            broadcastMessageList: info.broadcastMessageList
-                .map(
-                  (e) => BroadcastMessageEntity(
-                    uid: uid,
-                    timestamp: e.timestamp,
-                    data: e.data,
-                    pmid: e.pmid,
-                    alreadyRead: e.alreadyRead,
-                  ),
-                )
-                .toList(),
-          ),
-        )
-        .run();
+    // Store and reconcile through the shared helper, the same path the sync of all accounts uses.
+    final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: info);
+    // What is actually news, and the copies as stored.
+    final fresh = persisted.fresh;
+    info = persisted.reconciled;
 
     final currentUid = _authRepo.currentUser?.uid;
     if (currentUid != uid) {
@@ -505,11 +543,70 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('skip publishing unread counts: not the current user');
       return;
     }
-    final group = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    final unread = await countUnreadNotification(storage: _storageProvider, uid: uid);
     _infoRepository.updateInfo(
-      unreadNoticeCount: group.noticeList.where((e) => !(e.alreadyRead ?? false)).length,
-      unreadPersonalMessageCount: group.personalMessageList.where((e) => !e.alreadyRead).length,
-      unreadBroadcastMessageCount: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
+      unreadNoticeCount: unread.notice,
+      unreadPersonalMessageCount: unread.personalMessage,
+      unreadBroadcastMessageCount: unread.broadcastMessage,
+    );
+  }
+
+  /// Rebuild the lists in state from what is stored for the current user, without a network fetch.
+  ///
+  /// Used after the sync of all accounts wrote the current user's rows through [persistFetchedNotification]: the page
+  /// then lists them right away instead of on its next pull-to-refresh. Skipped while a fetch is in flight, its result
+  /// rebuilds the lists anyway.
+  Future<void> _onReloadFromStorageRequested(_Emit emit) async {
+    if (state.status == NotificationStatus.loading) {
+      debug('reload notification from storage, skipped because already loading');
+      return;
+    }
+    final uid = _authRepo.currentUser?.uid;
+    if (uid == null) {
+      debug('skip reload notification from storage: uid is null, not authorized');
+      return;
+    }
+    final group = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
+    if (_authRepo.currentUser?.uid != uid) {
+      debug('Async gap meets uid changes, do NOT update state.');
+      return;
+    }
+    final noticeList = group.noticeList
+        .map((e) => NoticeV2(id: e.nid, timestamp: e.timestamp, data: e.data, alreadyRead: e.alreadyRead ?? false))
+        .toList();
+    final personalMessageList = group.personalMessageList
+        .map(
+          (e) => PersonalMessageV2(
+            timestamp: e.timestamp,
+            data: e.data,
+            peerUid: e.peerUid,
+            peerUsername: e.peerUsername,
+            sender: e.sender,
+            alreadyRead: e.alreadyRead,
+          ),
+        )
+        .toList();
+    final broadcastMessageList = group.broadcastMessageList
+        .map(
+          (e) => BroadcastMessageV2(
+            timestamp: e.timestamp,
+            data: e.data,
+            pmid: e.pmid,
+            alreadyRead: e.alreadyRead ?? false,
+          ),
+        )
+        .toList();
+    debug(
+      'reload notification from storage: notice=${noticeList.length} personalMessage=${personalMessageList.length} '
+      'broadcastMessage=${broadcastMessageList.length}',
+    );
+    emit(
+      state.copyWith(
+        status: NotificationStatus.success,
+        noticeList: noticeList,
+        personalMessageList: personalMessageList,
+        broadcastMessageList: broadcastMessageList,
+      ),
     );
   }
 

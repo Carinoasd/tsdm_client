@@ -59,9 +59,12 @@ final class NotificationRepository with LoggerMixin {
     return now.add(const Duration(days: -3)).millisecondsSinceEpoch ~/ 1000;
   }
 
-  /// Fetch a html page as document.
-  AsyncEither<uh.Document> _fetchPage(String url) =>
-      getIt.get<NetClientProvider>().get(url).mapHttp((v) => parseHtmlDocument(v.data as String));
+  /// Fetch a html page as document with the current user's client.
+  AsyncEither<uh.Document> _fetchPage(String url) => _fetchPageWith(getIt.get<NetClientProvider>(), url);
+
+  /// Fetch a html page as document with [client].
+  static AsyncEither<uh.Document> _fetchPageWith(NetClientProvider client, String url) =>
+      client.get(url).mapHttp((v) => parseHtmlDocument(v.data as String));
 
   /// Fetch all notices from server page.
   AsyncEither<List<Notice>> fetchNotice() => _fetchPage(
@@ -87,48 +90,69 @@ final class NotificationRepository with LoggerMixin {
         ).map(BroadcastMessage.fromDl).whereType<BroadcastMessage>().toList(),
       );
 
-  /// Fetch all kinds of notification.
+  /// Fetch all kinds of notification with [client], without touching the [status] stream.
+  ///
+  /// [timestamp] is the last time call this api (in seconds). Only notifications since [timestamp] are returned.
+  /// Notifications in recent 3 days are returned if [timestamp] is null or older than 3 days, same as the old API.
+  ///
+  /// The account is whatever [client] carries: the current-user fetch ([fetchNotificationV2]) passes the default
+  /// client, the sync of all accounts passes one client per stored account. Returns [NotificationUserNotFound] when
+  /// the server answered the guest page (session expired), the request error otherwise.
+  AsyncEither<NotificationV2> fetchNotificationWith(NetClientProvider client, {int? timestamp}) =>
+      AsyncEither(() async {
+        final since = _buildSinceTimestamp(timestamp);
+        final results = await Future.wait([
+          _fetchPageWith(client, noticeUrl).run(),
+          _fetchPageWith(client, personalMessageUrl).run(),
+          _fetchPageWith(client, broadcastMessageUrl).run(),
+        ]);
+        for (final r in results) {
+          if (r case Left(:final value)) {
+            error('failed to fetch notification: $value');
+            return left(value);
+          }
+        }
+        final noticeDoc = results[0].getOrElse((_) => throw StateError('unreachable'));
+        // Session expired: the server renders a guest page with the login form, not an empty notice list.
+        if (noticeDoc.querySelector('form#lsform') != null && noticeDoc.querySelector('div#um') == null) {
+          error('failed to fetch notification: not logged in');
+          return left(NotificationUserNotFound());
+        }
+        final info = NotificationV2.fromDocuments(
+          noticeDoc: noticeDoc,
+          personalMessageDoc: results[1].getOrElse((_) => throw StateError('unreachable')),
+          broadcastMessageDoc: results[2].getOrElse((_) => throw StateError('unreachable')),
+          since: since,
+        );
+        debug(
+          'fetched notification since $since: notice=${info.noticeList.length} '
+          'pm=${info.personalMessageList.length} bm=${info.broadcastMessageList.length}',
+        );
+        return right(info);
+      });
+
+  /// Fetch all kinds of notification of the current user.
   ///
   /// [timestamp] is the last time call this api (in seconds). Only notifications since [timestamp] are returned.
   /// Notifications in recent 3 days are returned if [timestamp] is null or older than 3 days, same as the old API.
   /// [uid] is the user id of whom to do the fetch action.
   ///
+  /// The result is delivered on [status]: [NotificationInfoStateLoading] first, then [NotificationInfoStateFailure]
+  /// or [NotificationInfoStateSuccess]. The fetch itself is [fetchNotificationWith] on the default client.
+  ///
   /// The name is kept for compatibility, see the class document for details.
   AsyncVoidEither fetchNotificationV2({required int uid, int? timestamp}) {
     _controller.add(const NotificationInfoStateLoading());
     return AsyncVoidEither(() async {
-      final since = _buildSinceTimestamp(timestamp);
-      final results = await Future.wait([
-        _fetchPage(noticeUrl).run(),
-        _fetchPage(personalMessageUrl).run(),
-        _fetchPage(broadcastMessageUrl).run(),
-      ]);
-      for (final r in results) {
-        if (r case Left(:final value)) {
-          error('failed to fetch notification: $value');
+      final result = await fetchNotificationWith(getIt.get<NetClientProvider>(), timestamp: timestamp).run();
+      switch (result) {
+        case Left(:final value):
           _controller.add(const NotificationInfoStateFailure());
           return left(value);
-        }
+        case Right(:final value):
+          _controller.add(NotificationInfoStateSuccess(uid, value));
+          return rightVoid();
       }
-      final noticeDoc = results[0].getOrElse((_) => throw StateError('unreachable'));
-      // Session expired: the server renders a guest page with the login form, not an empty notice list.
-      if (noticeDoc.querySelector('form#lsform') != null && noticeDoc.querySelector('div#um') == null) {
-        error('failed to fetch notification: not logged in');
-        _controller.add(const NotificationInfoStateFailure());
-        return left(NotificationUserNotFound());
-      }
-      final info = NotificationV2.fromDocuments(
-        noticeDoc: noticeDoc,
-        personalMessageDoc: results[1].getOrElse((_) => throw StateError('unreachable')),
-        broadcastMessageDoc: results[2].getOrElse((_) => throw StateError('unreachable')),
-        since: since,
-      );
-      debug(
-        'fetched notification since $since: notice=${info.noticeList.length} '
-        'pm=${info.personalMessageList.length} bm=${info.broadcastMessageList.length}',
-      );
-      _controller.add(NotificationInfoStateSuccess(uid, info));
-      return rightVoid();
     });
   }
 
