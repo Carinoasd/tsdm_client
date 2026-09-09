@@ -103,6 +103,7 @@ final class SettingsRepository with LoggerMixin {
       netClientUserAgent: s.extract(_SK.netClientUserAgent),
       windowRememberSize: s.extract(_SK.windowRememberSize),
       windowSize: s.extract(_SK.windowSize),
+      windowMaximized: s.extract(_SK.windowMaximized),
       windowRememberPosition: s.extract(_SK.windowRememberPosition),
       windowPosition: s.extract(_SK.windowPosition),
       windowInCenter: s.extract(_SK.windowInCenter),
