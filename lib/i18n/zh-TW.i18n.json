@@ -1157,7 +1157,11 @@
     "autoCheckinRunning": "正在自動簽到",
     "autoCheckinFinished": "自動簽到已完成",
     "viewDetail": "查看詳情",
-    "syncAllFinished": "所有帳號通知已同步"
+    "syncAllFinished": "所有帳號通知已同步",
+    "sessionExpired": {
+      "message": "有 ${count: int} 個帳號的登入已過期",
+      "view": "查看"
+    }
   },
   "autoCheckinPage": {
     "title": "自動簽到",
@@ -1246,6 +1250,10 @@
     },
     "syncAll": {
       "title": "同步所有帳號的通知"
+    },
+    "sessionExpired": {
+      "hint": "登入已過期，請重新登入",
+      "loginAgain": "重新登入"
     }
   },
   "switchUserGroupPage": {

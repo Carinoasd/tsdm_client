@@ -145,10 +145,14 @@ final class AutoCheckinRepository with LoggerMixin {
 
   /// Update status: [userInfo] ends up with failure in checkin progress.
   ///
-  /// "Already checked in" still records the time: the account checked in from somewhere else today.
+  /// "Already checked in" still records the time: the account checked in from somewhere else today. "Not
+  /// authorized" means the forum answered the guest page to this account's cookie: its session is recorded as
+  /// expired (issue #25) so the manage accounts page can say so.
   Future<void> _updateFailure(UserLoginInfo userInfo, CheckinResult checkinResult) async {
     if (checkinResult is CheckinResultAlreadyChecked) {
       await _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now()).run();
+    } else if (checkinResult is CheckinResultNotAuthorized) {
+      await _storageProvider.markSessionExpired(userInfo.uid!);
     }
     _currentInfo = _currentInfo.copyWith(
       running: _currentInfo.running.where((e) => e != userInfo).toList(),

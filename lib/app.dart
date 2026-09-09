@@ -30,6 +30,7 @@ import 'package:tsdm_client/features/profile/repository/profile_repository.dart'
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/points_changes_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
+import 'package:tsdm_client/features/session_expiry/cubit/session_expiry_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
@@ -308,6 +309,15 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
             create: (context) => RepliedThreadCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
             lazy: false,
           ),
+          // Tells once per run which stored accounts have an expired login, and again when the account in use
+          // expires while the app runs (issue #25).
+          BlocProvider(
+            create: (context) {
+              final auth = context.repo<AuthenticationRepository>();
+              return SessionExpiryCubit(storageProvider: getIt(), currentUid: () => auth.effectiveCurrentUid)..start();
+            },
+            lazy: false,
+          ),
           BlocProvider(
             create: (context) {
               final settings = context.read<SettingsBloc>().state.settingsMap;
@@ -370,6 +380,24 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
                           ),
                   );
                 }
+              },
+            ),
+            BlocListener<SessionExpiryCubit, SessionExpiryState>(
+              listenWhen: (prev, curr) => prev.noticeSeq != curr.noticeSeq,
+              listener: (context, state) {
+                // The manage accounts page shows the expired accounts already: no action to open it on top of itself.
+                final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.manageAccount;
+                showSnackBar(
+                  context: context,
+                  message: tr.sessionExpired.message(count: state.noticeCount),
+                  actionOverflowThreshold: 0.6,
+                  action: onPage
+                      ? null
+                      : SnackBarAction(
+                          label: tr.sessionExpired.view,
+                          onPressed: () async => router.pushNamed(ScreenPaths.manageAccount),
+                        ),
+                );
               },
             ),
             BlocListener<NotificationBloc, NotificationState>(

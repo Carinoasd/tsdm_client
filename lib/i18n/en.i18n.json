@@ -1157,7 +1157,11 @@
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",
     "viewDetail": "View detail",
-    "syncAllFinished": "All accounts synced"
+    "syncAllFinished": "All accounts synced",
+    "sessionExpired": {
+      "message": "${count: int} account(s) have an expired login",
+      "view": "View"
+    }
   },
   "autoCheckinPage": {
     "title": "Auto checkin",
@@ -1246,6 +1250,10 @@
     },
     "syncAll": {
       "title": "Sync notifications of all accounts"
+    },
+    "sessionExpired": {
+      "hint": "Login expired, sign in again",
+      "loginAgain": "Sign in again"
     }
   },
   "switchUserGroupPage": {
