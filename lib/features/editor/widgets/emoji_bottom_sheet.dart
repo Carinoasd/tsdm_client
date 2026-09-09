@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
 import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
+import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -44,9 +45,13 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerP
   /// When calling this function, assume all emoji is available.
   Widget _buildEmojiTab(BuildContext context, EmojiState state) {
     final emojiGroupList = state.emojiGroupList!;
-    tabController ??= TabController(length: emojiGroupList.length, vsync: this);
+    // The user's own image stickers come first (#5), then the forum emoji groups.
+    tabController ??= TabController(length: emojiGroupList.length + 1, vsync: this);
 
-    final tabs = emojiGroupList.map((e) => Tab(child: Text(e.name)));
+    final tabs = [
+      Tab(child: Text(context.t.bbcodeEditor.customImage.tab)),
+      ...emojiGroupList.map((e) => Tab(child: Text(e.name))),
+    ];
     final tabViews = emojiGroupList.map(
       (e) => GridView.builder(
         padding: edgeInsetsL12R12,
@@ -80,7 +85,7 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerP
         TabBar(isScrollable: true, tabAlignment: TabAlignment.start, controller: tabController, tabs: tabs.toList()),
         sizedBoxW12H12,
         Expanded(
-          child: TabBarView(controller: tabController, children: tabViews.toList()),
+          child: TabBarView(controller: tabController, children: [const CustomImageTab(), ...tabViews]),
         ),
       ],
     );

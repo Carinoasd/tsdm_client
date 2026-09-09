@@ -48,10 +48,11 @@
       "favorite": "收藏"
     },
     "showMoreUserOperationsTip": "顯示更多使用者操作",
-    "latestReplySection": {
-      "title": "最新回覆",
-      "more": "查看更多",
-      "retry": "載入失敗，點一下重試"
+    "guide": {
+      "more": "更多",
+      "sofa": "搶沙發",
+      "failed": "載入失敗，點一下重試",
+      "empty": "目前還沒有貼文"
     },
     "forumStatus": {
       "today": "今日",
@@ -741,7 +742,8 @@
     }
   },
   "latestThreadPage": {
-    "title": "最新主題"
+    "title": "最新主題",
+    "empty": "目前還沒有貼文"
   },
   "ratePostPage": {
     "title": "評分",
@@ -1096,6 +1098,18 @@
       "others": "其他 @ 名單",
       "useTyped": "提醒「${name}」",
       "friendsUnavailable": "無法讀取好友名單：${message}"
+    },
+    "customImage": {
+      "tab": "我的圖片",
+      "add": "新增圖片",
+      "addTitle": "儲存圖片",
+      "urlHint": "圖片網址或 [img] 圖床代碼",
+      "nameHint": "名稱（選填）",
+      "invalidUrl": "不是 http(s) 圖片網址",
+      "delete": "刪除圖片",
+      "deleteConfirm": "從我的圖片裡刪除這張？",
+      "empty": "把圖片網址存在這裡，發帖時一鍵插入",
+      "saved": "已存到我的圖片"
     }
   },
   "imageBottomSheet": {
@@ -1106,7 +1120,8 @@
     "openLink": "開啟連結",
     "saveImage": "儲存圖片",
     "imageSaved": "圖片已儲存至 ${filePath: String}",
-    "failedToSaveImage": "無法儲存圖片"
+    "failedToSaveImage": "無法儲存圖片",
+    "saveAsSticker": "存到我的圖片"
   },
   "init": {
     "v1DeleteLegacyData": {

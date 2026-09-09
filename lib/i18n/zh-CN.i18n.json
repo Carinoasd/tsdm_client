@@ -48,10 +48,11 @@
       "favorite": "收藏"
     },
     "showMoreUserOperationsTip": "显示更多用户操作",
-    "latestReplySection": {
-      "title": "最新回复",
-      "more": "查看更多",
-      "retry": "加载失败，点击重试"
+    "guide": {
+      "more": "更多",
+      "sofa": "抢沙发",
+      "failed": "加载失败，点击重试",
+      "empty": "暂时还没有帖子"
     },
     "forumStatus": {
       "today": "今日",
@@ -741,7 +742,8 @@
     }
   },
   "latestThreadPage": {
-    "title": "最新主题"
+    "title": "最新主题",
+    "empty": "暂时还没有帖子"
   },
   "ratePostPage": {
     "title": "评分",
@@ -1096,6 +1098,18 @@
       "others": "其他 @ 名单",
       "useTyped": "提醒「${name}」",
       "friendsUnavailable": "无法读取好友列表：${message}"
+    },
+    "customImage": {
+      "tab": "我的图片",
+      "add": "添加图片",
+      "addTitle": "保存图片",
+      "urlHint": "图片网址或 [img] 图床代码",
+      "nameHint": "名称（可选）",
+      "invalidUrl": "不是 http(s) 图片网址",
+      "delete": "删除图片",
+      "deleteConfirm": "从我的图片里删除这张？",
+      "empty": "把图片网址存在这里，发帖时一键插入",
+      "saved": "已存到我的图片"
     }
   },
   "imageBottomSheet": {
@@ -1106,7 +1120,8 @@
     "openLink": "打开链接",
     "saveImage": "保存图片",
     "imageSaved": "图片已保存至 ${filePath: String}",
-    "failedToSaveImage": "无法保存图片"
+    "failedToSaveImage": "无法保存图片",
+    "saveAsSticker": "存到我的图片"
   },
   "init": {
     "v1DeleteLegacyData": {
