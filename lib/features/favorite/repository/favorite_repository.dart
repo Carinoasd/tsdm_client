@@ -146,7 +146,7 @@ final class FavoriteRepository with LoggerMixin {
   AsyncEither<FavoriteAddResult> addForumFavorite({required String fid, String description = ''}) =>
       _add(FavoriteType.forum, fid, description).map((result) {
         if (result is FavoriteAdded) {
-          _notifyForumFavoritesChanged();
+          notifyForumFavoritesChanged();
         }
         return result;
       });
@@ -210,12 +210,17 @@ final class FavoriteRepository with LoggerMixin {
           })
           .map((result) {
             if (type == FavoriteType.forum && result.removed) {
-              _notifyForumFavoritesChanged();
+              notifyForumFavoritesChanged();
             }
             return result;
           });
 
-  void _notifyForumFavoritesChanged() {
+  /// Tell the topics tab the "我收藏的版块" panel is out of date although no request of this repository changed it:
+  /// the forum page found the record already on the server, or found it missing, while acting on a forum.
+  ///
+  /// [rememberForum], [forgetForum] and [rememberAll] stay silent on purpose: the add and remove paths already
+  /// emit here, and the favorites list page and the topics tab itself write the cache through them.
+  void notifyForumFavoritesChanged() {
     if (!_forumFavoritesChanged.isClosed) {
       _forumFavoritesChanged.add(null);
     }

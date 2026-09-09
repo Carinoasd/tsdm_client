@@ -5,16 +5,22 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
+import 'package:tsdm_client/features/favorite/utils/forum_favorite_action.dart';
 import 'package:tsdm_client/features/favorite/utils/parse_favorite.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
@@ -61,6 +67,16 @@ final class _FakeAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// Authentication repository with a fixed logged user.
+final class _FakeAuth extends AuthenticationRepository {
+  _FakeAuth(this.user);
+
+  final UserLoginInfo? user;
+
+  @override
+  UserLoginInfo? get currentUser => user;
 }
 
 void main() {
@@ -259,6 +275,16 @@ void main() {
       expect(repo.isForumFavorited(uid: 1000, fid: '125'), isFalse);
     });
 
+    test('notifyForumFavoritesChanged tells the topics tab once, and nothing after dispose', () async {
+      repo.notifyForumFavoritesChanged();
+      await Future<void>.delayed(Duration.zero);
+      expect(changes, hasLength(1));
+      await repo.dispose();
+      repo.notifyForumFavoritesChanged();
+      await Future<void>.delayed(Duration.zero);
+      expect(changes, hasLength(1));
+    });
+
     test('seeding from the forum index keeps known favids and drops forums no longer listed', () {
       repo
         ..rememberForum(uid: 1000, fid: '125', favid: '500405')
@@ -271,6 +297,138 @@ void main() {
       expect(repo.isForumFavorited(uid: 1000, fid: '17'), isFalse);
       repo.seedForumFavorites(uid: 1000, fids: const []);
       expect(repo.isForumFavorited(uid: 1000, fid: '125'), isFalse);
+    });
+  });
+
+  group('toggleForumFavorite from the forum page', () {
+    const alice = UserLoginInfo(username: 'Alice', uid: 1000);
+    late AppDatabase db;
+    late StorageProvider storage;
+    late SettingsRepository settings;
+    late _FakeAdapter adapter;
+    late FavoriteRepository repo;
+    late List<void> changes;
+    late StreamSubscription<void> changeSub;
+    late _FakeAuth auth;
+
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      storage = StorageProvider(db, {}, {});
+      settings = SettingsRepository(storage);
+      adapter = _FakeAdapter();
+      getIt
+        ..registerSingleton<StorageProvider>(storage)
+        ..registerSingleton<SettingsRepository>(settings)
+        ..registerSingleton<CookieProvider>(CookieProvider.buildEmpty())
+        ..registerSingleton<NetErrorSaver>(NetErrorSaver())
+        ..registerFactory<CookieProvider>(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
+        ..registerFactory<NetClientProvider>(
+          () => NetClientProvider.build(dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter),
+        );
+      await settings.init();
+      repo = FavoriteRepository();
+      changes = [];
+      changeSub = repo.forumFavoritesChanged.listen(changes.add);
+      auth = _FakeAuth(alice);
+    });
+    tearDown(() async {
+      await changeSub.cancel();
+      await repo.dispose();
+      await auth.dispose();
+      await getIt.reset();
+      await settings.dispose();
+      await db.close();
+    });
+
+    /// A page with one button that toggles forum 125, recording the result in [results].
+    Widget host(List<bool> results) => TranslationProvider(
+      child: MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<AuthenticationRepository>.value(value: auth),
+          RepositoryProvider<FavoriteRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async => results.add(await toggleForumFavorite(context, fid: '125')),
+                child: const Text('toggle'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    /// Pump a few frames; the snack bar keeps `pumpAndSettle` busy.
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    /// Confirm the dialog on screen (the last action is Ok).
+    Future<void> confirm(WidgetTester tester) async {
+      await tester.tap(find.byType(TextButton).last);
+      await settle(tester);
+    }
+
+    testWidgets('removing a forum the panel listed but the server no longer has tells the topics tab', (tester) async {
+      // Listed by the "我收藏的版块" panel (favid unknown), removed on the web since.
+      repo.seedForumFavorites(uid: 1000, fids: ['125']);
+      adapter.answers[(uri, method) => uri.queryParameters['do'] == 'favorite'] = _data(
+        'favorite_forum_list_empty_x5.html',
+      );
+      final results = <bool>[];
+      await tester.pumpWidget(host(results));
+      await tester.tap(find.text('toggle'));
+      await tester.pump();
+      expect(find.byType(AlertDialog), findsOneWidget, reason: 'asks before removing');
+      await confirm(tester);
+
+      expect(results, [true]);
+      expect(repo.isForumFavorited(uid: 1000, fid: '125'), isFalse);
+      expect(
+        adapter.requests.where((e) => e.$1.queryParameters['op'] == 'delete'),
+        isEmpty,
+        reason: 'nothing to delete',
+      );
+      expect(changes, hasLength(1), reason: 'the panel still lists the forum: reload it');
+    });
+
+    testWidgets('adding a forum already favorited on the web tells the topics tab once found', (tester) async {
+      adapter.answers[(uri, method) => uri.queryParameters['ac'] == 'favorite'] = _data(
+        'favorite_forum_add_dialog_repeat_x5.xml',
+      );
+      adapter.answers[(uri, method) => uri.queryParameters['do'] == 'favorite'] = _data('favorite_forum_list_x5.html');
+      final results = <bool>[];
+      await tester.pumpWidget(host(results));
+      await tester.tap(find.text('toggle'));
+      await tester.pump();
+      expect(find.byType(TextField), findsOneWidget, reason: 'asks for the note');
+      await confirm(tester);
+
+      expect(results, [true]);
+      expect(repo.cachedForumFavid(uid: 1000, fid: '125'), '500405', reason: 'looked up in the list');
+      expect(changes, hasLength(1), reason: 'the panel does not list the forum yet: reload it');
+    });
+
+    testWidgets('an "already favorited" answer without a record in the list changes nothing', (tester) async {
+      adapter.answers[(uri, method) => uri.queryParameters['ac'] == 'favorite'] = _data(
+        'favorite_forum_add_dialog_repeat_x5.xml',
+      );
+      adapter.answers[(uri, method) => uri.queryParameters['do'] == 'favorite'] = _data(
+        'favorite_forum_list_empty_x5.html',
+      );
+      final results = <bool>[];
+      await tester.pumpWidget(host(results));
+      await tester.tap(find.text('toggle'));
+      await tester.pump();
+      await confirm(tester);
+
+      expect(results, [false]);
+      expect(repo.isForumFavorited(uid: 1000, fid: '125'), isFalse);
+      expect(changes, isEmpty);
     });
   });
 
