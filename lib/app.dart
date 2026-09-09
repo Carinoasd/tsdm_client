@@ -21,9 +21,11 @@ import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.d
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_auto_sync_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/root/bloc/points_changes_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
@@ -205,6 +207,11 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
           create: (_) => AutoCheckinRepository(storageProvider: getIt()),
           dispose: (repo) async => repo.dispose(),
         ),
+        RepositoryProvider<NotificationSyncAllRepository>(
+          create: (context) =>
+              NotificationSyncAllRepository(storageProvider: getIt(), notificationRepository: context.repo()),
+          dispose: (repo) async => repo.dispose(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -234,6 +241,17 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
               infoRepository: context.repo(),
               authRepo: context.repo(),
               storageProvider: getIt(),
+            ),
+          ),
+          // Top level: leaving the progress page must not cancel the run, like the auto checkin.
+          BlocProvider(
+            create: (context) => NotificationSyncAllCubit(
+              repository: context.repo(),
+              storageProvider: getIt(),
+              authenticationRepository: context.repo(),
+              infoRepository: context.repo(),
+              autoNotificationCubit: context.read<AutoNotificationCubit>(),
+              notificationBloc: context.read<NotificationBloc>(),
             ),
           ),
           BlocProvider(
@@ -320,6 +338,29 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
                       label: tr.viewDetail,
                       onPressed: () async => router.pushNamed(ScreenPaths.autoCheckinDetail),
                     ),
+                  );
+                }
+              },
+            ),
+            BlocListener<NotificationSyncAllCubit, NotificationSyncAllState>(
+              listenWhen: (prev, curr) =>
+                  prev is! NotificationSyncAllStateFinished && curr is NotificationSyncAllStateFinished,
+              listener: (context, state) {
+                if (state is NotificationSyncAllStateFinished) {
+                  talker.debug('sync all accounts finished: ${state.results.length} account(s)');
+                  // The progress page shows the result already: no action to open it again on top of itself.
+                  final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.notificationSyncAll;
+                  showSnackBar(
+                    context: context,
+                    message: tr.syncAllFinished,
+                    clearPrevious: true,
+                    actionOverflowThreshold: 0.6,
+                    action: onPage
+                        ? null
+                        : SnackBarAction(
+                            label: tr.viewDetail,
+                            onPressed: () async => router.pushNamed(ScreenPaths.notificationSyncAll),
+                          ),
                   );
                 }
               },

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,7 @@ import 'package:tsdm_client/features/multi_user/bloc/manage_account_bloc.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/widgets/manage_user_dialog.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -179,6 +182,23 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
             : AppBar(
                 title: Text(tr.title),
                 actions: [
+                  BlocBuilder<NotificationSyncAllCubit, NotificationSyncAllState>(
+                    builder: (context, syncState) {
+                      final syncing =
+                          syncState is NotificationSyncAllStatePreparing ||
+                          syncState is NotificationSyncAllStateRunning;
+                      return IconButton(
+                        icon: const Icon(Icons.sync_outlined),
+                        tooltip: tr.syncAll.title,
+                        onPressed: busy || syncing || users.isEmpty
+                            ? null
+                            : () async {
+                                unawaited(context.read<NotificationSyncAllCubit>().start());
+                                await context.pushNamed(ScreenPaths.notificationSyncAll);
+                              },
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.checklist_outlined),
                     tooltip: tr.selection.enter,

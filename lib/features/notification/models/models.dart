@@ -23,6 +23,8 @@ part 'notice_v2.dart';
 
 part 'notification_info_state.dart';
 
+part 'notification_sync_result.dart';
+
 part 'notification_v2.dart';
 
 part 'personal_message_v2.dart';

@@ -127,6 +127,9 @@ class ScreenPaths {
   /// Search notice.
   static const String noticeSearch = '/noticeSearch';
 
+  /// Page showing the progress of syncing the notifications of all accounts.
+  static const String notificationSyncAll = '/notice/syncAll';
+
   /// Reply page.
   ///
   /// Reply to a notice or message.
