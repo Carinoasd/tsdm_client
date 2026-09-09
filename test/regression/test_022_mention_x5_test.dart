@@ -26,7 +26,11 @@ final class _FakeAdapter implements HttpClientAdapter {
   final requests = <Uri>[];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options.uri);
     return ResponseBody.fromString(
       _atUserXml,
@@ -54,6 +58,12 @@ void main() {
     test('no extra space when whitespace already follows', () {
       expect(toOfficialMentions('[@]Alice[/@] ok'), '@Alice ok');
       expect(toOfficialMentions('[@]Bob[/@]\nnext'), '@Bob\nnext');
+    });
+
+    test('a name with brackets is kept whole', () {
+      expect(toOfficialMentions('hi [@][TSDM]Alice[/@]!'), 'hi @[TSDM]Alice !');
+      expect(toOfficialMentions('[@]a]b[/@] [@]x[y[/@]'), '@a]b @x[y ');
+      expect(toOfficialMentions('[@]x and [@]Bob[/@]'), '[@]x and @Bob ', reason: 'a literal [@] is not a chip');
     });
 
     test('other content is untouched', () {
