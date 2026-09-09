@@ -445,3 +445,19 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - Debug 區新增「發送測試通知」（Android）：以合成的 `NotificationAutoSyncInfoNotice` 呼叫 `showLocalNotification`，用來分辨「系統擋掉」與「沒有新訊息」。
 - `showLocalNotification` 移到 `lib/features/local_notice/show.dart`（App 層與 Debug 鈕共用），channel id `newNoticeChannel`、importance 不變（channel 一經建立無法由程式碼調高，換 id 會留下孤兒 channel，決定不動）；`home_page.dart` 裡從未被呼叫的複本刪除。
 - 測試：test_048（manifest 含兩個權限字串；cubit refresh／denied→request／permanentlyDenied→openAppSettings／不跳頁模式／battery request／disabled no-op；兩列 tile 顯示已允許／未允許／已永久拒絕／已忽略／未忽略、點按觸發 request、永久拒絕先出對話框取消不跳、確定才 openAppSettings）。
+
+## 15. 編輯器打 `@` 彈出提醒選單、選單列自己的好友（GitHub #8，2026-09-09）
+
+### 15.1 論壇端事實
+- 官方 `@` 名單：`GET misc.php?mod=getatuser&inajax=1` → `<root><![CDATA[Alice,Bob]]></root>`，只有名字、逗號分隔（§既有 `parseAtUserList`）。測試帳號（梦幻组，「允许 @ 的人数」＝0）拿到**空名單**，而測試者有 52 位好友——名單是否被身分組設定閘住無法離線驗證，所以 App **不依賴它**。
+- 自己的好友：`home.php?mod=space&uid=SELF&do=friend`（§10.1 的自己版面），24 位一頁、`div.pg > a.nxt` 下一頁；有 uid／頭像／群組；隱私或要求登入時是 `div.nfl h2.xs2`／`div#messagelogin`。
+- 送出格式不變：編輯器 chip `[@]name[/@]` → 發帖前 `toOfficialMentions` → 官方 `@name `（§既有）；身分組 allowat＝0 的帳號送出去仍是純文字、對方不會收到通知，App 無法改變。
+- 沒有做：站上的 `plugin.php?id=atgroup` 身分組 @（使用者定案不接手機）。
+
+### 15.2 App 端行為
+- `MentionRepository`（`lib/features/editor/repository/`）：同時抓自己的好友列表（`FriendRepository.listUrl(uid: selfUid)`，最多跟 5 頁、依 uid 去重；第 1 頁隱私／登入提示 → `friendsMessage`，後面某頁失敗保留已抓到的）與 getatuser；`loadCandidates({selfUid, force})` 回 `{friends: List<Friend>, others: List<String>（不在好友裡的名字，不分大小寫）, friendsMessage}`，**一邊失敗不算整體失敗**，兩邊都失敗（或未登入且 getatuser 失敗）才 Left。未登入（`selfUid == null`）只抓 getatuser。結果依 uid 快取在實例內，只有兩邊都成功才快取；`mention_picker.dart` 持有一個全 App 共用實例，所以重開選單不重抓，選單的重新整理鈕 `force: true`。
+- `UserMentionCubit` 改為本地篩選：`load({force})`、`setKeyword()`；state `{recommendStatus, friends, others, keyword, friendsMessage}` ＋ `visibleFriends／visibleOthers／hasExactMatch`；換關鍵字不碰網路。舊的 `searchUserByName／randomFriend／formHash` 全刪（`EditorRepository.searchUserByName` 保留給 repository 內部與 test_022）。
+- 選單 `showMentionPicker`（`mention_picker.dart`）：`showCustomBottomSheet` 底部表，取代舊的 `CustomAlertDialog`；搜尋欄（150 ms debounce，Enter 直接用輸入的字）、「好友」區（頭像＋名字＋群組，右側開個人頁；載入中／失敗／`friendsUnavailable(message)`／`noFriends`／`noMatch`）、「其他 @ 名單」區、以及關鍵字沒有**完全相同**的候選時的「提醒 “關鍵字”」列（任何使用者名稱都還能打）。`showUsernamePickerDialog` 變成薄轉呼叫，工具列 `@` 鈕與點既有 chip（帶原名字進搜尋欄）都走同一張表；舊對話框刪除。
+- 打 `@` 觸發 `MentionTrigger`（`lib/features/editor/utils/mention_trigger.dart`）：flutter_quill 的 `characterShortcutEvents` 只吃實體鍵盤，所以改監聽 controller（`addListener`，換整份文件也還活著）。文件長度**恰好 +1** 才排 250 ms 計時；只改選取範圍不動計時器、長度變其他數字取消。到時再檢查：可編輯、編輯器有焦點、游標收合且前一字是 `@`、`@` 在文首或前面是空白（`a@b` 不觸發、貼上不觸發、250 ms 內接著打字不打斷）。選到名字：`replaceText(at, 1, '')` 刪掉 `@` 再 `insertMention(name)`（`BBCodeEditorControllerForum.insertMention`＝`insertBBCode('[@]name[/@]')` ＋游標移到 chip 後）；取消保留 `@`。`RichEditor` 改成 StatefulWidget，有 focusNode 且非唯讀就掛 trigger，表關掉後 `requestFocus()` 把鍵盤叫回來；三個編輯器（回覆列、發帖／編輯、快速回覆範本）都自動得到。沒有設定開關（先不做）。
+- i18n `bbcodeEditor.userMention.{filterHint, others, useTyped(name), friendsUnavailable(message)}`。
+- 測試 test_049：repository 合併（自己版面 fixture、翻頁去重、getatuser 500 仍有好友且不快取、好友列表 500 仍有名單、隱私 fixture → message、未登入只抓 getatuser、雙失敗才 Left）；cubit 篩選不碰網路；MentionTrigger 在真 controller 上（文首／空白後觸發一次且 offset 正確、`a@b`／多字元／無焦點不觸發、取消保留 `@`、debounce 內續打不打斷、`toForumBBCode()=='hi [@]Alice[/@]'`、`toOfficialMentions`→`'hi @Alice '`、換文件後仍有效）；底部表 widget 測試（Bob 在好友區、點了回 'Bob'、關鍵字 zz 出「提醒 “zz”」、`showMentionPicker` 無登入也能開）。手機 IME 實機行為無法在此驗證。

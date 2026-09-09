@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/editor/utils/mention_trigger.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/image_dialog.dart';
+import 'package:tsdm_client/features/editor/widgets/mention_picker.dart';
 import 'package:tsdm_client/features/editor/widgets/url_dialog.dart';
-import 'package:tsdm_client/features/editor/widgets/username_picker_dialog.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 
 /// Wrapped bbcode editor.
-class RichEditor extends StatelessWidget {
+///
+/// Besides the picker callbacks, an editable editor with a focus node gets the typed `@` trigger: typing `@` at the
+/// start of the text or after whitespace opens the mention picker sheet, see [MentionTrigger].
+class RichEditor extends StatefulWidget {
   /// Constructor.
   const RichEditor({
     required this.controller,
@@ -45,8 +49,11 @@ class RichEditor extends StatelessWidget {
   /// Automatically focus the editor.
   final bool autoFocus;
 
-  static const _defaultEmojiWidth = 50.0;
-  static const _defaultEmojiHeight = 50.0;
+  /// Width and height an emoji is rendered with.
+  static const defaultEmojiWidth = 50.0;
+
+  /// Width and height an emoji is rendered with.
+  static const defaultEmojiHeight = 50.0;
 
   /// The maximum height of image.
   ///
@@ -61,15 +68,61 @@ class RichEditor extends StatelessWidget {
   ///   while keeping the same width/height ratio.
   /// * smaller than this limit, images are rendered in the original width, no
   ///   matter the height of image.
-  static const _imageMaxWidth = 550.0;
+  static const imageMaxWidth = 550.0;
+
+  @override
+  State<RichEditor> createState() => _RichEditorState();
+}
+
+class _RichEditorState extends State<RichEditor> {
+  MentionTrigger? _trigger;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachTrigger();
+  }
+
+  @override
+  void didUpdateWidget(RichEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller || oldWidget.editorFocusNode != widget.editorFocusNode) {
+      _attachTrigger();
+    }
+  }
+
+  @override
+  void dispose() {
+    _trigger?.dispose();
+    super.dispose();
+  }
+
+  void _attachTrigger() {
+    _trigger?.dispose();
+    _trigger = null;
+    final focusNode = widget.editorFocusNode;
+    if (widget.controller.readOnly || focusNode == null) {
+      return;
+    }
+    _trigger = MentionTrigger(controller: widget.controller, focusNode: focusNode, pick: _pickMention)..attach();
+  }
+
+  /// Open the picker for the typed `@`, and give the focus (and the keyboard) back to the editor afterwards.
+  Future<String?> _pickMention(int atOffset) async {
+    final name = await showMentionPicker(context);
+    if (mounted) {
+      widget.editorFocusNode?.requestFocus();
+    }
+    return name;
+  }
 
   @override
   Widget build(BuildContext context) {
     return BBCodeEditor(
-      controller: controller,
-      focusNode: editorFocusNode,
-      autoFocus: autoFocus,
-      scrollController: scrollController,
+      controller: widget.controller,
+      focusNode: widget.editorFocusNode,
+      autoFocus: widget.autoFocus,
+      scrollController: widget.scrollController,
       imageProvider: (context, url, width, height) {
         // Requirements:
         //
@@ -84,9 +137,9 @@ class RichEditor extends StatelessWidget {
           if (w == 0) {
             // Auto width, do not limit max height.
             maxHeight = h;
-          } else if (w > _imageMaxWidth && h != 0) {
+          } else if (w > RichEditor.imageMaxWidth && h != 0) {
             // Width too large, it will be set to max allowed width, scale down the height.
-            maxHeight = h * (_imageMaxWidth / w);
+            maxHeight = h * (RichEditor.imageMaxWidth / w);
           } else if (h == 0) {
             // Auto height.
             maxHeight = double.infinity;
@@ -100,7 +153,7 @@ class RichEditor extends StatelessWidget {
           url,
           width: (w == null || w <= 0) ? null : w,
           height: maxHeight == null ? maxHeight : null,
-          maxWidth: _imageMaxWidth,
+          maxWidth: RichEditor.imageMaxWidth,
           maxHeight: maxHeight,
         );
       },
@@ -115,9 +168,9 @@ class RichEditor extends StatelessWidget {
         if (data == null) {
           return Text(code);
         }
-        return Image.memory(data, width: _defaultEmojiWidth, height: _defaultEmojiHeight);
+        return Image.memory(data, width: RichEditor.defaultEmojiWidth, height: RichEditor.defaultEmojiHeight);
       },
-      usernamePicker: showUsernamePickerDialog,
+      usernamePicker: showMentionPicker,
       // TODO: Implement imageBuilder in editor package.
       // imageBuilder: (String url) => CachedImageProvider(url, context),
       urlLauncher: (url) async => context.dispatchAsUrl(url),
