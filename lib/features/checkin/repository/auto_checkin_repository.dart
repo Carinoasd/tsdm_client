@@ -74,7 +74,7 @@ final class AutoCheckinRepository with LoggerMixin {
       if (result is CheckinResultSuccess) {
         await _updateSuccess(userInfo, result);
       } else {
-        _updateFailure(userInfo, result);
+        await _updateFailure(userInfo, result);
       }
     }
     return rightVoid();
@@ -144,7 +144,12 @@ final class AutoCheckinRepository with LoggerMixin {
   }
 
   /// Update status: [userInfo] ends up with failure in checkin progress.
-  void _updateFailure(UserLoginInfo userInfo, CheckinResult checkinResult) {
+  ///
+  /// "Already checked in" still records the time: the account checked in from somewhere else today.
+  Future<void> _updateFailure(UserLoginInfo userInfo, CheckinResult checkinResult) async {
+    if (checkinResult is CheckinResultAlreadyChecked) {
+      await _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now()).run();
+    }
     _currentInfo = _currentInfo.copyWith(
       running: _currentInfo.running.where((e) => e != userInfo).toList(),
       failed: [..._currentInfo.failed, (userInfo, checkinResult)],
@@ -155,8 +160,9 @@ final class AutoCheckinRepository with LoggerMixin {
   /// Update status: [userInfo] checked in successfully.
   ///
   /// The last check-in time is written right away (the task is run here; it used to be built and dropped) so the
-  /// manage accounts page shows the account as checked in while the following accounts are still running. The bloc
-  /// writes the same time again for the whole batch when it finishes; that is idempotent.
+  /// manage accounts page shows the account as checked in while the following accounts are still running. This is
+  /// the only write: stamping the whole batch again when it finishes would move the time to the next day for a run
+  /// that crosses midnight.
   Future<void> _updateSuccess(UserLoginInfo userInfo, CheckinResult checkinResult) async {
     await _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now()).run();
     _currentInfo = _currentInfo.copyWith(

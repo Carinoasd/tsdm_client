@@ -415,7 +415,7 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - **#9 各帳號簽到狀態**：`isCheckedInToday(last, now:)`（`lib/features/checkin/utils/checkin_day.dart`）＝裝置本地同一日曆日；`AutoCheckinBloc` 的略過判定改用同一函式（原本 `now.day > last.day` 逐欄比較）。
   `StorageProvider.allUsersWithTimeStream()`（drift `watchAll`，`updateLastCheckinTime` 後會重發）；管理帳號頁每列副標題：uid、圖示＋「今日已簽到／今日未簽到」，
   若本次啟動的自動簽到對該帳號失敗（且不是「已經簽到」）再多一行 `CheckinResult.message`（例如登入已失效、429）；「在线」chip 仍在 trailing。
-  `AutoCheckinRepository._updateSuccess` 原本建了 `VoidTask` 沒 `run()`，寫入實際上沒發生；現在每個帳號成功後立即寫入，bloc 收尾時整批再寫一次（冪等）。
+  `AutoCheckinRepository._updateSuccess` 原本建了 `VoidTask` 沒 `run()`，寫入實際上沒發生；現在每個帳號成功（或「已經簽到」）後由 repository 當下寫入，bloc 收尾不再整批重寫（整批結束時間跨日會把早簽到的帳號標成隔天已簽到）。
   限制：本機日曆日與論壇 UTC+8 換日可能差幾小時；備份還原或從未在本機簽到的帳號 `lastCheckin` 為 null，顯示「未簽到」直到第一次簽到。
 - **#6 刪除帳號**：
   - 管理帳號頁新增 `ManageAccountBloc`（`selecting`、`selectedUids`、`status idle/deleting/deleted/failed`、`deletedCount`）：長按帳號或 App bar「選擇」進入選取模式，點按切換、App bar 顯示數量、全選、刪除；關閉鈕／返回鍵離開選取模式（`PopScope`）。
