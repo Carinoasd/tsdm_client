@@ -134,7 +134,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   final _replyBarController = ReplyBarController();
 
-  /// Floor to scroll to when the thread reloads after a reply: the post the user just wrote. Read by the next
+  /// Floor to scroll to when the thread reloads after a reply or edit. Read by the next
   /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
   String? _scrollToPidOnReload;
 
@@ -263,7 +263,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             pageNumber: context.read<JumpPageCubit>().state.currentPage,
             initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
             scrollController: _listScrollController,
-            widgetBuilder: (context, post) => PostCard(post, replyCallback: replyPostCallback),
+            widgetBuilder: (context, post) => PostCard(
+              post,
+              replyCallback: replyPostCallback,
+              onEdited: () => _scrollToPidOnReload = post.postID,
+            ),
             useDivider: true,
             postList: state.postList,
             canLoadMore: state.canLoadMore,
