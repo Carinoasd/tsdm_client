@@ -33,14 +33,16 @@ final class RootLocationCubit extends Cubit<RootLocationState> with LoggerMixin 
           if (currentPath != path) {
             if (path == ScreenPaths.homepage) {
               // Special case for shelled route.
-              //emit(state.toList()..removeWhere((e) => e == path));
               return;
             }
-
-            error(
-              'failed to leave page non-current path $path, current '
-              'page is $state',
-            );
+            // A page replaced by another one is disposed after its successor entered: drop its last occurrence
+            // wherever it sits so the stack does not keep growing.
+            final index = state.locations.lastIndexOf(path);
+            if (index < 0) {
+              debug('leave page $path that never entered, current page is $currentPath');
+              return;
+            }
+            emit(state.copyWith(locations: state.locations.toList()..removeAt(index)));
             return;
           }
           emit(state.copyWith(locations: state.locations.toList()..removeLast()));
