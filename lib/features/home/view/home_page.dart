@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
@@ -15,17 +14,14 @@ import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
-import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/git_info.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -104,46 +100,6 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
       ],
     ),
   );
-
-  Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInfo info) async {
-    final tr = context.t.localNotification;
-    final and = AndroidNotificationDetails(
-      'newNoticeChannel',
-      tr.channelName,
-      channelDescription: tr.channelDesc,
-      ticker: tr.ticker,
-    );
-    final nd = NotificationDetails(android: and);
-    final noticeData = switch (info) {
-      NotificationAutoSyncInfoNotice(:final msg, :final notice, :final personalMessage, :final broadcastMessage) =>
-        tr.notice.detail.notice(noticeCount: notice, pmCount: personalMessage, bmCount: broadcastMessage, msg: msg),
-      NotificationAutoSyncInfoPm(
-        :final user,
-        :final msg,
-        :final notice,
-        :final personalMessage,
-        :final broadcastMessage,
-      ) =>
-        tr.notice.detail.pm(
-          noticeCount: notice,
-          pmCount: personalMessage,
-          bmCount: broadcastMessage,
-          user: user,
-          msg: msg,
-        ),
-      NotificationAutoSyncInfoBm(:final msg, :final notice, :final personalMessage, :final broadcastMessage) =>
-        tr.notice.detail.bm(noticeCount: notice, pmCount: personalMessage, bmCount: broadcastMessage, msg: msg),
-    };
-    if (isAndroid) {
-      await flnp.show(
-        id: 0,
-        title: tr.notice.title,
-        body: noticeData,
-        notificationDetails: nd,
-        payload: LocalNoticeKeys.openNotification,
-      );
-    }
-  }
 
   @override
   void initState() {

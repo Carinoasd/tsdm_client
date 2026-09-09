@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_styled_toast/flutter_styled_toast.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -17,7 +16,7 @@ import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart'
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
-import 'package:tsdm_client/features/local_notice/keys.dart';
+import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_auto_sync_cubit.dart';
@@ -150,46 +149,6 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
       // FIXME: Access provider in top-level components is anti-pattern.
       await getIt.get<StorageProvider>().saveSize(SettingsKeys.windowSize.name, _windowSize);
     });
-  }
-
-  Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInfo info) async {
-    final tr = context.t.localNotification;
-    final and = AndroidNotificationDetails(
-      'newNoticeChannel',
-      tr.channelName,
-      channelDescription: tr.channelDesc,
-      ticker: tr.ticker,
-    );
-    final nd = NotificationDetails(android: and);
-    final noticeData = switch (info) {
-      NotificationAutoSyncInfoNotice(:final msg, :final notice, :final personalMessage, :final broadcastMessage) =>
-        tr.notice.detail.notice(noticeCount: notice, pmCount: personalMessage, bmCount: broadcastMessage, msg: msg),
-      NotificationAutoSyncInfoPm(
-        :final user,
-        :final msg,
-        :final notice,
-        :final personalMessage,
-        :final broadcastMessage,
-      ) =>
-        tr.notice.detail.pm(
-          noticeCount: notice,
-          pmCount: personalMessage,
-          bmCount: broadcastMessage,
-          user: user,
-          msg: msg,
-        ),
-      NotificationAutoSyncInfoBm(:final msg, :final notice, :final personalMessage, :final broadcastMessage) =>
-        tr.notice.detail.bm(noticeCount: notice, pmCount: personalMessage, bmCount: broadcastMessage, msg: msg),
-    };
-    if (isAndroid) {
-      await flnp.show(
-        id: 0,
-        title: tr.notice.title,
-        body: noticeData,
-        notificationDetails: nd,
-        payload: LocalNoticeKeys.openNotification,
-      );
-    }
   }
 
   @override

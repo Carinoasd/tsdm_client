@@ -84,9 +84,11 @@ Future<void> _boot(List<String> args) async {
       onDidReceiveNotificationResponse: onLocalNotificationOpened,
     );
     if (autoSyncNoticeSeconds > 0) {
-      await flnp
+      // Android 13+ runtime permission; `null` means the platform plugin was not resolved.
+      final granted = await flnp
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
+      talker.info('boot notification permission granted=$granted');
     }
   }
 
