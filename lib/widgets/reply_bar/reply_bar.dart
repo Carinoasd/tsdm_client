@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -484,15 +485,49 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     }
   }
 
+  /// Whether the send button is enabled: something to send, nothing in flight, thread open, user logged in.
+  bool get _sendEnabled => canSendReply && !isSendingReply && !_closed && _hasLogin;
+
+  /// Send from the keyboard, same rules as the send button (#18).
+  void _sendByShortcut() {
+    if (!_sendEnabled) {
+      debug('ignore send shortcut: send is disabled');
+      return;
+    }
+    unawaited(_sendMessage());
+  }
+
+  /// Ctrl+Enter and Alt+Enter send while the editor has the focus (#18).
+  ///
+  /// Desktop only: on mobile the IME owns the Enter key. The editor itself ignores Enter with a modifier held, so
+  /// the binding is seen here; a matched binding is reported as handled, which keeps the platform text input from
+  /// turning the key into a newline. The activators are exact, Ctrl+Shift+Enter is left alone.
+  Widget _wrapWithSendShortcuts(Widget editor) {
+    if (!isDesktop) {
+      return editor;
+    }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): _sendByShortcut,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter, control: true): _sendByShortcut,
+        const SingleActivator(LogicalKeyboardKey.enter, alt: true): _sendByShortcut,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter, alt: true): _sendByShortcut,
+      },
+      child: editor,
+    );
+  }
+
   /// Build an editor with bbcode support.
   Widget _buildRichEditor(BuildContext context) {
     return InputDecorator(
       isFocused: focusNode.hasFocus,
       decoration: const InputDecoration(),
-      child: RichEditor(
-        // Initial text is the text passed from outside.
-        controller: _replyRichController,
-        editorFocusNode: focusNode,
+      child: _wrapWithSendShortcuts(
+        RichEditor(
+          // Initial text is the text passed from outside.
+          controller: _replyRichController,
+          editorFocusNode: focusNode,
+        ),
       ),
     );
   }
@@ -667,9 +702,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
               sizedBoxW8H8,
               // Send Button
               FilledButton(
-                onPressed: (canSendReply && !isSendingReply && !_closed && _hasLogin)
-                    ? () async => _sendMessage()
-                    : null,
+                onPressed: _sendEnabled ? () async => _sendMessage() : null,
                 child: isSendingReply ? sizedCircularProgressIndicator : const Icon(Icons.send),
               ),
             ],
@@ -699,7 +732,9 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         initialDelta: parseBBCodeTextToDelta(widget.outerTextController.text),
       );
     } else {
-      _replyRichController = buildBBCodeEditorController(initialText: normalizeBlockMarkerNesting(widget.outerTextController.text));
+      _replyRichController = buildBBCodeEditorController(
+        initialText: normalizeBlockMarkerNesting(widget.outerTextController.text),
+      );
     }
     _replyRichController.addListener(_checkEditorContent);
     _authStatusSub = authRepo.status.listen((status) {
