@@ -270,8 +270,32 @@ final class _Muncher with LoggerMixin {
       // Not intend to happen.
       return null;
     }
+    // A banner can be cut into adjacent linked images. Keep an image-only
+    // strip together and scale the whole strip to the available width (#36).
+    // Explicit breaks and mixed text retain their normal wrapping behavior.
+    final nodes = rootElement.nodes.where((node) => node is! uh.Text || node.text!.trim().isNotEmpty).toList();
+    if (nodes.length > 1 && nodes.every(_isInlineImage) && spanList.every((span) => span is WidgetSpan)) {
+      return [
+        WidgetSpan(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: spanList.cast<WidgetSpan>().map((span) => span.child).toList(),
+            ),
+          ),
+        ),
+      ];
+    }
     return spanList;
   }
+
+  bool _isInlineImage(uh.Node node) =>
+      node is uh.Element &&
+      (node.localName == 'img' ||
+          (node.localName == 'a' && node.nodes.length == 1 && node.children.singleOrNull?.localName == 'img'));
 
   /// Munch a [node] and its children.
   List<InlineSpan>? munchNode(uh.Node? node) {
@@ -607,6 +631,7 @@ final class _Muncher with LoggerMixin {
       'rsld': _buildResolvedBounty,
       'rwdbst': _buildBountyBestAnswer,
       'hb-entry': _buildRedPacketEntry,
+      'modact': _buildModerationNotice,
     };
 
     // The popup markup of the forum's red packet plugin (envelope animation, password box, buttons) only works with
@@ -625,6 +650,44 @@ final class _Muncher with LoggerMixin {
       ret.add(emptySpan);
     }
     return ret;
+  }
+
+  List<InlineSpan>? _buildModerationNotice(uh.Element element) {
+    final content = _munch(element);
+    if (content == null) {
+      return null;
+    }
+    final theme = Theme.of(context);
+    return [
+      emptySpan,
+      WidgetSpan(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.manage_history_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                sizedBoxW8H8,
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(children: content),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      emptySpan,
+    ];
   }
 
   /// The red packet entry of the forum's `hongbao` plugin, `<div class="hb-entry" data-tid="...">` at the top of a
