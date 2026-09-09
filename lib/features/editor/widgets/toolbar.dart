@@ -11,6 +11,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
+import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/image_dialog.dart';
@@ -376,7 +377,15 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
       afterButtonPressed: afterButtonPressed,
       focusNode: editorFocusNode,
       controller: bbcodeController,
-      emojiPicker: (context) async => showEmojiPicker(context),
+      emojiPicker: (context) async {
+        final picked = await showEmojiPicker(context);
+        // A saved image sticker (#5) is BBCode, not an emoji code: insert it here and give the package nothing.
+        if (isCustomImageBBCode(picked)) {
+          bbcodeController.insertBBCode(picked!);
+          return null;
+        }
+        return picked;
+      },
       colorPicker: (context, initialColor) async => showColorPicker(context, initialColor, PickerType.foreground),
       urlPicker: (context, url, description) async => showUrlPicker(context, url: url, description: description),
       backgroundColorPicker: (context, initialColor) async =>

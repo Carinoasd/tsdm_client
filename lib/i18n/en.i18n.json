@@ -48,10 +48,11 @@
       "favorite": "Favorites"
     },
     "showMoreUserOperationsTip": "Show more user operations",
-    "latestReplySection": {
-      "title": "Latest replies",
+    "guide": {
       "more": "More",
-      "retry": "Failed to load, tap to retry"
+      "sofa": "Sofa",
+      "failed": "Failed to load, tap to retry",
+      "empty": "No threads yet"
     },
     "forumStatus": {
       "today": "Today",
@@ -741,7 +742,8 @@
     }
   },
   "latestThreadPage": {
-    "title": "Latest Thread"
+    "title": "Latest Thread",
+    "empty": "No threads yet"
   },
   "ratePostPage": {
     "title": "Rate",
@@ -1096,6 +1098,18 @@
       "others": "Other @ list",
       "useTyped": "Mention “${name}”",
       "friendsUnavailable": "Friends list unavailable: ${message}"
+    },
+    "customImage": {
+      "tab": "My images",
+      "add": "Add image",
+      "addTitle": "Save an image",
+      "urlHint": "Image url or [img] code",
+      "nameHint": "Name (optional)",
+      "invalidUrl": "Not an http(s) image url",
+      "delete": "Remove image",
+      "deleteConfirm": "Remove this image from my images?",
+      "empty": "Save image urls here and insert them into posts with one tap",
+      "saved": "Saved to my images"
     }
   },
   "imageBottomSheet": {
@@ -1106,7 +1120,8 @@
     "openLink": "Open link",
     "saveImage": "Save image",
     "imageSaved": "Image saved at ${filePath: String}",
-    "failedToSaveImage": "Failed to save image"
+    "failedToSaveImage": "Failed to save image",
+    "saveAsSticker": "Save to my images"
   },
   "init": {
     "v1DeleteLegacyData": {
