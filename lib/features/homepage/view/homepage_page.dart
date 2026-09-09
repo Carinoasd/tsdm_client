@@ -168,7 +168,8 @@ class _HomepagePageState extends State<HomepagePage> {
                 childBuilder: (context, physics) => ListView(
                   physics: physics,
                   controller: _scrollController,
-                  padding: edgeInsetsL12T4R12.add(context.safePadding()),
+                  // Same 12 above the first card as between the cards (GitHub #27).
+                  padding: edgeInsetsL12T12R12.add(context.safePadding()),
                   children: [
                     WelcomeSection(
                       forumStatus: state.forumStatus,
