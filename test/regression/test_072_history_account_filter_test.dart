@@ -66,13 +66,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Finder inMenu(String text) => find.descendant(of: find.byType(CheckedPopupMenuItem<int>), matching: find.text(text));
+
+  /// The whole menu item holding [text]: the item's list tile ignores pointers, so tapping the text would only warn.
+  Finder menuItem(String text) => find.ancestor(of: inMenu(text), matching: find.byType(CheckedPopupMenuItem<int>));
+
   Future<void> select(WidgetTester tester, String label) async {
     await openMenu(tester);
-    await tester.tap(find.text(label).last);
+    await tester.tap(menuItem(label));
     await tester.pumpAndSettle();
   }
-
-  Finder inMenu(String text) => find.descendant(of: find.byType(CheckedPopupMenuItem<int>), matching: find.text(text));
 
   Finder onChip(String text) => find.descendant(of: find.byType(ActionChip), matching: find.text(text));
 
@@ -95,14 +98,14 @@ void main() {
     expect(inMenu('Same name'), findsNWidgets(2));
     expect(inMenu('Other name'), findsOneWidget);
     expect(checkedValues(tester), [-1]);
-    await tester.tap(inMenu('UID 11'));
+    await tester.tap(menuItem('UID 11'));
     await tester.pumpAndSettle();
     expect(visibleAccounts(tester), [11]);
     // Same name as account 22: the chip carries the uid so the choice is unambiguous.
     expect(onChip('Same name (UID 11)'), findsOneWidget);
     await openMenu(tester);
     expect(checkedValues(tester), [11]);
-    await tester.tap(inMenu('Other name'));
+    await tester.tap(menuItem('Other name'));
     await tester.pumpAndSettle();
     expect(visibleAccounts(tester), [33]);
     // A unique name needs no uid on the chip.
@@ -143,7 +146,7 @@ void main() {
     // The account is still offered in the menu so the user can see what is filtered.
     await openMenu(tester);
     expect(inMenu('UID 33'), findsOneWidget);
-    await tester.tap(inMenu('All accounts'));
+    await tester.tap(menuItem('All accounts'));
     await tester.pumpAndSettle();
     expect(visibleAccounts(tester), [22, 11]);
   });
