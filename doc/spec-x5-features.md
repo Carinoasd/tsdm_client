@@ -422,3 +422,26 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   - `logout()`：論壇回沒有登入者時也清 CookieProvider、刪列再 `_markUnauthenticated`（原本只標記、列留著，帳號卡在「在线」無法刪除）；改走可注入的 `currentUserClientFactory`（預設仍是 `NetClientProvider.build(userLoginInfo:)`），離線可測。
   - 復活防護：`CookieProvider` 記住自己是否由 `loadCookieFromStorage` 載入（`_mirrorsStoredRow`）；是的話 `_syncCookie` 在 `getCookieByUidSync(uid) == null`（列已被刪）時不再 upsert，避免自動簽到進行中收到 Set-Cookie 把剛刪的帳號寫回。`updateUserInfo`（登入取得身分）與 `clearUserInfoAndCookie` 會重設旗標，登入建列不受影響。
 - 測試：test_045（#4）、test_046（同日判定邊界、stream 重發、repository 立即寫入、bloc＋頁面顯示已簽到／未簽到／失敗原因）、test_047（批次刪除、`forgetCurrentUser`、訪客頁 `logout()` 刪列、Set-Cookie 不復活但登入仍建列、頁面長按→計數→刪除→確認→列消失、全選／關閉／返回）。
+
+## 14. 通知權限與電池最佳化（GitHub #13、#3，2026-09-09）
+
+### 14.1 平台端事實（Android，不涉及論壇協定）
+- `targetSdk 36`：Android 13+ 的 `POST_NOTIFICATIONS` 是執行期權限，未取得前 `NotificationManager.notify` 是**無聲的 no-op**——flutter_local_notifications 的 `show()` 不檢查、不拋錯、不記 log。連續拒絕兩次後系統不再彈框（permanently denied），只能到 App 設定頁手動開。
+- 原本只在 `main.dart` 開機時、且當時 `autoSyncNoticeSeconds > 0` 才呼叫一次 `requestNotificationsPermission()`，結果丟棄不記；在設定頁把自動同步從「從不」改成有值時不會再問。App 內沒有任何地方顯示或重讀權限狀態。
+- 「忽略電池最佳化」對話框（`Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`）：permission_handler 只在 merged manifest 含 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` 時才會啟動，否則直接回 `denied`。此權限 Google Play 列為受限，App 走 GitHub release 不受影響。
+- 背景模型：自動同步是 UI isolate 裡的 `Timer.periodic`，返回鍵只 `moveTaskToBack`，沒有 WorkManager／AlarmManager／前景服務。Android 12+ 的 cached-app freezer（16 更積極）與各廠牌省電管理會在離開前景後不久凍結進程，計時器就停了；忽略電池最佳化只解除 Doze／App Standby 一類限制，**不阻止凍結、也不等於廠牌的自啟動／背景限制開關**。不承諾背景推播可靠。
+
+### 14.2 讀 log 時的判定
+- `fetched notification since …: notice=N pm=N bm=N`（`NotificationRepository`）數的是 since 視窗（最多 3 天）內的**全部**項目，不是新項目；有這行只證明抓取跑了。
+- 推播要 `freshNotifications(fetched, stored)` 非空才會走到 `NotificationInfoRepository.updateAutoSyncInfo`，那裡才有 `update auto sync info: NotificationAutoSyncInfo… notice=… pm=… bm=…`——**這行才代表嘗試推播**；沒有它＝沒有新東西，屬設計行為（§6.1）。
+- 新增兩行：開機 `boot notification permission granted=true/false/null`（null＝平台 plugin 未解析）；每次推播前 `push local notification enabled=true/false: NotificationAutoSyncInfoXxx`（`areNotificationsEnabled()`），`show()` 例外改由 `talker.handle` 記錄。有 `update auto sync info` 又有 `enabled=false`＝被權限／系統擋下。
+
+### 14.3 App 端行為
+- Manifest 明寫 `POST_NOTIFICATIONS`（原本只靠 plugin manifest 合併）與 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`（#3 的前提）。
+- `AndroidPermissionCubit`（`lib/features/settings/bloc/`）：state `{notification, ignoreBattery}`（`PermissionStatus?`，null＝尚未讀）；`refresh()`、`requestNotification({openSettingsWhenPermanentlyDenied})`（永久拒絕→`openAppSettings()`，否則 `Permission.notification.request()`）、`requestIgnoreBattery()`（`Permission.ignoreBatteryOptimizations.request()`）。`enabled` 預設 `isAndroid`，非 Android 全部 no-op；透過 `AndroidPermissionGateway` 注入假的 permission_handler 以便在 Linux 測試（`permission_handler_platform_interface` 是間接依賴，`depend_on_referenced_packages: error` 禁止直接 import）。
+- 設定頁持有該 cubit（`BlocProvider.value`），`initState` 讀一次，`WidgetsBindingObserver` 在 `resumed` 時重讀，從系統對話框／App 設定頁回來列即更新。
+- 行為區「自動同步訊息」之後（Android 才顯示）兩列 `AndroidPermissionTiles`：「通知權限」trailing 已允許／未允許／已永久拒絕（永久拒絕時先 `showQuestionDialog` 說明再跳 App 設定頁）；「忽略電池最佳化」trailing 已忽略／未忽略，副標題明說只在 App 留在背景時有幫助、廠牌開關另計、不保證背景推播。
+- 設定頁把自動同步設為 >0 時同時 `requestNotification(openSettingsWhenPermanentlyDenied: false)`：會彈系統框就彈，永久拒絕只記 log 不跳頁（旁邊那列會顯示狀態）。
+- Debug 區新增「發送測試通知」（Android）：以合成的 `NotificationAutoSyncInfoNotice` 呼叫 `showLocalNotification`，用來分辨「系統擋掉」與「沒有新訊息」。
+- `showLocalNotification` 移到 `lib/features/local_notice/show.dart`（App 層與 Debug 鈕共用），channel id `newNoticeChannel`、importance 不變（channel 一經建立無法由程式碼調高，換 id 會留下孤兒 channel，決定不動）；`home_page.dart` 裡從未被呼叫的複本刪除。
+- 測試：test_048（manifest 含兩個權限字串；cubit refresh／denied→request／permanentlyDenied→openAppSettings／不跳頁模式／battery request／disabled no-op；兩列 tile 顯示已允許／未允許／已永久拒絕／已忽略／未忽略、點按觸發 request、永久拒絕先出對話框取消不跳、確定才 openAppSettings）。
