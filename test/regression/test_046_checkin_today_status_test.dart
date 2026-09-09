@@ -40,15 +40,22 @@ const _signPage =
 const _guestPage =
     '<html><body><form id="lsform" method="post"><input type="hidden" name="formhash" value="XXXXXXXX" /> '
     '<input name="username" /></form></body></html>';
+
+/// Bob's sign page: he already checked in today from somewhere else.
+const _alreadyPage =
+    '<html><body><div id="um"><a href="home.php?mod=space&amp;uid=1001">Bob</a></div> '
+    '<h1 class="mt">您今天已经签到过了</h1></body></html>';
 const _successXml =
     '<?xml version="1.0" encoding="utf-8"?>\n<root><![CDATA[<div class="c">恭喜你签到成功!获得随机奖励 天使币 10 .</div> '
     '<script type="text/javascript" reload="1">hideWindow("qwindow");</script>]]></root>';
 
-/// Answers requests from a script in order.
+/// Answers requests from a script in order, each after [delay]; records when every request arrived.
 final class _ScriptedAdapter implements HttpClientAdapter {
-  _ScriptedAdapter(this.script);
+  _ScriptedAdapter(this.script, {this.delay = Duration.zero});
 
   final List<(int, String)> script;
+  final Duration delay;
+  final arrived = <DateTime>[];
   var _next = 0;
 
   @override
@@ -60,7 +67,11 @@ final class _ScriptedAdapter implements HttpClientAdapter {
     if (_next >= script.length) {
       fail('unexpected request #${_next + 1}: ${options.uri}');
     }
+    arrived.add(DateTime.now());
     final (status, body) = script[_next++];
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
     return ResponseBody.fromString(
       body,
       status,
@@ -167,9 +178,8 @@ void main() {
     expect(seen.last.singleWhere((e) => e.$1.uid == 1001).$2, isNull);
   });
 
-  AutoCheckinRepository repo(List<(int, String)> script) {
-    // One adapter for the whole run: every account gets its own client, the script continues across them.
-    final adapter = _ScriptedAdapter(script);
+  // One adapter for the whole run: every account gets its own client, the script continues across them.
+  AutoCheckinRepository repoWith(_ScriptedAdapter adapter) {
     return AutoCheckinRepository(
       storageProvider: storage,
       clientFactory: (cookie) => NetClientProvider.buildNoCookie(
@@ -180,6 +190,8 @@ void main() {
       retryDelays: const [Duration.zero],
     );
   }
+
+  AutoCheckinRepository repo(List<(int, String)> script) => repoWith(_ScriptedAdapter(script));
 
   test('the repository records the check-in time of an account as soon as it succeeded', () async {
     final r = repo([
@@ -206,6 +218,40 @@ void main() {
     expect(times[1000], isNotNull, reason: 'the repository itself writes the time, not only the bloc');
     expect(isCheckedInToday(times[1000]), isTrue);
     expect(times[1001], isNull, reason: 'a failed account keeps no check-in time');
+  });
+
+  test('the time of an account stays the moment it checked in when the batch ends later', () async {
+    // Alice succeeds, Bob already checked in elsewhere today; every answer takes a while so the batch ends well after
+    // Alice finished (across midnight in the real case).
+    final adapter = _ScriptedAdapter([
+      (200, _signPage),
+      (200, _successXml),
+      (200, _alreadyPage),
+    ], delay: const Duration(milliseconds: 40));
+    final bloc = AutoCheckinBloc(
+      autoCheckinRepository: repoWith(adapter),
+      settingsRepository: settings,
+      storageProvider: storage,
+    )..add(const AutoCheckinStartRequested());
+    final finished =
+        await bloc.stream.firstWhere((s) => s is AutoCheckinStateFinished).timeout(const Duration(seconds: 10))
+            as AutoCheckinStateFinished;
+    await bloc.close();
+    expect(finished.succeeded.map((e) => e.$1.uid), [1000]);
+    expect(finished.failed.map((e) => (e.$1.uid, e.$2.runtimeType.toString())), [
+      (1001, 'CheckinResultAlreadyChecked'),
+    ]);
+
+    final times = {for (final (u, t) in await storage.getAllUsersWithTime()) u.uid: t};
+    expect(adapter.arrived, hasLength(3));
+    final bobStarted = adapter.arrived[2];
+    expect(
+      times[1000]!.isAfter(bobStarted),
+      isFalse,
+      reason: 'Alice checked in before Bob started; the bloc used to stamp her with the batch end',
+    );
+    expect(times[1001], isNotNull, reason: '"already checked in" is recorded as checked in today');
+    expect(times[1001]!.isBefore(times[1000]!), isFalse);
   });
 
   testWidgets('the manage accounts page shows who checked in today and why the others did not', (tester) async {

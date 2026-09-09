@@ -93,17 +93,8 @@ final class AutoCheckinBloc extends Bloc<AutoCheckinEvent, AutoCheckinState> {
     if (checkinInfo.waiting.isEmpty &&
         checkinInfo.running.isEmpty &&
         (checkinInfo.succeeded.isNotEmpty || checkinInfo.failed.isNotEmpty)) {
-      final now = DateTime.now();
-      for (final (user, _) in checkinInfo.succeeded) {
-        await _storageProvider.updateLastCheckinTime(user.uid!, now).run();
-      }
-      for (final (user, checkinResult) in checkinInfo.failed) {
-        // Still record checkin time if is already checked in because user may
-        // checkin on another machine.
-        if (checkinResult is CheckinResultAlreadyChecked) {
-          await _storageProvider.updateLastCheckinTime(user.uid!, now).run();
-        }
-      }
+      // The last check-in time of every account was written by the repository when that account finished; a write
+      // here would stamp the batch end, which is the next day when a run crosses midnight.
       emit(AutoCheckinStateFinished(succeeded: checkinInfo.succeeded, failed: checkinInfo.failed));
       return;
     }
