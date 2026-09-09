@@ -10,6 +10,7 @@ import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
+import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -83,6 +84,9 @@ Future<void> _boot(List<String> args) async {
       ),
       onDidReceiveNotificationResponse: onLocalNotificationOpened,
     );
+    // The first channel had default importance and Android never lets the app raise it: drop it so the
+    // high-importance replacement is the only one left in the system notification settings (#13).
+    await deleteLegacyLocalNoticeChannel();
     if (autoSyncNoticeSeconds > 0) {
       // Android 13+ runtime permission; `null` means the platform plugin was not resolved.
       final granted = await flnp
