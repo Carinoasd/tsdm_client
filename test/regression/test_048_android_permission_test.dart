@@ -24,8 +24,20 @@ final class _FakeGateway implements AndroidPermissionGateway {
   final requested = <Permission>[];
   int openedSettings = 0;
 
+  /// What `shouldShowRequestRationale` answers after a request; false = the system showed no dialog and never will.
+  bool rationale = true;
+  int rationaleChecks = 0;
+
+  /// Delay before every status read resolves, to model a platform call still in flight.
+  Duration statusDelay = Duration.zero;
+
   @override
-  Future<PermissionStatus> status(Permission permission) async => statuses[permission] ?? PermissionStatus.denied;
+  Future<PermissionStatus> status(Permission permission) async {
+    if (statusDelay > Duration.zero) {
+      await Future<void>.delayed(statusDelay);
+    }
+    return statuses[permission] ?? PermissionStatus.denied;
+  }
 
   @override
   Future<PermissionStatus> request(Permission permission) async {
@@ -39,6 +51,12 @@ final class _FakeGateway implements AndroidPermissionGateway {
   Future<bool> openSettings() async {
     openedSettings++;
     return true;
+  }
+
+  @override
+  Future<bool> shouldShowRationale(Permission permission) async {
+    rationaleChecks++;
+    return rationale;
   }
 }
 
@@ -104,6 +122,79 @@ void main() {
       expect(gateway.requested, isEmpty);
       expect(gateway.openedSettings, 0);
       expect(cubit.state.notification, PermissionStatus.permanentlyDenied);
+    });
+
+    test('denied without a dialog (Android < 13, boot-prompt denials) counts as permanently denied', () async {
+      // permission_handler answers plain `denied` forever here; the rationale flag tells the two cases apart.
+      gateway
+        ..requestResults[Permission.notification] = PermissionStatus.denied
+        ..rationale = false;
+      await cubit.refresh();
+      await cubit.requestNotification();
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.rationaleChecks, 1);
+      expect(gateway.openedSettings, 1);
+      expect(cubit.state.notification, PermissionStatus.permanentlyDenied);
+
+      // Stays permanently denied across refreshes until the user turns notifications on in settings.
+      await cubit.refresh();
+      expect(cubit.state.notification, PermissionStatus.permanentlyDenied);
+      await cubit.requestNotification();
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.openedSettings, 2);
+
+      gateway.statuses[Permission.notification] = PermissionStatus.granted;
+      await cubit.refresh();
+      expect(cubit.state.notification, PermissionStatus.granted);
+    });
+
+    test('denied without a dialog does not leave the app when told not to (auto sync path)', () async {
+      gateway
+        ..requestResults[Permission.notification] = PermissionStatus.denied
+        ..rationale = false;
+      await cubit.requestNotification(openSettingsWhenPermanentlyDenied: false);
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.openedSettings, 0);
+      expect(cubit.state.notification, PermissionStatus.permanentlyDenied);
+    });
+
+    test('a first real denial through the system dialog stays denied and does not open settings', () async {
+      gateway
+        ..requestResults[Permission.notification] = PermissionStatus.denied
+        ..rationale = true;
+      await cubit.refresh();
+      await cubit.requestNotification();
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.rationaleChecks, 1);
+      expect(gateway.openedSettings, 0);
+      expect(cubit.state.notification, PermissionStatus.denied);
+    });
+
+    test('a second real denial reported by the plugin is not escalated to settings by itself', () async {
+      gateway
+        ..requestResults[Permission.notification] = PermissionStatus.permanentlyDenied
+        ..rationale = false;
+      await cubit.refresh();
+      await cubit.requestNotification();
+      expect(gateway.rationaleChecks, 0);
+      expect(gateway.openedSettings, 0);
+      expect(cubit.state.notification, PermissionStatus.permanentlyDenied);
+    });
+
+    test('refresh does not emit after the cubit is closed while a status call is pending', () async {
+      gateway.statusDelay = const Duration(milliseconds: 20);
+      final states = <AndroidPermissionState>[];
+      cubit.stream.listen(states.add);
+      final pending = cubit.refresh();
+      await cubit.close();
+      await pending;
+      expect(states, isEmpty);
+      expect(cubit.state, const AndroidPermissionState());
+
+      // Once closed, the other entry points skip the platform entirely.
+      await cubit.requestNotification();
+      await cubit.requestIgnoreBattery();
+      expect(gateway.requested, isEmpty);
     });
 
     test('requestIgnoreBattery requests the exemption and refreshes', () async {
@@ -177,6 +268,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(gateway.requested, [Permission.notification, Permission.ignoreBatteryOptimizations]);
       expect(find.text('Ignored'), findsOneWidget);
+    });
+
+    testWidgets('denied without a dialog explains first, then opens app settings', (tester) async {
+      gateway
+        ..statuses[Permission.notification] = PermissionStatus.denied
+        ..requestResults[Permission.notification] = PermissionStatus.denied
+        ..rationale = false;
+      await cubit.refresh();
+      await tester.pumpWidget(host());
+      expect(find.text('Not allowed'), findsOneWidget);
+
+      await tester.tap(find.text('Notification permission'));
+      await tester.pumpAndSettle();
+      // The request came back denied with no dialog: the row flips and the explanation shows before leaving.
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.openedSettings, 0);
+      expect(find.text('Permanently denied'), findsOneWidget);
+      expect(find.text('Ok'), findsOneWidget);
+      await tester.tap(find.text('Ok'));
+      await tester.pumpAndSettle();
+      expect(gateway.openedSettings, 1);
+      expect(gateway.requested, [Permission.notification]);
+    });
+
+    testWidgets('a first real denial keeps the row at not allowed without a dialog', (tester) async {
+      gateway
+        ..statuses[Permission.notification] = PermissionStatus.denied
+        ..requestResults[Permission.notification] = PermissionStatus.denied
+        ..rationale = true;
+      await cubit.refresh();
+      await tester.pumpWidget(host());
+      await tester.tap(find.text('Notification permission'));
+      await tester.pumpAndSettle();
+      expect(gateway.requested, [Permission.notification]);
+      expect(gateway.openedSettings, 0);
+      expect(find.text('Not allowed'), findsOneWidget);
+      expect(find.text('Ok'), findsNothing);
     });
 
     testWidgets('permanently denied explains first, then opens app settings', (tester) async {

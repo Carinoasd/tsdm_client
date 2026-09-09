@@ -42,16 +42,21 @@ class AndroidPermissionTiles extends StatelessWidget {
               trailing: Text(notification, style: style),
               onTap: () async {
                 final cubit = context.read<AndroidPermissionCubit>();
-                if (state.notification?.isPermanentlyDenied ?? false) {
-                  // Android shows no dialog any more; explain before jumping to system settings.
-                  final go = await showQuestionDialog(
-                    context: context,
-                    title: tr.notificationPermission.title,
-                    message: tr.notificationPermission.openSettingsTip,
-                  );
-                  if (go != true) {
+                if (!(state.notification?.isPermanentlyDenied ?? false)) {
+                  // Ask the system first; the cubit flips to permanently denied when no dialog was (or will be) shown.
+                  await cubit.requestNotification(openSettingsWhenPermanentlyDenied: false);
+                  if (!context.mounted || !(cubit.state.notification?.isPermanentlyDenied ?? false)) {
                     return;
                   }
+                }
+                // Android shows no dialog any more; explain before jumping to system settings.
+                final go = await showQuestionDialog(
+                  context: context,
+                  title: tr.notificationPermission.title,
+                  message: tr.notificationPermission.openSettingsTip,
+                );
+                if (go != true) {
+                  return;
                 }
                 await cubit.requestNotification();
               },
