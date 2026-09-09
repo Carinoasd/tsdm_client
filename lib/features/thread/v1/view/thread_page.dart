@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
+import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -545,6 +546,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                         }
                       },
                     ),
+                    if (context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                      MenuCustomItem(
+                        icon: Icons.forward_to_inbox_outlined,
+                        description: context.t.threadPage.shareToFriend.title,
+                        onSelected: () async => shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                      ),
                     MenuCustomItem(
                       icon: Icons.numbers_outlined,
                       description: context.t.threadPage.copyTid(tid: state.tid!),

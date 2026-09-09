@@ -568,7 +568,14 @@
       "removed": "已取消收藏",
       "failed": "操作失败：$err"
     },
-    "repliedMark": "已回复"
+    "repliedMark": "已回复",
+    "shareToFriend": {
+      "title": "分享给好友",
+      "pickTitle": "选择好友",
+      "message": "分享帖子：${title}\n${url}",
+      "sent": "已发送给 ${name}",
+      "failed": "发送失败：${err}"
+    }
   },
   "topicsPage": {
     "moderators": "分区版主"
