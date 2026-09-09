@@ -245,6 +245,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   }
 
   Future<void> _onHomepageAuthChanged(HomepageAuthChanged event, Emitter<HomepageState> emit) async {
+    if (event.prev != event.curr) {
+      // The cached `forum.php` was served to the previous user (or guest); nobody may show it again, and the
+      // forced refresh below can fail (rate limit, offline), so drop it now rather than after the refresh.
+      _forumHomeRepository.invalidate();
+    }
     if (event.curr is AuthStatusNotAuthed &&
         state.status != HomepageStatus.loading &&
         state.status != HomepageStatus.needLogin) {

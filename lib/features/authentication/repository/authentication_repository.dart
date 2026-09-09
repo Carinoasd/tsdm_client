@@ -10,6 +10,7 @@ import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/authentication/utils/login_parser.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
@@ -331,31 +332,11 @@ class AuthenticationRepository with LoggerMixin {
 
   /// Parse html [document], find current logged in user uid in it.
   UserLoginInfo? _parseUserInfoFromDocument(uh.Document document) {
-    final userNode =
-        // Style 1: With avatar.
-        document.querySelector('div#hd div.wp div.hdc.cl div#um p strong.vwmy a') ??
-        // Style 2: Without avatar.
-        document.querySelector('div#inner_stat > strong > a');
-    if (userNode == null) {
-      debug('auth failed: user node not found');
-      return null;
+    final userInfo = parseLoggedUserFromDocument(document);
+    if (userInfo == null) {
+      debug('auth failed: logged user not found in document');
     }
-    final username = userNode.firstEndDeepText();
-    if (username == null) {
-      debug('auth failed: user name not found');
-      return null;
-    }
-    final uid = userNode.firstHref()?.split('uid=').lastOrNull?.parseToInt();
-    if (uid == null) {
-      debug('auth failed: user id not found');
-      return null;
-    }
-
-    // String? email;
-    // if (parseEmail) {
-    //   email = document.querySelector('input#emailnew')?.attributes['value'];
-    // }
-    return UserLoginInfo(uid: uid, username: username /*email: email*/);
+    return userInfo;
   }
 
   Future<void> _saveLoggedUserInfo(UserLoginInfo userInfo) async {

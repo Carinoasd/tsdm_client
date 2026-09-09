@@ -6,6 +6,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -25,6 +26,10 @@ part 'topics_state.dart';
 /// events the bloc re-parses every document published by [ForumHomeRepository] (the homepage refreshes it after a
 /// login or an account switch), reloads from the server after a logout, and reloads after a forum was added to or
 /// removed from favorites so the "我收藏的版块" panel follows (issues #1, #2).
+///
+/// The shared document is trusted only when it was served to the current user (the user node in its header says
+/// so): the cache and the stream replay may still hold the previous account's page after a switch or a logout, and
+/// that page must neither be shown nor seed the favorite forums of the new user.
 class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   /// Constructor.
   ///
@@ -67,6 +72,18 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   /// Pending fallback fetch after the logged user changed, cancelled when a document arrives in time.
   Timer? _authRefreshTimer;
 
+  /// The document the current group list was parsed from.
+  ///
+  /// A fetch of this bloc returns the document and publishes the same instance on the stream: parse it once.
+  uh.Document? _shownDocument;
+
+  /// The document ignored for belonging to another user, for which one forced fetch was issued.
+  ///
+  /// The cache and the stream replay hand out the same instance, so it is recognised when it comes again. Another
+  /// document that still does not match is shown (never seeded) instead of fetching forever; the next auth
+  /// transition allows one more.
+  uh.Document? _staleDocument;
+
   Future<void> _onTopicsLoadRequested(TopicsLoadRequested event, Emitter<TopicsState> emit) async {
     emit(state.copyWith(status: TopicsStatus.loading));
     final documentEither = await _forumHomeRepository.fetchTopicPage().run();
@@ -75,7 +92,7 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
       emit(state.copyWith(status: TopicsStatus.failed));
       return;
     }
-    emit(_parse(documentEither.unwrap()));
+    _emitParsed(documentEither.unwrap(), emit);
   }
 
   Future<void> _onTopicsRefreshRequested(TopicsRefreshRequested event, Emitter<TopicsState> emit) async {
@@ -91,7 +108,7 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
       }
       return;
     }
-    emit(_parse(documentEither.unwrap()));
+    _emitParsed(documentEither.unwrap(), emit);
   }
 
   void _onTopicsTabSelected(TopicsTabSelected event, Emitter<TopicsState> emit) {
@@ -99,13 +116,23 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   }
 
   void _onTopicsDocumentUpdated(TopicsDocumentUpdated event, Emitter<TopicsState> emit) {
-    _authRefreshTimer?.cancel();
-    _authRefreshTimer = null;
-    emit(_parse(event.document));
+    if (identical(event.document, _shownDocument)) {
+      return;
+    }
+    if (_emitParsed(event.document, emit)) {
+      _authRefreshTimer?.cancel();
+      _authRefreshTimer = null;
+    }
   }
 
   void _onTopicsAuthChanged(TopicsAuthChanged event, Emitter<TopicsState> emit) {
     final curr = event.curr;
+    if (event.prev != curr) {
+      // The cached document belongs to the previous user (or guest): a bloc created from now on must go to the
+      // server instead of showing it.
+      _forumHomeRepository.invalidate();
+      _staleDocument = null;
+    }
     if (curr is AuthStatusNotAuthed) {
       // Logged out: the cached document still belongs to the previous user, show the guest index.
       _authRefreshTimer?.cancel();
@@ -126,13 +153,35 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
     }
   }
 
-  /// Parse the group list and seed the favorite forums cache from the "我收藏的版块" panel, if any.
-  TopicsState _parse(uh.Document document) {
+  /// Show [document] when it belongs to the current user, otherwise ignore it and fetch a fresh one once.
+  ///
+  /// Returns whether the document was shown.
+  bool _emitParsed(uh.Document document, Emitter<TopicsState> emit) {
+    final currentUid = _authenticationRepository.currentUser?.uid;
+    final documentUid = parseLoggedUserFromDocument(document)?.uid;
+    if (documentUid != currentUid) {
+      if (identical(document, _staleDocument)) {
+        return false;
+      }
+      if (_staleDocument == null) {
+        info('forum index of user $documentUid ignored, current user is $currentUid: fetching again');
+        _staleDocument = document;
+        add(const TopicsRefreshRequested(silent: true));
+        return false;
+      }
+      warning('forum index of user $documentUid shown to user $currentUid, favorite forums not seeded');
+    }
+    _shownDocument = document;
+    emit(_parse(document, seedUid: documentUid));
+    return true;
+  }
+
+  /// Parse the group list and seed the favorite forums cache of [seedUid] from the "我收藏的版块" panel, if any.
+  TopicsState _parse(uh.Document document, {required int? seedUid}) {
     final forumGroupList = buildGroupListFromDocument(document);
-    final uid = _authenticationRepository.currentUser?.uid;
-    if (uid != null) {
+    if (seedUid != null && seedUid == _authenticationRepository.currentUser?.uid) {
       final favorites = forumGroupList.where((e) => e.isFavorites).expand((e) => e.forumList);
-      _favoriteRepository.seedForumFavorites(uid: uid, fids: favorites.map((e) => '${e.forumID}'));
+      _favoriteRepository.seedForumFavorites(uid: seedUid, fids: favorites.map((e) => '${e.forumID}'));
     }
     return state.copyWith(status: TopicsStatus.success, forumGroupList: forumGroupList);
   }

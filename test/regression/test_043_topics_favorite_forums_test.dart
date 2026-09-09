@@ -16,6 +16,8 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
+import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
+import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/features/topics/view/topics_page.dart';
@@ -39,6 +41,19 @@ import 'package:universal_html/parsing.dart';
 /// `forum_index_x5.html` / `forum_index_nofav_x5.html` are `forum.php` captured on 2026-09-09 with the same test
 /// account (uid -> 1000, username -> Alice, hashes -> XXXXXXXX), with and without one favorite forum (fid 125).
 String _data(String name) => File('test/data/$name').readAsStringSync();
+
+const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
+const _bob = UserLoginInfo(username: 'Bob', uid: 1001);
+
+/// Fixture [name] as served to [user]: the user node in the header rewritten (captured as Alice), or removed for a
+/// guest. The topics tab only trusts a page whose user node names the current user.
+String _indexAs(String name, UserLoginInfo? user) {
+  final html = _data(name);
+  if (user == null) {
+    return html.replaceAll(RegExp('<strong class="vwmy">.*?</strong>'), '');
+  }
+  return html.replaceAll('uid=1000', 'uid=${user.uid}').replaceAll('>Alice<', '>${user.username}<');
+}
 
 /// Serves canned answers by request path and records every request.
 final class _FakeAdapter implements HttpClientAdapter {
@@ -105,8 +120,13 @@ final class _FakeAuth extends AuthenticationRepository {
   }
 }
 
-/// A `forum.php` with [names] as groups (no forums, so no cards and no images are built).
-String _index(List<String> names) {
+/// A `forum.php` served to [user] with [names] as groups (no forums, so no cards and no images are built).
+String _index(List<String> names, {UserLoginInfo? user = _alice}) {
+  final header = user == null
+      ? ''
+      : '<div id="hd"><div class="wp"><div class="hdc cl"><div id="um"> '
+            '<p><strong class="vwmy"><a href="home.php?mod=space&amp;uid=${user.uid}">${user.username}</a></strong></p> '
+            '</div></div></div></div>';
   final groups = names.indexed
       .map(
         (e) =>
@@ -114,12 +134,12 @@ String _index(List<String> names) {
             '<div id="category_${e.$1 + 1}" class="bm_c"><table class="fl_tb"><tr class="fl_row"></tr></table></div></div>',
       )
       .join();
-  return '<html><body><div id="ct"><div class="mn"><div class="fl bm">$groups</div></div></div></body></html>';
+  return '<html><body>$header<div id="ct"><div class="mn"><div class="fl bm">$groups</div></div></div></body></html>';
 }
 
 void main() {
-  const alice = UserLoginInfo(username: 'Alice', uid: 1000);
-  const bob = UserLoginInfo(username: 'Bob', uid: 1001);
+  const alice = _alice;
+  const bob = _bob;
 
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
 
@@ -240,7 +260,7 @@ void main() {
     });
 
     test('reloads after a logout, and after a user change the homepage did not follow', () async {
-      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _data('forum_index_nofav_x5.html');
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs('forum_index_nofav_x5.html', auth.user);
       final bloc = TopicsBloc(
         forumHomeRepository: forumHome,
         authenticationRepository: auth,
@@ -269,6 +289,125 @@ void main() {
       expect(indexRequests(), 3);
       await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(indexRequests(), 4);
+      await bloc.close();
+    });
+
+    test("created after an account switch: the previous user's cached page is neither shown nor seeded", () async {
+      // Alice's page (favorite forum 125) was fetched by the homepage before the switch.
+      var name = 'forum_index_x5.html';
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs(name, auth.user);
+      await forumHome.fetchHomePage().run();
+      expect(indexRequests(), 1);
+
+      // Bob logs in and the homepage refresh failed: the cache and the stream replay still hold Alice's page.
+      auth.signIn(bob);
+      name = 'forum_index_nofav_x5.html';
+      final states = <TopicsState>[];
+      final bloc = TopicsBloc(
+        forumHomeRepository: forumHome,
+        authenticationRepository: auth,
+        favoriteRepository: favorites,
+      );
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(TopicsLoadRequested());
+      await bloc.stream.firstWhere((s) => s.status.isSuccess);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        states.where((s) => s.forumGroupList.any((e) => e.isFavorites)),
+        isEmpty,
+        reason: "Alice's panel is never shown to Bob",
+      );
+      expect(states.last.status.isSuccess, isTrue);
+      expect(states.last.forumGroupList, isNotEmpty);
+      expect(
+        favorites.isForumFavorited(uid: bob.uid!, fid: '125'),
+        isFalse,
+        reason: "not seeded from Alice's page",
+      );
+      expect(favorites.isForumFavorited(uid: alice.uid!, fid: '125'), isFalse);
+      expect(indexRequests(), 2, reason: "one forced fetch for Bob's page, the cached one is refetched once only");
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test("created after a logout: the previous user's cached page is not shown to the guest", () async {
+      var name = 'forum_index_x5.html';
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs(name, auth.user);
+      await forumHome.fetchHomePage().run();
+      auth.signOut();
+      // The guest index has no favorites panel.
+      name = 'forum_index_nofav_x5.html';
+      final states = <TopicsState>[];
+      final bloc = TopicsBloc(
+        forumHomeRepository: forumHome,
+        authenticationRepository: auth,
+        favoriteRepository: favorites,
+      );
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(TopicsLoadRequested());
+      await bloc.stream.firstWhere((s) => s.status.isSuccess);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(states.where((s) => s.forumGroupList.any((e) => e.isFavorites)), isEmpty);
+      expect(states.last.forumGroupList, isNotEmpty);
+      expect(favorites.isForumFavorited(uid: alice.uid!, fid: '125'), isFalse);
+      expect(indexRequests(), 2);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('drops the cached document on every auth transition, even when the reload fails', () async {
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs('forum_index_nofav_x5.html', auth.user);
+      final bloc = TopicsBloc(
+        forumHomeRepository: forumHome,
+        authenticationRepository: auth,
+        favoriteRepository: favorites,
+        authRefreshGrace: const Duration(milliseconds: 20),
+      )..add(TopicsLoadRequested());
+      await bloc.stream.firstWhere((s) => s.status.isSuccess);
+      expect(forumHome.hasCache(), isTrue);
+
+      // From now on every fetch fails (rate limit).
+      adapter.answers.clear();
+      auth
+        ..signIn(alice)
+        ..signOut();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(forumHome.hasCache(), isFalse, reason: 'logged out');
+      expect(bloc.state.status.isSuccess, isTrue, reason: 'silent: the groups stay on screen');
+
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs('forum_index_nofav_x5.html', auth.user);
+      await forumHome.fetchHomePage(force: true).run();
+      expect(forumHome.hasCache(), isTrue);
+      adapter.answers.clear();
+      auth.signIn(bob);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(forumHome.hasCache(), isFalse, reason: 'user changed');
+      await bloc.close();
+    });
+
+    test('HomepageBloc drops the cached document on every auth transition too', () async {
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs('forum_index_nofav_x5.html', auth.user);
+      await forumHome.fetchHomePage().run();
+      final profile = ProfileRepository();
+      final bloc = HomepageBloc(
+        forumHomeRepository: forumHome,
+        profileRepository: profile,
+        authenticationRepository: auth,
+      );
+      adapter.answers.clear();
+      auth
+        ..signIn(alice)
+        ..signOut();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(forumHome.hasCache(), isFalse, reason: 'logged out');
+
+      adapter.answers[(uri, _) => uri.path == '/forum.php'] = () => _indexAs('forum_index_nofav_x5.html', auth.user);
+      await forumHome.fetchHomePage(force: true).run();
+      adapter.answers.clear();
+      auth.signIn(bob);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(forumHome.hasCache(), isFalse, reason: 'user changed and the forced refresh failed');
       await bloc.close();
     });
   });
