@@ -1139,6 +1139,8 @@
     "openLink": "Open link"
   },
   "threadVisitHistoryPage": {
+    "filterAccount": "Filter by account",
+    "allAccounts": "All accounts",
     "entryTooltip": "Thread browsing history",
     "title": "Thread browsing history",
     "localOnlyTip": "Only local browsing history was recorded, may be different on web side or other machines"

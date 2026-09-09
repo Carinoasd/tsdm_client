@@ -21,6 +21,8 @@ class ThreadVisitHistoryPage extends StatefulWidget {
 }
 
 class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
+  int? _selectedUid;
+  String _selectedUsername = '';
   @override
   Widget build(BuildContext context) {
     final tr = context.t.threadVisitHistoryPage;
@@ -28,10 +30,21 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
       create: (context) => ThreadVisitHistoryBloc(context.repo())..add(const ThreadVisitHistoryFetchAllRequested()),
       child: BlocBuilder<ThreadVisitHistoryBloc, ThreadVisitHistoryState>(
         builder: (context, state) {
+          final accounts = <int, String>{};
+          for (final record in state.history) {
+            accounts.putIfAbsent(record.uid, () => record.username);
+          }
+          // Keep the selected account available if its last record was removed during refresh.
+          if (_selectedUid != null) {
+            accounts.putIfAbsent(_selectedUid!, () => _selectedUsername);
+          }
+          final history = _selectedUid == null
+              ? state.history
+              : state.history.where((record) => record.uid == _selectedUid).toList();
           final body = switch (state.status) {
             ThreadVisitHistoryStatus.initial ||
             ThreadVisitHistoryStatus.loadingData => const CenteredCircularIndicator(),
-            ThreadVisitHistoryStatus.savingData || ThreadVisitHistoryStatus.success => _Body(state.history),
+            ThreadVisitHistoryStatus.savingData || ThreadVisitHistoryStatus.success => _Body(history),
             ThreadVisitHistoryStatus.failure => buildRetryButton(
               context,
               () => context.read<ThreadVisitHistoryBloc>().add(const ThreadVisitHistoryFetchAllRequested()),
@@ -40,8 +53,48 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
 
           return Scaffold(
             appBar: AppBar(title: Text(tr.title), bottom: Tips(tr.localOnlyTip, sizePreferred: true)),
-            body: SafeArea(
-              child: AnimatedSwitcher(duration: duration200, child: body),
+            body: Column(
+              children: [
+                PopupMenuButton<String>(
+                  tooltip: tr.filterAccount,
+                  initialValue: _selectedUid?.toString() ?? 'all',
+                  onSelected: (value) => setState(() {
+                    _selectedUid = int.tryParse(value);
+                    _selectedUsername = accounts[_selectedUid] ?? '';
+                  }),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(value: 'all', child: Text(tr.allAccounts)),
+                    for (final account in accounts.entries)
+                      PopupMenuItem(
+                        value: account.key.toString(),
+                        child: Text('${account.value} (UID: ${account.key})'),
+                      ),
+                  ],
+                  child: Padding(
+                    padding: edgeInsetsL12T12R12B12,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.filter_list),
+                        sizedBoxW12H12,
+                        Expanded(
+                          child: Text(
+                            _selectedUid == null ? tr.allAccounts : '$_selectedUsername (UID: $_selectedUid)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SafeArea(
+                    top: false,
+                    child: AnimatedSwitcher(duration: duration200, child: body),
+                  ),
+                ),
+              ],
             ),
           );
         },
