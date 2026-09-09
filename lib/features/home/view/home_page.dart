@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
+import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
@@ -55,19 +56,29 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
   Future<void> _onLocalNoticeStreamEvent(String? payload) async {
     switch (payload) {
       case LocalNoticeKeys.openNotification:
-        // The stored session counts: when a notification cold-starts the app the home page has its first frame
-        // before the homepage fetch verified the login, and `currentUser` is still null at that point (#14).
-        if (context.read<AuthenticationRepository>().effectiveCurrentUid == null) {
-          debug('refuse to push to unavailable notification page: need login');
-          return;
+        // Ask the router which page is really on top instead of the location stack, which drifted and refused taps
+        // on the homepage as "already in the notice page" (#14). Both answers stay in the log for the next report.
+        final top = routerTopLocation(GoRouter.of(context));
+        final action = decideLocalNoticeTap(
+          // The stored session counts: when a notification cold-starts the app the home page has its first frame
+          // before the homepage fetch verified the login, and `currentUser` is still null at that point (#14).
+          loggedIn: context.read<AuthenticationRepository>().effectiveCurrentUid != null,
+          topLocation: top,
+        );
+        info(
+          'notification tap: action=${action.name} top=$top location=${context.read<RootLocationCubit>().currentPath}',
+        );
+        switch (action) {
+          case LocalNoticeTapAction.needLogin:
+            debug('refuse to push to unavailable notification page: need login');
+          case LocalNoticeTapAction.alreadyOnNoticePage:
+            debug('do not push to notice page already in it');
+          case LocalNoticeTapAction.openNoticePage:
+            debug('push to notice page');
+            await context.pushNamed(ScreenPaths.notice);
         }
-
-        if (context.read<RootLocationCubit>().isIn(ScreenPaths.notice)) {
-          debug('do not push to notice page already in it');
-        } else {
-          debug('push to notice page');
-          await context.pushNamed(ScreenPaths.notice);
-        }
+      default:
+        warning('ignore local notification with unknown payload: $payload');
     }
   }
 

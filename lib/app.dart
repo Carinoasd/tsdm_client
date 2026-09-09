@@ -95,7 +95,7 @@ class App extends StatefulWidget {
   State<App> createState() => _AppState();
 }
 
-class _AppState extends State<App> with WindowListener, LoggerMixin {
+class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, LoggerMixin {
   /// Duration used to debounce the frequency to save window attributes into
   /// storage.
   ///
@@ -159,14 +159,28 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Foreground/background moments anchor the notification tap lines in an exported log: a tap the OS delivers
+    // arrives before the resume; a resume with no tap line only says the app came to front without a tap reaching
+    // it, whatever brought it there (#14).
+    debug('app lifecycle: ${state.name}');
+    if (state == AppLifecycleState.resumed) {
+      unawaited(logActiveLocalNotifications());
+    }
   }
 
   @override

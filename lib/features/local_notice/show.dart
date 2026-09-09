@@ -121,3 +121,24 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
     talker.handle(e, st, 'push local notification failed: ');
   }
 }
+
+/// Log whether the auto sync notification is still in the shade, Android only.
+///
+/// Read when the app comes back to the foreground. With the tap log it narrows a report down: a tap log means the
+/// tap reached Dart; no tap log while the notification is still shown means nothing was tapped; no tap log and the
+/// notification gone means either the user swiped it away or the tap never reached the app, which the log alone can
+/// not tell apart (#14). Failures are logged and swallowed.
+Future<void> logActiveLocalNotifications() async {
+  if (!isAndroid) {
+    return;
+  }
+  try {
+    final active = await flnp
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.getActiveNotifications();
+    final shown = active?.any((e) => e.id == localNoticeId) ?? false;
+    talker.debug('auto sync notification in shade: $shown');
+  } on Exception catch (e, st) {
+    talker.handle(e, st, 'read active notifications failed: ');
+  }
+}
