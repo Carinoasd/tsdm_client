@@ -124,8 +124,10 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
 
 /// Log whether the auto sync notification is still in the shade, Android only.
 ///
-/// Read when the app comes back to the foreground: with the tap log this tells a tap the OS never delivered (the
-/// notification is gone, no tap logged) from a tap that never happened (#14). Failures are logged and swallowed.
+/// Read when the app comes back to the foreground. With the tap log it narrows a report down: a tap log means the
+/// tap reached Dart; no tap log while the notification is still shown means nothing was tapped; no tap log and the
+/// notification gone means either the user swiped it away or the tap never reached the app, which the log alone can
+/// not tell apart (#14). Failures are logged and swallowed.
 Future<void> logActiveLocalNotifications() async {
   if (!isAndroid) {
     return;

@@ -175,7 +175,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     // Foreground/background moments anchor the notification tap lines in an exported log: a tap the OS delivers
-    // arrives before the resume, a resume with no tap line means the app was only brought to front (#14).
+    // arrives before the resume; a resume with no tap line only says the app came to front without a tap reaching
+    // it, whatever brought it there (#14).
     debug('app lifecycle: ${state.name}');
     if (state == AppLifecycleState.resumed) {
       unawaited(logActiveLocalNotifications());
