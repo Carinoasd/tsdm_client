@@ -121,3 +121,22 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
     talker.handle(e, st, 'push local notification failed: ');
   }
 }
+
+/// Log whether the auto sync notification is still in the shade, Android only.
+///
+/// Read when the app comes back to the foreground: with the tap log this tells a tap the OS never delivered (the
+/// notification is gone, no tap logged) from a tap that never happened (#14). Failures are logged and swallowed.
+Future<void> logActiveLocalNotifications() async {
+  if (!isAndroid) {
+    return;
+  }
+  try {
+    final active = await flnp
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.getActiveNotifications();
+    final shown = active?.any((e) => e.id == localNoticeId) ?? false;
+    talker.debug('auto sync notification in shade: $shown');
+  } on Exception catch (e, st) {
+    talker.handle(e, st, 'read active notifications failed: ');
+  }
+}

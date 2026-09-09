@@ -5,7 +5,16 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
 /// Callback of the user tap on local notification.
-void onLocalNotificationOpened(NotificationResponse resp) => localNoticeStream.add(resp.payload);
+///
+/// First hop of a tap while the app is alive: when this line is missing from an exported log the tap never reached
+/// Dart, so whatever happened next was not the app's decision (#14).
+void onLocalNotificationOpened(NotificationResponse resp) {
+  talker.info(
+    'local notification tapped: id=${resp.id} type=${resp.notificationResponseType.name} payload=${resp.payload} '
+    'listened=${localNoticeStream.hasListener}',
+  );
+  localNoticeStream.add(resp.payload);
+}
 
 /// Park the payload of the notification that cold-started the app, if any (#14).
 ///
@@ -19,12 +28,15 @@ Future<void> rememberNotificationLaunch() async {
   try {
     final launch = await flnp.getNotificationAppLaunchDetails();
     if (launch == null || !launch.didNotificationLaunchApp) {
+      talker.debug('app not launched from a local notification');
       return;
     }
     final payload = launch.notificationResponse?.payload;
     talker.info('app launched from local notification: payload=$payload');
     if (payload == LocalNoticeKeys.openNotification) {
       rememberLaunchPayload(payload);
+    } else {
+      talker.warning('ignore launch notification with unknown payload: $payload');
     }
   } on Exception catch (e, st) {
     talker.handle(e, st, 'read notification launch details failed: ');
