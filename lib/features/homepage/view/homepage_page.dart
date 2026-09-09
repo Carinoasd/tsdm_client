@@ -9,7 +9,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
-import 'package:tsdm_client/features/homepage/widgets/latest_reply_section.dart';
+import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart';
 import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -179,7 +179,7 @@ class _HomepagePageState extends State<HomepagePage> {
                     sizedBoxW12H12,
                     PinSection(state.pinnedThreadGroupList),
                     sizedBoxW12H12,
-                    const LatestReplySection(),
+                    const GuideSection(),
                   ],
                 ),
               ),

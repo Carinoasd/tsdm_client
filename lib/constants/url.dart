@@ -42,6 +42,15 @@ const broadcastMessageUrl = '$baseUrl/home.php?mod=space&do=pm&filter=announcepm
 /// Broadcast message detail page.
 const broadcastMessageDetailUrl = '$baseUrl/home.php?mod=space&do=pm&subop=viewg&pmid=';
 
+/// The Discuz! built-in guide index page (`forum.php?mod=guide&view=index`).
+///
+/// Lists the four guide modules 最新热门 (hot), 最新精华 (digest), 最新回复 (new) and 最新发表 (newthread) with a few
+/// threads each, plus a nav row that also links 抢沙发 (sofa). Visible to guests as well.
+const guideIndexUrl = '$baseUrl/forum.php?mod=guide&view=index';
+
+/// Url of the full guide list page for [view]: `hot`, `digest`, `new`, `newthread` or `sofa`.
+String guideUrl(String view) => '$baseUrl/forum.php?mod=guide&view=$view';
+
 /// Page contains all thread published by current logged user.
 const myThreadThreadUrl = '$baseUrl/home.php?mod=space&do=thread&view=me&type=thread';
 

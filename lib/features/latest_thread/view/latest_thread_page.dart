@@ -13,10 +13,16 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// Page to show info about latest thread page.
 class LatestThreadPage extends StatefulWidget {
   /// Constructor.
-  const LatestThreadPage({required this.url, super.key});
+  const LatestThreadPage({required this.url, this.title, this.repository, super.key});
 
   /// Url the the page.
   final String url;
+
+  /// App bar title, e.g. the guide module name (最新热门); the generic "latest thread" title when null.
+  final String? title;
+
+  /// Repository override (tests); the real one is used when null.
+  final LatestThreadRepository? repository;
 
   @override
   State<LatestThreadPage> createState() => _LatestThreadPageState();
@@ -44,14 +50,31 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
         }
         context.read<LatestThreadBloc>().add(LatestThreadLoadMoreRequested());
       },
-      child: ListView.separated(
-        padding: edgeInsetsL12T4R12.add(context.safePadding()),
-        itemCount: state.threadList.length,
-        itemBuilder: (context, index) {
-          return LatestThreadCard(state.threadList[index]);
-        },
-        separatorBuilder: (context, index) => sizedBoxW4H4,
-      ),
+      child: state.threadList.isEmpty
+          // The guide page can be empty (最新精华 has no threads); say so instead of showing a blank list.
+          ? ListView(
+              padding: edgeInsetsL12T4R12.add(context.safePadding()),
+              children: [
+                Padding(
+                  padding: edgeInsetsL12T12R12B12,
+                  child: Text(
+                    context.t.latestThreadPage.empty,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: edgeInsetsL12T4R12.add(context.safePadding()),
+              itemCount: state.threadList.length,
+              itemBuilder: (context, index) {
+                return LatestThreadCard(state.threadList[index]);
+              },
+              separatorBuilder: (context, index) => sizedBoxW4H4,
+            ),
     );
   }
 
@@ -71,7 +94,7 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        RepositoryProvider(create: (_) => LatestThreadRepository()),
+        RepositoryProvider(create: (_) => widget.repository ?? LatestThreadRepository()),
         BlocProvider(
           create: (context) =>
               LatestThreadBloc(latestThreadRepository: context.repo())..add(LatestThreadRefreshRequested(widget.url)),
@@ -88,7 +111,7 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
           };
 
           return Scaffold(
-            appBar: AppBar(title: Text(context.t.latestThreadPage.title)),
+            appBar: AppBar(title: Text(widget.title ?? context.t.latestThreadPage.title)),
             body: SafeArea(bottom: false, child: body),
           );
         },

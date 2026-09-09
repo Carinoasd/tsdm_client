@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/features/homepage/widgets/latest_reply_section.dart';
 import 'package:tsdm_client/features/latest_thread/bloc/latest_thread_bloc.dart';
 import 'package:tsdm_client/features/latest_thread/repository/latest_thread_repository.dart';
 import 'package:tsdm_client/instance.dart';
@@ -29,10 +29,10 @@ void main() {
     final bloc = LatestThreadBloc(latestThreadRepository: repo);
     addTearDown(bloc.close);
     final done = bloc.stream.firstWhere((s) => s.status == LatestThreadStatus.success);
-    bloc.add(const LatestThreadRefreshRequested(latestReplyUrl));
+    bloc.add(LatestThreadRefreshRequested(guideUrl('new')));
     final state = await done;
 
-    expect(repo.requested, [latestReplyUrl]);
+    expect(repo.requested, [guideUrl('new')]);
     expect(state.threadList, hasLength(12));
     for (final thread in state.threadList) {
       expect(thread.title ?? '', isNotEmpty);

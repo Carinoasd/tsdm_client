@@ -490,3 +490,19 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 沒有做：自動排程、設定鍵（issue 只要求按鈕）。
 - i18n：`manageAccountPage.syncAll.title`、`noticePage.syncAllPage.*`、`globalStatePage.syncAllFinished`。
 - 測試 test_050：Alice（全域 CookieProvider）＋ Bob、Carol（只在資料庫）三帳號、腳本化 adapter 分頁面佇列——嚴格 Alice→Bob→Carol 各 3 個 GET、每帳號的請求帶自己的 `Ystv_2132_auth`、Bob 的通知／私訊／公用訊息以伺服器未讀旗標落在 uid 2000、`lastFetchNotice` 已寫、Carol（登入表單）→ NotAuthorized、全域 cookie 仍是 Alice；對帳一致（預存已讀副本再抓仍已讀，`new` 不計）；429 無 Retry-After → RateLimited 且下一帳號照跑；429 帶 Retry-After 1 秒 → 等 1 秒重試一次成功；cubit 只發佈一筆＝Alice 的資料庫重算（Bob 的 1/1/1 不混入）、無目前帳號不發佈、執行中再 start 忽略；`fetchNotificationV2` 串流仍 Loading→Success／Failure；bloc `NotificationReloadFromStorageRequested` 不打網路；儲存 Bob 時拋例外 → Bob `Failed`、Alice 照抓；`getAllUsers` 拋例外 → Preparing→Finished（空）且自動同步恢復、可再 start；全帳號同步暫停中切換帳號 pause／resume 不重啟計時，sync-all resume 後才 Ticking；同一理由 pause 兩次 resume 一次即恢復；`NotificationRecordFetchTimeRequested` 較早的時間不覆寫、較晚的才寫。真實的 `pmlist_`／`gpmlist_` 列表頁 fixture 仍缺，測試用依選擇器合成的最小 HTML。
+
+## 17. 首頁改顯示論壇導讀首頁的四個模組（GitHub #12，2026-09-09）
+
+### 17.1 論壇端事實
+- `forum.php?mod=guide&view=index`（訪客也看得到）依序列四個模組：最新热门（`view=hot`）、最新精华（`view=digest`）、最新回复（`view=new`）、最新发表（`view=newthread`）；頁首導覽 `ul#thread_types > li > a` 另有 抢沙发（`view=sofa`）與 我的帖子（`view=my`）。
+- 每個模組是 `div.bm.bmw`：`div.bm_h` 內 `<a href="forum.php?mod=guide&view=hot" class="y xi2">更多 »</a>` ＋ `<h2>最新热门</h2>`；內容 `div.bm_c > div.xl.xl2.cl` **直接**放 `<li>`（沒有 `<ul>`，偶數列 `li.xl2_r`）。每列：`<em>`（模組不同：hot＝`<span class="xi1">N人参与</span>`、new＝時間或 `<span title="2026-9-9 20:25">7&nbsp;秒前</span>`、newthread＝空白）、`<i>· <a href="forum.php?mod=viewthread&tid=TID&extra=" [style="font-weight: bold;color: #EE1B2E;"]>標題</a></i>`、`<span class="xg1"><a href="forum.php?mod=forumdisplay&fid=FID">版塊</a></span>`。
+- 抓到的頁面每個模組 30 列（不是 10）；最新精华目前沒有帖子：`div.xl` 內只有 `<p class="emp">暂时还没有帖子</p>`，完整頁 `view=digest` 也是 0 列（`tbody.bw0_all > tr > th > p.emp`）。
+- 完整頁 `view=hot`（47 列，`div.pg > a.nxt` 分頁 `view=hot&page=2`）與 `view=new` 的列都是 §（既有）`tbody#normalthread_TID` 格式，`LatestThread.fromTBody` 直接可用；hot 的標題後多一個 `<span class="xi1">N人参与</span>`，解析器忽略。`view=sofa` 沒有抓樣本（假設同格式）。
+
+### 17.2 App 端行為
+- `guideIndexUrl`、`guideUrl(view)`（`constants/url.dart`）；模型 `GuideModule{title, view, moreUrl, items, emptyMessage}`、`GuideItem{tid, title, url, fid, forumName, extra, highlighted}`（`features/homepage/models/guide_index.dart`）；解析 `parseGuideIndex(document)`（`features/homepage/utils/parse_guide_index.dart`）依頁面順序回傳，缺標題或 更多 連結的區塊跳過，訪客登入頁／無關頁面回 `[]`；`extra` 收斂空白（含 nbsp），空則 null；`highlighted`＝標題 `<a>` 帶 `style`。
+- `GuideIndexRepository.fetchGuideIndex()`（AsyncEither）＋ `GuideIndexCubit`（loading → success／failure；失敗保留舊模組）；`GuideSection` 取代原 `LatestReplySection`（已刪除；`latestReplyUrl` 改為 `guideUrl('new')`），跟原本一樣自己持有 cubit，首頁下拉更新時整段重建＝一起重抓。
+- 版面：論壇狀態卡之下先一列 chip（每個模組一顆＋固定的 抢沙发，對應頁首導覽），再每個模組一張卡：標題＋「更多」（`ScreenPaths.latestThread`，帶 `url`＝模組的 更多 連結、`title`＝模組名）、最多 10 列（頁面給 30）；每列標題（有 style 的用 error 色＋粗體）、版塊小標籤（可點進版塊）、右側 `extra`；點列開帖子（`ScreenPaths.threadV1`，`tid`＋`appBarTitle`）；空模組顯示頁面自己的 `p.emp` 文字（沒有則 i18n `homepage.guide.empty`）；載入失敗顯示重試列（chip 列仍在）。已回覆標記（#21）沿用 `isThreadReplied`。
+- `LatestThreadPage` 新增可選 `title`（路由 query `title`）與空清單提示（`latestThreadPage.empty`）；`view=hot|digest|sofa` 走同一頁。
+- i18n：`homepage.guide.{more, sofa, failed, empty}`、`latestThreadPage.empty`；移除 `homepage.latestReplySection.*`。
+- 測試 test_064（解析：四模組順序／view／更多 url、30/0/30/30 列、第一列 hot 內容、缺模組容錯、空頁；repository＋cubit 用假 adapter；widget：模組卡、更多、chip、點列到 threadV1、點更多／chip 到 latestThread、失敗重試列）、test_065（`fromTBody` 解析 hot 47 列、digest 0 列 bloc 仍 success、分頁 url、repository 接受五種 view、`LatestThreadPage` 標題與空提示）。

@@ -2,6 +2,8 @@ import 'package:dart_mappable/dart_mappable.dart';
 
 part 'forum_status.dart';
 
+part 'guide_index.dart';
+
 part 'logged_user_info.dart';
 
 part 'models.mapper.dart';
