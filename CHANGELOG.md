@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-09-09
+
+### Fixed
+
+- 帖子：编辑回覆成功后会自动刷新所在页并定位回原楼层，立即显示更新内容；取消编辑不会刷新。(#31)
+
 ## [1.21.0] - 2026-09-09
 
 处理 GitHub 反馈 #5、#12。
