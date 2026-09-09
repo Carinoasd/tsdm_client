@@ -46,13 +46,12 @@ AppException mapException(Object error, StackTrace st) {
 extension _WithFormExt<T> on Dio {
   AsyncEither<Response<T>> postWithForm(String path, {Object? data, Map<String, dynamic>? queryParameters}) =>
       AsyncEither.tryCatch(
-            () async =>
-            post(
-              path,
-              data: data,
-              queryParameters: queryParameters,
-              options: Options(headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'}),
-            ),
+        () async => post(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: Options(headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'}),
+        ),
         mapException,
       );
 }
@@ -83,6 +82,7 @@ final class NetClientProvider with LoggerMixin {
       final identity = userLoginInfo?.uid ?? cookie.userLoginInfo.uid;
       final cookieJar = PersistCookieJar(ignoreExpires: true, storage: _IdentityScopedStorage(cookie, identity));
       d.interceptors.add(_IdentityGuard(cookie, identity));
+      d.interceptors.add(_DropServerFlagCookies());
       d.interceptors.add(CookieManager(cookieJar));
       if (forceDesktop) {
         d.interceptors.add(_ForceDesktopLayoutInterceptor());
@@ -115,6 +115,7 @@ final class NetClientProvider with LoggerMixin {
       ignoreExpires: true,
       storage: cookie ?? getIt.get<CookieProvider>(instanceName: ServiceKeys.empty),
     );
+    d.interceptors.add(_DropServerFlagCookies());
     d.interceptors.add(CookieManager(cookieJar));
     if (forceDesktop) {
       d.interceptors.add(_ForceDesktopLayoutInterceptor());
@@ -158,32 +159,31 @@ final class NetClientProvider with LoggerMixin {
       }, mapException);
 
   /// Get a image from the given [uri].
-  AsyncEither<Response<dynamic>> getImageFromUri(Uri uri) =>
-      AsyncEither.tryCatch(() async {
-        final resp = await _dio.getUri<dynamic>(
-          uri,
-          options: Options(
-            responseType: ResponseType.bytes,
-            headers: {
-              HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
-              HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
-            },
-          ),
-        );
+  AsyncEither<Response<dynamic>> getImageFromUri(Uri uri) => AsyncEither.tryCatch(() async {
+    final resp = await _dio.getUri<dynamic>(
+      uri,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {
+          HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
+          HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
+        },
+      ),
+    );
 
-        if (resp.statusCode != HttpStatus.ok) {
-          throw HttpRequestFailedException(resp.statusCode);
-        }
-        _ensureImageBody(resp);
-        return resp;
-      }, mapException);
+    if (resp.statusCode != HttpStatus.ok) {
+      throw HttpRequestFailedException(resp.statusCode);
+    }
+    _ensureImageBody(resp);
+    return resp;
+  }, mapException);
 
   /// Post [data] to [path] with [queryParameters].
   ///
   /// When post a form data, use [postForm] instead.
   AsyncEither<Response<dynamic>> post(String path, {Object? data, Map<String, dynamic>? queryParameters}) =>
       AsyncEither.tryCatch(
-            () async => _dio.post<dynamic>(path, data: data, queryParameters: queryParameters),
+        () async => _dio.post<dynamic>(path, data: data, queryParameters: queryParameters),
         mapException,
       );
 
@@ -196,57 +196,55 @@ final class NetClientProvider with LoggerMixin {
   /// Post a form [data] to url [path] in `Content-Type` multipart/form-data.
   ///
   /// Automatically set `Content-Type` to `multipart/form-data`.
-  AsyncEither<Response<dynamic>> postMultipartForm(String path, {
+  AsyncEither<Response<dynamic>> postMultipartForm(
+    String path, {
     required Map<String, String> data,
     Map<String, String>? header,
-  }) =>
-      AsyncEither.tryCatch(
-            () async =>
-            _dio.post<dynamic>(
-              path,
-              options: Options(
-                headers: <String, String>{
-                  HttpHeaders.contentTypeHeader: Headers.multipartFormDataContentType,
-                }.copyWith(header ?? {}),
-                validateStatus: (code) {
-                  if (code == 301 || code == 200) {
-                    return true;
-                  }
-                  return false;
-                },
-              ),
-              // Use plain map for kotlin native http client.
-              data: isAndroid ? data : FormData.fromMap(data),
-            ),
-        mapException,
-      );
+  }) => AsyncEither.tryCatch(
+    () async => _dio.post<dynamic>(
+      path,
+      options: Options(
+        headers: <String, String>{
+          HttpHeaders.contentTypeHeader: Headers.multipartFormDataContentType,
+        }.copyWith(header ?? {}),
+        validateStatus: (code) {
+          if (code == 301 || code == 200) {
+            return true;
+          }
+          return false;
+        },
+      ),
+      // Use plain map for kotlin native http client.
+      data: isAndroid ? data : FormData.fromMap(data),
+    ),
+    mapException,
+  );
 
   /// Download the file from url [path] and save to [savePath].
-  AsyncVoidEither download(String path,
-      dynamic savePath, {
-        ProgressCallback? onReceiveProgress,
-        Map<String, dynamic>? queryParameters,
-        CancelToken? cancelToken,
-        bool deleteOnError = true,
-        String lengthHeader = Headers.contentLengthHeader,
-        Object? data,
-        Options? options,
-      }) =>
-      AsyncVoidEither.tryCatch(
-            () async =>
-            _dio.download(
-              path,
-              savePath,
-              onReceiveProgress: onReceiveProgress,
-              queryParameters: queryParameters,
-              cancelToken: cancelToken,
-              deleteOnError: deleteOnError,
-              lengthHeader: lengthHeader,
-              data: data,
-              options: options,
-            ),
-        mapException,
-      );
+  AsyncVoidEither download(
+    String path,
+    dynamic savePath, {
+    ProgressCallback? onReceiveProgress,
+    Map<String, dynamic>? queryParameters,
+    CancelToken? cancelToken,
+    bool deleteOnError = true,
+    String lengthHeader = Headers.contentLengthHeader,
+    Object? data,
+    Options? options,
+  }) => AsyncVoidEither.tryCatch(
+    () async => _dio.download(
+      path,
+      savePath,
+      onReceiveProgress: onReceiveProgress,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+      deleteOnError: deleteOnError,
+      lengthHeader: lengthHeader,
+      data: data,
+      options: options,
+    ),
+    mapException,
+  );
 }
 
 /// Cookie storage of one account.
@@ -376,6 +374,27 @@ class _ForceDesktopLayoutInterceptor extends Interceptor with LoggerMixin {
   }
 }
 
+/// Drop the server's per-session flag cookies before the cookie jar sees them.
+///
+/// Runs before [CookieManager] so `Set-Cookie: <prefix>_nofavfid=1` never enters the jar: with that flag Discuz!
+/// skips the "我收藏的版块" panel of the forum index for the whole session (issue #1). Rows persisted earlier are
+/// cleaned when the cookie provider loads them ([stripServerFlagCookies]).
+class _DropServerFlagCookies extends Interceptor {
+  @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+    final setCookie = response.headers[HttpHeaders.setCookieHeader];
+    if (setCookie != null && setCookie.any(_isFlag)) {
+      response.headers.set(HttpHeaders.setCookieHeader, setCookie.where((e) => !_isFlag(e)).toList());
+    }
+    handler.next(response);
+  }
+
+  static bool _isFlag(String header) {
+    final name = header.split('=').first.trim();
+    return serverFlagCookieSuffixes.any(name.endsWith);
+  }
+}
+
 /// Check user points changes.
 ///
 /// In user actions' result, points (or call it credit) may change, and the changes info is stored in cookie by the
@@ -413,7 +432,7 @@ final class _PointsChangesChecker extends Interceptor {
     response.headers.map
         .lookup('set-cookie')
         .filterMap(_filterCreditNotice)
-    // All notice changes cookie value.
+        // All notice changes cookie value.
         .map((x) => x.forEach(pointsChangesStream.add));
 
     handler.next(response);
