@@ -373,3 +373,30 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - **檢查更新**：上游 `UpdateCubit` 讀的是原作者論壇帖（`ptid=1233425&pid=75311834`）裡的 JSON，官方版無法維護那篇帖子。改為讀取本倉庫 `version.json`（`upgradeVersionInfoUrl`），格式與 `LatestVersionInfo` 相同；`scripts/write_version_json.dart` 從 pubspec 與 CHANGELOG 對應版本段產生，`test_042` 保證檔案與 pubspec 一致。解析函式 `parseLatestVersionInfo` 接受字串／已解碼 Map／位元組，其他一律 `FormatException`，被 Cloudflare 擋下回傳 HTML 時只會顯示「檢查失敗」而不會崩潰。
 - **更新頁**：F-Droid 提示改為說明正式版來源；「公告帖」連結維持上游 tid=628244，待官方公告帖建立後再改。
 
+
+## 12. 收藏版塊（GitHub #1、#2，2026-09-09）
+
+### 12.1 論壇端協定（測試帳號實抓，fixture 已去識別化：uid 1000／Alice／XXXXXXXX）
+- **首頁收藏面板** `forum.php`：有收藏版塊的會員多出**第一個**分區 `div.bm.bmw.flg.cl`（class 多一個 `flg`、有雙空格，既有選擇器 `div.bm.bmw.cl` 照樣命中），
+  標題 `div.bm_h > h2 > a[href="home.php?mod=space&do=favorite&type=forum"]`「我收藏的版块」（一般分區的 h2 連到 `forum.php?gid=N`、bm_h 另有 `span.y` 分区版主），
+  內容 `div#category_0.bm_c > table.fl_tb`，每個收藏版塊一列展開式 `tr`（與一般分區相同），尾端一個空的 `tr.fl_row`。沒有收藏時整個面板不存在。
+  fixture：`forum_index_x5.html`／`forum_index_nofav_x5.html`。
+- **列表** `GET home.php?mod=space&do=favorite&type=forum`：與帖子列表同形，`ul#favorite_ul > li#fav_FAVID`，標題連結 `a[href*="mod=forumdisplay"]`，
+  勾選框 `vid` 為 fid，時間 `span.xg1 span[title]`；沒有備註就沒有 `div.quote`。空列表：`p.emp`「您还没有添加任何收藏」、沒有 `ul#favorite_ul`（不是需登入）。
+- **加入／取消**與帖子完全同一條路徑，只差 `type=forum`：`GET …ac=favorite&type=forum&id=FID&infloat=yes&handlekey=K&inajax=1` 取表單，
+  `POST …&spaceuid=0`（`favoritesubmit`、`referer`、`formhash`、`handlekey`、`description`）；刪除 `op=delete&favid=FAVID`（`type` 可省，App 仍送）。
+  **handlekey 由客戶端決定、伺服器原樣回音**：網頁用 `favoriteforum`／`a_delete_FAVID`，回 `succeedhandle_favoriteforum(...)`／`errorhandle_favoriteforum('抱歉，您已收藏…')`；
+  App 沿用 `k_favorite`／`favdelete`。解析器改為只認 `succeedhandle_<任意>(`／`errorhandle_<任意>(`。已收藏時同樣在 GET 那步就回錯誤、沒有表單。
+
+### 12.2 App 端行為
+- **#1 首頁分區不更新／刷新報錯**：`ForumHomeRepository` 多了 `documentStream`（BehaviorSubject）＋`dispose`，每次抓到 `forum.php` 都廣播；
+  `TopicsBloc` 訂閱它（首頁在登入／切換帳號後強制刷新的文件直接重新解析，不多發請求）、訂閱 `AuthenticationRepository.status`
+  （登出→靜默重抓訪客首頁；使用者變更但 5 秒內沒有新文件→自己補抓一次）、訂閱 `FavoriteRepository.forumFavoritesChanged`（收藏／取消版塊後靜默重抓）。
+  靜默刷新不切到 loading、失敗時保留原分區。`TopicsPage` 在分區數改變時重建 `TabController`（釋放舊的、保存的分頁索引夾到範圍內、改用 `TickerProviderStateMixin`），
+  原本 `??=` 固定長度導致「Controller's length property (N) does not match the number of tabs (N+1)」；順帶去掉 dispose 裡的重複釋放。收藏面板沿用論壇自己的標題「我收藏的版块」，不另作置頂或改名。
+- **#2 收藏版塊**：`FavoriteType {thread, forum}`；模型 `FavoriteItem`（sealed）→ `FavoriteThread`／`FavoriteForum`；`FavoriteRepository`
+  `addForumFavorite`／`removeFavorite(type:)`／`findForumFavid`／`fetchListPageOf(type)`，快取改為 type → uid → id → favid（版塊可為 null＝「知道已收藏但不知 favid」），
+  `seedForumFavorites` 由分區頁的收藏面板灌入（整組取代、保留已知 favid）。版塊頁 App bar 選單「收藏本版／取消收藏本版」（備註對話框標題改可設定；取消時沒有 favid 就先掃列表補上）。
+  收藏頁分成「帖子／版块」兩個分頁（各自一個 `FavoriteBloc(type:)`），路由 `/favorite?type=forum`，`home.php?mod=space&do=favorite&type=forum` 連結直接開版塊分頁。
+- 測試：test_043（面板解析、TopicsBloc 三種觸發、TopicsPage 2→3→2 個分頁無例外且索引夾住；把 `_syncTabController` 退回舊行為可重現原錯誤）、
+  test_044（版塊列表／空列表／對話框／任意 handlekey、GET→POST 參數、已收藏不 POST、刪除、findForumFavid、seed、網址辨識）。test_023 原樣全過。
