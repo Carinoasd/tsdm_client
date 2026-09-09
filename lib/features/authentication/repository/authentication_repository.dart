@@ -29,14 +29,25 @@ import 'package:universal_html/parsing.dart';
 /// **Need to call dispose.**
 class AuthenticationRepository with LoggerMixin {
   /// Constructor.
-  AuthenticationRepository({UserLoginInfo? user, NetClientProvider Function(CookieProvider)? clientFactory})
-    : _authedUser = user,
-      _clientFactory = clientFactory ?? _defaultClientFactory;
+  ///
+  /// [clientFactory] builds the isolated clients of login and account switching, [currentUserClientFactory] the
+  /// client acting as the current account (used by [logout]); both are replaceable in tests.
+  AuthenticationRepository({
+    UserLoginInfo? user,
+    NetClientProvider Function(CookieProvider)? clientFactory,
+    NetClientProvider Function(UserLoginInfo)? currentUserClientFactory,
+  }) : _authedUser = user,
+       _clientFactory = clientFactory ?? _defaultClientFactory,
+       _currentUserClientFactory = currentUserClientFactory ?? _defaultCurrentUserClientFactory;
 
   final NetClientProvider Function(CookieProvider) _clientFactory;
+  final NetClientProvider Function(UserLoginInfo) _currentUserClientFactory;
 
   static NetClientProvider _defaultClientFactory(CookieProvider cookie) =>
       NetClientProvider.buildNoCookie(cookie: cookie);
+
+  static NetClientProvider _defaultCurrentUserClientFactory(UserLoginInfo user) =>
+      NetClientProvider.build(userLoginInfo: user);
 
   static const _checkAuthUrl = '$baseUrl/home.php?mod=spacecp';
 
@@ -209,12 +220,15 @@ class AuthenticationRepository with LoggerMixin {
   ///
   /// Check authentication status first then try to logout.
   /// Do nothing if already unauthenticated.
+  ///
+  /// When the forum no longer knows the session (expired, or logged out elsewhere) the saved login is removed like
+  /// after a successful logout: keeping the row left the account listed as online with nothing able to remove it.
   AsyncVoidEither logout() => AsyncVoidEither(() async {
     if (_authedUser == null) {
       return rightVoid();
     }
-    final netClient = NetClientProvider.build(
-      userLoginInfo: UserLoginInfo(username: _authedUser!.username, uid: _authedUser!.uid),
+    final netClient = _currentUserClientFactory(
+      UserLoginInfo(username: _authedUser!.username, uid: _authedUser!.uid),
     );
     final respEither = await netClient.get(_checkAuthUrl).run();
     if (respEither.isLeft()) {
@@ -227,8 +241,9 @@ class AuthenticationRepository with LoggerMixin {
     final document = parseHtmlDocument(resp.data as String);
     final userInfo = _parseUserInfoFromDocument(document);
     if (userInfo == null) {
-      // Not logged in.
-      await _markUnauthenticated();
+      // Not logged in any more: nothing to end on the server, drop the saved login.
+      info('logout: session already gone on the server, remove the saved login');
+      await _forgetCurrentUser();
       return rightVoid();
     }
     final formHash = _formHashRe.firstMatch(document.body?.innerHtml ?? '')?.namedGroup('FormHash');
@@ -251,11 +266,30 @@ class AuthenticationRepository with LoggerMixin {
       return left(LogoutFailedException());
     }
 
-    getIt.get<CookieProvider>().clearUserInfoAndCookie();
-    await getIt.get<StorageProvider>().deleteCookieByUid(_authedUser!.uid!);
-    await _markUnauthenticated();
+    await _forgetCurrentUser();
     return rightVoid();
   });
+
+  /// Remove the current account from this device without telling the forum.
+  ///
+  /// Clears the cookie in memory, deletes the saved login and marks the app as unauthenticated; no request is sent,
+  /// so it works offline and the forum session stays valid elsewhere. Does nothing when nobody is logged in.
+  AsyncVoidEither forgetCurrentUser() => AsyncVoidEither(() async {
+    if (_authedUser == null) {
+      return rightVoid();
+    }
+    await _forgetCurrentUser();
+    return rightVoid();
+  });
+
+  Future<void> _forgetCurrentUser() async {
+    getIt.get<CookieProvider>().clearUserInfoAndCookie();
+    final uid = _authedUser?.uid;
+    if (uid != null) {
+      await getIt.get<StorageProvider>().deleteCookieByUid(uid);
+    }
+    await _markUnauthenticated();
+  }
 
   /// Switch to another user described in [userInfo].
   ///

@@ -1171,9 +1171,10 @@
       "success": "切换成功",
       "dialog": {
         "switchAccount": "切换到这个账户",
-        "clearLoginStatus": {
-          "title": "清除登录记录",
-          "detail": "清除在软件内的登录记录，不会向服务器请求退出登录"
+        "deleteAccount": {
+          "title": "删除账户",
+          "detail": "从本机删除此账户的登录记录，不会向论坛请求退出登录",
+          "confirm": "要从本机删除 ${username} 吗？只会删除本机保存的登录记录，不会向论坛请求退出登录。"
         },
         "loginAgain": {
           "title": "再次登录",
@@ -1184,12 +1185,26 @@
     "allUsers": "所有用户",
     "addUser": "添加用户",
     "logoutDetail": "退出论坛登录，并清除本机保存的登录状态",
+    "removeFromDevice": {
+      "title": "从本机移除",
+      "detail": "删除本机保存的登录记录但不向论坛退出登录，本机将退出登录状态",
+      "confirm": "要从本机移除 ${username} 吗？不会向论坛请求退出登录，本机将退出登录状态。"
+    },
     "loginAnother": "登录其他账户",
     "logout": "退出登录",
     "online": "在线",
     "checkin": {
       "today": "今日已签到",
       "notYet": "今日未签到"
+    },
+    "selection": {
+      "enter": "选择",
+      "count": "已选择 ${count} 个",
+      "selectAll": "全选",
+      "delete": "删除账户",
+      "confirm": "要从本机删除 ${count} 个账户吗？只会删除本机保存的登录记录，不会向论坛请求退出登录。",
+      "currentHint": "包含当前账户：删除后本机将退出登录状态。",
+      "deleted": "已删除 ${count} 个账户"
     }
   },
   "switchUserGroupPage": {

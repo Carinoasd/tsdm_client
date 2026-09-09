@@ -400,3 +400,25 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   收藏頁分成「帖子／版块」兩個分頁（各自一個 `FavoriteBloc(type:)`），路由 `/favorite?type=forum`，`home.php?mod=space&do=favorite&type=forum` 連結直接開版塊分頁。
 - 測試：test_043（面板解析、TopicsBloc 三種觸發、TopicsPage 2→3→2 個分頁無例外且索引夾住；把 `_syncTabController` 退回舊行為可重現原錯誤）、
   test_044（版塊列表／空列表／對話框／任意 handlekey、GET→POST 參數、已收藏不 POST、刪除、findForumFavid、seed、網址辨識）。test_023 原樣全過。
+
+## 13. 自動簽到提示列、各帳號今日簽到狀態、刪除帳號（GitHub #4、#9、#6，2026-09-09）
+
+### 13.1 論壇端事實
+- 沒有新協定。簽到協定見 §7.2；「今天是否已簽到」App 端只用本機資料判定：`Cookie.lastCheckin`（每帳號一欄，簽到成功或論壇回「已經簽到」時寫入），不向論壇探測（每帳號一個請求且會 429，決定不做）。
+- 登出：`GET home.php?mod=spacecp` 若已不見登入者節點（`div#um p strong.vwmy a`／`div#inner_stat > strong > a`）＝論壇端 session 已失效，沒有東西可登出。
+
+### 13.2 App 端行為
+- **#4 提示列兩行**：Flutter `SnackBar` 在「動作＋關閉鈕」寬度超過提示列 25%（`actionOverflowThreshold`）時把動作移到第二行；「查看详情」＋關閉鈕在 360dp 手機約 27%，於是變兩行。改為不放關閉鈕（下滑、點動作、4 秒逾時都能關），`showSnackBar` 新增 `actionOverflowThreshold` 透傳、App 層傳 0.6。test_045 在 320×640、字級 1.5 驗證單行且無關閉鈕。`RootSingleton` 裡的重複監聽器是死碼，未動。
+- **#9 各帳號簽到狀態**：`isCheckedInToday(last, now:)`（`lib/features/checkin/utils/checkin_day.dart`）＝裝置本地同一日曆日；`AutoCheckinBloc` 的略過判定改用同一函式（原本 `now.day > last.day` 逐欄比較）。
+  `StorageProvider.allUsersWithTimeStream()`（drift `watchAll`，`updateLastCheckinTime` 後會重發）；管理帳號頁每列副標題：uid、圖示＋「今日已簽到／今日未簽到」，
+  若本次啟動的自動簽到對該帳號失敗（且不是「已經簽到」）再多一行 `CheckinResult.message`（例如登入已失效、429）；「在线」chip 仍在 trailing。
+  `AutoCheckinRepository._updateSuccess` 原本建了 `VoidTask` 沒 `run()`，寫入實際上沒發生；現在每個帳號成功後立即寫入，bloc 收尾時整批再寫一次（冪等）。
+  限制：本機日曆日與論壇 UTC+8 換日可能差幾小時；備份還原或從未在本機簽到的帳號 `lastCheckin` 為 null，顯示「未簽到」直到第一次簽到。
+- **#6 刪除帳號**：
+  - 管理帳號頁新增 `ManageAccountBloc`（`selecting`、`selectedUids`、`status idle/deleting/deleted/failed`、`deletedCount`）：長按帳號或 App bar「選擇」進入選取模式，點按切換、App bar 顯示數量、全選、刪除；關閉鈕／返回鍵離開選取模式（`PopScope`）。
+    刪除前 `showQuestionDialog(dangerous)`，訊息說明只刪本機登入記錄、不向論壇登出；包含目前帳號時加註「本機將退出登入狀態」。完成後 snackbar 顯示刪除數量並離開選取模式。
+  - 非目前帳號：`StorageProvider.deleteCookiesByUids`（先清 `_cookieCache`、一個 transaction，stream 只發一次）；目前帳號：`AuthenticationRepository.forgetCurrentUser()`（清 CookieProvider、刪列、`_markUnauthenticated`，不連網）。
+  - 單帳號對話框：原「清除登录记录」改名為「刪除帳號」（i18n `switchAccount.dialog.deleteAccount`），加確認與 snackbar；目前帳號多一個「從本機移除」（`forgetCurrentUser`），與連網「退出登入」並列。
+  - `logout()`：論壇回沒有登入者時也清 CookieProvider、刪列再 `_markUnauthenticated`（原本只標記、列留著，帳號卡在「在线」無法刪除）；改走可注入的 `currentUserClientFactory`（預設仍是 `NetClientProvider.build(userLoginInfo:)`），離線可測。
+  - 復活防護：`CookieProvider` 記住自己是否由 `loadCookieFromStorage` 載入（`_mirrorsStoredRow`）；是的話 `_syncCookie` 在 `getCookieByUidSync(uid) == null`（列已被刪）時不再 upsert，避免自動簽到進行中收到 Set-Cookie 把剛刪的帳號寫回。`updateUserInfo`（登入取得身分）與 `clearUserInfoAndCookie` 會重設旗標，登入建列不受影響。
+- 測試：test_045（#4）、test_046（同日判定邊界、stream 重發、repository 立即寫入、bloc＋頁面顯示已簽到／未簽到／失敗原因）、test_047（批次刪除、`forgetCurrentUser`、訪客頁 `logout()` 刪列、Set-Cookie 不復活但登入仍建列、頁面長按→計數→刪除→確認→列消失、全選／關閉／返回）。
