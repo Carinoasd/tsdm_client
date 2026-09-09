@@ -38,8 +38,8 @@ final class FavoriteState with FavoriteStateMappable {
   /// Status.
   final FavoriteStatus status;
 
-  /// All loaded records.
-  final List<FavoriteThread> items;
+  /// All loaded records, threads or forums depending on the bloc's type.
+  final List<FavoriteItem> items;
 
   /// Url of the next page, null when all pages are loaded.
   final String? nextPageUrl;

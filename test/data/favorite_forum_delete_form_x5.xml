@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb">
+<em id="return_a_delete_500405">取消收藏</em>
+<span><a href="javascript:;" onclick="hideWindow('a_delete_500405');" class="flbc" title="关闭">关闭</a></span></h3>
+<form id="favoriteform_500405" name="favoriteform_500405" method="post" autocomplete="off" action="home.php?mod=spacecp&amp;ac=favorite&amp;op=delete&amp;favid=500405&amp;type=all"  onsubmit="ajaxpost(this.id, 'return_a_delete_500405');">
+<input type="hidden" name="referer" value="https://www.tsdm39.com/./" />
+<input type="hidden" name="deletesubmit" value="true" />
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<input type="hidden" name="handlekey" value="a_delete_500405" /><div class="c">您确定要删除此收藏吗？</div>
+<p class="o pns">
+<button type="submit" name="deletesubmitbtn" value="true" class="pn pnc"><strong>确定</strong></button>
+</p>
+</form>
+<script type="text/javascript">
+function favorite_delete(favid) {
+var el = $('fav_' + favid);
+if(el) {
+el.style.display = "none";
+}
+}
+function succeedhandle_a_delete_500405(url, msg, values) {
+favorite_delete(values['favid']);
+hideWindow('a_delete_500405');
+}
+</script>
+]]></root>

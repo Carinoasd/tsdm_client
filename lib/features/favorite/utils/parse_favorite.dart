@@ -3,13 +3,13 @@ import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
-/// Parsed favorites list page (`home.php?mod=space&do=favorite&type=thread[&page=N]`).
-final class FavoriteListPage {
+/// Parsed favorites list page (`home.php?mod=space&do=favorite&type=TYPE[&page=N]`).
+final class FavoriteListPage<T extends FavoriteItem> {
   /// Constructor.
   const FavoriteListPage({required this.items, this.nextPageUrl, this.needLogin = false});
 
   /// Records in this page.
-  final List<FavoriteThread> items;
+  final List<T> items;
 
   /// Absolute url of the next page, null when this is the last page.
   final String? nextPageUrl;
@@ -21,12 +21,12 @@ final class FavoriteListPage {
 /// Hidden parameters of the favorite dialogs (add and delete share the same shape).
 typedef FavoriteFormParameters = ({String formHash, String referer});
 
-/// Result of adding a thread to favorites.
+/// Result of adding a thread or a forum to favorites.
 sealed class FavoriteAddResult {
   const FavoriteAddResult();
 }
 
-/// Added, `succeedhandle_k_favorite(url, msg, {'id': TID, 'favid': FAVID})`.
+/// Added, `succeedhandle_HANDLEKEY(url, msg, {'id': ID, 'favid': FAVID})`.
 final class FavoriteAdded extends FavoriteAddResult {
   /// Constructor.
   const FavoriteAdded(this.favid);
@@ -38,7 +38,7 @@ final class FavoriteAdded extends FavoriteAddResult {
   String toString() => 'FavoriteAdded(favid=$favid)';
 }
 
-/// The thread was already in favorites (`errorhandle_k_favorite('抱歉，您已收藏，请勿重复收藏', {})`).
+/// The thread or forum was already in favorites (`errorhandle_HANDLEKEY('抱歉，您已收藏，请勿重复收藏', {})`).
 final class FavoriteAlreadyExists extends FavoriteAddResult {
   /// Constructor.
   const FavoriteAlreadyExists();
@@ -82,21 +82,23 @@ final _scriptRe = RegExp('<script.*?</script>', dotAll: true);
 /// Unwrap the html carried in an ajax xml answer `<root><![CDATA[...]]></root>`.
 String _unwrapCdata(String body) => _cdataRe.firstMatch(body)?.group(1) ?? body;
 
-String? _errorMessage(String body, String handleKey) =>
-    RegExp("errorhandle_$handleKey\\('([^']*)'").firstMatch(body)?.group(1)?.trim();
+/// The server echoes whatever `handlekey` the client sent (`k_favorite`, `favdelete`, `favoriteforum`,
+/// `a_delete_FAVID` on the web pages), so the answers are matched on the prefix only.
+final _errorRe = RegExp(r"errorhandle_\w+\('([^']*)'");
+final _succeedRe = RegExp(r'succeedhandle_\w+\(');
 
-bool _succeeded(String body, String handleKey) => body.contains('succeedhandle_$handleKey(');
+String? _errorMessage(String body) => _errorRe.firstMatch(body)?.group(1)?.trim();
+
+bool _succeeded(String body) => _succeedRe.hasMatch(body);
 
 String _plainText(String body) {
-  final text = _unwrapCdata(body)
-      .replaceAll(_scriptRe, ' ')
-      .replaceAll(_tagRe, ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
+  final text = _unwrapCdata(
+    body,
+  ).replaceAll(_scriptRe, ' ').replaceAll(_tagRe, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   return text.isEmpty ? 'unknown' : text.truncate(120, ellipsis: true);
 }
 
-/// Parse the favorites list page.
+/// Parse the thread favorites list page (`type=thread`).
 ///
 /// ```html
 /// <ul id="favorite_ul">
@@ -111,7 +113,22 @@ String _plainText(String body) {
 /// ```
 ///
 /// Guests get a Discuz! 提示信息 page (`div#messagetext` "请先登录后才能继续浏览") which is reported as [FavoriteListPage.needLogin].
-FavoriteListPage parseFavoriteListPage(uh.Document document) {
+/// An empty list has `<p class="emp">您还没有添加任何收藏</p>` and no `ul#favorite_ul`.
+FavoriteListPage<FavoriteThread> parseFavoriteListPage(uh.Document document) =>
+    _parseListPage(document, _parseThreadItem);
+
+/// Parse the forum favorites list page (`type=forum`): same shape as the thread one, the title link is
+/// `a[href*="mod=forumdisplay"]` and the checkbox `vid` is the fid.
+FavoriteListPage<FavoriteForum> parseFavoriteForumListPage(uh.Document document) =>
+    _parseListPage(document, _parseForumItem);
+
+/// Parse the list page of [type].
+FavoriteListPage<FavoriteItem> parseFavoriteListPageOfType(uh.Document document, FavoriteType type) => switch (type) {
+  FavoriteType.thread => parseFavoriteListPage(document),
+  FavoriteType.forum => parseFavoriteForumListPage(document),
+};
+
+FavoriteListPage<T> _parseListPage<T extends FavoriteItem>(uh.Document document, T? Function(uh.Element) parseItem) {
   final listNode = document.querySelector('ul#favorite_ul');
   if (listNode == null) {
     final message = document.querySelector('div#messagetext')?.innerText.trim() ?? '';
@@ -119,31 +136,71 @@ FavoriteListPage parseFavoriteListPage(uh.Document document) {
         document.querySelector('div#messagelogin') != null || message.contains('登录') || message.contains('登入');
     return FavoriteListPage(items: const [], needLogin: needLogin);
   }
-  final items = listNode.querySelectorAll('li').map(_parseItem).whereType<FavoriteThread>().toList();
-  final nextPageUrl =
-      (document.querySelector('div.pgs > div.pg > a.nxt') ?? document.querySelector('div.pg > a.nxt'))
-          ?.attributes['href']
-          ?.prependHost();
+  final items = listNode.querySelectorAll('li').map(parseItem).whereType<T>().toList();
+  final nextPageUrl = (document.querySelector('div.pgs > div.pg > a.nxt') ?? document.querySelector('div.pg > a.nxt'))
+      ?.attributes['href']
+      ?.prependHost();
   return FavoriteListPage(items: items, nextPageUrl: nextPageUrl);
 }
 
-FavoriteThread? _parseItem(uh.Element li) {
+/// The parts every record shares: favid, title link, time and note; null when the link is not there.
+({String favid, uh.Element titleNode, String href, String? id, DateTime? time, String? description})? _parseItemCommon(
+  uh.Element li, {
+  required String linkSelector,
+}) {
   final checkbox = li.querySelector('input[name="favorite[]"]');
   final favid = li.id.startsWith('fav_') ? li.id.substring(4) : checkbox?.attributes['value'];
-  final titleNode = li.querySelector('a[href*="mod=viewthread"]');
+  final titleNode = li.querySelector(linkSelector);
   final href = titleNode?.attributes['href'];
-  final tid = checkbox?.attributes['vid'] ?? href?.uriQueryParameter('tid');
-  if (favid == null || favid.isEmpty || titleNode == null || href == null || tid == null || tid.isEmpty) {
+  if (favid == null || favid.isEmpty || titleNode == null || href == null) {
     return null;
   }
   final description = li.querySelector('div.quote blockquote')?.innerText.trim();
-  return FavoriteThread(
+  return (
     favid: favid,
-    tid: tid,
-    title: titleNode.innerText.trim(),
-    url: href.prependHost(),
+    titleNode: titleNode,
+    href: href,
+    id: checkbox?.attributes['vid'],
     time: li.querySelector('span.xg1 span[title]')?.attributes['title']?.parseToDateTimeUtc8(),
     description: description == null || description.isEmpty ? null : description,
+  );
+}
+
+FavoriteThread? _parseThreadItem(uh.Element li) {
+  final common = _parseItemCommon(li, linkSelector: 'a[href*="mod=viewthread"]');
+  if (common == null) {
+    return null;
+  }
+  final tid = common.id ?? common.href.uriQueryParameter('tid');
+  if (tid == null || tid.isEmpty) {
+    return null;
+  }
+  return FavoriteThread(
+    favid: common.favid,
+    tid: tid,
+    title: common.titleNode.innerText.trim(),
+    url: common.href.prependHost(),
+    time: common.time,
+    description: common.description,
+  );
+}
+
+FavoriteForum? _parseForumItem(uh.Element li) {
+  final common = _parseItemCommon(li, linkSelector: 'a[href*="mod=forumdisplay"]');
+  if (common == null) {
+    return null;
+  }
+  final fid = common.id ?? common.href.uriQueryParameter('fid');
+  if (fid == null || fid.isEmpty) {
+    return null;
+  }
+  return FavoriteForum(
+    favid: common.favid,
+    fid: fid,
+    title: common.titleNode.innerText.trim(),
+    url: common.href.prependHost(),
+    time: common.time,
+    description: common.description,
   );
 }
 
@@ -160,10 +217,10 @@ FavoriteFormParameters? parseFavoriteForm(String body) {
 
 /// Parse the answer of the add-favorite form.
 FavoriteAddResult parseFavoriteAddResult(String body) {
-  if (_succeeded(body, 'k_favorite')) {
+  if (_succeeded(body)) {
     return FavoriteAdded(_favidRe.firstMatch(body)?.group(1));
   }
-  final message = _errorMessage(body, 'k_favorite');
+  final message = _errorMessage(body);
   if (message != null) {
     return message.contains('已收藏') ? const FavoriteAlreadyExists() : FavoriteAddFailed(message);
   }
@@ -174,10 +231,10 @@ FavoriteAddResult parseFavoriteAddResult(String body) {
 ///
 /// "抱歉，您指定的收藏不存在" counts as removed: the record is gone either way.
 FavoriteRemoveResult parseFavoriteRemoveResult(String body) {
-  if (_succeeded(body, 'favdelete')) {
+  if (_succeeded(body)) {
     return const FavoriteRemoveResult(removed: true);
   }
-  final message = _errorMessage(body, 'favdelete');
+  final message = _errorMessage(body);
   if (message != null) {
     return FavoriteRemoveResult(removed: message.contains('不存在'), message: message);
   }

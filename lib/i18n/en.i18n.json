@@ -503,7 +503,17 @@
     "tooltip": {
       "fab": "Post new thread"
     },
-    "copyFid": "Copy fid(${fid: String})"
+    "copyFid": "Copy fid(${fid: String})",
+    "favorite": {
+      "add": "Add forum to favorites",
+      "remove": "Remove forum from favorites",
+      "removeConfirm": "Remove this forum from favorites?",
+      "added": "Forum added to favorites",
+      "alreadyAdded": "Already in favorites",
+      "removed": "Forum removed from favorites",
+      "failed": "Failed: $err",
+      "needLogin": "Login to add favorites"
+    }
   },
   "threadPage": {
     "title": "Thread",
@@ -630,7 +640,10 @@
   },
   "favoritePage": {
     "title": "Favorites",
+    "threadTab": "Threads",
+    "forumTab": "Forums",
     "empty": "No favorites yet",
+    "emptyForum": "No favorite forums yet",
     "remove": "Remove from favorites",
     "removeConfirm": "Remove \"${title}\" from favorites?",
     "removed": "Removed from favorites",

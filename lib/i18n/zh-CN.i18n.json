@@ -503,7 +503,17 @@
     "tooltip": {
       "fab": "发布新帖"
     },
-    "copyFid": "复制fid（${fid: String}）"
+    "copyFid": "复制fid（${fid: String}）",
+    "favorite": {
+      "add": "收藏本版",
+      "remove": "取消收藏本版",
+      "removeConfirm": "确定要取消收藏这个版块吗？",
+      "added": "收藏成功",
+      "alreadyAdded": "已在收藏中",
+      "removed": "已取消收藏",
+      "failed": "操作失败：$err",
+      "needLogin": "请先登录再收藏"
+    }
   },
   "threadPage": {
     "title": "帖子",
@@ -630,7 +640,10 @@
   },
   "favoritePage": {
     "title": "收藏",
+    "threadTab": "帖子",
+    "forumTab": "版块",
     "empty": "还没有收藏",
+    "emptyForum": "还没有收藏的版块",
     "remove": "取消收藏",
     "removeConfirm": "确定要取消收藏「${title}」吗？",
     "removed": "已取消收藏",

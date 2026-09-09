@@ -4,32 +4,23 @@ part of 'models.dart';
 ///
 /// Comes from `home.php?mod=space&do=favorite&type=thread`, one `<li id="fav_FAVID">` per record.
 @MappableClass()
-final class FavoriteThread with FavoriteThreadMappable {
+final class FavoriteThread extends FavoriteItem with FavoriteThreadMappable {
   /// Constructor.
   const FavoriteThread({
-    required this.favid,
+    required super.favid,
     required this.tid,
-    required this.title,
-    required this.url,
-    this.time,
-    this.description,
+    required super.title,
+    required super.url,
+    super.time,
+    super.description,
   });
-
-  /// Id of the favorite record, required when removing it.
-  final String favid;
 
   /// Thread id.
   final String tid;
 
-  /// Thread title.
-  final String title;
+  @override
+  FavoriteType get type => FavoriteType.thread;
 
-  /// Absolute url of the thread.
-  final String url;
-
-  /// Time the thread was added to favorites.
-  final DateTime? time;
-
-  /// Optional note written when adding the favorite.
-  final String? description;
+  @override
+  String get targetId => tid;
 }
