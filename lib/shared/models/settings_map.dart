@@ -52,6 +52,7 @@ class SettingsMap with SettingsMapMappable {
     required this.collapseAppBarWhenScroll,
     required this.threadFloorInteractionMode,
     required this.textScaleFactor,
+    this.windowMaximized = false,
   });
 
   final String netClientAccept;
@@ -60,6 +61,7 @@ class SettingsMap with SettingsMapMappable {
   final String netClientUserAgent;
   final bool windowRememberSize;
   final Size windowSize;
+  final bool windowMaximized;
   final bool windowRememberPosition;
   final Offset windowPosition;
   final bool windowInCenter;
@@ -112,6 +114,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.netClientAcceptLanguage => copyWith(netClientAcceptLanguage: value as String?),
       SettingsKeys.netClientUserAgent => copyWith(netClientUserAgent: value as String?),
       SettingsKeys.windowRememberSize => copyWith(windowRememberSize: value as bool?),
+      SettingsKeys.windowMaximized => copyWith(windowMaximized: value as bool?),
       SettingsKeys.windowSize => copyWith(windowSize: value as Size?),
       SettingsKeys.windowRememberPosition => copyWith(windowRememberPosition: value as bool?),
       SettingsKeys.windowPosition => copyWith(windowPosition: value as Offset?),

@@ -150,7 +150,8 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  // Keep the maximized state restored by Dart before the first frame.
+  return ShowWindow(window_handle_, SW_SHOW);
 }
 
 // static
