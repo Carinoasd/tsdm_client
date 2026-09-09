@@ -203,6 +203,20 @@
         "title": "Auto sync notice",
         "detail": "Duration of auto sync notice from server"
       },
+      "notificationPermission": {
+        "title": "Notification permission",
+        "detail": "Required by auto sync to show new notices, messages and broadcasts as system notifications",
+        "granted": "Allowed",
+        "denied": "Not allowed",
+        "permanentlyDenied": "Permanently denied",
+        "openSettingsTip": "The system no longer shows the permission dialog. Open the app settings page and turn on notifications there, then come back."
+      },
+      "ignoreBatteryOptimizations": {
+        "title": "Ignore battery optimizations",
+        "detail": "Ask the system not to throttle this app for battery saving. This only helps while the app stays in the background; auto-start and background limits of your phone brand are separate switches, and the system may still freeze the app. Background push is not guaranteed.",
+        "granted": "Ignored",
+        "denied": "Not ignored"
+      },
       "editorBBCodeParser": {
         "title": "Enable bbcode parser",
         "tip": {
@@ -338,7 +352,11 @@
         "historicalLogs": "Historical logs",
         "export": "Export"
       },
-      "copyDatabaseDir": "Copy database path"
+      "copyDatabaseDir": "Copy database path",
+      "testNotification": {
+        "title": "Send test notification",
+        "detail": "If nothing shows up here either, the system or the permission blocks it, not a lack of new messages"
+      }
     },
     "othersSection": {
       "title": "Others",

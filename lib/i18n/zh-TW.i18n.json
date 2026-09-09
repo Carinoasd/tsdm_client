@@ -203,6 +203,20 @@
         "title": "自動同步訊息",
         "detail": "每隔一段時間，自動從伺服器同步訊息和提醒"
       },
+      "notificationPermission": {
+        "title": "通知權限",
+        "detail": "自動同步需要此權限才能把新提醒、訊息和公共訊息顯示為系統通知",
+        "granted": "已允許",
+        "denied": "未允許",
+        "permanentlyDenied": "已永久拒絕",
+        "openSettingsTip": "系統不再彈出權限對話框。請打開應用程式設定頁，在那裡開啟通知後再回來。"
+      },
+      "ignoreBatteryOptimizations": {
+        "title": "忽略電池最佳化",
+        "detail": "請求系統不要為了省電限制本 App。只在 App 留在背景時才有幫助；各品牌手機的自啟動、背景限制是另外的開關，系統仍可能凍結 App，不保證背景推播。",
+        "granted": "已忽略",
+        "denied": "未忽略"
+      },
       "editorBBCodeParser": {
         "title": "啟用BBCode parser",
         "tip": {
@@ -338,7 +352,11 @@
         "historicalLogs": "歷史日誌",
         "export": "匯出"
       },
-      "copyDatabaseDir": "複製資料庫路徑"
+      "copyDatabaseDir": "複製資料庫路徑",
+      "testNotification": {
+        "title": "發送測試通知",
+        "detail": "如果這裡也看不到通知，代表是系統或權限擋下了，不是沒有新訊息"
+      }
     },
     "othersSection": {
       "title": "其他",

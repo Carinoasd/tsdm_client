@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,12 +15,16 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
+import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
+import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/view/debug_showcase_page.dart';
+import 'package:tsdm_client/features/settings/widgets/android_permission_tiles.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_clear_image_cache_duration_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_sync_notice_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/backup_secrets_dialogs.dart';
@@ -62,8 +67,12 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   final scrollController = ScrollController();
+
+  /// Android permission statuses shown in the behavior section; refreshed when the app comes back to the foreground
+  /// so the rows update after the user returns from the system dialogs or the app settings page.
+  final _permissionCubit = AndroidPermissionCubit();
 
   /// Tip of log export path.
   String? _logExportPath;
@@ -451,12 +460,15 @@ class _SettingsPageState extends State<SettingsPage> {
           }
           if (seconds > 0) {
             context.read<AutoNotificationCubit>().start(Duration(seconds: seconds));
+            // Boot only asks when auto sync was already on; ask now so the push is not silently dropped (#13).
+            unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
           } else {
             context.read<AutoNotificationCubit>().stop();
           }
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoSyncNoticeSeconds, seconds));
         },
       ),
+      if (isAndroid) const AndroidPermissionTiles(),
       SectionSwitchListTile(
         secondary: const Icon(Icons.code_outlined),
         title: Row(
@@ -857,14 +869,14 @@ class _SettingsPageState extends State<SettingsPage> {
   String _backupProblemText(BuildContext context, BackupValidation check) {
     final tr = context.t.settingsPage.advancedSection.importData;
     return switch (check.problem) {
-        BackupProblem.unreadable => tr.problem.unreadable,
-        BackupProblem.notSqlite => tr.problem.notSqlite,
-        BackupProblem.corrupted => tr.problem.corrupted,
-        BackupProblem.missingTables => tr.problem.missingTables,
-        BackupProblem.invalidVersion => tr.problem.invalidVersion,
-        BackupProblem.newerSchema => tr.problem.newerSchema(version: check.detail ?? ''),
-        null => '',
-      };
+      BackupProblem.unreadable => tr.problem.unreadable,
+      BackupProblem.notSqlite => tr.problem.notSqlite,
+      BackupProblem.corrupted => tr.problem.corrupted,
+      BackupProblem.missingTables => tr.problem.missingTables,
+      BackupProblem.invalidVersion => tr.problem.invalidVersion,
+      BackupProblem.newerSchema => tr.problem.newerSchema(version: check.detail ?? ''),
+      null => '',
+    };
   }
 
   List<Widget> _buildDebugSection(BuildContext context, SettingsState state) {
@@ -923,6 +935,22 @@ class _SettingsPageState extends State<SettingsPage> {
               await copyToClipboard(context, path);
             },
           ),
+          // Separates "the OS suppresses the push" from "nothing new was fetched" (#13).
+          if (isAndroid)
+            SectionListTile(
+              title: Text(tr.testNotification.title),
+              subtitle: Text(tr.testNotification.detail),
+              onTap: () async => showLocalNotification(
+                context,
+                NotificationAutoSyncInfoNotice(
+                  msg: tr.testNotification.title,
+                  notice: 1,
+                  personalMessage: 0,
+                  broadcastMessage: 0,
+                  timestamp: DateTime.now().millisecondsSinceEpoch,
+                ),
+              ),
+            ),
         ],
       ),
     ];
@@ -968,33 +996,52 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_permissionCubit.refresh());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_permissionCubit.close());
     scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_permissionCubit.refresh());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
       builder: (context, state) {
-        return Scaffold(
-          appBar: AppBar(title: Text(context.t.navigation.settings)),
-          body: SafeArea(
-            left: false,
-            top: false,
-            child: ListView(
-              controller: scrollController,
-              children: [
-                ..._buildAccountSection(context, state),
-                ..._buildAppearanceSection(context, state),
-                if (isDesktop) ..._buildWindowSection(context, state),
-                ..._buildBehaviorSection(context, state),
-                ..._buildCheckinSection(context, state),
-                ..._buildStorageSection(context, state),
-                ..._buildAdvanceSection(context, state),
-                ..._buildDebugSection(context, state),
-                ..._buildOtherSection(context, state),
-              ],
+        return BlocProvider<AndroidPermissionCubit>.value(
+          value: _permissionCubit,
+          child: Scaffold(
+            appBar: AppBar(title: Text(context.t.navigation.settings)),
+            body: SafeArea(
+              left: false,
+              top: false,
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  ..._buildAccountSection(context, state),
+                  ..._buildAppearanceSection(context, state),
+                  if (isDesktop) ..._buildWindowSection(context, state),
+                  ..._buildBehaviorSection(context, state),
+                  ..._buildCheckinSection(context, state),
+                  ..._buildStorageSection(context, state),
+                  ..._buildAdvanceSection(context, state),
+                  ..._buildDebugSection(context, state),
+                  ..._buildOtherSection(context, state),
+                ],
+              ),
             ),
           ),
         );
