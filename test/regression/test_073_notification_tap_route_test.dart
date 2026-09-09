@@ -25,8 +25,14 @@ void main() {
       decideLocalNoticeTap(loggedIn: true, topLocation: ScreenPaths.notice),
       LocalNoticeTapAction.alreadyOnNoticePage,
     );
-    expect(decideLocalNoticeTap(loggedIn: true, topLocation: ScreenPaths.homepage), LocalNoticeTapAction.openNoticePage);
-    expect(decideLocalNoticeTap(loggedIn: true, topLocation: ScreenPaths.threadV1), LocalNoticeTapAction.openNoticePage);
+    expect(
+      decideLocalNoticeTap(loggedIn: true, topLocation: ScreenPaths.homepage),
+      LocalNoticeTapAction.openNoticePage,
+    );
+    expect(
+      decideLocalNoticeTap(loggedIn: true, topLocation: ScreenPaths.threadV1),
+      LocalNoticeTapAction.openNoticePage,
+    );
     expect(decideLocalNoticeTap(loggedIn: true, topLocation: null), LocalNoticeTapAction.openNoticePage);
   });
 
@@ -97,7 +103,12 @@ void main() {
 
     // A dialog is not a page of the router: the page under it is still the one on top.
     final ctx = router.routerDelegate.navigatorKey.currentContext!;
-    unawaited(showDialog<void>(context: ctx, builder: (_) => const AlertDialog(title: Text('dialog'))));
+    unawaited(
+      showDialog<void>(
+        context: ctx,
+        builder: (_) => const AlertDialog(title: Text('dialog')),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('dialog'), findsOneWidget);
     expect(routerTopLocation(router), ScreenPaths.homepage);
