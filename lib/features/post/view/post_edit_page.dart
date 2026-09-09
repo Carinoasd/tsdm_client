@@ -775,7 +775,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       if (widget.editType.isEditingPost) {
         // Edit post.
         showSnackBar(context: context, message: context.t.postEditPage.editSuccess);
-        context.pop();
+        context.pop(true);
         return;
       } else if (widget.editType.isEditingDraft) {
         // Writing new post.
