@@ -1186,7 +1186,11 @@
     "logoutDetail": "登出論壇，並清除本機保存的登入狀態",
     "loginAnother": "登入其他帳號",
     "logout": "退出登入",
-    "online": "線上"
+    "online": "線上",
+    "checkin": {
+      "today": "今日已簽到",
+      "notYet": "今日未簽到"
+    }
   },
   "switchUserGroupPage": {
     "title": "切換使用者群組",

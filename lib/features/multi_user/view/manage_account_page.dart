@@ -5,6 +5,9 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
+import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/checkin/utils/checkin_day.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/widgets/manage_user_dialog.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -54,7 +57,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
               bottom: false,
               child: SingleChildScrollView(
                 child: StreamBuilder(
-                  stream: getIt.get<StorageProvider>().allUsersStream(),
+                  stream: getIt.get<StorageProvider>().allUsersWithTimeStream(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       // Unreachable.
@@ -88,9 +91,19 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
                               // List all recorded users.
                               ...users
                                   .where(
-                                    (e) => e.username != null && e.username!.isNotEmpty && e.uid != null && e.uid != 0,
+                                    (e) =>
+                                        e.$1.username != null &&
+                                        e.$1.username!.isNotEmpty &&
+                                        e.$1.uid != null &&
+                                        e.$1.uid != 0,
                                   )
-                                  .map((e) => _UserInfoListTile(userInfo: e, currentUserInfo: currentUser)),
+                                  .map(
+                                    (e) => _UserInfoListTile(
+                                      userInfo: e.$1,
+                                      lastCheckin: e.$2,
+                                      currentUserInfo: currentUser,
+                                    ),
+                                  ),
                               ListTile(
                                 leading: const Icon(Icons.add_outlined),
                                 title: Text(tr.addUser),
@@ -115,18 +128,42 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
 }
 
 class _UserInfoListTile extends StatelessWidget with LoggerMixin {
-  const _UserInfoListTile({required this.userInfo, required this.currentUserInfo});
+  const _UserInfoListTile({required this.userInfo, required this.lastCheckin, required this.currentUserInfo});
 
   /// User info displayed in this widget.
   final UserLoginInfo userInfo;
 
+  /// When this account last checked in from this device, null when never.
+  final DateTime? lastCheckin;
+
   /// Current login user.
   final UserLoginInfo? currentUserInfo;
+
+  /// Why this account did not check in during the auto check-in of this app run, null when it did or when nothing
+  /// is known.
+  ///
+  /// "Already checked in" is not a failure: it is recorded as checked in today like a success.
+  String? _autoCheckinFailure(BuildContext context) {
+    final state = context.watch<AutoCheckinBloc>().state;
+    if (state is! AutoCheckinStateFinished) {
+      return null;
+    }
+    for (final (user, result) in state.failed) {
+      if (user.uid == userInfo.uid && result is! CheckinResultAlreadyChecked) {
+        return CheckinResult.message(context, result);
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final tr = context.t.manageAccountPage;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final isCurrentUser = userInfo.uid! == currentUserInfo?.uid;
+    final checkedIn = isCheckedInToday(lastCheckin);
+    final failure = checkedIn ? null : _autoCheckinFailure(context);
 
     return BlocBuilder<SwitchUserBloc, SwitchUserBaseState>(
       builder: (context, state) {
@@ -135,7 +172,26 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
           enabled: !loading,
           leading: HeroUserAvatar(username: userInfo.username!, avatarUrl: null, disableHero: true),
           title: Text(userInfo.username!),
-          subtitle: Text('${userInfo.uid!}'),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${userInfo.uid!}'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    checkedIn ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                    size: 16,
+                    color: checkedIn ? colorScheme.primary : colorScheme.outline,
+                  ),
+                  sizedBoxW4H4,
+                  Flexible(child: Text(checkedIn ? tr.checkin.today : tr.checkin.notYet)),
+                ],
+              ),
+              if (failure != null) Text(failure, style: textTheme.bodySmall?.copyWith(color: colorScheme.error)),
+            ],
+          ),
           trailing: isCurrentUser
               ? Chip(
                   side: BorderSide.none,

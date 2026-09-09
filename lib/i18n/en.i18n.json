@@ -1186,7 +1186,11 @@
     "logoutDetail": "Log out of the forum and clear the login saved on this device",
     "loginAnother": "Login another account",
     "logout": "Logout",
-    "online": "Online"
+    "online": "Online",
+    "checkin": {
+      "today": "Checked in today",
+      "notYet": "Not checked in today"
+    }
   },
   "switchUserGroupPage": {
     "title": "Switch user group",
