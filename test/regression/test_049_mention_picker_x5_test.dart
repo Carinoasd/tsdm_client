@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -50,6 +51,9 @@ final class _RoutingAdapter implements HttpClientAdapter {
 
   final requests = <Uri>[];
 
+  /// When set, every answer waits for it first (a slow connection).
+  Completer<void>? gate;
+
   Iterable<Uri> get friendRequests => requests.where((u) => u.path == '/home.php');
   Iterable<Uri> get atRequests => requests.where((u) => u.path == '/misc.php');
 
@@ -61,6 +65,9 @@ final class _RoutingAdapter implements HttpClientAdapter {
   ) async {
     final uri = options.uri;
     requests.add(uri);
+    if (gate != null) {
+      await gate!.future;
+    }
     if (uri.path == '/misc.php' && uri.queryParameters['mod'] == 'getatuser') {
       return ResponseBody.fromString(
         atUsers,
@@ -216,6 +223,38 @@ void main() {
         ..friendsStatus = 500;
       expect((await MentionRepository().loadCandidates(selfUid: '1000').run()).isLeft(), isTrue);
     });
+
+    test('another account or a guest never gets the @ list loaded for the previous uid', () async {
+      await registerNet(_RoutingAdapter());
+      final repo = MentionRepository();
+      await repo.loadCandidates(selfUid: '1000').run();
+      expect(adapter.atRequests, hasLength(1));
+
+      final other = (await repo.loadCandidates(selfUid: '2000').run()).toNullable()!;
+      expect(adapter.atRequests, hasLength(2), reason: 'the @ list is per account, ask again for the new uid');
+      expect(adapter.friendRequests.last.queryParameters, containsPair('uid', '2000'));
+      expect(other.others, ['Alice', 'Carol']);
+
+      await repo.loadCandidates(selfUid: null).run();
+      expect(adapter.atRequests, hasLength(3), reason: 'after logout the guest list is asked, not the old one');
+
+      await repo.loadCandidates(selfUid: null).run();
+      expect(adapter.atRequests, hasLength(3), reason: 'the guest result is cached like any other');
+    });
+
+    test('after a friends-only failure a later open for another uid refetches the @ list', () async {
+      await registerNet(_RoutingAdapter(friendsStatus: 500));
+      final repo = MentionRepository();
+      await repo.loadCandidates(selfUid: '1000').run();
+      expect(adapter.atRequests, hasLength(1));
+
+      await repo.loadCandidates(selfUid: '1000').run();
+      expect(adapter.atRequests, hasLength(1), reason: 'same uid: the @ list is reused, only the friends retry');
+      expect(adapter.friendRequests, hasLength(2));
+
+      await repo.loadCandidates(selfUid: '2000').run();
+      expect(adapter.atRequests, hasLength(2), reason: 'the half-cached @ list belongs to 1000');
+    });
   });
 
   group('UserMentionCubit filters locally', () {
@@ -252,6 +291,18 @@ void main() {
       expect(cubit.state.visibleFriends.map((e) => e.username), ['Bob']);
       expect(cubit.state.visibleOthers, ['Alice', 'Carol']);
       expect(adapter.requests, hasLength(requestCount));
+    });
+
+    test('closing the cubit while the load is in flight does not emit on the closed cubit', () async {
+      final gate = Completer<void>();
+      adapter.gate = gate;
+      final cubit = UserMentionCubit(MentionRepository(), selfUid: '1000');
+      final loading = cubit.load();
+      expect(cubit.state.recommendStatus, UserMentionStatus.loading);
+      await cubit.close();
+      gate.complete();
+      await expectLater(loading, completes);
+      expect(cubit.state.recommendStatus, UserMentionStatus.loading, reason: 'nothing emitted after close');
     });
   });
 
@@ -396,6 +447,33 @@ void main() {
       await tester.pump();
       expect(asked, [3, 0], reason: 'at the start of the text');
       expect(controller.toForumBBCode(), '[@]Alice[/@]');
+    });
+
+    testWidgets('a username with brackets becomes exactly one mention chip with the full name', (tester) async {
+      await pumpFocus(tester);
+      for (final name in ['[TSDM]Alice', 'a]b', 'x[y', '[b]Bob[/b]']) {
+        final controller = buildBBCodeEditorController();
+        addTearDown(controller.dispose);
+        final (_, asked) = attach(controller, answer: name);
+
+        controller.insertPlainText('hi ');
+        await tester.pump(const Duration(milliseconds: 300));
+        controller.insertPlainText('@');
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+        expect(asked, [3], reason: name);
+
+        final embeds = controller.document
+            .toDelta()
+            .toList()
+            .where((op) => op.data is Map && (op.data! as Map).containsKey('bbcodeUserMention'))
+            .toList();
+        expect(embeds, hasLength(1), reason: name);
+        expect(embeds.single.data, {'bbcodeUserMention': '{"username":"$name"}'}, reason: name);
+        expect(controller.document.toPlainText(), isNot(contains('@')), reason: name);
+        expect(controller.toForumBBCode(), 'hi [@]$name[/@]', reason: name);
+        expect(toOfficialMentions(controller.toForumBBCode()), 'hi @$name ', reason: name);
+      }
     });
   });
 

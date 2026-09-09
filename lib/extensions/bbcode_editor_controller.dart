@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:dart_quill_delta/dart_quill_delta.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 
@@ -8,11 +11,17 @@ extension BBCodeEditorControllerForum on BBCodeEditorController {
 
   /// Insert a mention of [username] at the cursor (replacing the selection) and put the cursor after it.
   ///
-  /// The same chip the toolbar `@` button inserts: `[@]username[/@]` goes through the BBCode parser, which yields the
-  /// `bbcodeUserMention` embed. At send time `toOfficialMentions` turns it into the official `@username `.
+  /// The same `bbcodeUserMention` embed the toolbar `@` button inserts, written straight into the document like that
+  /// button does: a username is not BBCode, so it never goes through the parser, which would drop a chip whose name
+  /// has an unclosed `[` (`x[y`). At send time `toOfficialMentions` turns the chip into the official `@username `.
   void insertMention(String username) {
     final position = selection.baseOffset;
-    insertBBCode('[@]$username[/@]');
+    final length = selection.extentOffset - position;
+    final delta = Delta()
+      ..insert({
+        'bbcodeUserMention': jsonEncode({'username': username}),
+      });
+    replaceText(position, length, delta, null);
     moveCursorToPosition(position + 1);
   }
 }

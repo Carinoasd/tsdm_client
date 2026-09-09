@@ -34,7 +34,9 @@ final class MentionCandidates {
 /// * the official `@` list, names only, which may be empty for the user group even when the user has friends.
 ///
 /// The result is cached per instance and per uid, so reopening the picker does not ask the server again unless
-/// `force` is given; a load that failed on one side is not cached so the next open retries it.
+/// `force` is given; a load that failed on one side is not cached so the next open retries it. The official `@` list
+/// is per account (and empty for a guest), so it is asked again whenever the uid differs from the one it was loaded
+/// for, even though [EditorRepository] keeps its own copy.
 final class MentionRepository with LoggerMixin {
   /// Constructor.
   MentionRepository({FriendRepository friendRepository = const FriendRepository(), EditorRepository? editorRepository})
@@ -49,6 +51,10 @@ final class MentionRepository with LoggerMixin {
 
   MentionCandidates? _cache;
   String? _cachedUid;
+
+  /// Whether the `@` list held by [_editorRepository] was loaded, and for which uid.
+  bool _atLoaded = false;
+  String? _atUid;
 
   /// The candidates cached by the last complete load, if any.
   MentionCandidates? get cached => _cache;
@@ -98,7 +104,8 @@ final class MentionRepository with LoggerMixin {
 
         // Both requests run at the same time.
         final friendsFuture = selfUid == null ? null : loadOwnFriends(selfUid: selfUid).run();
-        final atFuture = force
+        // The `@` list cached inside the editor repository is only reused for the uid it was loaded for.
+        final atFuture = force || !_atLoaded || _atUid != selfUid
             ? _editorRepository.loadAtUsers().run()
             : _editorRepository.searchUserByName(keyword: '').run();
         final friendsResult = friendsFuture == null ? null : await friendsFuture;
@@ -126,6 +133,8 @@ final class MentionRepository with LoggerMixin {
             handle(value);
             atError = value;
           case Right(:final value):
+            _atLoaded = true;
+            _atUid = selfUid;
             final known = friends.map((e) => e.username.toLowerCase()).toSet();
             others = value.where((e) => known.add(e.toLowerCase())).toList();
         }

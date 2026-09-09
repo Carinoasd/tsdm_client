@@ -25,7 +25,12 @@ final class UserMentionCubit extends Cubit<UserMentionState> with LoggerMixin {
   /// Load the candidates, from the repository cache unless [force].
   Future<void> load({bool force = false}) async {
     emit(state.copyWith(recommendStatus: UserMentionStatus.loading));
-    switch (await _repo.loadCandidates(selfUid: _selfUid, force: force).run()) {
+    final result = await _repo.loadCandidates(selfUid: _selfUid, force: force).run();
+    if (isClosed) {
+      // The sheet was dismissed while loading; the repository cache is already updated for the next open.
+      return;
+    }
+    switch (result) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(recommendStatus: UserMentionStatus.failure));

@@ -1,7 +1,10 @@
 import 'package:universal_html/parsing.dart';
 
 /// `[@]name[/@]`, the mention format of the retired `amucallme_dzx` plugin that the bbcode editor still emits.
-final RegExp _legacyMentionRe = RegExp(r'\[@\]([^\[\]\r\n]+?)\[/@\]');
+///
+/// The name may contain brackets (`[TSDM]Alice`), so it runs up to the first `[/@]` on the line; only another `[@]`
+/// ends it early so a literal unpaired `[@]` does not swallow the next chip.
+final RegExp _legacyMentionRe = RegExp(r'\[@\]((?:(?!\[@\])[^\r\n])+?)\[/@\]');
 
 /// Rewrite editor mentions in [bbcode] to the official Discuz! format.
 ///
