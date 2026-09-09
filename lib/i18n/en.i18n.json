@@ -1141,6 +1141,10 @@
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
     "allAccounts": "All accounts",
+    "accountUid": "UID $uid",
+    "accountWithUid": "$username (UID $uid)",
+    "empty": "No browsing history yet",
+    "emptyForAccount": "No browsing history for this account",
     "entryTooltip": "Thread browsing history",
     "title": "Thread browsing history",
     "localOnlyTip": "Only local browsing history was recorded, may be different on web side or other machines"
