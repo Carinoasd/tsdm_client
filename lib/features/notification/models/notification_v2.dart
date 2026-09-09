@@ -29,8 +29,11 @@ final class NotificationV2 with NotificationV2Mappable {
   /// All notice nodes in notice page.
   ///
   /// `div.nts > dl#notice_XXX` on Discuz X5, `form#deletepmform > div > dl` on older versions.
+  ///
+  /// A friend request notice carries two `id` attributes (`id="pendingFriend_UID" notice="NID" id="notice_NID"`) and
+  /// the parser keeps the first one, so such nodes are only found through the `notice` attribute.
   static List<uh.Element> noticeNodes(uh.Document document) {
-    final nodes = document.querySelectorAll('div.nts > dl[id^="notice_"]');
+    final nodes = document.querySelectorAll('div.nts > dl[notice], div.nts > dl[id^="notice_"]');
     if (nodes.isNotEmpty) {
       return nodes;
     }
