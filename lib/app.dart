@@ -354,7 +354,9 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
                     context: context,
                     message: tr.autoCheckinFinished,
                     clearPrevious: true,
-                    showCloseIcon: true,
+                    // No close icon: with it the bar wrapped onto two rows on small screens (issue #4); swipe,
+                    // the action and the timeout still dismiss it.
+                    actionOverflowThreshold: 0.6,
                     action: SnackBarAction(
                       label: tr.viewDetail,
                       onPressed: () async => router.pushNamed(ScreenPaths.autoCheckinDetail),
