@@ -225,8 +225,14 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
           dispose: (repo) async => repo.dispose(),
         ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
-        RepositoryProvider<ForumHomeRepository>(create: (_) => ForumHomeRepository()),
-        RepositoryProvider<FavoriteRepository>(create: (_) => FavoriteRepository()),
+        RepositoryProvider<ForumHomeRepository>(
+          create: (_) => ForumHomeRepository(),
+          dispose: (repo) async => repo.dispose(),
+        ),
+        RepositoryProvider<FavoriteRepository>(
+          create: (_) => FavoriteRepository(),
+          dispose: (repo) async => repo.dispose(),
+        ),
         RepositoryProvider<ProfileRepository>(create: (_) => ProfileRepository()),
         RepositoryProvider<FragmentsRepository>(create: (_) => FragmentsRepository()),
         RepositoryProvider<ForumRepository>(create: (_) => ForumRepository()),
