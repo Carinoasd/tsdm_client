@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
+import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
@@ -62,10 +63,21 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
         if (context.read<RootLocationCubit>().isIn(ScreenPaths.notice)) {
           debug('do not push to notice page already in it');
         } else {
-          debug('push to notice page already in it');
+          debug('push to notice page');
           await context.pushNamed(ScreenPaths.notice);
         }
     }
+  }
+
+  /// Open the page asked for by the notification that cold-started the app, if any (#14).
+  ///
+  /// The payload was parked at boot ([rememberNotificationLaunch]); it goes through the same handler and login guard
+  /// as a tap while the app is alive, once the page can navigate. Consumed once: a rebuilt home page finds nothing.
+  void _consumeLaunchPayload(Duration _) {
+    if (!mounted) {
+      return;
+    }
+    unawaited(consumePendingLaunchPayload(_onLocalNoticeStreamEvent));
   }
 
   Widget _buildDrawerBody(BuildContext context) => Scaffold(
@@ -105,6 +117,7 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
   void initState() {
     super.initState();
     rootLocationSub = localNoticeStream.stream.listen(_onLocalNoticeStreamEvent);
+    WidgetsBinding.instance.addPostFrameCallback(_consumeLaunchPayload);
   }
 
   @override
