@@ -75,6 +75,10 @@ final class NotificationSyncAllRepository with LoggerMixin {
       debug('sync notification for uid ${"${user.uid}".obscured(4)}');
       _updateRunning(user);
       final result = await _syncOne(user);
+      if (result is NotificationSyncResultNotAuthorized && user.uid != null) {
+        // The forum answered the guest page to this account's cookie: remember the session is dead (issue #25).
+        await _storageProvider.markSessionExpired(user.uid!);
+      }
       _updateFinished(user, result);
     }
     return right(_currentInfo);

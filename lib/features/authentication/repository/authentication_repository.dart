@@ -225,6 +225,11 @@ class AuthenticationRepository with LoggerMixin {
     final userInfo = _parseUserInfoFromDocument(document);
     if (userInfo == null) {
       debug('failed to login with document: user info not found');
+      if (_isGuestPage(document)) {
+        // The page was fetched with the cookie of the account in use and the forum treats it as a guest: that
+        // session is dead (issue #25). The account stays in use, only its expiry is recorded.
+        await markCurrentSessionExpired();
+      }
       return left(LoginUserInfoNotFoundException());
     }
 
@@ -235,6 +240,18 @@ class AuthenticationRepository with LoggerMixin {
     debug('login with document: user $userInfo');
     return rightVoid();
   });
+
+  /// Record in storage that the forum session of the account in use ([effectiveCurrentUid]) is dead (issue #25).
+  ///
+  /// For code that got the guest page with the current account's cookie and has no other way to say so; nothing
+  /// happens when no account is in use. The mark is cleared by the next successful login or switch of that account.
+  Future<void> markCurrentSessionExpired() async {
+    final uid = effectiveCurrentUid;
+    if (uid == null) {
+      return;
+    }
+    await getIt.get<StorageProvider>().markSessionExpired(uid);
+  }
 
   /// Logout the current user.
   ///
@@ -344,6 +361,10 @@ class AuthenticationRepository with LoggerMixin {
         'failed to switch user to uid=${"${userInfo.uid}".obscured(4)}, '
         'parsed uid=${"${parsedUserInfo?.uid}".obscured(4)}',
       );
+      if (parsedUserInfo == null && userInfo.uid != null && _isGuestPage(document)) {
+        // The stored cookie of that account is dead: remember it (issue #25), the current account is untouched.
+        await getIt.get<StorageProvider>().markSessionExpired(userInfo.uid!);
+      }
       return left(SwitchUserNotAuthedException());
     }
 
@@ -391,6 +412,8 @@ class AuthenticationRepository with LoggerMixin {
   Future<void> _markAuthenticated(UserLoginInfo userInfo) async {
     // Save user info to memory and storage.
     await _saveLoggedUserInfo(userInfo);
+    // The session was just verified: forget an expiry recorded earlier for this account (issue #25).
+    await getIt.get<StorageProvider>().clearSessionExpired(userInfo.uid!);
     // Clear cookie.
     await getIt<CookieProvider>().updateUserInfo(UserLoginInfo(username: userInfo.username, uid: userInfo.uid));
     // Do NOT save cookie to storage here, because it's not always the normal

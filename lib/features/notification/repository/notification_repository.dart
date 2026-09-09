@@ -8,6 +8,7 @@ import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
@@ -27,6 +28,17 @@ import 'package:universal_html/parsing.dart';
 /// and converting the result into the same [NotificationV2] model so the whole notification stack (bloc, storage and
 /// widgets) keeps working.
 final class NotificationRepository with LoggerMixin {
+  /// Constructor.
+  ///
+  /// [storageProvider] records the session expiry of the current account (issue #25); the global one is used when
+  /// not given and registered.
+  NotificationRepository({StorageProvider? storageProvider}) : _storageProvider = storageProvider;
+
+  final StorageProvider? _storageProvider;
+
+  StorageProvider? get _storage =>
+      _storageProvider ?? (getIt.isRegistered<StorageProvider>() ? getIt.get<StorageProvider>() : null);
+
   /// Provide a stream of [NotificationInfoState] those are fetched from server.
   ///
   /// Carries fetch result and fetched info if any.
@@ -147,6 +159,10 @@ final class NotificationRepository with LoggerMixin {
       final result = await fetchNotificationWith(getIt.get<NetClientProvider>(), timestamp: timestamp).run();
       switch (result) {
         case Left(:final value):
+          if (value is NotificationUserNotFound) {
+            // The forum answered the guest page to the current account's cookie: its session is dead (issue #25).
+            await _storage?.markSessionExpired(uid);
+          }
           _controller.add(const NotificationInfoStateFailure());
           return left(value);
         case Right(:final value):

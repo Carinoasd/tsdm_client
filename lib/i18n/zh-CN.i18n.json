@@ -1157,7 +1157,11 @@
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",
     "viewDetail": "查看详情",
-    "syncAllFinished": "所有账户通知已同步"
+    "syncAllFinished": "所有账户通知已同步",
+    "sessionExpired": {
+      "message": "有 ${count: int} 个账户的登录已过期",
+      "view": "查看"
+    }
   },
   "autoCheckinPage": {
     "title": "自动签到",
@@ -1246,6 +1250,10 @@
     },
     "syncAll": {
       "title": "同步所有账户的通知"
+    },
+    "sessionExpired": {
+      "hint": "登录已过期，请重新登录",
+      "loginAgain": "重新登录"
     }
   },
   "switchUserGroupPage": {

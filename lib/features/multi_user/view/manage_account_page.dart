@@ -40,7 +40,7 @@ class ManageAccountPage extends StatefulWidget {
 
 class _ManageAccountPageState extends State<ManageAccountPage> {
   /// Subscribed once: the drift stream queries again for every new subscriber.
-  late final Stream<List<(UserLoginInfo, DateTime?)>> _users = getIt.get<StorageProvider>().allUsersWithTimeStream();
+  late final Stream<List<StoredAccount>> _users = getIt.get<StorageProvider>().allAccountsStream();
 
   @override
   Widget build(BuildContext context) {
@@ -91,8 +91,11 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
         child: StreamBuilder(
           stream: _users,
           builder: (context, snapshot) {
-            final users = (snapshot.data ?? const <(UserLoginInfo, DateTime?)>[])
-                .where((e) => e.$1.username != null && e.$1.username!.isNotEmpty && e.$1.uid != null && e.$1.uid != 0)
+            final users = (snapshot.data ?? const <StoredAccount>[])
+                .where(
+                  (e) =>
+                      e.user.username != null && e.user.username!.isNotEmpty && e.user.uid != null && e.user.uid != 0,
+                )
                 .toList();
             return BlocBuilder<ManageAccountBloc, ManageAccountState>(
               builder: (context, selection) => BlocBuilder<SwitchUserBloc, SwitchUserBaseState>(
@@ -107,8 +110,8 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
 
   Widget _buildPage(
     BuildContext context,
-    AsyncSnapshot<List<(UserLoginInfo, DateTime?)>> snapshot,
-    List<(UserLoginInfo, DateTime?)> users,
+    AsyncSnapshot<List<StoredAccount>> snapshot,
+    List<StoredAccount> users,
     ManageAccountState selection,
     SwitchUserBaseState state,
   ) {
@@ -147,11 +150,12 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
                   // List all recorded users.
                   ...users.map(
                     (e) => _UserInfoListTile(
-                      userInfo: e.$1,
-                      lastCheckin: e.$2,
+                      userInfo: e.user,
+                      lastCheckin: e.lastCheckin,
+                      sessionExpiredAt: e.sessionExpiredAt,
                       currentUid: currentUid,
                       selecting: selection.selecting,
-                      selected: selection.selectedUids.contains(e.$1.uid),
+                      selected: selection.selectedUids.contains(e.user.uid),
                       enabled: !busy,
                     ),
                   ),
@@ -217,7 +221,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
   AppBar _buildSelectionAppBar(
     BuildContext context,
     ManageAccountState selection,
-    List<(UserLoginInfo, DateTime?)> users,
+    List<StoredAccount> users,
     int? currentUid,
   ) {
     final tr = context.t.manageAccountPage.selection;
@@ -236,7 +240,7 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
           tooltip: tr.selectAll,
           onPressed: deleting
               ? null
-              : () => bloc.add(ManageAccountSelectAllRequested(users.map((e) => e.$1.uid!).toList())),
+              : () => bloc.add(ManageAccountSelectAllRequested(users.map((e) => e.user.uid!).toList())),
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline),
@@ -269,6 +273,7 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
   const _UserInfoListTile({
     required this.userInfo,
     required this.lastCheckin,
+    required this.sessionExpiredAt,
     required this.currentUid,
     required this.selecting,
     required this.selected,
@@ -280,6 +285,9 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
 
   /// When this account last checked in from this device, null when never.
   final DateTime? lastCheckin;
+
+  /// When the app learned that the forum session of this account is dead, null while nothing is known (issue #25).
+  final DateTime? sessionExpiredAt;
 
   /// Uid of the current account, see [AuthenticationRepository.effectiveCurrentUid].
   final int? currentUid;
@@ -310,6 +318,10 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
     return null;
   }
 
+  /// Open the login page with the name of this account filled in: the way to make an expired login work again.
+  Future<void> _loginAgain(BuildContext context) async =>
+      context.pushNamed(ScreenPaths.login, queryParameters: {'username': '${userInfo.username}'});
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.manageAccountPage;
@@ -318,7 +330,28 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
     final isCurrentUser = userInfo.uid! == currentUid;
     final checkedIn = isCheckedInToday(lastCheckin);
     final failure = checkedIn ? null : _autoCheckinFailure(context);
+    final expired = sessionExpiredAt != null;
     final bloc = context.read<ManageAccountBloc>();
+
+    // An expired login shows the way to fix it right in the tile instead of the chip; the chip is back once the
+    // account logged in again. Nothing in selection mode, where a tap on the tile selects it.
+    final Widget? trailing;
+    if (expired && !selecting) {
+      trailing = TextButton.icon(
+        onPressed: enabled ? () async => _loginAgain(context) : null,
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+        icon: const Icon(Icons.login_outlined, size: 18),
+        label: Text(tr.sessionExpired.loginAgain),
+      );
+    } else if (isCurrentUser) {
+      trailing = Chip(
+        side: BorderSide.none,
+        backgroundColor: colorScheme.secondaryContainer,
+        label: Text(tr.online, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSecondaryContainer)),
+      );
+    } else {
+      trailing = null;
+    }
 
     return ListTile(
       enabled: enabled,
@@ -350,18 +383,20 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
             ],
           ),
           if (failure != null) Text(failure, style: textTheme.bodySmall?.copyWith(color: colorScheme.error)),
+          if (expired)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 16, color: colorScheme.error),
+                sizedBoxW4H4,
+                Flexible(
+                  child: Text(tr.sessionExpired.hint, style: textTheme.bodySmall?.copyWith(color: colorScheme.error)),
+                ),
+              ],
+            ),
         ],
       ),
-      trailing: isCurrentUser
-          ? Chip(
-              side: BorderSide.none,
-              backgroundColor: colorScheme.secondaryContainer,
-              label: Text(
-                tr.online,
-                style: textTheme.labelMedium?.copyWith(color: colorScheme.onSecondaryContainer),
-              ),
-            )
-          : null,
+      trailing: trailing,
       onTap: !enabled
           ? null
           : selecting
