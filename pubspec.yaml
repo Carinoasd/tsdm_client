@@ -5,7 +5,7 @@ homepage: https://github.com/Carinoasd/tsdm_client
 issue_tracker: https://github.com/Carinoasd/tsdm_client/issues
 publish_to: "none"
 
-version: 1.19.2+68
+version: 1.20.0+69
 
 environment:
   flutter: ">=3.38.0 <4.0.0"
