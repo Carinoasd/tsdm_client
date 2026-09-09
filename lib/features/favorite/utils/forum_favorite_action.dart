@@ -70,6 +70,10 @@ Future<bool> _add(
       showSnackBar(context: context, clearPrevious: true, message: tr.alreadyAdded);
       // The forum does not tell which record it is; look it up so the menu can offer to remove it.
       final known = (await repository.findForumFavid(fid: fid, uid: uid).run()).toNullable();
+      if (known != null) {
+        // Favorited on the web after the topics tab fetched its panel: have it reload.
+        repository.notifyForumFavoritesChanged();
+      }
       return known != null;
     case Right(value: FavoriteAddFailed(:final message)):
       showSnackBar(
@@ -117,8 +121,10 @@ Future<bool> _remove(
       return false;
     }
     if (favid == null) {
-      // Not in the list anymore: it was removed elsewhere, the state is settled.
-      repository.forgetForum(uid: uid, fid: fid);
+      // Not in the list anymore: it was removed elsewhere, the state is settled; the topics tab still lists it.
+      repository
+        ..forgetForum(uid: uid, fid: fid)
+        ..notifyForumFavoritesChanged();
       showSnackBar(context: context, clearPrevious: true, message: tr.removed);
       return true;
     }
