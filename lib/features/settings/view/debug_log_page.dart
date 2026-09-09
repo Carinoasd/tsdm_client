@@ -18,6 +18,25 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
+/// Colors of the talker screens (log list, the nested "Talker Monitor" page and their sheets) taken from [theme].
+///
+/// The package default is a fixed dark palette: under the light app theme it left the status bar icons unreadable on
+/// the dark app bar and the nested monitor page with a light app bar over a dark body (#15). The talker app bars
+/// paint `backgroundColor`, so a surface-colored background also gives them the same overlay style as any other
+/// app bar. The light variant darkens the two grey log levels whose default shades were meant for a dark ground.
+TalkerScreenTheme buildTalkerScreenTheme(ThemeData theme) {
+  final cs = theme.colorScheme;
+  return TalkerScreenTheme(
+    backgroundColor: cs.surface,
+    textColor: cs.onSurface,
+    cardColor: cs.surfaceContainerHigh,
+    logColors: switch (theme.brightness) {
+      Brightness.light => {TalkerKey.debug: const Color(0xFF616161), TalkerKey.verbose: const Color(0xFF757575)},
+      Brightness.dark => null,
+    },
+  );
+}
+
 /// Debug page for show all caught log since this start.
 class DebugLogPage extends StatefulWidget {
   /// Constructor.
@@ -31,7 +50,7 @@ class _DebugLogPageState extends State<DebugLogPage> {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.debugLogPage;
-    return TalkerScreen(talker: talker, appBarTitle: tr.title);
+    return TalkerScreen(talker: talker, appBarTitle: tr.title, theme: buildTalkerScreenTheme(Theme.of(context)));
   }
 }
 
