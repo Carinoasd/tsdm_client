@@ -14,4 +14,10 @@ final class ForumGroup with ForumGroupMappable {
 
   /// All subreddit in the forum.
   final List<Forum> forumList;
+
+  /// True for the "我收藏的版块" panel Discuz! renders on `forum.php` for a member with favorite forums.
+  ///
+  /// Its header links to the favorites list (`home.php?mod=space&do=favorite&type=forum`) instead of a
+  /// `forum.php?gid=N` page.
+  bool get isFavorites => url.contains('do=favorite');
 }

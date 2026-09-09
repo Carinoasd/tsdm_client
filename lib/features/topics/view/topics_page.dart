@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -29,7 +31,7 @@ class TopicsPage extends StatefulWidget {
 }
 
 /// State of homepage.
-class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateMixin {
+class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   /// Constructor.
   _TopicsPageState();
 
@@ -39,22 +41,37 @@ class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateM
 
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
 
-  Widget _buildContent(BuildContext context, TopicsState state) {
-    final forumGroupList = state.forumGroupList;
-
+  /// Make sure [tabController] exists and has exactly [length] tabs.
+  ///
+  /// The group count changes when the "我收藏的版块" panel appears or disappears (first favorite forum added,
+  /// last one removed, another account logged in): a controller with the old length makes the TabBar throw
+  /// "Controller's length property does not match the number of tabs" (issue #1), so it is rebuilt with the
+  /// saved tab index clamped into the new range.
+  void _syncTabController(BuildContext context, int length) {
+    final fragments = RepositoryProvider.of<FragmentsRepository>(context);
     // Capture `context` and wrap in a void callback.
     _updateIndexListener ??= () {
       if (tabController == null) {
         return;
       }
-      RepositoryProvider.of<FragmentsRepository>(context).topicsPageTabIndex = tabController!.index;
+      fragments.topicsPageTabIndex = tabController!.index;
     };
 
-    tabController ??= TabController(
-      initialIndex: RepositoryProvider.of<FragmentsRepository>(context).topicsPageTabIndex,
-      length: forumGroupList.length,
-      vsync: this,
-    )..addListener(_updateIndexListener!);
+    if (tabController != null && tabController!.length == length) {
+      return;
+    }
+    tabController
+      ?..removeListener(_updateIndexListener!)
+      ..dispose();
+    final initialIndex = length == 0 ? 0 : fragments.topicsPageTabIndex.clamp(0, length - 1);
+    fragments.topicsPageTabIndex = initialIndex;
+    tabController = TabController(initialIndex: initialIndex, length: length, vsync: this)
+      ..addListener(_updateIndexListener!);
+  }
+
+  Widget _buildContent(BuildContext context, TopicsState state) {
+    final forumGroupList = state.forumGroupList;
+    _syncTabController(context, forumGroupList.length);
 
     final groupTabBodyList = forumGroupList
         .map(
@@ -74,7 +91,7 @@ class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateM
       controller: _refreshController,
       header: const MaterialHeader(),
       onRefresh: () {
-        context.read<TopicsBloc>().add(TopicsRefreshRequested());
+        context.read<TopicsBloc>().add(const TopicsRefreshRequested());
       },
       child: TabBarView(controller: tabController, children: groupTabBodyList),
     );
@@ -88,16 +105,17 @@ class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateM
         ..dispose();
     }
     _refreshController.dispose();
-    tabController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          TopicsBloc(forumHomeRepository: RepositoryProvider.of<ForumHomeRepository>(context))
-            ..add(TopicsLoadRequested()),
+      create: (_) => TopicsBloc(
+        forumHomeRepository: RepositoryProvider.of<ForumHomeRepository>(context),
+        authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
+        favoriteRepository: RepositoryProvider.of<FavoriteRepository>(context),
+      )..add(TopicsLoadRequested()),
       child: BlocBuilder<TopicsBloc, TopicsState>(
         builder: (context, state) {
           final body = switch (state.status) {
@@ -108,7 +126,7 @@ class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateM
               child: const CenteredCircularIndicator(),
             ),
             TopicsStatus.failed => buildRetryButton(context, () {
-              context.read<TopicsBloc>().add(TopicsRefreshRequested());
+              context.read<TopicsBloc>().add(const TopicsRefreshRequested());
             }),
             TopicsStatus.success when state.forumGroupList.isNotEmpty => _buildContent(context, state),
             // Some server enforced situation.
@@ -116,13 +134,14 @@ class _TopicsPageState extends State<TopicsPage> with SingleTickerProviderStateM
               backUri: GoRouterState.of(context).uri,
               needPop: true,
               popCallback: (context) {
-                context.read<TopicsBloc>().add(TopicsRefreshRequested());
+                context.read<TopicsBloc>().add(const TopicsRefreshRequested());
               },
             ),
           };
 
           final PreferredSizeWidget tabBar;
           if (state.status == TopicsStatus.success) {
+            // `_buildContent` above already made the controller match the tab count.
             tabBar = TabBar(
               controller: tabController,
               tabs: state.forumGroupList.map((e) => Tab(text: e.name)).toList(),
