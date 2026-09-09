@@ -14,18 +14,58 @@ import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
-/// Page listing the threads the current user added to favorites.
-class FavoritePage extends StatefulWidget {
+/// Page listing what the current user added to favorites: a tab of threads (帖子) and a tab of forums (版块), like
+/// the web page `home.php?mod=space&do=favorite&type=thread|forum`.
+class FavoritePage extends StatelessWidget {
   /// Constructor.
-  const FavoritePage({super.key});
+  const FavoritePage({this.initialType = FavoriteType.thread, super.key});
+
+  /// Tab to open first.
+  final FavoriteType initialType;
 
   @override
-  State<FavoritePage> createState() => _FavoritePageState();
+  Widget build(BuildContext context) {
+    final tr = context.t.favoritePage;
+    return DefaultTabController(
+      length: FavoriteType.values.length,
+      initialIndex: FavoriteType.values.indexOf(initialType),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(tr.title),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: tr.threadTab),
+              Tab(text: tr.forumTab),
+            ],
+          ),
+        ),
+        body: SafeArea(
+          bottom: false,
+          child: TabBarView(
+            children: [for (final type in FavoriteType.values) _FavoriteTab(type, key: ValueKey(type))],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _FavoritePageState extends State<FavoritePage> {
+/// One tab: the list of records of [type] with pull to refresh, load more and removal.
+class _FavoriteTab extends StatefulWidget {
+  const _FavoriteTab(this.type, {super.key});
+
+  final FavoriteType type;
+
+  @override
+  State<_FavoriteTab> createState() => _FavoriteTabState();
+}
+
+class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClientMixin {
   final _refreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
   final _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -34,7 +74,7 @@ class _FavoritePageState extends State<FavoritePage> {
     super.dispose();
   }
 
-  Future<void> _confirmRemove(BuildContext context, FavoriteThread item) async {
+  Future<void> _confirmRemove(BuildContext context, FavoriteItem item) async {
     final tr = context.t.favoritePage;
     final confirmed = await showQuestionDialog(
       context: context,
@@ -79,7 +119,10 @@ class _FavoritePageState extends State<FavoritePage> {
               sizedBoxW32H32,
               Center(
                 child: Text(
-                  tr.empty,
+                  switch (widget.type) {
+                    FavoriteType.thread => tr.empty,
+                    FavoriteType.forum => tr.emptyForum,
+                  },
                   style: Theme.of(
                     context,
                   ).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
@@ -123,10 +166,11 @@ class _FavoritePageState extends State<FavoritePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tr = context.t.favoritePage;
     return BlocProvider(
       create: (context) =>
-          FavoriteBloc(favoriteRepository: context.repo(), authenticationRepository: context.repo())
+          FavoriteBloc(favoriteRepository: context.repo(), authenticationRepository: context.repo(), type: widget.type)
             ..add(const FavoriteLoadRequested()),
       child: MultiBlocListener(
         listeners: [
@@ -136,16 +180,13 @@ class _FavoritePageState extends State<FavoritePage> {
           ),
           BlocListener<FavoriteBloc, FavoriteState>(
             listenWhen: (prev, curr) => prev.failureCount != curr.failureCount,
-            listener: (context, state) =>
-                showSnackBar(context: context, message: tr.actionFailed(err: state.lastFailure ?? '')),
+            listener: (context, state) => showSnackBar(
+              context: context,
+              message: tr.actionFailed(err: state.lastFailure ?? ''),
+            ),
           ),
         ],
-        child: BlocBuilder<FavoriteBloc, FavoriteState>(
-          builder: (context, state) => Scaffold(
-            appBar: AppBar(title: Text(tr.title)),
-            body: SafeArea(bottom: false, child: _buildBody(context, state)),
-          ),
-        ),
+        child: BlocBuilder<FavoriteBloc, FavoriteState>(builder: _buildBody),
       ),
     );
   }

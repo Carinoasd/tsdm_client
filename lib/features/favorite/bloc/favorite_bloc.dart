@@ -16,18 +16,24 @@ part 'favorite_state.dart';
 /// Emitter.
 typedef FavoriteEmitter = Emitter<FavoriteState>;
 
-/// Bloc of the favorites page.
+/// Bloc of one tab of the favorites page: the threads (`type=thread`) or the forums (`type=forum`).
 final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerMixin {
   /// Constructor.
-  FavoriteBloc({required FavoriteRepository favoriteRepository, required AuthenticationRepository authenticationRepository})
-    : _favoriteRepository = favoriteRepository,
-      _authenticationRepository = authenticationRepository,
-      super(const FavoriteState()) {
+  FavoriteBloc({
+    required FavoriteRepository favoriteRepository,
+    required AuthenticationRepository authenticationRepository,
+    this.type = FavoriteType.thread,
+  }) : _favoriteRepository = favoriteRepository,
+       _authenticationRepository = authenticationRepository,
+       super(const FavoriteState()) {
     on<FavoriteLoadRequested>(_onLoadRequested);
     on<FavoriteRefreshRequested>(_onRefreshRequested);
     on<FavoriteLoadMoreRequested>(_onLoadMoreRequested);
     on<FavoriteRemoveRequested>(_onRemoveRequested);
   }
+
+  /// Kind of records this bloc lists.
+  final FavoriteType type;
 
   final FavoriteRepository _favoriteRepository;
   final AuthenticationRepository _authenticationRepository;
@@ -53,7 +59,7 @@ final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerM
   }
 
   Future<void> _loadFirstPage(FavoriteEmitter emit) async {
-    switch (await _favoriteRepository.fetchListPage().run()) {
+    switch (await _favoriteRepository.fetchListPageOf(type).run()) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(status: FavoriteStatus.failure, refreshing: false));
@@ -85,7 +91,7 @@ final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerM
       return;
     }
     emit(state.copyWith(loadingMore: true));
-    switch (await _favoriteRepository.fetchListPage(url).run()) {
+    switch (await _favoriteRepository.fetchListPageOf(type, url).run()) {
       case Left(:final value):
         handle(value);
         emit(state.copyWith(loadingMore: false, failureCount: state.failureCount + 1, lastFailure: value.message));
@@ -113,13 +119,13 @@ final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerM
       return;
     }
     emit(state.copyWith(removing: [...state.removing, item.favid]));
-    final result = await _favoriteRepository.removeFavorite(favid: item.favid).run();
+    final result = await _favoriteRepository.removeFavorite(favid: item.favid, type: item.type).run();
     final removing = state.removing.where((e) => e != item.favid).toList();
     switch (result) {
       case Right(value: FavoriteRemoveResult(removed: true)):
         final uid = _uid;
         if (uid != null) {
-          _favoriteRepository.forget(uid: uid, tid: item.tid);
+          _favoriteRepository.forgetItem(uid: uid, item: item);
         }
         emit(
           state.copyWith(

@@ -34,5 +34,5 @@ final class FavoriteRemoveRequested extends FavoriteEvent with FavoriteRemoveReq
   const FavoriteRemoveRequested(this.item);
 
   /// Record to remove.
-  final FavoriteThread item;
+  final FavoriteItem item;
 }

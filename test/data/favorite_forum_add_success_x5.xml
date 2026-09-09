@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<script type="text/javascript" reload="1">if(typeof succeedhandle_favoriteforum=='function') {succeedhandle_favoriteforum('https://www.tsdm39.com/./', '信息收藏成功 ', {'id':'125','favid':'500405'});}hideWindow('favoriteforum');showDialog('信息收藏成功 ', 'right', null, null, 0, null, null, null, null, 3, null);</script><script type="text/javascript">$("number_favorite_num").innerHTML = parseInt($("number_favorite_num").innerHTML)+1;$("number_favorite").style.display="";</script>]]></root>

@@ -5,14 +5,17 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 
 /// Ask the optional note of a new favorite.
 ///
+/// [title] defaults to the thread wording ("收藏"); the forum page passes "收藏本版".
 /// Returns the note (may be empty) or null when the user cancelled.
-Future<String?> showFavoriteNoteDialog(BuildContext context) async => showDialog<String>(
+Future<String?> showFavoriteNoteDialog(BuildContext context, {String? title}) async => showDialog<String>(
   context: context,
-  builder: (context) => const RootPage(DialogPaths.favoriteNote, _FavoriteNoteDialog()),
+  builder: (context) => RootPage(DialogPaths.favoriteNote, _FavoriteNoteDialog(title: title)),
 );
 
 class _FavoriteNoteDialog extends StatefulWidget {
-  const _FavoriteNoteDialog();
+  const _FavoriteNoteDialog({this.title});
+
+  final String? title;
 
   @override
   State<_FavoriteNoteDialog> createState() => _FavoriteNoteDialogState();
@@ -31,7 +34,7 @@ class _FavoriteNoteDialogState extends State<_FavoriteNoteDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.threadPage.favorite;
     return AlertDialog(
-      title: Text(tr.add),
+      title: Text(widget.title ?? tr.add),
       content: TextField(
         controller: _controller,
         autofocus: true,

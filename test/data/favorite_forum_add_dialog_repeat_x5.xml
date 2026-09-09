@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>提示信息</em><span><a href="javascript:;" class="flbc" onclick="hideWindow('favoriteforum');" title="关闭">关闭</a></span></h3>
+<div class="c altw">
+<div class="alert_error">抱歉，您已收藏，请勿重复收藏<script type="text/javascript" reload="1">if(typeof errorhandle_favoriteforum=='function') {errorhandle_favoriteforum('抱歉，您已收藏，请勿重复收藏', {});}</script></div>
+</div>
+<p class="o pns">
+<button type="button" class="pn pnc" id="closebtn" onclick="hideWindow('favoriteforum');"><strong>确定</strong></button>
+<script type="text/javascript" reload="1">if($('closebtn')) {$('closebtn').focus();}</script>
+</p>
+]]></root>

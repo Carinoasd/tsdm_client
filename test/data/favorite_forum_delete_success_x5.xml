@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<script type="text/javascript" reload="1">if(typeof succeedhandle_a_delete_500405=='function') {succeedhandle_a_delete_500405('home.php?mod=space&uid=1000&do=favorite&view=me&type=all&quickforward=1', '操作成功 ', {'favid':'500405','id':'125'});}hideWindow('a_delete_500405');showDialog('操作成功 ', 'right', null, function () { window.location.href ='home.php?mod=space&uid=1000&do=favorite&view=me&type=all&quickforward=1'; }, 0, null, null, null, null, 3, 3);</script>]]></root>

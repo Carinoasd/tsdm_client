@@ -98,10 +98,13 @@ extension ParseUrl on String {
       return const RecognizedRoute(ScreenPaths.myThread);
     }
 
-    // Favorites list, with or without uid: home.php?mod=space[&uid=xxx]&do=favorite[&view=me][&type=thread]
-    // Only the list of the current user is visible.
+    // Favorites list, with or without uid: home.php?mod=space[&uid=xxx]&do=favorite[&view=me][&type=thread|forum]
+    // Only the list of the current user is visible; `type=forum` opens the forums tab, anything else the threads.
     if (mod == 'space' && queryParameters['do'] == 'favorite') {
-      return const RecognizedRoute(ScreenPaths.favorite);
+      return RecognizedRoute(
+        ScreenPaths.favorite,
+        queryParameters: {if (queryParameters['type'] == 'forum') 'type': 'forum'},
+      );
     }
 
     // These routes fetch the url itself: always the canonical https forum host, whatever the link said.

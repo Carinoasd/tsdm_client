@@ -7,13 +7,25 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
 
-/// Card of one favorite record: title, time, optional note and a remove button.
+/// Card of one favorite record (thread or forum): title, time, optional note and a remove button.
 class FavoriteCard extends StatelessWidget {
   /// Constructor.
   const FavoriteCard(this.item, {required this.onRemove, this.removing = false, super.key});
 
   /// Record to show.
-  final FavoriteThread item;
+  final FavoriteItem item;
+
+  Future<void> _open(BuildContext context) async => switch (item) {
+    FavoriteThread(:final tid, :final title) => context.pushNamed(
+      ScreenPaths.threadV1,
+      queryParameters: {'tid': tid, 'appBarTitle': title},
+    ),
+    FavoriteForum(:final fid, :final title) => context.pushNamed(
+      ScreenPaths.forum,
+      pathParameters: {'fid': fid},
+      queryParameters: {'appBarTitle': title},
+    ),
+  };
 
   /// Called when the user asks to remove this record.
   final VoidCallback onRemove;
@@ -31,10 +43,7 @@ class FavoriteCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: () async => context.pushNamed(
-          ScreenPaths.threadV1,
-          queryParameters: {'tid': item.tid, 'appBarTitle': item.title},
-        ),
+        onTap: () async => _open(context),
         child: Padding(
           padding: edgeInsetsL12T12R12B12,
           child: Row(
@@ -71,7 +80,7 @@ class FavoriteCard extends StatelessWidget {
                 const Padding(padding: edgeInsetsL8R8, child: sizedCircularProgressIndicator)
               else
                 IconButton(
-                  icon: const Icon(Icons.bookmark_remove_outlined),
+                  icon: Icon(item is FavoriteForum ? Icons.folder_off_outlined : Icons.bookmark_remove_outlined),
                   tooltip: tr.remove,
                   onPressed: onRemove,
                 ),
