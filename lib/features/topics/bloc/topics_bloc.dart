@@ -158,7 +158,7 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   /// Returns whether the document was shown.
   bool _emitParsed(uh.Document document, Emitter<TopicsState> emit) {
     final currentUid = _authenticationRepository.currentUser?.uid;
-    final documentUid = parseLoggedUserFromDocument(document)?.uid;
+    final documentUid = parseLoggedUidFromDocument(document);
     if (documentUid != currentUid) {
       if (identical(document, _staleDocument)) {
         return false;
@@ -179,6 +179,13 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   /// Parse the group list and seed the favorite forums cache of [seedUid] from the "我收藏的版块" panel, if any.
   TopicsState _parse(uh.Document document, {required int? seedUid}) {
     final forumGroupList = buildGroupListFromDocument(document);
+    // Enough to tell "the server did not render the panel" from "the parser missed it" from a log alone (#1).
+    final favorites = forumGroupList.where((e) => e.isFavorites).expand((e) => e.forumList).map((e) => e.forumID);
+    final panelInPage = document.querySelector('div#ct')?.innerHtml?.contains('do=favorite&amp;type=forum') ?? false;
+    debug(
+      'forum index parsed: ${forumGroupList.length} groups ${forumGroupList.map((e) => e.name).toList()}, '
+      'favorite forums $favorites, favorites panel in page: $panelInPage',
+    );
     if (seedUid != null && seedUid == _authenticationRepository.currentUser?.uid) {
       final favorites = forumGroupList.where((e) => e.isFavorites).expand((e) => e.forumList);
       _favoriteRepository.seedForumFavorites(uid: seedUid, fids: favorites.map((e) => '${e.forumID}'));

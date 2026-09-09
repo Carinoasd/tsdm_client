@@ -50,7 +50,10 @@ const _bob = UserLoginInfo(username: 'Bob', uid: 1001);
 String _indexAs(String name, UserLoginInfo? user) {
   final html = _data(name);
   if (user == null) {
-    return html.replaceAll(RegExp('<strong class="vwmy">.*?</strong>'), '');
+    // A guest page has neither the header user node nor a positive `discuz_uid`.
+    return html
+        .replaceAll(RegExp('<strong class="vwmy">.*?</strong>'), '')
+        .replaceAll("discuz_uid = '1000'", "discuz_uid = '0'");
   }
   return html.replaceAll('uid=1000', 'uid=${user.uid}').replaceAll('>Alice<', '>${user.username}<');
 }
@@ -130,7 +133,7 @@ String _index(List<String> names, {UserLoginInfo? user = _alice}) {
   final groups = names.indexed
       .map(
         (e) =>
-            '<div class="bm bmw  cl"><div class="bm_h cl"><h2><a href="forum.php?gid=${e.$1 + 1}">${e.$2}</a></h2></div> '
+            '<div class="bm bmw  cl"><div class="bm_h cl"><h2><a href="${e.$2 == '我收藏的版块' ? 'home.php?mod=space&amp;do=favorite&amp;type=forum' : 'forum.php?gid=${e.$1 + 1}'}">${e.$2}</a></h2></div> '
             '<div id="category_${e.$1 + 1}" class="bm_c"><table class="fl_tb"><tr class="fl_row"></tr></table></div></div>',
       )
       .join();
@@ -477,8 +480,12 @@ void main() {
       await settle(tester);
       expect(find.byType(Tab), findsNWidgets(2));
       expect(tester.takeException(), isNull);
+      await tester.tap(find.text('动漫综合'));
+      await settle(tester);
+      expect(fragments.topicsPageTabIndex, 1);
 
-      // The homepage refreshed the document after the first forum was favorited: one more group in front.
+      // The homepage refreshed the document after the first forum was favorited: one more group in front, and it
+      // is selected so the user sees it instead of staying on the tab that kept the old index (#1).
       names = ['我收藏的版块', '天使·后花园', '动漫综合'];
       // Under FakeAsync the fetch only completes while frames are pumped.
       unawaited(forumHome.fetchHomePage(force: true).run());
@@ -486,6 +493,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(Tab), findsNWidgets(3));
       expect(find.text('我收藏的版块'), findsOneWidget);
+      expect(fragments.topicsPageTabIndex, 0);
 
       // Select the last tab, then drop the panel again: the saved index is clamped instead of pointing past the end.
       await tester.tap(find.text('动漫综合'));

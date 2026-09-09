@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -39,15 +40,20 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
 
   VoidCallback? _updateIndexListener;
 
+  /// Whether the groups shown last time started with the "我收藏的版块" panel.
+  bool _hadFavorites = false;
+
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
 
-  /// Make sure [tabController] exists and has exactly [length] tabs.
+  /// Make sure [tabController] exists and has exactly one tab per entry of [groups].
   ///
   /// The group count changes when the "我收藏的版块" panel appears or disappears (first favorite forum added,
   /// last one removed, another account logged in): a controller with the old length makes the TabBar throw
   /// "Controller's length property does not match the number of tabs" (issue #1), so it is rebuilt with the
   /// saved tab index clamped into the new range.
-  void _syncTabController(BuildContext context, int length) {
+  void _syncTabController(BuildContext context, List<ForumGroup> groups) {
+    final length = groups.length;
+    final hasFavorites = groups.isNotEmpty && groups.first.isFavorites;
     final fragments = RepositoryProvider.of<FragmentsRepository>(context);
     // Capture `context` and wrap in a void callback.
     _updateIndexListener ??= () {
@@ -58,12 +64,17 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     };
 
     if (tabController != null && tabController!.length == length) {
+      _hadFavorites = hasFavorites;
       return;
     }
+    // The panel just showed up in front (favorite added on the web, account switched): select it, otherwise the
+    // saved index keeps the previous tab selected and the new first tab may sit outside the scrollable tab bar.
+    final favoritesAppeared = tabController != null && hasFavorites && !_hadFavorites;
+    _hadFavorites = hasFavorites;
     tabController
       ?..removeListener(_updateIndexListener!)
       ..dispose();
-    final initialIndex = length == 0 ? 0 : fragments.topicsPageTabIndex.clamp(0, length - 1);
+    final initialIndex = length == 0 || favoritesAppeared ? 0 : fragments.topicsPageTabIndex.clamp(0, length - 1);
     fragments.topicsPageTabIndex = initialIndex;
     tabController = TabController(initialIndex: initialIndex, length: length, vsync: this)
       ..addListener(_updateIndexListener!);
@@ -71,7 +82,7 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
 
   Widget _buildContent(BuildContext context, TopicsState state) {
     final forumGroupList = state.forumGroupList;
-    _syncTabController(context, forumGroupList.length);
+    _syncTabController(context, forumGroupList);
 
     final groupTabBodyList = forumGroupList
         .map(
@@ -93,7 +104,9 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       onRefresh: () {
         context.read<TopicsBloc>().add(const TopicsRefreshRequested());
       },
-      child: TabBarView(controller: tabController, children: groupTabBodyList),
+      // A new controller gets a fresh page view: the old one may report its previous page while the children
+      // change and would drag the new controller's index along with it.
+      child: TabBarView(key: ValueKey(tabController), controller: tabController, children: groupTabBodyList),
     );
   }
 

@@ -14,7 +14,9 @@ UserLoginInfo? parseLoggedUserFromDocument(uh.Document document) {
       // Style 1: With avatar.
       document.querySelector('div#hd div.wp div.hdc.cl div#um p strong.vwmy a') ??
       // Style 2: Without avatar.
-      document.querySelector('div#inner_stat > strong > a');
+      document.querySelector('div#inner_stat > strong > a') ??
+      // Style 3 ("默认毛坯" on tsdm39): the name link sits in the avatar block, no div#um at all.
+      document.querySelector('div.block_name > a[href*="mod=space"][href*="uid="]');
   if (userNode == null) {
     talker.debug('logged user: user node not found');
     return null;
@@ -30,4 +32,24 @@ UserLoginInfo? parseLoggedUserFromDocument(uh.Document document) {
     return null;
   }
   return UserLoginInfo(uid: uid, username: username);
+}
+
+final _discuzUidRe = RegExp(r"discuz_uid\s*=\s*'(\d+)'");
+
+/// The uid a page was served to: the header user node when present, otherwise the `discuz_uid` variable every
+/// Discuz! page declares in its head script regardless of the site style. Null for a guest page (uid 0) or when
+/// neither is there.
+int? parseLoggedUidFromDocument(uh.Document document) {
+  final fromHeader = parseLoggedUserFromDocument(document)?.uid;
+  if (fromHeader != null) {
+    return fromHeader;
+  }
+  for (final script in document.querySelectorAll('script')) {
+    final match = _discuzUidRe.firstMatch(script.text ?? '');
+    if (match != null) {
+      final uid = int.tryParse(match.group(1)!);
+      return uid == null || uid <= 0 ? null : uid;
+    }
+  }
+  return null;
 }
