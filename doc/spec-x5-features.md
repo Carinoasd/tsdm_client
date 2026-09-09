@@ -404,6 +404,8 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 測試：test_043（面板解析、TopicsBloc 三種觸發、TopicsPage 2→3→2 個分頁無例外且索引夾住；把 `_syncTabController` 退回舊行為可重現原錯誤）、
   test_044（版塊列表／空列表／對話框／任意 handlekey、GET→POST 參數、已收藏不 POST、刪除、findForumFavid、seed、網址辨識）。test_023 原樣全過。
 
+- 1.19.1：分區頁解析後記錄分區名、收藏版塊 fid 與「頁面裡是否有收藏面板連結」（`forum index parsed:` 一行），單看日誌即可分辨「論壇沒渲染」與「解析失手」。登入者辨識加上「默认毛坯」風格的 `div.block_name` 名字連結，並以每頁都有的 `discuz_uid` 腳本變數作 uid 後備（`parseLoggedUidFromDocument`）。「我收藏的版块」分頁第一次出現時自動選取它（原本沿用先前的分頁索引，新分頁可能在可捲動分頁列的畫面外）；TabBarView 以控制器為 key 重建，避免舊頁面位置把新控制器的索引拖回去。
+
 ## 13. 自動簽到提示列、各帳號今日簽到狀態、刪除帳號（GitHub #4、#9、#6，2026-09-09）
 
 ### 13.1 論壇端事實
