@@ -1081,9 +1081,9 @@
       "refreshRecommendTip": "重新加载好友列表",
       "noFriends": "@ 列表里还没有好友，可直接输入用户名",
       "noMatch": "好友里没有符合的用户",
-      "filterHint": "输入以筛选，或直接输入用户名",
+      "filterHint": "筛选或输入用户名",
       "others": "其他 @ 名单",
-      "useTyped": "提醒 “${name}”",
+      "useTyped": "提醒「${name}」",
       "friendsUnavailable": "无法读取好友列表：${message}"
     }
   },
@@ -1156,7 +1156,7 @@
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",
     "viewDetail": "查看详情",
-    "syncAllFinished": "所有账户的通知同步已完成"
+    "syncAllFinished": "所有账户通知已同步"
   },
   "autoCheckinPage": {
     "title": "自动签到",

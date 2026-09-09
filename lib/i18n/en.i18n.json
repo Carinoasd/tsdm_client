@@ -1081,7 +1081,7 @@
       "refreshRecommendTip": "Reload the friend list",
       "noFriends": "No friend on your @ list yet, type the username directly",
       "noMatch": "No friend matches the keyword",
-      "filterHint": "Type to filter, or enter any username",
+      "filterHint": "Filter or type a username",
       "others": "Other @ list",
       "useTyped": "Mention “${name}”",
       "friendsUnavailable": "Friends list unavailable: ${message}"
@@ -1156,7 +1156,7 @@
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",
     "viewDetail": "View detail",
-    "syncAllFinished": "Notification sync of all accounts finished"
+    "syncAllFinished": "All accounts synced"
   },
   "autoCheckinPage": {
     "title": "Auto checkin",
