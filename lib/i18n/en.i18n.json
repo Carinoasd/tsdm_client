@@ -1171,9 +1171,10 @@
       "success": "Switch success",
       "dialog": {
         "switchAccount": "Switch to this account",
-        "clearLoginStatus": {
-          "title": "Clear login status",
-          "detail": "Clear the account info in app, without logout from server"
+        "deleteAccount": {
+          "title": "Delete account",
+          "detail": "Remove the login saved for this account on this device; the forum is not logged out",
+          "confirm": "Delete ${username} from this device? Only the login saved on this device is removed, the forum is not logged out."
         },
         "loginAgain": {
           "title": "Login again",
@@ -1184,12 +1185,26 @@
     "allUsers": "All users",
     "addUser": "Add user",
     "logoutDetail": "Log out of the forum and clear the login saved on this device",
+    "removeFromDevice": {
+      "title": "Remove from this device",
+      "detail": "Remove the saved login without logging out of the forum; this device is signed out",
+      "confirm": "Remove ${username} from this device? The forum is not logged out and this device will be signed out."
+    },
     "loginAnother": "Login another account",
     "logout": "Logout",
     "online": "Online",
     "checkin": {
       "today": "Checked in today",
       "notYet": "Not checked in today"
+    },
+    "selection": {
+      "enter": "Select",
+      "count": "${count} selected",
+      "selectAll": "Select all",
+      "delete": "Delete accounts",
+      "confirm": "Delete ${count} account(s) from this device? Only the logins saved on this device are removed, the forum is not logged out.",
+      "currentHint": "The current account is included: this device will be signed out.",
+      "deleted": "Deleted ${count} account(s)"
     }
   },
   "switchUserGroupPage": {

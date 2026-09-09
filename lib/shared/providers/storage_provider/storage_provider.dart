@@ -203,6 +203,26 @@ class StorageProvider with LoggerMixin {
     return affectedRows != 0;
   }
 
+  /// Delete the cookies of every uid in [uids] in one transaction.
+  ///
+  /// Returns the number of rows removed. The in-memory cache is cleared first so a client of a removed account can
+  /// not find its cookie any more, and the single transaction makes the users stream emit once for the batch.
+  Future<int> deleteCookiesByUids(Iterable<int> uids) async {
+    final targets = uids.toSet();
+    if (targets.isEmpty) {
+      return 0;
+    }
+    _cookieCache.removeWhere((e, _) => targets.contains(e.uid));
+    final dao = CookieDao(_db);
+    return _db.transaction(() async {
+      var deleted = 0;
+      for (final uid in targets) {
+        deleted += await dao.deleteCookieByUid(uid);
+      }
+      return deleted;
+    });
+  }
+
   /// Delete stored cookie with [userInfo].
   ///
   /// uid > username > email.

@@ -1171,9 +1171,10 @@
       "success": "切換成功",
       "dialog": {
         "switchAccount": "切換到這個帳號",
-        "clearLoginStatus": {
-          "title": "清除登入記錄",
-          "detail": "清除在軟體內的登入記錄，不會向伺服器要求登出登入"
+        "deleteAccount": {
+          "title": "刪除帳號",
+          "detail": "從本機刪除此帳號的登入記錄，不會向論壇要求登出",
+          "confirm": "要從本機刪除 ${username} 嗎？只會刪除本機保存的登入記錄，不會向論壇要求登出。"
         },
         "loginAgain": {
           "title": "再次登入",
@@ -1184,12 +1185,26 @@
     "allUsers": "所有使用者",
     "addUser": "新增使用者",
     "logoutDetail": "登出論壇，並清除本機保存的登入狀態",
+    "removeFromDevice": {
+      "title": "從本機移除",
+      "detail": "刪除本機保存的登入記錄但不向論壇登出，本機將退出登入狀態",
+      "confirm": "要從本機移除 ${username} 嗎？不會向論壇要求登出，本機將退出登入狀態。"
+    },
     "loginAnother": "登入其他帳號",
     "logout": "退出登入",
     "online": "線上",
     "checkin": {
       "today": "今日已簽到",
       "notYet": "今日未簽到"
+    },
+    "selection": {
+      "enter": "選擇",
+      "count": "已選擇 ${count} 個",
+      "selectAll": "全選",
+      "delete": "刪除帳號",
+      "confirm": "要從本機刪除 ${count} 個帳號嗎？只會刪除本機保存的登入記錄，不會向論壇要求登出。",
+      "currentHint": "包含目前帳號：刪除後本機將退出登入狀態。",
+      "deleted": "已刪除 ${count} 個帳號"
     }
   },
   "switchUserGroupPage": {

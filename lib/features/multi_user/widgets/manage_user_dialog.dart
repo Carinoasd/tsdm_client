@@ -25,8 +25,8 @@ import 'package:tsdm_client/widgets/single_line_text.dart';
 ///
 /// [heroTag] is used to specify the unique hero animation on user avatar.
 ///
-/// Set [isCurrentUser] when [userInfo] is the account currently logged in: the dialog then offers to log out
-/// instead of the switch / clear / login-again actions.
+/// Set [isCurrentUser] when [userInfo] is the account currently logged in: the dialog then offers to log out or to
+/// remove the account from this device instead of the switch / delete / login-again actions.
 Future<void> openManageUserDialog({
   required BuildContext context,
   required UserLoginInfo userInfo,
@@ -77,54 +77,100 @@ class _ManageUserDialog extends StatelessWidget with LoggerMixin {
       ),
       content: Column(
         children: [
-          if (isCurrentUser) _buildLogoutTile(context),
+          if (isCurrentUser) ...[_buildLogoutTile(context), _buildRemoveFromDeviceTile(context)],
           if (!isCurrentUser) ...[
-          ListTile(
-            title: Text(tr.switchAccount),
-            onTap: () async {
-              var times = 10;
-              while (context.read<AutoNotificationCubit>().pause('switch user')) {
-                info('switch user is waiting for auto sync lock... $times');
-                times -= 1;
-                await Future<void>.delayed(const Duration(milliseconds: 300));
-                if (times <= 0 || !context.mounted) {
-                  info('auto sync lock timeout or canceled, do not switch user');
+            ListTile(
+              title: Text(tr.switchAccount),
+              onTap: () async {
+                var times = 10;
+                while (context.read<AutoNotificationCubit>().pause('switch user')) {
+                  info('switch user is waiting for auto sync lock... $times');
+                  times -= 1;
+                  await Future<void>.delayed(const Duration(milliseconds: 300));
+                  if (times <= 0 || !context.mounted) {
+                    info('auto sync lock timeout or canceled, do not switch user');
+                    return;
+                  }
+                }
+                context.read<SwitchUserBloc>().add(SwitchUserStartRequested(userInfo));
+                context.pop();
+              },
+            ),
+            ListTile(
+              title: Text(tr.deleteAccount.title),
+              subtitle: Text(tr.deleteAccount.detail),
+              enabled: userInfo.uid != null,
+              onTap: () async {
+                final confirmed = await showQuestionDialog(
+                  context: context,
+                  title: tr.deleteAccount.title,
+                  message: tr.deleteAccount.confirm(username: userInfo.username ?? ''),
+                  dangerous: true,
+                );
+                if (confirmed != true || !context.mounted) {
                   return;
                 }
-              }
-              context.read<SwitchUserBloc>().add(SwitchUserStartRequested(userInfo));
-              context.pop();
-            },
-          ),
-          ListTile(
-            title: Text(tr.clearLoginStatus.title),
-            subtitle: Text(tr.clearLoginStatus.detail),
-            enabled: userInfo.uid != null,
-            onTap: () async {
-              await getIt.get<StorageProvider>().deleteCookieByUid(userInfo.uid!);
-              if (!context.mounted) {
-                return;
-              }
-              context.pop();
-            },
-          ),
-          ListTile(
-            title: Text(tr.loginAgain.title),
-            subtitle: Text(tr.loginAgain.detail),
-            onTap: () async {
-              await context.pushNamed(
-                ScreenPaths.login,
-                queryParameters: {if (userInfo.username != null) 'username': '${userInfo.username}'},
-              );
-              if (!context.mounted) {
-                return;
-              }
-              context.pop();
-            },
-          ),
+                final deleted = await getIt.get<StorageProvider>().deleteCookieByUid(userInfo.uid!);
+                if (!context.mounted) {
+                  return;
+                }
+                showSnackBar(
+                  context: context,
+                  message: context.t.manageAccountPage.selection.deleted(count: deleted ? 1 : 0),
+                );
+                context.pop();
+              },
+            ),
+            ListTile(
+              title: Text(tr.loginAgain.title),
+              subtitle: Text(tr.loginAgain.detail),
+              onTap: () async {
+                await context.pushNamed(
+                  ScreenPaths.login,
+                  queryParameters: {if (userInfo.username != null) 'username': '${userInfo.username}'},
+                );
+                if (!context.mounted) {
+                  return;
+                }
+                context.pop();
+              },
+            ),
           ],
         ],
       ),
+    );
+  }
+
+  /// Remove the current account from this device after confirmation, without logging out of the forum.
+  ///
+  /// The local counterpart of [_buildLogoutTile]: works offline and when the forum session already expired, which
+  /// left the account stuck as "online" before (issue #6).
+  Widget _buildRemoveFromDeviceTile(BuildContext context) {
+    final tr = context.t.manageAccountPage;
+    return ListTile(
+      title: Text(tr.removeFromDevice.title),
+      subtitle: Text(tr.removeFromDevice.detail),
+      onTap: () async {
+        final confirmed = await showQuestionDialog(
+          context: context,
+          title: tr.removeFromDevice.title,
+          message: tr.removeFromDevice.confirm(username: userInfo.username ?? ''),
+          dangerous: true,
+        );
+        if (!context.mounted || confirmed != true) {
+          return;
+        }
+        final result = await context.repo<AuthenticationRepository>().forgetCurrentUser().run();
+        if (!context.mounted) {
+          return;
+        }
+        if (result.isLeft()) {
+          showSnackBar(context: context, message: context.t.general.failedToLoad);
+          return;
+        }
+        showSnackBar(context: context, message: tr.selection.deleted(count: 1));
+        context.pop();
+      },
     );
   }
 
