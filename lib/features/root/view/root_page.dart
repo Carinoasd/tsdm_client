@@ -24,6 +24,8 @@ class RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<RootPage> with LoggerMixin {
+  static final List<String> _shellPaths = [ScreenPaths.homepage, ScreenPaths.topic, ScreenPaths.settings.fullPath];
+
   @override
   void initState() {
     super.initState();
@@ -31,8 +33,19 @@ class _RootPageState extends State<RootPage> with LoggerMixin {
   }
 
   @override
+  void dispose() {
+    // Nothing ever reported leaving a page before, so the location stack only grew and `isIn` kept answering the
+    // last pushed page after it was popped: a notification tap on the homepage was refused as "already in the
+    // notice page" (GitHub #14). The shell branches stay alive for the whole run and are never left.
+    if (!_shellPaths.contains(widget.path)) {
+      rootLocationStream.add(RootLocationEventLeave(widget.path));
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if ([ScreenPaths.homepage, ScreenPaths.topic, ScreenPaths.settings.fullPath].contains(widget.path)) {
+    if (_shellPaths.contains(widget.path)) {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
