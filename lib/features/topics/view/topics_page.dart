@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
+import 'package:tsdm_client/features/topics/widgets/group_moderators_row.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -84,16 +85,18 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     final forumGroupList = state.forumGroupList;
     _syncTabController(context, forumGroupList);
 
-    final groupTabBodyList = forumGroupList
-        .map(
-          (e) => ListView.separated(
-            padding: edgeInsetsL12T4R12,
-            itemCount: e.forumList.length,
-            itemBuilder: (context, index) => ForumCard(e.forumList[index]),
-            separatorBuilder: (context, index) => sizedBoxW4H4,
-          ),
-        )
-        .toList();
+    final groupTabBodyList = forumGroupList.map((e) {
+      // The site's moderator line comes first in the list, then one card per forum (#22).
+      final head = e.moderators.isEmpty ? 0 : 1;
+      return ListView.separated(
+        padding: edgeInsetsL12T4R12,
+        itemCount: e.forumList.length + head,
+        itemBuilder: (context, index) => head == 1 && index == 0
+            ? GroupModeratorsRow(moderators: e.moderators)
+            : ForumCard(e.forumList[index - head]),
+        separatorBuilder: (context, index) => sizedBoxW4H4,
+      );
+    }).toList();
 
     _refreshController.finishRefresh();
 

@@ -570,6 +570,9 @@
     },
     "repliedMark": "Replied"
   },
+  "topicsPage": {
+    "moderators": "Moderators"
+  },
   "noticePage": {
     "title": "Notifications",
     "appBar": {

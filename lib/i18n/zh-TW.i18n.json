@@ -570,6 +570,9 @@
     },
     "repliedMark": "已回覆"
   },
+  "topicsPage": {
+    "moderators": "分區版主"
+  },
   "noticePage": {
     "title": "通知",
     "appBar": {

@@ -87,5 +87,12 @@ ForumGroup _buildFromBMNode(uh.Element element) {
     forumList.addAll(forumFlGNodeList.map(Forum.fromFlGNode).whereType<Forum>());
   }
 
-  return ForumGroup(name: name ?? '', url: url ?? '', forumList: forumList);
+  // <div class="bm_h cl"><span class="y">分区版主: <a href="home.php?mod=space&username=...">name</a>, ...</span>
+  final moderators = element
+      .querySelectorAll('div.bm_h > span.y > a')
+      .map((e) => e.firstEndDeepText()?.trim() ?? '')
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  return ForumGroup(name: name ?? '', url: url ?? '', forumList: forumList, moderators: moderators);
 }
