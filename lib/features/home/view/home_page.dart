@@ -55,7 +55,9 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
   Future<void> _onLocalNoticeStreamEvent(String? payload) async {
     switch (payload) {
       case LocalNoticeKeys.openNotification:
-        if (context.read<AuthenticationRepository>().currentUser == null) {
+        // The stored session counts: when a notification cold-starts the app the home page has its first frame
+        // before the homepage fetch verified the login, and `currentUser` is still null at that point (#14).
+        if (context.read<AuthenticationRepository>().effectiveCurrentUid == null) {
           debug('refuse to push to unavailable notification page: need login');
           return;
         }
