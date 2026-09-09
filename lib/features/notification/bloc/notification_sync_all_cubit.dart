@@ -44,8 +44,9 @@ final class NotificationSyncAllCubit extends Cubit<NotificationSyncAllState> wit
        _notificationBloc = notificationBloc,
        super(const NotificationSyncAllStateIdle()) {
     _stateSub = _repository.status.listen((info) {
+      _lastInfo = info;
       // The last progress event may arrive after the finished state was emitted: never overwrite it.
-      if (_running) {
+      if (_running && !isClosed) {
         emit(NotificationSyncAllStateRunning(info));
       }
     });
@@ -69,18 +70,25 @@ final class NotificationSyncAllCubit extends Cubit<NotificationSyncAllState> wit
 
   var _running = false;
 
+  /// Latest progress of the current run, the results so far when the run dies with an error.
+  var _lastInfo = NotificationSyncAllInfo.empty();
+
   /// Whether a run is in progress.
   bool get isRunning => _running;
 
   /// Start syncing every account saved on this device.
   ///
   /// Ignored while a run is in progress.
+  ///
+  /// Always ends in [NotificationSyncAllStateFinished]: an error thrown by the run is logged and the accounts done
+  /// so far are reported, so the sync button never stays disabled and the progress page never spins forever.
   Future<void> start() async {
     if (_running) {
       debug('sync all accounts already running, skipped');
       return;
     }
     _running = true;
+    _lastInfo = NotificationSyncAllInfo.empty();
     emit(const NotificationSyncAllStatePreparing());
     try {
       await _pauseAutoSync();
@@ -91,11 +99,28 @@ final class NotificationSyncAllCubit extends Cubit<NotificationSyncAllState> wit
       var results = const <(UserLoginInfo, NotificationSyncResult)>[];
       if (accounts.isNotEmpty) {
         final finalInfo = await _repository.syncAll(accounts: accounts).run();
-        results = finalInfo.fold((_) => const [], (info) => info.finished);
-        await _publishCurrentUser();
+        results = finalInfo.fold((_) => _lastInfo.finished, (info) => info.finished);
+        try {
+          await _publishCurrentUser();
+          // Anything thrown here must be reported, not escape the run.
+          // ignore: avoid_catches_without_on_clauses
+        } catch (e, st) {
+          // A failed recount must not hide the finished run.
+          error('publishing the current user after sync all failed: $e', e, st);
+        }
       }
       _running = false;
-      emit(NotificationSyncAllStateFinished(results));
+      if (!isClosed) {
+        emit(NotificationSyncAllStateFinished(results));
+      }
+      // Anything thrown here must be reported, not escape the run.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, st) {
+      error('sync all accounts failed: $e', e, st);
+      _running = false;
+      if (!isClosed) {
+        emit(NotificationSyncAllStateFinished(_lastInfo.finished));
+      }
     } finally {
       _running = false;
       _autoNotificationCubit?.resume(_lockReason);

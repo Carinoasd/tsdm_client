@@ -277,11 +277,12 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
               extra: widget.redirectExtra,
             );
           }
-          context.read<AutoNotificationCubit>().resume('login success');
+          // Same reason as the pause above: the auto sync resumes only when the holder that paused it resumes.
+          context.read<AutoNotificationCubit>().resume('login');
         } else if (state.status == AuthenticationStatus.failure) {
           // The bloc owns form refresh; listeners must not start duplicate sessions.
           verifyCodeController.clear();
-          context.read<AutoNotificationCubit>().resume('login failure');
+          context.read<AutoNotificationCubit>().resume('login');
         }
       },
       child: BlocBuilder<AuthenticationBloc, AuthenticationState>(builder: _buildForm),

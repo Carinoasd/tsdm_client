@@ -5,8 +5,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
@@ -122,6 +125,37 @@ final class _ScriptedAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// Storage whose per-uid save throws for [failingUid] (a database error in the middle of a run) and whose account
+/// list throws when [failUsers] is set; everything else is the real [StorageProvider] on the same database.
+///
+/// The cookie cache lives in the real provider, so the "account removed during the sync" guard still finds the row.
+final class _ThrowingStorage extends StorageProvider {
+  _ThrowingStorage(AppDatabase db, this.real, {this.failingUid, this.failUsers = false}) : super(db, {}, {});
+
+  final StorageProvider real;
+  final int? failingUid;
+  final bool failUsers;
+
+  @override
+  Cookie? getCookieByUidSync(int uid) => real.getCookieByUidSync(uid);
+
+  @override
+  Future<List<UserLoginInfo>> getAllUsers() async {
+    if (failUsers) {
+      throw StateError('users table broken');
+    }
+    return real.getAllUsers();
+  }
+
+  @override
+  VoidTask saveNotification({required int uid, required NotificationGroup notificationGroup}) {
+    if (uid == failingUid) {
+      return VoidTask(() async => throw StateError('disk full'));
+    }
+    return super.saveNotification(uid: uid, notificationGroup: notificationGroup);
+  }
+}
+
 void main() {
   late AppDatabase db;
   late StorageProvider storage;
@@ -157,8 +191,8 @@ void main() {
     await db.close();
   });
 
-  NotificationSyncAllRepository repo() => NotificationSyncAllRepository(
-    storageProvider: storage,
+  NotificationSyncAllRepository repo({StorageProvider? storageProvider}) => NotificationSyncAllRepository(
+    storageProvider: storageProvider ?? storage,
     notificationRepository: NotificationRepository(),
     clientFactory: (cookie) => NetClientProvider.buildNoCookie(
       dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter,
@@ -324,6 +358,25 @@ void main() {
     expect(info.finished.single.$2, isA<NotificationSyncResultSuccess>());
   });
 
+  test('an error thrown while storing one account is reported as Failed, the next account still runs', () async {
+    adapter = _ScriptedAdapter(
+      notice: [_ok(_noticePage(1984, unread: true)), _ok(_noticePage(11, unread: true))],
+      pm: [_ok(_emptyPage), _ok(_emptyPage)],
+      bm: [_ok(_emptyPage), _ok(_emptyPage)],
+    );
+    final info = await run(repo(storageProvider: _ThrowingStorage(db, storage, failingUid: _bob.uid)), [_bob, _alice]);
+    expect(adapter.requests, hasLength(6));
+    expect(info.finished.map((e) => e.$1), [_bob, _alice]);
+    expect(
+      info.finished[0].$2,
+      isA<NotificationSyncResultFailed>().having((e) => e.message, 'message', contains('disk full')),
+    );
+    expect(info.finished[1].$2, isA<NotificationSyncResultSuccess>().having((e) => e.newNotice, 'newNotice', 1));
+    // Bob's fetch time is not moved when his rows were not stored; Alice's is.
+    expect((await storage.fetchLastFetchNoticeTime(_bob.uid!).run()).getOrElse((_) => null), isNull);
+    expect((await storage.fetchLastFetchNoticeTime(_alice.uid!).run()).getOrElse((_) => null), isNotNull);
+  });
+
   group('NotificationSyncAllCubit', () {
     late NotificationInfoRepository infoRepository;
     late List<NotificationStateInfo> published;
@@ -336,12 +389,47 @@ void main() {
 
     tearDown(() async => infoRepository.dispose());
 
-    NotificationSyncAllCubit cubit(UserLoginInfo? user) => NotificationSyncAllCubit(
-      repository: repo(),
-      storageProvider: storage,
+    NotificationSyncAllCubit cubit(UserLoginInfo? user, {StorageProvider? storageProvider}) => NotificationSyncAllCubit(
+      repository: repo(storageProvider: storageProvider),
+      storageProvider: storageProvider ?? storage,
       authenticationRepository: AuthenticationRepository(user: user),
       infoRepository: infoRepository,
     );
+
+    test('an error thrown by the run still ends in Finished and releases the auto sync lock', () async {
+      adapter = _ScriptedAdapter(notice: [], pm: [], bm: []);
+      final auto = AutoNotificationCubit(
+        authenticationRepository: AuthenticationRepository(user: _alice),
+        notificationRepository: NotificationRepository(),
+        storageProvider: storage,
+      );
+      final c = NotificationSyncAllCubit(
+        repository: repo(),
+        storageProvider: _ThrowingStorage(db, storage, failUsers: true),
+        authenticationRepository: AuthenticationRepository(user: _alice),
+        infoRepository: infoRepository,
+        autoNotificationCubit: auto,
+      );
+      final states = <NotificationSyncAllState>[];
+      c.stream.listen(states.add);
+      auto.start(const Duration(seconds: 30));
+      await auto.stream.firstWhere((s) => s is AutoNoticeStateTicking).timeout(const Duration(seconds: 5));
+
+      await c.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(states.map((e) => e.runtimeType), [NotificationSyncAllStatePreparing, NotificationSyncAllStateFinished]);
+      expect((states.last as NotificationSyncAllStateFinished).results, isEmpty);
+      expect(c.isRunning, isFalse);
+      expect(published, isEmpty);
+      expect(adapter.requests, isEmpty);
+      // The auto sync is running again, and a later start is not stuck behind the failed one.
+      await auto.stream.firstWhere((s) => s is AutoNoticeStateTicking).timeout(const Duration(seconds: 5));
+      await c.start();
+      expect(c.state, isA<NotificationSyncAllStateFinished>());
+      auto.stop();
+      await auto.close();
+      await c.close();
+    });
 
     test('publishes exactly the current user recount from storage, never other accounts', () async {
       adapter = threeAccounts();
@@ -375,6 +463,65 @@ void main() {
       expect(published, isEmpty);
       expect(c.state, isA<NotificationSyncAllStateFinished>());
       await c.close();
+    });
+  });
+
+  group('AutoNotificationCubit pause lock', () {
+    late AutoNotificationCubit auto;
+
+    setUp(() {
+      auto = AutoNotificationCubit(
+        authenticationRepository: AuthenticationRepository(user: _alice),
+        notificationRepository: NotificationRepository(),
+        storageProvider: storage,
+      );
+    });
+
+    tearDown(() async {
+      auto.stop();
+      await auto.close();
+    });
+
+    Future<void> ticking() =>
+        auto.stream.firstWhere((s) => s is AutoNoticeStateTicking).timeout(const Duration(seconds: 5));
+
+    test('a switch-user pause and resume during sync all does not restart the timer until sync all resumes', () async {
+      auto.start(const Duration(seconds: 30));
+      await ticking();
+      expect(auto.pause('sync all accounts'), isFalse);
+      expect(auto.state, isA<AutoNoticeStatePaused>());
+
+      expect(auto.pause('switch user'), isFalse);
+      auto.resume('switch user');
+      final emitted = <AutoNoticeState>[];
+      final sub = auto.stream.listen(emitted.add);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      expect(auto.state, isA<AutoNoticeStatePaused>(), reason: 'sync all still holds the pause');
+      expect(emitted, isEmpty, reason: 'no tick while paused');
+      await sub.cancel();
+
+      auto.resume('sync all accounts');
+      await ticking();
+    });
+
+    test('the same holder pausing twice and resuming once ends unpaused, like the login form', () async {
+      auto.start(const Duration(seconds: 30));
+      await ticking();
+      expect(auto.pause('login'), isFalse);
+      expect(auto.pause('login'), isFalse);
+      auto.resume('login');
+      await ticking();
+    });
+
+    test('a pause and resume while stopped record nothing', () async {
+      expect(auto.pause('sync all accounts'), isFalse);
+      auto.resume('sync all accounts');
+      expect(auto.state, isA<AutoNoticeStateStopped>());
+      auto.start(const Duration(seconds: 30));
+      await ticking();
+      expect(auto.pause('switch user'), isFalse);
+      auto.resume('switch user');
+      await ticking();
     });
   });
 
@@ -448,6 +595,36 @@ void main() {
     expect(state.noticeList.map((e) => (e.id, e.alreadyRead)), [(2, true), (1, false)]);
     expect(state.broadcastMessageList.map((e) => (e.pmid, e.alreadyRead)), [(5, false)]);
     expect(adapter.requests, isEmpty);
+    await bloc.close();
+  });
+
+  test('NotificationBloc never moves the last fetch time backwards', () async {
+    adapter = _ScriptedAdapter(notice: [], pm: [], bm: []);
+    final startMinute = DateTime.now().truncateToMinute();
+    await storage.updateLastFetchNoticeTime(_alice.uid!, startMinute).run();
+    Future<int?> stored() async =>
+        (await storage.fetchLastFetchNoticeTime(_alice.uid!).run()).getOrElse((_) => null)?.millisecondsSinceEpoch;
+    final bloc = NotificationBloc(
+      notificationRepository: NotificationRepository(),
+      infoRepository: NotificationInfoRepository(),
+      authRepo: AuthenticationRepository(user: _alice),
+      storageProvider: storage,
+    );
+    Future<void> record(DateTime time) async {
+      bloc.add(NotificationRecordFetchTimeRequested(time));
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+
+    // The stale latest message time republished after a reload from storage: kept at the sync-all start minute.
+    await record(startMinute.subtract(const Duration(days: 1)));
+    expect(await stored(), startMinute.millisecondsSinceEpoch);
+    await record(startMinute);
+    expect(await stored(), startMinute.millisecondsSinceEpoch);
+    // A later fetch still moves it forward.
+    final later = startMinute.add(const Duration(minutes: 1));
+    await record(later);
+    expect(await stored(), later.millisecondsSinceEpoch);
     await bloc.close();
   });
 }
