@@ -21,6 +21,10 @@ import 'package:tsdm_client/widgets/heroes.dart';
 /// Keyed by uid inside, refreshed by the sheet's reload button.
 MentionRepository? _sharedRepository;
 
+/// The app-wide [MentionRepository] (own friends + official `@` list), shared with the friend picker so both
+/// keep one cache.
+MentionRepository sharedMentionRepository() => _sharedRepository ??= MentionRepository();
+
 /// Show the mention picker as a bottom sheet and return the picked username, null when dismissed.
 ///
 /// Used by the toolbar `@` button, by tapping an existing mention chip ([username] then prefills the filter) and by

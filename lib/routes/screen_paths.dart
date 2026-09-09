@@ -289,6 +289,9 @@ class DialogPaths {
   /// Dialog to pick username.
   static const String usernamePicker = '/dialog/usernamePicker';
 
+  /// Pick one of the current user's friends (share a thread to a friend).
+  static const String friendPicker = '/dialog/friendPicker';
+
   /// Dialog to show image detail.
   static const String imageDetail = '/dialog/imageDetail';
 

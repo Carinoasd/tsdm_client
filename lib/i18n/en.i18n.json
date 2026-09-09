@@ -568,7 +568,14 @@
       "removed": "Removed from favorites",
       "failed": "Failed: $err"
     },
-    "repliedMark": "Replied"
+    "repliedMark": "Replied",
+    "shareToFriend": {
+      "title": "Share to a friend",
+      "pickTitle": "Pick a friend",
+      "message": "Sharing a thread: ${title}\n${url}",
+      "sent": "Sent to ${name}",
+      "failed": "Failed to send: ${err}"
+    }
   },
   "topicsPage": {
     "moderators": "Moderators"
