@@ -451,7 +451,8 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - Debug 區新增「發送測試通知」（Android）：以合成的 `NotificationAutoSyncInfoNotice` 呼叫 `showLocalNotification`，用來分辨「系統擋掉」與「沒有新訊息」。
 - `showLocalNotification` 移到 `lib/features/local_notice/show.dart`（App 層與 Debug 鈕共用）；`home_page.dart` 裡從未被呼叫的複本刪除。
 - 通知 channel 換成 `newNoticeChannelV2`（`Importance.high`／`Priority.high`，`buildLocalNotificationDetails` 純函式組出 `NotificationDetails`，小圖示照舊用 `initialize` 給的）：測試者的華為機 `notify()` 成功卻看不到任何東西，而原 channel `newNoticeChannel` 是以預設 importance 建立、Android 不允許程式碼事後調高，只能換 id。舊 id 保留為 `legacyLocalNoticeChannelId`，開機 `flnp.initialize` 之後（Android）呼叫 `deleteNotificationChannel` 刪掉，try/catch 記 log 不擋開機；每次推播前多記 `id=0 channel=newNoticeChannelV2`。
-- 測試：test_053（channel 常數不同、`NotificationDetails` 用新 id 與 high importance／priority）。
+- 冷啟動（GitHub #14 後半）：App 沒在跑時點通知，`onDidReceiveNotificationResponse` 不會被叫，開機改讀 `getNotificationAppLaunchDetails()`，`didNotificationLaunchApp` 且 payload 為 `openNotification` 時先存進 `stream.dart` 的 pending 槽，`HomePage` 第一幀後（`addPostFrameCallback`）用與 stream 事件相同的處理函式（同樣需已登入）消費一次，落到 `/notice`；取走即清空，頁面重建不會再推第二次。
+- 測試：test_053（channel 常數不同、`NotificationDetails` 用新 id 與 high importance／priority）、test_054（pending payload 只被處理一次、handler 丟例外也清空）。
 - 測試：test_048（manifest 含兩個權限字串；cubit refresh／denied→request／permanentlyDenied→openAppSettings／不跳頁模式／denied+rationale=false→permanentlyDenied+openAppSettings 且 refresh 後維持／首次真拒絕 rationale=true 不跳頁／plugin 自己回 permanentlyDenied 不再多跳／close 後 refresh 不 emit／battery request／disabled no-op；兩列 tile 顯示已允許／未允許／已永久拒絕／已忽略／未忽略、點按觸發 request、永久拒絕先出對話框取消不跳、確定才 openAppSettings）。
 
 ## 15. 編輯器打 `@` 彈出提醒選單、選單列自己的好友（GitHub #8，2026-09-09）

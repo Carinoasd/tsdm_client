@@ -87,6 +87,8 @@ Future<void> _boot(List<String> args) async {
     // The first channel had default importance and Android never lets the app raise it: drop it so the
     // high-importance replacement is the only one left in the system notification settings (#13).
     await deleteLegacyLocalNoticeChannel();
+    // A tap on the notification while the app was not running: park the payload for the home page (#14).
+    await rememberNotificationLaunch();
     if (autoSyncNoticeSeconds > 0) {
       // Android 13+ runtime permission; `null` means the platform plugin was not resolved.
       final granted = await flnp
