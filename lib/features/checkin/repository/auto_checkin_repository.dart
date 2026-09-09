@@ -72,7 +72,7 @@ final class AutoCheckinRepository with LoggerMixin {
       _updateRunning([userInfo]);
       final result = await _checkinWithRetry(userInfo, feeling, message);
       if (result is CheckinResultSuccess) {
-        _updateSuccess(userInfo, result);
+        await _updateSuccess(userInfo, result);
       } else {
         _updateFailure(userInfo, result);
       }
@@ -88,8 +88,10 @@ final class AutoCheckinRepository with LoggerMixin {
     }
     for (var attempt = 0; ; attempt++) {
       final result = await doCheckin(client, feeling, message).run();
-      if (result case CheckinResultWebRequestFailed(statusCode: HttpStatus.tooManyRequests, :final retryAfterSeconds)
-          when attempt < retryDelays.length) {
+      if (result case CheckinResultWebRequestFailed(
+        statusCode: HttpStatus.tooManyRequests,
+        :final retryAfterSeconds,
+      ) when attempt < retryDelays.length) {
         final wait = _retryWait(retryDelays[attempt], retryAfterSeconds);
         debug('check in rate limited, retry ${attempt + 1}/${retryDelays.length} in ${wait.inSeconds}s');
         await Future<void>.delayed(wait);
@@ -151,12 +153,12 @@ final class AutoCheckinRepository with LoggerMixin {
   }
 
   /// Update status: [userInfo] checked in successfully.
-  void _updateSuccess(UserLoginInfo userInfo, CheckinResult checkinResult) {
-    // FIXME: Here is a time gap between start checkin and checkin finished.
-    // If any login-user related operation acted, for example logout or switch
-    // to another user, the current user below is unexpected behavior.
-    // So it's better to make a lock when doing checkin.
-    _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now());
+  ///
+  /// The last check-in time is written right away (the task is run here; it used to be built and dropped) so the
+  /// manage accounts page shows the account as checked in while the following accounts are still running. The bloc
+  /// writes the same time again for the whole batch when it finishes; that is idempotent.
+  Future<void> _updateSuccess(UserLoginInfo userInfo, CheckinResult checkinResult) async {
+    await _storageProvider.updateLastCheckinTime(userInfo.uid!, DateTime.now()).run();
     _currentInfo = _currentInfo.copyWith(
       running: _currentInfo.running.where((e) => e != userInfo).toList(),
       succeeded: [..._currentInfo.succeeded, (userInfo, checkinResult)],

@@ -1186,7 +1186,11 @@
     "logoutDetail": "退出论坛登录，并清除本机保存的登录状态",
     "loginAnother": "登录其他账户",
     "logout": "退出登录",
-    "online": "在线"
+    "online": "在线",
+    "checkin": {
+      "today": "今日已签到",
+      "notYet": "今日未签到"
+    }
   },
   "switchUserGroupPage": {
     "title": "切换用户组",

@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.dart';
+import 'package:tsdm_client/features/checkin/utils/checkin_day.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -63,15 +64,11 @@ final class AutoCheckinBloc extends Bloc<AutoCheckinEvent, AutoCheckinState> {
         // Drop invalid ones.
         continue;
       }
-      // By default, only run checkin on those users who has a last checkin time
-      // passed 1 day or more.
-      if (lastCheckinTime == null ||
-          now.year > lastCheckinTime.year ||
-          now.month > lastCheckinTime.month ||
-          now.day > lastCheckinTime.day) {
-        waitingList.add(user);
-      } else {
+      // Only check in the accounts that did not check in today (device-local day, see [isCheckedInToday]).
+      if (isCheckedInToday(lastCheckinTime, now: now)) {
         skippedList.add(user);
+      } else {
+        waitingList.add(user);
       }
     }
     if (waitingList.isEmpty) {

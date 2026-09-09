@@ -93,6 +93,17 @@ class StorageProvider with LoggerMixin {
     ).watchAll().map((e) => e.map((entity) => UserLoginInfo(username: entity.username, uid: entity.uid)).toList());
   }
 
+  /// Get the stream of all users in storage together with the time of their last check-in.
+  ///
+  /// Emits again whenever the cookie table changes, including [updateLastCheckinTime], so a page showing the
+  /// check-in state of every account stays current while auto check-in runs.
+  Stream<List<(UserLoginInfo, DateTime?)>> allUsersWithTimeStream() {
+    return CookieDao(_db).watchAll().map(
+      (e) =>
+          e.map((entity) => (UserLoginInfo(username: entity.username, uid: entity.uid), entity.lastCheckin)).toList(),
+    );
+  }
+
   /*             User             */
 
   /// Get all recorded login user.
