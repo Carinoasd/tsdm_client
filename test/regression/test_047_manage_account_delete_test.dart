@@ -12,6 +12,10 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
+import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
+import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -245,7 +249,19 @@ void main() {
         value: auth,
         child: BlocProvider<AutoCheckinBloc>.value(
           value: checkin,
-          child: MaterialApp(scaffoldMessengerKey: snackbarKey, home: const ManageAccountPage()),
+          // The sync-all button in the app bar reads this cubit; a fresh, idle one is enough here.
+          child: BlocProvider<NotificationSyncAllCubit>(
+            create: (_) => NotificationSyncAllCubit(
+              repository: NotificationSyncAllRepository(
+                storageProvider: storage,
+                notificationRepository: NotificationRepository(),
+              ),
+              storageProvider: storage,
+              authenticationRepository: auth,
+              infoRepository: NotificationInfoRepository(),
+            ),
+            child: MaterialApp(scaffoldMessengerKey: snackbarKey, home: const ManageAccountPage()),
+          ),
         ),
       ),
     );

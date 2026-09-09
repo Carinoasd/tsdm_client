@@ -610,6 +610,20 @@
         "detail": "确定要删除这条消息？操作无法撤销"
       },
       "copyRawContent": "拷贝原始内容"
+    },
+    "syncAllPage": {
+      "title": "同步所有账户",
+      "detail": "为本机保存的每个账户逐一抓取提醒、私人消息和公共消息。未读红点仍只反映当前账户。与平时同步一样，列出后论坛侧的“新”标记会被消耗。",
+      "running": "进行中",
+      "empty": "本机没有保存任何账户",
+      "user": {
+        "waiting": "等待中",
+        "running": "同步中",
+        "success": "新提醒 ${notice}，新私信 ${pm}，新公共消息 ${bm}；未读 ${unreadNotice}/${unreadPm}/${unreadBm}",
+        "notAuthed": "登录已失效，请重新登录",
+        "rateLimited": "论坛限制了请求频率（429），请稍后再试",
+        "failed": "失败：${message}"
+      }
     }
   },
   "noticeSearchPage": {
@@ -1141,7 +1155,8 @@
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",
-    "viewDetail": "查看详情"
+    "viewDetail": "查看详情",
+    "syncAllFinished": "所有账户的通知同步已完成"
   },
   "autoCheckinPage": {
     "title": "自动签到",
@@ -1227,6 +1242,9 @@
       "confirm": "要从本机删除 ${count} 个账户吗？只会删除本机保存的登录记录，不会向论坛请求退出登录。",
       "currentHint": "包含当前账户：删除后本机将退出登录状态。",
       "deleted": "已删除 ${count} 个账户"
+    },
+    "syncAll": {
+      "title": "同步所有账户的通知"
     }
   },
   "switchUserGroupPage": {

@@ -461,3 +461,21 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 打 `@` 觸發 `MentionTrigger`（`lib/features/editor/utils/mention_trigger.dart`）：flutter_quill 的 `characterShortcutEvents` 只吃實體鍵盤，所以改監聽 controller（`addListener`，換整份文件也還活著）。文件長度**恰好 +1** 才排 250 ms 計時；只改選取範圍不動計時器、長度變其他數字取消。到時再檢查：可編輯、編輯器有焦點、游標收合且前一字是 `@`、`@` 在文首或前面是空白（`a@b` 不觸發、貼上不觸發、250 ms 內接著打字不打斷）。選到名字：`replaceText(at, 1, '')` 刪掉 `@` 再 `insertMention(name)`（`BBCodeEditorControllerForum.insertMention`＝`insertBBCode('[@]name[/@]')` ＋游標移到 chip 後）；取消保留 `@`。`RichEditor` 改成 StatefulWidget，有 focusNode 且非唯讀就掛 trigger，表關掉後 `requestFocus()` 把鍵盤叫回來；三個編輯器（回覆列、發帖／編輯、快速回覆範本）都自動得到。沒有設定開關（先不做）。
 - i18n `bbcodeEditor.userMention.{filterHint, others, useTyped(name), friendsUnavailable(message)}`。
 - 測試 test_049：repository 合併（自己版面 fixture、翻頁去重、getatuser 500 仍有好友且不快取、好友列表 500 仍有名單、隱私 fixture → message、未登入只抓 getatuser、雙失敗才 Left）；cubit 篩選不碰網路；MentionTrigger 在真 controller 上（文首／空白後觸發一次且 offset 正確、`a@b`／多字元／無焦點不觸發、取消保留 `@`、debounce 內續打不打斷、`toForumBBCode()=='hi [@]Alice[/@]'`、`toOfficialMentions`→`'hi @Alice '`、換文件後仍有效）；底部表 widget 測試（Bob 在好友區、點了回 'Bob'、關鍵字 zz 出「提醒 “zz”」、`showMentionPicker` 無登入也能開）。手機 IME 實機行為無法在此驗證。
+
+## 16. 一鍵同步所有帳號的通知（GitHub #10，2026-09-09）
+
+### 16.1 論壇端事實
+- 沒有新協定。三個頁面與 §6.1 相同：`home.php?mod=space&do=notice`（`div.nts > dl[id^=notice_]`，未讀＝`dd.ntc_body` 粗體）、`do=pm&filter=privatepm`（`dl[id^=pmlist_]`，未讀＝`div.newpm_avt`）、`do=pm&filter=announcepm`（`dl[id^=gpmlist_]`）；三頁的解析都不看目前帳號，用別的帳號的 cookie 抓回來就是該帳號的資料。
+- 列出一次就消耗論壇端的「新」標記（§6.1）：一鍵同步後其他帳號在網頁上也不再顯示「新」，只有 App 內的副本記得。
+- 登入過期：通知頁是登入表單（`form#lsform` 且無 `div#um`）→ 該帳號判定需要重新登入（與 §7.2 簽到相同規則）。
+- 429：每帳號三個 GET 同時發、帳號之間停 2 秒（比照 §7.2）；通知頁的限流門檻沒有實測數據。伺服器給 `Retry-After` 就等它（上限 60 秒）重試一次，沒給或重試仍 429 → 該帳號回報「限制了請求頻率」，下一個帳號照跑。
+
+### 16.2 App 端行為
+- `NotificationRepository.fetchNotificationWith(client, {timestamp})`：把原本 `fetchNotificationV2` 的抓取邏輯抽出來、不碰 status 串流；`fetchNotificationV2` 改為呼叫它，串流事件順序不變（Loading → Failure／Success）。
+- `persistFetchedNotification(storage, uid, fetched)`（`notification_bloc.dart` 頂層函式）：原 `NotificationBloc._onNoticeInfoFetched` 的「讀舊副本→`freshNotifications`→三類對帳→`saveNotification`」抽成共用，回傳 `{fresh, reconciled, unread}`；bloc 與一鍵同步走同一段，存法完全一致（test_033 不動）。`countUnreadNotification` 為從資料庫重算未讀的共用函式。
+- `NotificationSyncAllRepository`：每個帳號用 `ServiceKeys.empty` 的 `CookieProvider` `loadCookieFromStorage` ＋ `NetClientProvider.buildNoCookie(cookie:)` 建自己的 client（不碰全域 cookie、不切帳號）；逐一執行、間隔 2 秒；進度走 `BehaviorSubject`（同 `AutoCheckinRepository`）；結果 `Success{newNotice,newPm,newBm,unread×3}`／`NotAuthorized`／`RateLimited`／`Failed(message)`；`lastFetchNotice` 寫「開始那一分鐘」（同自動同步）；抓完發現該帳號已從本機刪除則不寫入（並靠 `CookieProvider` 的「已刪除不回寫」守門）。
+- `NotificationSyncAllCubit`（`app.dart` 頂層，離開頁面不中斷）：`start()` 防重入；先用切換帳號同一套 `pause('sync all accounts')` 握手暫停自動同步（最多等 10×300 ms，仍佔用就照跑並記 warning）；帳號清單＝`getAllUsers()` 過濾 uid>0 且有名字，**含目前帳號**，全部走 per-uid 路徑；跑完只為「當下」的目前帳號從資料庫重算未讀並 `NotificationInfoRepository.updateInfo`（不用 `applyServerHint`、不發其他帳號的數字），再送 `NotificationReloadFromStorageRequested` 讓 `NotificationBloc` 從資料庫重建列表（不再打網路；bloc 正在 loading 則跳過）；`resume` 自動同步；`Finished`。其他帳號的新訊息**不**發本機推播（推播固定開目前帳號的通知頁）。
+- 進入點：管理帳號頁 app bar 的同步鈕（切換中／刪除中／已在跑／沒有帳號時停用）與通知頁右上選單「同步所有帳號」，兩者都啟動 cubit 並推入進度頁 `ScreenPaths.notificationSyncAll`（`/notice/syncAll`，`NotificationSyncAllPage`，複製 `AutoCheckinPage`：進行中／等待中／完成卡，成功卡文字「新提醒 N，新私訊 M，新公用訊息 K；未讀 a/b/c」）。完成時全域 snackbar「所有帳號的通知同步已完成」＋「查看詳情」（已在進度頁則不帶按鈕）。
+- 沒有做：自動排程、設定鍵（issue 只要求按鈕）。
+- i18n：`manageAccountPage.syncAll.title`、`noticePage.syncAllPage.*`、`globalStatePage.syncAllFinished`。
+- 測試 test_050：Alice（全域 CookieProvider）＋ Bob、Carol（只在資料庫）三帳號、腳本化 adapter 分頁面佇列——嚴格 Alice→Bob→Carol 各 3 個 GET、每帳號的請求帶自己的 `Ystv_2132_auth`、Bob 的通知／私訊／公用訊息以伺服器未讀旗標落在 uid 2000、`lastFetchNotice` 已寫、Carol（登入表單）→ NotAuthorized、全域 cookie 仍是 Alice；對帳一致（預存已讀副本再抓仍已讀，`new` 不計）；429 無 Retry-After → RateLimited 且下一帳號照跑；429 帶 Retry-After 1 秒 → 等 1 秒重試一次成功；cubit 只發佈一筆＝Alice 的資料庫重算（Bob 的 1/1/1 不混入）、無目前帳號不發佈、執行中再 start 忽略；`fetchNotificationV2` 串流仍 Loading→Success／Failure；bloc `NotificationReloadFromStorageRequested` 不打網路。真實的 `pmlist_`／`gpmlist_` 列表頁 fixture 仍缺，測試用依選擇器合成的最小 HTML。

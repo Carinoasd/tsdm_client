@@ -610,6 +610,20 @@
         "detail": "Are you sure to delete this message? this action can not be undone"
       },
       "copyRawContent": "Copy raw content"
+    },
+    "syncAllPage": {
+      "title": "Sync all accounts",
+      "detail": "Fetch notices, personal messages and broadcast messages for every account saved on this device, one account at a time. The unread badge still follows the current account only. Listing consumes the new marker on the forum side, same as a normal sync.",
+      "running": "Running...",
+      "empty": "No account is saved on this device",
+      "user": {
+        "waiting": "Waiting",
+        "running": "Syncing",
+        "success": "New notices ${notice}, new PMs ${pm}, new broadcasts ${bm}; unread ${unreadNotice}/${unreadPm}/${unreadBm}",
+        "notAuthed": "Login expired, sign in again",
+        "rateLimited": "The forum rate-limited the request (429), try again later",
+        "failed": "Failed: ${message}"
+      }
     }
   },
   "noticeSearchPage": {
@@ -1141,7 +1155,8 @@
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",
-    "viewDetail": "View detail"
+    "viewDetail": "View detail",
+    "syncAllFinished": "Notification sync of all accounts finished"
   },
   "autoCheckinPage": {
     "title": "Auto checkin",
@@ -1227,6 +1242,9 @@
       "confirm": "Delete ${count} account(s) from this device? Only the logins saved on this device are removed, the forum is not logged out.",
       "currentHint": "The current account is included: this device will be signed out.",
       "deleted": "Deleted ${count} account(s)"
+    },
+    "syncAll": {
+      "title": "Sync notifications of all accounts"
     }
   },
   "switchUserGroupPage": {

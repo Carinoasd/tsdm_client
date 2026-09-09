@@ -610,6 +610,20 @@
         "detail": "確定要刪除這則訊息？操作無法撤銷"
       },
       "copyRawContent": "拷貝原始內容"
+    },
+    "syncAllPage": {
+      "title": "同步所有帳號",
+      "detail": "為本機保存的每個帳號逐一抓取提醒、私人訊息和公用訊息。未讀紅點仍只反映目前帳號。與平時同步一樣，列出後論壇端的「新」標記會被消耗。",
+      "running": "進行中",
+      "empty": "本機沒有保存任何帳號",
+      "user": {
+        "waiting": "等待中",
+        "running": "同步中",
+        "success": "新提醒 ${notice}，新私訊 ${pm}，新公用訊息 ${bm}；未讀 ${unreadNotice}/${unreadPm}/${unreadBm}",
+        "notAuthed": "登入已失效，請重新登入",
+        "rateLimited": "論壇限制了請求頻率（429），請稍後再試",
+        "failed": "失敗：${message}"
+      }
     }
   },
   "noticeSearchPage": {
@@ -1141,7 +1155,8 @@
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",
     "autoCheckinFinished": "自動簽到已完成",
-    "viewDetail": "查看詳情"
+    "viewDetail": "查看詳情",
+    "syncAllFinished": "所有帳號的通知同步已完成"
   },
   "autoCheckinPage": {
     "title": "自動簽到",
@@ -1227,6 +1242,9 @@
       "confirm": "要從本機刪除 ${count} 個帳號嗎？只會刪除本機保存的登入記錄，不會向論壇要求登出。",
       "currentHint": "包含目前帳號：刪除後本機將退出登入狀態。",
       "deleted": "已刪除 ${count} 個帳號"
+    },
+    "syncAll": {
+      "title": "同步所有帳號的通知"
     }
   },
   "switchUserGroupPage": {

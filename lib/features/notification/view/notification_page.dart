@@ -1,21 +1,25 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/card/notice_card_v2.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
-enum _Actions { markAllNoticeAsRead, markAllPersonalMessageAsRead, markAllBroadcastMessageAsRead }
+enum _Actions { markAllNoticeAsRead, markAllPersonalMessageAsRead, markAllBroadcastMessageAsRead, syncAllAccounts }
 
 /// Notice page, shows Notice and PrivateMessage of current user.
 class NotificationPage extends StatefulWidget {
@@ -209,12 +213,29 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                         ],
                       ),
                     ),
+                    PopupMenuItem(
+                      value: _Actions.syncAllAccounts,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sync_outlined),
+                          sizedBoxPopupMenuItemIconSpacing,
+                          Text(tr.syncAllPage.title),
+                        ],
+                      ),
+                    ),
                   ],
                   onSelected: (value) async {
+                    if (value == _Actions.syncAllAccounts) {
+                      // Starting while a run is in progress is a no-op, the page then shows that run.
+                      unawaited(context.read<NotificationSyncAllCubit>().start());
+                      await context.pushNamed(ScreenPaths.notificationSyncAll);
+                      return;
+                    }
                     final noticeType = switch (value) {
                       _Actions.markAllNoticeAsRead => NotificationType.notice,
                       _Actions.markAllPersonalMessageAsRead => NotificationType.personalMessage,
                       _Actions.markAllBroadcastMessageAsRead => NotificationType.broadcastMessage,
+                      _Actions.syncAllAccounts => throw StateError('unreachable'),
                     };
 
                     context.read<NotificationBloc>().add(
