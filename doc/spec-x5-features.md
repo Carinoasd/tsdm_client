@@ -541,6 +541,42 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   對齊不外漏到後面的正文。拿掉修正後第一個測試會失敗。
 - 實機：回報者開 tid 1263228 或任何用了置中的舊帖確認。
 
+## 20. 「權限不足的連結跳到瀏覽器」（GitHub #46，2026-09-10）
+
+### 20.1 影片與實抓對照出的真正觸發點
+
+- 影片：第二個帳號在「通知 → 私人消息」列表裡點了「分享帖子 … https://www.tsdm39.com/forum.php?mod=viewthread&tid=1263647」的文字，
+  App 同時開了交談記錄頁並跳到瀏覽器，瀏覽器落在論壇首頁。第一個帳號是在交談記錄頁裡點連結，正常開帖子頁。
+- 用測試帳號互發同格式的私訊實抓：私人消息列表（`home.php?mod=space&do=pm&filter=privatepm`）的摘要裡，網址的 `&` 被論壇去掉，
+  變成 `forum.php?mod=viewthreadtid=1264975`；交談記錄頁（`subop=view`）的訊息是完整的純文字網址（`&amp;`）。
+  fixture：`pm_list_bare_url_x5.html`、`chat_history_bare_url_x5.html`（uid→1000/1001、Alice/Bob、formhash→XXXXXXXX）。
+- App 端：`PersonalMessageCardV2` 用 `MunchedHtml` 顯示摘要，muncher 會把純文字網址做成可點連結（#24）；殘缺網址 `parseUrlToRoute()` 認不出，
+  `dispatchAsUrl` 走「不支援的網址開瀏覽器」的後備。手機上連結用的是 `LongPressGestureRecognizer`，一般點擊不會搶走卡片的點擊，所以卡片與連結同時觸發。
+- 和權限無關：同一個帳號從交談記錄頁點完整連結會正常開帖子頁。
+
+### 20.2 論壇端的權限回應（實抓，去識別化）
+
+| 情境 | fixture | 論壇回應 | App |
+| --- | --- | --- | --- |
+| 訪客開需要閱讀權限的帖 | `thread_readperm_guest_x5.html` | `#messagetext.alert_info`「抱歉，本帖要求阅读权限高于 130 才能浏览」＋ `#messagelogin` | `needLogin` → `NeedLoginPage` |
+| 會員開限制版塊裡的帖 | `thread_restricted_board_member_x5.html` | `#messagetext.alert_error`「本版块只有特定用户可以访问」 | `ErrorCard` 顯示論壇原句 |
+| `redirect&goto=findpost` 指到不存在的帖 | `thread_findpost_missing_x5.html` | `alert_error`「抱歉，指定的主题不存在或已被删除或正在被审核」 | 同上 |
+| 會員開限制版塊 | `forum_restricted_board_member_x5.html` | `alert_error`「本版块只有特定用户可以访问」 | 版塊頁 `ErrorCard` |
+
+帖子與版塊連結都是 App 內路由，這些回應本來就不會開瀏覽器；`viewthread&tid=` 指到不存在的 tid 時，論壇會回一個標題為空、內容不相干的帖子頁（站方行為），App 不特別處理。
+
+### 20.3 App 端行為
+
+- `MunchOptions.renderUrl = false` 現在也不把純文字網址做成連結（原本只擋 `<a>`）。
+- 私人消息與公共消息列表卡片的摘要改用 `renderUrl: false`：摘要只顯示文字，點卡片進交談記錄／詳情，那裡的完整連結照常在 App 內開。
+- 沒有攔截其他連結：無法辨識的網址（論壇工具、外站）仍照原本方式開瀏覽器。
+
+### 20.4 驗收
+
+- `test_075`：列表摘要確實沒有 `&`、殘缺網址不是 App 路由；預設 muncher 會把它做成連結並開瀏覽器（用 url_launcher 的方法通道 mock 記錄）；
+  卡片改後沒有可點的 span，點網址文字進交談記錄、瀏覽器沒有被叫。
+- `test_076`：四個權限／不存在頁的解析結果與 `ErrorCard` 顯示論壇原句；帖子與版塊連結是 App 內路由。
+- 實機：回報者用原本的兩個帳號重做影片裡的操作；順便確認有權限的帳號從列表點卡片進交談記錄後點連結能開帖。
 ## 21. 視窗尺寸變化後畫面沿用舊尺寸（GitHub #28，2026-09-10）
 
 ### 21.1 回報內容與影片判讀

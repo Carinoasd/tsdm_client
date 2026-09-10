@@ -10,11 +10,13 @@ final class MunchOptions with MunchOptionsMappable {
   /// Constructor.
   const MunchOptions({this.renderUrl = true, this.onUrlLaunched});
 
-  /// Render <a> tags when munching html document.
+  /// Render <a> tags and bare `http(s)://` urls in text as links when munching html document.
   ///
   /// Disable this flag will not render url highlight or any other url
   /// specified contents, only render as plain text, no url launching when tap,
-  /// neither.
+  /// neither. Use it where the text is not a faithful copy of the page, e.g. the
+  /// message summaries in the private message list, whose urls the server has
+  /// already mangled (GitHub #46).
   ///
   /// Default is true.
   final bool renderUrl;

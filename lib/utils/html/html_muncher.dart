@@ -344,7 +344,7 @@ final class _Muncher with LoggerMixin {
           // state.wrapInWord ? text?.split('').join('\u200B') : text;
 
           // TODO: Support text-shadow.
-          if (recognizer == null && text != null && text.contains('://')) {
+          if (recognizer == null && options.renderUrl && text != null && text.contains('://')) {
             // Bare urls in plain text (the forum does not link them in notices, e.g. the reason of a rating).
             return _linkifySpans(text, _buildTextStyle());
           }
