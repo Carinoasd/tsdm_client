@@ -321,5 +321,23 @@ void main() {
       );
       expect(find.text('E'), findsNothing, reason: 'the cached avatar is still shown');
     });
+
+    testWidgets('an author with no avatar anywhere is asked for once as well', (tester) async {
+      // Nothing is cached for this user, so the card keeps the letter. The image the loader ends up with is kept by
+      // the framework's image cache, so showing the card again does not repeat the request either.
+      const missing = '$baseUrl/data/avatar/000/00/10/05_avatar_middle.jpg';
+      await pump(tester, [thread('15', name: 'Frank', uid: '1005')], until: () => find.text('F').evaluate().isNotEmpty);
+      expect(adapter.requested.where((e) => e == missing), hasLength(1));
+
+      for (var round = 0; round < 3; round++) {
+        await pump(tester, [], until: () => true);
+        await pump(tester, [
+          thread('15', name: 'Frank', uid: '1005'),
+        ], until: () => find.text('F').evaluate().isNotEmpty);
+      }
+
+      expect(adapter.requested.where((e) => e == missing), hasLength(1), reason: 'asked for once, not once per card');
+      expect(find.text('F'), findsOneWidget, reason: 'the letter stays');
+    });
   });
 }
