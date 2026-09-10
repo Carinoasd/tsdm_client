@@ -655,3 +655,50 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 過場乾淨 → 變因是繪圖後端。下一步再做第二個單變因包 `ImpellerBackend=opengles`（保留 Impeller 只換 GPU API）決定正式修法：GLES 也乾淨就用 GLES，否則先用 Skia（Kazumi 的做法；Skia 在 Android 上是即將移除的 opt-out，之後要跟著 Flutter 版本重新評估）。
 - 仍露黑 → 與繪圖後端無關，下一個單變因是 SurfaceView → TextureView（`getRenderMode`），再不行就是系統的旋轉動畫本身（同機其他非 Flutter App 對照）。
 
+
+## 22. 版塊帖子列表的作者頭像（2026-09-10）
+
+**需求**：版塊頁「置頂／帖子」列表裡，作者名字旁的圓圈顯示該作者的論壇頭像；維持原本的圓形大小與版面，沒有有效頭像或載入失敗時保留文字圓圈。
+
+### 22.1 論壇端事實（實抓驗證）
+
+- **列表本身沒有頭像**。`forum.php?mod=forumdisplay&fid=16` 的 49 個 `tbody` 裡，`div#threadlist` 一張 `<img>` 都沒有；作者資訊只有
+  `<td class="by"><cite><a href="home.php?mod=space&uid=UID">名字</a></cite>`。所以頭像網址只能由 UID 生成，論壇自己也是這樣做的。
+- **論壇自己的規則**：`static/js/common.js` 的 `loadAvatar()`——UID 補零到 9 位，切成 3／2／2 三層目錄，檔名是最後兩位，
+  `size` 預設 `middle`，網址前綴取自 `DEFAULTAVATAR`（`./data/avatar/noavatar.svg` → `./data/avatar/`），載入失敗時 `onerror` 換成預設頭像。
+  也就是 `data/avatar/${uid[0:3]}/${uid[3:5]}/${uid[5:7]}/${uid[7:]}_avatar_${size}.jpg`。
+- **與帖子頁一致**：帖子頁對「上傳過頭像」的用戶輸出的正是同一個網址（實測一位有上傳頭像的作者，樓層的 `data-src` 是
+  `./data/avatar/…_avatar_middle.jpg`，經 `prependHost()` 後與本次生成的字串完全相同），所以列表與帖子頁共用同一筆頭像快取，不會重抓。
+- **三種尺寸**：`small` 48×48（約 2 KB）、`middle` 140×140（約 20 KB）、`big` 200×200。選 `middle`：與帖子頁同一份快取，且列表圓圈為 40 dp，
+  高密度螢幕上要到 120 px。
+- **頭像外鏈**：TSDM 的頭像可以填外部網址（`home.php?mod=spacecp&ac=avatar`，欄位 `headedit`）。這種用戶論壇端沒有檔案，生成的網址回 404；
+  論壇自己的頁面同樣會 404 再由 JS 換成預設頭像。實測事務所版第 1 頁（含置頂）45 位不重複作者：20 位有上傳頭像（載入成功，共 749 KiB）、25 位回 404（抽驗其中 8 位，一半是外鏈頭像、一半根本沒設）。
+- 沒有批次查頭像的端點；要拿到外鏈頭像只能逐位開個人頁，一頁列表會多出數十個請求，因此不做。
+
+### 22.2 App 端行為
+
+- `avatarUrlOfUid()`（`lib/constants/url.dart`）依上述規則生成網址，UID 不是正整數（匿名、已註銷、只有 `username=` 的連結）時回 null。
+- `NormalThread.fromTBody` 把它填進作者的 `avatarUrl`；置頂帖走 `StickThread.fromTBody` → 同一份解析，所以兩個分頁一致。
+  卡片本身沒有改動：`HeroUserAvatar` 照舊拿 `author.avatarUrl`，載入、快取與失敗時的文字圓圈都是既有機制，點擊行為不變。
+- `ImageCacheProvider.getOrMakeCache`：使用者頭像抓取失敗時，改用該使用者名下已快取的頭像（`UserAvatar` 表以 username 為主鍵，
+  本來就是「一旦快取過，全 App 都能用」的設計）再退回文字圓圈。網路仍然先試，快取只在抓不到時補位，所以換過頭像的用戶不會被舊圖卡住；
+  外鏈頭像的用戶只要 App 在別處看過，列表也顯示得出來。
+- 回退成功時把「這個網址在伺服器上沒有檔案」記在記憶體裡（`_avatarWithoutFile`，網址 → 使用者名稱），之後同一個網址直接用該使用者已快取的頭像，不再問伺服器。
+  **這一段是必要的**：頭像送達時元件會 `evict()` 自己的圖片再載入一次，沒有這個記錄的話每次重新載入都會再打一次 404，卡片一進一出就無限重複
+  （審查時用「移除卡片再顯示」的測試量到同一個網址被請求 6 次）。記錄只存在記憶體：重開 App 會再試一次，而且每次都解析成當下快取的頭像，
+  不會把使用者換過的新頭像擋在舊圖後面；清除圖片快取時一併清掉；`force` 重新下載不受影響。
+- 結果：每位作者最多一次圖片請求，之後走快取；沒有頭像的作者在一次執行期間只會得到一次 404（1.2 KB 的錯誤頁），與瀏覽器開同一個版塊的行為相同。
+
+### 22.3 未改動
+
+- 搜尋結果（`SearchedThread`，X5 版面有 uid）、最新回覆（`LatestThread`，只有 `username=` 連結）、我的帖子（`MyThread`，同樣沒有 uid）維持原狀。
+- 沒有改頭像圓圈的大小、版面與點擊行為。
+
+### 22.4 驗收
+
+- `test/regression/test_078_thread_card_author_avatar_test.dart`：網址生成規則與無效 UID 的守衛；去識別化樣本
+  `test/data/forum_thread_list_authors_x5.html` 解析後兩位有 UID 的作者拿到對應網址、匿名那列沒有頭像（不會借用別人的）；
+  卡片把網址交給頭像元件、每位作者只請求一次、沒有頭像的作者留著文字圓圈、沒有 UID 的作者完全不發請求；
+  已快取的外鏈頭像在生成網址 404 後仍然顯示；**卡片移除再顯示三輪，沒有檔案的那個網址仍然只被請求一次**（拿掉記錄後這條會失敗，量到 6 次），
+  完全沒有頭像的作者同樣只請求一次（那條路徑不會 evict，靠 Flutter 的圖片快取）。
+- 桌面實測：Linux 建置跑起來後開版塊列表確認頭像、捲動與快取。

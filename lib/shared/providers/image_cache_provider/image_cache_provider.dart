@@ -93,6 +93,29 @@ final class ImageCacheProvider with LoggerMixin {
   /// The message the server answered instead of an image for [imageUrl], if any.
   String? htmlMessageOf(String imageUrl) => _htmlMessages[imageUrl];
 
+  /// Avatar urls the server has no file for, and the user whose cached avatar is shown instead, by avatar url.
+  ///
+  /// A thread row has no avatar url, so it is built from the author's uid, and a user who set an external avatar url
+  /// has no file under that url. Without remembering the answer every card would ask the server again, because the
+  /// widget drops its image as soon as the avatar arrives and then loads it once more.
+  ///
+  /// Kept in memory only: after a restart the url is tried again, and the entry always resolves to whatever avatar is
+  /// cached for the user at that moment, so a new avatar is never hidden behind an old one.
+  final _avatarWithoutFile = <String, String>{};
+
+  /// The avatar cached for [username] when [imageUrl] is known to have no file on the server.
+  ///
+  /// Forgets [imageUrl] when nothing is cached for the user any more, so the next load asks the server again.
+  Future<Option<Uint8List>> _cachedAvatarInsteadOf(String imageUrl, String username) async {
+    if (_avatarWithoutFile[imageUrl] != username) {
+      return const Option.none();
+    }
+    final cached = await getUserAvatarCache(username: username, imageUrl: null);
+    if (cached.isNone()) {
+      _avatarWithoutFile.remove(imageUrl);
+    }
+    return cached;
+  }
 
   /// Regexp that matches emoji bbcode.
   ///
@@ -129,14 +152,16 @@ final class ImageCacheProvider with LoggerMixin {
       imageUrl: req.imageUrl.isEmpty ? null : req.imageUrl,
     );
 
-    if (cacheInfo == null) {
-      _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
-      return;
-    }
-
-    final cacheFile = getCacheFile(cacheInfo.cacheName);
-    if (cacheFile == null || !cacheFile.existsSync()) {
-      _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
+    final cacheFile = cacheInfo == null ? null : getCacheFile(cacheInfo.cacheName);
+    if (cacheInfo == null || cacheFile == null || !cacheFile.existsSync()) {
+      // Nothing is cached for this url. It may be an avatar url built from a uid that the server has no file for, in
+      // which case the avatar cached for the user is what the card shows.
+      switch (await _cachedAvatarInsteadOf(req.imageUrl, req.username)) {
+        case Some(:final value):
+          _controller.add(ImageCacheSuccessResponse(req.imageId, ImageCacheResponseType.userAvatar, value));
+        case None():
+          _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
+      }
       return;
     }
     if (cacheInfo.imageUrl != null) {
@@ -200,6 +225,14 @@ final class ImageCacheProvider with LoggerMixin {
     }
     if (imageUrl.isEmpty) {
       return const Option.none();
+    }
+
+    if (req case ImageCacheUserAvatarRequest(:final username) when !force) {
+      // Already known to have no file on the server: use the avatar cached for the user and do not ask again.
+      final cached = await _cachedAvatarInsteadOf(imageUrl, username);
+      if (cached case Some(:final value)) {
+        return Option.of(value);
+      }
     }
 
     if (_loadingImages.contains(imageUrl)) {
@@ -280,6 +313,24 @@ final class ImageCacheProvider with LoggerMixin {
       return Option.of(imageData);
     } on Exception catch (e, st) {
       handleRaw(e, st);
+      // The url did not load, but for a user avatar the app may still hold an avatar of the same user, cached from
+      // another page that carried a different url for it.
+      //
+      // This is what happens for a thread row: the row has no avatar url, so the url is built from the author's uid
+      // and answers 404 for everyone who set an external avatar url instead of uploading one. Showing the avatar the
+      // app already has beats falling back to the text placeholder.
+      //
+      // The network request stays first on purpose: an avatar that did load is the current one, a cached entry only
+      // fills in when nothing else is available.
+      if (req case ImageCacheUserAvatarRequest(:final username)) {
+        final cached = await getUserAvatarCache(username: username, imageUrl: null);
+        if (cached case Some(:final value)) {
+          // Remember the answer, otherwise the next build of the card asks the server again.
+          _avatarWithoutFile[imageUrl] = username;
+          _controller.add(ImageCacheSuccessResponse(imageId, respType, value));
+          return Option.of(value);
+        }
+      }
       _controller.add(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
     } finally {
@@ -386,6 +437,7 @@ final class ImageCacheProvider with LoggerMixin {
       for (final f in _imageCacheDirectory.listSync()) {
         await f.delete(recursive: true);
       }
+      _avatarWithoutFile.clear();
     }
     if (clearInfo.clearEmoji) {
       for (final f in _emojiCacheDirectory.listSync()) {

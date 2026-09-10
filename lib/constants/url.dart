@@ -27,6 +27,41 @@ const usernameProfilePage = '$baseUrl/home.php?mod=space&username=';
 /// Default fallback user avatar url when user avatar is unavailable.
 const noAvatarUrl = '$baseUrl/uc_server/images/noavatar_middle.gif';
 
+/// Build the url of the avatar image the forum stores for the user with [uid].
+///
+/// Pages that render a user card carry the avatar url in their html (`<img class="_avt user_avatar" data-src="...">`),
+/// but list pages do not: a thread row in a forum only has the author's name and uid, so the url has to be built from
+/// the uid there. This is the rule the forum's own script uses (`static/js/common.js`, function `loadAvatar`): pad the
+/// uid to nine digits, split it into three directory levels of 3, 2 and 2 digits and name the file after the last two
+/// digits.
+///
+/// ```text
+/// uid 7       -> https://www.tsdm39.com/data/avatar/000/00/00/07_avatar_middle.jpg
+/// uid 1234567 -> https://www.tsdm39.com/data/avatar/001/23/45/67_avatar_middle.jpg
+/// ```
+///
+/// Of the three sizes the server generates (`small` 48x48, `middle` 140x140 and `big` 200x200) this uses `middle`,
+/// which is the one thread pages use, so the avatar loaded for a thread row is the very same cache entry the thread
+/// page needs later, and it still has enough pixels for the avatar circle on a high density screen.
+///
+/// Returns null when [uid] is not a positive integer, which is the case for anonymous and deleted authors: they keep
+/// the text placeholder in the avatar circle.
+///
+/// Only avatars uploaded to the forum have a file here. A user who set an external avatar url instead has none and the
+/// request answers 404, exactly like on the forum's own pages, where the script then falls back to the default avatar.
+String? avatarUrlOfUid(String? uid) {
+  if (uid == null) {
+    return null;
+  }
+  final id = int.tryParse(uid);
+  if (id == null || id <= 0) {
+    return null;
+  }
+  final padded = '$id'.padLeft(9, '0');
+  return '$baseUrl/data/avatar/${padded.substring(0, 3)}/${padded.substring(3, 5)}/${padded.substring(5, 7)}/'
+      '${padded.substring(7)}_avatar_middle.jpg';
+}
+
 /// Notice page of current logged user.
 const noticeUrl = '$baseUrl/home.php?mod=space&do=notice';
 
