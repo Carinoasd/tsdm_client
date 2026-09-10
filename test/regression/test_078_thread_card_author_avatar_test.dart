@@ -291,5 +291,35 @@ void main() {
       );
       expect(find.text('D'), findsNothing, reason: 'the cached avatar is used instead of the letter');
     });
+
+    testWidgets('the missing avatar file is asked for once, not again on every card', (tester) async {
+      // The url built from the uid answers 404 forever for a user with an external avatar. Asking the server again
+      // every time the card is built would put one request per card on every list, so the answer is remembered.
+      const external = 'https://example.com/avatars/erin.gif';
+      adapter.available.add(external);
+      await tester.runAsync(
+        () async => getIt.get<ImageCacheProvider>().getOrMakeCache(
+          const ImageCacheUserAvatarRequest(username: 'Erin', imageUrl: external),
+        ),
+      );
+      adapter.requested.clear();
+
+      const missing = '$baseUrl/data/avatar/000/00/10/04_avatar_middle.jpg';
+      await pump(tester, [thread('14', name: 'Erin', uid: '1004')], until: () => gone('E'));
+      expect(adapter.requested.where((e) => e == missing), hasLength(1), reason: 'asked for once');
+
+      // The card goes away and comes back, the way a list does while scrolling.
+      for (var round = 0; round < 3; round++) {
+        await pump(tester, [], until: () => true);
+        await pump(tester, [thread('14', name: 'Erin', uid: '1004')], until: () => gone('E'));
+      }
+
+      expect(
+        adapter.requested.where((e) => e == missing),
+        hasLength(1),
+        reason: 'the server is not asked again for a file that is known to be missing',
+      );
+      expect(find.text('E'), findsNothing, reason: 'the cached avatar is still shown');
+    });
   });
 }
