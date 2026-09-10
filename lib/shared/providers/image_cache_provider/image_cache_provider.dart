@@ -280,6 +280,22 @@ final class ImageCacheProvider with LoggerMixin {
       return Option.of(imageData);
     } on Exception catch (e, st) {
       handleRaw(e, st);
+      // The url did not load, but for a user avatar the app may still hold an avatar of the same user, cached from
+      // another page that carried a different url for it.
+      //
+      // This is what happens for a thread row: the row has no avatar url, so the url is built from the author's uid
+      // and answers 404 for everyone who set an external avatar url instead of uploading one. Showing the avatar the
+      // app already has beats falling back to the text placeholder.
+      //
+      // The network request stays first on purpose: an avatar that did load is the current one, a cached entry only
+      // fills in when nothing else is available.
+      if (req case ImageCacheUserAvatarRequest(:final username)) {
+        final cached = await getUserAvatarCache(username: username, imageUrl: null);
+        if (cached case Some(:final value)) {
+          _controller.add(ImageCacheSuccessResponse(imageId, respType, value));
+          return Option.of(value);
+        }
+      }
       _controller.add(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
     } finally {
