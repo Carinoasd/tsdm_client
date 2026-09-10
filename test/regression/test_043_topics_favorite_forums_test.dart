@@ -268,7 +268,9 @@ void main() {
         forumHomeRepository: forumHome,
         authenticationRepository: auth,
         favoriteRepository: favorites,
-        authRefreshGrace: const Duration(milliseconds: 100),
+        // Long enough for a cold parse of the index (well over 100 ms on a loaded runner) to beat the grace timer:
+        // the test below expects the fresh document, not the timer, to win.
+        authRefreshGrace: const Duration(seconds: 1),
       )..add(TopicsLoadRequested());
       await bloc.stream.firstWhere((s) => s.status.isSuccess);
       expect(indexRequests(), 1);
@@ -290,7 +292,7 @@ void main() {
       auth.signIn(alice);
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(indexRequests(), 3);
-      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
       expect(indexRequests(), 4);
       await bloc.close();
     });
