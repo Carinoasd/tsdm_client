@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- 视窗：修复小窗↔全屏、横竖切换、键盘收起后画面仍沿用旧尺寸（内容停在左上角、其余留白）的问题。原因在 Flutter 3.41.1 的 Android 嵌入层：它无条件注册了「content sizing」的缩放监听，引擎每次要求缩放都会把「下一次尺寸变化不送 metrics」的旗标设起来，之后真实的视窗缩放就被当成引擎自己的缩放而跳过，Flutter 端停在旧尺寸；是否恢复取决于之后有没有其他 inset 更新，所以时有时无。Flutter 3.41.2 起已修正（flutter/flutter#182320），本版改用 Flutter 3.41.5 构建。在 Android 14 模拟器上用小窗放大到全屏可稳定重现，换版本后不再出现。(#28)
+
 ### Changed
 
 - 诊断：为「视窗尺寸变化后画面仍沿用旧尺寸」的问题加入尺寸日志（Android）。系统送来的配置变化、多窗口／小窗切换、Flutter 视图的布局尺寸与绘图表面尺寸，以及 Flutter 端实际排版用的尺寸、键盘高度与其后一帧，都会写进「设置 → 除错 → 日志」，用来判断是哪一层没有跟着改变。只记录日志，不改变排版。(#28)
