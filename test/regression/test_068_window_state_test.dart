@@ -39,8 +39,9 @@ void main() {
     storage = StorageProvider(db, {}, {});
     settings = SettingsRepository(storage);
     await settings.init();
-    getIt.registerSingleton<StorageProvider>(storage);
-    getIt.registerSingleton<SettingsRepository>(settings);
+    getIt
+      ..registerSingleton<StorageProvider>(storage)
+      ..registerSingleton<SettingsRepository>(settings);
     calls = [];
     maximized = false;
     minimized = false;
@@ -76,6 +77,7 @@ void main() {
   });
 
   test('maximizing is remembered even without a resize event', () async {
+    await dispatch(listener.onWindowMoved);
     maximized = true;
     await dispatch(listener.onWindowMaximize);
     expect(await storage.getBool('windowMaximized'), isTrue);
@@ -223,9 +225,22 @@ void main() {
 
   test('zero is a valid saved position and legacy settings start unmaximized', () async {
     expect(settings.currentSettings.windowMaximized, isFalse);
+    bounds = const Rect.fromLTWH(0, 0, 1000, 700);
+    await dispatch(listener.onWindowMoved);
+    expect(await storage.getOffset('windowPosition'), Offset.zero);
+    calls.clear();
     await desktopRestoreWindowBounds(settings.currentSettings);
     expect(calls.map((call) => call.method), ['setBounds', 'setBounds']);
     expect(calls.last.arguments, containsPair('x', 0.0));
     expect(calls.last.arguments, containsPair('y', 0.0));
+  });
+
+  // GitHub #54: the reporter wiped the profile before testing again. A profile that never saved a position must
+  // not be moved to the top left corner, which `Offset.zero`, the default of the setting, would do.
+  test('a profile that never saved a position keeps the position the system gives the window', () async {
+    expect(await storage.getOffset('windowPosition'), isNull);
+    await desktopRestoreWindowBounds(settings.currentSettings);
+    expect(calls.map((call) => call.method), ['setBounds']);
+    expect(calls.single.arguments, containsPair('width', 800.0));
   });
 }
