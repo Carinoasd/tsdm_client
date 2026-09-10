@@ -631,3 +631,27 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 模擬器（AOSP 14，docker，arm64 轉譯）：3.41.1 建的 debug 包跑 8 輪「旋轉→小窗→縮小→放大」失敗 2 輪；換 3.41.5 重建後同樣迴圈 8 輪全部正常，verbose 嵌入層日誌裡沒有再出現 `Resize was in response to the engine resizing the view`（3.41.1 那輪 8 個日誌有 4 個出現、共 9 次）。
 - 實機：回報者裝 3.41.5 建的測試包重做平板的小窗／全螢幕／回覆與手機的橫豎切換；若仍出現，匯出日誌依 §21.4 判法看是哪一層。
 
+### 21.6 第二輪：手機旋轉過場露黑（2026-09-10 下午）
+
+**回報**：PR #51（Flutter 3.41.5）之後，鴻蒙 2 平板沒再出現；鴻蒙 4.2 手機旋轉**完成後**排版正確，但**過場**異常，豎轉橫最明顯；同一支手機上另一個 Flutter App（Kazumi）的旋轉沒有問題。
+附新影片（外拍，60 fps）與日誌 `log_1789017760605.txt`。
+
+**日誌**：四次旋轉都是 `configurationChanged` → 新尺寸的 `view metrics`（+25～40 ms）→ `surfaceChanged`／`flutterViewLayout` → `frame painted`（+35～55 ms），沒有再出現尺寸被吞掉；
+`frame painted` 只代表 framework 出了一幀，不代表畫面已經顯示。
+
+**影片逐格**（30 fps 取樣）：顯示方向切換後，系統的旋轉動畫把舊畫面截圖轉過去，截圖底下露出的是**黑色**（約 4～5 格，130～170 ms），之後才換成新方向的排版。
+黑色不是視窗背景（`NormalTheme` 的 `windowBackground` 是 `?android:colorBackground`，淺色主題下是白的），而是 SurfaceView 的黑色背景層——新尺寸的第一個 buffer 還沒送出時露出來的東西。
+
+**目前的繪圖設定**（master）：Impeller 預設開啟、後端由引擎依裝置選（Vulkan，不支援時 GLES）；`FlutterActivity` 預設 opaque → SurfaceView 繪圖；
+`hardwareAccelerated=true`；`configChanges` 含 orientation／screenSize（不重建 Activity）；`NormalTheme` 淺色背景；core-splashscreen。manifest 沒有任何 Impeller／content sizing 旗標。
+
+**對照 App（Kazumi，`Predidit/Kazumi` main）**：manifest 明確 `io.flutter.embedding.android.EnableImpeller=false`（Skia），其餘（theme、configChanges、adjustResize、hardwareAccelerated、SurfaceView）與本 App 相同；Flutter 3.47.2。
+兩個 App 在同一支手機上的差異裡，與旋轉過場有關的只有繪圖後端。
+
+**對照包（PR #52，只改一個變因）**：manifest 加 `EnableImpeller=false`，其他完全不動（Flutter 3.41.5 仍支援這個 opt-out：`FlutterLoader` 會加 `--enable-impeller=false`，Android shell 仍有 `android_surface_gl_skia`）。
+模擬器確認：logcat 出現引擎的 opt-out 訊息、旋轉／freeform 縮放正常。請回報者在同一支鴻蒙 4.2 手機、同一個頁面、同樣的豎轉橫做對照。
+
+**判讀**：
+- 過場乾淨 → 變因是繪圖後端。下一步再做第二個單變因包 `ImpellerBackend=opengles`（保留 Impeller 只換 GPU API）決定正式修法：GLES 也乾淨就用 GLES，否則先用 Skia（Kazumi 的做法；Skia 在 Android 上是即將移除的 opt-out，之後要跟著 Flutter 版本重新評估）。
+- 仍露黑 → 與繪圖後端無關，下一個單變因是 SurfaceView → TextureView（`getRenderMode`），再不行就是系統的旋轉動畫本身（同機其他非 Flutter App 對照）。
+

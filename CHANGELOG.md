@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Android：绘图改用 Skia（manifest 关闭 Impeller）。鸿蒙 4.2 手机上旋转过场会短暂露出黑色，同一手机上用 Skia 绘图的 Flutter 应用没有这个现象；这是只改这一个变量的对照修改，其余设置不变，待回报者在同一手机确认后再决定是否保留或改用 Impeller 的 OpenGL ES 后端。(#28)
 - 诊断：为「视窗尺寸变化后画面仍沿用旧尺寸」的问题加入尺寸日志（Android）。系统送来的配置变化、多窗口／小窗切换、Flutter 视图的布局尺寸与绘图表面尺寸，以及 Flutter 端实际排版用的尺寸、键盘高度与其后一帧，都会写进「设置 → 除错 → 日志」，用来判断是哪一层没有跟着改变。只记录日志，不改变排版。(#28)
 
 ### Added
