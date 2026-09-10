@@ -36,8 +36,8 @@ const noAvatarUrl = '$baseUrl/uc_server/images/noavatar_middle.gif';
 /// digits.
 ///
 /// ```text
-/// uid 2      -> https://www.tsdm39.com/data/avatar/000/00/00/02_avatar_middle.jpg
-/// uid 184437 -> https://www.tsdm39.com/data/avatar/000/18/44/37_avatar_middle.jpg
+/// uid 7       -> https://www.tsdm39.com/data/avatar/000/00/00/07_avatar_middle.jpg
+/// uid 1234567 -> https://www.tsdm39.com/data/avatar/001/23/45/67_avatar_middle.jpg
 /// ```
 ///
 /// Of the three sizes the server generates (`small` 48x48, `middle` 140x140 and `big` 200x200) this uses `middle`,

@@ -89,10 +89,11 @@ void main() {
 
   group('avatar url built from uid', () {
     test('follows the directory layout the forum uses', () {
-      // Verified against the server: these are the urls the thread page emits for the same users.
-      expect(avatarUrlOfUid('2'), '$baseUrl/data/avatar/000/00/00/02_avatar_middle.jpg');
+      // The shape was checked against the server: a thread page emits exactly this url for a user who uploaded an
+      // avatar.
+      expect(avatarUrlOfUid('7'), '$baseUrl/data/avatar/000/00/00/07_avatar_middle.jpg');
       expect(avatarUrlOfUid('1001'), '$baseUrl/data/avatar/000/00/10/01_avatar_middle.jpg');
-      expect(avatarUrlOfUid('184437'), '$baseUrl/data/avatar/000/18/44/37_avatar_middle.jpg');
+      expect(avatarUrlOfUid('123456'), '$baseUrl/data/avatar/000/12/34/56_avatar_middle.jpg');
       expect(avatarUrlOfUid('1234567'), '$baseUrl/data/avatar/001/23/45/67_avatar_middle.jpg');
     });
 

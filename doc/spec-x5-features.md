@@ -667,8 +667,8 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - **論壇自己的規則**：`static/js/common.js` 的 `loadAvatar()`——UID 補零到 9 位，切成 3／2／2 三層目錄，檔名是最後兩位，
   `size` 預設 `middle`，網址前綴取自 `DEFAULTAVATAR`（`./data/avatar/noavatar.svg` → `./data/avatar/`），載入失敗時 `onerror` 換成預設頭像。
   也就是 `data/avatar/${uid[0:3]}/${uid[3:5]}/${uid[5:7]}/${uid[7:]}_avatar_${size}.jpg`。
-- **與帖子頁一致**：帖子頁對「上傳過頭像」的用戶輸出的正是同一個網址（實測 uid 2：`./data/avatar/000/00/00/02_avatar_middle.jpg`，
-  經 `prependHost()` 後與本次生成的字串完全相同），所以列表與帖子頁共用同一筆頭像快取，不會重抓。
+- **與帖子頁一致**：帖子頁對「上傳過頭像」的用戶輸出的正是同一個網址（實測一位有上傳頭像的作者，樓層的 `data-src` 是
+  `./data/avatar/…_avatar_middle.jpg`，經 `prependHost()` 後與本次生成的字串完全相同），所以列表與帖子頁共用同一筆頭像快取，不會重抓。
 - **三種尺寸**：`small` 48×48（約 2 KB）、`middle` 140×140（約 20 KB）、`big` 200×200。選 `middle`：與帖子頁同一份快取，且列表圓圈為 40 dp，
   高密度螢幕上要到 120 px。
 - **頭像外鏈**：TSDM 的頭像可以填外部網址（`home.php?mod=spacecp&ac=avatar`，欄位 `headedit`）。這種用戶論壇端沒有檔案，生成的網址回 404；
