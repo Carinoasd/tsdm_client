@@ -50,6 +50,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
 extension _SignedInteger on int {
@@ -122,6 +123,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Save [_windowSize] to storage when timer timeout.
   Timer? windowSizeTimer;
 
+  /// Which metrics changes get a log line (GitHub #28).
+  final _viewMetricsLogGate = ViewMetricsLogGate();
+
   void setupWindowPositionTimer() {
     if (windowPositionTimer?.isActive ?? false) {
       windowPositionTimer!.cancel();
@@ -180,6 +184,31 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     debug('app lifecycle: ${state.name}');
     if (state == AppLifecycleState.resumed) {
       unawaited(logActiveLocalNotifications());
+      _logViewMetrics('resumed', always: true);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _logViewMetrics('metrics changed');
+  }
+
+  /// Log the metrics the framework lays out with, and once more after the next frame so an exported log shows
+  /// whether a frame followed the change (GitHub #28: a resize that never reaches the screen). [always] logs even
+  /// when nothing changed since the last line, for the resume anchor.
+  void _logViewMetrics(String reason, {bool always = false}) {
+    final view = View.maybeOf(context);
+    if (view == null) {
+      return;
+    }
+    final changed = _viewMetricsLogGate.accept(view);
+    if (!changed && !always) {
+      return;
+    }
+    debug('$reason: ${describeViewMetrics(view)}');
+    if (changed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => debug('frame painted: ${describeViewMetrics(view)}'));
     }
   }
 

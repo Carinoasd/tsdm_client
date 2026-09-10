@@ -519,3 +519,44 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 空狀態：沒有任何紀錄顯示 `empty`，篩選後沒有紀錄顯示 `emptyForAccount`；都放在 `ListView` 裡，下拉刷新仍可用。
 - i18n `threadVisitHistoryPage.{filterAccount, allAccounts, accountUid, accountWithUid, empty, emptyForAccount}`。
 - 測試 test_072：選單列每個帳號一次＋UID、打勾跟著選擇、同名帳號 chip 帶 UID、不同名不帶；刷新保留篩選並顯示新紀錄；選中帳號的紀錄刪光後仍選中、顯示空提示、選單仍列該帳號；完全沒有紀錄時只有「全部帳號」一項。
+
+## 21. 視窗尺寸變化後畫面沿用舊尺寸（GitHub #28，2026-09-10，診斷輪）
+
+### 21.1 回報內容與影片判讀
+
+- 平板（華為 M6 高能版／MatePad mini，鴻蒙 2＝Android 10、鴻蒙 7 的卓易通＝Android 16）：小窗切全螢幕後，畫面以左上角為起點沿用小窗尺寸，其餘留白；
+  小窗裡回覆（鍵盤出入）後畫面下方留白。手機（鴻蒙 4.2＝Android 12）影片：橫豎切換後有約 3 秒仍顯示舊方向的排版（旋轉後的舊畫面、其餘黑色），之後才正常。
+- 兩張平板截圖裡「沿用舊尺寸的內容」是**舊尺寸的排版**（窄版面），不是新排版被裁切：Flutter 端當時的排版尺寸就是舊的，或畫面停在最後一張成功送出的幀。
+- 1.21.0 小窗回覆截圖：內容是回覆**之後**才進入的首頁，卻只佔視窗上半，下方是視窗背景（白）——Flutter 端在鍵盤收起後仍以縮小後的高度排版，
+  且 Flutter 的 surface 也只有那麼大（否則留白會是 Scaffold 底色）。
+- 回報者說自 r0 某版開始；上游 1.11.0（2025-07-26）起在 Android 啟用 Impeller（`c339d1f6`），是時間上最接近的渲染層變更，但沒有證據直接指向它。
+
+### 21.2 已排除／已驗證
+
+- AOSP 14 模擬器（docker `budtmo/docker-android`，arm64 轉譯裝 PR 測試包）：橫豎切換、freeform 視窗全螢幕↔小窗（`am task resize`）排版都正確。
+  模擬器的 Impeller 走 GLES 後端，不能代表華為 Vulkan 驅動；華為小窗的視窗管理也不是 AOSP freeform。
+- Flutter 3.41.2 嵌入層讀碼：`FlutterView.onSizeChanged` → `sendViewportMetricsToFlutter`（未 attach 時丟棄）；`onStop` 把 view 設 GONE、`onStart` 還原；
+  `SurfaceView.surfaceChanged` → `FlutterRenderer.surfaceChanged`；framework `handleMetricsChanged` → `scheduleForcedFrame`。標準流程沒有漏洞，
+  問題只可能出在 OEM 視窗管理沒有重新排版 view、engine 端 metrics 被丟、或渲染層（swapchain）沒跟上尺寸。
+- Codex 先前的 viewport／鍵盤 inset widget 測試通過：framework 收到新尺寸就會重排。
+
+### 21.3 這一輪：只加診斷，不改排版
+
+- Android（`MainActivity.kt`）經 `kzs.th000.tsdm_client/windowChannel` 送到 Dart 記錄：`configurationChanged`／`multiWindowModeChanged`／`pictureInPictureModeChanged`
+  （螢幕 dp、方向、密度）、`flutterViewLayout`（FlutterView 排版尺寸、visibility）、`surfaceCreated`／`surfaceChanged`／`surfaceDestroyed`（繪圖表面尺寸），
+  每筆都附視窗 decor 尺寸、display 尺寸與是否多視窗。
+- Dart（`lib/utils/window_events.dart`、`app.dart`）：`didChangeMetrics` 時記 `view metrics`（physical、dpr、logical、鍵盤高度、padding），下一幀後再記一行
+  `frame painted`；回前景時再記一次。鍵盤動畫只記出現／消失，不記每一步（`ViewMetricsLogGate`）。
+- 讀 log 的判法（尺寸變化後）：
+  1. 沒有 `configurationChanged`／`flutterViewLayout`、`view metrics` 也沒變 → 系統沒把新尺寸給 App（OEM 視窗管理）。
+  2. 有 `flutterViewLayout` 新尺寸但沒有 `view metrics` 新尺寸 → engine 端沒把 metrics 送進 framework。
+  3. `view metrics` 與 `frame painted` 都是新尺寸、畫面卻仍是舊的 → framework 已重排並出幀，卡在渲染／合成層（Impeller、驅動、SurfaceFlinger）；
+     下一步試 `io.flutter.embedding.android.ImpellerBackend=opengles`（或關 Impeller）的對照包。
+  4. `surfaceChanged` 尺寸與 `flutterViewLayout` 不一致 → SurfaceView 沒跟上，考慮 TextureView 模式（`getRenderMode`）。
+
+### 21.4 驗收
+
+- `test_077`：事件格式化、metrics 行、記錄閘門（鍵盤出現／消失才記）。
+- 模擬器實測 debug 包：旋轉、freeform 縮放、鍵盤出入都能看到對應的 log 行（見 PR）。
+- 實機：回報者在會發生的裝置上重現後匯出日誌。
+
