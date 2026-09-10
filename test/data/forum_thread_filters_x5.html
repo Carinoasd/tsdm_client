@@ -1,0 +1,123 @@
+<!--
+  Filter row of a forum page (`forum.php?mod=forumdisplay&fid=...`) on Discuz! X5, de-identified.
+
+  Kept from the real page: the four filter menus the page builds the chips from (`ul#thread_types`,
+  `div#filter_special_menu`, `div#filter_orderby_menu`, `div#filter_dateline_menu`), the forum title and the
+  "next page" marker. Two thread rows are enough to put the page in its success state; both authors are
+  placeholders (uid 1000/1001, Alice/Bob).
+-->
+<div id="ct">
+<div class="bm bml pbn">
+<div class="bm_h cl">
+<h1 class="xs2">
+<a href="forum.php?mod=forumdisplay&amp;fid=4">Test Forum</a>
+<span class="xs1 xw0 i">主题: <strong class="xi1">2</strong></span>
+</h1>
+</div>
+</div>
+
+<ul id="thread_types" class="ttp bm cl">
+<li id="ttp_all" class="xw1 a"><a href="forum.php?mod=forumdisplay&amp;fid=4">全部</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=2">其他</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=4">自曝</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=5">心情</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=6">领糖</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=7">醒目</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=8">官方水楼</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=9">水区公告</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=10">活动</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=11">生日</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=12">告白</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=916">宣传</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=typeid&amp;typeid=5035">周年</a></li>
+</ul>
+
+<table>
+<tbody id="normalthread_1000001">
+<tr>
+<td class="icn">
+<a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" title="有新回复 - 新窗口打开" target="_blank">
+<i class="fico-thread fic6 fc-l"></i>
+</a>
+</td>
+<th class="new">
+<a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" onclick="atarget(this)" class="s xst">第一个测试主题</a>
+</th>
+<td class="by">
+<cite>
+<a href="home.php?mod=space&amp;uid=1000" c="1">Alice</a></cite>
+<em><span><span title="2026-9-9">昨天&nbsp;10:34</span></span></em>
+</td>
+<td class="num"><a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" class="xi2">2</a><em>30</em></td>
+<td class="by">
+<cite><a href="home.php?mod=space&username=Alice" c="1">Alice</a></cite>
+<em><a href="forum.php?mod=redirect&amp;tid=1000001&amp;goto=lastpost#lastpost"><span title="2026-9-10 08:00">昨天&nbsp;08:00</span></a></em>
+</td>
+</tr>
+</tbody>
+</table>
+
+<table>
+<tbody id="normalthread_1000002">
+<tr>
+<td class="icn">
+<a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" title="有新回复 - 新窗口打开" target="_blank">
+<i class="fico-thread fic6 fc-l"></i>
+</a>
+</td>
+<th class="new">
+<a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" onclick="atarget(this)" class="s xst">第二个测试主题</a>
+</th>
+<td class="by">
+<cite>
+<a href="home.php?mod=space&amp;uid=1001" c="1">Bob</a></cite>
+<em><span><span title="2026-9-9">昨天&nbsp;10:34</span></span></em>
+</td>
+<td class="num"><a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" class="xi2">2</a><em>30</em></td>
+<td class="by">
+<cite><a href="home.php?mod=space&username=Bob" c="1">Bob</a></cite>
+<em><a href="forum.php?mod=redirect&amp;tid=1000002&amp;goto=lastpost#lastpost"><span title="2026-9-10 08:00">昨天&nbsp;08:00</span></a></em>
+</td>
+</tr>
+</tbody>
+</table>
+
+<div id="filter_special_menu" class="p_pop" style="display:none" change="location.href='forum.php?mod=forumdisplay&fid=4&filter='+$('filter_special').value">
+<ul>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4">全部主题</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=specialtype&amp;specialtype=poll">投票</a></li><li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=specialtype&amp;specialtype=trade">商品</a></li><li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=specialtype&amp;specialtype=reward">悬赏</a></li><li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=specialtype&amp;specialtype=activity">活动</a></li><li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=specialtype&amp;specialtype=debate">辩论</a></li></ul>
+</div>
+
+<div id="filter_dateline_menu" class="p_pop" style="display:none">
+<ul class="pop_moremenu">
+<li>排序: 
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=author&amp;orderby=dateline" >发帖时间</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=replies" >回复/查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=views" >查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=recommends" >评价</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=heats" >热度</a>
+</li>
+<li>时间: 
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline" class="xw1">全部时间</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline&amp;dateline=86400" >一天</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline&amp;dateline=172800" >两天</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline&amp;dateline=604800" >一周</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline&amp;dateline=2592000" >一个月</a><span class="pipe">|</span>
+<a href="forum.php?mod=forumdisplay&amp;fid=4&amp;orderby=lastpost&amp;filter=dateline&amp;dateline=7948800" >三个月</a>
+</li>
+</ul>
+</div>
+
+<div id="filter_orderby_menu" class="p_pop" style="display:none">
+<ul>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4">默认排序</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=author&amp;orderby=dateline">发帖时间</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=replies">回复/查看</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=reply&amp;orderby=views">查看</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=lastpost&amp;orderby=lastpost">最后发表</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=4&amp;filter=heat&amp;orderby=heats">热门</a></li>
+</ul>
+</div>
+
+<a class="bm_h" href="javascript:;" rel="forum.php?mod=forumdisplay&fid=4&page=2" curpage="1" id="autopbn" totalpage="3" picstyle="0" forumdefstyle="">下一页 &raquo;</a>
+</div>

@@ -43,17 +43,21 @@ class ThreadChip extends StatelessWidget {
           onSelected: state.status.isLoading()
               ? null
               : (v) async {
+                  // The chip lives in the page body and the page rebuilds its body as soon as the filter changes,
+                  // so this element is gone while the sheet is still closing. Everything inside the sheet must
+                  // therefore run on the sheet's own context, never on this one (GitHub #55).
+                  final forumBloc = context.read<ForumBloc>();
                   // bottom sheet.
                   await showCustomBottomSheet<void>(
                     title: sheetTitle,
                     context: context,
                     builder: (_) => BlocProvider.value(
-                      value: context.read<ForumBloc>(),
+                      value: forumBloc,
                       child: BlocBuilder<ForumBloc, ForumState>(
-                        builder: (_, state) => ListView(
-                          padding: context.safePadding(),
+                        builder: (sheetContext, state) => ListView(
+                          padding: sheetContext.safePadding(),
                           shrinkWrap: true,
-                          children: sheetItemBuilder(context, state),
+                          children: sheetItemBuilder(sheetContext, state),
                         ),
                       ),
                     ),
@@ -85,7 +89,7 @@ class ThreadTypeChip extends StatelessWidget {
           chipLabel: currFilter ?? state.filterTypeList.firstWhereOrNull((e) => e.typeID == null)?.name ?? '',
           chipSelected: state.filterState.filterType?.typeID != null,
           sheetTitle: context.t.forumPage.threadTab.threadType,
-          sheetItemBuilder: (context, state) => [...state.filterTypeList, ...state.filterTypeList]
+          sheetItemBuilder: (context, state) => state.filterTypeList
               .map(
                 (e) => SelectableListTile(
                   title: Text(e.name),
