@@ -519,3 +519,25 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 空狀態：沒有任何紀錄顯示 `empty`，篩選後沒有紀錄顯示 `emptyForAccount`；都放在 `ListView` 裡，下拉刷新仍可用。
 - i18n `threadVisitHistoryPage.{filterAccount, allAccounts, accountUid, accountWithUid, empty, emptyForAccount}`。
 - 測試 test_072：選單列每個帳號一次＋UID、打勾跟著選擇、同名帳號 chip 帶 UID、不同名不帶；刷新保留篩選並顯示新紀錄；選中帳號的紀錄刪光後仍選中、顯示空提示、選單仍列該帳號；完全沒有紀錄時只有「全部帳號」一項。
+
+## 19. 帖子置中失效（GitHub #47，2026-09-10）
+
+### 19.1 論壇端事實
+
+- Discuz! X5 把 `[align=center]…[/align]` 輸出成 `<div align="center">…</div>`（`right`／`left` 同理），與 X3 相同；樣本為回報者影片中的活動帖第 1 樓（tid 1263228），
+  標題、圖片、副標各是一個 `<div align="center">`，其後的活動規則沒有對齊標籤。去識別化樣本：`test/data/post_div_align_x5.html`（圖片網址改成 example.com）。
+- 編輯頁走 BBCode（編輯器自己處理 `[align]`），所以回報者看到「編輯介面正常、帖子頁不置中」。
+
+### 19.2 App 端行為
+
+- `html_muncher.dart`：原本只有 `<p align>` 會包成滿寬的 `Text.rich(textAlign: …)`，`<div align>` 走一般的 div 處理、`<center>` 只是往下解析。
+  現在三者共用 `_munchAligned`：對齊值來自 `align` 屬性（`_blockAlign`），內容包在一個滿寬的 `Text.rich` 裡，區塊結束後還原原本的對齊，
+  後續正文不受影響；div 的特殊 class（`blockcode`、`locked`、`modact`…）照舊由各自的 builder 處理，再套對齊。
+- 沒有處理 `style="text-align: …"`：論壇目前不輸出這種寫法，樣本裡也沒有。
+
+### 19.3 驗收
+
+- `test/regression/test_074_post_div_align_test.dart`：真實樣本的標題與副標被置中、規則段落維持靠左；`div`／`p`／`center` 三種標籤與巢狀內容都對齊，
+  對齊不外漏到後面的正文。拿掉修正後第一個測試會失敗。
+- 實機：回報者開 tid 1263228 或任何用了置中的舊帖確認。
+
