@@ -40,7 +40,7 @@ on:
         default: true
 
 env:
-  CI_FLUTTER_VERSION: "3.41.1"
+  CI_FLUTTER_VERSION: "3.41.5"
   CI_RUST_VERSION: "1.83.0"
 
 jobs:
