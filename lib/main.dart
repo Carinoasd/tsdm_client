@@ -28,6 +28,21 @@ Future<void> _boot(List<String> args) async {
 
   await initLogger();
 
+  // Widget errors never reach the zone handler: the framework catches them itself and, in a release build, shows a
+  // plain grey box in place of the failing subtree with nothing in the exported log. Record them so a report of
+  // "a grey block flashed" carries the widget and the stack (GitHub #55).
+  final presentError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    // `context` is the "building <widget>" part, the one thing that says where the grey box was.
+    final where = details.context?.toDescription();
+    talker.handle(
+      details.exception,
+      details.stack,
+      'FlutterError in ${details.library ?? 'widgets'}${where == null ? '' : ': $where'}',
+    );
+    presentError?.call(details);
+  };
+
   parseCmdArgs(args);
 
   talker.debug('------------------- start app -------------------');
