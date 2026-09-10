@@ -50,6 +50,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
 extension _SignedInteger on int {
@@ -122,18 +123,40 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Save [_windowSize] to storage when timer timeout.
   Timer? windowSizeTimer;
 
-  Future<void> _saveWindowPosition() async {
-    final settings = getIt.get<SettingsRepository>().currentSettings;
-    if (settings.windowRememberPosition && !settings.windowInCenter && await _hasNormalWindowBounds()) {
-      await getIt.get<StorageProvider>().saveOffset(SettingsKeys.windowPosition.name, _windowPosition);
+  /// Which metrics changes get a log line (GitHub #28).
+  final _viewMetricsLogGate = ViewMetricsLogGate();
+
+  void setupWindowPositionTimer() {
+    if (windowPositionTimer?.isActive ?? false) {
+      windowPositionTimer!.cancel();
     }
+    windowPositionTimer = Timer(_syncDebounceDuration, () async {
+      talker.debug('save window position to $_windowPosition');
+      final settings = getIt.get<SettingsRepository>().currentSettings;
+      if (!settings.windowRememberPosition || settings.windowInCenter) {
+        // Do nothing if not remembering window position, or window forced in
+        // center.
+        return;
+      }
+      // FIXME: Access provider in top-level components is anti-pattern.
+      await getIt.get<StorageProvider>().saveOffset(SettingsKeys.windowPosition.name, _windowPosition);
+    });
   }
 
-  Future<void> _saveWindowSize() async {
-    final settings = getIt.get<SettingsRepository>().currentSettings;
-    if (settings.windowRememberSize && await _hasNormalWindowBounds()) {
-      await getIt.get<StorageProvider>().saveSize(SettingsKeys.windowSize.name, _windowSize);
+  void setupWindowSizeTimer() {
+    if (windowSizeTimer?.isActive ?? false) {
+      windowSizeTimer!.cancel();
     }
+    windowSizeTimer = Timer(_syncDebounceDuration, () async {
+      talker.debug('save window size to $_windowPosition');
+      final settings = getIt.get<SettingsRepository>().currentSettings;
+      if (!settings.windowRememberSize) {
+        // Do nothing if not remembering window size.
+        return;
+      }
+      // FIXME: Access provider in top-level components is anti-pattern.
+      await getIt.get<StorageProvider>().saveSize(SettingsKeys.windowSize.name, _windowSize);
+    });
   }
 
   @override
@@ -161,6 +184,31 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     debug('app lifecycle: ${state.name}');
     if (state == AppLifecycleState.resumed) {
       unawaited(logActiveLocalNotifications());
+      _logViewMetrics('resumed', always: true);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _logViewMetrics('metrics changed');
+  }
+
+  /// Log the metrics the framework lays out with, and once more after the next frame so an exported log shows
+  /// whether a frame followed the change (GitHub #28: a resize that never reaches the screen). [always] logs even
+  /// when nothing changed since the last line, for the resume anchor.
+  void _logViewMetrics(String reason, {bool always = false}) {
+    final view = View.maybeOf(context);
+    if (view == null) {
+      return;
+    }
+    final changed = _viewMetricsLogGate.accept(view);
+    if (!changed && !always) {
+      return;
+    }
+    debug('$reason: ${describeViewMetrics(view)}');
+    if (changed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => debug('frame painted: ${describeViewMetrics(view)}'));
     }
   }
 
@@ -508,62 +556,21 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     );
   }
 
-  Future<bool> _hasNormalWindowBounds() async =>
-      !await windowManager.isMaximized() && !await windowManager.isMinimized() && !await windowManager.isFullScreen();
-
-  Future<void> _saveMaximized(bool maximized) async {
-    if (!isDesktop || cmdArgs.noWindowChangeRecords) {
-      return;
-    }
-    // Pending drag events must never overwrite the saved normal bounds.
-    windowPositionTimer?.cancel();
-    windowSizeTimer?.cancel();
-    final repository = getIt.get<SettingsRepository>();
-    if (repository.currentSettings.windowRememberSize) {
-      await repository.setValue(SettingsKeys.windowMaximized, maximized);
-    }
-  }
-
   @override
-  Future<void> onWindowMaximize() => _saveMaximized(true);
-
-  @override
-  Future<void> onWindowUnmaximize() => _saveMaximized(false);
-
-  @override
-  Future<void> onWindowMove() => _recordWindowPosition();
-
-  Future<void> _recordWindowPosition({bool immediate = false}) async {
-    if (isDesktop && !cmdArgs.noWindowChangeRecords && await _hasNormalWindowBounds()) {
+  Future<void> onWindowMove() async {
+    super.onWindowMove();
+    if (isDesktop && !cmdArgs.noWindowChangeRecords) {
       _windowPosition = await windowManager.getPosition();
-      windowPositionTimer?.cancel();
-      if (immediate) {
-        await _saveWindowPosition();
-      } else {
-        windowPositionTimer = Timer(_syncDebounceDuration, _saveWindowPosition);
-      }
+      setupWindowPositionTimer();
     }
   }
 
   @override
-  Future<void> onWindowResize() => _recordWindowSize();
-
-  Future<void> _recordWindowSize({bool immediate = false}) async {
-    if (isDesktop && !cmdArgs.noWindowChangeRecords && await _hasNormalWindowBounds()) {
+  Future<void> onWindowResize() async {
+    super.onWindowResize();
+    if (isDesktop && !cmdArgs.noWindowChangeRecords) {
       _windowSize = await windowManager.getSize();
-      windowSizeTimer?.cancel();
-      if (immediate) {
-        await _saveWindowSize();
-      } else {
-        windowSizeTimer = Timer(_syncDebounceDuration, _saveWindowSize);
-      }
+      setupWindowSizeTimer();
     }
   }
-
-  // Windows sends these after the final bounds have been applied.
-  @override
-  Future<void> onWindowMoved() => _recordWindowPosition(immediate: true);
-
-  @override
-  Future<void> onWindowResized() => _recordWindowSize(immediate: true);
 }

@@ -18,6 +18,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
+import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
 Future<void> main(List<String> args) async => runZonedGuarded(() async => _boot(args), _ensureHandled);
@@ -30,6 +31,7 @@ Future<void> _boot(List<String> args) async {
   parseCmdArgs(args);
 
   talker.debug('------------------- start app -------------------');
+  listenAndroidWindowEvents();
   await initProviders();
 
   final settings = getIt.get<SettingsRepository>().currentSettings;
