@@ -401,11 +401,11 @@ final class _Muncher with LoggerMixin {
             'tbody' ||
             'dd' ||
             'marquee' ||
-            'center' ||
             'nav' ||
             'section' ||
             'fieldset' ||
             'pre' => _munch(node),
+            'center' => _munchAligned(node, TextAlign.center, _munch),
             String() => null,
           };
           return span;
@@ -508,56 +508,56 @@ final class _Muncher with LoggerMixin {
     return ret;
   }
 
-  List<InlineSpan>? _buildP(uh.Element element) {
-    // Alignment requires the whole rendered page to a fixed max width that
-    // equals to website page, otherwise if is different if we have a "center"
-    // or "right" alignment.
-    final alignValue = element.attributes['align'];
-    final align = switch (alignValue) {
-      'left' => TextAlign.left,
-      'center' => TextAlign.center,
-      'right' => TextAlign.right,
-      String() => null,
-      null => null,
-    };
+  /// Text alignment carried by the `align` attribute of a block element.
+  ///
+  /// `[align=center]` in a post becomes `<div align="center">` (`<p align="center">` in some templates), the same
+  /// attribute the web page reads to align that block.
+  static TextAlign? _blockAlign(uh.Element element) => switch (element.attributes['align']) {
+    'left' => TextAlign.left,
+    'center' => TextAlign.center,
+    'right' => TextAlign.right,
+    _ => null,
+  };
 
-    // Setup text align.
-    //
-    // Text align only have effect on the [RichText]'s children, not its
-    /// children's children. Remember every time we build a [RichText]
-    /// with "children" we need to apply the current text alignment.
-    if (align != null) {
-      state.textAlign = align;
-    }
-
-    final ret = _munch(element);
-
+  /// Munch [element] with [munch] and lay the result out with [align].
+  ///
+  /// Alignment requires the whole rendered page to a fixed max width that equals to website page, otherwise the result
+  /// differs from the web page for a "center" or "right" alignment.
+  ///
+  /// Text align only has effect on the [RichText]'s children, not its children's children, so the spans are wrapped
+  /// in a full-width [Text.rich] carrying the alignment; `state.textAlign` holds the alignment while munching so
+  /// builders creating their own rich text can apply it too.
+  List<InlineSpan>? _munchAligned(
+    uh.Element element,
+    TextAlign align,
+    List<InlineSpan>? Function(uh.Element element) munch,
+  ) {
+    final origAlign = state.textAlign;
+    state.textAlign = align;
+    final ret = munch(element);
+    state.textAlign = origAlign;
     if (ret == null) {
       return null;
     }
-
-    late final List<InlineSpan> ret2;
-
-    if (align != null) {
-      ret2 = [
-        WidgetSpan(
-          child: Row(
-            children: [
-              Expanded(
-                child: Text.rich(TextSpan(children: ret), textAlign: align),
-              ),
-            ],
-          ),
+    return [
+      WidgetSpan(
+        child: Row(
+          children: [
+            Expanded(
+              child: Text.rich(TextSpan(children: ret), textAlign: align),
+            ),
+          ],
         ),
-      ];
+      ),
+    ];
+  }
 
-      // Restore text align.
-      state.textAlign = null;
-    } else {
-      ret2 = ret;
+  List<InlineSpan>? _buildP(uh.Element element) {
+    final align = _blockAlign(element);
+    if (align == null) {
+      return _munch(element);
     }
-
-    return ret2;
+    return _munchAligned(element, align, _munch);
   }
 
   List<InlineSpan>? _buildSpan(uh.Element element) {
@@ -643,7 +643,9 @@ final class _Muncher with LoggerMixin {
     state.inDiv = true;
     // Find the first munch executor, use `_munch` if none found.
     final executor = _divMap!.entries.firstWhereOrNull((e) => element.classes.contains(e.key))?.value ?? _munch;
-    final ret = executor(element);
+    // `[align=center]` is a `<div align="center">` around the aligned content (GitHub #47).
+    final align = _blockAlign(element);
+    final ret = align == null ? executor(element) : _munchAligned(element, align, executor);
     state.inDiv = origInDiv;
 
     if (ret != null && ret.isNotEmpty && ret.last != emptySpan) {

@@ -520,6 +520,27 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - i18n `threadVisitHistoryPage.{filterAccount, allAccounts, accountUid, accountWithUid, empty, emptyForAccount}`。
 - 測試 test_072：選單列每個帳號一次＋UID、打勾跟著選擇、同名帳號 chip 帶 UID、不同名不帶；刷新保留篩選並顯示新紀錄；選中帳號的紀錄刪光後仍選中、顯示空提示、選單仍列該帳號；完全沒有紀錄時只有「全部帳號」一項。
 
+## 19. 帖子置中失效（GitHub #47，2026-09-10）
+
+### 19.1 論壇端事實
+
+- Discuz! X5 把 `[align=center]…[/align]` 輸出成 `<div align="center">…</div>`（`right`／`left` 同理），與 X3 相同；樣本為回報者影片中的活動帖第 1 樓（tid 1263228），
+  標題、圖片、副標各是一個 `<div align="center">`，其後的活動規則沒有對齊標籤。去識別化樣本：`test/data/post_div_align_x5.html`（圖片網址改成 example.com）。
+- 編輯頁走 BBCode（編輯器自己處理 `[align]`），所以回報者看到「編輯介面正常、帖子頁不置中」。
+
+### 19.2 App 端行為
+
+- `html_muncher.dart`：原本只有 `<p align>` 會包成滿寬的 `Text.rich(textAlign: …)`，`<div align>` 走一般的 div 處理、`<center>` 只是往下解析。
+  現在三者共用 `_munchAligned`：對齊值來自 `align` 屬性（`_blockAlign`），內容包在一個滿寬的 `Text.rich` 裡，區塊結束後還原原本的對齊，
+  後續正文不受影響；div 的特殊 class（`blockcode`、`locked`、`modact`…）照舊由各自的 builder 處理，再套對齊。
+- 沒有處理 `style="text-align: …"`：論壇目前不輸出這種寫法，樣本裡也沒有。
+
+### 19.3 驗收
+
+- `test/regression/test_074_post_div_align_test.dart`：真實樣本的標題與副標被置中、規則段落維持靠左；`div`／`p`／`center` 三種標籤與巢狀內容都對齊，
+  對齊不外漏到後面的正文。拿掉修正後第一個測試會失敗。
+- 實機：回報者開 tid 1263228 或任何用了置中的舊帖確認。
+
 ## 20. 「權限不足的連結跳到瀏覽器」（GitHub #46，2026-09-10）
 
 ### 20.1 影片與實抓對照出的真正觸發點
@@ -556,4 +577,57 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   卡片改後沒有可點的 span，點網址文字進交談記錄、瀏覽器沒有被叫。
 - `test_076`：四個權限／不存在頁的解析結果與 `ErrorCard` 顯示論壇原句；帖子與版塊連結是 App 內路由。
 - 實機：回報者用原本的兩個帳號重做影片裡的操作；順便確認有權限的帳號從列表點卡片進交談記錄後點連結能開帖。
+## 21. 視窗尺寸變化後畫面沿用舊尺寸（GitHub #28，2026-09-10）
+
+### 21.1 回報內容與影片判讀
+
+- 平板（華為 M6 高能版／MatePad mini，鴻蒙 2＝Android 10、鴻蒙 7 的卓易通＝Android 16）：小窗切全螢幕後，畫面以左上角為起點沿用小窗尺寸，其餘留白；
+  小窗裡回覆（鍵盤出入）後畫面下方留白。手機（鴻蒙 4.2＝Android 12）影片：橫豎切換後有約 3 秒仍顯示舊方向的排版（旋轉後的舊畫面、其餘黑色），之後才正常。
+- 兩張平板截圖裡「沿用舊尺寸的內容」是**舊尺寸的排版**（窄版面），不是新排版被裁切：Flutter 端當時的排版尺寸就是舊的，或畫面停在最後一張成功送出的幀。
+- 1.21.0 小窗回覆截圖：內容是回覆**之後**才進入的首頁，卻只佔視窗上半，下方是視窗背景（白）——Flutter 端在鍵盤收起後仍以縮小後的高度排版，
+  且 Flutter 的 surface 也只有那麼大（否則留白會是 Scaffold 底色）。
+- 回報者說自 r0 某版開始；上游 1.11.0（2025-07-26）起在 Android 啟用 Impeller（`c339d1f6`），是時間上最接近的渲染層變更，但沒有證據直接指向它。
+
+### 21.2 已排除／已驗證
+
+- AOSP 14 模擬器（docker `budtmo/docker-android`，arm64 轉譯裝 PR 測試包）：橫豎切換、freeform 視窗全螢幕↔小窗（`am task resize`）排版都正確。
+  模擬器的 Impeller 走 GLES 後端，不能代表華為 Vulkan 驅動；華為小窗的視窗管理也不是 AOSP freeform。
+- Flutter 3.41.2 嵌入層讀碼：`FlutterView.onSizeChanged` → `sendViewportMetricsToFlutter`（未 attach 時丟棄）；`onStop` 把 view 設 GONE、`onStart` 還原；
+  `SurfaceView.surfaceChanged` → `FlutterRenderer.surfaceChanged`；framework `handleMetricsChanged` → `scheduleForcedFrame`。標準流程沒有漏洞，
+  問題只可能出在 OEM 視窗管理沒有重新排版 view、engine 端 metrics 被丟、或渲染層（swapchain）沒跟上尺寸。
+- Codex 先前的 viewport／鍵盤 inset widget 測試通過：framework 收到新尺寸就會重排。
+
+### 21.3 根因（模擬器重現＋嵌入層原始碼）
+
+- 用 §21.4 的診斷 debug 包在 AOSP 14 模擬器跑「新程序 → 旋轉兩次 → 進 freeform 小窗 → 縮小 → 放大到全螢幕」，8 輪有 2 輪放大後畫面停在舊尺寸（左上角、其餘白色，
+  與回報者的平板截圖一樣）。開 verbose 嵌入層日誌後，失敗那一步只有一行差別：
+  `FlutterView: Size changed ... FlutterView was 880 x 1200, it is now 1440 x 3040` 之後緊接 `Resize was in response to the engine resizing the view. Not sending viewport metrics.`
+  ——FlutterView 把真實的視窗縮放當成引擎自己要求的縮放，跳過送 metrics；Dart 端因此停在 880x1200，SurfaceView 也被引擎先前的縮放要求釘在舊尺寸（沒有 `surfaceChanged`）。
+- 這個旗標（`shouldSendViewportMetrics`）只會被 content sizing 的 `FlutterUiResizeListener.resizeEngineView` 設起來。Flutter **3.41.1** 的 `FlutterView.attachToFlutterEngine`
+  無條件註冊這個監聽器（content sizing 預設關閉也註冊），引擎每次 `maybeResizeSurfaceView` 都會把旗標設為 false；Activity 裡的 FlutterView 是 MATCH_PARENT，
+  引擎要求的縮放不會改變它的尺寸，旗標就一直留到下一次真實縮放，然後把那次吞掉。之後有沒有 inset 更新（狀態列、鍵盤）決定會不會補送，所以時有時無；
+  華為小窗切換若沒有 inset 變化就一直停在舊尺寸。
+- Flutter 3.41.2 起修正：`[CP-stable] Ensure resize listener is not added if content sizing is not turned on`（flutter/flutter#182320，2026-02-17）；3.41.3–3.41.5 都是 hotfix。
+  時間線也吻合：content sizing 於 2025-12-08 進主線、隨 3.41.0 發布；上游 1.14.0（2026-02-14）升到 3.41.0、1.15.0 升到 3.41.1，就是回報者說「r0 某版之後」的時間。
+- 修法：CI 與 `.fvmrc` 改用 Flutter 3.41.5（3.41 系列最後一個 hotfix，含上述修正）。App 程式碼不需要改；診斷日誌保留，供實機確認。
+
+### 21.4 這一輪同時加入的診斷（保留）
+
+- Android（`MainActivity.kt`）經 `kzs.th000.tsdm_client/windowChannel` 送到 Dart 記錄：`configurationChanged`／`multiWindowModeChanged`／`pictureInPictureModeChanged`
+  （螢幕 dp、方向、密度）、`flutterViewLayout`（FlutterView 排版尺寸、visibility）、`surfaceCreated`／`surfaceChanged`／`surfaceDestroyed`（繪圖表面尺寸），
+  每筆都附視窗 decor 尺寸、display 尺寸與是否多視窗。
+- Dart（`lib/utils/window_events.dart`、`app.dart`）：`didChangeMetrics` 時記 `view metrics`（physical、dpr、logical、鍵盤高度、padding），下一幀後再記一行
+  `frame painted`；回前景時再記一次。鍵盤動畫只記出現／消失，不記每一步（`ViewMetricsLogGate`）。
+- 讀 log 的判法（尺寸變化後）：
+  1. 沒有 `configurationChanged`／`flutterViewLayout`、`view metrics` 也沒變 → 系統沒把新尺寸給 App（OEM 視窗管理）。
+  2. 有 `flutterViewLayout` 新尺寸但沒有 `view metrics` 新尺寸 → engine 端沒把 metrics 送進 framework。
+  3. `view metrics` 與 `frame painted` 都是新尺寸、畫面卻仍是舊的 → framework 已重排並出幀，卡在渲染／合成層（Impeller、驅動、SurfaceFlinger）；
+     下一步試 `io.flutter.embedding.android.ImpellerBackend=opengles`（或關 Impeller）的對照包。
+  4. `surfaceChanged` 尺寸與 `flutterViewLayout` 不一致 → SurfaceView 沒跟上，考慮 TextureView 模式（`getRenderMode`）。
+
+### 21.5 驗收
+
+- `test_077`：事件格式化、metrics 行、記錄閘門（鍵盤出現／消失才記）。
+- 模擬器（AOSP 14，docker，arm64 轉譯）：3.41.1 建的 debug 包跑 8 輪「旋轉→小窗→縮小→放大」失敗 2 輪；換 3.41.5 重建後同樣迴圈 8 輪全部正常，verbose 嵌入層日誌裡沒有再出現 `Resize was in response to the engine resizing the view`（3.41.1 那輪 8 個日誌有 4 個出現、共 9 次）。
+- 實機：回報者裝 3.41.5 建的測試包重做平板的小窗／全螢幕／回覆與手機的橫豎切換；若仍出現，匯出日誌依 §21.4 判法看是哪一層。
 
