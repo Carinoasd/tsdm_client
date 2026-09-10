@@ -42,6 +42,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Disable this config will never update [windowSize].
   windowRememberSize<bool>(name: 'windowRememberSize', type: bool, defaultValue: true),
 
+  /// Restore maximization when remembering the desktop window size.
+  windowMaximized<bool>(name: 'windowMaximized', type: bool, defaultValue: false),
+
   /// Window size config on desktop platforms.
   windowSize<Size>(name: 'windowSize', type: Size, defaultValue: Size(800, 600)),
 

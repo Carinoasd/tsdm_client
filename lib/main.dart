@@ -63,14 +63,7 @@ Future<void> _boot(List<String> args) async {
     await windowManager.ensureInitialized();
     if (!cmdArgs.noWindowConfigs) {
       await desktopUpdateWindowTitle();
-      if (settings.windowInCenter) {
-        await windowManager.center();
-      } else if (settings.windowRememberPosition && settings.windowPosition != Offset.zero) {
-        await windowManager.setPosition(settings.windowPosition);
-      }
-      if (settings.windowRememberSize && settings.windowSize != Size.zero) {
-        await windowManager.setSize(settings.windowSize);
-      }
+      await desktopRestoreWindowBounds(settings);
     }
   }
 
