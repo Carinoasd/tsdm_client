@@ -1,0 +1,78 @@
+<!--
+  Thread rows of a forum page (`forum.php?mod=forumdisplay&fid=...`) on Discuz! X5, de-identified.
+
+  Kept from the real page: the cell layout of a row. The author cell is the first `td.by` that has a `cite > a`, and
+  that link is the only place the row names the author: a uid link, a name, and no avatar anywhere in the row. The
+  last reply cell links the same user by name instead of uid.
+
+  Row 3 is an anonymous author: the author cell has no link at all, so the parser falls back to the last reply cell,
+  which carries a name but no uid.
+-->
+<table>
+<tbody id="normalthread_1000001">
+<tr>
+<td class="icn">
+<a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" title="有新回复 - 新窗口打开" target="_blank">
+<i class="fico-thread fic6 fc-l"></i>
+</a>
+</td>
+<th class="new">
+<em>[<a href="forum.php?mod=forumdisplay&fid=16&amp;filter=typeid&amp;typeid=4031">【已解决】</a>]</em> <a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" onclick="atarget(this)" class="s xst">称号购买错了</a>
+<a href="forum.php?mod=redirect&amp;tid=1000001&amp;goto=lastpost#lastpost" class="xi1">New</a>
+</th>
+<td class="by">
+<cite>
+<a href="home.php?mod=space&amp;uid=1000" c="1">Alice</a></cite>
+<em><span><span title="2026-9-9">昨天&nbsp;10:34</span></span></em>
+</td>
+<td class="num"><a href="forum.php?mod=viewthread&amp;tid=1000001&amp;extra=page%3D1" class="xi2">2</a><em>30</em></td>
+<td class="by">
+<cite><a href="home.php?mod=space&username=Alice" c="1">Alice</a></cite>
+<em><a href="forum.php?mod=redirect&tid=1000001&goto=lastpost#lastpost"><span title="2026-9-9 21:28">昨天&nbsp;21:28</span></a></em>
+</td>
+</tr>
+</tbody>
+<tbody id="normalthread_1000002">
+<tr>
+<td class="icn">
+<a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" title="有新回复 - 新窗口打开" target="_blank">
+<i class="fico-thread fic6 fc-l"></i>
+</a>
+</td>
+<th class="new">
+<a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" onclick="atarget(this)" class="s xst">求助一个签到问题</a>
+</th>
+<td class="by">
+<cite>
+<a href="home.php?mod=space&amp;uid=1001" c="1">Bob</a></cite>
+<em><span>2026-4-7</span></em>
+</td>
+<td class="num"><a href="forum.php?mod=viewthread&amp;tid=1000002&amp;extra=page%3D1" class="xi2">0</a><em>46</em></td>
+<td class="by">
+<cite><a href="home.php?mod=space&username=Bob" c="1">Bob</a></cite>
+<em><a href="forum.php?mod=redirect&tid=1000002&goto=lastpost#lastpost">2026-4-7 19:30</a></em>
+</td>
+</tr>
+</tbody>
+<tbody id="normalthread_1000003">
+<tr>
+<td class="icn">
+<a href="forum.php?mod=viewthread&amp;tid=1000003&amp;extra=page%3D1" title="有新回复 - 新窗口打开" target="_blank">
+<i class="fico-thread fic6 fc-l"></i>
+</a>
+</td>
+<th class="new">
+<a href="forum.php?mod=viewthread&amp;tid=1000003&amp;extra=page%3D1" onclick="atarget(this)" class="s xst">匿名发布的帖子</a>
+</th>
+<td class="by">
+<cite>匿名</cite>
+<em><span><span title="2026-9-8">前天&nbsp;09:12</span></span></em>
+</td>
+<td class="num"><a href="forum.php?mod=viewthread&amp;tid=1000003&amp;extra=page%3D1" class="xi2">5</a><em>88</em></td>
+<td class="by">
+<cite><a href="home.php?mod=space&username=Carol" c="1">Carol</a></cite>
+<em><a href="forum.php?mod=redirect&tid=1000003&goto=lastpost#lastpost"><span title="2026-9-9 08:00">昨天&nbsp;08:00</span></a></em>
+</td>
+</tr>
+</tbody>
+</table>
