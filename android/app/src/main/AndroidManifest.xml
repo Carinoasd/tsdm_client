@@ -36,5 +36,11 @@
         <meta-data
                 android:name="flutterEmbedding"
                 android:value="2"/>
+        <!-- GitHub #28: the rotation transition on a HarmonyOS 4.2 phone shows black while the app is drawing
+             through Impeller; the Flutter app the reporter compared with (Kazumi) draws through Skia. This is the
+             single variable of the comparison build: everything else stays as it is. -->
+        <meta-data
+                android:name="io.flutter.embedding.android.EnableImpeller"
+                android:value="false"/>
     </application>
 </manifest>
