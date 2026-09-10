@@ -454,7 +454,15 @@ class NormalThread with NormalThreadMappable {
       title: threadTitle,
       url: threadUrl,
       threadID: threadID,
-      author: User(name: threadAuthorName, uid: threadAuthorUid, url: threadAuthorUrl),
+      author: User(
+        name: threadAuthorName,
+        uid: threadAuthorUid,
+        url: threadAuthorUrl,
+        // The thread list carries no avatar at all, only the author's uid, so build the url of the avatar file the
+        // forum stores for that uid. Null for anonymous or deleted authors, and the file is missing for users who set
+        // an external avatar url: both keep the text placeholder in the card.
+        avatarUrl: avatarUrlOfUid(threadAuthorUid),
+      ),
       publishDate: threadPublishDate,
       latestReplyAuthor: User(name: threadLastReplyAuthorName, url: threadLastReplyAuthorUrl),
       latestReplyTime: threadLastReplyTime,

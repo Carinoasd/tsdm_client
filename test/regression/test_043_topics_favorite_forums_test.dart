@@ -268,29 +268,36 @@ void main() {
         forumHomeRepository: forumHome,
         authenticationRepository: auth,
         favoriteRepository: favorites,
-        authRefreshGrace: const Duration(milliseconds: 100),
+        // Long enough for a cold parse of the index (well over 100 ms on a loaded runner) to beat the grace timer:
+        // the test below expects the fresh document, not the timer, to win.
+        authRefreshGrace: const Duration(seconds: 1),
       )..add(TopicsLoadRequested());
       await bloc.stream.firstWhere((s) => s.status.isSuccess);
       expect(indexRequests(), 1);
 
+      // Wait for the guest index itself, not for a moment that is usually long enough: reaching the bloc after the
+      // next sign in, it is a document of the wrong user and costs one more fetch, which raced on a loaded runner.
+      // The stream replays its latest document to a new listener, so skip that one.
+      final guestIndex = forumHome.documentStream.skip(1).first;
       auth
         ..signIn(alice)
         ..signOut();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await guestIndex;
+      await pumpEventQueue();
       expect(indexRequests(), 2, reason: 'logged out: fetch the guest index right away');
 
       // Another account logs in and the homepage publishes a fresh document in time: no extra fetch.
       auth.signIn(bob);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await pumpEventQueue();
       await forumHome.fetchHomePage(force: true).run();
-      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await pumpEventQueue();
       expect(indexRequests(), 3);
 
       // Switch again, this time nobody refreshes the document: the bloc fetches after the grace period.
       auth.signIn(alice);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await pumpEventQueue();
       expect(indexRequests(), 3);
-      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
       expect(indexRequests(), 4);
       await bloc.close();
     });

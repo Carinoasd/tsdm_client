@@ -455,6 +455,7 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 通知 channel 換成 `newNoticeChannelV2`（`Importance.high`／`Priority.high`，`buildLocalNotificationDetails` 純函式組出 `NotificationDetails`，小圖示照舊用 `initialize` 給的）：測試者的華為機 `notify()` 成功卻看不到任何東西，而原 channel `newNoticeChannel` 是以預設 importance 建立、Android 不允許程式碼事後調高，只能換 id。舊 id 保留為 `legacyLocalNoticeChannelId`，開機 `flnp.initialize` 之後（Android）呼叫 `deleteNotificationChannel` 刪掉，try/catch 記 log 不擋開機；每次推播前多記 `id=0 channel=newNoticeChannelV2`。
 - 冷啟動（GitHub #14 後半）：App 沒在跑時點通知，`onDidReceiveNotificationResponse` 不會被叫，開機改讀 `getNotificationAppLaunchDetails()`，`didNotificationLaunchApp` 且 payload 為 `openNotification` 時先存進 `stream.dart` 的 pending 槽，`HomePage` 第一幀後（`addPostFrameCallback`）用與 stream 事件相同的處理函式（同樣需已登入）消費一次，落到 `/notice`；取走即清空，頁面重建不會再推第二次。
 - 測試：test_053（channel 常數不同、`NotificationDetails` 用新 id 與 high importance／priority）、test_054（pending payload 只被處理一次、handler 丟例外也清空）。
+- 點通知只到首頁（GitHub #14，1.21.1 日誌）：`RootPage` 從不送 `RootLocationEventLeave`，位置堆疊只增不減，離開過 `/notice` 之後 `isIn(notice)` 永遠為真，回到首頁點通知被記成 `do not push to notice page already in it`（日誌 18:56:33、19:04:20 兩次）。修法兩層：`RootPage.dispose` 補送 Leave（shell 三頁除外，cubit 對非頂端路徑刪最後一筆，1.21.1 已含）；`HomePage` 的判斷改問 router（`tap.dart` 的 `routerTopLocation` 取 `currentConfiguration.lastOrNull?.matchedLocation`，會走進 shell、`pushNamed` 的頁回自己、對話框不算頁），`decideLocalNoticeTap` 純函式決定 needLogin／alreadyOnNoticePage／openNoticePage。診斷：`onLocalNotificationOpened` 記 `local notification tapped: id type payload listened`（沒這行＝點擊沒到 Dart）、`App` 記 `app lifecycle: resumed/paused/…`、resumed 時記 `auto sync notification in shade: true/false`（`getActiveNotifications`）、handler 記 `notification tap: action top location`；原本三句 `push to notice page`／`do not push…`／`refuse to push…` 保留。日誌裡另有幾次「resume 之後 1 秒內手動進 /notice、沒有任何 handler 行」的情況無法分辨是沒點還是系統沒送 intent；新日誌能縮小範圍但不能完全判定：有 `local notification tapped`＝點擊到了 App；沒有這行且 `in shade: true`＝沒點；沒有這行且 `in shade: false`＝使用者清掉了通知或點擊沒送到，兩者日誌分不出，要靠回報者描述操作。測試：test_073（決策函式、callback 進 stream、真 GoRouter：shell 分支／pushNamed／pop 回首頁／對話框之下）。
 - 測試：test_048（manifest 含兩個權限字串；cubit refresh／denied→request／permanentlyDenied→openAppSettings／不跳頁模式／denied+rationale=false→permanentlyDenied+openAppSettings 且 refresh 後維持／首次真拒絕 rationale=true 不跳頁／plugin 自己回 permanentlyDenied 不再多跳／close 後 refresh 不 emit／battery request／disabled no-op；兩列 tile 顯示已允許／未允許／已永久拒絕／已忽略／未忽略、點按觸發 request、永久拒絕先出對話框取消不跳、確定才 openAppSettings）。
 
 ## 15. 編輯器打 `@` 彈出提醒選單、選單列自己的好友（GitHub #8，2026-09-09）
@@ -506,3 +507,198 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - `LatestThreadPage` 新增可選 `title`（路由 query `title`）與空清單提示（`latestThreadPage.empty`）；`view=hot|digest|sofa` 走同一頁。
 - i18n：`homepage.guide.{more, sofa, failed, empty}`、`latestThreadPage.empty`；移除 `homepage.latestReplySection.*`。
 - 測試 test_064（解析：四模組順序／view／更多 url、30/0/30/30 列、第一列 hot 內容、缺模組容錯、空頁；repository＋cubit 用假 adapter；widget：模組卡、更多、chip、點列到 threadV1、點更多／chip 到 latestThread、失敗重試列）、test_065（`fromTBody` 解析 hot 47 列、digest 0 列 bloc 仍 success、分頁 url、repository 接受五種 view、`LatestThreadPage` 標題與空提示）。
+
+## 18. 瀏覽紀錄依帳號篩選（GitHub #19，2026-09-10）
+
+### 18.1 範圍
+- 使用者定案：加帳號篩選、保留「全部帳號」、重新整理時維持篩選。首版由 Codex 建立（PR #39），本輪接續完善，不另外拆帳號分頁。
+
+### 18.2 App 端行為
+- `ThreadVisitHistoryPage`：篩選在已載入的紀錄上做（`state.history.where(uid)`），不走 `ThreadVisitHistoryFetchByUserRequested`，所以下拉刷新／重試後選擇不變；帳號清單從紀錄本身取（`putIfAbsent(uid, username)`，最近瀏覽的帳號在前），已從 App 移除的帳號仍可選；選中的帳號在刷新後紀錄全沒了也留在清單裡（記住 `_selectedUsername`），並顯示 `emptyForAccount`。
+- 觸發器是 `ActionChip`（漏斗圖示＋目前選擇），點下去用 `GlobalKey<PopupMenuButtonState<int>>.showButtonMenu()` 開同一個 `PopupMenuButton`（漣漪維持 chip 形狀、選單可捲動）；「全部帳號」用哨兵值 `-1`（`PopupMenuItem` 值為 null 時 `onSelected` 不會被叫）。選單用 `CheckedPopupMenuItem`：名字一行＋ `UID n` 小字，選中的打勾；chip 上只在名字與其他帳號重複時才附 UID（`accountWithUid`），名字超過 220 邏輯像素省略。
+- 空狀態：沒有任何紀錄顯示 `empty`，篩選後沒有紀錄顯示 `emptyForAccount`；都放在 `ListView` 裡，下拉刷新仍可用。
+- i18n `threadVisitHistoryPage.{filterAccount, allAccounts, accountUid, accountWithUid, empty, emptyForAccount}`。
+- 測試 test_072：選單列每個帳號一次＋UID、打勾跟著選擇、同名帳號 chip 帶 UID、不同名不帶；刷新保留篩選並顯示新紀錄；選中帳號的紀錄刪光後仍選中、顯示空提示、選單仍列該帳號；完全沒有紀錄時只有「全部帳號」一項。
+
+## 19. 帖子置中失效（GitHub #47，2026-09-10）
+
+### 19.1 論壇端事實
+
+- Discuz! X5 把 `[align=center]…[/align]` 輸出成 `<div align="center">…</div>`（`right`／`left` 同理），與 X3 相同；樣本為回報者影片中的活動帖第 1 樓（tid 1263228），
+  標題、圖片、副標各是一個 `<div align="center">`，其後的活動規則沒有對齊標籤。去識別化樣本：`test/data/post_div_align_x5.html`（圖片網址改成 example.com）。
+- 編輯頁走 BBCode（編輯器自己處理 `[align]`），所以回報者看到「編輯介面正常、帖子頁不置中」。
+
+### 19.2 App 端行為
+
+- `html_muncher.dart`：原本只有 `<p align>` 會包成滿寬的 `Text.rich(textAlign: …)`，`<div align>` 走一般的 div 處理、`<center>` 只是往下解析。
+  現在三者共用 `_munchAligned`：對齊值來自 `align` 屬性（`_blockAlign`），內容包在一個滿寬的 `Text.rich` 裡，區塊結束後還原原本的對齊，
+  後續正文不受影響；div 的特殊 class（`blockcode`、`locked`、`modact`…）照舊由各自的 builder 處理，再套對齊。
+- 沒有處理 `style="text-align: …"`：論壇目前不輸出這種寫法，樣本裡也沒有。
+
+### 19.3 驗收
+
+- `test/regression/test_074_post_div_align_test.dart`：真實樣本的標題與副標被置中、規則段落維持靠左；`div`／`p`／`center` 三種標籤與巢狀內容都對齊，
+  對齊不外漏到後面的正文。拿掉修正後第一個測試會失敗。
+- 實機：回報者開 tid 1263228 或任何用了置中的舊帖確認。
+
+## 20. 「權限不足的連結跳到瀏覽器」（GitHub #46，2026-09-10）
+
+### 20.1 影片與實抓對照出的真正觸發點
+
+- 影片：第二個帳號在「通知 → 私人消息」列表裡點了「分享帖子 … https://www.tsdm39.com/forum.php?mod=viewthread&tid=1263647」的文字，
+  App 同時開了交談記錄頁並跳到瀏覽器，瀏覽器落在論壇首頁。第一個帳號是在交談記錄頁裡點連結，正常開帖子頁。
+- 用測試帳號互發同格式的私訊實抓：私人消息列表（`home.php?mod=space&do=pm&filter=privatepm`）的摘要裡，網址的 `&` 被論壇去掉，
+  變成 `forum.php?mod=viewthreadtid=1264975`；交談記錄頁（`subop=view`）的訊息是完整的純文字網址（`&amp;`）。
+  fixture：`pm_list_bare_url_x5.html`、`chat_history_bare_url_x5.html`（uid→1000/1001、Alice/Bob、formhash→XXXXXXXX）。
+- App 端：`PersonalMessageCardV2` 用 `MunchedHtml` 顯示摘要，muncher 會把純文字網址做成可點連結（#24）；殘缺網址 `parseUrlToRoute()` 認不出，
+  `dispatchAsUrl` 走「不支援的網址開瀏覽器」的後備。手機上連結用的是 `LongPressGestureRecognizer`，一般點擊不會搶走卡片的點擊，所以卡片與連結同時觸發。
+- 和權限無關：同一個帳號從交談記錄頁點完整連結會正常開帖子頁。
+
+### 20.2 論壇端的權限回應（實抓，去識別化）
+
+| 情境 | fixture | 論壇回應 | App |
+| --- | --- | --- | --- |
+| 訪客開需要閱讀權限的帖 | `thread_readperm_guest_x5.html` | `#messagetext.alert_info`「抱歉，本帖要求阅读权限高于 130 才能浏览」＋ `#messagelogin` | `needLogin` → `NeedLoginPage` |
+| 會員開限制版塊裡的帖 | `thread_restricted_board_member_x5.html` | `#messagetext.alert_error`「本版块只有特定用户可以访问」 | `ErrorCard` 顯示論壇原句 |
+| `redirect&goto=findpost` 指到不存在的帖 | `thread_findpost_missing_x5.html` | `alert_error`「抱歉，指定的主题不存在或已被删除或正在被审核」 | 同上 |
+| 會員開限制版塊 | `forum_restricted_board_member_x5.html` | `alert_error`「本版块只有特定用户可以访问」 | 版塊頁 `ErrorCard` |
+
+帖子與版塊連結都是 App 內路由，這些回應本來就不會開瀏覽器；`viewthread&tid=` 指到不存在的 tid 時，論壇會回一個標題為空、內容不相干的帖子頁（站方行為），App 不特別處理。
+
+### 20.3 App 端行為
+
+- `MunchOptions.renderUrl = false` 現在也不把純文字網址做成連結（原本只擋 `<a>`）。
+- 私人消息與公共消息列表卡片的摘要改用 `renderUrl: false`：摘要只顯示文字，點卡片進交談記錄／詳情，那裡的完整連結照常在 App 內開。
+- 沒有攔截其他連結：無法辨識的網址（論壇工具、外站）仍照原本方式開瀏覽器。
+
+### 20.4 驗收
+
+- `test_075`：列表摘要確實沒有 `&`、殘缺網址不是 App 路由；預設 muncher 會把它做成連結並開瀏覽器（用 url_launcher 的方法通道 mock 記錄）；
+  卡片改後沒有可點的 span，點網址文字進交談記錄、瀏覽器沒有被叫。
+- `test_076`：四個權限／不存在頁的解析結果與 `ErrorCard` 顯示論壇原句；帖子與版塊連結是 App 內路由。
+- 實機：回報者用原本的兩個帳號重做影片裡的操作；順便確認有權限的帳號從列表點卡片進交談記錄後點連結能開帖。
+## 21. 視窗尺寸變化後畫面沿用舊尺寸（GitHub #28，2026-09-10）
+
+### 21.1 回報內容與影片判讀
+
+- 平板（華為 M6 高能版／MatePad mini，鴻蒙 2＝Android 10、鴻蒙 7 的卓易通＝Android 16）：小窗切全螢幕後，畫面以左上角為起點沿用小窗尺寸，其餘留白；
+  小窗裡回覆（鍵盤出入）後畫面下方留白。手機（鴻蒙 4.2＝Android 12）影片：橫豎切換後有約 3 秒仍顯示舊方向的排版（旋轉後的舊畫面、其餘黑色），之後才正常。
+- 兩張平板截圖裡「沿用舊尺寸的內容」是**舊尺寸的排版**（窄版面），不是新排版被裁切：Flutter 端當時的排版尺寸就是舊的，或畫面停在最後一張成功送出的幀。
+- 1.21.0 小窗回覆截圖：內容是回覆**之後**才進入的首頁，卻只佔視窗上半，下方是視窗背景（白）——Flutter 端在鍵盤收起後仍以縮小後的高度排版，
+  且 Flutter 的 surface 也只有那麼大（否則留白會是 Scaffold 底色）。
+- 回報者說自 r0 某版開始；上游 1.11.0（2025-07-26）起在 Android 啟用 Impeller（`c339d1f6`），是時間上最接近的渲染層變更，但沒有證據直接指向它。
+
+### 21.2 已排除／已驗證
+
+- AOSP 14 模擬器（docker `budtmo/docker-android`，arm64 轉譯裝 PR 測試包）：橫豎切換、freeform 視窗全螢幕↔小窗（`am task resize`）排版都正確。
+  模擬器的 Impeller 走 GLES 後端，不能代表華為 Vulkan 驅動；華為小窗的視窗管理也不是 AOSP freeform。
+- Flutter 3.41.2 嵌入層讀碼：`FlutterView.onSizeChanged` → `sendViewportMetricsToFlutter`（未 attach 時丟棄）；`onStop` 把 view 設 GONE、`onStart` 還原；
+  `SurfaceView.surfaceChanged` → `FlutterRenderer.surfaceChanged`；framework `handleMetricsChanged` → `scheduleForcedFrame`。標準流程沒有漏洞，
+  問題只可能出在 OEM 視窗管理沒有重新排版 view、engine 端 metrics 被丟、或渲染層（swapchain）沒跟上尺寸。
+- Codex 先前的 viewport／鍵盤 inset widget 測試通過：framework 收到新尺寸就會重排。
+
+### 21.3 根因（模擬器重現＋嵌入層原始碼）
+
+- 用 §21.4 的診斷 debug 包在 AOSP 14 模擬器跑「新程序 → 旋轉兩次 → 進 freeform 小窗 → 縮小 → 放大到全螢幕」，8 輪有 2 輪放大後畫面停在舊尺寸（左上角、其餘白色，
+  與回報者的平板截圖一樣）。開 verbose 嵌入層日誌後，失敗那一步只有一行差別：
+  `FlutterView: Size changed ... FlutterView was 880 x 1200, it is now 1440 x 3040` 之後緊接 `Resize was in response to the engine resizing the view. Not sending viewport metrics.`
+  ——FlutterView 把真實的視窗縮放當成引擎自己要求的縮放，跳過送 metrics；Dart 端因此停在 880x1200，SurfaceView 也被引擎先前的縮放要求釘在舊尺寸（沒有 `surfaceChanged`）。
+- 這個旗標（`shouldSendViewportMetrics`）只會被 content sizing 的 `FlutterUiResizeListener.resizeEngineView` 設起來。Flutter **3.41.1** 的 `FlutterView.attachToFlutterEngine`
+  無條件註冊這個監聽器（content sizing 預設關閉也註冊），引擎每次 `maybeResizeSurfaceView` 都會把旗標設為 false；Activity 裡的 FlutterView 是 MATCH_PARENT，
+  引擎要求的縮放不會改變它的尺寸，旗標就一直留到下一次真實縮放，然後把那次吞掉。之後有沒有 inset 更新（狀態列、鍵盤）決定會不會補送，所以時有時無；
+  華為小窗切換若沒有 inset 變化就一直停在舊尺寸。
+- Flutter 3.41.2 起修正：`[CP-stable] Ensure resize listener is not added if content sizing is not turned on`（flutter/flutter#182320，2026-02-17）；3.41.3–3.41.5 都是 hotfix。
+  時間線也吻合：content sizing 於 2025-12-08 進主線、隨 3.41.0 發布；上游 1.14.0（2026-02-14）升到 3.41.0、1.15.0 升到 3.41.1，就是回報者說「r0 某版之後」的時間。
+- 修法：CI 與 `.fvmrc` 改用 Flutter 3.41.5（3.41 系列最後一個 hotfix，含上述修正）。App 程式碼不需要改；診斷日誌保留，供實機確認。
+
+### 21.4 這一輪同時加入的診斷（保留）
+
+- Android（`MainActivity.kt`）經 `kzs.th000.tsdm_client/windowChannel` 送到 Dart 記錄：`configurationChanged`／`multiWindowModeChanged`／`pictureInPictureModeChanged`
+  （螢幕 dp、方向、密度）、`flutterViewLayout`（FlutterView 排版尺寸、visibility）、`surfaceCreated`／`surfaceChanged`／`surfaceDestroyed`（繪圖表面尺寸），
+  每筆都附視窗 decor 尺寸、display 尺寸與是否多視窗。
+- Dart（`lib/utils/window_events.dart`、`app.dart`）：`didChangeMetrics` 時記 `view metrics`（physical、dpr、logical、鍵盤高度、padding），下一幀後再記一行
+  `frame painted`；回前景時再記一次。鍵盤動畫只記出現／消失，不記每一步（`ViewMetricsLogGate`）。
+- 讀 log 的判法（尺寸變化後）：
+  1. 沒有 `configurationChanged`／`flutterViewLayout`、`view metrics` 也沒變 → 系統沒把新尺寸給 App（OEM 視窗管理）。
+  2. 有 `flutterViewLayout` 新尺寸但沒有 `view metrics` 新尺寸 → engine 端沒把 metrics 送進 framework。
+  3. `view metrics` 與 `frame painted` 都是新尺寸、畫面卻仍是舊的 → framework 已重排並出幀，卡在渲染／合成層（Impeller、驅動、SurfaceFlinger）；
+     下一步試 `io.flutter.embedding.android.ImpellerBackend=opengles`（或關 Impeller）的對照包。
+  4. `surfaceChanged` 尺寸與 `flutterViewLayout` 不一致 → SurfaceView 沒跟上，考慮 TextureView 模式（`getRenderMode`）。
+
+### 21.5 驗收
+
+- `test_077`：事件格式化、metrics 行、記錄閘門（鍵盤出現／消失才記）。
+- 模擬器（AOSP 14，docker，arm64 轉譯）：3.41.1 建的 debug 包跑 8 輪「旋轉→小窗→縮小→放大」失敗 2 輪；換 3.41.5 重建後同樣迴圈 8 輪全部正常，verbose 嵌入層日誌裡沒有再出現 `Resize was in response to the engine resizing the view`（3.41.1 那輪 8 個日誌有 4 個出現、共 9 次）。
+- 實機：回報者裝 3.41.5 建的測試包重做平板的小窗／全螢幕／回覆與手機的橫豎切換；若仍出現，匯出日誌依 §21.4 判法看是哪一層。
+
+### 21.6 第二輪：手機旋轉過場露黑（2026-09-10 下午）
+
+**回報**：PR #51（Flutter 3.41.5）之後，鴻蒙 2 平板沒再出現；鴻蒙 4.2 手機旋轉**完成後**排版正確，但**過場**異常，豎轉橫最明顯；同一支手機上另一個 Flutter App（Kazumi）的旋轉沒有問題。
+附新影片（外拍，60 fps）與日誌 `log_1789017760605.txt`。
+
+**日誌**：四次旋轉都是 `configurationChanged` → 新尺寸的 `view metrics`（+25～40 ms）→ `surfaceChanged`／`flutterViewLayout` → `frame painted`（+35～55 ms），沒有再出現尺寸被吞掉；
+`frame painted` 只代表 framework 出了一幀，不代表畫面已經顯示。
+
+**影片逐格**（30 fps 取樣）：顯示方向切換後，系統的旋轉動畫把舊畫面截圖轉過去，截圖底下露出的是**黑色**（約 4～5 格，130～170 ms），之後才換成新方向的排版。
+黑色不是視窗背景（`NormalTheme` 的 `windowBackground` 是 `?android:colorBackground`，淺色主題下是白的），而是 SurfaceView 的黑色背景層——新尺寸的第一個 buffer 還沒送出時露出來的東西。
+
+**目前的繪圖設定**（master）：Impeller 預設開啟、後端由引擎依裝置選（Vulkan，不支援時 GLES）；`FlutterActivity` 預設 opaque → SurfaceView 繪圖；
+`hardwareAccelerated=true`；`configChanges` 含 orientation／screenSize（不重建 Activity）；`NormalTheme` 淺色背景；core-splashscreen。manifest 沒有任何 Impeller／content sizing 旗標。
+
+**對照 App（Kazumi，`Predidit/Kazumi` main）**：manifest 明確 `io.flutter.embedding.android.EnableImpeller=false`（Skia），其餘（theme、configChanges、adjustResize、hardwareAccelerated、SurfaceView）與本 App 相同；Flutter 3.47.2。
+兩個 App 在同一支手機上的差異裡，與旋轉過場有關的只有繪圖後端。
+
+**對照包（PR #52，只改一個變因）**：manifest 加 `EnableImpeller=false`，其他完全不動（Flutter 3.41.5 仍支援這個 opt-out：`FlutterLoader` 會加 `--enable-impeller=false`，Android shell 仍有 `android_surface_gl_skia`）。
+模擬器確認：logcat 出現引擎的 opt-out 訊息、旋轉／freeform 縮放正常。請回報者在同一支鴻蒙 4.2 手機、同一個頁面、同樣的豎轉橫做對照。
+
+**判讀**：
+- 過場乾淨 → 變因是繪圖後端。下一步再做第二個單變因包 `ImpellerBackend=opengles`（保留 Impeller 只換 GPU API）決定正式修法：GLES 也乾淨就用 GLES，否則先用 Skia（Kazumi 的做法；Skia 在 Android 上是即將移除的 opt-out，之後要跟著 Flutter 版本重新評估）。
+- 仍露黑 → 與繪圖後端無關，下一個單變因是 SurfaceView → TextureView（`getRenderMode`），再不行就是系統的旋轉動畫本身（同機其他非 Flutter App 對照）。
+
+
+## 22. 版塊帖子列表的作者頭像（2026-09-10）
+
+**需求**：版塊頁「置頂／帖子」列表裡，作者名字旁的圓圈顯示該作者的論壇頭像；維持原本的圓形大小與版面，沒有有效頭像或載入失敗時保留文字圓圈。
+
+### 22.1 論壇端事實（實抓驗證）
+
+- **列表本身沒有頭像**。`forum.php?mod=forumdisplay&fid=16` 的 49 個 `tbody` 裡，`div#threadlist` 一張 `<img>` 都沒有；作者資訊只有
+  `<td class="by"><cite><a href="home.php?mod=space&uid=UID">名字</a></cite>`。所以頭像網址只能由 UID 生成，論壇自己也是這樣做的。
+- **論壇自己的規則**：`static/js/common.js` 的 `loadAvatar()`——UID 補零到 9 位，切成 3／2／2 三層目錄，檔名是最後兩位，
+  `size` 預設 `middle`，網址前綴取自 `DEFAULTAVATAR`（`./data/avatar/noavatar.svg` → `./data/avatar/`），載入失敗時 `onerror` 換成預設頭像。
+  也就是 `data/avatar/${uid[0:3]}/${uid[3:5]}/${uid[5:7]}/${uid[7:]}_avatar_${size}.jpg`。
+- **與帖子頁一致**：帖子頁對「上傳過頭像」的用戶輸出的正是同一個網址（實測一位有上傳頭像的作者，樓層的 `data-src` 是
+  `./data/avatar/…_avatar_middle.jpg`，經 `prependHost()` 後與本次生成的字串完全相同），所以列表與帖子頁共用同一筆頭像快取，不會重抓。
+- **三種尺寸**：`small` 48×48（約 2 KB）、`middle` 140×140（約 20 KB）、`big` 200×200。選 `middle`：與帖子頁同一份快取，且列表圓圈為 40 dp，
+  高密度螢幕上要到 120 px。
+- **頭像外鏈**：TSDM 的頭像可以填外部網址（`home.php?mod=spacecp&ac=avatar`，欄位 `headedit`）。這種用戶論壇端沒有檔案，生成的網址回 404；
+  論壇自己的頁面同樣會 404 再由 JS 換成預設頭像。實測事務所版第 1 頁（含置頂）45 位不重複作者：20 位有上傳頭像（載入成功，共 749 KiB）、25 位回 404（抽驗其中 8 位，一半是外鏈頭像、一半根本沒設）。
+- 沒有批次查頭像的端點；要拿到外鏈頭像只能逐位開個人頁，一頁列表會多出數十個請求，因此不做。
+
+### 22.2 App 端行為
+
+- `avatarUrlOfUid()`（`lib/constants/url.dart`）依上述規則生成網址，UID 不是正整數（匿名、已註銷、只有 `username=` 的連結）時回 null。
+- `NormalThread.fromTBody` 把它填進作者的 `avatarUrl`；置頂帖走 `StickThread.fromTBody` → 同一份解析，所以兩個分頁一致。
+  卡片本身沒有改動：`HeroUserAvatar` 照舊拿 `author.avatarUrl`，載入、快取與失敗時的文字圓圈都是既有機制，點擊行為不變。
+- `ImageCacheProvider.getOrMakeCache`：使用者頭像抓取失敗時，改用該使用者名下已快取的頭像（`UserAvatar` 表以 username 為主鍵，
+  本來就是「一旦快取過，全 App 都能用」的設計）再退回文字圓圈。網路仍然先試，快取只在抓不到時補位，所以換過頭像的用戶不會被舊圖卡住；
+  外鏈頭像的用戶只要 App 在別處看過，列表也顯示得出來。
+- 回退成功時把「這個網址在伺服器上沒有檔案」記在記憶體裡（`_avatarWithoutFile`，網址 → 使用者名稱），之後同一個網址直接用該使用者已快取的頭像，不再問伺服器。
+  **這一段是必要的**：頭像送達時元件會 `evict()` 自己的圖片再載入一次，沒有這個記錄的話每次重新載入都會再打一次 404，卡片一進一出就無限重複
+  （審查時用「移除卡片再顯示」的測試量到同一個網址被請求 6 次）。記錄只存在記憶體：重開 App 會再試一次，而且每次都解析成當下快取的頭像，
+  不會把使用者換過的新頭像擋在舊圖後面；清除圖片快取時一併清掉；`force` 重新下載不受影響。
+- 結果：每位作者最多一次圖片請求，之後走快取；沒有頭像的作者在一次執行期間只會得到一次 404（1.2 KB 的錯誤頁），與瀏覽器開同一個版塊的行為相同。
+
+### 22.3 未改動
+
+- 搜尋結果（`SearchedThread`，X5 版面有 uid）、最新回覆（`LatestThread`，只有 `username=` 連結）、我的帖子（`MyThread`，同樣沒有 uid）維持原狀。
+- 沒有改頭像圓圈的大小、版面與點擊行為。
+
+### 22.4 驗收
+
+- `test/regression/test_078_thread_card_author_avatar_test.dart`：網址生成規則與無效 UID 的守衛；去識別化樣本
+  `test/data/forum_thread_list_authors_x5.html` 解析後兩位有 UID 的作者拿到對應網址、匿名那列沒有頭像（不會借用別人的）；
+  卡片把網址交給頭像元件、每位作者只請求一次、沒有頭像的作者留著文字圓圈、沒有 UID 的作者完全不發請求；
+  已快取的外鏈頭像在生成網址 404 後仍然顯示；**卡片移除再顯示三輪，沒有檔案的那個網址仍然只被請求一次**（拿掉記錄後這條會失敗，量到 6 次），
+  完全沒有頭像的作者同樣只請求一次（那條路徑不會 evict，靠 Flutter 的圖片快取）。
+- 桌面實測：Linux 建置跑起來後開版塊列表確認頭像、捲動與快取。

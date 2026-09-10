@@ -1139,6 +1139,12 @@
     "openLink": "打开链接"
   },
   "threadVisitHistoryPage": {
+    "filterAccount": "按账号筛选",
+    "allAccounts": "全部账号",
+    "accountUid": "UID $uid",
+    "accountWithUid": "$username（UID $uid）",
+    "empty": "还没有浏览记录",
+    "emptyForAccount": "这个账号没有浏览记录",
     "entryTooltip": "帖子浏览记录",
     "title": "帖子浏览记录",
     "localOnlyTip": "仅记录本机的浏览记录，在网页端或其他机器上可能会有所不同"

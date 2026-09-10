@@ -270,8 +270,32 @@ final class _Muncher with LoggerMixin {
       // Not intend to happen.
       return null;
     }
+    // A banner can be cut into adjacent linked images. Keep an image-only
+    // strip together and scale the whole strip to the available width (#36).
+    // Explicit breaks and mixed text retain their normal wrapping behavior.
+    final nodes = rootElement.nodes.where((node) => node is! uh.Text || node.text!.trim().isNotEmpty).toList();
+    if (nodes.length > 1 && nodes.every(_isInlineImage) && spanList.every((span) => span is WidgetSpan)) {
+      return [
+        WidgetSpan(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: spanList.cast<WidgetSpan>().map((span) => span.child).toList(),
+            ),
+          ),
+        ),
+      ];
+    }
     return spanList;
   }
+
+  bool _isInlineImage(uh.Node node) =>
+      node is uh.Element &&
+      (node.localName == 'img' ||
+          (node.localName == 'a' && node.nodes.length == 1 && node.children.singleOrNull?.localName == 'img'));
 
   /// Munch a [node] and its children.
   List<InlineSpan>? munchNode(uh.Node? node) {
@@ -320,7 +344,7 @@ final class _Muncher with LoggerMixin {
           // state.wrapInWord ? text?.split('').join('\u200B') : text;
 
           // TODO: Support text-shadow.
-          if (recognizer == null && text != null && text.contains('://')) {
+          if (recognizer == null && options.renderUrl && text != null && text.contains('://')) {
             // Bare urls in plain text (the forum does not link them in notices, e.g. the reason of a rating).
             return _linkifySpans(text, _buildTextStyle());
           }
@@ -377,11 +401,11 @@ final class _Muncher with LoggerMixin {
             'tbody' ||
             'dd' ||
             'marquee' ||
-            'center' ||
             'nav' ||
             'section' ||
             'fieldset' ||
             'pre' => _munch(node),
+            'center' => _munchAligned(node, TextAlign.center, _munch),
             String() => null,
           };
           return span;
@@ -484,56 +508,56 @@ final class _Muncher with LoggerMixin {
     return ret;
   }
 
-  List<InlineSpan>? _buildP(uh.Element element) {
-    // Alignment requires the whole rendered page to a fixed max width that
-    // equals to website page, otherwise if is different if we have a "center"
-    // or "right" alignment.
-    final alignValue = element.attributes['align'];
-    final align = switch (alignValue) {
-      'left' => TextAlign.left,
-      'center' => TextAlign.center,
-      'right' => TextAlign.right,
-      String() => null,
-      null => null,
-    };
+  /// Text alignment carried by the `align` attribute of a block element.
+  ///
+  /// `[align=center]` in a post becomes `<div align="center">` (`<p align="center">` in some templates), the same
+  /// attribute the web page reads to align that block.
+  static TextAlign? _blockAlign(uh.Element element) => switch (element.attributes['align']) {
+    'left' => TextAlign.left,
+    'center' => TextAlign.center,
+    'right' => TextAlign.right,
+    _ => null,
+  };
 
-    // Setup text align.
-    //
-    // Text align only have effect on the [RichText]'s children, not its
-    /// children's children. Remember every time we build a [RichText]
-    /// with "children" we need to apply the current text alignment.
-    if (align != null) {
-      state.textAlign = align;
-    }
-
-    final ret = _munch(element);
-
+  /// Munch [element] with [munch] and lay the result out with [align].
+  ///
+  /// Alignment requires the whole rendered page to a fixed max width that equals to website page, otherwise the result
+  /// differs from the web page for a "center" or "right" alignment.
+  ///
+  /// Text align only has effect on the [RichText]'s children, not its children's children, so the spans are wrapped
+  /// in a full-width [Text.rich] carrying the alignment; `state.textAlign` holds the alignment while munching so
+  /// builders creating their own rich text can apply it too.
+  List<InlineSpan>? _munchAligned(
+    uh.Element element,
+    TextAlign align,
+    List<InlineSpan>? Function(uh.Element element) munch,
+  ) {
+    final origAlign = state.textAlign;
+    state.textAlign = align;
+    final ret = munch(element);
+    state.textAlign = origAlign;
     if (ret == null) {
       return null;
     }
-
-    late final List<InlineSpan> ret2;
-
-    if (align != null) {
-      ret2 = [
-        WidgetSpan(
-          child: Row(
-            children: [
-              Expanded(
-                child: Text.rich(TextSpan(children: ret), textAlign: align),
-              ),
-            ],
-          ),
+    return [
+      WidgetSpan(
+        child: Row(
+          children: [
+            Expanded(
+              child: Text.rich(TextSpan(children: ret), textAlign: align),
+            ),
+          ],
         ),
-      ];
+      ),
+    ];
+  }
 
-      // Restore text align.
-      state.textAlign = null;
-    } else {
-      ret2 = ret;
+  List<InlineSpan>? _buildP(uh.Element element) {
+    final align = _blockAlign(element);
+    if (align == null) {
+      return _munch(element);
     }
-
-    return ret2;
+    return _munchAligned(element, align, _munch);
   }
 
   List<InlineSpan>? _buildSpan(uh.Element element) {
@@ -607,6 +631,7 @@ final class _Muncher with LoggerMixin {
       'rsld': _buildResolvedBounty,
       'rwdbst': _buildBountyBestAnswer,
       'hb-entry': _buildRedPacketEntry,
+      'modact': _buildModerationNotice,
     };
 
     // The popup markup of the forum's red packet plugin (envelope animation, password box, buttons) only works with
@@ -618,13 +643,53 @@ final class _Muncher with LoggerMixin {
     state.inDiv = true;
     // Find the first munch executor, use `_munch` if none found.
     final executor = _divMap!.entries.firstWhereOrNull((e) => element.classes.contains(e.key))?.value ?? _munch;
-    final ret = executor(element);
+    // `[align=center]` is a `<div align="center">` around the aligned content (GitHub #47).
+    final align = _blockAlign(element);
+    final ret = align == null ? executor(element) : _munchAligned(element, align, executor);
     state.inDiv = origInDiv;
 
     if (ret != null && ret.isNotEmpty && ret.last != emptySpan) {
       ret.add(emptySpan);
     }
     return ret;
+  }
+
+  List<InlineSpan>? _buildModerationNotice(uh.Element element) {
+    final content = _munch(element);
+    if (content == null) {
+      return null;
+    }
+    final theme = Theme.of(context);
+    return [
+      emptySpan,
+      WidgetSpan(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.manage_history_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                sizedBoxW8H8,
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(children: content),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      emptySpan,
+    ];
   }
 
   /// The red packet entry of the forum's `hongbao` plugin, `<div class="hb-entry" data-tid="...">` at the top of a

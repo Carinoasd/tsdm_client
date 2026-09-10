@@ -50,6 +50,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
 extension _SignedInteger on int {
@@ -95,7 +96,7 @@ class App extends StatefulWidget {
   State<App> createState() => _AppState();
 }
 
-class _AppState extends State<App> with WindowListener, LoggerMixin {
+class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, LoggerMixin {
   /// Duration used to debounce the frequency to save window attributes into
   /// storage.
   ///
@@ -122,9 +123,14 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
   /// Save [_windowSize] to storage when timer timeout.
   Timer? windowSizeTimer;
 
+  /// Which metrics changes get a log line (GitHub #28).
+  final _viewMetricsLogGate = ViewMetricsLogGate();
+
   Future<void> _saveWindowPosition() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     if (settings.windowRememberPosition && !settings.windowInCenter && await _hasNormalWindowBounds()) {
+      talker.debug('save window position $_windowPosition');
+      // FIXME: Access provider in top-level components is anti-pattern.
       await getIt.get<StorageProvider>().saveOffset(SettingsKeys.windowPosition.name, _windowPosition);
     }
   }
@@ -132,6 +138,8 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
   Future<void> _saveWindowSize() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     if (settings.windowRememberSize && await _hasNormalWindowBounds()) {
+      talker.debug('save window size $_windowSize');
+      // FIXME: Access provider in top-level components is anti-pattern.
       await getIt.get<StorageProvider>().saveSize(SettingsKeys.windowSize.name, _windowSize);
     }
   }
@@ -140,14 +148,53 @@ class _AppState extends State<App> with WindowListener, LoggerMixin {
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Foreground/background moments anchor the notification tap lines in an exported log: a tap the OS delivers
+    // arrives before the resume; a resume with no tap line only says the app came to front without a tap reaching
+    // it, whatever brought it there (#14).
+    debug('app lifecycle: ${state.name}');
+    if (state == AppLifecycleState.resumed) {
+      unawaited(logActiveLocalNotifications());
+      _logViewMetrics('resumed', always: true);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _logViewMetrics('metrics changed');
+  }
+
+  /// Log the metrics the framework lays out with, and once more after the next frame so an exported log shows
+  /// whether a frame followed the change (GitHub #28: a resize that never reaches the screen). [always] logs even
+  /// when nothing changed since the last line, for the resume anchor.
+  void _logViewMetrics(String reason, {bool always = false}) {
+    final view = View.maybeOf(context);
+    if (view == null) {
+      return;
+    }
+    final changed = _viewMetricsLogGate.accept(view);
+    if (!changed && !always) {
+      return;
+    }
+    debug('$reason: ${describeViewMetrics(view)}');
+    if (changed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => debug('frame painted: ${describeViewMetrics(view)}'));
+    }
   }
 
   @override

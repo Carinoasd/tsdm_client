@@ -1139,6 +1139,12 @@
     "openLink": "開啟連結"
   },
   "threadVisitHistoryPage": {
+    "filterAccount": "依帳號篩選",
+    "allAccounts": "全部帳號",
+    "accountUid": "UID $uid",
+    "accountWithUid": "$username（UID $uid）",
+    "empty": "還沒有瀏覽紀錄",
+    "emptyForAccount": "這個帳號沒有瀏覽紀錄",
     "entryTooltip": "貼文瀏覽紀錄",
     "title": "貼文瀏覽紀錄",
     "localOnlyTip": "僅記錄本機的瀏覽記錄，在網頁端或其他機器上可能會有所不同"
