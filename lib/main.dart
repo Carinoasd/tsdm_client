@@ -33,7 +33,13 @@ Future<void> _boot(List<String> args) async {
   // "a grey block flashed" carries the widget and the stack (GitHub #55).
   final presentError = FlutterError.onError;
   FlutterError.onError = (details) {
-    talker.handle(details.exception, details.stack, 'FlutterError in ${details.library ?? 'widgets'}');
+    // `context` is the "building <widget>" part, the one thing that says where the grey box was.
+    final where = details.context?.toDescription();
+    talker.handle(
+      details.exception,
+      details.stack,
+      'FlutterError in ${details.library ?? 'widgets'}${where == null ? '' : ': $where'}',
+    );
     presentError?.call(details);
   };
 
