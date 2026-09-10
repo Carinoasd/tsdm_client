@@ -311,7 +311,11 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
             ),
             Padding(
               padding: edgeInsetsL16R16B12,
-              child: MunchedHtml(widget.data.data),
+              // The list only carries a summary of the last message and the server drops the `&` of every url in it
+              // (`forum.php?mod=viewthreadtid=1`), so a link made of that text is not the one the sender wrote: it is
+              // unrecognized and would open the browser. Plain text here; the real link is in the conversation the
+              // card opens (GitHub #46).
+              child: MunchedHtml(widget.data.data, options: const MunchOptions(renderUrl: false)),
             ),
           ],
         ),
@@ -445,7 +449,8 @@ class _BroadcastMessageCardV2State extends State<BroadcastMessageCardV2> {
             ),
             Padding(
               padding: edgeInsetsL16R16B12,
-              child: MunchedHtml(widget.data.data),
+              // Same summary as the personal message list, see above; the detail page has the full message.
+              child: MunchedHtml(widget.data.data, options: const MunchOptions(renderUrl: false)),
             ),
           ],
         ),
