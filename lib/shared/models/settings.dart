@@ -209,18 +209,6 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     type: double,
     defaultValue: 1,
   ),
-  /// Enable background message service on Android.
-///
-  /// When enabled, the app keeps a foreground service running to stay
-  /// connected and receive forum messages in background.
-  ///
-  /// Only takes effect on Android.
-  enableBackgroundMessageService<bool>(
-    name: 'enableBackgroundMessageService',
-    type: bool,
-    defaultValue: false,
-),
-;
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});
