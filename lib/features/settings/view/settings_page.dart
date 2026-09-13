@@ -476,8 +476,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       if (isAndroid)
         SectionSwitchListTile(
           secondary: const Icon(Icons.notifications_active_outlined),
-          title: const Text('后台消息接收'),
-          subtitle: const Text('开启后在后台保持连接，及时收到论坛消息（仅安卓）'),
+          title: Text(tr.backgroundMessageService.title),
+          subtitle: Text(tr.backgroundMessageService.detail),
           value: _bgServiceEnabled,
           onChanged: (v) async {
             if (v) {
