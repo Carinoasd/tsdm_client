@@ -142,7 +142,6 @@ final class SettingsRepository with LoggerMixin {
       collapseAppBarWhenScroll: s.extract(_SK.collapseAppBarWhenScroll),
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       textScaleFactor: s.extract(_SK.textScaleFactor),
-      enableBackgroundMessageService: s.extract(_SK.enableBackgroundMessageService),
     );
   }
 
