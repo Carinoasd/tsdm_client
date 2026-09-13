@@ -62,7 +62,7 @@ Future<void> onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
   if (service is AndroidServiceInstance) {
-    service.setAsForegroundService();
+    await service.setAsForegroundService();
   }
 
   Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -71,7 +71,7 @@ Future<void> onStart(ServiceInstance service) async {
   });
 
   service.on('stopService').listen((event) {
-    service.stopSelf();
+    unawaited(service.stopSelf());
   });
 }
 
@@ -89,7 +89,7 @@ Future<void> startBackgroundService() async {
 Future<void> stopBackgroundService() async {
   final service = FlutterBackgroundService();
   if (await service.isRunning()) {
-    service.invoke('stopService');
+    await service.invoke('stopService');
   }
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(backgroundServiceEnabledKey, false);
