@@ -57,6 +57,8 @@ import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
 import 'package:tsdm_client/widgets/section_title_text.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
 import 'package:tsdm_client/widgets/tips.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tsdm_client/utils/background_service_helper.dart';
 
 /// Settings page of the app.
 class SettingsPage extends StatefulWidget {
