@@ -75,6 +75,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   /// Android permission statuses shown in the behavior section; refreshed when the app comes back to the foreground
   /// so the rows update after the user returns from the system dialogs or the app settings page.
   final _permissionCubit = AndroidPermissionCubit();
+  /// 后台消息服务开关状态。
+  bool _bgServiceEnabled = false;
 
   /// Tip of log export path.
   String? _logExportPath;
@@ -471,6 +473,25 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         },
       ),
       if (isAndroid) const AndroidPermissionTiles(),
+      if (isAndroid)
+  SectionSwitchListTile(
+    secondary: const Icon(Icons.notifications_active_outlined),
+    title: const Text('后台消息接收'),
+    subtitle: const Text('开启后在后台保持连接，及时收到论坛消息（仅安卓）'),
+    value: _bgServiceEnabled,
+    onChanged: (v) async {
+      if (v) {
+        await startBackgroundService();
+      } else {
+        await stopBackgroundService();
+      }
+      if (mounted) {
+        setState(() {
+          _bgServiceEnabled = v;
+        });
+      }
+    },
+  ),
       SectionSwitchListTile(
         secondary: const Icon(Icons.code_outlined),
         title: Row(
@@ -1002,6 +1023,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
+    unawaited(_loadBackgroundServiceState());
+    Future<void> _loadBackgroundServiceState() async {
+  final enabled = await isBackgroundServiceEnabled();
+  if (mounted) {
+    setState(() {
+      _bgServiceEnabled = enabled;
+    });
+  }
+}
   }
 
   @override
