@@ -16,6 +16,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
+import 'package:tsdm_client/utils/background_service_helper.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:tsdm_client/utils/window_events.dart';
@@ -117,6 +118,14 @@ Future<void> _boot(List<String> args) async {
   // Only record system proxy settings if required to do so.
   if (settings.useDetectedProxyWhenStartup) {
     await getIt.get<ProxyProvider>().updateProxy();
+  }
+
+  // 后台消息服务：先初始化配置，如果用户之前开启过开关则恢复启动。
+  if (isAndroid) {
+    await initializeBackgroundService();
+    if (await isBackgroundServiceEnabled()) {
+      await startBackgroundService();
+    }
   }
 
   runApp(
