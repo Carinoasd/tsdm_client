@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -89,7 +90,7 @@ Future<void> startBackgroundService() async {
 Future<void> stopBackgroundService() async {
   final service = FlutterBackgroundService();
   if (await service.isRunning()) {
-    await service.invoke('stopService');
+    service.invoke('stopService');
   }
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(backgroundServiceEnabledKey, false);
