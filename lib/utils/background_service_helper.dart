@@ -1,3 +1,5 @@
+// 这些 public 函数被 main.dart 和 settings_page.dart 调用，但分析器穿透不了
+// runZonedGuarded 的闭包入口，会把它们误判为 unreachable。
 // ignore_for_file: unreachable_from_main
 import 'dart:async';
 import 'dart:ui';
