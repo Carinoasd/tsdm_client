@@ -6,9 +6,6 @@
   "history": "📖 历史",
   "favorite": "📁 收藏",
   "manageAccount": "👥 管理账户",
-  "logout": "➡️ 退出账号",
-  "logoutSuccess": "已退出账号",
-  "logoutFailed": "退出账号失败：$err",
   "exit": "❌ 退出软件"
 },
   "appName": "天使动漫",

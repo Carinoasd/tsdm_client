@@ -6,9 +6,6 @@
   "history": "📖 History",
   "favorite": "📁 Favorites",
   "manageAccount": "👥 Manage accounts",
-  "logout": "➡️ Log out",
-  "logoutSuccess": "Logged out",
-  "logoutFailed": "Log out failed: $err",
   "exit": "❌ Exit app"
 },
   "appName": "TSDM",
