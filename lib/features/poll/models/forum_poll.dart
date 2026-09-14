@@ -121,12 +121,15 @@ ForumPoll parseForumPoll(uh.Document document, {required bool loggedIn}) {
   final uri = rawAction == null ? null : Uri.parse(baseUrl).resolveUri(rawAction);
   final validAction =
       uri != null &&
+      uri.scheme == 'https' &&
       uri.origin == Uri.parse(baseUrl).origin &&
       uri.path == '/forum.php' &&
       uri.queryParameters['mod'] == 'misc' &&
       uri.queryParameters['action'] == 'votepoll' &&
       int.tryParse(uri.queryParameters['tid'] ?? '') != null &&
-      uri.userInfo.isEmpty;
+      uri.userInfo.isEmpty &&
+      form.getAttribute('method')?.toLowerCase() == 'post' &&
+      uri.queryParameters.keys.every({'mod', 'action', 'fid', 'tid', 'pollsubmit', 'quickforward'}.contains);
   final plain = '$deadline $notice';
   final PollAvailability availability;
   if (!loggedIn) {

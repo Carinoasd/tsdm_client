@@ -53,6 +53,14 @@ void main() {
       PollAvailability.unsupported,
     );
     expect(_parse(_fixture('multiple').replaceAll('最多可选 2 项', '未知限制')).availability, PollAvailability.unsupported);
+    expect(
+      _parse(_fixture('multiple').replaceAll('action="forum.php', 'action="javascript:alert(1)//')).availability,
+      PollAvailability.unsupported,
+    );
+    expect(
+      _parse(_fixture('multiple').replaceAll('method="post"', 'method="get"')).availability,
+      PollAvailability.unsupported,
+    );
   });
   test('derived single-choice form replaces selection', () async {
     final html = _fixture('multiple').replaceAll('type="checkbox"', 'type="radio"');

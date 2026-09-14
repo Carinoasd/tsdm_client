@@ -1240,6 +1240,17 @@
       "sortByTime": "按时间排序"
     }
   },
+  "pollVoting": {
+    "submit": "提交投票",
+    "refresh": "刷新投票",
+    "selection": "已选 $count / $max 项",
+    "voted": "论坛已记录你的投票。",
+    "closed": "投票已结束。",
+    "loginRequired": "登录后才能投票。",
+    "denied": "当前帐号没有此投票的权限。",
+    "unsupported": "此投票格式暂不支持在 App 内提交，请用浏览器打开。",
+    "unconfirmed": "未能确认投票结果，请先查看刷新后的论坛状态，再决定是否重试。"
+  },
   "pollCard": {
     "title": "投票",
     "detail": "此楼层包含投票，在浏览器中打开以参加投票",
@@ -1494,16 +1505,5 @@
     "title": "电子邮件地址",
     "copy": "复制地址",
     "send": "用邮件应用打开"
-  },
-  "pollVoting": {
-    "submit": "提交投票",
-    "refresh": "刷新投票",
-    "selection": "已选 $count / $max 项",
-    "voted": "论坛已记录你的投票。",
-    "closed": "投票已结束。",
-    "loginRequired": "登录后才能投票。",
-    "denied": "当前帐号没有此投票的权限。",
-    "unsupported": "此投票格式暂不支持在 App 内提交，请用浏览器打开。",
-    "unconfirmed": "未能确认投票结果，请先查看刷新后的论坛状态，再决定是否重试。"
   }
 }
