@@ -8,43 +8,46 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// 系统托盘管理助手。
+/// 系统托盘管理助手（仅 Windows）。
 ///
-/// 负责初始化托盘图标、处理右键菜单点击，以及处理退出逻辑。
+/// 负责初始化托盘图标、处理右键菜单点击。本类**不拦截**窗口关闭事件：点击
+/// 标题栏 X 时由 Windows 默认行为直接退出应用
+/// （`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
 ///
-/// 注意：本类**不拦截**窗口关闭事件。点击标题栏 X 时由 Windows 默认行为直接
-/// 退出应用（`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
+/// 本类不做平台判断，由调用方（`main.dart`）保证只在 Windows 上初始化；
+/// 初始化失败不会抛出，避免影响主程序启动。
 class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper._();
 
   /// 全局单例。
   static final TrayHelper instance = TrayHelper._();
 
-  /// 设置流订阅，用于在用户名变化时刷新菜单。
+  /// 设置流订阅，用于在登录用户名变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
 
   /// 上次构建菜单时的用户名，用于对比是否需要刷新菜单。
   String _lastUsername = '';
 
   /// 初始化托盘。
+  ///
+  /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
   Future<void> init() async {
     trayManager.addListener(this);
 
-    // 加载托盘图标。
     final iconPath = await _prepareTrayIcon();
     await trayManager.setIcon(iconPath);
     await trayManager.setToolTip('tsdm_client');
 
-    // 构建初始菜单。
     await _updateContextMenu();
 
-    // 监听设置变化（特别是登录用户名），以便自动刷新菜单。
+    // 登录用户名变化时自动刷新菜单（登录、登出、切账户）。
     final settingsRepo = getIt.get<SettingsRepository>();
     _settingsSubscription = settingsRepo.settings.listen((settings) {
       if (settings.loginUsername != _lastUsername) {
@@ -55,6 +58,8 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
+  ///
+  /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
   Future<String> _prepareTrayIcon() async {
     final dir = await getTemporaryDirectory();
     final separator = io.Platform.pathSeparator;
@@ -68,38 +73,45 @@ class TrayHelper with TrayListener, LoggerMixin {
     return filePath;
   }
 
-  /// 更新右键菜单。
+  /// 从当前 locale 取翻译表；UI 尚未挂载时返回 null，由调用方兜底英文。
+  Translations? get _translations {
+    final ctx = router.routerDelegate.navigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      return ctx.t;
+    }
+    return null;
+  }
+
+  /// 构建并设置右键菜单。
   Future<void> _updateContextMenu() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
-    final username = settings.loginUsername.isEmpty ? '未登录' : settings.loginUsername;
-    _lastUsername = settings.loginUsername;
+    final username = settings.loginUsername;
+    _lastUsername = username;
 
-    // 图标选用视觉宽度相近的 emoji，Win32 原生菜单能更整齐地对齐：
-    // 👤（用户）/ 📖（历史）/ 📁（收藏）/ 👥（管理账户）/ ➡️（退出）
+    final tr = _translations;
+    final userLabel = tr == null
+        ? '👤 User: ${username.isEmpty ? 'Not logged in' : username}'
+        : tr.tray.user(name: username.isEmpty ? tr.tray.notLoggedIn : username);
+
     final menu = Menu(
       items: [
-        MenuItem(key: 'userInfo', label: '👤 用户：$username', disabled: true),
+        MenuItem(key: 'userInfo', label: userLabel, disabled: true),
         MenuItem.separator(),
-        MenuItem(key: 'history', label: '📖 历史'),
-        MenuItem(key: 'favorite', label: '📁 收藏'),
-        MenuItem(key: 'manageAccount', label: '👥 管理账户'),
+        MenuItem(key: 'history', label: tr?.tray.history ?? '📖 History'),
+        MenuItem(key: 'favorite', label: tr?.tray.favorite ?? '📁 Favorites'),
+        MenuItem(key: 'manageAccount', label: tr?.tray.manageAccount ?? '👥 Manage accounts'),
         MenuItem.separator(),
-        MenuItem(key: 'exit', label: '➡️ 退出'),
+        MenuItem(key: 'logout', label: tr?.tray.logout ?? '➡️ Log out'),
+        MenuItem(key: 'exit', label: tr?.tray.exit ?? '🚪 Exit app'),
       ],
     );
     await trayManager.setContextMenu(menu);
   }
 
-  /// 左键单击托盘图标：显示并聚焦窗口。
+  /// 左键单击托盘图标：还原并聚焦窗口。
   @override
   void onTrayIconMouseDown() {
-    unawaited(_showWindow());
-  }
-
-  /// 显示并聚焦窗口。
-  Future<void> _showWindow() async {
-    await windowManager.show();
-    await windowManager.focus();
+    unawaited(_bringToFront());
   }
 
   /// 右键单击托盘图标：弹出菜单。
@@ -114,67 +126,55 @@ class TrayHelper with TrayListener, LoggerMixin {
     unawaited(_handleMenuItemClick(menuItem));
   }
 
-  /// 处理单个菜单项的点击。
   Future<void> _handleMenuItemClick(MenuItem menuItem) async {
-    final key = menuItem.key;
-    if (key == 'history') {
-      unawaited(router.pushNamed(ScreenPaths.threadVisitHistory));
-    } else if (key == 'favorite') {
-      unawaited(router.pushNamed(ScreenPaths.favorite));
-    } else if (key == 'manageAccount') {
-      unawaited(router.pushNamed(ScreenPaths.manageAccount));
-    } else if (key == 'exit') {
-      await _handleExit();
+    switch (menuItem.key) {
+      case 'history':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.threadVisitHistory));
+      case 'favorite':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.favorite));
+      case 'manageAccount':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.manageAccount));
+      case 'logout':
+        await _bringToFront();
+        await _logout();
+      case 'exit':
+        await _exitApp();
     }
   }
 
-  /// 处理退出逻辑。
-  Future<void> _handleExit() async {
-    final settingsRepo = getIt.get<SettingsRepository>();
-
-    final remember = await settingsRepo.getValue<bool>(SettingsKeys.rememberExitChoice);
-    final savedAction = await settingsRepo.getValue<String>(SettingsKeys.exitAction);
-    if (remember) {
-      await _executeExit(savedAction);
-      return;
+  /// 从最小化/后台状态还原窗口并聚焦。
+  Future<void> _bringToFront() async {
+    if (await windowManager.isMinimized()) {
+      await windowManager.restore();
     }
+    await windowManager.show();
+    await windowManager.focus();
+  }
 
-    final context = router.routerDelegate.navigatorKey.currentContext;
-    if (context == null || !context.mounted) {
-      return;
-    }
-
-    final result = await showDialog<ExitChoiceResult>(
-      context: context,
-      builder: (context) => const _ExitDialog(),
+  /// 退出当前账号。检查 [AuthenticationRepository.logout] 的结果并给出提示。
+  Future<void> _logout() async {
+    final either = await getIt.get<AuthenticationRepository>().logout().run();
+    either.match(
+      (err) {
+        debug('tray logout failed: $err');
+        _showToast(_translations?.tray.logoutFailed(err: '$err') ?? 'Log out failed: $err');
+      },
+      (_) {
+        debug('tray logout succeeded');
+        _showToast(_translations?.tray.logoutSuccess ?? 'Logged out');
+        unawaited(_updateContextMenu());
+      },
     );
-
-    if (result != null) {
-      if (result.remember) {
-        await settingsRepo.setValue<bool>(SettingsKeys.rememberExitChoice, true);
-        await settingsRepo.setValue<String>(SettingsKeys.exitAction, result.action);
-      }
-      await _executeExit(result.action);
-    }
   }
 
-  /// 执行退出动作。
-  Future<void> _executeExit(String action) async {
-    if (action == 'logout') {
-      debug('exit action: logout');
-      await getIt.get<AuthenticationRepository>().logout().run();
-      await _updateContextMenu();
-    } else {
-      debug('exit action: exit app');
-      await _cleanupAndExit();
-    }
-  }
-
-  /// 清理监听并强制结束进程。
+  /// 强制退出应用进程。
   ///
-  /// 使用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
+  /// 用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
   /// 会阻塞 UI 线程，导致窗口"未响应"后再崩溃。
-  Future<void> _cleanupAndExit() async {
+  Future<void> _exitApp() async {
     try {
       await _settingsSubscription?.cancel();
     } on Exception catch (e) {
@@ -183,76 +183,13 @@ class TrayHelper with TrayListener, LoggerMixin {
     trayManager.removeListener(this);
     io.exit(0);
   }
-}
 
-/// 退出选择的返回结果。
-///
-/// 表示用户在退出弹窗中做出的选择。
-class ExitChoiceResult {
-  /// 构造函数。
-  ///
-  /// [action] 为退出动作（'logout' 或 'exit'），[remember] 表示是否记住本次选择。
-  ExitChoiceResult({required this.action, required this.remember});
-
-  /// 退出动作：'logout' 退出账号，'exit' 退出软件。
-  final String action;
-
-  /// 是否记住本次选择，下次点击退出直接执行。
-  final bool remember;
-}
-
-/// 退出确认对话框。
-class _ExitDialog extends StatefulWidget {
-  const _ExitDialog();
-
-  @override
-  State<_ExitDialog> createState() => _ExitDialogState();
-}
-
-class _ExitDialogState extends State<_ExitDialog> {
-  String _action = 'exit';
-  bool _remember = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('退出'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RadioGroup<String>(
-            groupValue: _action,
-            onChanged: (v) => setState(() => _action = v!),
-            child: const Column(
-              children: [
-                RadioListTile<String>(
-                  title: Text('退出账号'),
-                  value: 'logout',
-                ),
-                RadioListTile<String>(
-                  title: Text('退出软件'),
-                  value: 'exit',
-                ),
-              ],
-            ),
-          ),
-          CheckboxListTile(
-            title: const Text('记住我的选择'),
-            value: _remember,
-            onChanged: (v) => setState(() => _remember = v!),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, ExitChoiceResult(action: _action, remember: _remember)),
-          child: const Text('确定'),
-        ),
-      ],
-    );
+  /// 通过全局 SnackBar 显示一次性提示。
+  void _showToast(String message) {
+    final ctx = router.routerDelegate.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) {
+      return;
+    }
+    showSnackBar(context: ctx, message: message);
   }
 }
