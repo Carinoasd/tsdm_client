@@ -1,5 +1,13 @@
 {
   "locale": "繁體中文",
+  "tray": {
+    "user": "👤 使用者：$name",
+    "notLoggedIn": "未登入",
+    "history": "📖 歷史",
+    "favorite": "📁 收藏",
+    "manageAccount": "👥 管理帳戶",
+    "exit": "❌ 結束程式"
+  },
   "appName": "天使動漫",
   "general": {
     "ok": "確定",

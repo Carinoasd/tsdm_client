@@ -15,7 +15,6 @@ dependencies:
   args: ^2.6.0
   bloc: ^9.2.0
   chat_bottom_container: ^0.4.0
-  # Blocked by flutter
   collection: any
   cookie_jar: ^4.0.8
   cryptography: ^2.9.0
@@ -29,7 +28,6 @@ dependencies:
   dio_brotli_transformer: ^2.0.0
   dio_cookie_manager: ^3.3.0
   drift: ^2.31.0
-  # For drift
   drift_dev: ^2.31.0
   drift_flutter: ^0.2.8
   easy_refresh: ^3.4.0
@@ -75,9 +73,7 @@ dependencies:
   slang: ^4.12.1
   slang_flutter: ^4.12.1
   smooth_sheets: ^0.16.0
-  # For drift
   sqlite3: ^2.9.4
-  # For drift
   sqlite3_flutter_libs: ^0.5.41
   stream_transform: ^2.1.1
   super_sliver_list: ^0.4.1
@@ -91,6 +87,7 @@ dependencies:
   talker: ^5.1.13
   talker_flutter: ^5.1.13
   text_scroll: ^0.2.1
+  tray_manager: ^0.5.3
   universal_html: ^2.3.0
   url_launcher: ^6.3.2
   uuid: ^4.5.2

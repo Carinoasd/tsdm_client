@@ -50,6 +50,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -157,6 +158,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
+    if (isWindows) {
+      unawaited(TrayHelper.instance.dispose());
+    }
     super.dispose();
   }
 
@@ -200,6 +204,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   @override
   Widget build(BuildContext context) {
     final tr = context.t.globalStatePage;
+
+    // Keep the native menu in the same language as the UI, including device locale changes.
+    if (isWindows) {
+      TrayHelper.instance.updateTranslations(context.t);
+    }
 
     return MultiRepositoryProvider(
       providers: [

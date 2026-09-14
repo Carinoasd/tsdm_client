@@ -62,6 +62,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_EXITMENULOOP:
+      if (wparam) {
+        // tray_manager foregrounds this window before TrackPopupMenu, but does
+        // not post the benign message Windows requires after a tray menu closes.
+        // Queue it when the shortcut menu exits so the next menu stays open.
+        ::PostMessage(hwnd, WM_NULL, 0, 0);
+      }
+      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

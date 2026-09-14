@@ -17,6 +17,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
@@ -59,11 +60,23 @@ Future<void> _boot(List<String> args) async {
     await LocaleSettings.setLocale(locale);
   }
 
+  // Desktop only: init window manager and restore window bounds.
   if (isDesktop) {
     await windowManager.ensureInitialized();
     if (!cmdArgs.noWindowConfigs) {
       await desktopUpdateWindowTitle();
       await desktopRestoreWindowBounds(settings);
+    }
+  }
+
+  // System tray is Windows-only. It must never break app startup, so any failure
+  // here is logged and swallowed.
+  if (isWindows) {
+    try {
+      await TrayHelper.instance.init();
+      // Asset loading can also throw FlutterError; the optional tray must not prevent startup.
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'tray init failed');
     }
   }
 

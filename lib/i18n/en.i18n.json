@@ -1,5 +1,13 @@
 {
   "locale": "English",
+  "tray": {
+    "user": "👤 User: $name",
+    "notLoggedIn": "Not logged in",
+    "history": "📖 History",
+    "favorite": "📁 Favorites",
+    "manageAccount": "👥 Manage accounts",
+    "exit": "❌ Exit app"
+  },
   "appName": "TSDM",
   "general": {
     "ok": "Ok",
