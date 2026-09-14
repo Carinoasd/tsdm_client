@@ -74,7 +74,8 @@ Future<void> _boot(List<String> args) async {
   if (isWindows) {
     try {
       await TrayHelper.instance.init();
-    } on Exception catch (e, st) {
+      // Asset loading can also throw FlutterError; the optional tray must not prevent startup.
+    } on Object catch (e, st) {
       talker.handle(e, st, 'tray init failed');
     }
   }

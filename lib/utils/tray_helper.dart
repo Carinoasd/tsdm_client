@@ -39,47 +39,50 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 最近一次由 [updateTranslations] 注入的翻译表。
   Translations? _translations;
 
-  /// 是否已调用过 [init]。
+  /// Whether the native icon and menu are ready to receive updates.
   bool _started = false;
+
+  bool _registered = false;
+  Future<void>? _initialization;
 
   /// 初始化托盘。
   ///
   /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
-  Future<void> init() async {
+  Future<void> init() => _initialization ??= _initialize();
+
+  Future<void> _initialize() async {
     trayManager.addListener(this);
-    _started = true;
+    _registered = true;
+    try {
+      final iconPath = await _prepareTrayIcon();
+      await trayManager.setIcon(iconPath);
+      await trayManager.setToolTip('tsdm_client');
+      await _updateContextMenu();
 
-    final iconPath = await _prepareTrayIcon();
-    await trayManager.setIcon(iconPath);
-    await trayManager.setToolTip('tsdm_client');
-
-    await _updateContextMenu();
-
-    // 登录用户名或 locale 变化时自动刷新菜单（登录、登出、切账户、切语言）。
-    final settingsRepo = getIt.get<SettingsRepository>();
-    _settingsSubscription = settingsRepo.settings.listen((settings) {
-      final usernameChanged = settings.loginUsername != _lastUsername;
-      final localeChanged = settings.locale != _lastLocale;
-      if (usernameChanged || localeChanged) {
-        _lastUsername = settings.loginUsername;
-        _lastLocale = settings.locale;
-        unawaited(_updateContextMenu());
-      }
-    });
+      _started = true;
+      final settingsRepo = getIt.get<SettingsRepository>();
+      _settingsSubscription = settingsRepo.settings.listen((settings) {
+        if (settings.loginUsername != _lastUsername || settings.locale != _lastLocale) {
+          unawaited(_refreshContextMenu());
+        }
+      });
+      // Asset loading may throw FlutterError as well as platform exceptions.
+    } on Object {
+      await dispose();
+      rethrow;
+    }
   }
 
   /// 由 `App.build` 调用，把当前 UI 的翻译表同步给托盘。
   ///
-  /// 用 `context.t` 而不是 `LocaleSettings.instance.currentTranslations`：
-  /// 后者在部分 slang 版本里始终返回 baseLocale 的翻译，导致菜单语言不跟随。
-  /// 调用端在 `lib/app.dart` 的 `App.build` 开头。
+  /// Uses the UI's translation instance after a locale change, including device locale changes.
   void updateTranslations(Translations translations) {
     if (identical(_translations, translations)) {
       return;
     }
     _translations = translations;
     if (_started) {
-      unawaited(_updateContextMenu());
+      unawaited(_refreshContextMenu());
     }
   }
 
@@ -87,22 +90,31 @@ class TrayHelper with TrayListener, LoggerMixin {
   ///
   /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）退回
   /// slang 的 currentTranslations，不影响主流程。
-  Translations get _t => _translations ?? LocaleSettings.instance.currentTranslations;
+  Translations get _t => _translations ?? LocaleSettings.currentLocale.translations;
 
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
   ///
   /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
   Future<String> _prepareTrayIcon() async {
     final dir = await getTemporaryDirectory();
-    final separator = io.Platform.pathSeparator;
-    final filePath = '${dir.path}$separator/app_icon.ico';
+    final filePath = '${dir.path}${io.Platform.pathSeparator}tsdm_tray.ico';
     final file = io.File(filePath);
-
-    if (!file.existsSync() || file.lengthSync() == 0) {
-      final bytes = await rootBundle.load('assets/images/app_icon.ico');
-      await file.writeAsBytes(bytes.buffer.asUint8List());
-    }
+    // Refresh on each launch so an app upgrade cannot keep displaying an old cached icon.
+    final bytes = await rootBundle.load('assets/images/app_icon.ico');
+    await file.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));
     return filePath;
+  }
+
+  Future<void> _refreshContextMenu() async {
+    if (!_started) {
+      return;
+    }
+    try {
+      await _updateContextMenu();
+      // An optional native menu update must not become an unhandled asynchronous error.
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'tray menu update failed');
+    }
   }
 
   /// 构建并设置右键菜单。
@@ -137,12 +149,13 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 右键单击托盘图标：弹出菜单。
   ///
-  /// 曾尝试在弹菜单前调用 `windowManager.blur()`，实测无效：`tray_manager` 在
-  /// Windows 上把菜单的 owner 设成一个隐藏窗口，主窗口的前台状态与菜单是否
-  /// 自动收起无关，所以不做任何预处理。
+  /// Windows requires the native menu owner to be foreground for clicks outside to dismiss it.
+  /// The plugin's default skips SetForegroundWindow; this option activates its hidden owner window.
   @override
   void onTrayIconRightMouseDown() {
-    unawaited(trayManager.popUpContextMenu());
+    // Supported by tray_manager 0.5.x; needed until the Windows backend handles this unconditionally.
+    // ignore: deprecated_member_use
+    unawaited(trayManager.popUpContextMenu(bringAppToFront: true));
   }
 
   /// 菜单项点击事件。
@@ -181,12 +194,31 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
   /// 会阻塞 UI 线程，导致窗口"未响应"后再崩溃。
   Future<void> _exitApp() async {
+    await dispose();
+    io.exit(0);
+  }
+
+  /// Release subscriptions and remove the native icon, including after partial initialization.
+  Future<void> dispose() async {
+    _started = false;
+    _initialization = null;
+    _translations = null;
     try {
       await _settingsSubscription?.cancel();
     } on Exception catch (e) {
       debug('cancel settings subscription failed: $e');
+    } finally {
+      _settingsSubscription = null;
     }
-    trayManager.removeListener(this);
-    io.exit(0);
+    if (_registered) {
+      _registered = false;
+      trayManager.removeListener(this);
+      try {
+        await trayManager.destroy();
+        // Preserve the initialization failure if cleanup also fails.
+      } on Object catch (e, st) {
+        talker.handle(e, st, 'tray cleanup failed');
+      }
+    }
   }
 }

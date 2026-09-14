@@ -158,6 +158,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
+    if (isWindows) {
+      unawaited(TrayHelper.instance.dispose());
+    }
     super.dispose();
   }
 
@@ -202,9 +205,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   Widget build(BuildContext context) {
     final tr = context.t.globalStatePage;
 
-    // 每次 App 重建（含语言切换）都把当前翻译表同步给托盘，
-    // 保证右键菜单文字跟随 UI 语言。
-    TrayHelper.instance.updateTranslations(context.t);
+    // Keep the native menu in the same language as the UI, including device locale changes.
+    if (isWindows) {
+      TrayHelper.instance.updateTranslations(context.t);
+    }
 
     return MultiRepositoryProvider(
       providers: [
