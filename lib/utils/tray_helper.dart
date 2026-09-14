@@ -72,28 +72,32 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     final username = settings.loginUsername.isEmpty ? '未登录' : settings.loginUsername;
     _lastUsername = settings.loginUsername; // 记录当前状态
 
+    // 图标选用视觉宽度相近的 emoji，Win32 原生菜单能更整齐地对齐：
+    // 👤 (用户) / 📖 (历史) / 📁 (收藏) / 👥 (管理账户) / ➡️ (退出)
     final menu = Menu(
       items: [
         MenuItem(key: 'userInfo', label: '👤 用户：$username', disabled: true),
         MenuItem.separator(),
         MenuItem(key: 'history', label: '📖 历史'),
-        MenuItem(key: 'favorite', label: '⭐ 收藏'),
+        MenuItem(key: 'favorite', label: '📁 收藏'),
         MenuItem(key: 'manageAccount', label: '👥 管理账户'),
         MenuItem.separator(),
-        MenuItem(key: 'exit', label: '🚪 退出'),
+        MenuItem(key: 'exit', label: '➡️ 退出'),
       ],
     );
     await trayManager.setContextMenu(menu);
   }
 
   /// 左键单击托盘图标：显示并聚焦窗口。
+  ///
+  /// 只调用 `show` 和 `focus`，**不要**触碰 `setSkipTaskbar`：Win32 在窗口隐藏后
+  /// 再去改任务栏状态会触发原生窗口句柄失效，导致整个进程崩溃。
   @override
   void onTrayIconMouseDown() {
     unawaited(_showWindow());
   }
 
   Future<void> _showWindow() async {
-    await windowManager.setSkipTaskbar(false);
     await windowManager.show();
     await windowManager.focus();
   }
@@ -124,10 +128,12 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   }
 
   /// 拦截窗口关闭事件：不退出，而是隐藏到托盘。
+  ///
+  /// **不要在这里调用 `setSkipTaskbar`**：Win32 在窗口隐藏后再去改任务栏状态会
+  /// 触发原生窗口句柄失效，导致整个进程崩溃。只调用 `hide()` 是经过验证最稳的方案。
   @override
   Future<void> onWindowClose() async {
     debug('window close intercepted, hiding to tray');
-    await windowManager.setSkipTaskbar(true);
     await windowManager.hide();
   }
 
