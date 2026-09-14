@@ -29,6 +29,9 @@ class ScreenPaths {
   /// Only the very first part of page.
   static const String homepage = '/homepage';
 
+  /// Activities published on the forum homepage.
+  static const String activities = '/activities';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Rest part of homepage, including all topics.

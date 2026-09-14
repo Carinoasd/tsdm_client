@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "活動總覽",
+    "refresh": "重新整理",
+    "openForum": "開啟論壇首頁",
+    "description": "以下連結來自論壇首頁活動專區，活動規則和時間請以各主題內容為準。",
+    "empty": "論壇目前沒有提供活動連結。"
+  },
   "locale": "繁體中文",
   "tray": {
     "user": "👤 使用者：$name",
