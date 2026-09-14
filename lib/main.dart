@@ -60,21 +60,23 @@ Future<void> _boot(List<String> args) async {
     await LocaleSettings.setLocale(locale);
   }
 
+  // Desktop only: init window manager and restore window bounds.
   if (isDesktop) {
     await windowManager.ensureInitialized();
-    // 不拦截窗口关闭：点击标题栏 X 时由 Windows 默认行为直接退出应用
-    // （`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
-    // 如需恢复"关闭时隐藏到托盘"的旧行为，取消下一行注释，并在 TrayHelper 中
-    // 实现 WindowListener 与 onWindowClose 隐藏窗口的逻辑。
-    // await windowManager.setPreventClose(true);
-
     if (!cmdArgs.noWindowConfigs) {
       await desktopUpdateWindowTitle();
       await desktopRestoreWindowBounds(settings);
     }
+  }
 
-    // 初始化托盘（仅用于提供右键菜单入口）。
-    await TrayHelper.instance.init();
+  // System tray is Windows-only. It must never break app startup, so any failure
+  // here is logged and swallowed.
+  if (isWindows) {
+    try {
+      await TrayHelper.instance.init();
+    } on Exception catch (e, st) {
+      talker.handle(e, st, 'tray init failed');
+    }
   }
 
   // System color.
