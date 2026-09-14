@@ -135,9 +135,22 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   /// 右键单击托盘图标：弹出菜单。
+  ///
+  /// 先让窗口失去焦点：窗口仍处于显示状态时 Windows 把窗口当作托盘菜单的
+  /// 背景 owner，点击桌面会被理解为对 owner 的点击，菜单就不会自动收起。
+  /// `blur()` 把前台状态释放掉后，系统就能正确地把菜单当作独立 modal 层。
   @override
   void onTrayIconRightMouseDown() {
-    unawaited(trayManager.popUpContextMenu());
+    unawaited(_popUpTrayMenu());
+  }
+
+  Future<void> _popUpTrayMenu() async {
+    try {
+      await windowManager.blur();
+    } on Exception catch (e) {
+      debug('blur before tray menu failed: $e');
+    }
+    await trayManager.popUpContextMenu();
   }
 
   /// 菜单项点击事件。
