@@ -142,8 +142,6 @@ final class SettingsRepository with LoggerMixin {
       collapseAppBarWhenScroll: s.extract(_SK.collapseAppBarWhenScroll),
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       textScaleFactor: s.extract(_SK.textScaleFactor),
-      rememberExitChoice: s.extract(_SK.rememberExitChoice),
-      exitAction: s.extract(_SK.exitAction),
     );
   }
 
