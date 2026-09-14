@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
@@ -107,6 +108,7 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.about, builder: (_) => const AboutPage()),
+  AppRoute(path: ScreenPaths.activities, builder: (_) => const ActivitiesPage()),
   AppRoute(path: ScreenPaths.license, builder: (_) => const AppLicensePage()),
   AppRoute(
     path: ScreenPaths.forum,

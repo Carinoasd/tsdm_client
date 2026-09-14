@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "Forum activities",
+    "refresh": "Refresh",
+    "openForum": "Open forum homepage",
+    "description": "Links published in the forum homepage activity section. Check each topic for its current rules and dates.",
+    "empty": "No activity links are currently provided by the forum."
+  },
   "locale": "English",
   "tray": {
     "user": "👤 User: $name",
