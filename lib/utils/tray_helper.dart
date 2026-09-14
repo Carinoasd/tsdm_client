@@ -4,7 +4,6 @@ import 'dart:io' as io;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
-import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -12,7 +11,6 @@ import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 系统托盘管理助手（仅 Windows）。
@@ -124,7 +122,6 @@ class TrayHelper with TrayListener, LoggerMixin {
         MenuItem(key: 'favorite', label: tr.tray.favorite),
         MenuItem(key: 'manageAccount', label: tr.tray.manageAccount),
         MenuItem.separator(),
-        MenuItem(key: 'logout', label: tr.tray.logout),
         MenuItem(key: 'exit', label: tr.tray.exit),
       ],
     );
@@ -160,9 +157,6 @@ class TrayHelper with TrayListener, LoggerMixin {
       case 'manageAccount':
         await _bringToFront();
         unawaited(router.pushNamed(ScreenPaths.manageAccount));
-      case 'logout':
-        await _bringToFront();
-        await _logout();
       case 'exit':
         await _exitApp();
     }
@@ -177,22 +171,6 @@ class TrayHelper with TrayListener, LoggerMixin {
     await windowManager.focus();
   }
 
-  /// 退出当前账号。检查 [AuthenticationRepository.logout] 的结果并给出提示。
-  Future<void> _logout() async {
-    final either = await getIt.get<AuthenticationRepository>().logout().run();
-    either.match(
-      (err) {
-        debug('tray logout failed: $err');
-        _showToast(_t.tray.logoutFailed(err: '$err'));
-      },
-      (_) {
-        debug('tray logout succeeded');
-        _showToast(_t.tray.logoutSuccess);
-        unawaited(_updateContextMenu());
-      },
-    );
-  }
-
   /// 强制退出应用进程。
   ///
   /// 用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
@@ -205,14 +183,5 @@ class TrayHelper with TrayListener, LoggerMixin {
     }
     trayManager.removeListener(this);
     io.exit(0);
-  }
-
-  /// 通过全局 SnackBar 显示一次性提示。
-  void _showToast(String message) {
-    final ctx = router.routerDelegate.navigatorKey.currentContext;
-    if (ctx == null || !ctx.mounted) {
-      return;
-    }
-    showSnackBar(context: ctx, message: message);
   }
 }
