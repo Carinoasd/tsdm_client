@@ -72,6 +72,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   ///
   /// 用 `context.t` 而不是 `LocaleSettings.instance.currentTranslations`：
   /// 后者在部分 slang 版本里始终返回 baseLocale 的翻译，导致菜单语言不跟随。
+  /// 调用端在 `lib/app.dart` 的 `App.build` 开头。
   void updateTranslations(Translations translations) {
     if (identical(_translations, translations)) {
       return;
@@ -136,21 +137,12 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 右键单击托盘图标：弹出菜单。
   ///
-  /// 先让窗口失去焦点：窗口仍处于显示状态时 Windows 把窗口当作托盘菜单的
-  /// 背景 owner，点击桌面会被理解为对 owner 的点击，菜单就不会自动收起。
-  /// `blur()` 把前台状态释放掉后，系统就能正确地把菜单当作独立 modal 层。
+  /// 曾尝试在弹菜单前调用 `windowManager.blur()`，实测无效：`tray_manager` 在
+  /// Windows 上把菜单的 owner 设成一个隐藏窗口，主窗口的前台状态与菜单是否
+  /// 自动收起无关，所以不做任何预处理。
   @override
   void onTrayIconRightMouseDown() {
-    unawaited(_popUpTrayMenu());
-  }
-
-  Future<void> _popUpTrayMenu() async {
-    try {
-      await windowManager.blur();
-    } on Exception catch (e) {
-      debug('blur before tray menu failed: $e');
-    }
-    await trayManager.popUpContextMenu();
+    unawaited(trayManager.popUpContextMenu());
   }
 
   /// 菜单项点击事件。
