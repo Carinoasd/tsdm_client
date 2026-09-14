@@ -114,9 +114,15 @@ Future<void> deleteLegacyLocalNoticeChannel() async {
 ///
 /// Windows: shows a system toast; the IM preset sound is configured in [buildLocalNotificationDetails].
 Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInfo info) async {
+  // Diagnostic: entry point logging so we can tell from the exported log whether
+  // this function was reached at all on desktop platforms.
+  talker.info('showLocalNotification called: ${info.runtimeType} isAndroid=$isAndroid isWindows=$isWindows');
+
   if (!isAndroid && !isWindows) {
+    talker.info('showLocalNotification: platform not supported, returning early');
     return;
   }
+
   final tr = context.t.localNotification;
   final nd = buildLocalNotificationDetails(
     channelName: tr.channelName,
@@ -125,6 +131,8 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
   );
   final body = buildLocalNotificationBody(context, info);
   final title = tr.notice.title;
+  talker.info('showLocalNotification: prepared title="$title" body="$body"');
+
   try {
     if (isAndroid) {
       final enabled = await flnp
@@ -134,6 +142,7 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
         'push local notification id=$localNoticeId channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
       );
     }
+    talker.info('showLocalNotification: calling flnp.show');
     await flnp.show(
       id: localNoticeId,
       title: title,
@@ -141,6 +150,7 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
       notificationDetails: nd,
       payload: LocalNoticeKeys.openNotification,
     );
+    talker.info('showLocalNotification: flnp.show returned normally');
   } on Exception catch (e, st) {
     talker.handle(e, st, 'push local notification failed: ');
   }
