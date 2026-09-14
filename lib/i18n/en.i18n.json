@@ -1,6 +1,6 @@
 {
   "locale": "English",
-"tray": {
+  "tray": {
   "user": "👤 User: $name",
   "notLoggedIn": "Not logged in",
   "history": "📖 History",
