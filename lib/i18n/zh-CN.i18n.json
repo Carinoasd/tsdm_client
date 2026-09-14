@@ -1,6 +1,6 @@
 {
   "locale": "简体中文",
-"tray": {
+  "tray": {
   "user": "👤 用户：$name",
   "notLoggedIn": "未登录",
   "history": "📖 历史",
