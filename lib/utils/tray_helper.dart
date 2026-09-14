@@ -12,14 +12,14 @@ import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:window_manager/window_manager.dart';
 
 /// 系统托盘管理助手。
 ///
 /// 负责初始化托盘图标、处理右键菜单点击，以及处理退出逻辑。
 ///
-/// 注意：本类**不再**拦截窗口关闭事件。点击标题栏 X 时由 Windows 默认行为直接
-/// 退出应用（`main.cpp` 中已设置 `SetQuitOnClose(true)`）。因此本类也不实现
-/// `WindowListener`。
+/// 注意：本类**不拦截**窗口关闭事件。点击标题栏 X 时由 Windows 默认行为直接
+/// 退出应用（`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
 class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper._();
 
@@ -36,15 +36,15 @@ class TrayHelper with TrayListener, LoggerMixin {
   Future<void> init() async {
     trayManager.addListener(this);
 
-    // 加载托盘图标
+    // 加载托盘图标。
     final iconPath = await _prepareTrayIcon();
     await trayManager.setIcon(iconPath);
     await trayManager.setToolTip('tsdm_client');
 
-    // 构建初始菜单
+    // 构建初始菜单。
     await _updateContextMenu();
 
-    // 监听设置变化（特别是登录用户名），以便自动刷新菜单
+    // 监听设置变化（特别是登录用户名），以便自动刷新菜单。
     final settingsRepo = getIt.get<SettingsRepository>();
     _settingsSubscription = settingsRepo.settings.listen((settings) {
       if (settings.loginUsername != _lastUsername) {
@@ -72,10 +72,10 @@ class TrayHelper with TrayListener, LoggerMixin {
   Future<void> _updateContextMenu() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     final username = settings.loginUsername.isEmpty ? '未登录' : settings.loginUsername;
-    _lastUsername = settings.loginUsername; // 记录当前状态
+    _lastUsername = settings.loginUsername;
 
     // 图标选用视觉宽度相近的 emoji，Win32 原生菜单能更整齐地对齐：
-    // 👤 (用户) / 📖 (历史) / 📁 (收藏) / 👥 (管理账户) / ➡️ (退出)
+    // 👤（用户）/ 📖（历史）/ 📁（收藏）/ 👥（管理账户）/ ➡️（退出）
     final menu = Menu(
       items: [
         MenuItem(key: 'userInfo', label: '👤 用户：$username', disabled: true),
@@ -96,32 +96,10 @@ class TrayHelper with TrayListener, LoggerMixin {
     unawaited(_showWindow());
   }
 
+  /// 显示并聚焦窗口。
   Future<void> _showWindow() async {
-    await windowManagerShowAndFocus();
-  }
-
-  Future<void> windowManagerShowAndFocus() async {
-    // 这里保持对 window_manager 的最小调用：
-    // 只显示 + 聚焦，不做任务栏状态切换。
-    await _wmShow();
-    await _wmFocus();
-  }
-
-  Future<void> _wmShow() async {
-    // ignore: avoid_dynamic_calls
-    await (await _wmInstance()).show();
-  }
-
-  Future<void> _wmFocus() async {
-    // ignore: avoid_dynamic_calls
-    await (await _wmInstance()).focus();
-  }
-
-  Future<dynamic> _wmInstance() async {
-    // 延迟 import 以避免顶层循环引用；window_manager 的全局对象在 main 中已初始化。
-    // 这里直接调用已初始化的全局对象。
-    // ignore: avoid_dynamic_calls
-    return _windowManager;
+    await windowManager.show();
+    await windowManager.focus();
   }
 
   /// 右键单击托盘图标：弹出菜单。
@@ -136,6 +114,7 @@ class TrayHelper with TrayListener, LoggerMixin {
     unawaited(_handleMenuItemClick(menuItem));
   }
 
+  /// 处理单个菜单项的点击。
   Future<void> _handleMenuItemClick(MenuItem menuItem) async {
     final key = menuItem.key;
     if (key == 'history') {
@@ -198,7 +177,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   Future<void> _cleanupAndExit() async {
     try {
       await _settingsSubscription?.cancel();
-    } catch (e) {
+    } on Exception catch (e) {
       debug('cancel settings subscription failed: $e');
     }
     trayManager.removeListener(this);
