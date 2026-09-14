@@ -1494,5 +1494,16 @@
     "title": "Email address",
     "copy": "Copy address",
     "send": "Open in mail app"
+  },
+  "pollVoting": {
+    "submit": "Submit vote",
+    "refresh": "Refresh poll",
+    "selection": "Selected $count / $max",
+    "voted": "Your vote has been recorded.",
+    "closed": "This poll has ended.",
+    "loginRequired": "Sign in to vote.",
+    "denied": "Your account cannot vote in this poll.",
+    "unsupported": "This poll format cannot be voted on in the app. Open it in your browser.",
+    "unconfirmed": "The vote could not be confirmed. Check the refreshed forum state before trying again."
   }
 }

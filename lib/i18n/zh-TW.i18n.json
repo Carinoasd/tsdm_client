@@ -1494,5 +1494,16 @@
     "title": "電子郵件地址",
     "copy": "複製地址",
     "send": "用郵件 App 開啟"
+  },
+  "pollVoting": {
+    "submit": "提交投票",
+    "refresh": "重新整理投票",
+    "selection": "已選 $count / $max 項",
+    "voted": "論壇已記錄你的投票。",
+    "closed": "投票已結束。",
+    "loginRequired": "登入後才能投票。",
+    "denied": "目前帳號沒有此投票的權限。",
+    "unsupported": "此投票格式暫不支援在 App 內提交，請用瀏覽器開啟。",
+    "unconfirmed": "未能確認投票結果，請先查看重新整理後的論壇狀態，再決定是否重試。"
   }
 }
