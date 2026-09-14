@@ -9,7 +9,7 @@
   "logout": "➡️ 退出账号",
   "logoutSuccess": "已退出账号",
   "logoutFailed": "退出账号失败：$err",
-  "exit": "🚪 退出软件"
+  "exit": "❌ 退出软件"
 },
   "appName": "天使动漫",
   "general": {
