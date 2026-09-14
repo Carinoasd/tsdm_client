@@ -37,7 +37,7 @@ const localNoticeId = 0;
 ///
 /// 注意：只有系统预设音才能在未 MSIX 打包时正常播放。自定义 mp3/wav 需要 MSIX，
 /// 因为 Windows 只接受 `ms-appx://` 或 `ms-resource://` 协议引用音频文件。
-const _windowsSound = WindowsNotificationSound.im;
+const WindowsNotificationSound _windowsSound = WindowsNotificationSound.im;
 
 /// Build the notification body text of [info].
 String buildLocalNotificationBody(BuildContext context, NotificationAutoSyncInfo info) {
@@ -84,7 +84,7 @@ NotificationDetails buildLocalNotificationDetails({
     importance: Importance.high,
     priority: Priority.high,
   ),
-  windows: const WindowsNotificationDetails(
+  windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
   ),
 );
