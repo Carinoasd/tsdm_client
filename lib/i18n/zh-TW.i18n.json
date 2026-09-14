@@ -429,6 +429,18 @@
     "initializingData": "正在初始化資料",
     "initFinished": "初始化完成"
   },
+  "achievementsPage": {
+    "title": "我的成就",
+    "refresh": "重新整理",
+    "loginRequired": "登入後查看我的成就。",
+    "empty": "暫無成就",
+    "emptyDetail": "論壇目前沒有提供此帳號的成就項目，可重新整理或前往論壇查看最新內容。",
+    "sourceNote": "論壇提供的成就內容：",
+    "notProvided": "論壇尚未提供成就詳情。",
+    "unsupported": "暫時無法辨識成就頁面，請前往論壇查看。",
+    "browserNotice": "查看詳情或領取獎勵，請前往論壇網頁。",
+    "openBrowser": "開啟論壇成就頁"
+  },
   "profilePage": {
     "title": "個人資料",
     "userNodeNotFound": "未找到使用者資訊節點",

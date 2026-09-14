@@ -429,6 +429,18 @@
     "initializingData": "正在初始化数据",
     "initFinished": "初始化完成"
   },
+  "achievementsPage": {
+    "title": "我的成就",
+    "refresh": "刷新",
+    "loginRequired": "登录后查看我的成就。",
+    "empty": "暂无成就",
+    "emptyDetail": "论坛目前没有提供此帐号的成就项目，可刷新或前往论坛查看最新内容。",
+    "sourceNote": "论坛提供的成就内容：",
+    "notProvided": "论坛尚未提供成就详情。",
+    "unsupported": "暂时无法识别成就页面，请前往论坛查看。",
+    "browserNotice": "查看详情或领取奖励，请前往论坛网页。",
+    "openBrowser": "打开论坛成就页"
+  },
   "profilePage": {
     "title": "个人资料",
     "userNodeNotFound": "未找到用户信息节点",

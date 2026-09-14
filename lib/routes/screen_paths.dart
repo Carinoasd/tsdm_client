@@ -51,6 +51,9 @@ class ScreenPaths {
   /// Logged user profile page.
   static const String loggedUserProfile = '/myProfile';
 
+  /// Current account's read-only achievements.
+  static const String achievements = '/achievements';
+
   /// Other not logged user profile page.
   ///
   ///
