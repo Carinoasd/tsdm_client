@@ -21,8 +21,8 @@ import 'package:window_manager/window_manager.dart';
 /// 标题栏 X 时由 Windows 默认行为直接退出应用
 /// （`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
 ///
-/// 本类不做平台判断，由调用方（`main.dart`）保证只在 Windows 上初始化；
-/// 初始化失败不会抛出，避免影响主程序启动。
+/// 托盘菜单的翻译由 [updateTranslations] 从 `App.build` 注入，保证语言切换
+/// 后菜单文字跟着变。
 class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper._();
 
@@ -38,11 +38,18 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 上次构建菜单时的 locale，用于对比是否需要刷新菜单。
   String _lastLocale = '';
 
+  /// 最近一次由 [updateTranslations] 注入的翻译表。
+  Translations? _translations;
+
+  /// 是否已调用过 [init]。
+  bool _started = false;
+
   /// 初始化托盘。
   ///
   /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
   Future<void> init() async {
     trayManager.addListener(this);
+    _started = true;
 
     final iconPath = await _prepareTrayIcon();
     await trayManager.setIcon(iconPath);
@@ -63,6 +70,26 @@ class TrayHelper with TrayListener, LoggerMixin {
     });
   }
 
+  /// 由 `App.build` 调用，把当前 UI 的翻译表同步给托盘。
+  ///
+  /// 用 `context.t` 而不是 `LocaleSettings.instance.currentTranslations`：
+  /// 后者在部分 slang 版本里始终返回 baseLocale 的翻译，导致菜单语言不跟随。
+  void updateTranslations(Translations translations) {
+    if (identical(_translations, translations)) {
+      return;
+    }
+    _translations = translations;
+    if (_started) {
+      unawaited(_updateContextMenu());
+    }
+  }
+
+  /// 当前 slang 翻译表。
+  ///
+  /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）退回
+  /// slang 的 currentTranslations，不影响主流程。
+  Translations get _t => _translations ?? LocaleSettings.instance.currentTranslations;
+
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
   ///
   /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
@@ -78,12 +105,6 @@ class TrayHelper with TrayListener, LoggerMixin {
     }
     return filePath;
   }
-
-  /// 当前 slang 翻译表。
-  ///
-  /// 用 [LocaleSettings.instance] 而不是 `context.t`：托盘菜单可能在 UI 上下文
-  /// 之外（或语言切换后立即）构建，`context.t` 会拿不到最新语言，导致回退英文。
-  Translations get _t => LocaleSettings.instance.currentTranslations;
 
   /// 构建并设置右键菜单。
   Future<void> _updateContextMenu() async {
