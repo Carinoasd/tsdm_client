@@ -1494,5 +1494,20 @@
     "title": "電子郵件地址",
     "copy": "複製地址",
     "send": "用郵件 App 開啟"
+  },
+  "medalCenter": {
+    "title": "勳章中心",
+    "category": "分類",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "browserNotice": "在此瀏覽勳章和取得條件；購買、申請或管理請前往論壇網頁。",
+    "loginRequired": "登入已失效，請重新登入。",
+    "unsupported": "論壇未提供可辨識的勳章列表，請用瀏覽器查看。",
+    "empty": "此分類暫無勳章。",
+    "notProvided": "未提供取得方式",
+    "noDetails": "論壇未提供此勳章的其他條件或價格。",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "page": "第 $number 頁"
   }
 }

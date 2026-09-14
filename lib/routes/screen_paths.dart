@@ -68,6 +68,9 @@ class ScreenPaths {
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 
+  /// Read-only medal catalogue.
+  static const String medalCenter = '/medalCenter';
+
   /// Page to edit current user's profile.
   static const String editUserProfile = '/editUserProfile';
 

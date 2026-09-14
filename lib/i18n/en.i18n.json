@@ -1494,5 +1494,20 @@
     "title": "Email address",
     "copy": "Copy address",
     "send": "Open in mail app"
+  },
+  "medalCenter": {
+    "title": "Medal centre",
+    "category": "Category",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "browserNotice": "Browse medals and conditions here. Use the forum website to purchase, apply or manage medals.",
+    "loginRequired": "Your session expired. Sign in again.",
+    "unsupported": "The forum did not provide a supported medal list. Open it in your browser.",
+    "empty": "No medals in this category.",
+    "notProvided": "Acquisition method not provided",
+    "noDetails": "The forum does not provide further conditions or prices for this medal.",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page $number"
   }
 }

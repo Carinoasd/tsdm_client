@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_detail_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
+import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
 import 'package:tsdm_client/features/my_thread/view/my_thread_page.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -280,6 +281,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.editAvatar, builder: (_) => const EditAvatarPage()),
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
+  AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),
   AppRoute(
     path: ScreenPaths.ratePost,

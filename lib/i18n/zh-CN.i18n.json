@@ -1494,5 +1494,20 @@
     "title": "电子邮件地址",
     "copy": "复制地址",
     "send": "用邮件应用打开"
+  },
+  "medalCenter": {
+    "title": "勋章中心",
+    "category": "分类",
+    "refresh": "刷新",
+    "openBrowser": "在浏览器打开",
+    "browserNotice": "在此浏览勋章和取得条件；购买、申请或管理请前往论坛网页。",
+    "loginRequired": "登录已失效，请重新登录。",
+    "unsupported": "论坛未提供可识别的勋章列表，请用浏览器查看。",
+    "empty": "此分类暂无勋章。",
+    "notProvided": "未提供取得方式",
+    "noDetails": "论坛未提供此勋章的其他条件或价格。",
+    "previous": "上一页",
+    "next": "下一页",
+    "page": "第 $number 页"
   }
 }
