@@ -88,6 +88,17 @@ void main() {
     await temp.delete();
   });
 
+  test('failure before creating an icon only removes the listener, and can be retried', () async {
+    messenger.setMockMethodCallHandler(pathChannel, (_) async => throw MissingPluginException('path unavailable'));
+    await expectLater(helper.init(), throwsA(isA<MissingPluginException>()));
+    expect(trayCalls, isEmpty, reason: 'there is no native icon to destroy');
+    expect(trayManager.hasListeners, isFalse);
+
+    messenger.setMockMethodCallHandler(pathChannel, (_) async => temp.path);
+    await helper.init();
+    expect(trayCalls.where((call) => call.method == 'setIcon'), hasLength(1));
+  });
+
   test('failed initialization removes listeners and icon, and can be retried', () async {
     failMethod = 'setContextMenu';
     await expectLater(helper.init(), throwsA(isA<PlatformException>()));

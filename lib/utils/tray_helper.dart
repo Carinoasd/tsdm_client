@@ -43,6 +43,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   bool _started = false;
 
   bool _registered = false;
+  bool _iconCreated = false;
   Future<void>? _initialization;
 
   /// 初始化托盘。
@@ -56,6 +57,7 @@ class TrayHelper with TrayListener, LoggerMixin {
     try {
       final iconPath = await _prepareTrayIcon();
       await trayManager.setIcon(iconPath);
+      _iconCreated = true;
       await trayManager.setToolTip('tsdm_client');
       await _updateContextMenu();
 
@@ -213,6 +215,10 @@ class TrayHelper with TrayListener, LoggerMixin {
     if (_registered) {
       _registered = false;
       trayManager.removeListener(this);
+    }
+    // Do not call native cleanup when preparing the asset failed before setIcon.
+    if (_iconCreated) {
+      _iconCreated = false;
       try {
         await trayManager.destroy();
         // Preserve the initialization failure if cleanup also fails.
