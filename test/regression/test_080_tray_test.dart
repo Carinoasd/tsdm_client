@@ -31,8 +31,10 @@ void main() {
 
   List<String> menuLabels() {
     final menuCall = trayCalls.lastWhere((call) => call.method == 'setContextMenu');
-    final items = (menuCall.arguments as Map)['menu']['items'] as List;
-    return items.map((item) => (item as Map)['label']).whereType<String>().toList();
+    final arguments = menuCall.arguments as Map<Object?, Object?>;
+    final menu = arguments['menu']! as Map<Object?, Object?>;
+    final items = menu['items']! as List<Object?>;
+    return items.map((item) => (item! as Map<Object?, Object?>)['label']).whereType<String>().toList();
   }
 
   Future<void> settleCallbacks() async {
@@ -55,19 +57,20 @@ void main() {
     failMethod = null;
     trayCalls = [];
     windowCalls = [];
-    messenger.setMockMethodCallHandler(pathChannel, (_) async => temp.path);
-    messenger.setMockMethodCallHandler(trayChannel, (call) async {
-      trayCalls.add(call);
-      if (call.method == failMethod) {
-        throw PlatformException(code: 'test_failure');
-      }
-      return true;
-    });
-    messenger.setMockMethodCallHandler(windowChannel, (call) async {
-      windowCalls.add(call.method);
-      if (call.method == 'restore') minimized = false;
-      return call.method == 'isMinimized' ? minimized : null;
-    });
+    messenger
+      ..setMockMethodCallHandler(pathChannel, (_) async => temp.path)
+      ..setMockMethodCallHandler(trayChannel, (call) async {
+        trayCalls.add(call);
+        if (call.method == failMethod) {
+          throw PlatformException(code: 'test_failure');
+        }
+        return true;
+      })
+      ..setMockMethodCallHandler(windowChannel, (call) async {
+        windowCalls.add(call.method);
+        if (call.method == 'restore') minimized = false;
+        return call.method == 'isMinimized' ? minimized : null;
+      });
   });
 
   tearDown(() async {
@@ -79,7 +82,7 @@ void main() {
       messenger.setMockMethodCallHandler(channel, null);
     }
     final icon = File('${temp.path}/tsdm_tray.ico');
-    if (await icon.exists()) {
+    if (icon.existsSync()) {
       await icon.delete();
     }
     await temp.delete();

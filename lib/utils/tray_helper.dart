@@ -89,7 +89,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 当前 slang 翻译表。
   ///
   /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）退回
-  /// slang 的 currentTranslations，不影响主流程。
+  /// 当前 locale 的翻译，不影响主流程。
   Translations get _t => _translations ?? LocaleSettings.currentLocale.translations;
 
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
@@ -150,7 +150,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 右键单击托盘图标：弹出菜单。
   ///
   /// Windows requires the native menu owner to be foreground for clicks outside to dismiss it.
-  /// The plugin's default skips SetForegroundWindow; this option activates its hidden owner window.
+  /// The plugin's default skips SetForegroundWindow; this option activates its top-level owner.
   @override
   void onTrayIconRightMouseDown() {
     // Supported by tray_manager 0.5.x; needed until the Windows backend handles this unconditionally.
