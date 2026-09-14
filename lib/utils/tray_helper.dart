@@ -205,8 +205,9 @@ class _ExitDialogState extends State<_ExitDialog> {
           RadioGroup<String>(
             groupValue: _action,
             onChanged: (v) => setState(() => _action = v!),
-            child: Column(
-              children: const [
+            // 这里改成 const Column，去掉 children 前的 const
+            child: const Column(
+              children: [
                 RadioListTile<String>(
                   title: Text('退出账号'),
                   value: 'logout',
