@@ -50,6 +50,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -200,6 +201,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   @override
   Widget build(BuildContext context) {
     final tr = context.t.globalStatePage;
+
+    // 每次 App 重建（含语言切换）都把当前翻译表同步给托盘，
+    // 保证右键菜单文字跟随 UI 语言。
+    TrayHelper.instance.updateTranslations(context.t);
 
     return MultiRepositoryProvider(
       providers: [
