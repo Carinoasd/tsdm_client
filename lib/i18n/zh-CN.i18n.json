@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "活动总览",
+    "refresh": "刷新",
+    "openForum": "打开论坛首页",
+    "description": "以下链接来自论坛首页活动专区，活动规则和时间请以各主题内容为准。",
+    "empty": "论坛目前没有提供活动链接。"
+  },
   "locale": "简体中文",
   "tray": {
     "user": "👤 用户：$name",
