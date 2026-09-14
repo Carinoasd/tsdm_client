@@ -1,0 +1,201 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fpdart/fpdart.dart' show Left, Right;
+import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/medal_center/cubit/medal_center_cubit.dart';
+import 'package:tsdm_client/features/medal_center/models/medal_catalog.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
+import 'package:tsdm_client/widgets/indicator.dart';
+
+/// Category browsing and acquisition details; all transactions stay on the website.
+class MedalCenterPage extends StatefulWidget {
+  /// Optional controller/image renderer for deterministic tests.
+  const MedalCenterPage({super.key, this.controller, this.imageBuilder});
+
+  /// Caller-owned controller when provided.
+  final MedalCenterCubit? controller;
+
+  /// Optional image renderer; production reuses [CachedImage].
+  final Widget Function(String? url)? imageBuilder;
+  @override
+  State<MedalCenterPage> createState() => _MedalCenterPageState();
+}
+
+class _MedalCenterPageState extends State<MedalCenterPage> {
+  late final MedalCenterCubit _cubit;
+  StreamSubscription<AuthStatus>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.controller case final controller?) {
+      _cubit = controller;
+    } else {
+      final auth = context.read<AuthenticationRepository>();
+      _cubit = MedalCenterCubit(
+        currentUid: () => auth.effectiveCurrentUid,
+        fetchPage: (url) async {
+          final result = await getIt.get<NetClientProvider>().get(url).run();
+          return switch (result) {
+            Right(:final value) => value.data as String,
+            Left(:final value) => throw value,
+          };
+        },
+      );
+      _authSubscription = auth.status.listen((status) {
+        _cubit.invalidate();
+        if (status is! AuthStatusLoading) unawaited(_cubit.load());
+      });
+    }
+    unawaited(_cubit.load());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription?.cancel());
+    if (widget.controller == null) unawaited(_cubit.close());
+    super.dispose();
+  }
+
+  Widget _image(String? url) => SizedBox(
+    width: 64,
+    height: 56,
+    child:
+        widget.imageBuilder?.call(url) ??
+        (url == null
+            ? const Icon(Icons.image_not_supported_outlined)
+            : CachedImage(url, width: 64, height: 56, fit: BoxFit.contain)),
+  );
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<MedalCenterCubit, MedalCenterState>(
+    bloc: _cubit,
+    builder: (context, state) {
+      final tr = context.t.medalCenter;
+      final catalog = state.catalog;
+      final type = Uri.parse(state.url).queryParameters['typeid'];
+      final selected = catalog?.categories.where((c) => Uri.parse(c.url).queryParameters['typeid'] == type).firstOrNull;
+      final Widget body;
+      if (state.loading) {
+        body = const CenteredCircularIndicator();
+      } else if (state.needLogin) {
+        body = Center(
+          child: TextButton(
+            onPressed: () async {
+              await context.pushNamed(ScreenPaths.login);
+              if (mounted) await _cubit.load();
+            },
+            child: Text(tr.loginRequired),
+          ),
+        );
+      } else if (state.failed) {
+        body = buildRetryButton(context, () => unawaited(_cubit.load()), message: context.t.general.failedToLoad);
+      } else {
+        body = RefreshIndicator(
+          onRefresh: _cubit.load,
+          child: ListView(
+            key: ValueKey(state.url),
+            padding: const EdgeInsets.all(12),
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Text(tr.browserNotice),
+              if (catalog?.categories.isNotEmpty ?? false)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('category-${state.url}'),
+                    initialValue: selected?.url,
+                    isExpanded: true,
+                    menuMaxHeight: 400,
+                    decoration: InputDecoration(labelText: tr.category),
+                    items: [
+                      for (final category in catalog!.categories)
+                        DropdownMenuItem(
+                          value: category.url,
+                          child: Text(category.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (url) {
+                      if (url != null) unawaited(_cubit.load(url));
+                    },
+                  ),
+                ),
+              if (catalog?.supported == false)
+                Text(catalog!.message?.isNotEmpty ?? false ? catalog.message! : tr.unsupported)
+              else if (catalog?.medals.isEmpty ?? true)
+                Padding(padding: const EdgeInsets.all(24), child: Text(tr.empty)),
+              for (final medal in catalog?.medals ?? <CatalogMedal>[])
+                Card(
+                  child: ExpansionTile(
+                    key: ValueKey('${state.url}-${medal.id}'),
+                    leading: _image(medal.imageUrl),
+                    title: Text(medal.name),
+                    subtitle: Text(medal.method.isEmpty ? tr.notProvided : medal.method),
+                    childrenPadding: const EdgeInsets.all(16),
+                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (medal.description.isNotEmpty) Text(medal.description),
+                      if (medal.accountStatus != null) Text(medal.accountStatus!),
+                      if (medal.details.isEmpty) Text(tr.noDetails),
+                      for (final detail in medal.details)
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(detail)),
+                      OutlinedButton.icon(
+                        onPressed: () async => context.dispatchAsUrl(state.url, external: true),
+                        icon: const Icon(Icons.open_in_browser_outlined),
+                        label: Text(tr.openBrowser),
+                      ),
+                    ],
+                  ),
+                ),
+              if (catalog != null && catalog.supported)
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  children: [
+                    TextButton(
+                      onPressed: catalog.previousUrl == null ? null : () => _cubit.load(catalog.previousUrl),
+                      child: Text(tr.previous),
+                    ),
+                    Text(tr.page(number: catalog.page)),
+                    TextButton(
+                      onPressed: catalog.nextUrl == null ? null : () => _cubit.load(catalog.nextUrl),
+                      child: Text(tr.next),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      }
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(tr.title),
+          actions: [
+            IconButton(
+              tooltip: tr.refresh,
+              icon: const Icon(Icons.refresh),
+              onPressed: state.loading ? null : _cubit.load,
+            ),
+            IconButton(
+              tooltip: tr.openBrowser,
+              icon: const Icon(Icons.open_in_browser_outlined),
+              onPressed: () async => context.dispatchAsUrl(state.url, external: true),
+            ),
+          ],
+        ),
+        body: SafeArea(child: body),
+      );
+    },
+  );
+}
