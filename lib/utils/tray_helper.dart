@@ -23,8 +23,8 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   /// 全局单例。
   static final TrayHelper instance = TrayHelper._();
 
-  /// 保存设置监听的订阅，用于释放。
-  StreamSubscription? _settingsSubscription;
+  /// 设置流订阅，用于在用户名变化时刷新菜单。
+  StreamSubscription<SettingsMap>? _settingsSubscription;
 
   /// 上次构建菜单时的用户名，用于对比是否需要刷新菜单。
   String _lastUsername = '';
@@ -47,7 +47,7 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     _settingsSubscription = settingsRepo.settings.listen((settings) {
       if (settings.loginUsername != _lastUsername) {
         _lastUsername = settings.loginUsername;
-        _updateContextMenu();
+        unawaited(_updateContextMenu());
       }
     });
   }
@@ -69,7 +69,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   /// 更新右键菜单。
   Future<void> _updateContextMenu() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
-    // 使用 Emoji 装饰，稍微弥补没有头像的缺憾
     final username = settings.loginUsername.isEmpty ? '未登录' : settings.loginUsername;
     _lastUsername = settings.loginUsername; // 记录当前状态
 
@@ -94,7 +93,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   }
 
   Future<void> _showWindow() async {
-    // 先取消跳过任务栏，再显示
     await windowManager.setSkipTaskbar(false);
     await windowManager.show();
     await windowManager.focus();
@@ -129,8 +127,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   @override
   Future<void> onWindowClose() async {
     debug('window close intercepted, hiding to tray');
-    // 为了规避 Windows 原生崩溃，先隐藏窗口，暂时不调用 setSkipTaskbar(true)
-    // 或者调换顺序：先设置跳过任务栏，再隐藏
     await windowManager.setSkipTaskbar(true);
     await windowManager.hide();
   }
@@ -170,19 +166,28 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     if (action == 'logout') {
       debug('exit action: logout');
       await getIt.get<AuthenticationRepository>().logout().run();
-      await _updateContextMenu(); // 退出账号后刷新菜单
+      await _updateContextMenu();
     } else {
       debug('exit action: exit app');
-      _settingsSubscription?.cancel(); // 退出前取消监听
+      await _settingsSubscription?.cancel();
       await windowManager.destroy();
     }
   }
 }
 
 /// 退出选择的返回结果。
+///
+/// 表示用户在退出弹窗中做出的选择。
 class ExitChoiceResult {
+  /// 构造函数。
+  ///
+  /// [action] 为退出动作（'logout' 或 'exit'），[remember] 表示是否记住本次选择。
   ExitChoiceResult({required this.action, required this.remember});
+
+  /// 退出动作：'logout' 退出账号，'exit' 退出软件。
   final String action;
+
+  /// 是否记住本次选择，下次点击退出直接执行。
   final bool remember;
 }
 
