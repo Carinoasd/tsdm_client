@@ -12,12 +12,15 @@ import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:window_manager/window_manager.dart';
 
 /// 系统托盘管理助手。
 ///
-/// 负责初始化托盘图标、处理右键菜单点击、拦截窗口关闭（隐藏到托盘）以及处理退出逻辑。
-class TrayHelper with TrayListener, WindowListener, LoggerMixin {
+/// 负责初始化托盘图标、处理右键菜单点击，以及处理退出逻辑。
+///
+/// 注意：本类**不再**拦截窗口关闭事件。点击标题栏 X 时由 Windows 默认行为直接
+/// 退出应用（`main.cpp` 中已设置 `SetQuitOnClose(true)`）。因此本类也不实现
+/// `WindowListener`。
+class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper._();
 
   /// 全局单例。
@@ -32,7 +35,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   /// 初始化托盘。
   Future<void> init() async {
     trayManager.addListener(this);
-    windowManager.addListener(this);
 
     // 加载托盘图标
     final iconPath = await _prepareTrayIcon();
@@ -89,17 +91,37 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   }
 
   /// 左键单击托盘图标：显示并聚焦窗口。
-  ///
-  /// 只调用 `show` 和 `focus`，**不要**触碰 `setSkipTaskbar`：Win32 在窗口隐藏后
-  /// 再去改任务栏状态会触发原生窗口句柄失效，导致整个进程崩溃。
   @override
   void onTrayIconMouseDown() {
     unawaited(_showWindow());
   }
 
   Future<void> _showWindow() async {
-    await windowManager.show();
-    await windowManager.focus();
+    await windowManagerShowAndFocus();
+  }
+
+  Future<void> windowManagerShowAndFocus() async {
+    // 这里保持对 window_manager 的最小调用：
+    // 只显示 + 聚焦，不做任务栏状态切换。
+    await _wmShow();
+    await _wmFocus();
+  }
+
+  Future<void> _wmShow() async {
+    // ignore: avoid_dynamic_calls
+    await (await _wmInstance()).show();
+  }
+
+  Future<void> _wmFocus() async {
+    // ignore: avoid_dynamic_calls
+    await (await _wmInstance()).focus();
+  }
+
+  Future<dynamic> _wmInstance() async {
+    // 延迟 import 以避免顶层循环引用；window_manager 的全局对象在 main 中已初始化。
+    // 这里直接调用已初始化的全局对象。
+    // ignore: avoid_dynamic_calls
+    return _windowManager;
   }
 
   /// 右键单击托盘图标：弹出菜单。
@@ -125,16 +147,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     } else if (key == 'exit') {
       await _handleExit();
     }
-  }
-
-  /// 拦截窗口关闭事件：不退出，而是隐藏到托盘。
-  ///
-  /// **不要在这里调用 `setSkipTaskbar`**：Win32 在窗口隐藏后再去改任务栏状态会
-  /// 触发原生窗口句柄失效，导致整个进程崩溃。只调用 `hide()` 是经过验证最稳的方案。
-  @override
-  Future<void> onWindowClose() async {
-    debug('window close intercepted, hiding to tray');
-    await windowManager.hide();
   }
 
   /// 处理退出逻辑。
@@ -175,9 +187,22 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
       await _updateContextMenu();
     } else {
       debug('exit action: exit app');
-      await _settingsSubscription?.cancel();
-      await windowManager.destroy();
+      await _cleanupAndExit();
     }
+  }
+
+  /// 清理监听并强制结束进程。
+  ///
+  /// 使用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
+  /// 会阻塞 UI 线程，导致窗口"未响应"后再崩溃。
+  Future<void> _cleanupAndExit() async {
+    try {
+      await _settingsSubscription?.cancel();
+    } catch (e) {
+      debug('cancel settings subscription failed: $e');
+    }
+    trayManager.removeListener(this);
+    io.exit(0);
   }
 }
 
