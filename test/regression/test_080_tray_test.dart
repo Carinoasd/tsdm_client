@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/popup_route_observer.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -16,7 +21,9 @@ import 'package:tsdm_client/utils/tray_helper.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  final helper = TrayHelper.instance;
+  late TrayHelper helper;
+  late GoRouter appRouter;
+  late PopupRouteObserver popupObserver;
   const trayChannel = MethodChannel('tray_manager');
   const windowChannel = MethodChannel('window_manager');
   const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
@@ -27,6 +34,11 @@ void main() {
   late List<String> windowCalls;
   late Translations traditionalChinese;
   var minimized = true;
+  var shutdownCalls = 0;
+  bool? listenersAtShutdown;
+  Completer<void>? pendingShutdown;
+  Completer<void>? pendingDestroy;
+  Completer<void>? pendingFocus;
   String? failMethod;
 
   List<String> menuLabels() {
@@ -55,8 +67,38 @@ void main() {
     traditionalChinese = await AppLocale.zhTw.build();
     minimized = true;
     failMethod = null;
+    shutdownCalls = 0;
+    listenersAtShutdown = null;
+    pendingShutdown = null;
+    pendingDestroy = null;
+    pendingFocus = null;
     trayCalls = [];
     windowCalls = [];
+    popupObserver = PopupRouteObserver();
+    appRouter = GoRouter(
+      observers: [popupObserver],
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: Text('home')),
+        ),
+        for (final path in [ScreenPaths.threadVisitHistory, ScreenPaths.favorite, ScreenPaths.manageAccount])
+          GoRoute(
+            path: path,
+            name: path,
+            builder: (_, _) => Scaffold(body: Text(path)),
+          ),
+      ],
+    );
+    helper = TrayHelper.forTesting(
+      appRouter: appRouter,
+      popupObserver: popupObserver,
+      shutdown: () async {
+        shutdownCalls++;
+        listenersAtShutdown = trayManager.hasListeners;
+        await pendingShutdown?.future;
+      },
+    );
     messenger
       ..setMockMethodCallHandler(pathChannel, (_) async => temp.path)
       ..setMockMethodCallHandler(trayChannel, (call) async {
@@ -64,17 +106,20 @@ void main() {
         if (call.method == failMethod) {
           throw PlatformException(code: 'test_failure');
         }
+        if (call.method == 'destroy') await pendingDestroy?.future;
         return true;
       })
       ..setMockMethodCallHandler(windowChannel, (call) async {
         windowCalls.add(call.method);
         if (call.method == 'restore') minimized = false;
+        if (call.method == 'focus') await pendingFocus?.future;
         return call.method == 'isMinimized' ? minimized : null;
       });
   });
 
   tearDown(() async {
     await helper.dispose();
+    appRouter.dispose();
     await getIt.reset();
     await settings.dispose();
     await db.close();
@@ -178,5 +223,108 @@ void main() {
     await settleCallbacks();
     expect(trayCalls.length, count);
     expect(trayManager.hasListeners, isFalse);
+  });
+
+  testWidgets('a blocking logout dialog keeps tray navigation and exit from bypassing it', (tester) async {
+    await tester.runAsync(helper.init);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+    await tester.pumpAndSettle();
+    final context = tester.element(find.text('home'));
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const PopScope(canPop: false, child: AlertDialog(content: Text('logging out'))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final action in ['history', 'favorite', 'manageAccount', 'exit']) {
+      helper.onTrayMenuItemClick(MenuItem(key: action));
+      await tester.pumpAndSettle();
+      expect(find.text('logging out'), findsOneWidget);
+      expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(1));
+    }
+    expect(windowCalls, contains('focus'), reason: 'the user should see the dialog already in progress');
+    expect(shutdownCalls, 0);
+
+    // The existing logout completion now pops only its own dialog.
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('logging out'), findsNothing);
+    expect(find.text('home'), findsOneWidget);
+    helper.onTrayMenuItemClick(MenuItem(key: 'manageAccount'));
+    await tester.pumpAndSettle();
+    expect(find.text(ScreenPaths.manageAccount), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a dialog appearing while the window is being restored still blocks navigation', (tester) async {
+    await tester.runAsync(helper.init);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+    await tester.pumpAndSettle();
+    pendingFocus = Completer<void>();
+    helper.onTrayMenuItemClick(MenuItem(key: 'history'));
+    await tester.pumpAndSettle();
+    expect(windowCalls, contains('focus'));
+    final context = tester.element(find.text('home'));
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(content: Text('please wait')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    pendingFocus!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('please wait'), findsOneWidget);
+    expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(1));
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('exit removes the tray before calling shared shutdown and ignores further actions while closing', () async {
+    await helper.init();
+    pendingDestroy = Completer<void>();
+    pendingShutdown = Completer<void>();
+    helper.onTrayMenuItemClick(MenuItem(key: 'exit'));
+    await settleCallbacks();
+    expect(shutdownCalls, 0, reason: 'shared shutdown must wait for native tray cleanup');
+    expect(trayCalls.last.method, 'destroy');
+    helper
+      ..onTrayMenuItemClick(MenuItem(key: 'exit'))
+      ..onTrayMenuItemClick(MenuItem(key: 'manageAccount'));
+    await settleCallbacks();
+    expect(shutdownCalls, 0);
+    pendingDestroy!.complete();
+    await settleCallbacks();
+    expect(shutdownCalls, 1);
+    expect(listenersAtShutdown, isFalse);
+    helper.onTrayMenuItemClick(MenuItem(key: 'exit'));
+    await settleCallbacks();
+    expect(shutdownCalls, 1);
+    expect(windowCalls, isEmpty);
+    pendingShutdown!.complete();
+    await settleCallbacks();
+  });
+
+  testWidgets('shutdown while a window restore is pending cancels the late navigation', (tester) async {
+    await tester.runAsync(helper.init);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+    await tester.pumpAndSettle();
+    pendingFocus = Completer<void>();
+    helper.onTrayMenuItemClick(MenuItem(key: 'favorite'));
+    await tester.pumpAndSettle();
+    expect(windowCalls, contains('focus'));
+    await tester.runAsync(helper.dispose);
+    pendingFocus!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('home'), findsOneWidget);
+    expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(1));
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

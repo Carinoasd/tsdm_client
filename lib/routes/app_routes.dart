@@ -53,11 +53,19 @@ import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_hist
 import 'package:tsdm_client/features/topics/view/topics_page.dart';
 import 'package:tsdm_client/features/update/view/local_changelog_page.dart';
 import 'package:tsdm_client/features/update/view/update_page.dart';
+import 'package:tsdm_client/routes/popup_route_observer.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 
+/// Tracks root dialogs so external navigation respects their modal barriers.
+final popupRouteObserver = PopupRouteObserver();
+
 /// App router instance wrapped with global singleton widgets.
-final router = GoRouter(initialLocation: ScreenPaths.homepage, routes: _appRoutes);
+final router = GoRouter(
+  initialLocation: ScreenPaths.homepage,
+  observers: [popupRouteObserver],
+  routes: _appRoutes,
+);
 
 /// All named routes in app.
 final List<RouteBase> _appRoutes = [

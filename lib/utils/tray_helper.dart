@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'dart:io' as io;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
+import 'package:tsdm_client/routes/popup_route_observer.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/widgets/shutdown.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 系统托盘管理助手（仅 Windows）。
@@ -22,10 +26,22 @@ import 'package:window_manager/window_manager.dart';
 /// 托盘菜单的翻译由 [updateTranslations] 从 `App.build` 注入，保证语言切换
 /// 后菜单文字跟着变。
 class TrayHelper with TrayListener, LoggerMixin {
-  TrayHelper._();
+  TrayHelper._(this._router, this._popupObserver, this._shutdown);
+
+  /// Exercises native events against a real test navigator without terminating the test process.
+  @visibleForTesting
+  TrayHelper.forTesting({
+    required GoRouter appRouter,
+    required PopupRouteObserver popupObserver,
+    required Future<void> Function() shutdown,
+  }) : this._(appRouter, popupObserver, shutdown);
 
   /// 全局单例。
-  static final TrayHelper instance = TrayHelper._();
+  static final TrayHelper instance = TrayHelper._(router, popupRouteObserver, exitApp);
+
+  final GoRouter _router;
+  final PopupRouteObserver _popupObserver;
+  final Future<void> Function() _shutdown;
 
   /// 设置流订阅，用于在登录用户名或语言变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
@@ -167,19 +183,33 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   Future<void> _handleMenuItemClick(MenuItem menuItem) async {
-    switch (menuItem.key) {
-      case 'history':
-        await _bringToFront();
-        unawaited(router.pushNamed(ScreenPaths.threadVisitHistory));
-      case 'favorite':
-        await _bringToFront();
-        unawaited(router.pushNamed(ScreenPaths.favorite));
-      case 'manageAccount':
-        await _bringToFront();
-        unawaited(router.pushNamed(ScreenPaths.manageAccount));
-      case 'exit':
-        await _exitApp();
+    if (!_started) {
+      return;
     }
+    final destination = switch (menuItem.key) {
+      'history' => ScreenPaths.threadVisitHistory,
+      'favorite' => ScreenPaths.favorite,
+      'manageAccount' => ScreenPaths.manageAccount,
+      _ => null,
+    };
+    if (destination == null && menuItem.key != 'exit') {
+      return;
+    }
+    if (_popupObserver.hasPopupRoute) {
+      // Show the existing dialog instead of bypassing it, including while logging out.
+      await _bringToFront();
+      return;
+    }
+    if (menuItem.key == 'exit') {
+      await _exitApp();
+      return;
+    }
+    await _bringToFront();
+    // A dialog or shutdown may have started while the native window calls were pending.
+    if (!_started || _popupObserver.hasPopupRoute) {
+      return;
+    }
+    unawaited(_router.pushNamed(destination!));
   }
 
   /// 从最小化/后台状态还原窗口并聚焦。
@@ -191,13 +221,10 @@ class TrayHelper with TrayListener, LoggerMixin {
     await windowManager.focus();
   }
 
-  /// 强制退出应用进程。
-  ///
-  /// 用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
-  /// 会阻塞 UI 线程，导致窗口"未响应"后再崩溃。
+  /// Remove the tray, then let the shared shutdown flow close storage before terminating.
   Future<void> _exitApp() async {
     await dispose();
-    io.exit(0);
+    await _shutdown();
   }
 
   /// Release subscriptions and remove the native icon, including after partial initialization.
