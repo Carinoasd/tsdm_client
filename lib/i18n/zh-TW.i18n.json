@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "活動總覽",
+    "refresh": "重新整理",
+    "openForum": "開啟論壇首頁",
+    "description": "以下連結來自論壇首頁活動專區，活動規則和時間請以各主題內容為準。",
+    "empty": "論壇目前沒有提供活動連結。"
+  },
   "locale": "繁體中文",
   "tray": {
     "user": "👤 使用者：$name",
@@ -1430,6 +1437,21 @@
   "threadCard": {
     "viewInfo": "查看貼文資訊",
     "replied": "已回覆"
+  },
+  "medalCenter": {
+    "title": "勳章中心",
+    "category": "分類",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "browserNotice": "在此瀏覽勳章和取得條件；購買、申請或管理請前往論壇網頁。",
+    "loginRequired": "登入已失效，請重新登入。",
+    "unsupported": "論壇未提供可辨識的勳章列表，請用瀏覽器查看。",
+    "empty": "此分類暫無勳章。",
+    "notProvided": "未提供取得方式",
+    "noDetails": "論壇未提供此勳章的其他條件或價格。",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "page": "第 $number 頁"
   },
   "myTitlesPage": {
     "title": "我的頭銜",

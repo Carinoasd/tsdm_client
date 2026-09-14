@@ -752,6 +752,12 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
 
       /// Medals, if any.
+      ListTile(
+        leading: const Icon(Icons.workspace_premium_outlined),
+        title: Text(context.t.medalCenter.title),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async => context.pushNamed(ScreenPaths.medalCenter),
+      ),
       if (userProfile.profileMedals?.isNotEmpty ?? false) ...[
         _SectionTitle(tr.medals),
         MedalGroupView(
