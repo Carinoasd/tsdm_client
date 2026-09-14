@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
@@ -75,7 +74,7 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
   /// Emit the ticking state after a fetch finished successfully.
   ///
   /// **This method MUST NOT touch `lastFetchNoticeTime`.** `NotificationBloc` owns that bound and advances it to
-  /// the timestamp of the newest message the server actually returned ([NotificationV2.latestTimestamp]). Using
+  /// the timestamp of the newest message the server actually returned (`NotificationV2.latestTimestamp`). Using
   /// `startedTime.truncateToMinute()` here, as an earlier version did, advances the bound to the moment this fetch
   /// started in, which skips every message whose timestamp falls between the previous bound and that moment. The
   /// server never returns such a message again, because the lower bound of every fetch is inclusive.
