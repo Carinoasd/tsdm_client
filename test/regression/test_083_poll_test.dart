@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -9,14 +12,46 @@ import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/repository/poll_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/widgets/card/poll_card.dart';
 import 'package:universal_html/parsing.dart';
 
 String _fixture(String name) => File('test/data/poll_${name}_x5.html').readAsStringSync();
 ForumPoll _parse(String html, {bool loggedIn = true}) => parseForumPoll(parseHtmlDocument(html), loggedIn: loggedIn);
 
+class _FormAdapter implements HttpClientAdapter {
+  Object? data;
+  String? encodedBody;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    data = options.data;
+    encodedBody = utf8.decode(await requestStream!.expand((chunk) => chunk).toList());
+    return ResponseBody.fromString(
+      '<html><body>Accepted</body></html>',
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['text/html; charset=utf-8'],
+      },
+    );
+  }
+}
+
 void main() {
-  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+  setUpAll(() {
+    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
+    getIt.registerSingleton<NetErrorSaver>(NetErrorSaver());
+  });
+  tearDownAll(getIt.reset);
   test('real multi-choice form keeps its limit, hidden results and public-vote notice', () {
     final poll = _parse(_fixture('multiple'));
     expect(poll.availability, PollAvailability.available);
@@ -73,9 +108,22 @@ void main() {
     expect(cubit.state.choices, {'40029'});
     await cubit.close();
   });
-  test('double submit issues one POST, encodes repeated option keys and uses fresh results', () async {
+  test('network payload supports Android string maps and desktop form encoding without losing choices', () async {
+    final adapter = _FormAdapter();
+    final dio = Dio()..httpClientAdapter = adapter;
+    final client = NetClientProvider.buildNoCookie(dio: dio, cookie: CookieProvider.buildEmpty());
+    await PollRepository.network(client).vote(_parse(_fixture('multiple')), {'40028', '40029'});
+    // The Kotlin adapter passes options.data directly to a Map<String, String> method channel.
+    expect(adapter.data, isA<Map<String, String>>());
+    final decoded = Uri.splitQueryString(adapter.encodedBody!);
+    expect(decoded['pollanswers[0]'], '40028');
+    expect(decoded['pollanswers[1]'], '40029');
+    expect(decoded, adapter.data);
+    dio.close();
+  });
+  test('double submit issues one POST, preserves all indexed options and uses fresh results', () async {
     var gets = 0;
-    final sent = <String>[];
+    final sent = <Map<String, String>>[];
     final pending = Completer<String>();
     final repo = PollRepository(
       getPage: (_) async => _fixture(++gets == 1 ? 'multiple' : 'voted'),
@@ -94,7 +142,8 @@ void main() {
     final submit = cubit.submit();
     await cubit.submit();
     expect(sent, hasLength(1));
-    expect(sent.single, contains('pollanswers%5B%5D=40028&pollanswers%5B%5D=40029'));
+    expect(sent.single['pollanswers[0]'], '40028');
+    expect(sent.single['pollanswers[1]'], '40029');
     pending.complete('server response');
     await submit;
     expect(cubit.state.poll!.availability, PollAvailability.voted);

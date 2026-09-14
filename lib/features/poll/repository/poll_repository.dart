@@ -24,8 +24,9 @@ class PollRepository {
   /// GET transport.
   final Future<String> Function(String url) getPage;
 
-  /// POST transport. Body is encoded once with repeated `pollanswers[]` keys.
-  final Future<String> Function(String url, String body) postForm;
+  /// POST transport. Indexed PHP array keys preserve every choice while keeping
+  /// the string-valued map required by the Android Kotlin HTTP adapter.
+  final Future<String> Function(String url, Map<String, String> body) postForm;
 
   /// Fetch a fresh form and verify which account the server rendered it for.
   Future<ForumPoll> fetch(String url, int? uid) async {
@@ -43,11 +44,12 @@ class PollRepository {
     if (!poll.accepts(choices) || poll.action == null || poll.formHash == null) {
       throw const FormatException('Invalid poll selection');
     }
-    final body = [
-      'formhash=${Uri.encodeQueryComponent(poll.formHash!)}',
-      'pollsubmit=true',
-      for (final id in choices) 'pollanswers%5B%5D=${Uri.encodeQueryComponent(id)}',
-    ].join('&');
+    final selected = choices.toList();
+    final body = <String, String>{
+      'formhash': poll.formHash!,
+      'pollsubmit': 'true',
+      for (var index = 0; index < selected.length; index++) 'pollanswers[$index]': selected[index],
+    };
     // The response itself is not evidence of success. The next GET is authoritative.
     await postForm(poll.action!, body);
   }
