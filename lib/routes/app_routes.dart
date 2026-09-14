@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
@@ -321,6 +322,7 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.points, builder: (_) => const PointsPage()),
+  AppRoute(path: ScreenPaths.achievements, builder: (_) => const AchievementsPage()),
   AppRoute(
     path: ScreenPaths.editPost,
     builder: (state) {

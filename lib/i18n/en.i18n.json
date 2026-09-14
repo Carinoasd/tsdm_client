@@ -436,6 +436,18 @@
     "initializingData": "Initializing data",
     "initFinished": "Init finished"
   },
+  "achievementsPage": {
+    "title": "My achievements",
+    "refresh": "Refresh",
+    "loginRequired": "Sign in to view your achievements.",
+    "empty": "No achievements available",
+    "emptyDetail": "The forum currently provides no achievement items for this account. Refresh or open the forum for the latest information.",
+    "sourceNote": "Achievement information provided by the forum:",
+    "notProvided": "The forum has not provided achievement details.",
+    "unsupported": "The achievement page format is not recognized. Please view it on the forum.",
+    "browserNotice": "Use the forum website to view details or claim any rewards.",
+    "openBrowser": "Open forum achievements"
+  },
   "profilePage": {
     "title": "User Profile",
     "userNodeNotFound": "user info root node not found",
