@@ -23,22 +23,33 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   /// 全局单例。
   static final TrayHelper instance = TrayHelper._();
 
+  /// 保存设置监听的订阅，用于释放。
+  StreamSubscription? _settingsSubscription;
+
+  /// 上次构建菜单时的用户名，用于对比是否需要刷新菜单。
+  String _lastUsername = '';
+
   /// 初始化托盘。
-  ///
-  /// 应在 `windowManager` 初始化并设置 `setPreventClose(true)` 后调用。
   Future<void> init() async {
     trayManager.addListener(this);
     windowManager.addListener(this);
 
-    // 加载托盘图标（将 assets 中的 ico 文件复制到临时目录，因为 tray_manager 需要绝对路径）
+    // 加载托盘图标
     final iconPath = await _prepareTrayIcon();
-
-    // 设置托盘图标和提示文本
     await trayManager.setIcon(iconPath);
     await trayManager.setToolTip('tsdm_client');
 
-    // 构建右键菜单
+    // 构建初始菜单
     await _updateContextMenu();
+
+    // 监听设置变化（特别是登录用户名），以便自动刷新菜单
+    final settingsRepo = getIt.get<SettingsRepository>();
+    _settingsSubscription = settingsRepo.settings.listen((settings) {
+      if (settings.loginUsername != _lastUsername) {
+        _lastUsername = settings.loginUsername;
+        _updateContextMenu();
+      }
+    });
   }
 
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
@@ -48,7 +59,6 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     final filePath = '${dir.path}$separator/app_icon.ico';
     final file = io.File(filePath);
 
-    // 如果文件不存在，或者大小不对，就重新写入
     if (!file.existsSync() || file.lengthSync() == 0) {
       final bytes = await rootBundle.load('assets/images/app_icon.ico');
       await file.writeAsBytes(bytes.buffer.asUint8List());
@@ -56,21 +66,22 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
     return filePath;
   }
 
-  /// 更新右键菜单（例如：登录用户名变化时需要重新构建）。
+  /// 更新右键菜单。
   Future<void> _updateContextMenu() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
+    // 使用 Emoji 装饰，稍微弥补没有头像的缺憾
     final username = settings.loginUsername.isEmpty ? '未登录' : settings.loginUsername;
+    _lastUsername = settings.loginUsername; // 记录当前状态
 
-    // 构建菜单项
     final menu = Menu(
       items: [
-        MenuItem(key: 'userInfo', label: '用户：$username', disabled: true),
+        MenuItem(key: 'userInfo', label: '👤 用户：$username', disabled: true),
         MenuItem.separator(),
-        MenuItem(key: 'history', label: '历史'),
-        MenuItem(key: 'favorite', label: '收藏'),
-        MenuItem(key: 'manageAccount', label: '管理账户'),
+        MenuItem(key: 'history', label: '📖 历史'),
+        MenuItem(key: 'favorite', label: '⭐ 收藏'),
+        MenuItem(key: 'manageAccount', label: '👥 管理账户'),
         MenuItem.separator(),
-        MenuItem(key: 'exit', label: '退出'),
+        MenuItem(key: 'exit', label: '🚪 退出'),
       ],
     );
     await trayManager.setContextMenu(menu);
@@ -83,9 +94,10 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   }
 
   Future<void> _showWindow() async {
+    // 先取消跳过任务栏，再显示
+    await windowManager.setSkipTaskbar(false);
     await windowManager.show();
     await windowManager.focus();
-    await windowManager.setSkipTaskbar(false);
   }
 
   /// 右键单击托盘图标：弹出菜单。
@@ -117,15 +129,16 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   @override
   Future<void> onWindowClose() async {
     debug('window close intercepted, hiding to tray');
-    await windowManager.hide();
+    // 为了规避 Windows 原生崩溃，先隐藏窗口，暂时不调用 setSkipTaskbar(true)
+    // 或者调换顺序：先设置跳过任务栏，再隐藏
     await windowManager.setSkipTaskbar(true);
+    await windowManager.hide();
   }
 
   /// 处理退出逻辑。
   Future<void> _handleExit() async {
     final settingsRepo = getIt.get<SettingsRepository>();
 
-    // 如果用户勾选了“记住选择”，直接执行上次的选择
     final remember = await settingsRepo.getValue<bool>(SettingsKeys.rememberExitChoice);
     final savedAction = await settingsRepo.getValue<String>(SettingsKeys.exitAction);
     if (remember) {
@@ -133,20 +146,17 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
       return;
     }
 
-    // 获取全局 Context 用于弹窗
     final context = router.routerDelegate.navigatorKey.currentContext;
     if (context == null || !context.mounted) {
       return;
     }
 
-    // 弹出退出选择对话框
     final result = await showDialog<ExitChoiceResult>(
       context: context,
       builder: (context) => const _ExitDialog(),
     );
 
     if (result != null) {
-      // 如果用户勾选了“记住选择”，保存到设置
       if (result.remember) {
         await settingsRepo.setValue<bool>(SettingsKeys.rememberExitChoice, true);
         await settingsRepo.setValue<String>(SettingsKeys.exitAction, result.action);
@@ -158,14 +168,12 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
   /// 执行退出动作。
   Future<void> _executeExit(String action) async {
     if (action == 'logout') {
-      // 退出账号：调用 Repository 退出，应用继续运行
       debug('exit action: logout');
       await getIt.get<AuthenticationRepository>().logout().run();
-      // 退出后刷新一下菜单里的用户名
-      await _updateContextMenu();
+      await _updateContextMenu(); // 退出账号后刷新菜单
     } else {
-      // 退出软件：销毁窗口，结束进程
       debug('exit action: exit app');
+      _settingsSubscription?.cancel(); // 退出前取消监听
       await windowManager.destroy();
     }
   }
@@ -173,13 +181,8 @@ class TrayHelper with TrayListener, WindowListener, LoggerMixin {
 
 /// 退出选择的返回结果。
 class ExitChoiceResult {
-  /// 构造函数。
   ExitChoiceResult({required this.action, required this.remember});
-
-  /// 退出动作：'logout' 或 'exit'。
   final String action;
-
-  /// 是否记住选择。
   final bool remember;
 }
 
@@ -205,7 +208,6 @@ class _ExitDialogState extends State<_ExitDialog> {
           RadioGroup<String>(
             groupValue: _action,
             onChanged: (v) => setState(() => _action = v!),
-            // 这里改成 const Column，去掉 children 前的 const
             child: const Column(
               children: [
                 RadioListTile<String>(
