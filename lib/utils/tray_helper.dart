@@ -29,11 +29,14 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 全局单例。
   static final TrayHelper instance = TrayHelper._();
 
-  /// 设置流订阅，用于在登录用户名变化时刷新菜单。
+  /// 设置流订阅，用于在登录用户名或语言变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
 
   /// 上次构建菜单时的用户名，用于对比是否需要刷新菜单。
   String _lastUsername = '';
+
+  /// 上次构建菜单时的 locale，用于对比是否需要刷新菜单。
+  String _lastLocale = '';
 
   /// 初始化托盘。
   ///
@@ -47,11 +50,14 @@ class TrayHelper with TrayListener, LoggerMixin {
 
     await _updateContextMenu();
 
-    // 登录用户名变化时自动刷新菜单（登录、登出、切账户）。
+    // 登录用户名或 locale 变化时自动刷新菜单（登录、登出、切账户、切语言）。
     final settingsRepo = getIt.get<SettingsRepository>();
     _settingsSubscription = settingsRepo.settings.listen((settings) {
-      if (settings.loginUsername != _lastUsername) {
+      final usernameChanged = settings.loginUsername != _lastUsername;
+      final localeChanged = settings.locale != _lastLocale;
+      if (usernameChanged || localeChanged) {
         _lastUsername = settings.loginUsername;
+        _lastLocale = settings.locale;
         unawaited(_updateContextMenu());
       }
     });
@@ -73,36 +79,32 @@ class TrayHelper with TrayListener, LoggerMixin {
     return filePath;
   }
 
-  /// 从当前 locale 取翻译表；UI 尚未挂载时返回 null，由调用方兜底英文。
-  Translations? get _translations {
-    final ctx = router.routerDelegate.navigatorKey.currentContext;
-    if (ctx != null && ctx.mounted) {
-      return ctx.t;
-    }
-    return null;
-  }
+  /// 当前 slang 翻译表。
+  ///
+  /// 用 [LocaleSettings.instance] 而不是 `context.t`：托盘菜单可能在 UI 上下文
+  /// 之外（或语言切换后立即）构建，`context.t` 会拿不到最新语言，导致回退英文。
+  Translations get _t => LocaleSettings.instance.currentTranslations;
 
   /// 构建并设置右键菜单。
   Future<void> _updateContextMenu() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     final username = settings.loginUsername;
     _lastUsername = username;
+    _lastLocale = settings.locale;
 
-    final tr = _translations;
-    final userLabel = tr == null
-        ? '👤 User: ${username.isEmpty ? 'Not logged in' : username}'
-        : tr.tray.user(name: username.isEmpty ? tr.tray.notLoggedIn : username);
+    final tr = _t;
+    final userLabel = tr.tray.user(name: username.isEmpty ? tr.tray.notLoggedIn : username);
 
     final menu = Menu(
       items: [
         MenuItem(key: 'userInfo', label: userLabel, disabled: true),
         MenuItem.separator(),
-        MenuItem(key: 'history', label: tr?.tray.history ?? '📖 History'),
-        MenuItem(key: 'favorite', label: tr?.tray.favorite ?? '📁 Favorites'),
-        MenuItem(key: 'manageAccount', label: tr?.tray.manageAccount ?? '👥 Manage accounts'),
+        MenuItem(key: 'history', label: tr.tray.history),
+        MenuItem(key: 'favorite', label: tr.tray.favorite),
+        MenuItem(key: 'manageAccount', label: tr.tray.manageAccount),
         MenuItem.separator(),
-        MenuItem(key: 'logout', label: tr?.tray.logout ?? '➡️ Log out'),
-        MenuItem(key: 'exit', label: tr?.tray.exit ?? '❌ Exit app'),
+        MenuItem(key: 'logout', label: tr.tray.logout),
+        MenuItem(key: 'exit', label: tr.tray.exit),
       ],
     );
     await trayManager.setContextMenu(menu);
@@ -160,11 +162,11 @@ class TrayHelper with TrayListener, LoggerMixin {
     either.match(
       (err) {
         debug('tray logout failed: $err');
-        _showToast(_translations?.tray.logoutFailed(err: '$err') ?? 'Log out failed: $err');
+        _showToast(_t.tray.logoutFailed(err: '$err'));
       },
       (_) {
         debug('tray logout succeeded');
-        _showToast(_translations?.tray.logoutSuccess ?? 'Logged out');
+        _showToast(_t.tray.logoutSuccess);
         unawaited(_updateContextMenu());
       },
     );
