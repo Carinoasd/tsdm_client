@@ -6,8 +6,8 @@ import 'package:tsdm_client/utils/logger.dart';
 /// Interceptor that solves the Discuz! antitheft (防采集) challenge.
 ///
 /// When the server returns a challenge page instead of the real content, decode the
-/// `_dsign` value from it, remember the sign for the thread and resend the request
-/// with `_dsign` attached.
+/// `_dsign` value from it, remember the sign for the thread and resend GET/HEAD
+/// requests with `_dsign` attached. Mutating requests are never replayed.
 ///
 /// Signs are cached in memory: once we know the sign of a thread, later requests to
 /// the same thread carry `_dsign` directly and skip the challenge round trip.
@@ -74,7 +74,13 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
   Future<void> onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) async {
     final data = response.data;
     final options = response.requestOptions;
-    if (data is! String || !_isForumHost(options.uri) || !AntitheftDecoder.isChallenge(data)) {
+    // A challenge may be the final page after a successful POST redirect. Copying
+    // that request would resend its form body. Leave confirmation to the caller's
+    // fresh GET (for example, PollCubit), regardless of whether the POST succeeded.
+    if (!{'GET', 'HEAD'}.contains(options.method.toUpperCase()) ||
+        data is! String ||
+        !_isForumHost(options.uri) ||
+        !AntitheftDecoder.isChallenge(data)) {
       handler.next(response);
       return;
     }

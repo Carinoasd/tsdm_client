@@ -22,6 +22,10 @@ String _fixture(String name) => File('test/data/poll_${name}_x5.html').readAsStr
 ForumPoll _parse(String html, {bool loggedIn = true}) => parseForumPoll(parseHtmlDocument(html), loggedIn: loggedIn);
 
 class _FormAdapter implements HttpClientAdapter {
+  _FormAdapter({this.respond});
+
+  final String Function(RequestOptions options)? respond;
+  final requests = <RequestOptions>[];
   Object? data;
   String? encodedBody;
 
@@ -34,10 +38,11 @@ class _FormAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    requests.add(options);
     data = options.data;
-    encodedBody = utf8.decode(await requestStream!.expand((chunk) => chunk).toList());
+    encodedBody = requestStream == null ? null : utf8.decode(await requestStream.expand((chunk) => chunk).toList());
     return ResponseBody.fromString(
-      '<html><body>Accepted</body></html>',
+      respond?.call(options) ?? '<html><body>Accepted</body></html>',
       200,
       headers: {
         Headers.contentTypeHeader: ['text/html; charset=utf-8'],
@@ -151,6 +156,45 @@ void main() {
     expect(gets, 2);
     await cubit.close();
   });
+  for (final confirmed in [true, false]) {
+    test('a challenged POST is never replayed; fresh GET determines confirmation=$confirmed', () async {
+      // Real challenge fixtures use separate threads to isolate the shared sign cache.
+      final tid = confirmed ? '1257592' : '1257589';
+      final challenge = File('test/data/antitheft/$tid.html').readAsStringSync();
+      var submitted = false;
+      final adapter = _FormAdapter(
+        respond: (options) {
+          if (options.method == 'POST') {
+            submitted = true;
+            return challenge;
+          }
+          if (submitted && !options.uri.queryParameters.containsKey('_dsign')) return challenge;
+          return _fixture(submitted && confirmed ? 'voted' : 'multiple').replaceAll('1266029', tid);
+        },
+      );
+      final dio = Dio()..httpClientAdapter = adapter;
+      addTearDown(dio.close);
+      final client = NetClientProvider.buildNoCookie(dio: dio, cookie: CookieProvider.buildEmpty());
+      final cubit = PollCubit(
+        url: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=$tid',
+        currentUid: () => 1000,
+        repository: () => PollRepository.network(client),
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+      cubit
+        ..select('40028', selected: true)
+        ..select('40029', selected: true);
+      await cubit.submit();
+
+      expect(adapter.requests.map((r) => r.method), ['GET', 'POST', 'GET', 'GET']);
+      expect(adapter.requests.where((r) => r.method == 'GET').every((r) => r.data == null), isTrue);
+      expect(adapter.requests.last.uri.queryParameters['_dsign'], isNotEmpty);
+      expect(cubit.state.submissionUnconfirmed, !confirmed);
+      expect(cubit.state.poll!.availability, confirmed ? PollAvailability.voted : PollAvailability.available);
+      expect(cubit.state.choices, isEmpty);
+    });
+  }
   test('timed-out POST is not retried; a fresh GET can still confirm it', () async {
     var gets = 0;
     var posts = 0;
