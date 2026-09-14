@@ -98,6 +98,7 @@ Future<void> _boot(List<String> args) async {
 
   // Initialize flutter_local_notification.
   flnp = FlutterLocalNotificationsPlugin();
+
   if (isAndroid) {
     await flnp.initialize(
       // Drawable ic_launcher_foreground_no_transform is shrunk when building in CI.
@@ -119,6 +120,26 @@ Future<void> _boot(List<String> args) async {
           ?.requestNotificationsPermission();
       talker.info('boot notification permission granted=$granted');
     }
+  }
+
+  // Windows notification initialization.
+  //
+  // `appUserModelId` and `guid` identify the app to Windows so that toasts are
+  // delivered instead of being silently dropped. The `guid` MUST be a fixed
+  // UUID v4 that never changes; generate one and hardcode it here.
+  //
+  // Sound is configured per-notification in `show.dart`, not here.
+  if (isWindows) {
+    await flnp.initialize(
+      settings: const InitializationSettings(
+        windows: WindowsInitializationSettings(
+          appName: 'TSDM',
+          appUserModelId: 'com.tsdm.client',
+          guid: '4f8b5f8a-1e9c-4b8e-9d5a-7c3a2b1f8e6d',
+        ),
+      ),
+      onDidReceiveNotificationResponse: onLocalNotificationOpened,
+    );
   }
 
   // Load font family.
