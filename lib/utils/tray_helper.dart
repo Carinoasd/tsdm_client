@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'dart:io' as io;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
-import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:window_manager/window_manager.dart';
@@ -102,7 +102,7 @@ class TrayHelper with TrayListener, LoggerMixin {
         MenuItem(key: 'manageAccount', label: tr?.tray.manageAccount ?? '👥 Manage accounts'),
         MenuItem.separator(),
         MenuItem(key: 'logout', label: tr?.tray.logout ?? '➡️ Log out'),
-        MenuItem(key: 'exit', label: tr?.tray.exit ?? '🚪 Exit app'),
+        MenuItem(key: 'exit', label: tr?.tray.exit ?? '❌ Exit app'),
       ],
     );
     await trayManager.setContextMenu(menu);
