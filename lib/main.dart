@@ -17,6 +17,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
@@ -61,10 +62,16 @@ Future<void> _boot(List<String> args) async {
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
+    // 拦截窗口关闭，改为隐藏到托盘
+    await windowManager.setPreventClose(true);
+    
     if (!cmdArgs.noWindowConfigs) {
       await desktopUpdateWindowTitle();
       await desktopRestoreWindowBounds(settings);
     }
+    
+    // 初始化托盘
+    await TrayHelper.instance.init();
   }
 
   // System color.
