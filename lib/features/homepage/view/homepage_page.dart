@@ -194,6 +194,11 @@ class _HomepagePageState extends State<HomepagePage> {
               appBar: AppBar(
                 title: Text(context.t.homepage.title),
                 actions: [
+                  IconButton(
+                    icon: const Icon(Icons.event_outlined),
+                    tooltip: context.t.activitiesPage.title,
+                    onPressed: () async => context.pushNamed(ScreenPaths.activities),
+                  ),
                   if (username != null) ...[
                     IconButton(
                       icon: SizedBox(
