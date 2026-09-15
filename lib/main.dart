@@ -74,7 +74,8 @@ Future<void> _boot(List<String> args) async {
   if (isWindows) {
     try {
       await TrayHelper.instance.init();
-    } on Exception catch (e, st) {
+      // Asset loading can also throw FlutterError; the optional tray must not prevent startup.
+    } on Object catch (e, st) {
       talker.handle(e, st, 'tray init failed');
     }
   }
@@ -131,19 +132,28 @@ Future<void> _boot(List<String> args) async {
   // copies the bundled asset into the temp directory and returns that path, so
   // the toast and the tray icon show the same image. Without it Windows falls
   // back to a blank placeholder icon.
+  //
+  // Optional feature: like the tray, a failure here (asset, temp directory, toast registration) is logged and must
+  // never stop the app from starting.
   if (isWindows) {
-    final iconPath = await TrayHelper.prepareAppIcon();
-    await flnp.initialize(
-      settings: InitializationSettings(
-        windows: WindowsInitializationSettings(
-          appName: 'TSDM',
-          appUserModelId: 'com.tsdm.client',
-          guid: '4f8b5f8a-1e9c-4b8e-9d5a-7c3a2b1f8e6d',
-          iconPath: iconPath,
+    try {
+      final iconPath = await TrayHelper.prepareAppIcon();
+      await flnp.initialize(
+        settings: InitializationSettings(
+          windows: WindowsInitializationSettings(
+            // Shown as the toast header; same name as the window title.
+            appName: LocaleSettings.currentLocale.translations.appName,
+            appUserModelId: 'com.tsdm.client',
+            guid: '4f8b5f8a-1e9c-4b8e-9d5a-7c3a2b1f8e6d',
+            iconPath: iconPath,
+          ),
         ),
-      ),
-      onDidReceiveNotificationResponse: onLocalNotificationOpened,
-    );
+        onDidReceiveNotificationResponse: onLocalNotificationOpened,
+      );
+      // Asset loading can throw FlutterError, the plugin PlatformException/StateError.
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'windows notification init failed');
+    }
   }
 
   // Load font family.

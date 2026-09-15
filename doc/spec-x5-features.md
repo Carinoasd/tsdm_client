@@ -817,3 +817,28 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - `test_080`（13 案）：初始化失敗的清理與重試、並行初始化、翻譯與帳號更新、選單更新錯誤隔離、右鍵帶 bringAppToFront、左鍵還原順序、dispose、對話框遮罩、
   還原途中出現對話框、退出順序與競態、同頁不疊層。`test_081`（5 案）：`PopupRouteObserver` 的 push／pop／remove／replace。
 - 維護者以 PR #61 的 Windows 測試包實機操作沒有問題後合併。
+
+## 28. Windows 訊息提醒與通知彈窗（PR #70 → 接手 PR，2026-09-15）
+
+### 28.1 來源與平台事實
+
+- 原始實作來自 Qing-Novel 的 PR #70（15 個提交，Win10／Win11 實測：視窗顯示與最小化時自動抓取、手動抓取都會彈窗＋提示音，點通知可跳到訊息中心）。
+  維護者審查後接手：補啟動保護、拿掉會印訊息內文的日誌、還原與功能無關的 `AutoNotificationCubit` 改動（時間界線問題另開 #71）。
+- 通知走 `flutter_local_notifications` 的 Windows 實作（`flutter_local_notifications_windows`）。未打包成 MSIX 的桌面程式要在 `initialize` 提供 `appUserModelId`
+  與固定的 `guid`（外掛以此在 HKCU 註冊通知啟動器；guid 一旦發布不能再改），toast 才不會被系統丟掉；`iconPath` 要是絕對路徑，沿用托盤複製到暫存目錄的
+  `tsdm_tray.ico`。提示音只能用系統預設音（`WindowsNotificationSound`，目前 `im`）：自訂 mp3／wav 需要 MSIX 的 `ms-appx://`。
+
+### 28.2 App 端行為
+
+- `main.dart`：Windows 才初始化，整段包在 `try … on Object` 裡，失敗只寫日誌不影響啟動（與托盤相同；`rootBundle.load` 丟的是 FlutterError，`on Exception` 接不到）。
+  `appName` 用目前語言的 App 名稱，與視窗標題一致。
+- `show.dart`：`showLocalNotification` 在 Android 與 Windows 都會發；Windows 帶 `WindowsNotificationDetails(audio: preset im)`。日誌只記 id／channel／enabled 與資料型別，
+  **不記標題與內文**（匯出日誌會貼到 issue）。
+- `callback.dart`：點擊通知先同步把 payload 送進 `localNoticeStream`（既有 #14 邏輯），桌面再依序 `restore`（僅最小化時）／`show`／`focus` 把視窗叫回來；
+  視窗操作失敗只寫日誌，不影響跳頁。
+- `NotificationInfoRepository.updateAutoSyncInfo` 的平台閘門放行 Windows。Linux／macOS 仍不發通知。
+
+### 28.3 驗收
+
+- `test_053`：通知細節含 Windows 預設提示音。`test_073`：桌面點擊通知會還原／顯示／聚焦視窗且 payload 先送出；視窗操作失敗時 payload 仍送出、不丟例外。
+- Windows 實機：Qing-Novel 已測 PR #70 版本；接手版本待維護者用 Test build 再確認一次彈窗、提示音、最小化時點擊還原。

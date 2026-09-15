@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
@@ -19,10 +20,10 @@ part 'auto_notification_state.dart';
 /// update notice state.
 ///
 /// This cubit only triggers automatic update of notification by calling global
-/// [NotificationRepository], never handles the returned data.
+/// [NotificationRepository], never handles the returned data .
 /// For process on saving notice data in storage and merging fetched data with
 /// current ones, see `NotificationBloc`. This is by design because here the
-/// cubit SHOULD only be a optional trigger of notification state update, all
+/// cubit SHOULD only be ca optional trigger of notification state update, all
 /// data handling logic and presentation state update logic are implemented in
 /// `NotificationBloc`.
 ///
@@ -71,16 +72,27 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
   /// finishes.
   bool get isPending => state is AutoNoticeStatePending;
 
-  /// Emit the ticking state after a fetch finished successfully.
-  ///
-  /// **This method MUST NOT touch `lastFetchNoticeTime`.** `NotificationBloc` owns that bound and advances it to
-  /// the timestamp of the newest message the server actually returned (`NotificationV2.latestTimestamp`). Using
-  /// `startedTime.truncateToMinute()` here, as an earlier version did, advances the bound to the moment this fetch
-  /// started in, which skips every message whose timestamp falls between the previous bound and that moment. The
-  /// server never returns such a message again, because the lower bound of every fetch is inclusive.
-  AsyncVoidEither _emitDataState() {
+  AsyncVoidEither _emitDataState(int uid) {
     return AsyncVoidEither(() async {
       debug('auto fetch finished with data');
+      if (state case AutoNoticeStatePending(:final startedTime)) {
+        // Code below is synced from _onRecordFetchTimeRequested in
+        // NotificationBloc.
+        //
+        // NotificationBloc only exists in notice page so can not trigger actions
+        // below by adding events to it.
+        // Whole minute only: notification times have minute precision, so a message arriving later in the minute the
+        // fetch started in is stamped with that minute and must still be inside the next window.
+        final since = startedTime.truncateToMinute();
+        debug('update last fetch notification time to started minute ${since.yyyyMMDDHHMMSS()}');
+        await _storageProvider.updateLastFetchNoticeTime(uid, since).run();
+      } else {
+        // Unreachable.
+        final now = DateTime.now();
+        warning('update last fetch notification time to current time ${now.yyyyMMDDHHMMSS()}');
+        warning('current state: $state');
+        await _storageProvider.updateLastFetchNoticeTime(uid, now).run();
+      }
       emit(AutoNoticeStateTicking(total: duration, remain: _remainingTick));
       return rightVoid();
     });
@@ -125,7 +137,7 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
     debug('auto fetch since $lastFetchTime');
     await _notificationRepository
         .fetchNotificationV2(uid: uid, timestamp: lastFetchTime)
-        .andThen(_emitDataState)
+        .andThen(() => _emitDataState(uid))
         .mapLeft(_emitErrorState)
         .run();
   }
