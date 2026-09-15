@@ -74,8 +74,7 @@ Future<void> _boot(List<String> args) async {
   if (isWindows) {
     try {
       await TrayHelper.instance.init();
-      // Asset loading can also throw FlutterError; the optional tray must not prevent startup.
-    } on Object catch (e, st) {
+    } on Exception catch (e, st) {
       talker.handle(e, st, 'tray init failed');
     }
   }
@@ -128,14 +127,19 @@ Future<void> _boot(List<String> args) async {
   // delivered instead of being silently dropped. The `guid` MUST be a fixed
   // UUID v4 that never changes; generate one and hardcode it here.
   //
-  // Sound is configured per-notification in `show.dart`, not here.
+  // `iconPath` must be an absolute path to a `.ico` file. `TrayHelper.prepareAppIcon`
+  // copies the bundled asset into the temp directory and returns that path, so
+  // the toast and the tray icon show the same image. Without it Windows falls
+  // back to a blank placeholder icon.
   if (isWindows) {
+    final iconPath = await TrayHelper.prepareAppIcon();
     await flnp.initialize(
-      settings: const InitializationSettings(
+      settings: InitializationSettings(
         windows: WindowsInitializationSettings(
           appName: 'TSDM',
           appUserModelId: 'com.tsdm.client',
           guid: '4f8b5f8a-1e9c-4b8e-9d5a-7c3a2b1f8e6d',
+          iconPath: iconPath,
         ),
       ),
       onDidReceiveNotificationResponse: onLocalNotificationOpened,
