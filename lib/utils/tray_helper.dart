@@ -34,7 +34,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper.forTesting({
     required GoRouter appRouter,
     required PopupRouteObserver popupObserver,
-    required Future Function() shutdown,
+    required Future<void> Function() shutdown,
   }) : this._(appRouter, popupObserver, shutdown);
 
   /// 全局单例。
@@ -42,7 +42,7 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   final GoRouter _router;
   final PopupRouteObserver _popupObserver;
-  final Future Function() _shutdown;
+  final Future<void> Function() _shutdown;
 
   /// 设置流订阅，用于在登录用户名或语言变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
@@ -62,7 +62,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 是否已注册 [TrayListener]。
   bool _registered = false;
 
-  /// 是否已创建原生图标（[trayManager.setIcon] 成功）。
+  /// 是否已创建原生图标（`trayManager.setIcon` 成功）。
   bool _iconCreated = false;
 
   /// 初始化 Future，用于幂等和并发调用。
