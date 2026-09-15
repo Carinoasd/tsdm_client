@@ -209,6 +209,11 @@ class TrayHelper with TrayListener, LoggerMixin {
     if (!_started || _popupObserver.hasPopupRoute) {
       return;
     }
+    // Selecting the page that is already on top only brings the window forward; pushing it again would stack the
+    // same page every time the menu is used.
+    if (_router.routerDelegate.currentConfiguration.last.matchedLocation == destination) {
+      return;
+    }
     unawaited(_router.pushNamed(destination!));
   }
 

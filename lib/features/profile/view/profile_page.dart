@@ -751,13 +751,17 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ],
 
+      // Medal centre entry: the catalogue is meant for the logged user (buy/apply for themselves), so it only shows
+      // on the user's own profile, like the achievements entry in the app bar.
+      if (widget.username == null && widget.uid == null)
+        ListTile(
+          leading: const Icon(Icons.workspace_premium_outlined),
+          title: Text(context.t.medalCenter.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.medalCenter),
+        ),
+
       /// Medals, if any.
-      ListTile(
-        leading: const Icon(Icons.workspace_premium_outlined),
-        title: Text(context.t.medalCenter.title),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () async => context.pushNamed(ScreenPaths.medalCenter),
-      ),
       if (userProfile.profileMedals?.isNotEmpty ?? false) ...[
         _SectionTitle(tr.medals),
         MedalGroupView(
