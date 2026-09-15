@@ -87,6 +87,19 @@ class TrayHelper with TrayListener, LoggerMixin {
     });
   }
 
+  /// 释放托盘持有的资源（订阅）。
+  ///
+  /// 由 `App.dispose` 调用：应用退出时取消设置流订阅，避免在窗口销毁后
+  /// 仍有 stream 回调访问已 dispose 的 GetIt 对象。
+  ///
+  /// 注意：**不调用** `trayManager.removeListener(this)`。`_exitApp` 退出
+  /// 进程前才会移除 listener，如果这里也移除，正常退出流程就没有 listener
+  /// 接收后续的菜单点击事件了。
+  Future<void> dispose() async {
+    await _settingsSubscription?.cancel();
+    _settingsSubscription = null;
+  }
+
   /// 由 `App.build` 调用，把当前 UI 的翻译表同步给托盘。
   ///
   /// 用 `context.t` 而不是 `LocaleSettings.instance.currentTranslations`：
