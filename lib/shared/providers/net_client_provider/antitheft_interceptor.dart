@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/utils/antitheft/antitheft_decoder.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -74,14 +75,23 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
   Future<void> onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) async {
     final data = response.data;
     final options = response.requestOptions;
-    // A challenge may be the final page after a successful POST redirect. Copying
-    // that request would resend its form body. Leave confirmation to the caller's
-    // fresh GET (for example, PollCubit), regardless of whether the POST succeeded.
-    if (!{'GET', 'HEAD'}.contains(options.method.toUpperCase()) ||
-        data is! String ||
-        !_isForumHost(options.uri) ||
-        !AntitheftDecoder.isChallenge(data)) {
+    if (data is! String || !_isForumHost(options.uri) || !AntitheftDecoder.isChallenge(data)) {
       handler.next(response);
+      return;
+    }
+    if (!const {'GET', 'HEAD'}.contains(options.method.toUpperCase())) {
+      // A challenge may be the final page after a successful POST redirect. Copying that request would resend its
+      // form body, so mutating requests are never replayed. Report an error instead of handing the challenge html to
+      // the caller as if it were the result; confirmation is left to the caller's own fresh GET (e.g. PollCubit).
+      warning('antitheft: ${options.method} ${options.uri} answered with a challenge, not replayed');
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: AntitheftChallengedRequestException(options.method, options.uri.toString()),
+        ),
+      );
       return;
     }
 
