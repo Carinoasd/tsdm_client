@@ -27,7 +27,7 @@ body:
             我已在[issue](https://github.com/Carinoasd/tsdm_client/issues?q=sort%3Aupdated-desc%20is%3Aissue)中搜索，确认没有重复或类似issue。
           required: true
         - label: |
-            我已确认这个问题不属于[已知问题](https://github.com/Carinoasd/tsdm_client#%E5%B7%B2%E7%9F%A5%E9%97%AE%E9%A2%98)。
+            我已确认这个问题不属于[已知问题](https://github.com/Carinoasd/tsdm_client#%E5%B7%B2%E7%9F%A5%E5%95%8F%E9%A1%8C)。
           required: true
         - label: |
             我确认这个问题不属于安全漏洞（例如账号 cookie 超时、泄露）。**安全漏洞请不要在此公开上报：用本仓库 Security → Report a vulnerability 私密回报，或在论坛私信站长**
