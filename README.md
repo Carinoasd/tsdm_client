@@ -6,6 +6,8 @@
 
 <p align="center">天使动漫论坛官方客户端 · Discuz! X5 版</p>
 
+<p align="center">繁體中文 | <a href="./README.en.md">English</a></p>
+
 <p align="center">
   <a href="https://github.com/Carinoasd/tsdm_client/releases"><img src="https://img.shields.io/github/release/Carinoasd/tsdm_client?label=release" alt="release"></a>
   <a href="https://github.com/Carinoasd/tsdm_client/releases"><img src="https://img.shields.io/github/downloads/Carinoasd/tsdm_client/total" alt="download_total"></a>
@@ -21,10 +23,6 @@
 
 本專案延續自 [realth000/tsdm_client](https://github.com/realth000/tsdm_client)（MIT），保留其全部歷史與版權聲明；X5 適配與後續開發由 Carinoasd 負責。
 
-## English summary
-
-tsdm_client is the official mobile and desktop client of the 天使动漫 (Angel Anime) forum, a Discuz! X5 community with over two million registered members and several thousand new posts a day. The forum has no public API: the app talks to the same pages a browser does, parses them, and adds what a phone needs on top: multi-account login, check-in, notifications for replies and private messages, favorites, friends, red packets, an offline-friendly BBCode editor, and encrypted backup and restore. Releases for Android, iOS (unsigned), Windows, macOS and Linux are built by GitHub Actions; the in-app update check reads `version.json` from this repository. The project continues [realth000/tsdm_client](https://github.com/realth000/tsdm_client) (MIT) and is maintained by Carinoasd; user feedback arrives through the forum and the issue tracker here.
-
 ## 下載
 
 到 [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest) 下載：
@@ -38,6 +36,8 @@ tsdm_client is the official mobile and desktop client of the 天使动漫 (Angel
 | Windows 10/11（64 位元，解壓即用） | `tsdm_client-windows.zip` |
 | macOS | `tsdm_client-universal.dmg` |
 | Linux | `tsdm_client-linux.tar.gz` |
+
+三個 Android 包可以互相升級：universal 的內部版本號永遠高於同一版的分包，下一版的任何包又高於它。只有在同一版裡從 universal 換回分包會被系統當成降版，需要先移除再裝。
 
 Linux 版需要系統已安裝 `libayatana-appindicator3-1`（Debian／Ubuntu 的套件名，其他發行版為對應的 ayatana-appindicator 套件）。這是系統匣元件的執行期依賴，沒有安裝時程式無法啟動。
 
@@ -75,11 +75,24 @@ Linux 版需要系統已安裝 `libayatana-appindicator3-1`（Debian／Ubuntu �
 ### 通知與設定
 - 前台／背景輪詢新訊息並發系統通知；被清掉後從通知冷啟動直接進訊息中心
 - 設定頁可查看與申請通知權限、忽略電池最佳化（Android）；Debug 區可發測試通知、匯出日誌
+- Windows：自動同步到新提醒或私訊時彈出系統通知並播放提示音；點通知會還原視窗並開到訊息中心
+- 自動抓取的時間界線以論壇時鐘為準，裝置時鐘不準也不會漏掉提醒與私訊
 - 淺色／深色主題，字級縮放，日誌頁跟隨主題
 
 ### 平台
 - Android（arm64／armv7／universal）、iOS（未簽章側載）、Windows、macOS、Linux；App 內「偵測最新版本」讀取本倉庫的 `version.json`
 - Windows：系統匣圖示與右鍵選單（目前帳號、歷史、收藏、管理帳戶、結束程式）；視窗最小化時從選單選頁面會先還原並聚焦視窗
+
+## 已知問題
+
+- 部分 Android 裝置旋轉過場會短暫露黑，旋轉完成後排版正常；這個過場問題暫不處理（#28）。
+- 版塊列表拿不到外鏈頭像：App 還沒在別處看過該使用者的頭像時，列表顯示文字圓圈。
+- 論壇的成就系統目前沒有內容，「我的成就」只會顯示「暫無成就」。
+- iOS 版沒有簽章，需要自行側載，也沒有實機測試。
+
+## 回報問題
+
+到 [Issues](https://github.com/Carinoasd/tsdm_client/issues) 開新議題，附上 App 版本、平台與重現步驟；能重現的請一併附「設定 → Debug → 匯出日誌」的日誌，日誌在寫入前已遮蔽登入憑證。安全性問題請用 Security → Report a vulnerability 私下回報，或在論壇私訊站長。
 
 ## 建置
 
@@ -90,7 +103,9 @@ dart run gitsumu                 # 產生版本／變更紀錄資訊
 flutter build apk --release      # 需要 android/key.properties 指向你的 keystore
 ```
 
-測試：`flutter test`。發布流程見 `.github/workflows/release_build.yml`。
+Linux 建置需要 `libgtk-3-dev`、`libsqlite3-dev` 與 `libayatana-appindicator3-dev`；測試：`flutter test`。
+
+發版：改 `pubspec.yaml` 的版本（`x.y.z+N`）與 CHANGELOG 新段 → `dart scripts/write_version_json.dart` → 測試 → 提交並推 master → `git tag -a vX.Y.Z && git push origin vX.Y.Z`，CI 依 `.github/workflows/release_build.yml` 建好各平台檔案並發布 Release，內文取自 CHANGELOG 該段。Android 內部版本號：分包為 N×10＋ABI 碼（armv7 2、arm64 3），universal 為 N×10＋9。
 
 ## 授權
 
