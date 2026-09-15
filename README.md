@@ -39,6 +39,8 @@ tsdm_client is the official mobile and desktop client of the 天使动漫 (Angel
 | macOS | `tsdm_client-universal.dmg` |
 | Linux | `tsdm_client-linux.tar.gz` |
 
+Linux 版需要系統已安裝 `libayatana-appindicator3-1`（Debian／Ubuntu 的套件名，其他發行版為對應的 ayatana-appindicator 套件）。這是系統匣元件的執行期依賴，沒有安裝時程式無法啟動。
+
 不上架任何商店。Android 直接安裝 APK；App 內「偵測最新版本」讀取本倉庫的 `version.json`，「更新日誌」與 Releases 同步。
 
 套件名為 `com.tsdm.tsdm_client`，使用論壇官方的簽章金鑰，可與原作者發布的舊版（`kzs.th000.tsdm_client`）並存。從舊版搬過來：舊版「設定 → 匯出資料」勾選帳號資料並設定密碼 → 安裝本版 → 「匯入資料」輸入同一密碼 → 移除舊版。
@@ -74,6 +76,7 @@ tsdm_client is the official mobile and desktop client of the 天使动漫 (Angel
 
 ### 平台
 - Android（arm64／armv7／universal）、iOS（未簽章側載）、Windows、macOS、Linux；App 內「偵測最新版本」讀取本倉庫的 `version.json`
+- Windows：系統匣圖示與右鍵選單（目前帳號、歷史、收藏、管理帳戶、結束程式）；視窗最小化時從選單選頁面會先還原並聚焦視窗
 
 ## 建置
 
