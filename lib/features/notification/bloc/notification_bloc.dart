@@ -134,6 +134,16 @@ Future<PersistedNotification> persistFetchedNotification({
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fresh = freshNotifications(fetched: fetched, stored: stored);
+  // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
+  // fetched 是本次从服务器拿到的所有副本，fresh 是其中真正算"新消息"的。
+  // 当 fetched > 0 但 fresh == 0，说明服务器返回的都被过滤（老副本 / 自己发的）；
+  // 当 fetched == 0，说明服务器没返回任何内容；两者导致"没有通知"的原因不同。
+  talker.debug(
+    'fresh notification: fetched(notice=${fetched.noticeList.length} '
+    'pm=${fetched.personalMessageList.length} bm=${fetched.broadcastMessageList.length}) '
+    '-> fresh(notice=${fresh.noticeList.length} '
+    'pm=${fresh.personalMessageList.length} bm=${fresh.broadcastMessageList.length})',
+  );
   final info = fetched.copyWith(
     noticeList: reconcileNoticeReadState(fetched: fetched.noticeList, stored: stored.noticeList),
     personalMessageList: reconcilePersonalMessageReadState(
