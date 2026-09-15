@@ -28,7 +28,8 @@ import 'package:window_manager/window_manager.dart';
 class TrayHelper with TrayListener, LoggerMixin {
   TrayHelper._(this._router, this._popupObserver, this._shutdown);
 
-  /// Exercises native events against a real test navigator without terminating the test process.
+  /// 测试用工厂：注入假的 router / observer / shutdown，让测试能在不结束
+  /// 进程的情况下驱动托盘事件。
   @visibleForTesting
   TrayHelper.forTesting({
     required GoRouter appRouter,
@@ -55,37 +56,61 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 最近一次由 [updateTranslations] 注入的翻译表。
   Translations? _translations;
 
-  /// Whether the native icon and menu are ready to receive updates.
+  /// 是否已完成初始化（图标 + 菜单已就绪）。
   bool _started = false;
 
+  /// 是否已注册 [TrayListener]。
   bool _registered = false;
+
+  /// 是否已创建原生图标（`trayManager.setIcon` 成功）。
   bool _iconCreated = false;
+
+  /// 初始化 Future，用于幂等和并发调用。
   Future<void>? _initialization;
+
+  /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
+  ///
+  /// `tray_manager` 和 Windows Toast 都需要绝对路径，且不接受 asset 路径。
+  /// 同一个文件被两者复用：托盘图标和通知图标显示的是同一张图。
+  ///
+  /// **每次调用都重新写入**：应用升级后图标内容变化，旧缓存不能被复用。
+  static Future<String> prepareAppIcon() async {
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}${io.Platform.pathSeparator}tsdm_tray.ico';
+    final file = io.File(filePath);
+    final bytes = await rootBundle.load('assets/images/app_icon.ico');
+    await file.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));
+    return filePath;
+  }
 
   /// 初始化托盘。
   ///
   /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
+  /// 幂等且并发安全：多个调用者共享同一个 [_initialization] Future。
   Future<void> init() => _initialization ??= _initialize();
 
   Future<void> _initialize() async {
     trayManager.addListener(this);
     _registered = true;
+
     try {
-      final iconPath = await _prepareTrayIcon();
+      final iconPath = await prepareAppIcon();
       await trayManager.setIcon(iconPath);
       _iconCreated = true;
       await trayManager.setToolTip('tsdm_client');
       await _updateContextMenu();
-
       _started = true;
+
+      // 登录用户名或 locale 变化时自动刷新菜单（登录、登出、切账户、切语言）。
       final settingsRepo = getIt.get<SettingsRepository>();
       _settingsSubscription = settingsRepo.settings.listen((settings) {
         if (settings.loginUsername != _lastUsername || settings.locale != _lastLocale) {
           unawaited(_refreshContextMenu());
         }
       });
-      // Asset loading may throw FlutterError as well as platform exceptions.
     } on Object {
+      // Asset 加载可能抛 FlutterError，也可能抛平台异常。清理后重新抛出，
+      // 让调用方（`main.dart`）决定是否要吞掉。
       await dispose();
       rethrow;
     }
@@ -93,7 +118,8 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 由 `App.build` 调用，把当前 UI 的翻译表同步给托盘。
   ///
-  /// Uses the UI's translation instance after a locale change, including device locale changes.
+  /// 用 UI 的翻译实例而不是 `LocaleSettings.instance`：后者在部分 slang
+  /// 版本里始终返回 baseLocale 的翻译，导致菜单语言不跟随。
   void updateTranslations(Translations translations) {
     if (identical(_translations, translations)) {
       return;
@@ -106,30 +132,19 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 当前 slang 翻译表。
   ///
-  /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）退回
-  /// 当前 locale 的翻译，不影响主流程。
+  /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）
+  /// 退回当前 locale 的翻译，不影响主流程。
   Translations get _t => _translations ?? LocaleSettings.currentLocale.translations;
 
-  /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
+  /// 刷新菜单，吞掉所有异常。
   ///
-  /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
-  Future<String> _prepareTrayIcon() async {
-    final dir = await getTemporaryDirectory();
-    final filePath = '${dir.path}${io.Platform.pathSeparator}tsdm_tray.ico';
-    final file = io.File(filePath);
-    // Refresh on each launch so an app upgrade cannot keep displaying an old cached icon.
-    final bytes = await rootBundle.load('assets/images/app_icon.ico');
-    await file.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));
-    return filePath;
-  }
-
+  /// 菜单更新是"尽力而为"：失败不能变成未处理的异步错误。
   Future<void> _refreshContextMenu() async {
     if (!_started) {
       return;
     }
     try {
       await _updateContextMenu();
-      // An optional native menu update must not become an unhandled asynchronous error.
     } on Object catch (e, st) {
       talker.handle(e, st, 'tray menu update failed');
     }
@@ -167,11 +182,13 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 右键单击托盘图标：弹出菜单。
   ///
-  /// Windows requires the native menu owner to be foreground for clicks outside to dismiss it.
-  /// The plugin's default skips SetForegroundWindow; this option activates its top-level owner.
+  /// Windows 要求原生菜单的 owner 是前台窗口，点击菜单外部才会收起。插件
+  /// 默认跳过 `SetForegroundWindow`；`bringAppToFront: true` 会激活它的
+  /// 顶层 owner。
   @override
   void onTrayIconRightMouseDown() {
-    // Supported by tray_manager 0.5.x; needed until the Windows backend handles this unconditionally.
+    // Supported by tray_manager 0.5.x; needed until the Windows backend handles this
+    // unconditionally.
     // ignore: deprecated_member_use
     unawaited(trayManager.popUpContextMenu(bringAppToFront: true));
   }
@@ -186,6 +203,7 @@ class TrayHelper with TrayListener, LoggerMixin {
     if (!_started) {
       return;
     }
+
     final destination = switch (menuItem.key) {
       'history' => ScreenPaths.threadVisitHistory,
       'favorite' => ScreenPaths.favorite,
@@ -195,17 +213,22 @@ class TrayHelper with TrayListener, LoggerMixin {
     if (destination == null && menuItem.key != 'exit') {
       return;
     }
+
+    // 有弹窗（对话框 / 底部弹层 / 退出确认）时只把窗口带到前台，不导航：
+    // 否则会绕过弹窗的 barrier。
     if (_popupObserver.hasPopupRoute) {
-      // Show the existing dialog instead of bypassing it, including while logging out.
       await _bringToFront();
       return;
     }
+
     if (menuItem.key == 'exit') {
       await _exitApp();
       return;
     }
+
     await _bringToFront();
-    // A dialog or shutdown may have started while the native window calls were pending.
+
+    // 还原窗口期间可能弹出了对话框，或托盘已被释放。
     if (!_started || _popupObserver.hasPopupRoute) {
       return;
     }
@@ -226,17 +249,20 @@ class TrayHelper with TrayListener, LoggerMixin {
     await windowManager.focus();
   }
 
-  /// Remove the tray, then let the shared shutdown flow close storage before terminating.
+  /// 移除托盘，然后交给共享的 shutdown 流程关闭存储并结束进程。
   Future<void> _exitApp() async {
     await dispose();
     await _shutdown();
   }
 
-  /// Release subscriptions and remove the native icon, including after partial initialization.
+  /// 释放资源：取消订阅、移除 listener、销毁原生图标。
+  ///
+  /// 可在初始化失败后调用，也支持之后重新 [init]。
   Future<void> dispose() async {
     _started = false;
     _initialization = null;
     _translations = null;
+
     try {
       await _settingsSubscription?.cancel();
     } on Exception catch (e) {
@@ -244,17 +270,19 @@ class TrayHelper with TrayListener, LoggerMixin {
     } finally {
       _settingsSubscription = null;
     }
+
     if (_registered) {
       _registered = false;
       trayManager.removeListener(this);
     }
-    // Do not call native cleanup when preparing the asset failed before setIcon.
+
+    // 准备 asset 失败时可能还没调用过 setIcon，此时不能调 destroy。
     if (_iconCreated) {
       _iconCreated = false;
       try {
         await trayManager.destroy();
-        // Preserve the initialization failure if cleanup also fails.
       } on Object catch (e, st) {
+        // 保留初始化失败的原异常，清理失败只记日志。
         talker.handle(e, st, 'tray cleanup failed');
       }
     }

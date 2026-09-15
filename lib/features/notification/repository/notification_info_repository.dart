@@ -57,8 +57,12 @@ final class NotificationInfoRepository with LoggerMixin {
   }
 
   /// Update the latest received notice status in last auto sync notice action.
+  ///
+  /// Platform gate: Android and Windows both deliver local notifications when new
+  /// notices arrive from the auto sync. Other desktop platforms (Linux / macOS)
+  /// currently do not push local notifications, so they are skipped.
   void updateAutoSyncInfo(NotificationAutoSyncInfo info) {
-    if (!isAndroid) {
+    if (!isAndroid && !isWindows) {
       return;
     }
     // Counts only: the info carries the notice / message text shown in the push notification.

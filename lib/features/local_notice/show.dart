@@ -24,6 +24,21 @@ const legacyLocalNoticeChannelId = 'newNoticeChannel';
 /// One id: a newer result replaces the previous notification instead of piling up.
 const localNoticeId = 0;
 
+/// Windows 平台使用的系统预设提示音。
+///
+/// 可选值见 [WindowsNotificationSound] 枚举：
+/// - defaultSound: 系统默认通知音
+/// - im: IM 消息音（当前使用）
+/// - mail: 邮件音
+/// - reminder: 提醒音
+/// - sms: 短信音
+/// - alarm1 ~ alarm10: 10 种闹钟音
+/// - call1 ~ call10: 10 种来电音
+///
+/// 注意：只有系统预设音才能在未 MSIX 打包时正常播放。自定义 mp3/wav 需要 MSIX，
+/// 因为 Windows 只接受 `ms-appx://` 或 `ms-resource://` 协议引用音频文件。
+const WindowsNotificationSound _windowsSound = WindowsNotificationSound.im;
+
 /// Build the notification body text of [info].
 String buildLocalNotificationBody(BuildContext context, NotificationAutoSyncInfo info) {
   final tr = context.t.localNotification;
@@ -51,9 +66,11 @@ String buildLocalNotificationBody(BuildContext context, NotificationAutoSyncInfo
 
 /// Build the platform details of the auto sync notification.
 ///
-/// High importance and priority so the notification is shown (heads-up where the OEM allows it) instead of landing
-/// silently in the shade, which is what a default-importance channel did on some devices (#13). The small icon is not
-/// set here on purpose: the one given to `flnp.initialize` is used.
+/// Android: high importance and priority so the notification is shown (heads-up where the OEM allows it) instead of
+/// landing silently in the shade, which is what a default-importance channel did on some devices (#13). The small
+/// icon is not set here on purpose: the one given to `flnp.initialize` is used.
+///
+/// Windows: system toast with the IM preset sound (see [_windowsSound]).
 NotificationDetails buildLocalNotificationDetails({
   required String channelName,
   required String channelDescription,
@@ -66,6 +83,9 @@ NotificationDetails buildLocalNotificationDetails({
     ticker: ticker,
     importance: Importance.high,
     priority: Priority.high,
+  ),
+  windows: WindowsNotificationDetails(
+    audio: WindowsNotificationAudio.preset(sound: _windowsSound),
   ),
 );
 
@@ -89,12 +109,20 @@ Future<void> deleteLegacyLocalNoticeChannel() async {
 
 /// Show the auto sync result [info] as a local notification.
 ///
-/// Android only. Logs whether the OS reports notifications as enabled for this app before showing, because
+/// Android: logs whether the OS reports notifications as enabled for this app before showing, because
 /// `NotificationManager.notify` is a silent no-op when the app has no notification permission (#13).
+///
+/// Windows: shows a system toast; the IM preset sound is configured in [buildLocalNotificationDetails].
 Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInfo info) async {
-  if (!isAndroid) {
+  // Diagnostic: entry point logging so we can tell from the exported log whether
+  // this function was reached at all on desktop platforms.
+  talker.info('showLocalNotification called: ${info.runtimeType} isAndroid=$isAndroid isWindows=$isWindows');
+
+  if (!isAndroid && !isWindows) {
+    talker.info('showLocalNotification: platform not supported, returning early');
     return;
   }
+
   final tr = context.t.localNotification;
   final nd = buildLocalNotificationDetails(
     channelName: tr.channelName,
@@ -103,13 +131,18 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
   );
   final body = buildLocalNotificationBody(context, info);
   final title = tr.notice.title;
+  talker.info('showLocalNotification: prepared title="$title" body="$body"');
+
   try {
-    final enabled = await flnp
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.areNotificationsEnabled();
-    talker.info(
-      'push local notification id=$localNoticeId channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
-    );
+    if (isAndroid) {
+      final enabled = await flnp
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.areNotificationsEnabled();
+      talker.info(
+        'push local notification id=$localNoticeId channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
+      );
+    }
+    talker.info('showLocalNotification: calling flnp.show');
     await flnp.show(
       id: localNoticeId,
       title: title,
@@ -117,6 +150,7 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
       notificationDetails: nd,
       payload: LocalNoticeKeys.openNotification,
     );
+    talker.info('showLocalNotification: flnp.show returned normally');
   } on Exception catch (e, st) {
     talker.handle(e, st, 'push local notification failed: ');
   }
