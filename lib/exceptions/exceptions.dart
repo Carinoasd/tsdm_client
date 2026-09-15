@@ -461,3 +461,21 @@ final class EditUserProfileUploadFailed extends AppException with EditUserProfil
   /// Constructor.
   EditUserProfileUploadFailed() : super();
 }
+
+/// A request that is not GET/HEAD (typically a form POST) was answered with the antitheft challenge page.
+///
+/// The interceptor never replays such a request: the challenge may be the final page of the redirect after the form
+/// was accepted, and copying the request would submit the form again. Callers get this error instead of the challenge
+/// html and decide themselves whether to retry.
+@MappableClass()
+final class AntitheftChallengedRequestException extends AppException with AntitheftChallengedRequestExceptionMappable {
+  /// Constructor.
+  AntitheftChallengedRequestException(this.method, this.url)
+    : super(message: 'antitheft challenge received for $method $url, request not replayed');
+
+  /// HTTP method of the challenged request.
+  final String method;
+
+  /// Url of the challenged request.
+  final String url;
+}
