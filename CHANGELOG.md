@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Android：universal apk 的内部版本号改为「版本号×10＋9」，永远高于同一版的 arm64／armv7 分包（×10＋ABI 码）；从分包换装 universal 不再被系统当成降版而拒绝安装。Release 页的 universal apk 改由 CI 产生。1.24.0 的 universal apk 已以 749 重新发布。(#70)
+
 ## [1.24.0] - 2026-09-15
 
 ### Added

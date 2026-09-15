@@ -868,3 +868,13 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   沒有標頭時為 null；cubit 一輪自動抓取後儲存的界線＝論壇時鐘減一分鐘（裝置快 5 分鐘的情境）、沒有標頭時＝裝置開始分鐘；一鍵同步同規則。
 - 實機：把系統時鐘調快數分鐘，另一帳號發私訊，下一輪自動抓取要有通知。
 
+## 30. Android 內部版本號（versionCode）規則（PR #70 回報，2026-09-15）
+
+- `android/app/build.gradle`：分包 apk 的 versionCode ＝ pubspec 版本號 ×10 ＋ ABI 碼（x86_64 1、armeabi-v7a 2、arm64-v8a 3，上游為 F-Droid 政策所加）；
+  universal apk 原本沒有套用，只有原始號碼（1.24.0 是 74），從 1.23.0 的 arm64 分包（733）換裝 universal 會被 Android 當成降版。
+- 改法：universal（沒有 ABI filter 的輸出）＝ ×10 ＋ 9，永遠高於同一版的分包，下一版的分包（×10＋2／3）又高於它，所以從哪種包升級到哪種包都是升版。
+  同一版內從 universal 換回分包仍是降版，這是刻意的（沒有理由這樣換）。
+- Release 頁的 `tsdm_client-universal.apk` 改由 release workflow 的 Android job 產生並上傳（`app-release.apk`），不再本機手工建；1.24.0 的 universal 已用 `--build-number 749` 重建替換。
+- App 內「偵測最新版本」比的是 pubspec 的號碼（`version.json` 的 `versionCode` 對 `appVersion` 的 `+N`），與 apk 實際的 versionCode 無關，不受此規則影響。
+- 驗收：本機 `flutter build apk --release` 三個輸出的 versionCode 分別為 ×10＋9、×10＋3、×10＋2；下一次發版 Release 頁自動出現 universal apk。
+
