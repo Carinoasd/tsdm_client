@@ -327,4 +327,35 @@ void main() {
     expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(1));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('selecting the page already on top brings the window forward without stacking it again', (tester) async {
+    await tester.runAsync(helper.init);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+    await tester.pumpAndSettle();
+    helper.onTrayMenuItemClick(MenuItem(key: 'history'));
+    await tester.pumpAndSettle();
+    expect(find.text(ScreenPaths.threadVisitHistory), findsOneWidget);
+    expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(2));
+
+    final focusCount = windowCalls.where((method) => method == 'focus').length;
+    helper.onTrayMenuItemClick(MenuItem(key: 'history'));
+    await tester.pumpAndSettle();
+    expect(
+      appRouter.routerDelegate.currentConfiguration.matches,
+      hasLength(2),
+      reason: 'the same page must not be stacked twice',
+    );
+    expect(
+      windowCalls.where((method) => method == 'focus').length,
+      focusCount + 1,
+      reason: 'the window is still restored and focused',
+    );
+
+    // A different page still opens on top of it.
+    helper.onTrayMenuItemClick(MenuItem(key: 'favorite'));
+    await tester.pumpAndSettle();
+    expect(find.text(ScreenPaths.favorite), findsOneWidget);
+    expect(appRouter.routerDelegate.currentConfiguration.matches, hasLength(3));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
