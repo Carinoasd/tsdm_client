@@ -1,20 +1,16 @@
 import 'dart:async';
 import 'dart:io' as io;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
-import 'package:tsdm_client/routes/popup_route_observer.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/widgets/shutdown.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 系统托盘管理助手（仅 Windows）。
@@ -26,22 +22,10 @@ import 'package:window_manager/window_manager.dart';
 /// 托盘菜单的翻译由 [updateTranslations] 从 `App.build` 注入，保证语言切换
 /// 后菜单文字跟着变。
 class TrayHelper with TrayListener, LoggerMixin {
-  TrayHelper._(this._router, this._popupObserver, this._shutdown);
-
-  /// Exercises native events against a real test navigator without terminating the test process.
-  @visibleForTesting
-  TrayHelper.forTesting({
-    required GoRouter appRouter,
-    required PopupRouteObserver popupObserver,
-    required Future<void> Function() shutdown,
-  }) : this._(appRouter, popupObserver, shutdown);
+  TrayHelper._();
 
   /// 全局单例。
-  static final TrayHelper instance = TrayHelper._(router, popupRouteObserver, exitApp);
-
-  final GoRouter _router;
-  final PopupRouteObserver _popupObserver;
-  final Future<void> Function() _shutdown;
+  static final TrayHelper instance = TrayHelper._();
 
   /// 设置流订阅，用于在登录用户名或语言变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
@@ -55,85 +39,73 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// 最近一次由 [updateTranslations] 注入的翻译表。
   Translations? _translations;
 
-  /// Whether the native icon and menu are ready to receive updates.
+  /// 是否已调用过 [init]。
   bool _started = false;
 
-  bool _registered = false;
-  bool _iconCreated = false;
-  Future<void>? _initialization;
+  /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
+  ///
+  /// `tray_manager` 和 Windows Toast 都需要绝对路径，且不接受 asset 路径。
+  /// 同一个文件被两者复用：托盘图标和通知图标显示的是同一张图。
+  ///
+  /// 幂等：文件已经存在且非空时直接返回路径，不会重复写入。
+  static Future<String> prepareAppIcon() async {
+    final dir = await getTemporaryDirectory();
+    final separator = io.Platform.pathSeparator;
+    final filePath = '${dir.path}${separator}app_icon.ico';
+    final file = io.File(filePath);
+
+    if (!file.existsSync() || file.lengthSync() == 0) {
+      final bytes = await rootBundle.load('assets/images/app_icon.ico');
+      await file.writeAsBytes(bytes.buffer.asUint8List());
+    }
+    return filePath;
+  }
 
   /// 初始化托盘。
   ///
   /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
-  Future<void> init() => _initialization ??= _initialize();
-
-  Future<void> _initialize() async {
+  Future<void> init() async {
     trayManager.addListener(this);
-    _registered = true;
-    try {
-      final iconPath = await _prepareTrayIcon();
-      await trayManager.setIcon(iconPath);
-      _iconCreated = true;
-      await trayManager.setToolTip('tsdm_client');
-      await _updateContextMenu();
+    _started = true;
 
-      _started = true;
-      final settingsRepo = getIt.get<SettingsRepository>();
-      _settingsSubscription = settingsRepo.settings.listen((settings) {
-        if (settings.loginUsername != _lastUsername || settings.locale != _lastLocale) {
-          unawaited(_refreshContextMenu());
-        }
-      });
-      // Asset loading may throw FlutterError as well as platform exceptions.
-    } on Object {
-      await dispose();
-      rethrow;
-    }
+    final iconPath = await prepareAppIcon();
+    await trayManager.setIcon(iconPath);
+    await trayManager.setToolTip('tsdm_client');
+
+    await _updateContextMenu();
+
+    // 登录用户名或 locale 变化时自动刷新菜单（登录、登出、切账户、切语言）。
+    final settingsRepo = getIt.get<SettingsRepository>();
+    _settingsSubscription = settingsRepo.settings.listen((settings) {
+      final usernameChanged = settings.loginUsername != _lastUsername;
+      final localeChanged = settings.locale != _lastLocale;
+      if (usernameChanged || localeChanged) {
+        _lastUsername = settings.loginUsername;
+        _lastLocale = settings.locale;
+        unawaited(_updateContextMenu());
+      }
+    });
   }
 
   /// 由 `App.build` 调用，把当前 UI 的翻译表同步给托盘。
   ///
-  /// Uses the UI's translation instance after a locale change, including device locale changes.
+  /// 用 `context.t` 而不是 `LocaleSettings.instance.currentTranslations`：
+  /// 后者在部分 slang 版本里始终返回 baseLocale 的翻译，导致菜单语言不跟随。
   void updateTranslations(Translations translations) {
     if (identical(_translations, translations)) {
       return;
     }
     _translations = translations;
     if (_started) {
-      unawaited(_refreshContextMenu());
+      unawaited(_updateContextMenu());
     }
   }
 
   /// 当前 slang 翻译表。
   ///
   /// 优先使用 [updateTranslations] 注入的那份；还没注入时（初始化极早期）退回
-  /// 当前 locale 的翻译，不影响主流程。
-  Translations get _t => _translations ?? LocaleSettings.currentLocale.translations;
-
-  /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
-  ///
-  /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
-  Future<String> _prepareTrayIcon() async {
-    final dir = await getTemporaryDirectory();
-    final filePath = '${dir.path}${io.Platform.pathSeparator}tsdm_tray.ico';
-    final file = io.File(filePath);
-    // Refresh on each launch so an app upgrade cannot keep displaying an old cached icon.
-    final bytes = await rootBundle.load('assets/images/app_icon.ico');
-    await file.writeAsBytes(bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));
-    return filePath;
-  }
-
-  Future<void> _refreshContextMenu() async {
-    if (!_started) {
-      return;
-    }
-    try {
-      await _updateContextMenu();
-      // An optional native menu update must not become an unhandled asynchronous error.
-    } on Object catch (e, st) {
-      talker.handle(e, st, 'tray menu update failed');
-    }
-  }
+  /// slang 的 currentTranslations，不影响主流程。
+  Translations get _t => _translations ?? LocaleSettings.instance.currentTranslations;
 
   /// 构建并设置右键菜单。
   Future<void> _updateContextMenu() async {
@@ -166,14 +138,9 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   /// 右键单击托盘图标：弹出菜单。
-  ///
-  /// Windows requires the native menu owner to be foreground for clicks outside to dismiss it.
-  /// The plugin's default skips SetForegroundWindow; this option activates its top-level owner.
   @override
   void onTrayIconRightMouseDown() {
-    // Supported by tray_manager 0.5.x; needed until the Windows backend handles this unconditionally.
-    // ignore: deprecated_member_use
-    unawaited(trayManager.popUpContextMenu(bringAppToFront: true));
+    unawaited(trayManager.popUpContextMenu());
   }
 
   /// 菜单项点击事件。
@@ -183,33 +150,19 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   Future<void> _handleMenuItemClick(MenuItem menuItem) async {
-    if (!_started) {
-      return;
+    switch (menuItem.key) {
+      case 'history':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.threadVisitHistory));
+      case 'favorite':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.favorite));
+      case 'manageAccount':
+        await _bringToFront();
+        unawaited(router.pushNamed(ScreenPaths.manageAccount));
+      case 'exit':
+        await _exitApp();
     }
-    final destination = switch (menuItem.key) {
-      'history' => ScreenPaths.threadVisitHistory,
-      'favorite' => ScreenPaths.favorite,
-      'manageAccount' => ScreenPaths.manageAccount,
-      _ => null,
-    };
-    if (destination == null && menuItem.key != 'exit') {
-      return;
-    }
-    if (_popupObserver.hasPopupRoute) {
-      // Show the existing dialog instead of bypassing it, including while logging out.
-      await _bringToFront();
-      return;
-    }
-    if (menuItem.key == 'exit') {
-      await _exitApp();
-      return;
-    }
-    await _bringToFront();
-    // A dialog or shutdown may have started while the native window calls were pending.
-    if (!_started || _popupObserver.hasPopupRoute) {
-      return;
-    }
-    unawaited(_router.pushNamed(destination!));
   }
 
   /// 从最小化/后台状态还原窗口并聚焦。
@@ -221,37 +174,17 @@ class TrayHelper with TrayListener, LoggerMixin {
     await windowManager.focus();
   }
 
-  /// Remove the tray, then let the shared shutdown flow close storage before terminating.
+  /// 强制退出应用进程。
+  ///
+  /// 用 `io.exit(0)` 而不是 `windowManager.destroy()`：后者在某些 Win32 场景下
+  /// 会阻塞 UI 线程，导致窗口"未响应"后再崩溃。
   Future<void> _exitApp() async {
-    await dispose();
-    await _shutdown();
-  }
-
-  /// Release subscriptions and remove the native icon, including after partial initialization.
-  Future<void> dispose() async {
-    _started = false;
-    _initialization = null;
-    _translations = null;
     try {
       await _settingsSubscription?.cancel();
     } on Exception catch (e) {
       debug('cancel settings subscription failed: $e');
-    } finally {
-      _settingsSubscription = null;
     }
-    if (_registered) {
-      _registered = false;
-      trayManager.removeListener(this);
-    }
-    // Do not call native cleanup when preparing the asset failed before setIcon.
-    if (_iconCreated) {
-      _iconCreated = false;
-      try {
-        await trayManager.destroy();
-        // Preserve the initialization failure if cleanup also fails.
-      } on Object catch (e, st) {
-        talker.handle(e, st, 'tray cleanup failed');
-      }
-    }
+    trayManager.removeListener(this);
+    io.exit(0);
   }
 }
