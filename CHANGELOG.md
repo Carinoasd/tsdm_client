@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 桌面（Windows）：自动同步到新提醒或私信时弹出系统通知并播放提示音；点击通知会还原并聚焦窗口，再打开消息中心。原始实现来自 [@Qing-Novel](https://github.com/Qing-Novel)。(#70)
+
 ## [1.23.0] - 2026-09-15
 
 ### Added

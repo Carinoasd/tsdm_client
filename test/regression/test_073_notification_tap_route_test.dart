@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -40,11 +41,14 @@ void main() {
     final got = <String?>[];
     final sub = localNoticeStream.stream.listen(got.add);
     addTearDown(sub.cancel);
-    onLocalNotificationOpened(
-      const NotificationResponse(
-        notificationResponseType: NotificationResponseType.selectedNotification,
-        id: 0,
-        payload: LocalNoticeKeys.openNotification,
+    // Not awaited on purpose: the payload must be visible before the desktop window work finishes.
+    unawaited(
+      onLocalNotificationOpened(
+        const NotificationResponse(
+          notificationResponseType: NotificationResponseType.selectedNotification,
+          id: 0,
+          payload: LocalNoticeKeys.openNotification,
+        ),
       ),
     );
     await Future<void>.delayed(Duration.zero);
@@ -112,5 +116,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('dialog'), findsOneWidget);
     expect(routerTopLocation(router), ScreenPaths.homepage);
+  });
+
+  /// PR #70: on desktop a tap also brings the window back. The payload must reach the stream first and a failing
+  /// window call must never swallow the tap.
+  group('desktop window on tap', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const windowChannel = MethodChannel('window_manager');
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late List<String> calls;
+    var minimized = true;
+    String? failMethod;
+    const response = NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotification,
+      id: 0,
+      payload: LocalNoticeKeys.openNotification,
+    );
+
+    setUp(() {
+      calls = [];
+      minimized = true;
+      failMethod = null;
+      messenger.setMockMethodCallHandler(windowChannel, (call) async {
+        calls.add(call.method);
+        if (call.method == failMethod) {
+          throw PlatformException(code: 'test_failure');
+        }
+        if (call.method == 'restore') minimized = false;
+        return call.method == 'isMinimized' ? minimized : null;
+      });
+    });
+
+    tearDown(() => messenger.setMockMethodCallHandler(windowChannel, null));
+
+    test('a minimized window is restored, shown and focused after the payload is forwarded', () async {
+      final got = <String?>[];
+      final sub = localNoticeStream.stream.listen(got.add);
+      addTearDown(sub.cancel);
+      await onLocalNotificationOpened(response);
+      expect(got, [LocalNoticeKeys.openNotification]);
+      // window_manager's show() queries isMinimized again itself; only the actions matter.
+      expect(calls.where((method) => method != 'isMinimized'), ['restore', 'show', 'focus']);
+    });
+
+    test('a window that is not minimized is only shown and focused', () async {
+      minimized = false;
+      await onLocalNotificationOpened(response);
+      expect(calls.where((method) => method != 'isMinimized'), ['show', 'focus']);
+    });
+
+    test('a failing window call still forwards the payload and does not throw', () async {
+      failMethod = 'focus';
+      final got = <String?>[];
+      final sub = localNoticeStream.stream.listen(got.add);
+      addTearDown(sub.cancel);
+      await expectLater(onLocalNotificationOpened(response), completes);
+      expect(got, [LocalNoticeKeys.openNotification]);
+      expect(calls.last, 'focus');
+    });
   });
 }

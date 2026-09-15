@@ -98,6 +98,7 @@ Future<void> _boot(List<String> args) async {
 
   // Initialize flutter_local_notification.
   flnp = FlutterLocalNotificationsPlugin();
+
   if (isAndroid) {
     await flnp.initialize(
       // Drawable ic_launcher_foreground_no_transform is shrunk when building in CI.
@@ -118,6 +119,40 @@ Future<void> _boot(List<String> args) async {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
       talker.info('boot notification permission granted=$granted');
+    }
+  }
+
+  // Windows notification initialization.
+  //
+  // `appUserModelId` and `guid` identify the app to Windows so that toasts are
+  // delivered instead of being silently dropped. The `guid` MUST be a fixed
+  // UUID v4 that never changes; generate one and hardcode it here.
+  //
+  // `iconPath` must be an absolute path to a `.ico` file. `TrayHelper.prepareAppIcon`
+  // copies the bundled asset into the temp directory and returns that path, so
+  // the toast and the tray icon show the same image. Without it Windows falls
+  // back to a blank placeholder icon.
+  //
+  // Optional feature: like the tray, a failure here (asset, temp directory, toast registration) is logged and must
+  // never stop the app from starting.
+  if (isWindows) {
+    try {
+      final iconPath = await TrayHelper.prepareAppIcon();
+      await flnp.initialize(
+        settings: InitializationSettings(
+          windows: WindowsInitializationSettings(
+            // Shown as the toast header; same name as the window title.
+            appName: LocaleSettings.currentLocale.translations.appName,
+            appUserModelId: 'com.tsdm.client',
+            guid: '4f8b5f8a-1e9c-4b8e-9d5a-7c3a2b1f8e6d',
+            iconPath: iconPath,
+          ),
+        ),
+        onDidReceiveNotificationResponse: onLocalNotificationOpened,
+      );
+      // Asset loading can throw FlutterError, the plugin PlatformException/StateError.
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'windows notification init failed');
     }
   }
 

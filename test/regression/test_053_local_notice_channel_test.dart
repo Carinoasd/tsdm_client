@@ -27,6 +27,14 @@ void main() {
       expect(details.linux, isNull);
     });
 
+    test('Windows toasts play the IM preset sound (PR #70)', () {
+      final details = buildLocalNotificationDetails(channelName: 'name', channelDescription: 'desc', ticker: 'tick');
+      final windows = details.windows;
+      expect(windows, isNotNull);
+      expect(windows!.audio, isNotNull);
+      expect(windows.audio!.source, WindowsNotificationSound.im.name);
+    });
+
     test('one notification id: a newer result replaces the previous notification', () {
       expect(localNoticeId, 0);
     });

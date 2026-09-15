@@ -71,7 +71,7 @@ class TrayHelper with TrayListener, LoggerMixin {
     trayManager.addListener(this);
     _registered = true;
     try {
-      final iconPath = await _prepareTrayIcon();
+      final iconPath = await prepareAppIcon();
       await trayManager.setIcon(iconPath);
       _iconCreated = true;
       await trayManager.setToolTip('tsdm_client');
@@ -112,8 +112,9 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 将打包在 assets 中的图标复制到系统临时目录，返回绝对路径。
   ///
-  /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。
-  Future<String> _prepareTrayIcon() async {
+  /// `tray_manager` 在 Windows 上需要绝对路径，且不接受 asset 路径。Windows 通知（toast）的图标也用同一个文件，
+  /// 所以托盘和通知显示的是同一张图。
+  static Future<String> prepareAppIcon() async {
     final dir = await getTemporaryDirectory();
     final filePath = '${dir.path}${io.Platform.pathSeparator}tsdm_tray.ico';
     final file = io.File(filePath);
