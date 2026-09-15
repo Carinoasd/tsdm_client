@@ -6,12 +6,16 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
+
+/// One fetch of every notification kind, with the forum's clock when it was answered.
+typedef FetchedNotification = ({NotificationV2 info, DateTime? serverTime});
 
 /// Repository of notification.
 ///
@@ -78,6 +82,10 @@ final class NotificationRepository with LoggerMixin {
   static AsyncEither<uh.Document> _fetchPageWith(NetClientProvider client, String url) =>
       client.get(url).mapHttp((v) => parseHtmlDocument(v.data as String));
 
+  /// Same as [_fetchPageWith], plus the forum's clock from the answer's `Date` header (null when absent).
+  static AsyncEither<(uh.Document, DateTime?)> _fetchPageWithTime(NetClientProvider client, String url) =>
+      client.get(url).mapHttp((v) => (parseHtmlDocument(v.data as String), serverTimeOf(v.headers)));
+
   /// Fetch all notices from server page.
   AsyncEither<List<Notice>> fetchNotice() => _fetchPage(
     noticeUrl,
@@ -110,13 +118,16 @@ final class NotificationRepository with LoggerMixin {
   /// The account is whatever [client] carries: the current-user fetch ([fetchNotificationV2]) passes the default
   /// client, the sync of all accounts passes one client per stored account. Returns [NotificationUserNotFound] when
   /// the server answered the guest page (session expired), the request error otherwise.
-  AsyncEither<NotificationV2> fetchNotificationWith(NetClientProvider client, {int? timestamp}) =>
+  ///
+  /// The returned `serverTime` is the earliest `Date` header of the three answers, null when
+  /// the server sent none: the caller stores the lower bound of its next fetch from that clock (GitHub #71).
+  AsyncEither<FetchedNotification> fetchNotificationWith(NetClientProvider client, {int? timestamp}) =>
       AsyncEither(() async {
         final since = _buildSinceTimestamp(timestamp);
         final results = await Future.wait([
-          _fetchPageWith(client, noticeUrl).run(),
-          _fetchPageWith(client, personalMessageUrl).run(),
-          _fetchPageWith(client, broadcastMessageUrl).run(),
+          _fetchPageWithTime(client, noticeUrl).run(),
+          _fetchPageWithTime(client, personalMessageUrl).run(),
+          _fetchPageWithTime(client, broadcastMessageUrl).run(),
         ]);
         for (final r in results) {
           if (r case Left(:final value)) {
@@ -124,7 +135,9 @@ final class NotificationRepository with LoggerMixin {
             return left(value);
           }
         }
-        final noticeDoc = results[0].getOrElse((_) => throw StateError('unreachable'));
+        final pages = results.map((r) => r.getOrElse((_) => throw StateError('unreachable'))).toList();
+        final serverTime = earliestOf(pages.map((page) => page.$2));
+        final noticeDoc = pages[0].$1;
         // Session expired: the server renders a guest page with the login form, not an empty notice list.
         if (noticeDoc.querySelector('form#lsform') != null && noticeDoc.querySelector('div#um') == null) {
           error('failed to fetch notification: not logged in');
@@ -132,15 +145,16 @@ final class NotificationRepository with LoggerMixin {
         }
         final info = NotificationV2.fromDocuments(
           noticeDoc: noticeDoc,
-          personalMessageDoc: results[1].getOrElse((_) => throw StateError('unreachable')),
-          broadcastMessageDoc: results[2].getOrElse((_) => throw StateError('unreachable')),
+          personalMessageDoc: pages[1].$1,
+          broadcastMessageDoc: pages[2].$1,
           since: since,
         );
         debug(
           'fetched notification since $since: notice=${info.noticeList.length} '
-          'pm=${info.personalMessageList.length} bm=${info.broadcastMessageList.length}',
+          'pm=${info.personalMessageList.length} bm=${info.broadcastMessageList.length} '
+          'serverTime=${serverTime?.toIso8601String() ?? 'unknown'}',
         );
-        return right(info);
+        return right((info: info, serverTime: serverTime));
       });
 
   /// Fetch all kinds of notification of the current user.
@@ -153,9 +167,11 @@ final class NotificationRepository with LoggerMixin {
   /// or [NotificationInfoStateSuccess]. The fetch itself is [fetchNotificationWith] on the default client.
   ///
   /// The name is kept for compatibility, see the class document for details.
-  AsyncVoidEither fetchNotificationV2({required int uid, int? timestamp}) {
+  ///
+  /// Resolves to the forum's clock of the fetch (see [fetchNotificationWith]), null when the server did not say.
+  AsyncEither<DateTime?> fetchNotificationV2({required int uid, int? timestamp}) {
     _controller.add(const NotificationInfoStateLoading());
-    return AsyncVoidEither(() async {
+    return AsyncEither(() async {
       final result = await fetchNotificationWith(getIt.get<NetClientProvider>(), timestamp: timestamp).run();
       switch (result) {
         case Left(:final value):
@@ -166,8 +182,8 @@ final class NotificationRepository with LoggerMixin {
           _controller.add(const NotificationInfoStateFailure());
           return left(value);
         case Right(:final value):
-          _controller.add(NotificationInfoStateSuccess(uid, value));
-          return rightVoid();
+          _controller.add(NotificationInfoStateSuccess(uid, value.info));
+          return right(value.serverTime);
       }
     });
   }

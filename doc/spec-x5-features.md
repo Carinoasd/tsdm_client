@@ -842,3 +842,29 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 
 - `test_053`：通知細節含 Windows 預設提示音。`test_073`：桌面點擊通知會還原／顯示／聚焦視窗且 payload 先送出；視窗操作失敗時 payload 仍送出、不丟例外。
 - Windows 實機：Qing-Novel 已測 PR #70 版本；接手版本待維護者用 Test build 再確認一次彈窗、提示音、最小化時點擊還原。
+
+## 29. 自動抓取通知的時間界線改用論壇時鐘（GitHub #71，2026-09-15）
+
+### 29.1 事實
+
+- 通知、私訊、公共訊息的時間由論壇的時鐘蓋章，精度到分鐘；抓取用含下界（`timestamp` 秒）。原本三處都用**裝置時鐘**推進界線：
+  `AutoNotificationCubit` 與一鍵同步寫「抓取開始的整分鐘」，`NotificationBloc` 寫最新訊息時間（只往前）。
+- 裝置時鐘快於論壇時，「抓取開始的整分鐘」會超前論壇時間，之後論壇在這段差距內蓋章的訊息小於界線，下一輪含下界的抓取不會回傳，訊息就漏了。
+  桌面電腦時鐘不同步比手機常見，Windows 版有通知後風險變高。
+- 論壇每個回應都帶 HTTP `Date` 標頭（論壇時鐘）。
+
+### 29.2 App 端行為
+
+- `lib/features/notification/utils/fetch_bound.dart`：`serverTimeOf(headers)` 解析 `Date`（壞掉或缺少回 null）；`nextFetchBound(startedAt, serverTime)`
+  有論壇時間時＝論壇時間換成本地時區、截到整分鐘、**再減一分鐘**（`Date` 是頁面產生完才寫的，頁面產生期間蓋章的訊息可能還在前一分鐘；多抓的副本照舊由
+  `freshNotifications` 對照儲存過濾），沒有時＝原本的裝置開始整分鐘。
+- `NotificationRepository.fetchNotificationWith` 回 `(info, serverTime)`，`serverTime` 取三個頁面回應裡最早的 `Date`；`fetchNotificationV2` 回 `serverTime`。
+  `AutoNotificationCubit` 與一鍵同步都改用 `nextFetchBound`。cubit 的寫入刻意**不做「只往前」**：裝置時鐘曾經快過而存下未來的界線時，只有依論壇時鐘寫回才能自我修復。
+- `NotificationBloc` 記最新訊息時間的邏輯不變。
+
+### 29.3 驗收
+
+- `test_087`：純函式（論壇時間優先於超前的裝置時鐘、UTC 標頭換本地時區、缺標頭退回裝置時間、`Date` 解析與壞值、取最早）；repository 回三頁中最早的 `Date`、
+  沒有標頭時為 null；cubit 一輪自動抓取後儲存的界線＝論壇時鐘減一分鐘（裝置快 5 分鐘的情境）、沒有標頭時＝裝置開始分鐘；一鍵同步同規則。
+- 實機：把系統時鐘調快數分鐘，另一帳號發私訊，下一輪自動抓取要有通知。
+
