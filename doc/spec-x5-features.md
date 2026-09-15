@@ -702,3 +702,118 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
   已快取的外鏈頭像在生成網址 404 後仍然顯示；**卡片移除再顯示三輪，沒有檔案的那個網址仍然只被請求一次**（拿掉記錄後這條會失敗，量到 6 次），
   完全沒有頭像的作者同樣只請求一次（那條路徑不會 evict，靠 Flutter 的圖片快取）。
 - 桌面實測：Linux 建置跑起來後開版塊列表確認頭像、捲動與快取。
+
+## 23. 一般投票帖（GitHub #41，2026-09-14，PR #63）
+
+### 23.1 論壇端事實（測試帳號實抓，fixture 去識別化：uid 1000、formhash XXXXXXXX）
+
+- 帖子頁第一樓的 `form#poll`：`method="post"`，`action="forum.php?mod=misc&action=votepoll&fid=…&tid=…&pollsubmit=yes&quickforward=yes"`。
+  選項在 `td.pvt`，輸入欄位 `input[name="pollanswers[]"]`，單選是 `radio`、多選是 `checkbox`；`.pinf` 是摘要（「多选投票: ( 最多可选 2 项 ), 共有 N 人参与投票」），
+  `.ptmr` 是截止／剩餘時間；表格最後一列是提交按鈕 `#pollsubmit` 與說明（「投票后结果可见」「公开投票」）。
+- 已投票的頁面：每個選項下多一列 `.pbg` 結果條與百分比／票數，最後一列是「您已经投过票，谢谢您的参与」，另有 `pollshare_box`（複製投票結果的 BBCode，App 忽略）。
+- 訪客頁 `form#poll` 仍在，但提交鈕與說明不同：未登入一律視為需登入，登入後沒有權限才是「沒有投票權限」。
+- 表單提交後論壇用 `quickforward` 轉址回帖子頁。POST 的回應不能當成功依據：桌面的 dart:io 不跟 302，Android 轉接器會跟到帖子頁，而帖子頁又可能是防採集驗證頁。
+- fixtures：`poll_multiple_x5.html`（多選、未投）、`poll_voted_x5.html`（已投、含結果）、`poll_guest_x5.html`。
+
+### 23.2 App 端行為
+
+- `parseForumPoll`（`lib/features/poll/models/forum_poll.dart`）只接受符合上述結構的表單：action 必須是 https 同源、路徑 `/forum.php`、`mod=misc&action=votepoll`、tid 是整數、
+  query 只允許 `mod／action／fid／tid／pollsubmit／quickforward`、`method=post`、有 formhash、選項 id 都是整數且數量與輸入欄位一致、有 `#pollsubmit`；其餘一律 `unsupported`，卡片只給瀏覽器入口。
+  可選上限：單選＝1，多選取自摘要「最多可选 N 项」，抓不到就是 unsupported。
+- `PollCubit`／`PollRepository`：卡片自己用 `forum.php?mod=redirect&goto=findpost&pid=` 再 GET 一次帖子頁，並核對頁面 `discuz_uid` 與目前帳號；formhash 只留在記憶體。
+  提交只送一次 POST（`pollanswers[0..n]` 索引形式、字串 Map，Android 的 Kotlin 轉接器與桌面 Dio 都能編碼），POST 回應不看，之後一定再 GET 一次以論壇狀態為準；
+  GET 失敗顯示「未能確認」並只提供讀取重試；切換帳號立即清空選項、結果與表單，舊請求丟棄。
+- 卡片（`lib/widgets/card/poll_card.dart`）：單選 `RadioGroup`、多選 `CheckboxListTile`，到上限後其他選項變灰；提交鈕只在選了合法選項時可按；已投／已結束／需登入／無權限／不支援各一句話；保留「在瀏覽器開啟」。兩套帖子閱讀頁共用同一個卡片。
+- 防採集攔截器（`antitheft_interceptor.dart`）從這一輪起只重送 GET／HEAD，表單 POST 收到驗證頁不再複製重送。9/15 追補（PR #67）：這種情況改成拒絕並帶 `AntitheftChallengedRequestException`，
+  呼叫端走自己的錯誤提示，不再拿到驗證頁的 HTML。
+
+### 23.3 驗收
+
+- `test_083`：真實 fixture 的上限、隱藏結果與公開投票說明；已投頁只顯示論壇給的結果；訪客與無權限的區分；封閉／不支援表單 fail closed；單選替換；Android 字串 Map 與桌面表單編碼；
+  重複提交只發一個 POST；POST 收到驗證頁不重送、由後續 GET 決定是否確認（GET → POST → GET → GET）；逾時 POST 不重試；刷新失敗只給 GET 重試；帳號切換丟棄舊回應；session 失效回登入狀態；
+  widget 測試驗上限提示與提交鈕狀態。`test_086`（PR #67）：GET 重送一次、POST 拒絕且只發一個請求、拒絕後同主題 GET 仍能解驗證。
+- Windows 實機（Codex）：上限、取消選取、提交鈕狀態。**Android 尚未實機操作**；整合分支的 Android 測試包（run 34893411443）不含 `955adf00` 的重送修正，發版前要從 master 重建。
+
+## 24. 活動總覽（GitHub #42，2026-09-14，PR #62）
+
+### 24.1 論壇端事實
+
+- 論壇首頁 `forum.php` 的「活动专区」分區說明（`p.xg2`）裡是活動連結。真實 HTML 在 `p.xg2` 裡又巢狀了一個 `<p>`，HTML parser 會提前關閉外層 `<p>`，
+  所以連結散落在 `.xg2` 之後的兄弟節點，直到下一個一般 `<p>`（「子版块:」「版主:」）為止。2026-09-15 實抓有 17 個活動連結。
+- fixture：`activities_home_x5.html`（去識別化：版主與最新回覆的帳號名改成 Alice…Ivan，PR #66）。
+
+### 24.2 App 端行為
+
+- `parseForumActivities`：找 `h2 a` 文字是「活动专区／活動專區」的區塊，從 `p.xg2` 起沿兄弟節點收集 `a[href]`，排除子版塊、版主與最新回覆；
+  只接受 http(s)、有 host、沒有 userinfo 的網址；保留論壇順序，不推定活動是否仍有效、不猜截止日。
+- `ActivitiesPage`（首頁右上角行事曆圖示）：用 `ForumHomeRepository.fetchHomePage(force: true)` 重新抓首頁；帖子／版塊連結走 App 內路由，其他交給外部瀏覽器；
+  有載入、空列表、重試與下拉重新整理；繁中／簡中／英文。
+
+### 24.3 驗收
+
+- `test_082`：真實 fixture 17 條與順序、排除版主與子版塊、共用的首頁文件不被改動；合成 HTML 的不安全網址被排除；空文件；頁面的載入／空狀態／重試次數。
+- Windows 實機（Codex）：清單、點開活動帖、返回、重新整理。Android 尚未實機操作。
+
+## 25. 勳章中心（GitHub #43，2026-09-14，PR #64）
+
+### 25.1 論壇端事實（測試帳號實抓，去識別化）
+
+- 目錄頁 `plugin.php?id=dsu_medalCenter:memcp`：分類在 `h3.tbmu a`（`typeid=`），分頁在 `.pg`（`a.prev`／`a.nxt`，`strong` 是目前頁）；
+  勳章列表 `ul.mdl > li.pns`，圖片 `img#mc_medal<ID>`，名稱 `p.mtn`，取得方式在 `span`；每枚勳章另有獨立的 hover 詳情節點 `#mc_medal<ID>_menu`，
+  內含 `.title`、`.desc` 與有效期、勳章價格（可多種積分、「并且」條件）、申請條件；帳號不符資格時有 `.dsu_medal_unmet`；空分類是 `.emp`；沒有權限時是 `#messagetext`。
+- fixtures：`medal_catalog_x5.html`、`medal_page2_x5.html`、`medal_category2_x5.html`、`medal_guest_x5.html`。
+
+### 25.2 App 端行為
+
+- `medalCatalogUrl` 只放行同源 `plugin.php?id=dsu_medalCenter:memcp` 加 `typeid`／`page`（正整數）的網址；apply、購買、管理等動作網址一律拒絕，瀏覽器按鈕只開目前的目錄頁。
+- `parseMedalCatalog` 不執行 script，直接解析列表與 hover 詳情；價格或取得方式缺少就顯示「未提供」，不視為免費。圖片沿用 `CachedImage` 與失敗占位。
+- `MedalCenterCubit`：只有 GET；generation＋uid 雙重檢查丟棄舊回應；伺服器回的 uid 與目前帳號不符顯示失敗；登入帳號卻拿到訪客頁 → 「登入已失效」入口。
+- 入口：個人資料頁的「勳章中心」列。9/15 追補（PR #68）：只在自己的個人頁顯示，與「我的成就」一致。
+
+### 25.3 驗收
+
+- `test_084` 9 案：真實分類／分頁、管理員頒發／人工審核／積分購買、多種價格與有效期、未知欄位、安全導航、帳號切換、session 失效、手機寬度的失敗重試與圖片失敗。
+- Windows 實機（Codex）：入口、圖片、切換分類、展開有效期與條件、下一頁保留分類並回到頂端。Android 尚未實機操作。
+
+## 26. 成就查閱（GitHub #44，2026-09-14，PR #65；#44 保持開啟）
+
+### 26.1 論壇端事實
+
+- `plugin.php?id=tsdmtitle:achi`：登入後 `#ct .bm_h h2` 是「成就列表」，`.bm_c` 只有 `p.emp`「暂无成就」；分類列只有「全部」；訪客回「尚未登录」。
+  三個授權測試帳號結果相同（2026-09-15），詳見 `doc/achievements-observations.md`。
+- fixtures：`achievements_empty_x5.html`、`achievements_guest_x5.html`；測試裡的非空資料是合成內容，只驗證唯讀回退。
+
+### 26.2 App 端行為
+
+- `parseAchievementPage`：找到「成就列表」區塊才算辨識成功；`.emp` 是「暂无成就／暫無成就」且沒有其他內容 → 空狀態；其他文字內容以純文字保留
+  （`achievementText`：略過 script、隱藏節點與表單控制項，`<progress>` 保留 value／max，連結與按鈕只當文字）；找不到區塊時顯示 `#messagetext` 的訊息。不推算百分比、不猜完成狀態。
+- `AchievementsCubit`：固定網址、只有 GET；未登入直接顯示需登入；回應的 uid 與目前帳號不符顯示失敗；切換帳號立即清空並丟棄舊請求。
+- 入口：自己的個人資料頁右上角獎杯圖示；獎勵領取保留瀏覽器。
+
+### 26.3 驗收
+
+- `test_085` 9 案：真實空頁與訪客回應、缺少進度、唯讀內容、登入失效、身分不符、A→B→A 切換、舊回應覆蓋防護、手機寬度重試。
+- Windows 實機（Codex）：入口與真實的「暫無成就」。結構化的完成狀態與篩選要等論壇有資料再驗，所以 #44 不關。
+
+## 27. Windows 系統匣圖示與右鍵選單（GitHub #59 → PR #61，2026-09-14）
+
+### 27.1 來源與平台事實
+
+- 原始實作來自 Qing-Novel 的 PR #59（37 個提交），Codex 以 PR #61 接手補穩定性修正後合併。依賴 `tray_manager ^0.5.3`：它的 Linux 外掛以 pkg-config 連結 libayatana-appindicator3，
+  所以 Linux 版多了執行期依賴 `libayatana-appindicator3-1`（README 已註明，PR #66）；macOS 外掛只是編進去，不使用。
+- Windows 的 `TrackPopupMenu` 規則：選單擁有者視窗要先在前景，點外面才會收起；選單結束後要送一個 `WM_NULL`，下一次選單才不會一開就消失。
+  tray_manager 只做了前者（`popUpContextMenu(bringAppToFront: true)`，擁有者是 runner 的頂層 HWND），後者在 runner `flutter_window.cpp` 的 `WM_EXITMENULOOP` 補上。
+
+### 27.2 App 端行為
+
+- `TrayHelper`（`lib/utils/tray_helper.dart`，只在 Windows 初始化，失敗只記日誌不影響啟動）：圖示從 assets 複製到暫存目錄；
+  選單是目前帳號（不可點）、歷史、收藏、管理帳戶、結束程式；文字跟著 UI 語言（`App.build` 注入翻譯）與登入帳號更新。
+- 左鍵：還原並聚焦視窗。選單選頁面：先還原聚焦再 `pushNamed`；根 Navigator 有對話框（`PopupRouteObserver`）時只喚回視窗，不跳頁也不退出；還原途中出現對話框也會再檢查。
+  9/15 追補（PR #68）：目前最上層已經是該頁時不再疊一層。
+- 結束程式：先移除托盤圖示，再走既有 `exitApp()`（關閉資料庫後 `exit(0)`）；退出中再點一律忽略。標題列的 X 仍是直接退出（`SetQuitOnClose(true)`），不縮到托盤。
+
+### 27.3 驗收
+
+- `test_080`（13 案）：初始化失敗的清理與重試、並行初始化、翻譯與帳號更新、選單更新錯誤隔離、右鍵帶 bringAppToFront、左鍵還原順序、dispose、對話框遮罩、
+  還原途中出現對話框、退出順序與競態、同頁不疊層。`test_081`（5 案）：`PopupRouteObserver` 的 push／pop／remove／replace。
+- 維護者以 PR #61 的 Windows 測試包實機操作沒有問題後合併。
