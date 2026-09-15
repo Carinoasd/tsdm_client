@@ -29,6 +29,9 @@ class ScreenPaths {
   /// Only the very first part of page.
   static const String homepage = '/homepage';
 
+  /// Activities published on the forum homepage.
+  static const String activities = '/activities';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Rest part of homepage, including all topics.
@@ -51,6 +54,9 @@ class ScreenPaths {
   /// Logged user profile page.
   static const String loggedUserProfile = '/myProfile';
 
+  /// Current account's read-only achievements.
+  static const String achievements = '/achievements';
+
   /// Other not logged user profile page.
   ///
   ///
@@ -67,6 +73,9 @@ class ScreenPaths {
 
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
+
+  /// Read-only medal catalogue.
+  static const String medalCenter = '/medalCenter';
 
   /// Page to edit current user's profile.
   static const String editUserProfile = '/editUserProfile';

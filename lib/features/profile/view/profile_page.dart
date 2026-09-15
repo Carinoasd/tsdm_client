@@ -152,6 +152,11 @@ class _ProfilePageState extends State<ProfilePage> {
       // Current is current logged user's profile page.
       actions = [
         IconButton(
+          icon: const Icon(Icons.emoji_events_outlined),
+          tooltip: context.t.achievementsPage.title,
+          onPressed: () async => context.pushNamed(ScreenPaths.achievements),
+        ),
+        IconButton(
           icon: const Icon(Icons.person_search_outlined),
           tooltip: tr.searchAsThreadAuthor,
           onPressed: () async => context.pushNamed(
@@ -747,6 +752,12 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
 
       /// Medals, if any.
+      ListTile(
+        leading: const Icon(Icons.workspace_premium_outlined),
+        title: Text(context.t.medalCenter.title),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async => context.pushNamed(ScreenPaths.medalCenter),
+      ),
       if (userProfile.profileMedals?.isNotEmpty ?? false) ...[
         _SectionTitle(tr.medals),
         MedalGroupView(

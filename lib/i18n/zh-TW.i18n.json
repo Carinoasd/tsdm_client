@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "活動總覽",
+    "refresh": "重新整理",
+    "openForum": "開啟論壇首頁",
+    "description": "以下連結來自論壇首頁活動專區，活動規則和時間請以各主題內容為準。",
+    "empty": "論壇目前沒有提供活動連結。"
+  },
   "locale": "繁體中文",
   "tray": {
     "user": "👤 使用者：$name",
@@ -428,6 +435,18 @@
     "initFailed": "初始化失敗: $err",
     "initializingData": "正在初始化資料",
     "initFinished": "初始化完成"
+  },
+  "achievementsPage": {
+    "title": "我的成就",
+    "refresh": "重新整理",
+    "loginRequired": "登入後查看我的成就。",
+    "empty": "暫無成就",
+    "emptyDetail": "論壇目前沒有提供此帳號的成就項目，可重新整理或前往論壇查看最新內容。",
+    "sourceNote": "論壇提供的成就內容：",
+    "notProvided": "論壇尚未提供成就詳情。",
+    "unsupported": "暫時無法辨識成就頁面，請前往論壇查看。",
+    "browserNotice": "查看詳情或領取獎勵，請前往論壇網頁。",
+    "openBrowser": "開啟論壇成就頁"
   },
   "profilePage": {
     "title": "個人資料",
@@ -1240,6 +1259,17 @@
       "sortByTime": "按時間排序"
     }
   },
+  "pollVoting": {
+    "submit": "提交投票",
+    "refresh": "重新整理投票",
+    "selection": "已選 $count / $max 項",
+    "voted": "論壇已記錄你的投票。",
+    "closed": "投票已結束。",
+    "loginRequired": "登入後才能投票。",
+    "denied": "目前帳號沒有此投票的權限。",
+    "unsupported": "此投票格式暫不支援在 App 內提交，請用瀏覽器開啟。",
+    "unconfirmed": "未能確認投票結果，請先查看重新整理後的論壇狀態，再決定是否重試。"
+  },
   "pollCard": {
     "title": "投票",
     "detail": "此樓層包含投票，在瀏覽器中開啟以參加投票",
@@ -1418,6 +1448,21 @@
   "threadCard": {
     "viewInfo": "查看貼文資訊",
     "replied": "已回覆"
+  },
+  "medalCenter": {
+    "title": "勳章中心",
+    "category": "分類",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "browserNotice": "在此瀏覽勳章和取得條件；購買、申請或管理請前往論壇網頁。",
+    "loginRequired": "登入已失效，請重新登入。",
+    "unsupported": "論壇未提供可辨識的勳章列表，請用瀏覽器查看。",
+    "empty": "此分類暫無勳章。",
+    "notProvided": "未提供取得方式",
+    "noDetails": "論壇未提供此勳章的其他條件或價格。",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "page": "第 $number 頁"
   },
   "myTitlesPage": {
     "title": "我的頭銜",

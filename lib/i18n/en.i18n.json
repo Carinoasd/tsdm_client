@@ -1,4 +1,11 @@
 {
+  "activitiesPage": {
+    "title": "Forum activities",
+    "refresh": "Refresh",
+    "openForum": "Open forum homepage",
+    "description": "Links published in the forum homepage activity section. Check each topic for its current rules and dates.",
+    "empty": "No activity links are currently provided by the forum."
+  },
   "locale": "English",
   "tray": {
     "user": "👤 User: $name",
@@ -428,6 +435,18 @@
     "initFailed": "Init failed: $err",
     "initializingData": "Initializing data",
     "initFinished": "Init finished"
+  },
+  "achievementsPage": {
+    "title": "My achievements",
+    "refresh": "Refresh",
+    "loginRequired": "Sign in to view your achievements.",
+    "empty": "No achievements available",
+    "emptyDetail": "The forum currently provides no achievement items for this account. Refresh or open the forum for the latest information.",
+    "sourceNote": "Achievement information provided by the forum:",
+    "notProvided": "The forum has not provided achievement details.",
+    "unsupported": "The achievement page format is not recognized. Please view it on the forum.",
+    "browserNotice": "Use the forum website to view details or claim any rewards.",
+    "openBrowser": "Open forum achievements"
   },
   "profilePage": {
     "title": "User Profile",
@@ -1240,6 +1259,17 @@
       "sortByTime": "Sort by time"
     }
   },
+  "pollVoting": {
+    "submit": "Submit vote",
+    "refresh": "Refresh poll",
+    "selection": "Selected $count / $max",
+    "voted": "Your vote has been recorded.",
+    "closed": "This poll has ended.",
+    "loginRequired": "Sign in to vote.",
+    "denied": "Your account cannot vote in this poll.",
+    "unsupported": "This poll format cannot be voted on in the app. Open it in your browser.",
+    "unconfirmed": "The vote could not be confirmed. Check the refreshed forum state before trying again."
+  },
   "pollCard": {
     "title": "Poll",
     "detail": "This floor contains poll, open in browser to participate in",
@@ -1418,6 +1448,21 @@
   "threadCard": {
     "viewInfo": "View thread info",
     "replied": "Replied"
+  },
+  "medalCenter": {
+    "title": "Medal centre",
+    "category": "Category",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "browserNotice": "Browse medals and conditions here. Use the forum website to purchase, apply or manage medals.",
+    "loginRequired": "Your session expired. Sign in again.",
+    "unsupported": "The forum did not provide a supported medal list. Open it in your browser.",
+    "empty": "No medals in this category.",
+    "notProvided": "Acquisition method not provided",
+    "noDetails": "The forum does not provide further conditions or prices for this medal.",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page $number"
   },
   "myTitlesPage": {
     "title": "My titles",
