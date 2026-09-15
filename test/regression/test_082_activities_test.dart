@@ -19,7 +19,7 @@ void main() {
     expect(activities.first.title, '生化危机');
     expect(activities.last.title, '帖子背景征集活动');
     expect(activities.first.url, contains('tid=906393'));
-    expect(activities.any((a) => a.title == '宠物中心' || a.title == 'TR83'), isFalse);
+    expect(activities.any((a) => a.title == '宠物中心' || a.title == 'Alice'), isFalse);
     expect(document.documentElement?.outerHtml, before, reason: 'Shared homepage document must remain unchanged');
   });
 
