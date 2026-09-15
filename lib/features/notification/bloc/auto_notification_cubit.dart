@@ -7,6 +7,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -72,27 +73,26 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
   /// finishes.
   bool get isPending => state is AutoNoticeStatePending;
 
-  AsyncVoidEither _emitDataState(int uid) {
+  /// Record the lower bound of the next fetch, from the forum's clock when it was in the answer ([serverTime]).
+  ///
+  /// The bound is written unconditionally on purpose: a device clock that ran ahead may have stored a bound in the
+  /// future, and only a fetch that writes what the forum says can bring it back (GitHub #71). `NotificationBloc`
+  /// separately keeps the latest message time and never moves it backwards.
+  AsyncVoidEither _emitDataState(int uid, DateTime? serverTime) {
     return AsyncVoidEither(() async {
       debug('auto fetch finished with data');
-      if (state case AutoNoticeStatePending(:final startedTime)) {
-        // Code below is synced from _onRecordFetchTimeRequested in
-        // NotificationBloc.
-        //
-        // NotificationBloc only exists in notice page so can not trigger actions
-        // below by adding events to it.
-        // Whole minute only: notification times have minute precision, so a message arriving later in the minute the
-        // fetch started in is stamped with that minute and must still be inside the next window.
-        final since = startedTime.truncateToMinute();
-        debug('update last fetch notification time to started minute ${since.yyyyMMDDHHMMSS()}');
-        await _storageProvider.updateLastFetchNoticeTime(uid, since).run();
-      } else {
+      final startedTime = switch (state) {
+        AutoNoticeStatePending(:final startedTime) => startedTime,
         // Unreachable.
-        final now = DateTime.now();
-        warning('update last fetch notification time to current time ${now.yyyyMMDDHHMMSS()}');
-        warning('current state: $state');
-        await _storageProvider.updateLastFetchNoticeTime(uid, now).run();
-      }
+        _ => DateTime.now(),
+      };
+      // Whole minute only: notification times have minute precision, see nextFetchBound.
+      final since = nextFetchBound(startedAt: startedTime, serverTime: serverTime);
+      debug(
+        'update last fetch notification time to ${since.yyyyMMDDHHMMSS()} '
+        '(${serverTime == null ? 'device clock, no Date header' : 'server clock'})',
+      );
+      await _storageProvider.updateLastFetchNoticeTime(uid, since).run();
       emit(AutoNoticeStateTicking(total: duration, remain: _remainingTick));
       return rightVoid();
     });
@@ -137,7 +137,7 @@ final class AutoNotificationCubit extends Cubit<AutoNoticeState> with LoggerMixi
     debug('auto fetch since $lastFetchTime');
     await _notificationRepository
         .fetchNotificationV2(uid: uid, timestamp: lastFetchTime)
-        .andThen(() => _emitDataState(uid))
+        .flatMap((serverTime) => _emitDataState(uid, serverTime))
         .mapLeft(_emitErrorState)
         .run();
   }

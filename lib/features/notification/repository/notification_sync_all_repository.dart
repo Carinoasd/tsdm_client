@@ -3,11 +3,11 @@ import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -135,9 +135,11 @@ final class NotificationSyncAllRepository with LoggerMixin {
             info('account ${"$uid".obscured(4)} was removed during the sync, result dropped');
             return const NotificationSyncResultNotAuthorized();
           }
-          final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: value);
-          // Whole minute only, see AutoNotificationCubit: notification times have minute precision.
-          await _storageProvider.updateLastFetchNoticeTime(uid, started.truncateToMinute()).run();
+          final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: value.info);
+          // Same rule as AutoNotificationCubit: the forum's clock when it answered, the device clock otherwise.
+          await _storageProvider
+              .updateLastFetchNoticeTime(uid, nextFetchBound(startedAt: started, serverTime: value.serverTime))
+              .run();
           return NotificationSyncResultSuccess(
             newNotice: persisted.fresh.noticeList.length,
             newPersonalMessage: persisted.fresh.personalMessageList.length,
