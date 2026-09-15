@@ -147,9 +147,15 @@ dependencies {
 // Required by FDroid version policy.
 ext.abiCodes = ["x86_64": 1, "armeabi-v7a": 2, "arm64-v8a": 3]
 
+// The universal APK (no ABI filter) sorts above the split APKs of the same version. Every APK of a version is then
+// higher than every APK of the previous one, and installing the universal APK over a split one is an upgrade, not
+// a downgrade: with the plain versionCode (74) a device that had the split 1.23.0 (733) refused 1.24.0 (#70).
+ext.universalAbiCode = 9
+
 android.applicationVariants.all { variant ->
     variant.outputs.each { output ->
-        def abiVersionCode = project.ext.abiCodes.get(output.getFilter(com.android.build.OutputFile.ABI))
+        def abi = output.getFilter(com.android.build.OutputFile.ABI)
+        def abiVersionCode = abi == null ? project.ext.universalAbiCode : project.ext.abiCodes.get(abi)
         if (abiVersionCode != null) {
             output.versionCodeOverride = variant.versionCode * 10 + abiVersionCode
         }
