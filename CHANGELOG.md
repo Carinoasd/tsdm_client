@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-15
+
 ### Added
 
 - 一般投票帖支持在 App 内单选／多选投票，遵守选项上限与投票后结果可见规则；提交期间防止重复操作，网络异常后只刷新确认，不自动重复投票。(#41)
@@ -28,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - 日志：界面渲染错误（Flutter 框架捕获、发行版会以灰块代替出错区块的那类）现在会写入日志，导出日志可看到出错组件与堆栈。
 - Linux：因加入系统托盘组件，运行时需要系统已安装 libayatana-appindicator3-1（或 libappindicator3-1），缺少时程序无法启动。(#61)
+
+### Known Issues
+
+- 部分设备旋转过场仍可能短暂露黑；旋转完成后排版正常。该过场问题暂不继续处理。(#28)
+- 列表无法直接取得外链头像；App 尚未缓存这类头像时仍显示文字圆圈。
 
 ## [1.22.0] - 2026-09-10
 
