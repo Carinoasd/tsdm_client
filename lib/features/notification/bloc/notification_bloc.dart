@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
@@ -19,6 +20,54 @@ import 'package:universal_html/parsing.dart';
 part 'notification_bloc.mapper.dart';
 part 'notification_event.dart';
 part 'notification_state.dart';
+
+/// SharedPreferences 标志：后台已经推送过通知，前台首次拉取时跳过重复推送。
+const String _skipNextNotificationKey = 'background_notified_skip_next';
+
+/// SharedPreferences 中记录最近一次推送通知的时间（秒）。
+///
+/// 跟后台 isolate 共享：前台推通知前读它，如果距现在不到 30 秒就跳过。
+const String _lastPushTimeKey = 'notification_last_push_time';
+
+/// 跨 isolate 去重窗口（秒）。
+const int _pushDedupeWindowSeconds = 30;
+
+/// 检查前台是否应该跳过这次推送。
+///
+/// 两种情况会跳过：
+/// * `_skipNextNotificationKey` 为 true：后台刚推过同一条消息，前台启动时读到了这个标志。
+/// * `_lastPushTimeKey` 距现在不到 30 秒：后台（或前台自己上一次）刚推过。
+///
+/// 如果都不会跳过，就把当前时间写到 `_lastPushTimeKey`，供后台和下次前台推通知前检查。
+///
+/// 用 `on Object catch` 而不是 `on Exception catch`：测试环境下 binding 未初始化
+/// 抛的是 `FlutterError`（继承自 `Error`），只会被 `on Object` 捕获。
+Future<bool> _shouldSkipNotification() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+
+    // 兼容旧标记：后台推送后会写这个 key。
+    final skipNext = prefs.getBool(_skipNextNotificationKey) ?? false;
+    if (skipNext) {
+      await prefs.setBool(_skipNextNotificationKey, false);
+      return true;
+    }
+
+    // 跨 isolate 时间窗去重。
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final lastPush = prefs.getInt(_lastPushTimeKey) ?? 0;
+    final sinceLastPush = now - lastPush;
+    if (sinceLastPush >= 0 && sinceLastPush < _pushDedupeWindowSeconds) {
+      return true;
+    }
+
+    await prefs.setInt(_lastPushTimeKey, now);
+    return false;
+  } on Object catch (_) {
+    return false;
+  }
+}
 
 /// Read state of freshly [fetched] notices reconciled with the copies already [stored] for the same user.
 ///
@@ -416,7 +465,13 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // ones or copies fetched again.
     //
     // MARK: flnp
-    if (fresh.personalMessageList.isNotEmpty) {
+    //
+    // 跨 isolate 去重：后台（或前台自己上一次）刚推过就跳过这次的前台推送。
+    // 时间窗内不会重复弹通知，但消息仍然写进数据库，消息中心能看到。
+    final skip = await _shouldSkipNotification();
+    if (skip) {
+      debug('skip local notification: another isolate pushed recently');
+    } else if (fresh.personalMessageList.isNotEmpty) {
       _infoRepository.updateAutoSyncInfo(
         NotificationAutoSyncInfoPm(
           user: fresh.personalMessageList.last.peerUsername,
