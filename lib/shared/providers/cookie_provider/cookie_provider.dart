@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -236,6 +237,21 @@ final class CookieProvider with LoggerMixin implements Storage {
       uid: _userLoginInfo.uid!,
       cookie: _cookieMap,
     );
+
+    // 把 Cookie 和 uid 同步到 SharedPreferences，供后台服务读取。
+    //
+    // 用 try-catch 包起来：单元测试环境下 shared_preferences 插件不存在，
+    // 会抛 MissingPluginException。这里静默跳过，不能影响 cookie 的正常保存。
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'background_cookie_${_userLoginInfo.uid}',
+        jsonEncode(_cookieMap),
+      );
+      await prefs.setInt('background_login_uid', _userLoginInfo.uid!);
+    } on Exception catch (_) {
+      // 插件不可用（测试环境），忽略。
+    }
 
     return true;
   }
