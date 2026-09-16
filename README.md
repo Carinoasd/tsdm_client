@@ -112,3 +112,11 @@ Linux 构建需要 `libgtk-3-dev`、`libsqlite3-dev` 与 `libayatana-appindicato
 ## 许可
 
 MIT。原作品 Copyright (c) 2023 realth000；修改部分 (C) 2026 Carinoasd。详见 [LICENSE](./LICENSE)。
+
+## 支持开发
+
+本项目免费开源，欢迎自愿赞助，支持客户端的开发与维护。赞助由维护者 Carinoasd 个人收取，非论坛官方募款；是否赞助不影响功能使用。
+
+使用支付宝扫描下方二维码即可赞助，点击图片可查看原图。
+
+<a href="./doc/pic/alipay-donation.jpg"><img src="./doc/pic/alipay-donation.jpg" width="300" alt="支付宝自愿赞助二维码，收款人为维护者 Carinoasd"></a>
