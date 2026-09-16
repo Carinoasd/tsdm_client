@@ -244,6 +244,18 @@ Future<void> initializeBackgroundService() async {
   );
 }
 
+/// `onStart` 内部 `startOrRestartTimer` 函数的引用。
+///
+/// `onStart` 里提前注册的 `updateTimer` 监听器需要调用它，
+/// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
+Future<void> Function()? startOrRestartTimerRef;
+
+/// `onStart` 内部 `updateForegroundNotification` 函数的引用。
+///
+/// `onStart` 里提前注册的 `updateLocale` 监听器需要调用它，
+/// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
+Future<void> Function()? updateForegroundNotificationRef;
+
 /// 后台服务的入口，运行在独立的 Isolate 中。
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
@@ -357,10 +369,6 @@ Future<void> onStart(ServiceInstance service) async {
   // 首拉重复问题已经由 _lastPushTimeKey 跨 isolate 去重覆盖。
   await startOrRestartTimer();
 }
-
-/// onStart 内部函数的引用，供提前注册的监听器调用。
-Future<void> Function()? startOrRestartTimerRef;
-Future<void> Function()? updateForegroundNotificationRef;
 
 Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
   await _bgLog('_checkNewMessages start');
