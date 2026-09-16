@@ -1,8 +1,3 @@
-// 本文件的逻辑对每个异步操作后的 context 使用都做了状态检查，
-// 但本项目的 use_build_context_synchronously 规则过于严格，
-// 在此文件禁用这条规则。
-// ignore_for_file: use_build_context_synchronously
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -80,7 +75,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   final _permissionCubit = AndroidPermissionCubit();
 
-  /// 后台消息服务开关状态。
+  /// Whether the background message service is currently running.
   bool _bgServiceEnabled = false;
 
   /// Tip of log export path.
@@ -117,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
-  /// 把当前 locale 写到 SharedPreferences，并通知后台服务刷新常驻通知的文案。
+  /// Persist the current locale and ask the background service to refresh its foreground notification.
   Future<void> _persistBackgroundLocale(String languageTag) async {
     if (!isAndroid) {
       return;
@@ -125,11 +120,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('background_locale', languageTag);
-      // 通知后台服务按新 locale 刷新常驻通知的标题和内容。
-      // 渠道名无法更新（Android 不允许改已存在的渠道），但标题和内容可以。
       FlutterBackgroundService().invoke('updateLocale');
     } on Exception catch (_) {
-      // 写失败不能影响主流程。
+      // Persisting the locale is best effort and must not break the settings page.
     }
   }
 
@@ -392,7 +385,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           );
           if (seconds == null || !context.mounted) return;
 
-          // 把新的同步间隔同步给后台服务
+          // Keep the background service in sync with the foreground auto sync interval.
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt('autoSyncNoticeSeconds', seconds);
           if (isAndroid) {
@@ -416,8 +409,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           subtitle: Text(tr.backgroundMessageService.detail),
           value: _bgServiceEnabled,
           onChanged: (v) async {
-            // 立即翻转 UI，给用户即时反馈；不要等 start/stop 完成再 setState，
-            // 否则启停耗时的几秒内开关不会动，看起来像"没反应"。
+            // Flip the switch right away for feedback; starting/stopping the
+            // service can take a few seconds and should not freeze the UI.
             setState(() {
               _bgServiceEnabled = v;
             });
@@ -426,7 +419,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             } else {
               await stopBackgroundService();
             }
-            // 以真实运行状态为准，修正 UI（比如启动失败时回滚）。
+            // Trust the real running state over the user's tap.
             final running = await isBackgroundServiceRunning();
             if (!context.mounted) return;
             setState(() {
@@ -878,7 +871,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     unawaited(_loadBackgroundServiceState());
   }
 
-  /// 读取后台消息服务开关的持久化状态，并与真实运行状态同步。
+  /// Read the persisted background service state and sync it with the real running state.
   Future<void> _loadBackgroundServiceState() async {
     final running = await isBackgroundServiceRunning();
     if (mounted) {
@@ -900,7 +893,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_permissionCubit.refresh());
-      unawaited(_loadBackgroundServiceState()); // 切回前台时同步真实状态
+      unawaited(_loadBackgroundServiceState());
     }
   }
 
