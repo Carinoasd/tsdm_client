@@ -416,12 +416,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           subtitle: Text(tr.backgroundMessageService.detail),
           value: _bgServiceEnabled,
           onChanged: (v) async {
+            // 立即翻转 UI，给用户即时反馈；不要等 start/stop 完成再 setState，
+            // 否则启停耗时的几秒内开关不会动，看起来像"没反应"。
+            setState(() {
+              _bgServiceEnabled = v;
+            });
             if (v) {
               await startBackgroundService();
             } else {
               await stopBackgroundService();
             }
-            // 以真实运行状态为准，而不是盲目用用户点击的 v
+            // 以真实运行状态为准，修正 UI（比如启动失败时回滚）。
             final running = await isBackgroundServiceRunning();
             if (!context.mounted) return;
             setState(() {
