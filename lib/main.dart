@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/app.dart';
 import 'package:tsdm_client/cmd.dart';
@@ -16,6 +17,8 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/background_service_helper.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -28,6 +31,9 @@ Future<void> _boot(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initLogger();
+
+  // 把上次运行遗留下来的后台服务日志合并进主日志。
+  await importBackgroundLogToTalker();
 
   // Widget errors never reach the zone handler: the framework catches them itself and, in a release build, shows a
   // plain grey box in place of the failing subtree with nothing in the exported log. Record them so a report of
@@ -58,6 +64,17 @@ Future<void> _boot(List<String> args) async {
     await LocaleSettings.useDeviceLocale();
   } else {
     await LocaleSettings.setLocale(locale);
+  }
+
+  // 把当前 locale 写到 SharedPreferences，供后台服务选通知文案。
+  if (isAndroid) {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentLocale = locale?.languageTag ?? LocaleSettings.currentLocale.languageTag;
+      await prefs.setString('background_locale', currentLocale);
+    } on Exception catch (_) {
+      // 写失败不能影响启动。
+    }
   }
 
   // Desktop only: init window manager and restore window bounds.
@@ -167,6 +184,16 @@ Future<void> _boot(List<String> args) async {
     await getIt.get<ProxyProvider>().updateProxy();
   }
 
+  if (isAndroid) {
+    // 把后台服务写的时间戳同步给前台数据库，同时回看几分钟，
+    // 把后台拉过但没写进数据库的消息补上（消息中心才能看到它们）。
+    await _syncBackgroundLastFetchTime();
+    await initializeBackgroundService();
+    if (await isBackgroundServiceEnabled()) {
+      await startBackgroundService();
+    }
+  }
+
   runApp(
     TranslationProvider(
       child: ResponsiveBreakpoints.builder(
@@ -182,6 +209,43 @@ Future<void> _boot(List<String> args) async {
       ),
     ),
   );
+}
+
+/// 把后台服务写进 SharedPreferences 的"上次拉取时间"同步给前台数据库。
+///
+/// 后台在独立 isolate 里跑，写不了数据库，只能写 SharedPreferences，
+/// 因此后台拉取到的新消息只推通知、不落库，消息中心看不到它们。
+///
+/// 这里在同步时间戳时**回看 5 分钟**：让前台从 `bg - 5min` 开始重新拉一遍，
+/// 把后台刚拉过的消息写进数据库。前台推送时已有 `skip_next` 标志，
+/// 后台已经推过的通知不会再推一次。
+Future<void> _syncBackgroundLastFetchTime() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('background_login_uid');
+    if (uid == null || uid <= 0) {
+      return;
+    }
+    final bgLastFetch = prefs.getInt('background_last_fetch_time_$uid');
+    if (bgLastFetch == null || bgLastFetch <= 0) {
+      return;
+    }
+
+    final storage = getIt.get<StorageProvider>();
+    final dbTimeEither = await storage.fetchLastFetchNoticeTime(uid).run();
+    DateTime? dbTime;
+    dbTimeEither.match((_) => null, (t) => dbTime = t);
+    final dbSec = dbTime == null ? 0 : dbTime!.millisecondsSinceEpoch ~/ 1000;
+
+    const lookbackSeconds = 5 * 60;
+    final since = bgLastFetch - lookbackSeconds;
+    if (since > dbSec) {
+      await storage.updateLastFetchNoticeTime(uid, DateTime.fromMillisecondsSinceEpoch(since * 1000)).run();
+      talker.debug('sync background last fetch time to db: uid=$uid db=$dbSec bg=$bgLastFetch since=$since');
+    }
+  } on Exception catch (e, st) {
+    talker.handle(e, st, 'sync background last fetch time failed');
+  }
 }
 
 void _ensureHandled(Object exception, StackTrace? stackTrace) => talker.handle(exception, stackTrace);
