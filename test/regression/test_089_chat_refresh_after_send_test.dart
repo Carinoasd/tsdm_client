@@ -35,6 +35,20 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 2000);
 
 String _data(String name) => File('test/data/$name').readAsStringSync();
 
+/// The full history fixture (two messages), the same page with a message just sent, and an older page.
+final String _historyPage = _data('chat_history_bare_url_x5.html');
+final String _historyWithSent = _historyPage.replaceFirst(
+  '<div id="pm_append"',
+  [
+    '<dl id="pmlist_999" class="bbda cl">',
+    '<dd class="m avt"><a href="home.php?mod=space&amp;uid=1001">',
+    '<img data-src="./data/avatar/000/00/10/01_avatar_small.jpg"></a></dd>',
+    '<dd class="ptm"><span class="xi2 xw1">您</span> &nbsp; <br />回覆 #sent 已送出<br />',
+    '<span class="xg1"><span title="2026-9-16 11:00">1&nbsp;秒前</span></span></dd></dl>',
+    '<div id="pm_append"',
+  ].join(),
+);
+
 /// The dialog fixture (one message from Alice), and the same dialog after Bob's reply arrived.
 final String _dialogBefore = _data('chat_dialog_x5.xml');
 final String _dialogAfter = _dialogBefore.replaceFirst(
@@ -48,6 +62,9 @@ final class _ChatAdapter implements HttpClientAdapter {
   _ChatAdapter(this.dialogs);
 
   final List<FutureOr<String>> dialogs;
+
+  /// Answers for the full history page, in request order; the plain fixture once the queue is empty.
+  final List<FutureOr<String>> histories = [];
   final requests = <RequestOptions>[];
 
   @override
@@ -67,7 +84,7 @@ final class _ChatAdapter implements HttpClientAdapter {
     } else if (query['op'] == 'showmsg') {
       body = dialogs.isEmpty ? fail('unexpected dialog request #${requests.length}') : await dialogs.removeAt(0);
     } else if (query['subop'] == 'view') {
-      body = _data('chat_history_bare_url_x5.html');
+      body = histories.isEmpty ? _historyPage : await histories.removeAt(0);
     } else {
       fail('unexpected request: ${options.uri}');
     }
@@ -202,6 +219,33 @@ void main() {
     expect(find.textContaining('私訊 #n1'), findsOneWidget);
     expect(adapter.requests.where((r) => r.uri.queryParameters['op'] == 'showmsg'), hasLength(3));
     expect(tester.takeException(), isNull);
+  });
+
+  test('a reload of the latest page is not thrown away when an older page is asked for meanwhile', () async {
+    // The reload after a send is still in flight when the user pulls up for older messages. The older page must
+    // wait for the reload: applying it first and dropping the reload as stale hid the message just sent (PR #81
+    // review).
+    final heldReload = Completer<String>();
+    adapter.histories.addAll([heldReload.future, _historyPage]);
+    final bloc = ChatHistoryBloc(const ChatRepository());
+    addTearDown(bloc.close);
+    Iterable<RequestOptions> views() => adapter.requests.where((r) => r.uri.queryParameters['subop'] == 'view');
+
+    bloc.add(const ChatHistoryLoadHistoryRequested(uid: '1000', page: null));
+    await pumpEventQueue();
+    bloc.add(const ChatHistoryLoadHistoryRequested(uid: '1000', page: 2));
+    await pumpEventQueue();
+    expect(views(), hasLength(1), reason: 'the older page waits for the reload of the latest page');
+
+    heldReload.complete(_historyWithSent);
+    final settled = await bloc.stream
+        .firstWhere((s) => s.status == ChatHistoryStatus.success && s.pageNumber == 2)
+        .timeout(const Duration(seconds: 5));
+    expect(views().map((r) => r.uri.queryParameters['page']), [null, '2']);
+    expect(settled.messages.map((m) => m.message).join('\n'), contains('回覆 #sent'));
+    // Latest page (3 messages, newest first) followed by the older page (2 messages).
+    expect(settled.messages, hasLength(5));
+    expect(settled.messages.first.message, contains('回覆 #sent'));
   });
 
   test('reloading the latest history page replaces the list instead of appending to it', () async {
