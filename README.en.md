@@ -112,3 +112,11 @@ Releasing: bump the version in `pubspec.yaml` (`x.y.z+N`) and add the CHANGELOG 
 ## License
 
 MIT. Original work Copyright (c) 2023 realth000; modifications (C) 2026 Carinoasd. See [LICENSE](./LICENSE).
+
+## Support development
+
+This project is free and open source. Voluntary donations support the development and maintenance of the client and are received personally by the maintainer, Carinoasd. This is not an official forum fundraiser. All features remain available whether or not you donate.
+
+Scan the QR code below with Alipay to donate. Click the image to view the original.
+
+<a href="./doc/pic/alipay-donation.jpg"><img src="./doc/pic/alipay-donation.jpg" width="300" alt="Alipay QR code for voluntary donations to maintainer Carinoasd"></a>
