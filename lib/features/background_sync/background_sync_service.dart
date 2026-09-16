@@ -66,19 +66,20 @@ Future<bool> startBackgroundSyncService() async {
   return false;
 }
 
-/// Ask the service to stop and wait until the plugin reports it gone.
-Future<void> stopBackgroundSyncService() async {
+/// Ask the service to stop and wait until the plugin reports it gone. False when it was still up after the wait.
+Future<bool> stopBackgroundSyncService() async {
   final service = FlutterBackgroundService();
   if (!await service.isRunning()) {
-    return;
+    return true;
   }
   service.invoke(BackgroundSyncEvents.stop);
   for (var i = 0; i < 25; i++) {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (!await service.isRunning()) {
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 /// Whether the plugin reports the service running.

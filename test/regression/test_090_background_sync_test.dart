@@ -322,11 +322,14 @@ void main() {
     late bool running;
     late bool startResult;
     Exception? startError;
+    Completer<void>? holdStop;
+    Completer<void>? holdStart;
 
     BackgroundSyncController controller() => BackgroundSyncController(
       configure: ({required autoStartOnBoot}) async => calls.add('configure:$autoStartOnBoot'),
       start: () async {
         calls.add('start');
+        await holdStart?.future;
         if (startError != null) {
           throw startError!;
         }
@@ -335,7 +338,10 @@ void main() {
       },
       stop: () async {
         calls.add('stop');
+        // The real stop polls the plugin until the service is gone; meanwhile it still reports running.
+        await holdStop?.future;
         running = false;
+        return true;
       },
       isRunning: () async => running,
       notifySettingsChanged: () => calls.add('notify'),
@@ -346,34 +352,90 @@ void main() {
       running = false;
       startResult = true;
       startError = null;
+      holdStop = null;
+      holdStart = null;
     });
 
     test('an interval restored after never starts the stopped service again', () async {
       final c = controller();
-      expect(await c.apply(enabled: true, intervalSeconds: 0), isFalse);
+      expect(await c.apply(enabled: true, intervalSeconds: 0), BackgroundSyncApplyResult.stopped);
       expect(calls, ['configure:false', 'stop']);
       calls.clear();
-      expect(await c.apply(enabled: true, intervalSeconds: 60), isTrue);
+      expect(await c.apply(enabled: true, intervalSeconds: 60), BackgroundSyncApplyResult.running);
       expect(calls, ['configure:true', 'start', 'notify']);
     });
 
     test('a running service is only told to read the settings again', () async {
       running = true;
-      expect(await controller().apply(enabled: true, intervalSeconds: 120), isTrue);
+      expect(await controller().apply(enabled: true, intervalSeconds: 120), BackgroundSyncApplyResult.running);
       expect(calls, ['configure:true', 'notify']);
     });
 
     test('switching off stops the service and its boot start', () async {
       running = true;
-      expect(await controller().apply(enabled: false, intervalSeconds: 60), isFalse);
+      expect(await controller().apply(enabled: false, intervalSeconds: 60), BackgroundSyncApplyResult.stopped);
       expect(calls, ['configure:false', 'stop']);
     });
 
-    test('a start that fails or throws reports false instead of pretending', () async {
+    test('a start that fails or throws reports failed instead of pretending', () async {
       startResult = false;
-      expect(await controller().apply(enabled: true, intervalSeconds: 60), isFalse);
+      expect(await controller().apply(enabled: true, intervalSeconds: 60), BackgroundSyncApplyResult.failed);
       startError = Exception('plugin unavailable');
-      expect(await controller().apply(enabled: true, intervalSeconds: 60), isFalse);
+      expect(await controller().apply(enabled: true, intervalSeconds: 60), BackgroundSyncApplyResult.failed);
+    });
+
+    test(
+      'switched off and on again while the stop is in flight, the service ends up running (PR #83 review)',
+      () async {
+        running = true;
+        holdStop = Completer<void>();
+        final c = controller();
+        final off = c.apply(enabled: false, intervalSeconds: 60);
+        // Let the stop start, then ask for the service back while the plugin still reports it running.
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, ['configure:false', 'stop']);
+        final on = c.apply(enabled: true, intervalSeconds: 60);
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, ['configure:false', 'stop'], reason: 'the on request waits for the stop to finish');
+        holdStop!.complete();
+        expect(await off, BackgroundSyncApplyResult.superseded);
+        expect(await on, BackgroundSyncApplyResult.running);
+        expect(running, isTrue, reason: 'the switch shows on, so the service must run');
+        expect(calls, ['configure:false', 'stop', 'configure:true', 'start', 'notify']);
+      },
+    );
+
+    test('of a burst of changes only the latest one runs and reports', () async {
+      running = true;
+      holdStop = Completer<void>();
+      final c = controller();
+      final first = c.apply(enabled: false, intervalSeconds: 60);
+      await Future<void>.delayed(Duration.zero);
+      final on = c.apply(enabled: true, intervalSeconds: 60);
+      final last = c.apply(enabled: false, intervalSeconds: 60);
+      holdStop!.complete();
+      expect(await Future.wait([first, on, last]), [
+        BackgroundSyncApplyResult.superseded,
+        BackgroundSyncApplyResult.superseded,
+        BackgroundSyncApplyResult.stopped,
+      ]);
+      expect(running, isFalse);
+      expect(calls, ['configure:false', 'stop', 'configure:false', 'stop'], reason: 'the middle "on" never started');
+    });
+
+    test('a start that fails after a newer change was asked for does not report the failure', () async {
+      startResult = false;
+      holdStart = Completer<void>();
+      final c = controller();
+      final on = c.apply(enabled: true, intervalSeconds: 60);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, ['configure:true', 'start'], reason: 'the start is in flight');
+      final off = c.apply(enabled: false, intervalSeconds: 60);
+      holdStart!.complete();
+      expect(await on, BackgroundSyncApplyResult.superseded, reason: 'the off request answers, no rollback');
+      expect(await off, BackgroundSyncApplyResult.stopped);
+      expect(running, isFalse);
+      expect(calls, ['configure:true', 'start', 'configure:false', 'stop']);
     });
   });
 

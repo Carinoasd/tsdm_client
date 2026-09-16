@@ -956,8 +956,11 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 
 - 設定 `enableBackgroundMessageService<bool>`（預設 false，存在資料庫的 settings 表）。設定頁「行為」多一個開關；寫入走 `SettingsRepository.setValue`（先落庫再啟服務，
   服務啟動時讀的就是新值）。開關與自動同步間隔的變更都經 `BackgroundSyncController.apply`：該跑（開關開且間隔＞0）→ `configure(autoStartOnBoot: true)`、沒在跑就啟動、再
-  `invoke('settingsChanged')`；不該跑 → 停止並 `configure(autoStartOnBoot: false)`。該跑卻起不來（含外掛呼叫丟例外）→ 回滾開關為 false 並提示，畫面不會顯示一個不存在的服務。
-  審查（#83）指出的兩點就在這裡：間隔從「從不」改回定時要真的重啟已自停的服務；啟動例外也要回滾。
+  `invoke('settingsChanged')`；不該跑 → 停止並 `configure(autoStartOnBoot: false)`。結果是 `BackgroundSyncApplyResult`（running／stopped／failed／superseded）：`failed`（該跑卻起不來，含外掛呼叫丟例外）
+  → 回滾開關為 false 並提示，畫面不會顯示一個不存在的服務。審查（#83）指出的兩點就在這裡：間隔從「從不」改回定時要真的重啟已自停的服務；啟動例外也要回滾。
+- 請求排隊、只有最後一個算數（審查 #83 第二輪）：停止與啟動都要輪詢外掛直到服務真的消失／真的起來，中間一個請求進來會看到「還在跑」。快速關再開時，「開」的請求看到服務仍在
+  （其實正在停），只送了 `settingsChanged` 就回報成功，接著停止完成——開關開著、服務卻停了。`apply` 現在等前一個請求做完才做；輪到自己時已有更新的請求就跳過，
+  做完時已有更新的請求則結果作廢，兩種都回 `superseded`，設定頁對它不回滾也不提示，由最後一個請求把服務帶到設定顯示的狀態。`stopBackgroundSyncService` 改回傳是否真的停了，沒停記 warning。
 - 背景 isolate（`lib/features/background_sync/background_sync_service.dart`）：自己開同一個 sqlite（`connection/native.dart` 加 `PRAGMA busy_timeout = 5000`，兩個 isolate 同時寫時等鎖
   而不是丟 "database is locked"）、建 `StorageProvider`／`SettingsRepository`／`NotificationSyncAllRepository`，每一輪 `backgroundSyncTick`：
   1. 從資料庫讀開關、間隔、`loginUid`、`locale`（每輪重讀，isolate 之間沒有記憶體同步）。關 → 服務自停；間隔 0 → 服務自停；未登入 → 不抓。
@@ -976,6 +979,7 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 
 - `test_090`：開關預設關且一輪就回 `Disabled`；間隔 0／未登入不抓；新提醒存庫並只宣告一次、同一分鐘第二則仍是新的（審查第 1 點的回歸）；私訊優先且前景同一份儲存體再抓一次沒有 fresh；
   session 過期不推；服務啟動後才登入的帳號經 `refreshCookieCache` 抓得到；抓取途中經另一個 provider 移除帳號 → 結果 NotAuthorized、不存列、不推；
-  `BackgroundSyncController`：從不→定時會重啟已停的服務、運行中只通知重讀、關閉會停並關開機自啟、啟動失敗或丟例外回 false；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
+  `BackgroundSyncController`：從不→定時會重啟已停的服務、運行中只通知重讀、關閉會停並關開機自啟、啟動失敗或丟例外回 `failed`；停止進行中再開 → 「開」等停止完成後真的啟動、服務最後在跑（審查第二輪的重現）；
+  連續三次變更只有最後一個執行並回報、中間的「開」從未啟動；啟動進行中被「關」追上 → 啟動失敗不回報（不回滾）、由「關」收尾；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
 - 本機 Android debug 包建置（manifest 合併：specialUse、exported=false）。實機：開開關 → 常駐通知出現 → 退到後台或清掉 App → 另一帳號發私訊 → 到間隔時間收到系統通知 → 點開進訊息中心。
 

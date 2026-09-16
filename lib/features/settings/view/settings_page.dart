@@ -434,8 +434,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final settings = getIt.get<SettingsRepository>();
     final enabled = settings.currentSettings.enableBackgroundMessageService;
     final intervalSeconds = settings.currentSettings.autoSyncNoticeSeconds;
-    final running = await _backgroundSyncController.apply(enabled: enabled, intervalSeconds: intervalSeconds);
-    if (running || !BackgroundSyncController.shouldRun(enabled: enabled, intervalSeconds: intervalSeconds)) {
+    final result = await _backgroundSyncController.apply(enabled: enabled, intervalSeconds: intervalSeconds);
+    // Only the latest change reports; an older one that lost to a quicker toggle must not roll the switch back.
+    if (result != BackgroundSyncApplyResult.failed) {
       return;
     }
     await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
