@@ -485,7 +485,13 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
         await prefs.setInt(_lastPushTimeKey, nowSec);
         await prefs.setBool(_skipNextNotificationKey, true);
 
-        await _bgLog('notification pushed: title=${strings.title} body=$body');
+        // 只记数量/类型/结果，不写 body 正文，避免私信预览落进日志、
+        // 用户上传 issue 时泄露内容。
+        await _bgLog(
+          'notification pushed: notice=${info.noticeList.length} '
+          'pm=${info.personalMessageList.length} '
+          'bm=${info.broadcastMessageList.length}',
+        );
       }
     } else {
       await _bgLog('no new messages');
