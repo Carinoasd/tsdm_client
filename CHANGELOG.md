@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- 提醒：未读状态改为按设备记录。同一帐号的另一台设备先抓取过的提醒，在本机第一次出现时仍标为未读，直到在本机查看或一键标为已读；此前论坛在任一设备抓取后即清掉标记，另一台设备就再也不显示红点。设备第一次登录（尚无抓取记录）时仍沿用论坛的标记。(#79)
+
 ### Fixed
 
 - Android：universal apk 的内部版本号改为「版本号×10＋9」，永远高于同一版的 arm64／armv7 分包（×10＋ABI 码）；从分包换装 universal 不再被系统当成降版而拒绝安装。Release 页的 universal apk 改由 CI 产生。1.24.0 的 universal apk 已以 749 重新发布。(#70)
