@@ -30,20 +30,11 @@ const String _openNotificationPayload = 'openNotification';
 /// SharedPreferences 中保存开关状态的 key。
 const String backgroundServiceEnabledKey = 'enableBackgroundMessageService';
 
-/// SharedPreferences 标志：后台已经推送过通知，前台首次拉取时跳过重复推送。
-const String _skipNextNotificationKey = 'background_notified_skip_next';
-
-/// SharedPreferences 中记录最近一次推送通知的时间（秒）。
+/// SharedPreferences 中保存"推送去重状态"的 key。
 ///
-/// 前台 isolate 和后台 isolate 共享这个值：任何一侧推通知前先读它，
-/// 如果距现在不到 30 秒，说明另一侧刚推过同一条消息，跳过这次推送。
-/// 这条规则同时解决了两个问题：
-/// * 启动时前后台同时拉取 → 只有先跑完的那一侧会推。
-/// * 服务器对私信用 inclusive 边界，同一分钟内的私信会被两侧重复拉到 → 只有第一次推。
-const String _lastPushTimeKey = 'notification_last_push_time';
-
-/// 跨 isolate 去重窗口（秒）。
-const int _pushDedupeWindowSeconds = 30;
+/// 前台 isolate 和后台 isolate 共享这份状态：推送前先看各类别的最新消息
+/// 是否比上次推送时更新，是则推送并更新状态，否则跳过。
+const String _pushDedupStateKey = 'notification_push_dedup_state';
 
 /// 一种语言下的所有通知文案。
 class _NotificationStrings {
@@ -161,8 +152,7 @@ Future<void> _bgLog(String msg) async {
 ///
 /// `SharedPreferences.getInstance()` 返回的是带内存缓存的单例。
 /// 后台 isolate 是独立进程/isolate，第一次读之后内存里一直留着旧值，
-/// 前台改了 `background_locale` 它看不到。这里每次都 `reload()` 一次，
-/// 保证读到的是磁盘上的最新值。
+/// 前台改了它看不到。这里每次都 `reload()` 一次，保证读到最新值。
 Future<SharedPreferences> _freshPrefs() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
@@ -203,6 +193,147 @@ Future<bool> isBackgroundServiceEnabled() async {
 /// 查询后台服务是否真的在运行。
 Future<bool> isBackgroundServiceRunning() async {
   return FlutterBackgroundService().isRunning();
+}
+
+/// 推送去重的持久化状态。
+///
+/// 记录上次推送时，三个类别里最新一条消息的时间戳。判定"是否有新消息"
+/// 就是看这次拉到的最新消息时间戳，是否比上次推送时记录的更新。
+class _PushDedupState {
+  const _PushDedupState({
+    required this.uid,
+    required this.noticeLatestTs,
+    required this.pmLatestKey,
+    required this.bmLatestTs,
+  });
+
+  factory _PushDedupState.empty(int uid) => _PushDedupState(
+    uid: uid,
+    noticeLatestTs: 0,
+    pmLatestKey: '',
+    bmLatestTs: 0,
+  );
+
+  factory _PushDedupState.fromJson(Map<String, dynamic> json) => _PushDedupState(
+    uid: json['uid'] as int? ?? 0,
+    noticeLatestTs: json['noticeLatestTs'] as int? ?? 0,
+    pmLatestKey: json['pmLatestKey'] as String? ?? '',
+    bmLatestTs: json['bmLatestTs'] as int? ?? 0,
+  );
+
+  /// 状态所属账号。账号切换时状态作废。
+  final int uid;
+
+  /// 上次推送时最新一条提醒的时间戳（秒）。
+  final int noticeLatestTs;
+
+  /// 上次推送时最新一条私信的 key，格式 `peerUid:timestamp`。
+  final String pmLatestKey;
+
+  /// 上次推送时最新一条公共消息的时间戳（秒）。
+  final int bmLatestTs;
+
+  Map<String, dynamic> toJson() => {
+    'uid': uid,
+    'noticeLatestTs': noticeLatestTs,
+    'pmLatestKey': pmLatestKey,
+    'bmLatestTs': bmLatestTs,
+  };
+}
+
+/// 私信的去重 key：`peerUid:timestamp`。
+///
+/// 用 peerUid + timestamp 而不是只用 timestamp，是为了避免两个不同的人
+/// 同一秒发消息时被当成同一条。
+String _pmKey(PersonalMessageV2 pm) => '${pm.peerUid}:${pm.timestamp}';
+
+/// 判定这次拉到的消息是否需要推送，并记录新的去重状态。
+///
+/// 判定依据是每个类别的最新消息时间戳：如果本次拉到的任意一类消息比
+/// 上次推送时更新，就认为有新消息，返回 true 并把新状态写入。
+///
+/// 相较旧的"30 秒时间窗口去重"，这个方案：
+/// * 不会把"零条新消息"的抓取算成推送。
+/// * 不会吞掉不同的新消息。
+/// * 按账号隔离（uid 变化时状态自动清空）。
+///
+/// 出错时返回 true（宁可多推不可漏推）。
+Future<bool> checkAndRecordPush({
+  required int uid,
+  required List<NoticeV2> notices,
+  required List<PersonalMessageV2> personalMessages,
+  required List<BroadcastMessageV2> broadcastMessages,
+}) async {
+  try {
+    final prefs = await _freshPrefs();
+
+    final raw = prefs.getString(_pushDedupStateKey);
+    _PushDedupState prev;
+    if (raw == null || raw.isEmpty) {
+      prev = _PushDedupState.empty(uid);
+    } else {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          prev = _PushDedupState.fromJson(Map<String, dynamic>.from(decoded));
+        } else {
+          prev = _PushDedupState.empty(uid);
+        }
+      } on FormatException {
+        prev = _PushDedupState.empty(uid);
+      }
+    }
+
+    // 账号变了：状态作废，从头开始。
+    if (prev.uid != uid) {
+      prev = _PushDedupState.empty(uid);
+    }
+
+    // 本次各类别的最新值。
+    final noticeLatestTs = notices.isEmpty
+        ? 0
+        : notices.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b);
+    final pmLatestKey = personalMessages.isEmpty
+        ? ''
+        : _pmKey(personalMessages.reduce((a, b) => a.timestamp > b.timestamp ? a : b));
+    final bmLatestTs = broadcastMessages.isEmpty
+        ? 0
+        : broadcastMessages.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b);
+
+    // 判定：任意一类有更新就算有新消息。
+    final hasNew = noticeLatestTs > prev.noticeLatestTs ||
+        (pmLatestKey.isNotEmpty && pmLatestKey != prev.pmLatestKey) ||
+        bmLatestTs > prev.bmLatestTs;
+
+    if (!hasNew) {
+      return false;
+    }
+
+    // 写入新的去重状态。
+    final next = _PushDedupState(
+      uid: uid,
+      noticeLatestTs: noticeLatestTs,
+      pmLatestKey: pmLatestKey,
+      bmLatestTs: bmLatestTs,
+    );
+    await prefs.setString(_pushDedupStateKey, jsonEncode(next.toJson()));
+    return true;
+  } on Object catch (_) {
+    // 出错了当作应该推送，宁可多推不可漏推。
+    return true;
+  }
+}
+
+/// 清空推送去重状态。
+///
+/// 账号切换或移除时调用，避免用旧账号的状态判定新账号。
+Future<void> clearPushDedupState() async {
+  try {
+    final prefs = await _freshPrefs();
+    await prefs.remove(_pushDedupStateKey);
+  } on Object catch (_) {
+    // 忽略。
+  }
 }
 
 /// 初始化后台服务配置。
@@ -365,8 +496,7 @@ Future<void> onStart(ServiceInstance service) async {
   _startOrRestartTimerRef = startOrRestartTimer;
   _updateForegroundNotificationRef = updateForegroundNotification;
 
-  // 立即跑一次首拉并启动定时器。不再有 3 秒延迟：
-  // 首拉重复问题已经由 _lastPushTimeKey 跨 isolate 去重覆盖。
+  // 立即跑一次首拉并启动定时器。
   await startOrRestartTimer();
 }
 
@@ -427,45 +557,47 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
         info.broadcastMessageList.length;
 
     if (total > 0) {
-      final strings = _stringsForLocale(prefs.getString('background_locale'));
-      final countValues = <String, String>{
-        'noticeCount': '${info.noticeList.length}',
-        'pmCount': '${info.personalMessageList.length}',
-        'bmCount': '${info.broadcastMessageList.length}',
-      };
+      // 按消息事件去重：只有"最新一条消息"比上次推送时更新，才推送。
+      final shouldPush = await checkAndRecordPush(
+        uid: uid,
+        notices: info.noticeList,
+        personalMessages: info.personalMessageList,
+        broadcastMessages: info.broadcastMessageList,
+      );
 
-      String body;
-      if (info.personalMessageList.isNotEmpty) {
-        final pm = info.personalMessageList.last;
-        body = _fillTemplate(strings.pm, {
-          ...countValues,
-          'user': pm.peerUsername,
-          'msg': _truncate(pm.data, 40),
-        });
-      } else if (info.broadcastMessageList.isNotEmpty) {
-        final bm = info.broadcastMessageList.last;
-        body = _fillTemplate(strings.bm, {
-          ...countValues,
-          'msg': _truncate(bm.data, 40),
-        });
+      if (!shouldPush) {
+        await _bgLog('skip push: no new message since last push');
       } else {
-        final n = info.noticeList.last;
-        final text = parseHtmlDocument(n.data).body?.innerText ?? '<null>';
-        body = _fillTemplate(strings.notice, {
-          ...countValues,
-          'msg': _truncate(text, 40),
-        });
-      }
+        final strings = _stringsForLocale(prefs.getString('background_locale'));
+        final countValues = <String, String>{
+          'noticeCount': '${info.noticeList.length}',
+          'pmCount': '${info.personalMessageList.length}',
+          'bmCount': '${info.broadcastMessageList.length}',
+        };
 
-      // ---- 跨 isolate 去重 ----
-      //
-      // 前台和后台共享 `_lastPushTimeKey`。任何一侧推通知时都写入当前时间；
-      // 另一侧推送前读它，如果距现在不到 30 秒就跳过。
-      final lastPush = prefs.getInt(_lastPushTimeKey) ?? 0;
-      final sinceLastPush = nowSec - lastPush;
-      if (sinceLastPush >= 0 && sinceLastPush < _pushDedupeWindowSeconds) {
-        await _bgLog('skip push: another isolate pushed ${sinceLastPush}s ago');
-      } else {
+        String body;
+        if (info.personalMessageList.isNotEmpty) {
+          final pm = info.personalMessageList.last;
+          body = _fillTemplate(strings.pm, {
+            ...countValues,
+            'user': pm.peerUsername,
+            'msg': _truncate(pm.data, 40),
+          });
+        } else if (info.broadcastMessageList.isNotEmpty) {
+          final bm = info.broadcastMessageList.last;
+          body = _fillTemplate(strings.bm, {
+            ...countValues,
+            'msg': _truncate(bm.data, 40),
+          });
+        } else {
+          final n = info.noticeList.last;
+          final text = parseHtmlDocument(n.data).body?.innerText ?? '<null>';
+          body = _fillTemplate(strings.notice, {
+            ...countValues,
+            'msg': _truncate(text, 40),
+          });
+        }
+
         await flnp.show(
           id: 0,
           title: strings.title,
@@ -482,11 +614,7 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
           payload: _openNotificationPayload,
         );
 
-        await prefs.setInt(_lastPushTimeKey, nowSec);
-        await prefs.setBool(_skipNextNotificationKey, true);
-
-        // 只记数量/类型/结果，不写 body 正文，避免私信预览落进日志、
-        // 用户上传 issue 时泄露内容。
+        // 只记数量/类型/结果，不写 body 正文，避免私信预览落进日志。
         await _bgLog(
           'notification pushed: notice=${info.noticeList.length} '
           'pm=${info.personalMessageList.length} '
