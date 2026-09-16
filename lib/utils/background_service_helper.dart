@@ -247,8 +247,8 @@ Future<void> initializeBackgroundService() async {
 /// 后台服务的入口，运行在独立的 Isolate 中。
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
-  await _bgLog('=== onStart called ===');
   DartPluginRegistrant.ensureInitialized();
+  await _bgLog('=== onStart called ===');
 
   final enabled = await isBackgroundServiceEnabled();
   await _bgLog('enabled=$enabled');
@@ -257,6 +257,30 @@ Future<void> onStart(ServiceInstance service) async {
     await service.stopSelf();
     return;
   }
+
+  // 定时器变量提前声明，供下面所有监听器共享。
+  Timer? backgroundTimer;
+
+  // ---- 关键：三个 service.on 监听器必须在任何 await 之前注册 ----
+  //
+  // 前台设置页通过 `FlutterBackgroundService().invoke('stopService')` 发停止指令。
+  // 如果这个监听器注册得太晚（比如等首拉和 3 秒延迟跑完才注册），
+  // 用户在此期间点“关闭”会被漏掉，服务就停不下来。
+  service.on('stopService').listen((event) {
+    unawaited(_bgLog('received stopService'));
+    backgroundTimer?.cancel();
+    unawaited(service.stopSelf());
+  });
+
+  service.on('updateTimer').listen((event) async {
+    await _bgLog('received updateTimer');
+    await startOrRestartTimerRef?.call();
+  });
+
+  service.on('updateLocale').listen((event) async {
+    await _bgLog('received updateLocale');
+    await updateForegroundNotificationRef?.call();
+  });
 
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();
@@ -290,8 +314,6 @@ Future<void> onStart(ServiceInstance service) async {
     }
   }
 
-  Timer? backgroundTimer;
-
   Future<void> startOrRestartTimer() async {
     backgroundTimer?.cancel();
     final prefs = await _freshPrefs();
@@ -304,6 +326,14 @@ Future<void> onStart(ServiceInstance service) async {
     }
 
     backgroundTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
+      // 每轮先检查用户开关，开关被关了就立刻停止自己。
+      final stillEnabled = await isBackgroundServiceEnabled();
+      if (!stillEnabled) {
+        await _bgLog('timer fired but service disabled, stopping self');
+        timer.cancel();
+        await service.stopSelf();
+        return;
+      }
       await _bgLog('timer fired, checking messages');
       try {
         await _checkNewMessages(flnp);
@@ -319,31 +349,18 @@ Future<void> onStart(ServiceInstance service) async {
     }
   }
 
-  // 让前台先把首拉跑完。
-  //
-  // 应用启动时前台和后台几乎同时启动，如果两边都立刻拉取，
-  // 就会把同一批消息推两次。等几秒让前台先推完并写好 `_lastPushTime`，
-  // 后台首拉时读到时间戳在 30 秒窗口内就会跳过推送。
-  await Future<void>.delayed(const Duration(seconds: 3));
+  // 保存引用，供上面提前注册的监听器调用。
+  startOrRestartTimerRef = startOrRestartTimer;
+  updateForegroundNotificationRef = updateForegroundNotification;
 
+  // 立即跑一次首拉并启动定时器。不再有 3 秒延迟：
+  // 首拉重复问题已经由 _lastPushTimeKey 跨 isolate 去重覆盖。
   await startOrRestartTimer();
-
-  service.on('stopService').listen((event) {
-    unawaited(_bgLog('received stopService'));
-    backgroundTimer?.cancel();
-    unawaited(service.stopSelf());
-  });
-
-  service.on('updateTimer').listen((event) async {
-    await _bgLog('received updateTimer');
-    await startOrRestartTimer();
-  });
-
-  service.on('updateLocale').listen((event) async {
-    await _bgLog('received updateLocale');
-    await updateForegroundNotification();
-  });
 }
+
+/// onStart 内部函数的引用，供提前注册的监听器调用。
+Future<void> Function()? startOrRestartTimerRef;
+Future<void> Function()? updateForegroundNotificationRef;
 
 Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
   await _bgLog('_checkNewMessages start');
@@ -436,10 +453,6 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
       //
       // 前台和后台共享 `_lastPushTimeKey`。任何一侧推通知时都写入当前时间；
       // 另一侧推送前读它，如果距现在不到 30 秒就跳过。
-      //
-      // 这个机制同时覆盖：
-      // * 启动时前后台同时跑：后台延迟 3 秒启动，前台先写，后台读到窗口内就跳过。
-      // * 私信用 inclusive 边界被两侧重复拉到：只有第一次的推送生效。
       final lastPush = prefs.getInt(_lastPushTimeKey) ?? 0;
       final sinceLastPush = nowSec - lastPush;
       if (sinceLastPush >= 0 && sinceLastPush < _pushDedupeWindowSeconds) {
@@ -461,9 +474,7 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
           payload: _openNotificationPayload,
         );
 
-        // 记录推送时间，供前台推通知前检查。
         await prefs.setInt(_lastPushTimeKey, nowSec);
-        // 兼容旧标记：前台也读 `_skipNextNotificationKey`。
         await prefs.setBool(_skipNextNotificationKey, true);
 
         await _bgLog('notification pushed: title=${strings.title} body=$body');
@@ -562,10 +573,17 @@ Future<void> startBackgroundService() async {
 }
 
 /// 停止后台服务。
+///
+/// 先把开关写为 false 并等待落盘，再发停止指令。这样即使服务被系统重建，
+/// 新的 onStart 也会读到 false 并立刻 stopSelf，不会自己跑起来。
 Future<void> stopBackgroundService() async {
+  // 1. 先写 SharedPreferences 并等落盘。
   final prefs = await _freshPrefs();
   await prefs.setBool(backgroundServiceEnabledKey, false);
+  // 给磁盘写入一点时间，确保后台 isolate 的 reload 能读到。
+  await Future<void>.delayed(const Duration(milliseconds: 500));
 
+  // 2. 再发停止指令。
   final service = FlutterBackgroundService();
   if (await service.isRunning()) {
     service.invoke('stopService');
