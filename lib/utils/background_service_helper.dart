@@ -334,7 +334,7 @@ Future<void> initializeBackgroundService() async {
       initialNotificationTitle: strings.foregroundTitle,
       initialNotificationContent: strings.foregroundContent,
       foregroundServiceNotificationId: notificationId,
-      foregroundServiceTypes: [AndroidForegroundType.dataSync],
+      foregroundServiceTypes: [AndroidForegroundType.specialUse],
     ),
     iosConfiguration: IosConfiguration(
       autoStart: false,
