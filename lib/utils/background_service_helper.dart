@@ -6,13 +6,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:dio/dio.dart' show Headers;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/antitheft/antitheft_decoder.dart';
 import 'package:universal_html/parsing.dart';
 
 /// 前台服务常驻通知使用的通知渠道 ID。
@@ -149,10 +153,6 @@ Future<void> _bgLog(String msg) async {
 }
 
 /// 读取 SharedPreferences 并强制从磁盘 reload。
-///
-/// `SharedPreferences.getInstance()` 返回的是带内存缓存的单例。
-/// 后台 isolate 是独立进程/isolate，第一次读之后内存里一直留着旧值，
-/// 前台改了它看不到。这里每次都 `reload()` 一次，保证读到最新值。
 Future<SharedPreferences> _freshPrefs() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
@@ -196,9 +196,6 @@ Future<bool> isBackgroundServiceRunning() async {
 }
 
 /// 推送去重的持久化状态。
-///
-/// 记录上次推送时，三个类别里最新一条消息的时间戳。判定"是否有新消息"
-/// 就是看这次拉到的最新消息时间戳，是否比上次推送时记录的更新。
 class _PushDedupState {
   const _PushDedupState({
     required this.uid,
@@ -221,16 +218,9 @@ class _PushDedupState {
     bmLatestTs: json['bmLatestTs'] as int? ?? 0,
   );
 
-  /// 状态所属账号。账号切换时状态作废。
   final int uid;
-
-  /// 上次推送时最新一条提醒的时间戳（秒）。
   final int noticeLatestTs;
-
-  /// 上次推送时最新一条私信的 key，格式 `peerUid:timestamp`。
   final String pmLatestKey;
-
-  /// 上次推送时最新一条公共消息的时间戳（秒）。
   final int bmLatestTs;
 
   Map<String, dynamic> toJson() => {
@@ -241,23 +231,9 @@ class _PushDedupState {
   };
 }
 
-/// 私信的去重 key：`peerUid:timestamp`。
-///
-/// 用 peerUid + timestamp 而不是只用 timestamp，是为了避免两个不同的人
-/// 同一秒发消息时被当成同一条。
 String _pmKey(PersonalMessageV2 pm) => '${pm.peerUid}:${pm.timestamp}';
 
 /// 判定这次拉到的消息是否需要推送，并记录新的去重状态。
-///
-/// 判定依据是每个类别的最新消息时间戳：如果本次拉到的任意一类消息比
-/// 上次推送时更新，就认为有新消息，返回 true 并把新状态写入。
-///
-/// 相较旧的"30 秒时间窗口去重"，这个方案：
-/// * 不会把"零条新消息"的抓取算成推送。
-/// * 不会吞掉不同的新消息。
-/// * 按账号隔离（uid 变化时状态自动清空）。
-///
-/// 出错时返回 true（宁可多推不可漏推）。
 Future<bool> checkAndRecordPush({
   required int uid,
   required List<NoticeV2> notices,
@@ -284,12 +260,10 @@ Future<bool> checkAndRecordPush({
       }
     }
 
-    // 账号变了：状态作废，从头开始。
     if (prev.uid != uid) {
       prev = _PushDedupState.empty(uid);
     }
 
-    // 本次各类别的最新值。
     final noticeLatestTs = notices.isEmpty
         ? 0
         : notices.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b);
@@ -300,7 +274,6 @@ Future<bool> checkAndRecordPush({
         ? 0
         : broadcastMessages.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b);
 
-    // 判定：任意一类有更新就算有新消息。
     final hasNew = noticeLatestTs > prev.noticeLatestTs ||
         (pmLatestKey.isNotEmpty && pmLatestKey != prev.pmLatestKey) ||
         bmLatestTs > prev.bmLatestTs;
@@ -309,7 +282,6 @@ Future<bool> checkAndRecordPush({
       return false;
     }
 
-    // 写入新的去重状态。
     final next = _PushDedupState(
       uid: uid,
       noticeLatestTs: noticeLatestTs,
@@ -319,14 +291,11 @@ Future<bool> checkAndRecordPush({
     await prefs.setString(_pushDedupStateKey, jsonEncode(next.toJson()));
     return true;
   } on Object catch (_) {
-    // 出错了当作应该推送，宁可多推不可漏推。
     return true;
   }
 }
 
 /// 清空推送去重状态。
-///
-/// 账号切换或移除时调用，避免用旧账号的状态判定新账号。
 Future<void> clearPushDedupState() async {
   try {
     final prefs = await _freshPrefs();
@@ -337,8 +306,6 @@ Future<void> clearPushDedupState() async {
 }
 
 /// 初始化后台服务配置。
-///
-/// 常驻通知的文案按 SharedPreferences 里的 `background_locale` 选择。
 Future<void> initializeBackgroundService() async {
   final service = FlutterBackgroundService();
 
@@ -376,15 +343,9 @@ Future<void> initializeBackgroundService() async {
 }
 
 /// `onStart` 内部 `startOrRestartTimer` 函数的引用。
-///
-/// `onStart` 里提前注册的 `updateTimer` 监听器需要调用它，
-/// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
 Future<void> Function()? _startOrRestartTimerRef;
 
 /// `onStart` 内部 `updateForegroundNotification` 函数的引用。
-///
-/// `onStart` 里提前注册的 `updateLocale` 监听器需要调用它，
-/// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
 Future<void> Function()? _updateForegroundNotificationRef;
 
 /// 后台服务的入口，运行在独立的 Isolate 中。
@@ -401,14 +362,8 @@ Future<void> onStart(ServiceInstance service) async {
     return;
   }
 
-  // 定时器变量提前声明，供下面所有监听器共享。
   Timer? backgroundTimer;
 
-  // ---- 关键：三个 service.on 监听器必须在任何 await 之前注册 ----
-  //
-  // 前台设置页通过 `FlutterBackgroundService().invoke('stopService')` 发停止指令。
-  // 如果这个监听器注册得太晚（比如等首拉和 3 秒延迟跑完才注册），
-  // 用户在此期间点“关闭”会被漏掉，服务就停不下来。
   service.on('stopService').listen((event) {
     unawaited(_bgLog('received stopService'));
     backgroundTimer?.cancel();
@@ -437,9 +392,6 @@ Future<void> onStart(ServiceInstance service) async {
   );
   await _bgLog('flnp initialized');
 
-  /// 按当前 locale 更新常驻通知的标题和内容。
-  ///
-  /// 渠道名无法更新（Android 不允许修改已存在的渠道），但标题和内容可以。
   Future<void> updateForegroundNotification() async {
     if (service is! AndroidServiceInstance) {
       return;
@@ -469,7 +421,6 @@ Future<void> onStart(ServiceInstance service) async {
     }
 
     backgroundTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
-      // 每轮先检查用户开关，开关被关了就立刻停止自己。
       final stillEnabled = await isBackgroundServiceEnabled();
       if (!stillEnabled) {
         await _bgLog('timer fired but service disabled, stopping self');
@@ -492,12 +443,75 @@ Future<void> onStart(ServiceInstance service) async {
     }
   }
 
-  // 保存引用，供上面提前注册的监听器调用。
   _startOrRestartTimerRef = startOrRestartTimer;
   _updateForegroundNotificationRef = updateForegroundNotification;
 
-  // 立即跑一次首拉并启动定时器。
   await startOrRestartTimer();
+}
+
+/// 从 [HttpHeaders] 中解析论坛回应携带的 `Date` 头（论坛时钟）。
+///
+/// 对应 PR #73 `fetch_bound.dart` 里 `serverTimeOf` 的逻辑，这里因为
+/// 后台用的是裸 `HttpClient` 而不是 dio，所以读取 `HttpHeaders` 之后
+/// 转成 dio 的 `Headers` 再调用 `serverTimeOf`。
+DateTime? _serverTimeOf(HttpHeaders headers) {
+  final raw = headers.value('date');
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  try {
+    return serverTimeOf(Headers.fromMap({'date': [raw]}));
+  } on Exception {
+    return null;
+  }
+}
+
+/// 用 dart:io 的 HttpClient 抓取一个页面，同时返回页面内容和论坛时钟。
+///
+/// 返回 `(html, serverTime)`：`serverTime` 是论坛 `Date` 头解析出的时间，
+/// 缺头或坏值时是 null（行为退回设备时钟，与 PR #73 一致）。
+///
+/// 同时做了两件 PR #73 要求的“请求验证”：
+/// * 检查 HTTP 状态码，非 2xx 直接抛出，不推进时间界線。
+/// * 在调用方检查返回内容是否是登录页或防采集挑战页。
+Future<(String, DateTime?)> _fetchHtml(
+  HttpClient client,
+  String url,
+  String cookieHeader,
+) async {
+  final request = await client.getUrl(Uri.parse(url));
+  if (cookieHeader.isNotEmpty) {
+    request.headers.set(HttpHeaders.cookieHeader, cookieHeader);
+  }
+  request.headers.set(
+    HttpHeaders.userAgentHeader,
+    'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+  );
+  final response = await request.close();
+
+  // HTTP 状态检查：非成功状态码直接抛出，调用方会跳过这轮，不推进界線。
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw HttpRequestFailedException(response.statusCode);
+  }
+
+  final serverTime = _serverTimeOf(response.headers);
+  final html = await response.transform(utf8.decoder).join();
+  return (html, serverTime);
+}
+
+/// 与 `NotificationRepository._buildSinceTimestamp` 保持一致的抓取下界：
+/// [timestamp] 在最近 3 天内则直接用，否则用 3 天前。
+int _buildSinceTimestamp(int? timestamp) {
+  final now = DateTime.now();
+  if (timestamp == null) {
+    return now.subtract(const Duration(days: 3)).millisecondsSinceEpoch ~/ 1000;
+  }
+  final time = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+  final diff = now.difference(time);
+  if (diff.inDays >= 0 && diff.inDays <= 3) {
+    return timestamp;
+  }
+  return now.subtract(const Duration(days: 3)).millisecondsSinceEpoch ~/ 1000;
 }
 
 Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
@@ -517,27 +531,40 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
     return;
   }
   final cookieMap = Map<String, String>.from(jsonDecode(cookieJson) as Map);
-
   final cookieHeader = _buildCookieHeader(cookieMap);
 
+  // ---- 时间界線：用论坛时钟（PR #73） ----
+  //
+  // 抓取开始前先记下设备时钟。如果论坛回应的 Date 头可用，就用论坛
+  // 时钟推界線；否则退回设备时钟。这样设备时钟不准也不会漏消息。
+  final startedAt = DateTime.now();
   final lastFetchTime = prefs.getInt('background_last_fetch_time_$uid');
-  final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final nowMinute = nowSec - (nowSec % 60);
-  final since = lastFetchTime ?? (nowMinute - 3 * 24 * 3600);
-  await _bgLog('since=$since lastFetchTime=$lastFetchTime nowMinute=$nowMinute');
+  final since = _buildSinceTimestamp(lastFetchTime);
+  await _bgLog('since=$since lastFetchTime=$lastFetchTime startedAt=$startedAt');
 
   await _bgLog('fetching pages...');
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
   try {
-    final noticeHtml = await _fetchHtml(client, noticeUrl, cookieHeader);
-    final isLoginPage = noticeHtml.contains('<title>登录');
-    await _bgLog('notice html len=${noticeHtml.length} isLogin=$isLoginPage');
+    final (noticeHtml, noticeServerTime) = await _fetchHtml(client, noticeUrl, cookieHeader);
+    final (pmHtml, pmServerTime) = await _fetchHtml(client, personalMessageUrl, cookieHeader);
+    final (bmHtml, bmServerTime) = await _fetchHtml(client, broadcastMessageUrl, cookieHeader);
 
-    final pmHtml = await _fetchHtml(client, personalMessageUrl, cookieHeader);
-    final bmHtml = await _fetchHtml(client, broadcastMessageUrl, cookieHeader);
+    // 三个页面里取最早的 Date，与 PR #73 一致。
+    final serverTime = earliestOf([noticeServerTime, pmServerTime, bmServerTime]);
+    await _bgLog('notice html len=${noticeHtml.length} '
+        'pm html len=${pmHtml.length} bm html len=${bmHtml.length} '
+        'serverTime=${serverTime?.toIso8601String() ?? 'none'}');
 
-    if (isLoginPage) {
-      await _bgLog('server returned login page, abort');
+    // 登录页检查：会话过期时不推进界線，下轮重试。
+    if (noticeHtml.contains('<title>登录')) {
+      await _bgLog('server returned login page, abort (will retry next cycle)');
+      return;
+    }
+
+    // 防采集挑战页检查：后台没有 AntitheftInterceptor 去解 _dsign，
+    // 遇到挑战就直接跳过这轮，不推进界線，让下一轮再试。
+    if (AntitheftDecoder.isChallenge(noticeHtml)) {
+      await _bgLog('server returned antitheft challenge, abort (will retry next cycle)');
       return;
     }
 
@@ -557,7 +584,6 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
         info.broadcastMessageList.length;
 
     if (total > 0) {
-      // 按消息事件去重：只有"最新一条消息"比上次推送时更新，才推送。
       final shouldPush = await checkAndRecordPush(
         uid: uid,
         notices: info.noticeList,
@@ -614,7 +640,6 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
           payload: _openNotificationPayload,
         );
 
-        // 只记数量/类型/结果，不写 body 正文，避免私信预览落进日志。
         await _bgLog(
           'notification pushed: notice=${info.noticeList.length} '
           'pm=${info.personalMessageList.length} '
@@ -625,29 +650,27 @@ Future<void> _checkNewMessages(FlutterLocalNotificationsPlugin flnp) async {
       await _bgLog('no new messages');
     }
 
-    await prefs.setInt('background_last_fetch_time_$uid', nowMinute);
+    // ---- 写入下次抓取下界（论坛时钟优先，PR #73） ----
+    //
+    // 与前台 AutoNotificationCubit / NotificationSyncAllRepository 用
+    // 同一个 nextFetchBound：有论坛时钟就截到整分钟再减一分钟，没有
+    // 就退回设备开始分钟。
+    final nextBound = nextFetchBound(
+      startedAt: startedAt,
+      serverTime: serverTime,
+    );
+    await prefs.setInt(
+      'background_last_fetch_time_$uid',
+      nextBound.millisecondsSinceEpoch ~/ 1000,
+    );
+    await _bgLog('next fetch bound updated to ${nextBound.toIso8601String()}');
   } on Exception catch (e) {
-    await _bgLog('fetch error: $e');
+    // 出错时**不推进界線**，让下一轮重试。HTTP 状态检查抛出的
+    // HttpRequestFailedException 会走到这里。
+    await _bgLog('fetch error (bound not advanced): $e');
   } finally {
     client.close(force: true);
   }
-}
-
-Future<String> _fetchHtml(
-  HttpClient client,
-  String url,
-  String cookieHeader,
-) async {
-  final request = await client.getUrl(Uri.parse(url));
-  if (cookieHeader.isNotEmpty) {
-    request.headers.set(HttpHeaders.cookieHeader, cookieHeader);
-  }
-  request.headers.set(
-    HttpHeaders.userAgentHeader,
-    'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
-  );
-  final response = await request.close();
-  return response.transform(utf8.decoder).join();
 }
 
 String _buildCookieHeader(Map<String, String> cookieMap) {
@@ -715,17 +738,11 @@ Future<void> startBackgroundService() async {
 }
 
 /// 停止后台服务。
-///
-/// 先把开关写为 false 并等待落盘，再发停止指令。这样即使服务被系统重建，
-/// 新的 onStart 也会读到 false 并立刻 stopSelf，不会自己跑起来。
 Future<void> stopBackgroundService() async {
-  // 1. 先写 SharedPreferences 并等落盘。
   final prefs = await _freshPrefs();
   await prefs.setBool(backgroundServiceEnabledKey, false);
-  // 给磁盘写入一点时间，确保后台 isolate 的 reload 能读到。
   await Future<void>.delayed(const Duration(milliseconds: 500));
 
-  // 2. 再发停止指令。
   final service = FlutterBackgroundService();
   if (await service.isRunning()) {
     service.invoke('stopService');
