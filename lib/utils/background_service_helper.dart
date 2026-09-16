@@ -248,13 +248,13 @@ Future<void> initializeBackgroundService() async {
 ///
 /// `onStart` 里提前注册的 `updateTimer` 监听器需要调用它，
 /// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
-Future<void> Function()? startOrRestartTimerRef;
+Future<void> Function()? _startOrRestartTimerRef;
 
 /// `onStart` 内部 `updateForegroundNotification` 函数的引用。
 ///
 /// `onStart` 里提前注册的 `updateLocale` 监听器需要调用它，
 /// 但函数本身在监听器注册之后才定义，因此用一个全局变量做桥接。
-Future<void> Function()? updateForegroundNotificationRef;
+Future<void> Function()? _updateForegroundNotificationRef;
 
 /// 后台服务的入口，运行在独立的 Isolate 中。
 @pragma('vm:entry-point')
@@ -286,12 +286,12 @@ Future<void> onStart(ServiceInstance service) async {
 
   service.on('updateTimer').listen((event) async {
     await _bgLog('received updateTimer');
-    await startOrRestartTimerRef?.call();
+    await _startOrRestartTimerRef?.call();
   });
 
   service.on('updateLocale').listen((event) async {
     await _bgLog('received updateLocale');
-    await updateForegroundNotificationRef?.call();
+    await _updateForegroundNotificationRef?.call();
   });
 
   if (service is AndroidServiceInstance) {
@@ -362,8 +362,8 @@ Future<void> onStart(ServiceInstance service) async {
   }
 
   // 保存引用，供上面提前注册的监听器调用。
-  startOrRestartTimerRef = startOrRestartTimer;
-  updateForegroundNotificationRef = updateForegroundNotification;
+  _startOrRestartTimerRef = startOrRestartTimer;
+  _updateForegroundNotificationRef = updateForegroundNotification;
 
   // 立即跑一次首拉并启动定时器。不再有 3 秒延迟：
   // 首拉重复问题已经由 _lastPushTimeKey 跨 isolate 去重覆盖。
