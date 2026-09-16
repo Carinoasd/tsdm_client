@@ -264,7 +264,7 @@ final class SettingsRepository with LoggerMixin {
               false => settings.netClientProxy,
             };
 
-            if ((useDetected && getIt.get<ProxyProvider>().proxyEnabled && proxy.isNotEmpty) || proxy.isNotEmpty) {
+            if (proxy.isNotEmpty && (!useDetected || getIt.get<ProxyProvider>().proxyEnabled)) {
               client.findProxy = (_) => 'PROXY $proxy';
             }
           }
