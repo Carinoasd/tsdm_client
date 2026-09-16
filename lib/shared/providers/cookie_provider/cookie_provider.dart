@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -195,11 +196,40 @@ final class CookieProvider with LoggerMixin implements Storage {
   }
 
   /// Delete current login user info and cookie from memory and database.
+  ///
+  /// 同时清理该账号在 SharedPreferences 里留下的"背景身份"副本。
+  /// 因为这是登出/移除账号的必经之路，用户下次不再使用此账号时，
+  /// 后台服务不应该再读到此账号的 cookie 和 uid。
   void clearUserInfoAndCookie() {
     debug('clear user info and cookie');
+    final oldUid = _userLoginInfo.uid;
     _userLoginInfo = const UserLoginInfo(username: null, uid: null);
     _cookieMap = {};
     _mirrorsStoredRow = false;
+
+    if (oldUid != null && oldUid > 0) {
+      // 不阻塞同步方法：清理失败也只是留下一个孤儿键，后台服务在
+      // 下次读到 uid 时会检查 cookie 是否还存在。
+      unawaited(_clearBackgroundKeysForUser(oldUid));
+    }
+  }
+
+  /// 清掉指定 uid 在 SharedPreferences 里留下的背景身份副本。
+  ///
+  /// 只在 `background_login_uid` 正好指向该 uid 时才清，避免误删
+  /// 其他账号留下的数据。
+  Future<void> _clearBackgroundKeysForUser(int uid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentBgUid = prefs.getInt('background_login_uid');
+      if (currentBgUid == uid) {
+        await prefs.remove('background_login_uid');
+        await prefs.remove('background_cookie_$uid');
+        await prefs.remove('background_last_fetch_time_$uid');
+      }
+    } on Object catch (_) {
+      // 插件不可用或写入失败，忽略。
+    }
   }
 
   /// Save cookie in database.
@@ -240,17 +270,23 @@ final class CookieProvider with LoggerMixin implements Storage {
 
     // 把 Cookie 和 uid 同步到 SharedPreferences，供后台服务读取。
     //
-    // 用 try-catch 包起来：单元测试环境下 shared_preferences 插件不存在，
-    // 会抛 MissingPluginException。这里静默跳过，不能影响 cookie 的正常保存。
+    // 关键：只有当前登录账号才写这些键。多账号场景下（自动签到、
+    // 同步所有账号）会创建临时 CookieProvider 去抓取别的账号，
+    // 它们的 _syncCookie 也会跑，如果无差别写入，后台服务读到的
+    // 就会是"最后一个跑过 _syncCookie 的账号"，而不是用户当前登录
+    // 的那个账号。
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'background_cookie_${_userLoginInfo.uid}',
-        jsonEncode(_cookieMap),
-      );
-      await prefs.setInt('background_login_uid', _userLoginInfo.uid!);
-    } on Exception catch (_) {
-      // 插件不可用（测试环境），忽略。
+      final settings = getIt.get<SettingsRepository>().currentSettings;
+      if (settings.loginUid > 0 && settings.loginUid == _userLoginInfo.uid) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'background_cookie_${_userLoginInfo.uid}',
+          jsonEncode(_cookieMap),
+        );
+        await prefs.setInt('background_login_uid', _userLoginInfo.uid!);
+      }
+    } on Object catch (_) {
+      // 插件不可用（测试环境）或 settings 读取失败，忽略。
     }
 
     return true;
@@ -334,36 +370,6 @@ final class CookieProvider with LoggerMixin implements Storage {
       _cookieMap = stripServerFlagCookies(_cookieMap);
     }
     await _syncCookie();
-
-    // Check points changes events.
-    if (key == '.domains') {
-      // The following code are not used because we do it in `NetClientProvider` interceptors.
-      //
-      // Here is the storage layer of the cookie where it's hard to know the response state and also not possible to
-      // tell the difference between all these requests, make it impossible to combine the action result message we used
-      // before and the points changes together.
-      //
-      // // The value of ".domains" is expected to be:
-      // //
-      // // "$DOMAIN": {
-      // //     "$PATH": {
-      // //         "$COOKIE_NAME": "$COOKIE_VALUE",
-      // //     }
-      // // }
-      // Option.fromPredicate(jsonDecode(value), (v) => v is Map<String, dynamic>)
-      //     .map((x) => x as Map<String, dynamic>)
-      //     // Assume only one domain.
-      //     .flatMap((x) => x.values.firstOption)
-      //     .filterMap((x) => x is Map<String, dynamic> ? Option.fromNullable(x.values.firstOrNull) : const None())
-      //     // Assume only one path.
-      //     .filterMap((x) => x is Map<String, dynamic> ? Option.of(x) : const None())
-      //     // Here we get all cookie pairs.
-      //     .filterMap((x) => x.containsKey(_creditNotice) ? Option.of(x[_creditNotice]) : const None())
-      //     .filterMap((x) => x is String ? Option.of(_creditNoticeRe.firstMatch(x)) : const None())
-      //     .filterMap((x) => x != null ? Option.of(x.namedGroup('value')) : const None())
-      //     // Add to cookie stream.
-      //     .map((v) => pointsChangesStream.add(v!));
-    }
   }
 
   @override
