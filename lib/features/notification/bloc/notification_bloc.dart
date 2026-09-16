@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
@@ -14,60 +13,13 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/background_service_helper.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
 
 part 'notification_bloc.mapper.dart';
 part 'notification_event.dart';
 part 'notification_state.dart';
-
-/// SharedPreferences 标志：后台已经推送过通知，前台首次拉取时跳过重复推送。
-const String _skipNextNotificationKey = 'background_notified_skip_next';
-
-/// SharedPreferences 中记录最近一次推送通知的时间（秒）。
-///
-/// 跟后台 isolate 共享：前台推通知前读它，如果距现在不到 30 秒就跳过。
-const String _lastPushTimeKey = 'notification_last_push_time';
-
-/// 跨 isolate 去重窗口（秒）。
-const int _pushDedupeWindowSeconds = 30;
-
-/// 检查前台是否应该跳过这次推送。
-///
-/// 两种情况会跳过：
-/// * `_skipNextNotificationKey` 为 true：后台刚推过同一条消息，前台启动时读到了这个标志。
-/// * `_lastPushTimeKey` 距现在不到 30 秒：后台（或前台自己上一次）刚推过。
-///
-/// 如果都不会跳过，就把当前时间写到 `_lastPushTimeKey`，供后台和下次前台推通知前检查。
-///
-/// 用 `on Object catch` 而不是 `on Exception catch`：测试环境下 binding 未初始化
-/// 抛的是 `FlutterError`（继承自 `Error`），只会被 `on Object` 捕获。
-Future<bool> _shouldSkipNotification() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-
-    // 兼容旧标记：后台推送后会写这个 key。
-    final skipNext = prefs.getBool(_skipNextNotificationKey) ?? false;
-    if (skipNext) {
-      await prefs.setBool(_skipNextNotificationKey, false);
-      return true;
-    }
-
-    // 跨 isolate 时间窗去重。
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final lastPush = prefs.getInt(_lastPushTimeKey) ?? 0;
-    final sinceLastPush = now - lastPush;
-    if (sinceLastPush >= 0 && sinceLastPush < _pushDedupeWindowSeconds) {
-      return true;
-    }
-
-    await prefs.setInt(_lastPushTimeKey, now);
-    return false;
-  } on Object catch (_) {
-    return false;
-  }
-}
 
 /// Read state of freshly [fetched] notices reconciled with the copies already [stored] for the same user.
 ///
@@ -172,10 +124,6 @@ typedef PersistedNotification = ({NotificationV2 fresh, NotificationV2 reconcile
 ///   are news to the user.
 /// * `reconciled` is [fetched] with the read state as saved.
 /// * `unread` is the recount from storage, the same numbers the unread badge shows when [uid] is the current user.
-///
-/// Saving the server copies as they come resurrected items the user had read in the app: the last three days are
-/// listed again when the last fetch is older than that, and the newest minute is fetched again on purpose. See
-/// [reconcileNoticeReadState], [reconcilePersonalMessageReadState] and [reconcileBroadcastMessageReadState].
 Future<PersistedNotification> persistFetchedNotification({
   required StorageProvider storage,
   required int uid,
@@ -184,9 +132,6 @@ Future<PersistedNotification> persistFetchedNotification({
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fresh = freshNotifications(fetched: fetched, stored: stored);
   // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
-  // fetched 是本次从服务器拿到的所有副本，fresh 是其中真正算"新消息"的。
-  // 当 fetched > 0 但 fresh == 0，说明服务器返回的都被过滤（老副本 / 自己发的）；
-  // 当 fetched == 0，说明服务器没返回任何内容；两者导致"没有通知"的原因不同。
   talker.debug(
     'fresh notification: fetched(notice=${fetched.noticeList.length} '
     'pm=${fetched.personalMessageList.length} bm=${fetched.broadcastMessageList.length}) '
@@ -345,8 +290,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('fetch notification with default duration');
     }
 
-    // The final state will be triggered inside repository, do NOT manually
-    // update here.
     await _notificationRepository.fetchNotificationV2(uid: uid, timestamp: timestamp).run();
   }
 
@@ -356,8 +299,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     switch (infoState) {
       case NotificationInfoStateFailure():
         emit(state.copyWith(status: NotificationStatus.failure));
-        // The badge may still hold the header hint of the homepage: fall back to what is stored so the hint does not
-        // outlive a failed sync.
         final currentUid = _authRepo.currentUser?.uid;
         if (currentUid != null) {
           await _publishUnreadCounts(currentUid);
@@ -375,9 +316,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final latestMessageTime = info.latestTimestamp();
 
-    // Store and reconcile through the shared helper, the same path the sync of all accounts uses.
     final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: info);
-    // What is actually news, and the copies as stored.
     final fresh = persisted.fresh;
     info = persisted.reconciled;
 
@@ -387,9 +326,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
 
-    // Load local notice cache.
-    // Here fetch all cached notice, no matter what time is it when last fetch
-    // notice happened.
     final localNoticeData = await _storageProvider.fetchNotificationSince(uid: uid, timestamp: 0).run();
     debug(
       'load local notification: '
@@ -398,30 +334,14 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       'broadcastMessage=${localNoticeData.broadcastMessageList.length}',
     );
 
-    // Filter all outdated messages.
     localNoticeData.personalMessageList.removeWhere(
       (x) => x.uid == uid && info.personalMessageList.any((y) => y.peerUid == x.peerUid),
     );
 
-    // Filter all duplicate messages.
     localNoticeData.noticeList.removeWhere((x) => info.noticeList.any((y) => x.uid == uid && x.nid == y.id));
     localNoticeData.broadcastMessageList.removeWhere(
       (x) => info.broadcastMessageList.any((y) => x.uid == uid && x.pmid == y.pmid),
     );
-
-    // Here simply prepend fetching notification a front of all current
-    // messages.
-    //
-    // This works because:
-    //
-    // * If user already fetched notice before, the new coming notice are only
-    //   the ones generated after last fetch notice time, so notice in response
-    //   are only the ones that never fetched before.
-    // * If user haven't fetched notice on this machine before, current state
-    //   holds nothing.
-    //
-    // It is expected that all local notice is older than server ones.
-    // TODO: Sort notice by timestamp.
 
     final allNotice = [
       ...info.noticeList,
@@ -450,58 +370,59 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       ),
     ];
 
-    // Post the latest unread notification info to global state cubit.
     _infoRepository.updateInfo(
       unreadNoticeCount: allNotice.where((e) => !e.alreadyRead).length,
       unreadPersonalMessageCount: allPersonalMessage.where((e) => !e.alreadyRead).length,
       unreadBroadcastMessageCount: allBroadcastMessage.where((e) => !e.alreadyRead).length,
     );
 
-    // Post the latest sync result in the action to global auto sync info state
-    // cubit.
-    //
-    // Here the state posted only including ones received from server in this
-    // sync action that are news to the user, not former ones, local storage
-    // ones or copies fetched again.
-    //
-    // MARK: flnp
-    //
-    // 跨 isolate 去重：后台（或前台自己上一次）刚推过就跳过这次的前台推送。
-    // 时间窗内不会重复弹通知，但消息仍然写进数据库，消息中心能看到。
-    final skip = await _shouldSkipNotification();
-    if (skip) {
-      debug('skip local notification: another isolate pushed recently');
-    } else if (fresh.personalMessageList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoPm(
-          user: fresh.personalMessageList.last.peerUsername,
-          msg: fresh.personalMessageList.last.data.truncate(40, ellipsis: true),
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } else if (fresh.broadcastMessageList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoBm(
-          msg: fresh.broadcastMessageList.last.data.truncate(40, ellipsis: true),
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } else if (fresh.noticeList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoNotice(
-          msg: parseHtmlDocument(fresh.noticeList.last.data).body?.innerText.truncate(40, ellipsis: true) ?? '<null>',
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
+    // 按消息事件去重：只有"最新一条消息"比上次推送时更新，才推送。
+    // 这份状态由前台和后台共享，账号切换时自动清空。
+    // 判定用 info（服务器返回的本次拉取结果），不用 fresh——fresh 会过滤掉
+    // 本地已存的副本，判定"是否有新消息"需要看服务器的最新状态。
+    final shouldPush = await checkAndRecordPush(
+      uid: uid,
+      notices: info.noticeList,
+      personalMessages: info.personalMessageList,
+      broadcastMessages: info.broadcastMessageList,
+    );
+
+    if (shouldPush) {
+      if (fresh.personalMessageList.isNotEmpty) {
+        _infoRepository.updateAutoSyncInfo(
+          NotificationAutoSyncInfoPm(
+            user: fresh.personalMessageList.last.peerUsername,
+            msg: fresh.personalMessageList.last.data.truncate(40, ellipsis: true),
+            notice: fresh.noticeList.length,
+            personalMessage: fresh.personalMessageList.length,
+            broadcastMessage: fresh.broadcastMessageList.length,
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      } else if (fresh.broadcastMessageList.isNotEmpty) {
+        _infoRepository.updateAutoSyncInfo(
+          NotificationAutoSyncInfoBm(
+            msg: fresh.broadcastMessageList.last.data.truncate(40, ellipsis: true),
+            notice: fresh.noticeList.length,
+            personalMessage: fresh.personalMessageList.length,
+            broadcastMessage: fresh.broadcastMessageList.length,
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      } else if (fresh.noticeList.isNotEmpty) {
+        _infoRepository.updateAutoSyncInfo(
+          NotificationAutoSyncInfoNotice(
+            msg: parseHtmlDocument(fresh.noticeList.last.data).body?.innerText.truncate(40, ellipsis: true) ??
+                '<null>',
+            notice: fresh.noticeList.length,
+            personalMessage: fresh.personalMessageList.length,
+            broadcastMessage: fresh.broadcastMessageList.length,
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      }
+    } else {
+      debug('skip local notification: no new message since last push');
     }
 
     emit(
@@ -551,10 +472,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       error('failed to update last fetch notice time: uid not found');
       return;
     }
-    // Never move the time backwards: the state keeps the latest message time of an earlier fetch and publishes it
-    // again on every success (reload from storage, mark as read), while the auto sync and the sync of all accounts
-    // have already moved the time to the minute their fetch started in. A fetched message is never older than the
-    // inclusive bound it was fetched since, so a record from a real fetch is never skipped here.
     final stored = (await _storageProvider.fetchLastFetchNoticeTime(uid).run()).getOrElse((_) => null);
     if (stored != null && !time.isAfter(stored)) {
       debug('keep last fetch notification time ${stored.yyyyMMDDHHMMSS()}, ${time.yyyyMMDDHHMMSS()} is not later');
@@ -564,12 +481,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     await _storageProvider.updateLastFetchNoticeTime(uid, time).run();
   }
 
-  /// The event handler of marking some kind of notice as read or unread.
-  ///
-  /// The mark is always written to storage, the source of truth for the unread badge, even when the item is not in
-  /// the current state: the state is empty until a sync succeeded, while a conversation can be opened from a profile
-  /// or a friend card at any time. The state copy, when there is one, is updated in place for the list on screen and
-  /// the unread counts are recounted from storage afterwards, see [_publishUnreadCounts].
   Future<void> _onMarkReadRequested(_Emit emit, RecordMark recordMark) async {
     debug('mark notice: $recordMark');
     final int uid;
@@ -607,11 +518,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     await _publishUnreadCounts(uid);
   }
 
-  /// Recount the unread notifications of [uid] from storage and publish them to the global unread state.
-  ///
-  /// Cards adjust the badge by one for instant feedback, which drifts (a card tapped twice, a mark that never
-  /// reached storage); the recount makes the badge follow what the notification page lists. Skipped when [uid] is no
-  /// longer the current user.
   Future<void> _publishUnreadCounts(int uid) async {
     if (_authRepo.currentUser?.uid != uid) {
       debug('skip publishing unread counts: not the current user');
@@ -625,11 +531,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     );
   }
 
-  /// Rebuild the lists in state from what is stored for the current user, without a network fetch.
-  ///
-  /// Used after the sync of all accounts wrote the current user's rows through [persistFetchedNotification]: the page
-  /// then lists them right away instead of on its next pull-to-refresh. Skipped while a fetch is in flight, its result
-  /// rebuilds the lists anyway.
   Future<void> _onReloadFromStorageRequested(_Emit emit) async {
     if (state.status == NotificationStatus.loading) {
       debug('reload notification from storage, skipped because already loading');
