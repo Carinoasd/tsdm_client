@@ -6,7 +6,7 @@
 
 <p align="center">Official client of the 天使动漫 (Angel Anime) forum · Discuz! X5 edition</p>
 
-<p align="center"><a href="./README.md">繁體中文</a> | English</p>
+<p align="center"><a href="./README.md">简体中文</a> | <a href="./README.zh-hant.md">繁體中文</a> | English</p>
 
 <p align="center">
   <a href="https://github.com/Carinoasd/tsdm_client/releases"><img src="https://img.shields.io/github/release/Carinoasd/tsdm_client?label=release" alt="release"></a>
