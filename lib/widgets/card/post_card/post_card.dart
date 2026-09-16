@@ -17,6 +17,7 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/card/lock_card/locked_card.dart';
 import 'package:tsdm_client/widgets/card/packet_card.dart';
@@ -88,7 +89,7 @@ class PostCard extends StatefulWidget {
   State<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin {
+class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin, LoggerMixin {
   Future<void> _rateCallback() async {
     await context.pushNamed(
       ScreenPaths.ratePost,
@@ -411,16 +412,31 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin 
       case _PostCardActions.edit:
         final url = Uri.parse(widget.post.editUrl!);
         final editType = widget.post.isDraft ? PostEditType.editDraft.index : PostEditType.editPost.index;
+        // Take everything the reload needs before the editor opens. While it is up the thread page may rebuild and
+        // re-key this floor (the floor it scrolled to on the last reload loses its key on the next build, see
+        // PostList), which replaces this card by a new element: `context.mounted` is then false here although the
+        // thread is still on screen, and the reload silently never happened (GitHub #76).
+        final threadBloc = context.read<ThreadBloc>();
+        final onEdited = widget.onEdited;
+        final postID = widget.post.postID;
+        final page = widget.post.page;
         final edited = await context.pushNamed<bool>(
           ScreenPaths.editPost,
           pathParameters: {'editType': '$editType', 'fid': '${url.queryParameters["fid"]}'},
           queryParameters: {'tid': '${url.queryParameters["tid"]}', 'pid': '${url.queryParameters["pid"]}'},
         );
-        if ((edited ?? false) && context.mounted) {
-          widget.onEdited?.call();
-          // A list may contain several loaded pages. Reload the edited post's page, not the last loaded page or 1.
-          context.read<ThreadBloc>().add(ThreadJumpPageRequested(widget.post.page));
+        if (!(edited ?? false)) {
+          return;
         }
+        if (threadBloc.isClosed) {
+          // The thread page was left while the editor was open: nothing to reload.
+          debug('post $postID edited but its thread page is gone, skip reload');
+          return;
+        }
+        debug('post $postID edited, reload page $page');
+        onEdited?.call();
+        // A list may contain several loaded pages. Reload the edited post's page, not the last loaded page or 1.
+        threadBloc.add(ThreadJumpPageRequested(page));
       case _PostCardActions.share:
         await copyToClipboard(context, widget.post.shareLink!);
       case _PostCardActions.openInBrowser:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,6 +60,9 @@ final class _ChatPageState extends State<ChatPage> {
   final _scrollController = ScrollController();
   final _replyBarController = ReplyBarController();
 
+  /// Set when a message was sent: the reload that follows ends by scrolling to the newest message.
+  bool _revealLatestAfterReload = false;
+
   Widget _buildContent(BuildContext context, ChatState state) {
     final messages = state.messageList;
     final messageList = EasyRefresh(
@@ -113,6 +118,23 @@ final class _ChatPageState extends State<ChatPage> {
     bloc.add(NotificationMarkReadRequested(RecordMarkPersonalMessage(uid: uid, peerUid: peerUid, alreadyRead: true)));
   }
 
+  /// Scroll to the end of the list, where the newest message is.
+  void _revealLatest() {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.maxScrollExtent > position.pixels) {
+      unawaited(
+        _scrollController.animateTo(
+          position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.ease,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _refreshController.dispose();
@@ -136,6 +158,10 @@ final class _ChatPageState extends State<ChatPage> {
             listener: (context, state) {
               if (state.status == ChatStatus.success) {
                 _refreshController.finishLoad();
+                if (_revealLatestAfterReload) {
+                  _revealLatestAfterReload = false;
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _revealLatest());
+                }
               }
             },
           ),
@@ -148,6 +174,9 @@ final class _ChatPageState extends State<ChatPage> {
                 _replyBarController.closeEditor();
                 FocusManager.instance.primaryFocus?.unfocus();
                 showSnackBar(context: context, message: tr.success);
+                // Show the message just sent: fetch the dialog again and end on its newest message (GitHub #76).
+                _revealLatestAfterReload = true;
+                context.read<ChatBloc>().add(ChatFetchHistoryRequested(widget.uid));
               } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
                 showSnackBar(
                   context: context,
@@ -160,8 +189,10 @@ final class _ChatPageState extends State<ChatPage> {
         child: BlocBuilder<ChatBloc, ChatState>(
           builder: (context, state) {
             final body = switch (state.status) {
-              ChatStatus.initial || ChatStatus.loading => const CenteredCircularIndicator(),
-              ChatStatus.success => _buildContent(context, state),
+              ChatStatus.initial => const CenteredCircularIndicator(),
+              // A reload keeps the messages on screen instead of flashing a spinner.
+              ChatStatus.loading when state.messageList.isEmpty => const CenteredCircularIndicator(),
+              ChatStatus.loading || ChatStatus.success => _buildContent(context, state),
               ChatStatus.failure => buildRetryButton(
                 context,
                 () => context.read<ChatBloc>().add(ChatFetchHistoryRequested(widget.uid)),

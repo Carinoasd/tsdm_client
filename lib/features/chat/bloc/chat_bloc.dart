@@ -31,13 +31,33 @@ final class ChatBloc extends Bloc<ChatEvent, ChatState> with LoggerMixin {
 
   final ChatRepository _chatRepository;
 
-  FutureOr<void> _onChatFetchHistoryRequested(ChatFetchHistoryRequested event, _Emit emit) async {
-    emit(state.copyWith(status: ChatStatus.loading));
+  /// Number of the latest fetch. Fetches run concurrently (a pull to refresh, then the reload after a message was
+  /// sent) and may come back out of order: only the latest one may change the state. An older answer arriving later
+  /// used to put the stale dialog back and the message just sent vanished (GitHub #76, PR #81 review).
+  int _generation = 0;
 
-    await await _chatRepository.fetchChat(event.uid).match((e) {
-      handle(e);
-      emit(state.copyWith(status: ChatStatus.failure));
-    }, (v) async => _updateState(v, emit)).run();
+  FutureOr<void> _onChatFetchHistoryRequested(ChatFetchHistoryRequested event, _Emit emit) async {
+    final generation = ++_generation;
+    emit(state.copyWith(status: ChatStatus.loading));
+    await await _chatRepository
+        .fetchChat(event.uid)
+        .match(
+          (e) {
+            if (generation != _generation) {
+              return;
+            }
+            handle(e);
+            emit(state.copyWith(status: ChatStatus.failure));
+          },
+          (v) async {
+            if (generation != _generation) {
+              debug('drop a stale chat dialog answer: fetch $generation, latest $_generation');
+              return;
+            }
+            _updateState(v, emit);
+          },
+        )
+        .run();
   }
 
   void _updateState(uh.Document document, _Emit emit) {

@@ -19,10 +19,16 @@ typedef _Emit = Emitter<ChatHistoryState>;
 final class ChatHistoryBloc extends Bloc<ChatHistoryEvent, ChatHistoryState> with LoggerMixin {
   /// Constructor.
   ChatHistoryBloc(this._chatRepository) : super(const ChatHistoryState()) {
-    on<ChatHistoryLoadHistoryRequested>(_onChatHistoryLoadHistoryRequested);
+    // One load at a time, in the order asked for: the reload after a message was sent and a request for an older
+    // page issued meanwhile must both apply, the older page after the fresh latest page. Concurrent handling
+    // appended the older page to a stale list, and "latest request wins" threw the reload away (PR #81 review).
+    on<ChatHistoryLoadHistoryRequested>(_onChatHistoryLoadHistoryRequested, transformer: _sequential);
   }
 
   final ChatRepository _chatRepository;
+
+  /// Process events one after another, the equivalent of `bloc_concurrency`'s `sequential()`.
+  static Stream<E> _sequential<E>(Stream<E> events, EventMapper<E> mapper) => events.asyncExpand(mapper);
 
   FutureOr<void> _onChatHistoryLoadHistoryRequested(ChatHistoryLoadHistoryRequested event, _Emit emit) async {
     if (event.page == null) {
@@ -51,7 +57,9 @@ final class ChatHistoryBloc extends Bloc<ChatHistoryEvent, ChatHistoryState> wit
         previousPage: info.previousPage,
         nextPage: info.nextPage,
         sendTarget: info.sendTarget,
-        messages: [...state.messages, ...info.messages],
+        // Loading an earlier page appends it; loading the latest page again (first load, or the reload after a
+        // message was sent) replaces what is shown, otherwise the same messages would be listed twice.
+        messages: page == null ? info.messages : [...state.messages, ...info.messages],
       ),
     );
   }

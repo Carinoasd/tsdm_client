@@ -221,6 +221,10 @@ class _PostListState extends State<PostList> with LoggerMixin {
         final post = widget.postList[index];
         // Each floor paints into its own layer, so scrolling moves layers instead of repainting every card.
         final card = RepaintBoundary(child: widget.widgetBuilder(context, post));
+        // Adding or removing the key is a structural change: that floor is rebuilt into a new element on the next
+        // build after `initialPostID` changes (the thread page drops its scroll target one frame after a reload). A
+        // card must therefore not rely on its own `context` across an async gap that may span such a rebuild; the
+        // edit flow takes what it needs before opening the editor (GitHub #76).
         return post.postID == '${widget.initialPostID}' ? KeyedSubtree(key: _initialPostKey, child: card) : card;
       },
       separatorBuilder: (context, index) => widget.useDivider ? const Divider(thickness: 0.5) : sizedBoxW4H4,
