@@ -11,6 +11,10 @@ enum BackgroundSyncApplyResult {
   /// The settings do not want the service, it is stopped.
   stopped,
 
+  /// The settings do not want the service and it was asked to stop, but the plugin still reported it running when
+  /// the wait ended (or the stop call threw). The next request that wants it running confirms the stop first.
+  stopping,
+
   /// The settings want the service but it could not be started (or a plugin call threw): the caller decides what to
   /// show and whether to roll the switch back.
   failed,
@@ -29,6 +33,8 @@ enum BackgroundSyncApplyResult {
 /// plugin is polled until the service is really gone or really up), and a request that ran meanwhile saw the
 /// service in between: switched off and on again quickly, the "on" request found the service still running (it was
 /// still stopping), only told it to read the settings again, and the switch ended up on with a stopped service.
+/// A stop whose wait ran out is remembered the same way: the plugin still reports the old instance, so a later
+/// start must first see it gone, or it would only talk to an instance that is about to disappear.
 final class BackgroundSyncController with LoggerMixin {
   /// Constructor with the plugin calls of `background_sync_service.dart` by default.
   BackgroundSyncController({
@@ -58,6 +64,12 @@ final class BackgroundSyncController with LoggerMixin {
   /// Id of the latest request; an older one is skipped when its turn comes and its result is not reported.
   var _latest = 0;
 
+  /// A stop was asked for and the plugin has not reported the service gone yet.
+  var _stopPending = false;
+
+  /// Whether the last stop is still unconfirmed (the service was still reported running when the wait ended).
+  bool get stopPending => _stopPending;
+
   /// Whether the service should run for these settings.
   static bool shouldRun({required bool enabled, required int intervalSeconds}) => enabled && intervalSeconds > 0;
 
@@ -81,14 +93,30 @@ final class BackgroundSyncController with LoggerMixin {
 
   Future<BackgroundSyncApplyResult> _apply({required bool enabled, required int intervalSeconds}) async {
     final wanted = shouldRun(enabled: enabled, intervalSeconds: intervalSeconds);
+    if (!wanted) {
+      // Pending until the plugin reports the service gone; an exception anywhere below leaves it pending too.
+      _stopPending = true;
+    }
     try {
       // Boot start follows what is wanted now, so a switched-off service does not start just to stop itself.
       await _configure(autoStartOnBoot: wanted);
       if (!wanted) {
         if (!await _stop()) {
           warning('background sync service is still running after the stop request');
+          return BackgroundSyncApplyResult.stopping;
         }
+        _stopPending = false;
         return BackgroundSyncApplyResult.stopped;
+      }
+      if (_stopPending) {
+        // The plugin still reported the old instance when the last stop gave up waiting. "Running" now may be
+        // that instance on its way out: telling it to read the settings again would report success and the
+        // service would still disappear. Ask again and wait until it is really gone before starting.
+        if (!await _stop()) {
+          error('background sync service has not stopped yet, not starting it');
+          return BackgroundSyncApplyResult.failed;
+        }
+        _stopPending = false;
       }
       if (!await _isRunning()) {
         // A service that stopped itself (interval set to never, or a switch-off) is started again here.
@@ -102,7 +130,7 @@ final class BackgroundSyncController with LoggerMixin {
       return BackgroundSyncApplyResult.running;
     } on Object catch (e, st) {
       handleRaw(e, st);
-      return wanted ? BackgroundSyncApplyResult.failed : BackgroundSyncApplyResult.stopped;
+      return wanted ? BackgroundSyncApplyResult.failed : BackgroundSyncApplyResult.stopping;
     }
   }
 }

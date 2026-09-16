@@ -321,7 +321,9 @@ void main() {
     late List<String> calls;
     late bool running;
     late bool startResult;
+    late bool stopResult;
     Exception? startError;
+    Exception? stopError;
     Completer<void>? holdStop;
     Completer<void>? holdStart;
 
@@ -340,6 +342,13 @@ void main() {
         calls.add('stop');
         // The real stop polls the plugin until the service is gone; meanwhile it still reports running.
         await holdStop?.future;
+        if (stopError != null) {
+          throw stopError!;
+        }
+        if (!stopResult) {
+          // The wait ran out and the plugin still reports the service.
+          return false;
+        }
         running = false;
         return true;
       },
@@ -351,7 +360,9 @@ void main() {
       calls = [];
       running = false;
       startResult = true;
+      stopResult = true;
       startError = null;
+      stopError = null;
       holdStop = null;
       holdStart = null;
     });
@@ -421,6 +432,60 @@ void main() {
       ]);
       expect(running, isFalse);
       expect(calls, ['configure:false', 'stop', 'configure:false', 'stop'], reason: 'the middle "on" never started');
+    });
+
+    test(
+      'a stop whose wait ran out is not "stopped", and the next start waits for the real stop (PR #83 review)',
+      () async {
+        running = true;
+        stopResult = false;
+        final c = controller();
+        expect(await c.apply(enabled: false, intervalSeconds: 60), BackgroundSyncApplyResult.stopping);
+        expect(c.stopPending, isTrue);
+        expect(running, isTrue, reason: 'the old instance is still on its way out');
+        // The app asks for the service back while the plugin still reports the old instance.
+        stopResult = true;
+        holdStop = Completer<void>();
+        final on = c.apply(enabled: true, intervalSeconds: 60);
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, [
+          'configure:false',
+          'stop',
+          'configure:true',
+          'stop',
+        ], reason: 'no start before the stop is confirmed');
+        // The old instance is gone now.
+        holdStop!.complete();
+        expect(await on, BackgroundSyncApplyResult.running);
+        expect(c.stopPending, isFalse);
+        expect(running, isTrue);
+        expect(calls, ['configure:false', 'stop', 'configure:true', 'stop', 'start', 'notify']);
+      },
+    );
+
+    test('an old instance that never goes away refuses the start instead of reporting running', () async {
+      running = true;
+      stopResult = false;
+      final c = controller();
+      expect(await c.apply(enabled: false, intervalSeconds: 60), BackgroundSyncApplyResult.stopping);
+      expect(await c.apply(enabled: true, intervalSeconds: 60), BackgroundSyncApplyResult.failed);
+      expect(calls, isNot(contains('start')));
+      expect(calls, isNot(contains('notify')), reason: 'the dying instance is not told anything');
+      expect(c.stopPending, isTrue);
+      // The old stop completes later: the switch was rolled back on `failed`, so off and stopped agree.
+      running = false;
+    });
+
+    test('a stop call that throws leaves the stop pending', () async {
+      running = true;
+      stopError = Exception('plugin unavailable');
+      final c = controller();
+      expect(await c.apply(enabled: false, intervalSeconds: 60), BackgroundSyncApplyResult.stopping);
+      expect(c.stopPending, isTrue);
+      stopError = null;
+      expect(await c.apply(enabled: true, intervalSeconds: 60), BackgroundSyncApplyResult.running);
+      expect(calls, ['configure:false', 'stop', 'configure:true', 'stop', 'start', 'notify']);
+      expect(running, isTrue);
     });
 
     test('a start that fails after a newer change was asked for does not report the failure', () async {
