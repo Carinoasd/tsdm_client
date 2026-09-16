@@ -6,7 +6,7 @@
 
 <p align="center">天使动漫论坛官方客户端 · Discuz! X5 版</p>
 
-<p align="center">繁體中文 | <a href="./README.en.md">English</a></p>
+<p align="center">简体中文 | <a href="./README.zh-hant.md">繁體中文</a> | <a href="./README.en.md">English</a></p>
 
 <p align="center">
   <a href="https://github.com/Carinoasd/tsdm_client/releases"><img src="https://img.shields.io/github/release/Carinoasd/tsdm_client?label=release" alt="release"></a>
@@ -16,97 +16,97 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 這是什麼
+## 这是什么
 
-[天使动漫论坛](https://www.tsdm39.com/) 的跨平台客戶端。論壇於 2026 年升級到 Discuz! X5 後，原客戶端無法解析新版頁面；本專案受站方委託接手維護，
-適配 X5 的頁面結構並持續加入功能，是站方認可的官方客戶端版本。
+[天使动漫论坛](https://www.tsdm39.com/) 的跨平台客户端。论坛于 2026 年升级到 Discuz! X5 后，原客户端无法解析新版页面；本项目受站方委托接手维护，
+适配 X5 的页面结构并持续加入功能，是站方认可的官方客户端版本。
 
-本專案延續自 [realth000/tsdm_client](https://github.com/realth000/tsdm_client)（MIT），保留其全部歷史與版權聲明；X5 適配與後續開發由 Carinoasd 負責。
+本项目延续自 [realth000/tsdm_client](https://github.com/realth000/tsdm_client)（MIT），保留其全部历史与版权声明；X5 适配与后续开发由 Carinoasd 负责。
 
-## 下載
+## 下载
 
-到 [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest) 下載：
+到 [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest) 下载：
 
-| 平台 | 檔案 |
+| 平台 | 文件 |
 |---|---|
-| Android（多數手機） | `tsdm_client-arm64_v8a.apk` |
-| Android（舊 32 位元機） | `tsdm_client-armeabi_v7a.apk` |
-| Android（不確定機型時用這個，較大） | `tsdm_client-universal.apk` |
-| iOS（未簽章，需自行側載） | `tsdm_client.ipa` |
-| Windows 10/11（64 位元，解壓即用） | `tsdm_client-windows.zip` |
+| Android（多数手机） | `tsdm_client-arm64_v8a.apk` |
+| Android（旧 32 位机型） | `tsdm_client-armeabi_v7a.apk` |
+| Android（不确定机型时用这个，较大） | `tsdm_client-universal.apk` |
+| iOS（未签名，需自行侧载） | `tsdm_client.ipa` |
+| Windows 10/11（64 位，解压即用） | `tsdm_client-windows.zip` |
 | macOS | `tsdm_client-universal.dmg` |
 | Linux | `tsdm_client-linux.tar.gz` |
 
-三個 Android 包可以互相升級：universal 的內部版本號永遠高於同一版的分包，下一版的任何包又高於它。只有在同一版裡從 universal 換回分包會被系統當成降版，需要先移除再裝。
+三个 Android 包可以互相升级：universal 的内部版本号永远高于同一版的分包，下一版的任何包又高于它。只有在同一版里从 universal 换回分包会被系统当成降版，需要先卸载再安装。
 
-Linux 版需要系統已安裝 `libayatana-appindicator3-1`（Debian／Ubuntu 的套件名，其他發行版為對應的 ayatana-appindicator 套件）。這是系統匣元件的執行期依賴，沒有安裝時程式無法啟動。
+Linux 版需要系统已安装 `libayatana-appindicator3-1`（Debian／Ubuntu 的软件包名，其他发行版为对应的 ayatana-appindicator 软件包）。这是系统托盘组件的运行时依赖，没有安装时程序无法启动。
 
-不上架任何商店。Android 直接安裝 APK；App 內「偵測最新版本」讀取本倉庫的 `version.json`，「更新日誌」與 Releases 同步。
+不上架任何商店。Android 直接安装 APK；App 内「检测最新版本」读取本仓库的 `version.json`，「更新日志」与 Releases 同步。
 
-套件名為 `com.tsdm.tsdm_client`，使用論壇官方的簽章金鑰，可與原作者發布的舊版（`kzs.th000.tsdm_client`）並存。從舊版搬過來：舊版「設定 → 匯出資料」勾選帳號資料並設定密碼 → 安裝本版 → 「匯入資料」輸入同一密碼 → 移除舊版。
+包名为 `com.tsdm.tsdm_client`，使用论坛官方的签名密钥，可与原作者发布的旧版（`kzs.th000.tsdm_client`）并存。从旧版迁移过来：旧版「设置 → 导出数据」勾选账号数据并设置密码 → 安装本版 → 「导入数据」输入同一密码 → 卸载旧版。
 
 ## 主要功能
 
-### 瀏覽與互動
-- 首頁：論壇統計、導讀四模組（最新熱門／最新精華／最新回覆／最新發表）與「搶沙發」入口，每個模組可進完整列表
-- 分區頁：各分區的版塊列表、分區版主；「我收藏的版塊」自動跟著網頁端的收藏出現
-- 版塊與主題：主題列表、樓層、點評、評分、購買、附件、折疊區、@ 提及、回覆過的主題有「已回覆」標記
-- 版塊頁可「收藏本版／取消收藏本版」；收藏頁分「帖子」「版塊」兩個標籤
-- 主題頁可「分享給好友」：從自己的好友列表選人，把標題與連結以私訊送出
-- 提醒、私訊、聊天、公共訊息；提醒裡的純文字網址可點；好友請求提醒會正常列出
-- 一般投票帖可在 App 內單選／多選投票；提交後以論壇重新讀取的狀態為準，不會自動重複送出
-- 首頁「活動總覽」列出論壇首頁活動專區的連結，站內連結在 App 內開
+### 浏览与互动
+- 首页：论坛统计、导读四模块（最新热门／最新精华／最新回复／最新发表）与「抢沙发」入口，每个模块可进入完整列表
+- 分区页：各分区的版块列表、分区版主；「我收藏的版块」自动跟随网页端的收藏显示
+- 版块与主题：主题列表、楼层、点评、评分、购买、附件、折叠区、@ 提及、回复过的主题有「已回复」标记
+- 版块页可「收藏本版／取消收藏本版」；收藏页分「帖子」「版块」两个标签
+- 主题页可「分享给好友」：从自己的好友列表选人，把标题与链接以私信发出
+- 提醒、私信、聊天、公共消息；提醒里的纯文本网址可点击；好友请求提醒会正常列出
+- 普通投票帖可在 App 内单选／多选投票；提交后以论坛重新读取的状态为准，不会自动重复发送
+- 首页「活动总览」列出论坛首页活动专区的链接，站内链接在 App 内打开
 
-### 發帖與回覆
-- BBCode 編輯器、快速回覆模板、草稿
-- 輸入 `@` 自動彈出提醒選單，列出自己的好友與官方 @ 名單，可即時篩選
-- 「我的圖片」：把圖片網址或圖床代碼存在本機，表情面板一鍵插入；帖內圖片長按可直接存入
-- 桌面版 Ctrl+Enter／Alt+Enter 直接送出
+### 发帖与回复
+- BBCode 编辑器、快速回复模板、草稿
+- 输入 `@` 自动弹出提醒菜单，列出自己的好友与官方 @ 名单，可实时筛选
+- 「我的图片」：把图片网址或图床代码保存在本机，表情面板一键插入；帖内图片长按可直接保存
+- 桌面版 Ctrl+Enter／Alt+Enter 直接发送
 
-### 帳號
-- 多帳號切換；自動簽到（逐帳號、限流時自動重試）；管理帳號頁顯示每個帳號今日是否簽到
-- 一鍵同步所有帳號的提醒與私訊，進度頁逐帳號顯示結果
-- 登入過期提示：帳號失效時標示並可一鍵重新登入；啟動時提醒有幾個帳號過期
-- 帳號多選刪除、當前帳號「從本機移除」，不必聯網
-- 備份匯出／匯入（可選擇以密碼加密帳號登入資料，多裝置同步不必逐個重登）
-- 好友列表、送出好友請求；紅包領取與每日紅包
-- 個人資料頁的「我的成就」與「勳章中心」：查閱成就內容、勳章分類／分頁與取得條件；購買、申請與領取獎勵仍在網頁
+### 账号
+- 多账号切换；自动签到（逐账号、限流时自动重试）；管理账号页显示每个账号今日是否签到
+- 一键同步所有账号的提醒与私信，进度页逐账号显示结果
+- 登录过期提示：账号失效时标记并可一键重新登录；启动时提醒有几个账号过期
+- 账号多选删除、当前账号「从本机移除」，不必联网
+- 备份导出／导入（可选择以密码加密账号登录数据，多设备同步不必逐个重新登录）
+- 好友列表、发送好友请求；红包领取与每日红包
+- 个人资料页的「我的成就」与「勋章中心」：查阅成就内容、勋章分类／分页与获取条件；购买、申请与领取奖励仍在网页端进行
 
-### 通知與設定
-- 前台／背景輪詢新訊息並發系統通知；被清掉後從通知冷啟動直接進訊息中心
-- 設定頁可查看與申請通知權限、忽略電池最佳化（Android）；Debug 區可發測試通知、匯出日誌
-- Windows：自動同步到新提醒或私訊時彈出系統通知並播放提示音；點通知會還原視窗並開到訊息中心
-- 自動抓取的時間界線以論壇時鐘為準，裝置時鐘不準也不會漏掉提醒與私訊
-- 淺色／深色主題，字級縮放，日誌頁跟隨主題
+### 通知与设置
+- 前台／后台轮询新消息并发送系统通知；应用被清理后从通知冷启动可直接进入消息中心
+- 设置页可查看与申请通知权限、忽略电池优化（Android）；Debug 区可发送测试通知、导出日志
+- Windows：自动同步到新提醒或私信时弹出系统通知并播放提示音；点击通知会还原窗口并打开消息中心
+- 自动拉取的时间边界以论坛时钟为准，设备时钟不准也不会漏掉提醒与私信
+- 浅色／深色主题，字号缩放，日志页跟随主题
 
 ### 平台
-- Android（arm64／armv7／universal）、iOS（未簽章側載）、Windows、macOS、Linux；App 內「偵測最新版本」讀取本倉庫的 `version.json`
-- Windows：系統匣圖示與右鍵選單（目前帳號、歷史、收藏、管理帳戶、結束程式）；視窗最小化時從選單選頁面會先還原並聚焦視窗
+- Android（arm64／armv7／universal）、iOS（未签名侧载）、Windows、macOS、Linux；App 内「检测最新版本」读取本仓库的 `version.json`
+- Windows：系统托盘图标与右键菜单（当前账号、历史、收藏、管理账户、退出程序）；窗口最小化时从菜单选择页面会先还原并聚焦窗口
 
-## 已知問題
+## 已知问题
 
-- 部分 Android 裝置旋轉過場會短暫露黑，旋轉完成後排版正常；這個過場問題暫不處理（#28）。
-- 版塊列表拿不到外鏈頭像：App 還沒在別處看過該使用者的頭像時，列表顯示文字圓圈。
-- 論壇的成就系統目前沒有內容，「我的成就」只會顯示「暫無成就」。
-- iOS 版沒有簽章，需要自行側載，也沒有實機測試。
+- 部分 Android 设备旋转过渡时会短暂出现黑屏，旋转完成后排版正常；这个过渡问题暂不处理（#28）。
+- 版块列表无法获取外链头像：App 还没在别处见过该用户的头像时，列表显示文字圆圈。
+- 论坛的成就系统目前没有内容，「我的成就」只会显示「暂无成就」。
+- iOS 版没有签名，需要自行侧载，也没有真机测试。
 
-## 回報問題
+## 反馈问题
 
-到 [Issues](https://github.com/Carinoasd/tsdm_client/issues) 開新議題，附上 App 版本、平台與重現步驟；能重現的請一併附「設定 → Debug → 匯出日誌」的日誌，日誌在寫入前已遮蔽登入憑證。安全性問題請用 Security → Report a vulnerability 私下回報，或在論壇私訊站長。
+到 [Issues](https://github.com/Carinoasd/tsdm_client/issues) 创建新议题，附上 App 版本、平台与复现步骤；能复现的请一并附上「设置 → Debug → 导出日志」的日志，日志在写入前已屏蔽登录凭据。安全问题请用 Security → Report a vulnerability 私下反馈，或在论坛私信站长。
 
-## 建置
+## 构建
 
 ```bash
 flutter pub get
-dart run build_runner build -d   # 產生 mapper 與 i18n
-dart run gitsumu                 # 產生版本／變更紀錄資訊
+dart run build_runner build -d   # 生成 mapper 与 i18n
+dart run gitsumu                 # 生成版本／变更记录信息
 flutter build apk --release      # 需要 android/key.properties 指向你的 keystore
 ```
 
-Linux 建置需要 `libgtk-3-dev`、`libsqlite3-dev` 與 `libayatana-appindicator3-dev`；測試：`flutter test`。
+Linux 构建需要 `libgtk-3-dev`、`libsqlite3-dev` 与 `libayatana-appindicator3-dev`；测试：`flutter test`。
 
-發版：改 `pubspec.yaml` 的版本（`x.y.z+N`）與 CHANGELOG 新段 → `dart scripts/write_version_json.dart` → 測試 → 提交並推 master → `git tag -a vX.Y.Z && git push origin vX.Y.Z`，CI 依 `.github/workflows/release_build.yml` 建好各平台檔案並發布 Release，內文取自 CHANGELOG 該段。Android 內部版本號：分包為 N×10＋ABI 碼（armv7 2、arm64 3），universal 為 N×10＋9。
+发布版本：修改 `pubspec.yaml` 的版本（`x.y.z+N`）与 CHANGELOG 新段 → `dart scripts/write_version_json.dart` → 测试 → 提交并推送 master → `git tag -a vX.Y.Z && git push origin vX.Y.Z`，CI 根据 `.github/workflows/release_build.yml` 构建各平台文件并发布 Release，正文取自 CHANGELOG 对应段落。Android 内部版本号：分包为 N×10＋ABI 码（armv7 2、arm64 3），universal 为 N×10＋9。
 
-## 授權
+## 许可
 
-MIT。原作品 Copyright (c) 2023 realth000；修改部分 (C) 2026 Carinoasd。詳見 [LICENSE](./LICENSE)。
+MIT。原作品 Copyright (c) 2023 realth000；修改部分 (C) 2026 Carinoasd。详见 [LICENSE](./LICENSE)。
