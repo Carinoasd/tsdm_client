@@ -76,8 +76,6 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   final _permissionCubit = AndroidPermissionCubit();
 
   /// Starts, stops or nudges the Android background message service after a settings change (#80).
-  final _backgroundSyncController = BackgroundSyncController();
-
   /// Tip of log export path.
   String? _logExportPath;
 
@@ -431,16 +429,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   /// run but could not be started (or a plugin call threw) the switch is rolled back so the page never shows a
   /// service that is not there.
   Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
-    final settings = getIt.get<SettingsRepository>();
-    final enabled = settings.currentSettings.enableBackgroundMessageService;
-    final intervalSeconds = settings.currentSettings.autoSyncNoticeSeconds;
-    final result = await _backgroundSyncController.apply(enabled: enabled, intervalSeconds: intervalSeconds);
-    // Only the latest change reports; an older one that lost to a quicker toggle must not roll the switch back.
-    if (result != BackgroundSyncApplyResult.failed) {
-      return;
-    }
-    await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
-    if (!context.mounted) {
+    // The app-wide controller: a page opened again while an earlier page's stop is still in flight must queue
+    // behind it, and only the latest change reports (an older one must not roll the switch back).
+    final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
+    if (result != BackgroundSyncApplyResult.failed || !context.mounted) {
       return;
     }
     showSnackBar(context: context, message: context.t.backgroundService.startFailed);

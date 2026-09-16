@@ -35,10 +35,12 @@ import 'package:tsdm_client/utils/redacting_talker.dart';
 /// entry point.
 /// Everything the service isolate needs, built once when it starts.
 final class _BackgroundSyncRuntime {
-  _BackgroundSyncRuntime._(this.db, this.storage, this.repository, this.plugin);
+  _BackgroundSyncRuntime._(this.db, this.storage, this.settings, this.proxy, this.repository, this.plugin);
 
   final AppDatabase db;
   final StorageProvider storage;
+  final SettingsRepository settings;
+  final ProxyProvider proxy;
   final NotificationSyncAllRepository repository;
   final FlutterLocalNotificationsPlugin plugin;
 
@@ -50,8 +52,10 @@ final class _BackgroundSyncRuntime {
     final storage = StorageProvider(db, await preloadCookie(db), {});
     final settingsRepo = SettingsRepository(storage);
     await settingsRepo.init();
+    // Filled before every fetch by `refreshNetwork`: the system proxy is only known after asking the platform.
+    final proxy = ProxyProvider();
     getIt
-      ..registerSingleton(ProxyProvider())
+      ..registerSingleton(proxy)
       ..registerSingleton(db)
       ..registerSingleton(storage)
       ..registerSingleton(settingsRepo)
@@ -73,8 +77,12 @@ final class _BackgroundSyncRuntime {
         android: AndroidInitializationSettings('@drawable/ic_launcher_foreground'),
       ),
     );
-    return _BackgroundSyncRuntime._(db, storage, repository, plugin);
+    return _BackgroundSyncRuntime._(db, storage, settingsRepo, proxy, repository, plugin);
   }
+
+  /// Settings the client is built from, read again for this fetch: the snapshot from the service start is stale as
+  /// soon as the app changed the proxy (or was started again), and the system proxy has to be asked for here.
+  Future<void> refreshNetwork() => refreshBackgroundNetworkSettings(settings: settings, updateProxy: proxy.updateProxy);
 
   /// Load the app's language so the notification texts match the app.
   Future<void> applyLocale(String locale) async {
@@ -165,12 +173,23 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     }
     ticking = true;
     try {
-      final outcome = await backgroundSyncTick(storage: runtime.storage, repository: runtime.repository);
+      final outcome = await backgroundSyncTick(
+        storage: runtime.storage,
+        repository: runtime.repository,
+        prepareNetwork: runtime.refreshNetwork,
+      );
+      if (stopping) {
+        // The app asked for the stop while the fetch was in flight: whatever came back is stored, not announced.
+        talker.debug('background sync: stopping, result of the last fetch not announced');
+        return;
+      }
       switch (outcome) {
         case BackgroundSyncDisabled():
           await stop('switched off');
         case BackgroundSyncSkipped(:final reason):
           talker.debug('background sync: skipped, $reason');
+        case BackgroundSyncStale(:final reason):
+          talker.info('background sync: not announced, $reason');
         case BackgroundSyncDone(:final uid, :final result):
           talker.debug('background sync: ${result.runtimeType} for uid ${"$uid".obscured(4)}');
           if (result case NotificationSyncResultSuccess(:final latest)) {

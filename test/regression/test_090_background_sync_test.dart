@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -115,6 +116,20 @@ final class _Adapter implements HttpClientAdapter {
   @override
   void close({bool force = false}) {}
 }
+
+PersonalMessageV2 _pm(int peer, int t, String data, {bool read = false}) => PersonalMessageV2(
+  timestamp: t,
+  data: data,
+  peerUid: peer,
+  peerUsername: 'peer$peer',
+  sender: false,
+  alreadyRead: read,
+);
+
+NoticeV2 _notice7(int t) => NoticeV2(id: 7, timestamp: t, data: 'n7');
+
+NotificationV2 _fetched({List<NoticeV2> notices = const [], List<PersonalMessageV2> pms = const []}) =>
+    NotificationV2(status: 0, noticeList: notices, personalMessageList: pms, broadcastMessageList: const []);
 
 /// Records what the bridge asks the notification bloc to do.
 final class _RecordingNotificationBloc extends NotificationBloc {
@@ -287,6 +302,102 @@ void main() {
       expect(late.getCookieByUidSync(_alice.uid!), isNull);
       await late.refreshCookieCache();
       expect(late.getCookieByUidSync(_alice.uid!), isNotNull);
+    });
+  });
+
+  group('settings changed while the fetch is in flight (PR #83 review)', () {
+    Future<Future<BackgroundSyncOutcome>> inFlight() async {
+      await loggedIn();
+      adapter
+        ..pm = _pmPage(1001, 'for Alice')
+        ..holdNotice = Completer<void>();
+      final tick = backgroundSyncTick(storage: storage, repository: repository());
+      while (adapter.requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      return tick;
+    }
+
+    test('the account switched: stored for the old account, announced for nobody', () async {
+      final tick = await inFlight();
+      // The app switches to Bob; Alice stays on the device.
+      await settings.setValue(SettingsKeys.loginUid, 1002);
+      adapter.holdNotice!.complete();
+      expect(
+        await tick,
+        isA<BackgroundSyncStale>().having((e) => e.reason, 'reason', 'account switched during the fetch'),
+      );
+      final stored = await storage.fetchNotificationSince(uid: _alice.uid!, timestamp: 0).run();
+      expect(stored.personalMessageList.map((e) => e.data), ['for Alice'], reason: 'kept, like sync all does');
+    });
+
+    test('auto sync set to never: not announced; switched off: the service ends', () async {
+      var tick = await inFlight();
+      await settings.setValue(SettingsKeys.autoSyncNoticeSeconds, 0);
+      adapter.holdNotice!.complete();
+      expect(await tick, isA<BackgroundSyncStale>());
+      await settings.setValue(SettingsKeys.autoSyncNoticeSeconds, 60);
+      adapter.requests.clear();
+      tick = await inFlight();
+      await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
+      adapter.holdNotice!.complete();
+      expect(await tick, isA<BackgroundSyncDisabled>());
+    });
+  });
+
+  group('network settings of the service isolate (PR #83 review)', () {
+    test('the client is built from the settings as they are now, proxy included', () async {
+      await loggedIn();
+      // A local "proxy": with a proxy set, the client sends the whole URL to it instead of resolving the host.
+      final proxy = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => proxy.close(force: true));
+      final seen = <String>[];
+      proxy.listen((req) {
+        seen.add(req.uri.toString());
+        req.response
+          ..statusCode = 200
+          ..write('ok');
+        unawaited(req.response.close());
+      });
+      // The app sets a proxy after the service started: the isolate's snapshot is from before.
+      final app = StorageProvider(db, {}, {});
+      await app.saveBool(SettingsKeys.netClientUseProxy.name, value: true);
+      await app.saveString(SettingsKeys.netClientProxy.name, '127.0.0.1:${proxy.port}');
+      expect(settings.currentSettings.netClientUseProxy, isFalse, reason: 'stale snapshot');
+      var asked = 0;
+      await refreshBackgroundNetworkSettings(settings: settings, updateProxy: () async => asked++);
+      expect(settings.currentSettings.netClientUseProxy, isTrue);
+      expect(asked, 0, reason: 'a proxy typed in by hand needs no platform call');
+      final viaProxy = await settings.buildDefaultDio(nativeHttp: false).get<String>('http://tsdm-probe.invalid/ping');
+      expect(viaProxy.data, 'ok');
+      expect(seen, ['http://tsdm-probe.invalid/ping']);
+
+      await app.saveBool(SettingsKeys.useDetectedProxyWhenStartup.name, value: true);
+      await refreshBackgroundNetworkSettings(settings: settings, updateProxy: () async => asked++);
+      expect(asked, 1, reason: 'following the system proxy: the platform is asked before the fetch');
+
+      // Proxy switched off in the app: the next client goes direct (the server sees a plain path).
+      await app.saveBool(SettingsKeys.netClientUseProxy.name, value: false);
+      await refreshBackgroundNetworkSettings(settings: settings, updateProxy: () async => asked++);
+      expect(asked, 1);
+      seen.clear();
+      final direct = await settings
+          .buildDefaultDio(nativeHttp: false)
+          .get<String>('http://127.0.0.1:${proxy.port}/direct');
+      expect(direct.data, 'ok');
+      expect(seen, ['/direct']);
+    });
+
+    test('a proxy that cannot be read skips the fetch instead of going direct', () async {
+      await loggedIn();
+      adapter.pm = _pmPage(1001, 'hi');
+      final outcome = await backgroundSyncTick(
+        storage: storage,
+        repository: repository(),
+        prepareNetwork: () async => throw StateError('no platform'),
+      );
+      expect(outcome, isA<BackgroundSyncSkipped>().having((e) => e.reason, 'reason', contains('no platform')));
+      expect(adapter.requests, isEmpty);
     });
   });
 
@@ -501,6 +612,207 @@ void main() {
       expect(await off, BackgroundSyncApplyResult.stopped);
       expect(running, isFalse);
       expect(calls, ['configure:true', 'start', 'configure:false', 'stop']);
+    });
+  });
+
+  group('one controller for the whole app (PR #83 review)', () {
+    late List<String> calls;
+    late bool running;
+    late bool startResult;
+    late bool stopResult;
+    Completer<void>? holdStop;
+    Completer<void>? holdStart;
+
+    setUp(() {
+      calls = [];
+      running = true;
+      startResult = true;
+      stopResult = true;
+      holdStop = null;
+      holdStart = null;
+      getIt.registerSingleton(
+        BackgroundSyncController(
+          configure: ({required autoStartOnBoot}) async => calls.add('configure:$autoStartOnBoot'),
+          start: () async {
+            calls.add('start');
+            await holdStart?.future;
+            running = startResult;
+            return startResult;
+          },
+          stop: () async {
+            calls.add('stop');
+            await holdStop?.future;
+            if (!stopResult) {
+              return false;
+            }
+            running = false;
+            return true;
+          },
+          isRunning: () async => running,
+          notifySettingsChanged: () => calls.add('notify'),
+        ),
+      );
+    });
+
+    /// What a settings page does on the switch: write the setting, then apply through the app-wide controller.
+    Future<BackgroundSyncApplyResult> page({required bool enable}) async {
+      await settings.setValue(SettingsKeys.enableBackgroundMessageService, enable);
+      return getIt.get<BackgroundSyncController>().applySettings(settings);
+    }
+
+    test('settings opened from the toolbar, switched off, left, opened again and switched on', () async {
+      await loggedIn();
+      // First page: the stop gives up waiting, the service is still reported running.
+      stopResult = false;
+      expect(await page(enable: false), BackgroundSyncApplyResult.stopping);
+      // The page is gone; a new page looks the controller up and asks for the service back.
+      stopResult = true;
+      holdStop = Completer<void>();
+      final on = page(enable: true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(calls, ['configure:false', 'stop', 'configure:true', 'stop'], reason: 'confirms the stop first');
+      holdStop!.complete();
+      expect(await on, BackgroundSyncApplyResult.running);
+      expect(running, isTrue);
+      expect(settings.currentSettings.enableBackgroundMessageService, isTrue);
+    });
+
+    test('a late failure of an earlier page does not roll back what a later page set', () async {
+      await loggedIn();
+      running = false;
+      startResult = false;
+      holdStart = Completer<void>();
+      final first = page(enable: true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(calls, ['configure:true', 'start'], reason: 'the start is in flight');
+      // Another page switches off and on again meanwhile; the second start will succeed. (Each toggle writes the
+      // setting first and applies what is stored then, so the two are sequenced here as taps are.)
+      final controller = getIt.get<BackgroundSyncController>();
+      await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
+      final off = controller.applySettings(settings);
+      await settings.setValue(SettingsKeys.enableBackgroundMessageService, true);
+      final on = controller.applySettings(settings);
+      startResult = true;
+      holdStart!.complete();
+      expect(await first, BackgroundSyncApplyResult.superseded, reason: "its failure is nobody's answer");
+      expect(await off, BackgroundSyncApplyResult.superseded);
+      expect(await on, BackgroundSyncApplyResult.running);
+      expect(running, isTrue);
+      expect(settings.currentSettings.enableBackgroundMessageService, isTrue, reason: 'not rolled back');
+    });
+
+    test('a failed start rolls the switch back, from the boot as well as from the page', () async {
+      await loggedIn();
+      running = false;
+      startResult = false;
+      expect(await getIt.get<BackgroundSyncController>().applySettings(settings), BackgroundSyncApplyResult.failed);
+      expect(settings.currentSettings.enableBackgroundMessageService, isFalse);
+      expect(await storage.getBool(SettingsKeys.enableBackgroundMessageService.name), isFalse);
+    });
+  });
+
+  group('two syncs storing the same conversation (PR #83 review)', () {
+    const uid = 1000;
+
+    Future<PersistedNotification> persist(StorageProvider via, NotificationV2 fetched) =>
+        persistFetchedNotification(storage: via, uid: uid, fetched: fetched, since: 0);
+
+    Future<PersonalMessageEntity> conversation(StorageProvider via, int peer) async =>
+        (await via.fetchNotificationSince(uid: uid, timestamp: 0).run()).personalMessageList.singleWhere(
+          (e) => e.peerUid == peer,
+        );
+
+    test('the response sent first arrives last: its older copy is neither news nor stored', () async {
+      final newer = await persist(storage, _fetched(pms: [_pm(2000, 200, 'new')]));
+      expect(newer.fresh.personalMessageList.map((e) => e.data), ['new']);
+      // The other isolate's sync, sent earlier, answered later.
+      final other = StorageProvider(db, {}, {});
+      final older = await persist(other, _fetched(pms: [_pm(2000, 100, 'old')], notices: [_notice7(100)]));
+      expect(older.fresh.personalMessageList, isEmpty);
+      final stored = await conversation(storage, 2000);
+      expect((stored.timestamp, stored.data), (200, 'new'));
+    });
+
+    test('the same minute with another last message is news and replaces the stored one', () async {
+      await persist(storage, _fetched(pms: [_pm(2000, 100, 'first')]));
+      final again = await persist(storage, _fetched(pms: [_pm(2000, 100, 'second')]));
+      expect(again.fresh.personalMessageList.map((e) => e.data), ['second']);
+      expect((await conversation(storage, 2000)).data, 'second');
+    });
+
+    test('an older unread copy does not make a conversation read in the app unread again', () async {
+      await persist(storage, _fetched(pms: [_pm(2000, 200, 'new')], notices: [_notice7(200)]));
+      await storage.markPersonalMessageAsRead(uid: uid, peerUid: 2000, read: true).run();
+      await storage.markNoticeAsRead(uid: uid, nid: 7, read: true).run();
+      final older = await persist(
+        StorageProvider(db, {}, {}),
+        _fetched(pms: [_pm(2000, 100, 'old')], notices: [_notice7(100)]),
+      );
+      expect(older.fresh.personalMessageList, isEmpty);
+      expect(older.fresh.noticeList, isEmpty);
+      expect(older.unread, NotificationStateInfo.empty);
+      final pm = await conversation(storage, 2000);
+      expect((pm.timestamp, pm.data, pm.alreadyRead), (200, 'new', true));
+      final notice = (await storage.fetchNotificationSince(uid: uid, timestamp: 0).run()).noticeList.single;
+      expect((notice.timestamp, notice.alreadyRead), (200, true));
+    });
+
+    test('the row itself refuses an older copy, whatever writes it', () async {
+      await persist(storage, _fetched(pms: [_pm(2000, 200, 'new')]));
+      await storage
+          .saveNotification(
+            uid: uid,
+            notificationGroup: const NotificationGroup(
+              noticeList: [],
+              broadcastMessageList: [],
+              personalMessageList: [
+                PersonalMessageEntity(
+                  uid: uid,
+                  timestamp: 100,
+                  data: 'old',
+                  peerUid: 2000,
+                  peerUsername: 'peer2000',
+                  sender: false,
+                  alreadyRead: false,
+                ),
+              ],
+            ),
+          )
+          .run();
+      expect((await conversation(storage, 2000)).data, 'new');
+    });
+
+    test('two connections: the second sync waits for the first and reads what it stored', () async {
+      // The service opens the same file from its own isolate: two sqlite connections, not one shared executor.
+      final dir = await Directory.systemTemp.createTemp('tsdm_sync');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/main.db');
+      AppDatabase open() => AppDatabase(NativeDatabase(file, setup: (db) => db.execute('PRAGMA busy_timeout = 5000')));
+      final app = open();
+      final appStorage = StorageProvider(app, {}, {});
+      await appStorage.saveInt('warm-up', 1);
+      final service = open();
+      final serviceStorage = StorageProvider(service, {}, {});
+      addTearDown(app.close);
+      addTearDown(service.close);
+
+      final hold = Completer<void>();
+      final appSync = appStorage.exclusively(() async {
+        await persist(appStorage, _fetched(pms: [_pm(2000, 200, 'new')]));
+        await hold.future;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      var serviceDone = false;
+      final serviceSync = persist(serviceStorage, _fetched(pms: [_pm(2000, 100, 'old')])).whenComplete(() {
+        serviceDone = true;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(serviceDone, isFalse, reason: 'blocked until the app sync committed');
+      hold.complete();
+      await appSync;
+      final result = await serviceSync;
+      expect(result.fresh.personalMessageList, isEmpty, reason: 'read after the commit: the stored copy is newer');
+      expect((await conversation(serviceStorage, 2000)).data, 'new');
     });
   });
 

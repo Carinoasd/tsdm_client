@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:tsdm_client/features/background_sync/background_sync_service.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// What the service does after [BackgroundSyncController.apply] brought it to the state asked for.
@@ -26,8 +28,13 @@ enum BackgroundSyncApplyResult {
 /// Keeps the Android background message service in the state the settings ask for (#80).
 ///
 /// The service runs when the switch is on and the auto sync interval is not "never"; it stops itself when either
-/// changes, so every settings change goes through [apply], which also starts it again when the interval comes back
-/// from "never". The plugin calls are injected so the decisions can be tested without a platform.
+/// changes, so every settings change goes through [applySettings], which also starts it again when the interval
+/// comes back from "never". The plugin calls are injected so the decisions can be tested without a platform.
+///
+/// One instance for the whole app, registered in `getIt` at boot: the queue, the latest request and the pending stop
+/// below only mean something when every caller shares them. A controller per settings page lost all three when the
+/// page was left and opened again (the toolbar pushes a fresh route): the new page asked for the service back while
+/// the old page's stop was still in flight, saw it running and only told it to read the settings again.
 ///
 /// Requests are handled one after another and only the latest one counts. Stopping and starting take time (the
 /// plugin is polled until the service is really gone or really up), and a request that ran meanwhile saw the
@@ -72,6 +79,24 @@ final class BackgroundSyncController with LoggerMixin {
 
   /// Whether the service should run for these settings.
   static bool shouldRun({required bool enabled, required int intervalSeconds}) => enabled && intervalSeconds > 0;
+
+  /// Bring the service in line with the settings in [settings] (the switch and the auto sync interval).
+  ///
+  /// This is the one entry for the boot and the settings page. When the service should run but could not be
+  /// started ([BackgroundSyncApplyResult.failed]) the switch is written back to off, so the app never shows a service
+  /// that is not there; the caller only decides what to tell the user. A superseded request changes nothing: the
+  /// later request that took over reports for the state it wrote.
+  Future<BackgroundSyncApplyResult> applySettings(SettingsRepository settings) async {
+    final current = settings.currentSettings;
+    final result = await apply(
+      enabled: current.enableBackgroundMessageService,
+      intervalSeconds: current.autoSyncNoticeSeconds,
+    );
+    if (result == BackgroundSyncApplyResult.failed) {
+      await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
+    }
+    return result;
+  }
 
   /// Bring the service to the state [enabled] and [intervalSeconds] ask for.
   ///

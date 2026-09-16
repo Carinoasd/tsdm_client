@@ -100,7 +100,9 @@ List<BroadcastMessageV2> reconcileBroadcastMessageReadState({
 /// a later reply, a conversation with another last message from the peer).
 ///
 /// Only these feed the push notification of the background sync. Copies fetched again (the newest minute is fetched
-/// once more on purpose, see [NotificationBloc]) and the user's own replies must not notify.
+/// once more on purpose, see [NotificationBloc]) and the user's own replies must not notify. Neither does a stale
+/// copy, one older than the stored row: two syncs run at once (the app and the background service), and the
+/// response sent first can arrive last; its older last message differs from the stored one but is not news.
 NotificationV2 freshNotifications({required NotificationV2 fetched, required NotificationGroup stored}) {
   final notices = {for (final e in stored.noticeList) e.nid: e};
   final conversations = {for (final e in stored.personalMessageList) e.peerUid: e};
@@ -115,9 +117,29 @@ NotificationV2 freshNotifications({required NotificationV2 fetched, required Not
         return false;
       }
       final local = conversations[m.peerUid];
-      return local == null || m.timestamp > local.timestamp || m.data != local.data;
+      if (local == null || m.timestamp > local.timestamp) {
+        return true;
+      }
+      // The same minute with another last message is a new message; an older minute is a stale response.
+      return m.timestamp == local.timestamp && m.data != local.data;
     }).toList(),
     broadcastMessageList: fetched.broadcastMessageList.where((m) => !broadcasts.containsKey(m.pmid)).toList(),
+  );
+}
+
+/// [fetched] without the copies that are older than the row already [stored] for the same notice or conversation.
+///
+/// Such a copy comes from a response that was sent before the one that stored the newer row and arrived after it.
+/// Saving it would put the older last message and time back over the newer ones (and its read flag over what the
+/// reconciliation decided), so it is not written at all. Broadcast messages never change once sent.
+NotificationV2 dropStaleCopies({required NotificationV2 fetched, required NotificationGroup stored}) {
+  final notices = {for (final e in stored.noticeList) e.nid: e.timestamp};
+  final conversations = {for (final e in stored.personalMessageList) e.peerUid: e.timestamp};
+  return fetched.copyWith(
+    noticeList: fetched.noticeList.where((n) => n.timestamp >= (notices[n.id] ?? 0)).toList(),
+    personalMessageList: fetched.personalMessageList
+        .where((m) => m.timestamp >= (conversations[m.peerUid] ?? 0))
+        .toList(),
   );
 }
 
@@ -142,21 +164,36 @@ typedef PersistedNotification = ({NotificationV2 fresh, NotificationV2 reconcile
 ///
 /// [since] is the inclusive lower bound (seconds) the fetch was asked for, null when the device had none stored: it
 /// decides whether a notice seen for the first time counts as unread here, see [reconcileNoticeReadState].
+///
+/// The read of the stored copies, the decisions and the write happen under [StorageProvider.exclusively]: the
+/// background service syncs from its own isolate, and without the lock both could read the same stored copies and
+/// then write one over the other. Copies older than what is stored are dropped first ([dropStaleCopies]); the DAO
+/// refuses them once more at the row, whatever order the writes land in.
 Future<PersistedNotification> persistFetchedNotification({
   required StorageProvider storage,
   required int uid,
   required NotificationV2 fetched,
   int? since,
+}) =>
+    storage.exclusively(() => _persistFetchedNotification(storage: storage, uid: uid, received: fetched, since: since));
+
+Future<PersistedNotification> _persistFetchedNotification({
+  required StorageProvider storage,
+  required int uid,
+  required NotificationV2 received,
+  int? since,
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
+  final fetched = dropStaleCopies(fetched: received, stored: stored);
   final fresh = freshNotifications(fetched: fetched, stored: stored);
   // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
   // fetched 是本次从服务器拿到的所有副本，fresh 是其中真正算"新消息"的。
   // 当 fetched > 0 但 fresh == 0，说明服务器返回的都被过滤（老副本 / 自己发的）；
   // 当 fetched == 0，说明服务器没返回任何内容；两者导致"没有通知"的原因不同。
   talker.debug(
-    'fresh notification: fetched(notice=${fetched.noticeList.length} '
-    'pm=${fetched.personalMessageList.length} bm=${fetched.broadcastMessageList.length}) '
+    'fresh notification: fetched(notice=${received.noticeList.length} '
+    'pm=${received.personalMessageList.length} bm=${received.broadcastMessageList.length}) '
+    '-> current(notice=${fetched.noticeList.length} pm=${fetched.personalMessageList.length}) '
     '-> fresh(notice=${fresh.noticeList.length} '
     'pm=${fresh.personalMessageList.length} bm=${fresh.broadcastMessageList.length})',
   );

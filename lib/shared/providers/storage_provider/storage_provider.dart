@@ -3,8 +3,12 @@ import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
+// Only for unwrapping the sqlite error that the database isolate sends back, see `isDatabaseBusy`.
+// ignore: experimental_member_use
+import 'package:drift/remote.dart' show DriftRemoteException;
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:fpdart/fpdart.dart';
+import 'package:sqlite3/common.dart' show SqliteException;
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
@@ -249,6 +253,44 @@ class StorageProvider with LoggerMixin {
     final affectedRows = await CookieDao(_db).deleteCookieByUid(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
     return affectedRows != 0;
+  }
+
+  /// Run [action] as one read-modify-write that no other connection interleaves with.
+  ///
+  /// The Android background message service opens the same file from its own isolate, and a plain transaction
+  /// (`BEGIN`, deferred) takes no lock until it writes: two syncs could both read the stored copies, both decide what
+  /// is new and both write, the later one over the other's newer rows. The first statement here is a write that
+  /// matches no row: it reserves the write lock before anything is read, so the other connection's own first
+  /// statement fails with "database is locked" at once and is retried after the winner committed, reading what the
+  /// winner wrote. The busy timeout of the connection does not cover this case (a deferred transaction that already
+  /// holds a read lock is refused immediately to avoid a deadlock), hence the retry loop: up to about five seconds,
+  /// then the error is the caller's.
+  ///
+  /// Nested drift transactions (a DAO batch inside [action]) are fine, they become savepoints.
+  Future<T> exclusively<T>(Future<T> Function() action) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _db.transaction(() async {
+          await _db.customStatement('UPDATE notice SET uid = uid WHERE 0');
+          return action();
+        });
+      } on Object catch (e) {
+        if (!isDatabaseBusy(e) || attempt >= _exclusiveRetries) {
+          rethrow;
+        }
+        await Future<void>.delayed(_exclusiveRetryDelay);
+      }
+    }
+  }
+
+  static const _exclusiveRetries = 100;
+  static const _exclusiveRetryDelay = Duration(milliseconds: 50);
+
+  /// Whether [e] is sqlite refusing a statement because another connection holds the lock (`SQLITE_BUSY`,
+  /// `SQLITE_LOCKED`), also when it arrives from the database isolate wrapped in a [DriftRemoteException].
+  static bool isDatabaseBusy(Object e) {
+    final cause = e is DriftRemoteException ? e.remoteCause : e;
+    return cause is SqliteException && (cause.resultCode == 5 || cause.resultCode == 6);
   }
 
   /// Delete the cookies of every uid in [uids] in one transaction.

@@ -9,7 +9,7 @@ import 'package:tsdm_client/app.dart';
 import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
-import 'package:tsdm_client/features/background_sync/background_sync_service.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -52,6 +52,8 @@ Future<void> _boot(List<String> args) async {
   await initProviders();
 
   final settings = getIt.get<SettingsRepository>().currentSettings;
+  // App-wide, see BackgroundSyncController; registered on every platform so the settings page can look it up.
+  getIt.registerSingleton(BackgroundSyncController());
 
   final settingsLocale = settings.locale;
   final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
@@ -121,14 +123,11 @@ Future<void> _boot(List<String> args) async {
           ?.requestNotificationsPermission();
       talker.info('boot notification permission granted=$granted');
     }
-    // Background message service (#80): optional, so a failure here is logged and never stops the boot.
+    // Background message service (#80): the same controller the settings page uses, so a change made there queues
+    // behind the boot start. Optional, so a failure here is logged and never stops the boot.
     try {
-      final enableBackgroundSync = settings.enableBackgroundMessageService;
-      await initializeBackgroundSyncService(autoStartOnBoot: enableBackgroundSync);
-      if (enableBackgroundSync && autoSyncNoticeSeconds > 0) {
-        final started = await startBackgroundSyncService();
-        talker.info('boot background sync service started=$started');
-      }
+      final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
+      talker.info('boot background sync service: ${result.name}');
     } on Object catch (e, st) {
       talker.handle(e, st, 'background sync service init failed, continuing boot');
     }
