@@ -221,7 +221,7 @@
       },
       "backgroundMessageService": {
         "title": "Background Message Service",
-        "detail": "Keep connected in background to receive forum messages (Android only)"
+        "detail": "Keeps checking for new notices and private messages at the auto sync interval and notifies you while the app is in the background or was cleared; uses some more battery (Android only)"
       },
       "notificationPermission": {
         "title": "Notification permission",
@@ -1249,6 +1249,13 @@
         "bm": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[BM]${msg: String}"
       }
     }
+  },
+  "backgroundService": {
+    "channelName": "Background message service",
+    "channelDesc": "Persistent notification: the app checks for new messages at the auto sync interval while in the background",
+    "title": "TSDM",
+    "content": "Receiving forum messages in the background",
+    "startFailed": "The background message service could not start; check the notification permission and battery optimisation settings"
   },
   "debugLogPage": {
     "title": "Log",

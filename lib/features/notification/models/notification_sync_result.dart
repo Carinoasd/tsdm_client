@@ -18,6 +18,7 @@ final class NotificationSyncResultSuccess extends NotificationSyncResult with No
     required this.unreadNotice,
     required this.unreadPersonalMessage,
     required this.unreadBroadcastMessage,
+    this.latest,
   });
 
   /// Notices that are news to the account (not stored before, or a newer copy).
@@ -37,6 +38,9 @@ final class NotificationSyncResultSuccess extends NotificationSyncResult with No
 
   /// Unread broadcast messages of the account, recounted from storage after saving.
   final int unreadBroadcastMessage;
+
+  /// What a push notification would announce for this sync, null when nothing was new (see `autoSyncInfoOf`).
+  final NotificationAutoSyncInfo? latest;
 }
 
 /// The stored cookie of the account is gone or expired: the server answered the guest page.

@@ -4,12 +4,12 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:responsive_framework/responsive_framework.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/app.dart';
 import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_service.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -17,7 +17,6 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
-import 'package:tsdm_client/utils/background_service_helper.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -30,9 +29,6 @@ Future<void> _boot(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initLogger();
-
-  // 把上次运行遗留下来的后台服务日志合并进主日志。
-  await importBackgroundLogToTalker();
 
   // Widget errors never reach the zone handler: the framework catches them itself and, in a release build, shows a
   // plain grey box in place of the failing subtree with nothing in the exported log. Record them so a report of
@@ -63,17 +59,6 @@ Future<void> _boot(List<String> args) async {
     await LocaleSettings.useDeviceLocale();
   } else {
     await LocaleSettings.setLocale(locale);
-  }
-
-  // 把当前 locale 写到 SharedPreferences，供后台服务选通知文案。
-  if (isAndroid) {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final currentLocale = locale?.languageTag ?? LocaleSettings.currentLocale.languageTag;
-      await prefs.setString('background_locale', currentLocale);
-    } on Exception catch (_) {
-      // 写失败不能影响启动。
-    }
   }
 
   // Desktop only: init window manager and restore window bounds.
@@ -136,6 +121,17 @@ Future<void> _boot(List<String> args) async {
           ?.requestNotificationsPermission();
       talker.info('boot notification permission granted=$granted');
     }
+    // Background message service (#80): optional, so a failure here is logged and never stops the boot.
+    try {
+      final enableBackgroundSync = settings.enableBackgroundMessageService;
+      await initializeBackgroundSyncService(autoStartOnBoot: enableBackgroundSync);
+      if (enableBackgroundSync && autoSyncNoticeSeconds > 0) {
+        final started = await startBackgroundSyncService();
+        talker.info('boot background sync service started=$started');
+      }
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'background sync service init failed, continuing boot');
+    }
   }
 
   // Windows notification initialization.
@@ -181,25 +177,6 @@ Future<void> _boot(List<String> args) async {
   // Only record system proxy settings if required to do so.
   if (settings.useDetectedProxyWhenStartup) {
     await getIt.get<ProxyProvider>().updateProxy();
-  }
-
-  if (isAndroid) {
-    // 后台服务初始化。注意这里**不再**把 DB 的时间戳推到后台拉取时间之前：
-    // 后台拉取的消息只推通知、未落库，如果推 DB 时间会让前台跳过那些消息。
-    // 让前台从 DB 里自己记录的"上次拉取时间"开始重拉一遍，能覆盖后台
-    // 拉过的所有窗口；重复推送由 NotificationBloc 的去重逻辑解决。
-    //
-    // 用 try-catch 包起来：Android 后台服务相关的初始化可能因为设备 ROM、
-    // 系统版本、权限等原因失败（比如 Android 15 上 dataSync 前台服务被限制），
-    // 但绝不能因此让 App 打不开。
-    try {
-      await initializeBackgroundService();
-      if (await isBackgroundServiceEnabled()) {
-        await startBackgroundService();
-      }
-    } on Object catch (e, st) {
-      talker.handle(e, st, 'background service init failed, continuing boot');
-    }
   }
 
   runApp(

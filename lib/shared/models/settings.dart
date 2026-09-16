@@ -157,6 +157,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Default is 600 seconds.
   autoSyncNoticeSeconds<int>(name: 'autoSyncNoticeSeconds', type: int, defaultValue: 600),
 
+  /// Keep an Android foreground service running that checks for new notifications at the auto sync interval while
+  /// the app is in the background or was cleared (#80).
+  enableBackgroundMessageService<bool>(name: 'enableBackgroundMessageService', type: bool, defaultValue: false),
+
   /// Enable operations for debugging.
   enableDebugOperations<bool>(name: 'enableDebugOperations', type: bool, defaultValue: false),
 

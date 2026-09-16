@@ -221,7 +221,7 @@
       },
       "backgroundMessageService": {
         "title": "后台消息接收",
-        "detail": "开启后在后台保持连接，及时收到论坛消息（仅安卓）"
+        "detail": "开启后 App 退到后台或被清掉时，仍按「自动同步消息」的间隔检查新提醒与私信并发出通知；会多耗一些电（仅安卓）"
       },
       "notificationPermission": {
         "title": "通知权限",
@@ -1249,6 +1249,13 @@
         "bm": "收到了${noticeCount: int}条提醒，${pmCount: int}条私信，${bmCount: int}条公共消息\n[公共消息]${msg: String}"
       }
     }
+  },
+  "backgroundService": {
+    "channelName": "后台消息服务",
+    "channelDesc": "常驻通知：App 在后台按自动同步的间隔检查新消息",
+    "title": "天使动漫",
+    "content": "正在后台接收论坛消息",
+    "startFailed": "后台消息服务启动失败，请检查通知权限与电池优化设置"
   },
   "debugLogPage": {
     "title": "日志",

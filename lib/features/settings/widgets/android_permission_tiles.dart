@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -37,7 +36,7 @@ class AndroidPermissionTiles extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SectionListTile(
-              leading: Icon(MdiIcons.bellCogOutline),
+              leading: const Icon(Icons.notifications_active_outlined),
               title: Text(tr.notificationPermission.title),
               subtitle: Text(tr.notificationPermission.detail),
               trailing: Text(notification, style: style),

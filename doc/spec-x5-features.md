@@ -940,3 +940,38 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - `test_088`：同一儲存體先做第一次抓取（無界線：粗體的未讀、非粗體的已讀），存界線後第二次抓取拿到論壇渲染成已讀的新提醒 → 存成未讀、舊副本標記不變、徽章計數 2。
 - 實機：兩台裝置同帳號，A 先抓到再進提醒頁，B 之後抓取仍要看到紅點；B 查看後只有 B 消掉。
 
+## 33. Android 後台訊息接收（PR #80 → 接手 PR，2026-09-16）
+
+### 33.1 來源與平台事實
+
+- 原始實作來自 Qing-Novel 的 PR #80（第三版，30 個提交，Win/Android 實機測過）。審查發現：前景推播被改成分鐘級時間戳去重（同一分鐘第二則不推）、登入 cookie 明文複製到
+  SharedPreferences、背景 isolate 重寫一套抓取（裸 HttpClient、寫死 UA、不解 `_dsign`、不走 proxy）、整檔關 lint、無測試。維護者接手：保留其提交，衝突處以 master 為準，
+  再以下列設計重做。
+- `flutter_background_service`：前景服務（specialUse 型別，Android 15 對 dataSync 有每日 6 小時上限，specialUse 沒有）跑一個獨立的 Flutter isolate，沒有 Activity。
+  App 的 Kotlin HTTP client 掛在 `MainActivity.configureFlutterEngine` 的 method channel 上，背景 isolate 拿不到，所以背景一律用 dart:io 的 `IOHttpClientAdapter`
+  （`SettingsRepository.buildDefaultDio(nativeHttp: false)`）。
+- 外掛的 boot receiver 依 `autoStartOnBoot` 決定開機是否啟動服務；開關開＝true、關＝false（切換時重新 `configure`）。
+
+### 33.2 App 端行為
+
+- 設定 `enableBackgroundMessageService<bool>`（預設 false，存在資料庫的 settings 表）。設定頁「行為」多一個開關；寫入走 `SettingsRepository.setValue`（先落庫再啟服務，
+  服務啟動時讀的就是新值），啟動失敗回滾為 false 並提示。改自動同步間隔時 `invoke('settingsChanged')` 讓服務重讀。
+- 背景 isolate（`lib/features/background_sync/background_sync_service.dart`）：自己開同一個 sqlite（`connection/native.dart` 加 `PRAGMA busy_timeout = 5000`，兩個 isolate 同時寫時等鎖
+  而不是丟 "database is locked"）、建 `StorageProvider`／`SettingsRepository`／`NotificationSyncAllRepository`，每一輪 `backgroundSyncTick`：
+  1. 從資料庫讀開關、間隔、`loginUid`、`locale`（每輪重讀，isolate 之間沒有記憶體同步）。關 → 服務自停；間隔 0 → 服務自停；未登入 → 不抓。
+  2. `storage.refreshCookieCache()`（App 端登入／登出／切帳號後 cookie 快取才會跟上）。
+  3. `syncAll(accounts: [目前帳號])`：與「一鍵同步所有帳號」同一條路徑——同樣的 client（cookie、防採集、proxy、UA）、同樣的存庫與已讀調和、同樣的 `fresh` 判定。
+  4. 結果 `NotificationSyncResultSuccess.latest`（由共用的 `autoSyncInfoOf(fresh)` 算出，`NotificationBloc` 也改用它）不為 null 才推播；用 `showLocalNotificationWith`
+     （同一個 channel、同一個 payload，點擊沿用既有的 #14 路由邏輯）。之後 `invoke('synced', {uid, 未讀數})`。
+- 前景／背景去重靠共用資料庫：誰先抓到誰推播，另一方的 `freshNotifications` 看到的是已存的副本。兩邊同一秒同時抓的極端情況會各推一次，但通知 id 相同，畫面上只留一條。
+- `BackgroundSyncBridgeCubit`（`app.dart`，只在 Android 註冊）：收到 `synced` 且 uid 是目前帳號 → 更新未讀徽章、`NotificationReloadFromStorageRequested` 重載提醒頁。
+- 文字：常駐通知標題／內容與推播內容都走 slang（isolate 內依設定 `setLocaleRaw`／`useDeviceLocale`），不再有硬編碼的三語字串表。
+- 日誌：isolate 自己的 `RedactingTalker` 寫到 `log/tsdm_client_bg_<日期>.log`，匯出日誌會一起帶出；uid 一律 `obscured(4)`。
+- 未做：離線佇列、與前景 `AutoNotificationCubit` 的互斥（前景在時兩邊都會抓，代價是多一次請求）。
+
+### 33.3 驗收
+
+- `test_090`：開關預設關且一輪就回 `Disabled`；間隔 0／未登入不抓；新提醒存庫並只宣告一次、同一分鐘第二則仍是新的（審查第 1 點的回歸）；私訊優先且前景同一份儲存體再抓一次沒有 fresh；
+  session 過期不推；服務啟動後才登入的帳號經 `refreshCookieCache` 抓得到；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
+- 本機 Android debug 包建置（manifest 合併：specialUse、exported=false）。實機：開開關 → 常駐通知出現 → 退到後台或清掉 App → 另一帳號發私訊 → 到間隔時間收到系統通知 → 點開進訊息中心。
+

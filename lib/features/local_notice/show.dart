@@ -40,8 +40,13 @@ const localNoticeId = 0;
 const WindowsNotificationSound _windowsSound = WindowsNotificationSound.im;
 
 /// Build the notification body text of [info].
-String buildLocalNotificationBody(BuildContext context, NotificationAutoSyncInfo info) {
-  final tr = context.t.localNotification;
+String buildLocalNotificationBody(BuildContext context, NotificationAutoSyncInfo info) =>
+    localNotificationBodyOf(context.t, info);
+
+/// [buildLocalNotificationBody] for callers without a widget tree: the background message service passes the
+/// translations of the locale it loaded from the settings (#80).
+String localNotificationBodyOf(Translations translations, NotificationAutoSyncInfo info) {
+  final tr = translations.localNotification;
   return switch (info) {
     NotificationAutoSyncInfoNotice(:final msg, :final notice, :final personalMessage, :final broadcastMessage) =>
       tr.notice.detail.notice(noticeCount: notice, pmCount: personalMessage, bmCount: broadcastMessage, msg: msg),
@@ -117,14 +122,8 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
   if (!isAndroid && !isWindows) {
     return;
   }
-  final tr = context.t.localNotification;
-  final nd = buildLocalNotificationDetails(
-    channelName: tr.channelName,
-    channelDescription: tr.channelDesc,
-    ticker: tr.ticker,
-  );
-  final body = buildLocalNotificationBody(context, info);
-  final title = tr.notice.title;
+  // Taken before the await below: the context must not be used across it.
+  final translations = context.t;
   try {
     // Android only: Windows has no per-app switch the plugin can read. Never log the body, it carries message text.
     final enabled = isAndroid
@@ -135,16 +134,35 @@ Future<void> showLocalNotification(BuildContext context, NotificationAutoSyncInf
     talker.info(
       'push local notification id=$localNoticeId channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
     );
-    await flnp.show(
-      id: localNoticeId,
-      title: title,
-      body: body,
-      notificationDetails: nd,
-      payload: LocalNoticeKeys.openNotification,
-    );
+    await showLocalNotificationWith(plugin: flnp, translations: translations, info: info);
   } on Exception catch (e, st) {
     talker.handle(e, st, 'push local notification failed: ');
   }
+}
+
+/// Show [info] through [plugin] with the texts of [translations]: the same notification whoever fetched it.
+///
+/// The in-app auto sync calls it with the app's plugin and the widget tree's translations; the Android background
+/// message service with its own plugin instance and the locale it loaded from the settings (#80). Same channel and
+/// payload, so a tap is handled by the existing route logic in both cases.
+Future<void> showLocalNotificationWith({
+  required FlutterLocalNotificationsPlugin plugin,
+  required Translations translations,
+  required NotificationAutoSyncInfo info,
+}) async {
+  final tr = translations.localNotification;
+  final nd = buildLocalNotificationDetails(
+    channelName: tr.channelName,
+    channelDescription: tr.channelDesc,
+    ticker: tr.ticker,
+  );
+  await plugin.show(
+    id: localNoticeId,
+    title: tr.notice.title,
+    body: localNotificationBodyOf(translations, info),
+    notificationDetails: nd,
+    payload: LocalNoticeKeys.openNotification,
+  );
 }
 
 /// Log whether the auto sync notification is still in the shade, Android only.

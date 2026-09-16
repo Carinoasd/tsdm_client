@@ -9,12 +9,12 @@ import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/utils/auto_sync_info.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:universal_html/parsing.dart';
 
 part 'notification_bloc.mapper.dart';
 part 'notification_event.dart';
@@ -439,37 +439,9 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // ones or copies fetched again.
     //
     // MARK: flnp
-    if (fresh.personalMessageList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoPm(
-          user: fresh.personalMessageList.last.peerUsername,
-          msg: fresh.personalMessageList.last.data.truncate(40, ellipsis: true),
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } else if (fresh.broadcastMessageList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoBm(
-          msg: fresh.broadcastMessageList.last.data.truncate(40, ellipsis: true),
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } else if (fresh.noticeList.isNotEmpty) {
-      _infoRepository.updateAutoSyncInfo(
-        NotificationAutoSyncInfoNotice(
-          msg: parseHtmlDocument(fresh.noticeList.last.data).body?.innerText.truncate(40, ellipsis: true) ?? '<null>',
-          notice: fresh.noticeList.length,
-          personalMessage: fresh.personalMessageList.length,
-          broadcastMessage: fresh.broadcastMessageList.length,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
+    final latest = autoSyncInfoOf(fresh);
+    if (latest != null) {
+      _infoRepository.updateAutoSyncInfo(latest);
     }
 
     emit(

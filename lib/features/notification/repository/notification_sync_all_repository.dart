@@ -7,6 +7,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/utils/auto_sync_info.dart';
 import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -152,6 +153,7 @@ final class NotificationSyncAllRepository with LoggerMixin {
             unreadNotice: persisted.unread.notice,
             unreadPersonalMessage: persisted.unread.personalMessage,
             unreadBroadcastMessage: persisted.unread.broadcastMessage,
+            latest: autoSyncInfoOf(persisted.fresh),
           );
       }
     }

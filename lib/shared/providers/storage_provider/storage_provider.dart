@@ -77,6 +77,17 @@ class StorageProvider with LoggerMixin {
   /// Constructor.
   StorageProvider(this._db, this._cookieCache, this._imageCache);
 
+  /// Reload the cookie cache from the database.
+  ///
+  /// The cache is filled once at start and kept in sync by this provider's own writes. Another isolate on the same
+  /// database (the Android background message service) never sees the app's logins and logouts otherwise (#80).
+  Future<void> refreshCookieCache() async {
+    final fresh = await preloadCookie(_db);
+    _cookieCache
+      ..clear()
+      ..addAll(fresh);
+  }
+
   /// Injected database
   final AppDatabase _db;
 

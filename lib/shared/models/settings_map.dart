@@ -53,6 +53,7 @@ class SettingsMap with SettingsMapMappable {
     required this.threadFloorInteractionMode,
     required this.textScaleFactor,
     this.windowMaximized = false,
+    this.enableBackgroundMessageService = false,
   });
 
   final String netClientAccept;
@@ -89,6 +90,9 @@ class SettingsMap with SettingsMapMappable {
   final bool showUnreadPersonalMessageBadge;
   final bool showUnreadBroadcastMessageBadge;
   final int autoSyncNoticeSeconds;
+
+  /// Whether the Android background message service is on. Not required: backups from older versions lack it.
+  final bool enableBackgroundMessageService;
   final bool enableDebugOperations;
   final String fontFamily;
   final bool enableEditorBBCodeParser;
@@ -143,6 +147,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.showUnreadPersonalMessageBadge => copyWith(showUnreadPersonalMessageBadge: value as bool?),
       SettingsKeys.showUnreadBroadcastMessageBadge => copyWith(showUnreadBroadcastMessageBadge: value as bool?),
       SettingsKeys.autoSyncNoticeSeconds => copyWith(autoSyncNoticeSeconds: value as int?),
+      SettingsKeys.enableBackgroundMessageService => copyWith(enableBackgroundMessageService: value as bool?),
       SettingsKeys.enableDebugOperations => copyWith(enableDebugOperations: value as bool?),
       SettingsKeys.fontFamily => copyWith(fontFamily: value as String?),
       SettingsKeys.enableEditorBBCodeParser => copyWith(enableEditorBBCodeParser: value as bool?),

@@ -24,6 +24,11 @@ LazyDatabase connect() {
     }
 
     talker.debug('connect to database');
-    return NativeDatabase.createBackgroundConnection(await databaseFile);
+    return NativeDatabase.createBackgroundConnection(
+      await databaseFile,
+      // The Android background message service opens the same file from its own isolate: wait for a lock instead
+      // of failing with "database is locked" when both write at the same moment (#80).
+      setup: (db) => db.execute('PRAGMA busy_timeout = 5000'),
+    );
   });
 }

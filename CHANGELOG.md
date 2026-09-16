@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Android：设置 → 行为 新增「后台消息接收」开关。开启后以前台服务常驻（通知栏有一条常驻通知），App 退到后台或被系统清掉时仍按「自动同步消息」的间隔检查新提醒与私信并发出系统通知；与 App 内的同步共用同一份数据库，谁先抓到谁通知，不会重复推送；重启手机后保持上次的开关状态。默认关闭；自动同步设为「从不」时不会在后台运行。原始实现来自 [@Qing-Novel](https://github.com/Qing-Novel)。(#80)
+
 ## [1.25.0] - 2026-09-16
 
 ### Added
