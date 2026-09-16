@@ -135,7 +135,12 @@ final class NotificationSyncAllRepository with LoggerMixin {
             info('account ${"$uid".obscured(4)} was removed during the sync, result dropped');
             return const NotificationSyncResultNotAuthorized();
           }
-          final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: value.info);
+          final persisted = await persistFetchedNotification(
+            storage: _storageProvider,
+            uid: uid,
+            fetched: value.info,
+            since: timestamp,
+          );
           // Same rule as AutoNotificationCubit: the forum's clock when it answered, the device clock otherwise.
           await _storageProvider
               .updateLastFetchNoticeTime(uid, nextFetchBound(startedAt: started, serverTime: value.serverTime))

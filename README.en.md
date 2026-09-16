@@ -78,6 +78,7 @@ The package name is `com.tsdm.tsdm_client`, signed with the forum's official key
 - The settings page shows and requests the notification permission and battery-optimisation exemption (Android); the Debug section can send a test notification and export the logs
 - Windows: a system notification with a sound when the automatic sync finds new notices or private messages; tapping it restores the window and opens the message centre
 - The fetch window of the automatic sync follows the forum's clock, so a wrong device clock does not skip notices or messages
+- Unread notices are tracked per device: a notice another device of the same account already fetched is still unread the first time it shows up here, until you view it here or mark all as read
 - Light and dark themes, font scaling, log page in the app theme
 
 ### Platforms

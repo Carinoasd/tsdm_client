@@ -182,7 +182,7 @@ final class NotificationRepository with LoggerMixin {
           _controller.add(const NotificationInfoStateFailure());
           return left(value);
         case Right(:final value):
-          _controller.add(NotificationInfoStateSuccess(uid, value.info));
+          _controller.add(NotificationInfoStateSuccess(uid, value.info, since: timestamp));
           return right(value.serverTime);
       }
     });

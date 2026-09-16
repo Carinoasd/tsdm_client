@@ -57,12 +57,31 @@ void main() {
     NoticeEntity stored(int id, int t, {bool? read}) =>
         NoticeEntity(uid: 1, nid: id, timestamp: t, data: 'd', alreadyRead: read);
 
-    test('a notice seen for the first time keeps the server flag', () {
+    test('without a stored bound (first fetch on this device) a first-seen notice keeps the server flag', () {
       final r = reconcileNoticeReadState(
         fetched: [fetched(1, 100, read: false), fetched(2, 100, read: true)],
         stored: [],
       );
       expect(r.map((e) => e.alreadyRead), [false, true]);
+    });
+
+    test('inside the fetched window a first-seen notice is unread whatever the server rendered (#79)', () {
+      // Another device of the same account listed the notice page first, so the server already shows it read.
+      final r = reconcileNoticeReadState(
+        fetched: [fetched(1, 100, read: true), fetched(2, 100, read: false)],
+        stored: [],
+        since: 90,
+      );
+      expect(r.map((e) => e.alreadyRead), [false, false]);
+    });
+
+    test('the bound leaves stored copies alone', () {
+      final r = reconcileNoticeReadState(
+        fetched: [fetched(1, 100, read: false), fetched(2, 100, read: true)],
+        stored: [stored(1, 100, read: true), stored(2, 100, read: false)],
+        since: 90,
+      );
+      expect(r.map((e) => e.alreadyRead), [true, false]);
     });
 
     test('a stored notice keeps the local flag when the server copy is not newer', () {
