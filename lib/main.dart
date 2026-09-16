@@ -187,10 +187,22 @@ Future<void> _boot(List<String> args) async {
   if (isAndroid) {
     // 把后台服务写的时间戳同步给前台数据库，同时回看几分钟，
     // 把后台拉过但没写进数据库的消息补上（消息中心才能看到它们）。
-    await _syncBackgroundLastFetchTime();
-    await initializeBackgroundService();
-    if (await isBackgroundServiceEnabled()) {
-      await startBackgroundService();
+    //
+    // 每一个步骤都用独立的 try-catch 包起来：Android 后台服务相关的初始化
+    // 可能因为设备 ROM、系统版本、权限等原因失败（比如 Android 15 上
+    // dataSync 前台服务被限制），但绝不能因此让 App 打不开。
+    try {
+      await _syncBackgroundLastFetchTime();
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'sync background last fetch time failed, continuing boot');
+    }
+    try {
+      await initializeBackgroundService();
+      if (await isBackgroundServiceEnabled()) {
+        await startBackgroundService();
+      }
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'background service init failed, continuing boot');
     }
   }
 
