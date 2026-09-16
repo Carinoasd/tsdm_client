@@ -22,16 +22,28 @@ part 'notification_state.dart';
 
 /// Read state of freshly [fetched] notices reconciled with the copies already [stored] for the same user.
 ///
-/// * A notice seen for the first time keeps the flag the server rendered. Discuz! X5 shows the unread marker only
-///   until the notice page is listed once, and our own fetch is that listing, so this is the only chance to read it.
+/// * A notice seen for the first time inside the window this device fetched [since] is unread: it is news to this
+///   device. The server's flag cannot be trusted for it: Discuz! X5 shows the unread marker only until the notice
+///   page is listed once, and the listing may have been another device of the same account (a phone syncing every
+///   minute takes the marker away before the desktop ever sees the notice, GitHub #79). Which device the user reads
+///   it on is up to the user; each device clears its own copy.
+/// * Without a stored bound ([since] null: first fetch on this device, the last three days come back) a notice seen
+///   for the first time keeps the flag the server rendered, so a fresh install does not turn the history unread.
 /// * A notice already stored keeps the local flag (the user may have read it in the app meanwhile), unless the
 ///   server copy is newer: Discuz merges repeated replies in one thread into the same notice and bumps its time, so
 ///   a newer copy is a new event and becomes unread again.
-List<NoticeV2> reconcileNoticeReadState({required List<NoticeV2> fetched, required List<NoticeEntity> stored}) {
+List<NoticeV2> reconcileNoticeReadState({
+  required List<NoticeV2> fetched,
+  required List<NoticeEntity> stored,
+  int? since,
+}) {
   final byNid = {for (final e in stored) e.nid: e};
   return fetched.map((n) {
     final local = byNid[n.id];
     if (local == null) {
+      if (since != null && n.timestamp >= since) {
+        return n.copyWith(alreadyRead: false);
+      }
       return n;
     }
     if (n.timestamp > local.timestamp) {
@@ -127,10 +139,14 @@ typedef PersistedNotification = ({NotificationV2 fresh, NotificationV2 reconcile
 /// Saving the server copies as they come resurrected items the user had read in the app: the last three days are
 /// listed again when the last fetch is older than that, and the newest minute is fetched again on purpose. See
 /// [reconcileNoticeReadState], [reconcilePersonalMessageReadState] and [reconcileBroadcastMessageReadState].
+///
+/// [since] is the inclusive lower bound (seconds) the fetch was asked for, null when the device had none stored: it
+/// decides whether a notice seen for the first time counts as unread here, see [reconcileNoticeReadState].
 Future<PersistedNotification> persistFetchedNotification({
   required StorageProvider storage,
   required int uid,
   required NotificationV2 fetched,
+  int? since,
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fresh = freshNotifications(fetched: fetched, stored: stored);
@@ -145,7 +161,7 @@ Future<PersistedNotification> persistFetchedNotification({
     'pm=${fresh.personalMessageList.length} bm=${fresh.broadcastMessageList.length})',
   );
   final info = fetched.copyWith(
-    noticeList: reconcileNoticeReadState(fetched: fetched.noticeList, stored: stored.noticeList),
+    noticeList: reconcileNoticeReadState(fetched: fetched.noticeList, stored: stored.noticeList, since: since),
     personalMessageList: reconcilePersonalMessageReadState(
       fetched: fetched.personalMessageList,
       stored: stored.personalMessageList,
@@ -304,6 +320,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
   Future<void> _onNoticeInfoFetched(_Emit emit, NotificationInfoState infoState) async {
     late NotificationV2 info;
     late final int uid;
+    int? since;
     switch (infoState) {
       case NotificationInfoStateFailure():
         emit(state.copyWith(status: NotificationStatus.failure));
@@ -317,9 +334,10 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       case NotificationInfoStateLoading():
         emit(state.copyWith(status: NotificationStatus.loading));
         return;
-      case NotificationInfoStateSuccess(uid: final u, info: final i):
+      case NotificationInfoStateSuccess(uid: final u, info: final i, since: final s):
         info = i;
         uid = u;
+        since = s;
     }
 
     emit(state.copyWith(status: NotificationStatus.loading));
@@ -327,7 +345,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     final latestMessageTime = info.latestTimestamp();
 
     // Store and reconcile through the shared helper, the same path the sync of all accounts uses.
-    final persisted = await persistFetchedNotification(storage: _storageProvider, uid: uid, fetched: info);
+    final persisted = await persistFetchedNotification(
+      storage: _storageProvider,
+      uid: uid,
+      fetched: info,
+      since: since,
+    );
     // What is actually news, and the copies as stored.
     final fresh = persisted.fresh;
     info = persisted.reconciled;
