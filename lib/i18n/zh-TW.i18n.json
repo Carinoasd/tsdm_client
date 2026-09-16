@@ -219,6 +219,10 @@
         "title": "自動同步訊息",
         "detail": "每隔一段時間，自動從伺服器同步訊息和提醒"
       },
+      "backgroundMessageService": {
+        "title": "後台訊息接收",
+        "detail": "開啟後在後台保持連線，及時收到論壇訊息（僅安卓）"
+      },
       "notificationPermission": {
         "title": "通知權限",
         "detail": "自動同步需要此權限才能把新提醒、訊息和公共訊息顯示為系統通知",

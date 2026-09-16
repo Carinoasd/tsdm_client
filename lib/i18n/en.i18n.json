@@ -219,6 +219,10 @@
         "title": "Auto sync notice",
         "detail": "Duration of auto sync notice from server"
       },
+      "backgroundMessageService": {
+        "title": "Background Message Service",
+        "detail": "Keep connected in background to receive forum messages (Android only)"
+      },
       "notificationPermission": {
         "title": "Notification permission",
         "detail": "Required by auto sync to show new notices, messages and broadcasts as system notifications",
