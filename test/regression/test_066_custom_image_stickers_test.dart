@@ -194,6 +194,13 @@ void main() {
       await tester.tap(find.byTooltip('first'));
       await settle(tester);
       expect(picked, '[img]https://x/a.png[/img]');
+      // Finish real image I/O before disposing the cache and deleting its files on Windows.
+      // Pumping the fake clock alone does not wait for asynchronous image loading.
+      for (var i = 0; i < 100 && tester.binding.imageCache.pendingImageCount > 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(tester.binding.imageCache.pendingImageCount, 0);
       expect(tester.takeException(), isNull);
     });
   });

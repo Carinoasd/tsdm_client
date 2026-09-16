@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
@@ -24,7 +25,11 @@ void main() {
     db = AppDatabase(NativeDatabase(dbFile));
     storage = StorageProvider(db, {}, {});
     // Two logged in accounts, the current one recorded in settings, plus ordinary user data.
-    await storage.saveCookie(username: 'Alice', uid: 1000, cookie: {'Ystv_2132_auth': 'alice-auth-token', 'Ystv_2132_saltkey': 'alice-salt'});
+    await storage.saveCookie(
+      username: 'Alice',
+      uid: 1000,
+      cookie: {'Ystv_2132_auth': 'alice-auth-token', 'Ystv_2132_saltkey': 'alice-salt'},
+    );
     await storage.saveCookie(username: 'Bob', uid: 1001, cookie: {'Ystv_2132_auth': 'bob-auth-token'});
     await storage.saveInt(SettingsKeys.loginUid.name, 1000);
     await storage.saveString(SettingsKeys.loginUsername.name, 'Alice');
@@ -58,7 +63,9 @@ void main() {
     final exported = sqlite3.open(exportedFile.path, mode: OpenMode.readOnly);
     try {
       // The account list survives, without anything that logs in.
-      final accounts = exported.select('SELECT username, uid, cookie, password, question_id, answer FROM cookie ORDER BY uid');
+      final accounts = exported.select(
+        'SELECT username, uid, cookie, password, question_id, answer FROM cookie ORDER BY uid',
+      );
       expect(accounts.map((r) => r['username']), ['Alice', 'Bob']);
       expect(accounts.map((r) => r['uid']), [1000, 1001]);
       expect(accounts.map((r) => r['cookie']), everyElement('{}'), reason: 'no session cookies in the backup');
@@ -86,7 +93,7 @@ void main() {
     expect(await storage.getInt(SettingsKeys.loginUid.name), 1000);
     expect(await storage.getString(SettingsKeys.loginUsername.name), 'Alice');
     // No temporary file left behind.
-    expect(dir.listSync().map((e) => e.path.split('/').last), unorderedEquals(['mainV2.db', 'exported.db']));
+    expect(dir.listSync().map((e) => p.basename(e.path)), unorderedEquals(['mainV2.db', 'exported.db']));
   });
 
   test('stripCredentials also works on databases without the optional tables or columns', () {
