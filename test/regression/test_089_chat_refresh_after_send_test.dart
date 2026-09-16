@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/chat/bloc/chat_bloc.dart';
 import 'package:tsdm_client/features/chat/bloc/chat_history_bloc.dart';
 import 'package:tsdm_client/features/chat/repository/chat_repository.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
@@ -40,11 +42,12 @@ final String _dialogAfter = _dialogBefore.replaceFirst(
   '<li class="cl pmm"><div class="pmt">Bob: </div><div class="pmd">回覆 #n2 已送出</div></li></ul>',
 );
 
-/// Answers the dialog GET from a queue and every send POST with the forum's success marker.
+/// Answers the dialog GET from a queue (an entry may be a future the test completes later, to hold an answer back)
+/// and every send POST with the forum's success marker.
 final class _ChatAdapter implements HttpClientAdapter {
   _ChatAdapter(this.dialogs);
 
-  final List<String> dialogs;
+  final List<FutureOr<String>> dialogs;
   final requests = <RequestOptions>[];
 
   @override
@@ -62,7 +65,7 @@ final class _ChatAdapter implements HttpClientAdapter {
     if (options.method == 'POST' && query['op'] == 'send') {
       body = '<?xml version="1.0" encoding="utf-8"?><root><![CDATA[succeedhandle_pmsend(\'\', \'\');]]></root>';
     } else if (query['op'] == 'showmsg') {
-      body = dialogs.isEmpty ? fail('unexpected dialog request #${requests.length}') : dialogs.removeAt(0);
+      body = dialogs.isEmpty ? fail('unexpected dialog request #${requests.length}') : await dialogs.removeAt(0);
     } else if (query['subop'] == 'view') {
       body = _data('chat_history_bare_url_x5.html');
     } else {
@@ -157,6 +160,47 @@ void main() {
     );
     expect(find.textContaining('私訊 #n1'), findsOneWidget);
     expect(find.textContaining('回覆 #n2'), findsOneWidget, reason: 'the message just sent is on screen');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a slow refresh started before the send cannot put the old dialog back over the new message', (
+    tester,
+  ) async {
+    // Initial load, then a pull to refresh whose answer is held back, then the reload after the send.
+    final slowRefresh = Completer<String>();
+    adapter.dialogs
+      ..clear()
+      ..addAll([_dialogBefore, slowRefresh.future, _dialogAfter]);
+    final auth = AuthenticationRepository(user: _alice);
+    addTearDown(auth.dispose);
+    await tester.pumpWidget(
+      RepositoryProvider<AuthenticationRepository>.value(
+        value: auth,
+        child: TranslationProvider(
+          child: const MaterialApp(
+            home: ChatPage(username: 'Bob', uid: '1000'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final barContext = tester.element(find.byType(ReplyBar));
+    // The user pulls to refresh; the forum is slow to answer.
+    BlocProvider.of<ChatBloc>(barContext).add(const ChatFetchHistoryRequested('1000'));
+    await tester.pump();
+    // Meanwhile the message is sent and the reload after it comes back first.
+    BlocProvider.of<ReplyBloc>(
+      barContext,
+    ).add(const ReplyChatRequested('1000', {'formhash': 'XXXXXXXX', 'message': 'hi', 'pmsubmit': 'true'}));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('回覆 #n2'), findsOneWidget, reason: 'the reload after the send is on screen');
+
+    // Now the slow, older answer arrives: it must not replace the newer dialog.
+    slowRefresh.complete(_dialogBefore);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('回覆 #n2'), findsOneWidget, reason: 'a stale answer must not hide the sent message');
+    expect(find.textContaining('私訊 #n1'), findsOneWidget);
+    expect(adapter.requests.where((r) => r.uri.queryParameters['op'] == 'showmsg'), hasLength(3));
     expect(tester.takeException(), isNull);
   });
 

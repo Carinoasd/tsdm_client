@@ -24,16 +24,37 @@ final class ChatHistoryBloc extends Bloc<ChatHistoryEvent, ChatHistoryState> wit
 
   final ChatRepository _chatRepository;
 
+  /// Number of the latest load. Loads run concurrently and may come back out of order; only the latest one may change
+  /// the state, so a slow reload of the latest page cannot put a stale list back over a newer one, and an earlier page
+  /// cannot be appended to a list that was replaced meanwhile (GitHub #76, PR #81 review).
+  int _generation = 0;
+
   FutureOr<void> _onChatHistoryLoadHistoryRequested(ChatHistoryLoadHistoryRequested event, _Emit emit) async {
+    final generation = ++_generation;
     if (event.page == null) {
       emit(state.copyWith(status: ChatHistoryStatus.loading));
     } else {
       emit(state.copyWith(status: ChatHistoryStatus.loadingMore));
     }
-    await await _chatRepository.fetchChatHistory(event.uid, page: event.page).match((e) {
-      handle(e);
-      emit(state.copyWith(status: ChatHistoryStatus.failure));
-    }, (v) async => _updateState(v, emit, event.page)).run();
+    await await _chatRepository
+        .fetchChatHistory(event.uid, page: event.page)
+        .match(
+          (e) {
+            if (generation != _generation) {
+              return;
+            }
+            handle(e);
+            emit(state.copyWith(status: ChatHistoryStatus.failure));
+          },
+          (v) async {
+            if (generation != _generation) {
+              debug('drop a stale chat history answer: load $generation, latest $_generation');
+              return;
+            }
+            await _updateState(v, emit, event.page);
+          },
+        )
+        .run();
   }
 
   FutureOr<void> _updateState(uh.Document document, _Emit emit, int? page) async {
