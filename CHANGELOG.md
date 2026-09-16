@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 关于页新增「支持开发」入口，可离线查看及保存支付宝赞助码；明确说明为维护者个人自愿赞助，不影响功能使用。
+
 ## [1.25.0] - 2026-09-16
 
 ### Added

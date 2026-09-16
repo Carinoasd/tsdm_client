@@ -6,6 +6,7 @@ import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
@@ -80,6 +81,15 @@ class AboutPage extends StatelessWidget {
                 mode: LaunchMode.externalApplication,
               );
             },
+          ),
+          SectionListTile(
+            leading: const Icon(Icons.favorite_border),
+            title: Text(tr.supportDevelopment),
+            subtitle: Text(tr.supportDevelopmentSubtitle),
+            onTap: () async => showDialog<void>(
+              context: context,
+              builder: (_) => const SupportDevelopmentDialog(),
+            ),
           ),
           SectionListTile(
             leading: const FlutterLogo(),
