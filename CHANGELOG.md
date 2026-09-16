@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 私信：在对话页或聊天记录页发送消息后，页面会自动重新读取并显示刚发出的消息；对话页会滚到最新一条。(#76)
+
 ### Fixed
 
+- 帖子：编辑刚发出的楼层后，帖子页再次会自动刷新并停在该楼层。此前回帖后帖子页会给新楼层做标记，编辑期间页面一旦重建（例如键盘弹出）该标记被移除、卡片被重建，保存成功后的刷新就被跳过。(#76)
 - Android：universal apk 的内部版本号改为「版本号×10＋9」，永远高于同一版的 arm64／armv7 分包（×10＋ABI 码）；从分包换装 universal 不再被系统当成降版而拒绝安装。Release 页的 universal apk 改由 CI 产生。1.24.0 的 universal apk 已以 749 重新发布。(#70)
 
 ## [1.24.0] - 2026-09-15

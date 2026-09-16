@@ -149,10 +149,15 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
                 _replyBarController.closeEditor();
                 FocusManager.instance.primaryFocus?.unfocus();
                 showSnackBar(context: context, message: tr.success);
+                // Show the message just sent: reload the latest page (GitHub #76).
+                context.read<ChatHistoryBloc>().add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: null));
               } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
                 _replyBarController.closeEditor();
                 FocusManager.instance.primaryFocus?.unfocus();
-                showSnackBar(context: context, message: tr.failed(message: state.failedReason!));
+                showSnackBar(
+                  context: context,
+                  message: tr.failed(message: state.failedReason!),
+                );
               }
             },
           ),
@@ -160,8 +165,12 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
         child: BlocBuilder<ChatHistoryBloc, ChatHistoryState>(
           builder: (context, state) {
             final body = switch (state.status) {
-              ChatHistoryStatus.initial || ChatHistoryStatus.loading => const CenteredCircularIndicator(),
-              ChatHistoryStatus.success || ChatHistoryStatus.loadingMore => _buildContent(context, state),
+              ChatHistoryStatus.initial => const CenteredCircularIndicator(),
+              // A reload keeps the messages on screen instead of flashing a spinner.
+              ChatHistoryStatus.loading when state.messages.isEmpty => const CenteredCircularIndicator(),
+              ChatHistoryStatus.loading ||
+              ChatHistoryStatus.success ||
+              ChatHistoryStatus.loadingMore => _buildContent(context, state),
               ChatHistoryStatus.failure => buildRetryButton(
                 context,
                 () => context.read<ChatHistoryBloc>().add(

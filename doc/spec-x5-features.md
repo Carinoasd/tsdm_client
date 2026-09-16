@@ -878,3 +878,34 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - App 內「偵測最新版本」比的是 pubspec 的號碼（`version.json` 的 `versionCode` 對 `appVersion` 的 `+N`），與 apk 實際的 versionCode 無關，不受此規則影響。
 - 驗收：本機 `flutter build apk --release` 三個輸出的 versionCode 分別為 ×10＋9、×10＋3、×10＋2；下一次發版 Release 頁自動出現 universal apk。
 
+## 31. 編輯剛發出的樓層後帖子頁不刷新、私訊送出後不顯示（GitHub #76，2026-09-16）
+
+### 31.1 回報與日誌判讀
+
+- 回報者在官方水樓回帖後立刻編輯那則回帖，儲存後帖子頁沒有刷新（PR #35 的功能）；同一份日誌裡稍後另一帖的編輯有刷新。
+- 日誌對照：兩次編輯都是「POST → 約 1 秒後鍵盤收起 → 離開 /editPost」，即編輯頁都是成功後自動返回；但第一次返回後**沒有**任何 `build client`／`save thread visit history`，
+  第二次返回時緊接著就有。也沒有 `failed to post edited post data`，所以不是上傳失敗，而是返回後的 `ThreadJumpPageRequested` 根本沒送出。
+
+### 31.2 根因
+
+- `PostList` 用 `KeyedSubtree(key: _initialPostKey)` 只包住 `initialPostID` 那一張卡片（給 scroll hold 找 render object 用）；回帖後 `_ThreadPageState` 把 `_scrollToPidOnReload`
+  設成新樓層的 pid 再重載，所以**剛發出的那一樓**帶著這個 key；下一幀 `_scrollToPidOnReload` 就被清成 null（`addPostFrameCallback`）。
+- 之後帖子頁任何一次重建（編輯頁彈出鍵盤造成的 MediaQuery 變化就夠了）都會讓那一樓失去 key。對 Flutter 來說加／減 `KeyedSubtree` 是結構變化，該樓的 element 被丟掉重建，
+  原本開啟編輯頁的那個 `_PostCardState` 已經 unmounted。
+- `PostCard` 的編輯流程在 `await pushNamed` 之後檢查 `context.mounted` 才 `context.read<ThreadBloc>().add(ThreadJumpPageRequested)`：mounted 為 false 就靜靜略過。
+  只有「回帖後立刻編輯那則回帖」（或從通知進來的目標樓層）會踩到，因為只有這些卡片帶 key，符合回報者「編輯發過的帖子」的描述。
+
+### 31.3 App 端行為
+
+- `post_card.dart`：開啟編輯頁**之前**先取好 `ThreadBloc`、`onEdited` 與樓層頁碼；返回 `true` 後只要 bloc 沒關閉就送 `ThreadJumpPageRequested`，不再依賴卡片自己的 context。
+  帖子頁已經離開（bloc 已關）時不送，並各記一行 debug 日誌（`post X edited, reload page N`／`... thread page gone, skip reload`），日後日誌可直接看到。
+- `post_list.dart` 補註解說明 key 切換會重建卡片，卡片內跨 async gap 的流程不能依賴自己的 context。
+- 私訊（回報者順帶要求）：對話頁送出成功後重新抓對話並滾到最新一則；聊天記錄頁送出成功後重載最新一頁，`ChatHistoryBloc` 對 `page == null` 改成取代列表而不是追加（否則同一批訊息會重複）。
+  兩頁在重載期間保留現有訊息，不再閃整頁轉圈。
+
+### 31.4 驗收
+
+- `test_067` 新增「編輯期間卡片被重新 key 仍會重載該頁」（拿掉修正會失敗：沒有任何事件），原「帖子頁已離開」案改成真的關閉 bloc，仍不重載且無例外。
+- `test_089`：對話頁送出後再抓一次對話且新訊息出現在畫面上；`ChatHistoryBloc` 重載最新一頁時取代列表。
+- 實機：回帖後立刻編輯該樓、儲存，帖子頁應刷新並停在該樓；私訊送出後應立刻看到自己的訊息。
+

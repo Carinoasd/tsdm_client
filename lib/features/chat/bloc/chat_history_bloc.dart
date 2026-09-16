@@ -51,7 +51,9 @@ final class ChatHistoryBloc extends Bloc<ChatHistoryEvent, ChatHistoryState> wit
         previousPage: info.previousPage,
         nextPage: info.nextPage,
         sendTarget: info.sendTarget,
-        messages: [...state.messages, ...info.messages],
+        // Loading an earlier page appends it; loading the latest page again (first load, or the reload after a
+        // message was sent) replaces what is shown, otherwise the same messages would be listed twice.
+        messages: page == null ? info.messages : [...state.messages, ...info.messages],
       ),
     );
   }

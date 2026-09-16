@@ -56,6 +56,7 @@ void main() {
   late SettingsRepository settings;
   late SettingsBloc settingsBloc;
   late _RecordingThreadBloc threadBloc;
+  final initialPostKey = GlobalKey();
 
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
   setUp(() async {
@@ -83,7 +84,14 @@ void main() {
     await db.close();
   });
 
-  Future<GoRouter> openEditor(WidgetTester tester, {VoidCallback? onEdited, ValueNotifier<bool>? visible}) async {
+  /// [visible] removes the card from the tree when false. [keyed] wraps the card in a keyed subtree while true, the
+  /// way `PostList` marks the floor it scrolled to: flipping it rebuilds the card into a new element.
+  Future<GoRouter> openEditor(
+    WidgetTester tester, {
+    VoidCallback? onEdited,
+    ValueNotifier<bool>? visible,
+    ValueNotifier<bool>? keyed,
+  }) async {
     final post = Post(
       postID: '77',
       postFloor: 41,
@@ -105,12 +113,20 @@ void main() {
         GoRoute(
           path: '/',
           builder: (_, _) => Scaffold(
-            body: visible == null
-                ? PostCard(post, onEdited: onEdited)
-                : ValueListenableBuilder<bool>(
-                    valueListenable: visible,
-                    builder: (_, show, _) => show ? PostCard(post, onEdited: onEdited) : const SizedBox.shrink(),
-                  ),
+            body: switch ((visible, keyed)) {
+              (null, null) => PostCard(post, onEdited: onEdited),
+              (final visible?, _) => ValueListenableBuilder<bool>(
+                valueListenable: visible,
+                builder: (_, show, _) => show ? PostCard(post, onEdited: onEdited) : const SizedBox.shrink(),
+              ),
+              (_, final keyed?) => ValueListenableBuilder<bool>(
+                valueListenable: keyed,
+                builder: (_, mark, _) {
+                  final card = PostCard(post, onEdited: onEdited);
+                  return mark ? KeyedSubtree(key: initialPostKey, child: card) : card;
+                },
+              ),
+            },
           ),
         ),
         GoRoute(
@@ -169,15 +185,38 @@ void main() {
     expect(threadBloc.events, isEmpty);
   });
 
-  testWidgets('removing the thread while editing does not reload a disposed card', (tester) async {
+  testWidgets('leaving the thread while editing does not reload a closed bloc', (tester) async {
     final visible = ValueNotifier(true);
     addTearDown(visible.dispose);
-    final router = await openEditor(tester, visible: visible, onEdited: () => fail('the card is no longer mounted'));
+    final router = await openEditor(tester, visible: visible, onEdited: () => fail('the thread page is gone'));
+    // The thread page was popped: its card is disposed and its bloc closed.
     visible.value = false;
     await tester.pump();
+    // Real async: closing a bloc waits on its stream subscriptions, which never resolve inside the fake clock.
+    await tester.runAsync(threadBloc.close);
+    expect(threadBloc.isClosed, isTrue);
     router.pop(true);
     await tester.pumpAndSettle();
     expect(threadBloc.events, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a rebuild that re-keys the floor while the editor is open still reloads its page (#76)', (tester) async {
+    // After a reply the thread scrolls to the new floor and keys its card; the next rebuild of the page (the editor's
+    // keyboard is enough) drops that key again, and the card the user opened the editor from is replaced by a new
+    // element. The reload must not depend on the old element still being mounted.
+    final keyed = ValueNotifier(true);
+    addTearDown(keyed.dispose);
+    var positioned = false;
+    final router = await openEditor(tester, keyed: keyed, onEdited: () => positioned = true);
+    keyed.value = false;
+    await tester.pump();
+    expect(find.byType(PostCard, skipOffstage: false), findsOneWidget, reason: 'the thread is still there');
+    router.pop(true);
+    await tester.pumpAndSettle();
+    expect(threadBloc.events, hasLength(1), reason: 'the edited page must reload although the card was rebuilt');
+    expect(threadBloc.events.single, isA<ThreadJumpPageRequested>().having((e) => e.pageNumber, 'page', 3));
+    expect(positioned, isTrue);
     expect(tester.takeException(), isNull);
   });
 }
