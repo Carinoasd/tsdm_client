@@ -392,6 +392,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             FlutterBackgroundService().invoke('updateTimer');
           }
 
+          // Async gap above, re-check before using context.
+          if (!context.mounted) return;
+
           if (seconds > 0) {
             context.read<AutoNotificationCubit>().start(Duration(seconds: seconds));
             unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
@@ -421,7 +424,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             }
             // Trust the real running state over the user's tap.
             final running = await isBackgroundServiceRunning();
-            if (!context.mounted) return;
+            if (!mounted) return;
             setState(() {
               _bgServiceEnabled = running;
             });
@@ -684,7 +687,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final schemaVersion = getIt.get<AppDatabase>().schemaVersion;
 
     final check = await repository.validate(source, currentSchemaVersion: schemaVersion);
-    if (!context.mounted) return;
+    if (!mounted) return;
     if (!check.ok) {
       await showMessageSingleButtonDialog(
         context: context,
@@ -696,13 +699,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
     BackupSecretsPayload? secrets;
     if (await repository.containsSecrets(source)) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       secrets = await _unlockSecrets(context, repository, source);
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.tip);
-    if (ok != true || !context.mounted) return;
+    if (ok != true || !mounted) return;
 
     BackupValidation? invalid;
     BackupReplaceException? replaceFailure;
@@ -719,7 +722,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     } on BackupReplaceException catch (e) {
       replaceFailure = e;
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     final String message;
     if (invalid != null) {
       message = tr.invalidDetail(reason: _backupProblemText(context, invalid));
@@ -809,7 +812,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             title: Text(tr.copyDatabaseDir),
             onTap: () async {
               final path = (await databaseFile).parent.path;
-              if (!context.mounted) return;
+              if (!mounted) return;
               await copyToClipboard(context, path);
             },
           ),
@@ -871,7 +874,6 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     unawaited(_loadBackgroundServiceState());
   }
 
-  /// Read the persisted background service state and sync it with the real running state.
   Future<void> _loadBackgroundServiceState() async {
     final running = await isBackgroundServiceRunning();
     if (mounted) {
