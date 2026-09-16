@@ -955,11 +955,14 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 ### 33.2 App 端行為
 
 - 設定 `enableBackgroundMessageService<bool>`（預設 false，存在資料庫的 settings 表）。設定頁「行為」多一個開關；寫入走 `SettingsRepository.setValue`（先落庫再啟服務，
-  服務啟動時讀的就是新值），啟動失敗回滾為 false 並提示。改自動同步間隔時 `invoke('settingsChanged')` 讓服務重讀。
+  服務啟動時讀的就是新值）。開關與自動同步間隔的變更都經 `BackgroundSyncController.apply`：該跑（開關開且間隔＞0）→ `configure(autoStartOnBoot: true)`、沒在跑就啟動、再
+  `invoke('settingsChanged')`；不該跑 → 停止並 `configure(autoStartOnBoot: false)`。該跑卻起不來（含外掛呼叫丟例外）→ 回滾開關為 false 並提示，畫面不會顯示一個不存在的服務。
+  審查（#83）指出的兩點就在這裡：間隔從「從不」改回定時要真的重啟已自停的服務；啟動例外也要回滾。
 - 背景 isolate（`lib/features/background_sync/background_sync_service.dart`）：自己開同一個 sqlite（`connection/native.dart` 加 `PRAGMA busy_timeout = 5000`，兩個 isolate 同時寫時等鎖
   而不是丟 "database is locked"）、建 `StorageProvider`／`SettingsRepository`／`NotificationSyncAllRepository`，每一輪 `backgroundSyncTick`：
   1. 從資料庫讀開關、間隔、`loginUid`、`locale`（每輪重讀，isolate 之間沒有記憶體同步）。關 → 服務自停；間隔 0 → 服務自停；未登入 → 不抓。
-  2. `storage.refreshCookieCache()`（App 端登入／登出／切帳號後 cookie 快取才會跟上）。
+  2. `storage.refreshCookieCache()`（App 端登入／登出／切帳號後 cookie 快取才會跟上）。抓取回來後「帳號是否還在」改讀資料庫（`hasCookieOfUid`）而不是快取：
+     抓取途中在 App 端移除帳號，服務的快取不會知道，讀資料庫才擋得住把已移除帳號的訊息存回去並推播（審查 #83 第 3 點）。
   3. `syncAll(accounts: [目前帳號])`：與「一鍵同步所有帳號」同一條路徑——同樣的 client（cookie、防採集、proxy、UA）、同樣的存庫與已讀調和、同樣的 `fresh` 判定。
   4. 結果 `NotificationSyncResultSuccess.latest`（由共用的 `autoSyncInfoOf(fresh)` 算出，`NotificationBloc` 也改用它）不為 null 才推播；用 `showLocalNotificationWith`
      （同一個 channel、同一個 payload，點擊沿用既有的 #14 路由邏輯）。之後 `invoke('synced', {uid, 未讀數})`。
@@ -972,6 +975,7 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 ### 33.3 驗收
 
 - `test_090`：開關預設關且一輪就回 `Disabled`；間隔 0／未登入不抓；新提醒存庫並只宣告一次、同一分鐘第二則仍是新的（審查第 1 點的回歸）；私訊優先且前景同一份儲存體再抓一次沒有 fresh；
-  session 過期不推；服務啟動後才登入的帳號經 `refreshCookieCache` 抓得到；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
+  session 過期不推；服務啟動後才登入的帳號經 `refreshCookieCache` 抓得到；抓取途中經另一個 provider 移除帳號 → 結果 NotAuthorized、不存列、不推；
+  `BackgroundSyncController`：從不→定時會重啟已停的服務、運行中只通知重讀、關閉會停並關開機自啟、啟動失敗或丟例外回 false；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
 - 本機 Android debug 包建置（manifest 合併：specialUse、exported=false）。實機：開開關 → 常駐通知出現 → 退到後台或清掉 App → 另一帳號發私訊 → 到間隔時間收到系統通知 → 點開進訊息中心。
 

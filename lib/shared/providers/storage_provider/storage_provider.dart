@@ -170,6 +170,12 @@ class StorageProvider with LoggerMixin {
 
   /*             cookie             */
 
+  /// Whether the account [uid] is still stored on this device, read from the database, not the cache.
+  ///
+  /// The cache only follows this provider's own writes. Another isolate on the same database (the app while the
+  /// Android background message service fetches, #80) removes an account without this provider noticing.
+  Future<bool> hasCookieOfUid(int uid) async => await CookieDao(_db).selectCookieByUid(uid) != null;
+
   /// Get [Cookie] with [uid] from cookie cached saved in memory.
   ///
   /// Return null if not found.

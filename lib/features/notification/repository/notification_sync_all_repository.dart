@@ -131,8 +131,9 @@ final class NotificationSyncAllRepository with LoggerMixin {
         case Left(:final value):
           return NotificationSyncResultFailed(value.message ?? '${value.runtimeType}');
         case Right(:final value):
-          if (_storageProvider.getCookieByUidSync(uid) == null) {
-            // The account was removed from this device while its pages were fetched: do not bring rows back.
+          if (!await _storageProvider.hasCookieOfUid(uid)) {
+            // The account was removed from this device while its pages were fetched: do not bring rows back. Read
+            // from the database: the removal may have happened in another isolate (#80).
             info('account ${"$uid".obscured(4)} was removed during the sync, result dropped');
             return const NotificationSyncResultNotAuthorized();
           }

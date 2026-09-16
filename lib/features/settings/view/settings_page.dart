@@ -14,7 +14,7 @@ import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
-import 'package:tsdm_client/features/background_sync/background_sync_service.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -74,6 +74,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   /// Android permission statuses shown in the behavior section; refreshed when the app comes back to the foreground
   /// so the rows update after the user returns from the system dialogs or the app settings page.
   final _permissionCubit = AndroidPermissionCubit();
+
+  /// Starts, stops or nudges the Android background message service after a settings change (#80).
+  final _backgroundSyncController = BackgroundSyncController();
 
   /// Tip of log export path.
   String? _logExportPath;
@@ -421,23 +424,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ];
   }
 
-  /// Turn the Android background message service on or off (#80).
+  /// Bring the Android background message service in line with the settings just written (#80).
   ///
-  /// The setting is stored first: the service reads it when it starts and stops itself when it is off. Starting
-  /// registers the boot start too, so the service comes back after a reboot; stopping unregisters it.
-  Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
+  /// Called after the switch or the auto sync interval changed: the service runs only when both allow it, and it
+  /// stops itself otherwise, so restoring an interval after "never" has to start it again from here. When it should
+  /// run but could not be started (or a plugin call threw) the switch is rolled back so the page never shows a
+  /// service that is not there.
+  Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
     final settings = getIt.get<SettingsRepository>();
-    await settings.setValue(SettingsKeys.enableBackgroundMessageService, enable);
-    if (!enable) {
-      await stopBackgroundSyncService();
-      await initializeBackgroundSyncService(autoStartOnBoot: false);
-      return;
-    }
-    // The pushes need the permission as much as the in-app auto sync does (#13).
-    unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
-    await initializeBackgroundSyncService(autoStartOnBoot: true);
-    final started = await startBackgroundSyncService();
-    if (started) {
+    final enabled = settings.currentSettings.enableBackgroundMessageService;
+    final intervalSeconds = settings.currentSettings.autoSyncNoticeSeconds;
+    final running = await _backgroundSyncController.apply(enabled: enabled, intervalSeconds: intervalSeconds);
+    if (running || !BackgroundSyncController.shouldRun(enabled: enabled, intervalSeconds: intervalSeconds)) {
       return;
     }
     await settings.setValue(SettingsKeys.enableBackgroundMessageService, false);
@@ -445,6 +443,21 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       return;
     }
     showSnackBar(context: context, message: context.t.backgroundService.startFailed);
+  }
+
+  /// Turn the Android background message service on or off (#80).
+  ///
+  /// The setting is stored first: the service reads it when it starts and stops itself when it is off.
+  Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
+    await getIt.get<SettingsRepository>().setValue(SettingsKeys.enableBackgroundMessageService, enable);
+    if (enable) {
+      // The pushes need the permission as much as the in-app auto sync does (#13).
+      unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await _applyBackgroundSyncSettings(context);
   }
 
   List<Widget> _buildBehaviorSection(BuildContext context, SettingsState state) {
@@ -495,8 +508,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           // Written through the repository so the value is stored before the background service reads it (#80);
           // the settings bloc follows the repository's stream.
           await getIt.get<SettingsRepository>().setValue(SettingsKeys.autoSyncNoticeSeconds, seconds);
-          if (isAndroid) {
-            notifyBackgroundSyncSettingsChanged();
+          if (isAndroid && context.mounted) {
+            await _applyBackgroundSyncSettings(context);
           }
         },
       ),

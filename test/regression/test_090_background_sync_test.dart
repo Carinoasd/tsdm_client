@@ -8,6 +8,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_tick.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -80,6 +81,9 @@ final class _Adapter implements HttpClientAdapter {
   String notice = _emptyPage;
   String pm = _emptyPage;
   String bm = _emptyPage;
+
+  /// When set, the notice page is answered only once this completes: the fetch is "in flight" meanwhile.
+  Completer<void>? holdNotice;
   final requests = <Uri>[];
 
   @override
@@ -90,6 +94,9 @@ final class _Adapter implements HttpClientAdapter {
   ) async {
     requests.add(options.uri);
     final q = options.uri.queryParameters;
+    if (q['do'] == 'notice' && holdNotice != null) {
+      await holdNotice!.future;
+    }
     final body = switch (q) {
       {'do': 'notice'} => notice,
       {'filter': 'privatepm'} => pm,
@@ -280,6 +287,93 @@ void main() {
       expect(late.getCookieByUidSync(_alice.uid!), isNull);
       await late.refreshCookieCache();
       expect(late.getCookieByUidSync(_alice.uid!), isNotNull);
+    });
+  });
+
+  group('account removed while the fetch is in flight (PR #83 review)', () {
+    test('rows are dropped and nothing is announced, even though the service cache still knows the account', () async {
+      await loggedIn();
+      final repo = repository();
+      addTearDown(repo.dispose);
+      adapter
+        ..notice = _noticePage([_notice(11)])
+        ..holdNotice = Completer<void>();
+      final tick = backgroundSyncTick(storage: storage, repository: repo);
+      // Wait until the fetch started, then remove the account the way the app does: through its own provider on
+      // the same database, which the service's cookie cache never sees.
+      while (adapter.requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      final app = StorageProvider(db, {}, {});
+      expect(await app.deleteCookieByUid(_alice.uid!), isTrue);
+      expect(storage.getCookieByUidSync(_alice.uid!), isNotNull, reason: 'the service cache is stale on purpose');
+      adapter.holdNotice!.complete();
+
+      final done = await tick as BackgroundSyncDone;
+      expect(done.result, isA<NotificationSyncResultNotAuthorized>());
+      expect(done.latest, isNull);
+      final stored = await storage.fetchNotificationSince(uid: _alice.uid!, timestamp: 0).run();
+      expect(stored.noticeList, isEmpty, reason: 'nothing of a removed account is kept');
+    });
+  });
+
+  group('BackgroundSyncController', () {
+    late List<String> calls;
+    late bool running;
+    late bool startResult;
+    Exception? startError;
+
+    BackgroundSyncController controller() => BackgroundSyncController(
+      configure: ({required autoStartOnBoot}) async => calls.add('configure:$autoStartOnBoot'),
+      start: () async {
+        calls.add('start');
+        if (startError != null) {
+          throw startError!;
+        }
+        running = startResult;
+        return startResult;
+      },
+      stop: () async {
+        calls.add('stop');
+        running = false;
+      },
+      isRunning: () async => running,
+      notifySettingsChanged: () => calls.add('notify'),
+    );
+
+    setUp(() {
+      calls = [];
+      running = false;
+      startResult = true;
+      startError = null;
+    });
+
+    test('an interval restored after never starts the stopped service again', () async {
+      final c = controller();
+      expect(await c.apply(enabled: true, intervalSeconds: 0), isFalse);
+      expect(calls, ['configure:false', 'stop']);
+      calls.clear();
+      expect(await c.apply(enabled: true, intervalSeconds: 60), isTrue);
+      expect(calls, ['configure:true', 'start', 'notify']);
+    });
+
+    test('a running service is only told to read the settings again', () async {
+      running = true;
+      expect(await controller().apply(enabled: true, intervalSeconds: 120), isTrue);
+      expect(calls, ['configure:true', 'notify']);
+    });
+
+    test('switching off stops the service and its boot start', () async {
+      running = true;
+      expect(await controller().apply(enabled: false, intervalSeconds: 60), isFalse);
+      expect(calls, ['configure:false', 'stop']);
+    });
+
+    test('a start that fails or throws reports false instead of pretending', () async {
+      startResult = false;
+      expect(await controller().apply(enabled: true, intervalSeconds: 60), isFalse);
+      startError = Exception('plugin unavailable');
+      expect(await controller().apply(enabled: true, intervalSeconds: 60), isFalse);
     });
   });
 
