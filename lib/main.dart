@@ -17,7 +17,6 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
-import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/background_service_helper.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
@@ -185,17 +184,14 @@ Future<void> _boot(List<String> args) async {
   }
 
   if (isAndroid) {
-    // 把后台服务写的时间戳同步给前台数据库，同时回看几分钟，
-    // 把后台拉过但没写进数据库的消息补上（消息中心才能看到它们）。
+    // 后台服务初始化。注意这里**不再**把 DB 的时间戳推到后台拉取时间之前：
+    // 后台拉取的消息只推通知、未落库，如果推 DB 时间会让前台跳过那些消息。
+    // 让前台从 DB 里自己记录的"上次拉取时间"开始重拉一遍，能覆盖后台
+    // 拉过的所有窗口；重复推送由 NotificationBloc 的去重逻辑解决。
     //
-    // 每一个步骤都用独立的 try-catch 包起来：Android 后台服务相关的初始化
-    // 可能因为设备 ROM、系统版本、权限等原因失败（比如 Android 15 上
-    // dataSync 前台服务被限制），但绝不能因此让 App 打不开。
-    try {
-      await _syncBackgroundLastFetchTime();
-    } on Object catch (e, st) {
-      talker.handle(e, st, 'sync background last fetch time failed, continuing boot');
-    }
+    // 用 try-catch 包起来：Android 后台服务相关的初始化可能因为设备 ROM、
+    // 系统版本、权限等原因失败（比如 Android 15 上 dataSync 前台服务被限制），
+    // 但绝不能因此让 App 打不开。
     try {
       await initializeBackgroundService();
       if (await isBackgroundServiceEnabled()) {
@@ -221,43 +217,6 @@ Future<void> _boot(List<String> args) async {
       ),
     ),
   );
-}
-
-/// 把后台服务写进 SharedPreferences 的"上次拉取时间"同步给前台数据库。
-///
-/// 后台在独立 isolate 里跑，写不了数据库，只能写 SharedPreferences，
-/// 因此后台拉取到的新消息只推通知、不落库，消息中心看不到它们。
-///
-/// 这里在同步时间戳时**回看 5 分钟**：让前台从 `bg - 5min` 开始重新拉一遍，
-/// 把后台刚拉过的消息写进数据库。前台推送时已有 `skip_next` 标志，
-/// 后台已经推过的通知不会再推一次。
-Future<void> _syncBackgroundLastFetchTime() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getInt('background_login_uid');
-    if (uid == null || uid <= 0) {
-      return;
-    }
-    final bgLastFetch = prefs.getInt('background_last_fetch_time_$uid');
-    if (bgLastFetch == null || bgLastFetch <= 0) {
-      return;
-    }
-
-    final storage = getIt.get<StorageProvider>();
-    final dbTimeEither = await storage.fetchLastFetchNoticeTime(uid).run();
-    DateTime? dbTime;
-    dbTimeEither.match((_) => null, (t) => dbTime = t);
-    final dbSec = dbTime == null ? 0 : dbTime!.millisecondsSinceEpoch ~/ 1000;
-
-    const lookbackSeconds = 5 * 60;
-    final since = bgLastFetch - lookbackSeconds;
-    if (since > dbSec) {
-      await storage.updateLastFetchNoticeTime(uid, DateTime.fromMillisecondsSinceEpoch(since * 1000)).run();
-      talker.debug('sync background last fetch time to db: uid=$uid db=$dbSec bg=$bgLastFetch since=$since');
-    }
-  } on Exception catch (e, st) {
-    talker.handle(e, st, 'sync background last fetch time failed');
-  }
 }
 
 void _ensureHandled(Object exception, StackTrace? stackTrace) => talker.handle(exception, stackTrace);
