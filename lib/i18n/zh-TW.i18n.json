@@ -219,6 +219,10 @@
         "title": "自動同步訊息",
         "detail": "每隔一段時間，自動從伺服器同步訊息和提醒"
       },
+      "backgroundMessageService": {
+        "title": "後台訊息接收",
+        "detail": "開啟後 App 退到後台或被清掉時，仍按「自動同步訊息」的間隔檢查新提醒與私訊並發出通知；會多耗一些電（僅安卓）"
+      },
       "notificationPermission": {
         "title": "通知權限",
         "detail": "自動同步需要此權限才能把新提醒、訊息和公共訊息顯示為系統通知",
@@ -1253,6 +1257,13 @@
         "bm": "收到了${noticeCount: int}條提醒，${pmCount: int}條私信，${bmCount: int}條公用訊息\n[公用訊息]${msg: String}"
       }
     }
+  },
+  "backgroundService": {
+    "channelName": "後台訊息服務",
+    "channelDesc": "常駐通知：App 在後台按自動同步的間隔檢查新訊息",
+    "title": "天使動漫",
+    "content": "正在後台接收論壇訊息",
+    "startFailed": "後台訊息服務啟動失敗，請檢查通知權限與電池最佳化設定"
   },
   "debugLogPage": {
     "title": "日誌",

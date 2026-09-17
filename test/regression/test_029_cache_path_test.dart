@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -33,7 +34,7 @@ void main() {
     test('resolves plain names inside the directory', () {
       final file = fileInside(dir, 'abc.png');
       expect(file, isNotNull);
-      expect(file!.path, '${dir.absolute.path}/abc.png');
+      expect(file!.path, p.join(dir.absolute.path, 'abc.png'));
     });
 
     test('never resolves outside the directory', () {
@@ -55,18 +56,28 @@ void main() {
     test('a cache info with a traversal id is invalid, even when the file it points at exists', () {
       final dir = Directory.systemTemp.createTempSync('tsdm_emoji_cache');
       addTearDown(() => dir.deleteSync(recursive: true));
-      final outside = File('${dir.path}/../${dir.path.split('/').last}_outside.jpg')..writeAsStringSync('x');
+      final outside = File(p.join(dir.parent.path, '${p.basename(dir.path)}_outside.jpg'))..writeAsStringSync('x');
       addTearDown(() => outside.existsSync() ? outside.deleteSync() : null);
       File('${dir.path}/1_20.jpg').writeAsStringSync('x');
 
       const good = EmojiGroupList([
-        EmojiGroup(id: '1', name: 'g', routeName: 'r', emojiList: [Emoji(id: '20', code: '{:1_20:}', url: 'x')]),
+        EmojiGroup(
+          id: '1',
+          name: 'g',
+          routeName: 'r',
+          emojiList: [Emoji(id: '20', code: '{:1_20:}', url: 'x')],
+        ),
       ]);
       expect(good.validateCache(dir.path), isTrue);
 
-      final traversalId = '../${dir.path.split('/').last}_outside';
+      final traversalId = '../${p.basename(dir.path)}_outside';
       final bad = EmojiGroupList([
-        EmojiGroup(id: '1', name: 'g', routeName: 'r', emojiList: [Emoji(id: traversalId, code: 'x', url: 'x')]),
+        EmojiGroup(
+          id: '1',
+          name: 'g',
+          routeName: 'r',
+          emojiList: [Emoji(id: traversalId, code: 'x', url: 'x')],
+        ),
       ]);
       expect(bad.validateCache(dir.path), isFalse);
     });

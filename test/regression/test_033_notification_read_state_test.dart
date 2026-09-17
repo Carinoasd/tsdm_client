@@ -44,7 +44,8 @@ BroadcastMessageV2 _bm(int pmid, int t, {bool read = false}) =>
 BroadcastMessageEntity _bmStored(int pmid, int t, {bool? read}) =>
     BroadcastMessageEntity(uid: _uid, timestamp: t, data: 'b$pmid', pmid: pmid, alreadyRead: read);
 
-NoticeV2 _notice(int nid, int t, {bool read = false}) => NoticeV2(id: nid, timestamp: t, data: 'n$nid', alreadyRead: read);
+NoticeV2 _notice(int nid, int t, {bool read = false}) =>
+    NoticeV2(id: nid, timestamp: t, data: 'n$nid', alreadyRead: read);
 
 NoticeEntity _noticeStored(int nid, int t, {bool? read}) =>
     NoticeEntity(uid: _uid, nid: nid, timestamp: t, data: 'n$nid', alreadyRead: read);
@@ -134,6 +135,26 @@ void main() {
       expect(fresh.personalMessageList.map((e) => e.peerUid), [2, 3, 4]);
       expect(fresh.broadcastMessageList.map((e) => e.pmid), [2]);
     });
+
+    test('a copy older than the stored row is a stale response, not news (PR #83 review)', () {
+      final stored = NotificationGroup(
+        noticeList: [_noticeStored(1, 200, read: false)],
+        personalMessageList: [_pmStored(1, 200, 'new', read: false)],
+        broadcastMessageList: const [],
+      );
+      final fetched = NotificationV2(
+        status: 0,
+        noticeList: [_notice(1, 100)],
+        personalMessageList: [_pm(1, 100, 'old', read: false)],
+        broadcastMessageList: const [],
+      );
+      final fresh = freshNotifications(fetched: fetched, stored: stored);
+      expect(fresh.noticeList, isEmpty);
+      expect(fresh.personalMessageList, isEmpty);
+      final current = dropStaleCopies(fetched: fetched, stored: stored);
+      expect(current.noticeList, isEmpty);
+      expect(current.personalMessageList, isEmpty);
+    });
   });
 
   group('NotificationBloc', () {
@@ -152,7 +173,9 @@ void main() {
       bloc = NotificationBloc(
         notificationRepository: NotificationRepository(),
         infoRepository: infoRepository,
-        authRepo: AuthenticationRepository(user: const UserLoginInfo(username: 'Alice', uid: _uid)),
+        authRepo: AuthenticationRepository(
+          user: const UserLoginInfo(username: 'Alice', uid: _uid),
+        ),
         storageProvider: storage,
       );
       await storage
@@ -172,11 +195,10 @@ void main() {
       await db.close();
     });
 
-    Future<NotificationStateInfo> counts() =>
-        Future.doWhile(() async {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-          return published.isEmpty;
-        }).then((_) => published.last).timeout(const Duration(seconds: 5));
+    Future<NotificationStateInfo> counts() => Future.doWhile(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      return published.isEmpty;
+    }).then((_) => published.last).timeout(const Duration(seconds: 5));
 
     test('a mark for a conversation not in the state still reaches storage and recounts the badge', () async {
       // The state is empty: no sync ran yet, the chat page was opened from a profile.
@@ -199,7 +221,7 @@ void main() {
 
     test('a sync reconciles read state with the stored copies and publishes the counts', () async {
       final fetched = NotificationV2(
-          status: 0,
+        status: 0,
         noticeList: [
           // Listed again: the local flag stands.
           _notice(8, 100, read: true),

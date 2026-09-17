@@ -14,6 +14,7 @@ import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -74,6 +75,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   /// so the rows update after the user returns from the system dialogs or the app settings page.
   final _permissionCubit = AndroidPermissionCubit();
 
+  /// Starts, stops or nudges the Android background message service after a settings change (#80).
   /// Tip of log export path.
   String? _logExportPath;
 
@@ -420,6 +422,37 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ];
   }
 
+  /// Bring the Android background message service in line with the settings just written (#80).
+  ///
+  /// Called after the switch or the auto sync interval changed: the service runs only when both allow it, and it
+  /// stops itself otherwise, so restoring an interval after "never" has to start it again from here. When it should
+  /// run but could not be started (or a plugin call threw) the switch is rolled back so the page never shows a
+  /// service that is not there.
+  Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
+    // The app-wide controller: a page opened again while an earlier page's stop is still in flight must queue
+    // behind it, and only the latest change reports (an older one must not roll the switch back).
+    final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
+    if (result != BackgroundSyncApplyResult.failed || !context.mounted) {
+      return;
+    }
+    showSnackBar(context: context, message: context.t.backgroundService.startFailed);
+  }
+
+  /// Turn the Android background message service on or off (#80).
+  ///
+  /// The setting is stored first: the service reads it when it starts and stops itself when it is off.
+  Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
+    await getIt.get<SettingsRepository>().setValue(SettingsKeys.enableBackgroundMessageService, enable);
+    if (enable) {
+      // The pushes need the permission as much as the in-app auto sync does (#13).
+      unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await _applyBackgroundSyncSettings(context);
+  }
+
   List<Widget> _buildBehaviorSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.behaviorSection;
     final threadReverseOrder = state.settingsMap.threadReverseOrder;
@@ -465,10 +498,24 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           } else {
             context.read<AutoNotificationCubit>().stop();
           }
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoSyncNoticeSeconds, seconds));
+          // Written through the repository so the value is stored before the background service reads it (#80);
+          // the settings bloc follows the repository's stream.
+          await getIt.get<SettingsRepository>().setValue(SettingsKeys.autoSyncNoticeSeconds, seconds);
+          if (isAndroid && context.mounted) {
+            await _applyBackgroundSyncSettings(context);
+          }
         },
       ),
       if (isAndroid) const AndroidPermissionTiles(),
+      if (isAndroid)
+        // Background message service (#80): follows the auto sync interval above.
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.cloud_sync_outlined),
+          title: Text(tr.backgroundMessageService.title),
+          subtitle: Text(tr.backgroundMessageService.detail),
+          value: state.settingsMap.enableBackgroundMessageService,
+          onChanged: (v) async => _toggleBackgroundSync(context, enable: v),
+        ),
       SectionSwitchListTile(
         secondary: const Icon(Icons.code_outlined),
         title: Row(

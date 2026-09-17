@@ -940,3 +940,70 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - `test_088`：同一儲存體先做第一次抓取（無界線：粗體的未讀、非粗體的已讀），存界線後第二次抓取拿到論壇渲染成已讀的新提醒 → 存成未讀、舊副本標記不變、徽章計數 2。
 - 實機：兩台裝置同帳號，A 先抓到再進提醒頁，B 之後抓取仍要看到紅點；B 查看後只有 B 消掉。
 
+## 33. Android 後台訊息接收（PR #80 → 接手 PR，2026-09-16）
+
+### 33.1 來源與平台事實
+
+- 原始實作來自 Qing-Novel 的 PR #80（第三版，30 個提交，Win/Android 實機測過）。審查發現：前景推播被改成分鐘級時間戳去重（同一分鐘第二則不推）、登入 cookie 明文複製到
+  SharedPreferences、背景 isolate 重寫一套抓取（裸 HttpClient、寫死 UA、不解 `_dsign`、不走 proxy）、整檔關 lint、無測試。維護者接手：保留其提交，衝突處以 master 為準，
+  再以下列設計重做。
+- `flutter_background_service`：前景服務（specialUse 型別，Android 15 對 dataSync 有每日 6 小時上限，specialUse 沒有）跑一個獨立的 Flutter isolate，沒有 Activity。
+  App 的 Kotlin HTTP client 掛在 `MainActivity.configureFlutterEngine` 的 method channel 上，背景 isolate 拿不到，所以背景一律用 dart:io 的 `IOHttpClientAdapter`
+  （`SettingsRepository.buildDefaultDio(nativeHttp: false)`）。
+- 外掛的 boot receiver 依 `autoStartOnBoot` 決定開機是否啟動服務；開關開＝true、關＝false（切換時重新 `configure`）。
+
+### 33.2 App 端行為
+
+- 設定 `enableBackgroundMessageService<bool>`（預設 false，存在資料庫的 settings 表）。設定頁「行為」多一個開關；寫入走 `SettingsRepository.setValue`（先落庫再啟服務，
+  服務啟動時讀的就是新值）。開關與自動同步間隔的變更都經 `BackgroundSyncController.applySettings`（App 層唯一實例，`main.dart` 註冊進 getIt，開機啟動與設定頁都用它；
+  審查 #83 第四輪：每個設定頁自己 new 一個控制器，離開再進來就丟了佇列、最後請求與「停止未確認」三個狀態，跨頁關→開競態照舊）→ `apply`：該跑（開關開且間隔＞0）→ `configure(autoStartOnBoot: true)`、沒在跑就啟動、再
+  `invoke('settingsChanged')`；不該跑 → 停止並 `configure(autoStartOnBoot: false)`。結果是 `BackgroundSyncApplyResult`（running／stopped／failed／superseded）：`failed`（該跑卻起不來，含外掛呼叫丟例外）
+  → `applySettings` 回滾開關為 false（開機啟動失敗也回滾），設定頁只負責提示，畫面不會顯示一個不存在的服務。審查（#83）指出的兩點就在這裡：間隔從「從不」改回定時要真的重啟已自停的服務；啟動例外也要回滾。
+- 請求排隊、只有最後一個算數（審查 #83 第二輪）：停止與啟動都要輪詢外掛直到服務真的消失／真的起來，中間一個請求進來會看到「還在跑」。快速關再開時，「開」的請求看到服務仍在
+  （其實正在停），只送了 `settingsChanged` 就回報成功，接著停止完成——開關開著、服務卻停了。`apply` 現在等前一個請求做完才做；輪到自己時已有更新的請求就跳過，
+  做完時已有更新的請求則結果作廢，兩種都回 `superseded`，設定頁對它不回滾也不提示，由最後一個請求把服務帶到設定顯示的狀態。`stopBackgroundSyncService` 改回傳是否真的停了，沒停記 warning。
+- 停止逾時要記住（審查 #83 第三輪）：停止等了 5 秒外掛仍回報在跑（或停止呼叫丟例外）→ 結果是 `stopping` 不是 `stopped`，控制器記 `_stopPending`。之後的「開」不能相信「還在跑」——
+  那可能是正在消失的舊實例，通知它重讀只會回報成功、服務接著消失——所以先再要求停止並等到真的消失才啟動；仍停不掉 → `failed`（設定頁回滾開關並提示），不對垂死的實例送任何事件。
+- 背景 isolate（`lib/features/background_sync/background_sync_service.dart`）：自己開同一個 sqlite（`connection/native.dart` 加 `PRAGMA busy_timeout = 5000`，兩個 isolate 同時寫時等鎖
+  而不是丟 "database is locked"）、建 `StorageProvider`／`SettingsRepository`／`NotificationSyncAllRepository`，每一輪 `backgroundSyncTick`：
+  1. 從資料庫讀開關、間隔、`loginUid`、`locale`（每輪重讀，isolate 之間沒有記憶體同步）。關 → 服務自停；間隔 0 → 服務自停；未登入 → 不抓。
+     然後 `refreshBackgroundNetworkSettings`（審查 #83 第四輪）：isolate 自己的 `SettingsRepository.init()` 重讀全部設定（服務啟動時的快照在 App 改代理或重啟後就過期），
+     `netClientUseProxy && useDetectedProxyWhenStartup` 時再叫 `ProxyProvider.updateProxy()` 向平台要系統代理（原本只 `registerSingleton(ProxyProvider())` 沒 update，
+     `buildDefaultDio` 讀到空字串就不設 `findProxy`，背景直連）。讀不到（平台呼叫丟例外）→ 這輪不抓（`Skipped`），寧可不抓也不繞過使用者選的代理。
+  2. `storage.refreshCookieCache()`（App 端登入／登出／切帳號後 cookie 快取才會跟上）。抓取回來後「帳號是否還在」改讀資料庫（`hasCookieOfUid`）而不是快取：
+     抓取途中在 App 端移除帳號，服務的快取不會知道，讀資料庫才擋得住把已移除帳號的訊息存回去並推播（審查 #83 第 3 點）。
+  3. `syncAll(accounts: [目前帳號])`：與「一鍵同步所有帳號」同一條路徑——同樣的 client（cookie、防採集、proxy、UA）、同樣的存庫與已讀調和、同樣的 `fresh` 判定。
+  4. 抓回來後再讀一次設定（審查 #83 第四輪）：開關已關 → `Disabled`（服務自停）；`loginUid` 變了（抓取途中切帳號，舊帳號還在裝置上、`hasCookieOfUid` 擋不到）
+     或間隔改成從不 → `Stale`：列已照「同步所有帳號」的規則存給那個帳號，但不推播、不發 `synced`——推播只有 `openNotification` 一種 payload，點開是目前帳號的訊息中心，
+     舊帳號的私訊推出去就是導錯帳號。entry 端另外在推播前檢查 `stopping`：App 已要求停止就只存不推。
+  5. 結果 `NotificationSyncResultSuccess.latest`（由共用的 `autoSyncInfoOf(fresh)` 算出，`NotificationBloc` 也改用它）不為 null 才推播；用 `showLocalNotificationWith`
+     （同一個 channel、同一個 payload，點擊沿用既有的 #14 路由邏輯）。之後 `invoke('synced', {uid, 未讀數})`。
+- 前景／背景並行寫入（審查 #83 第四輪，改在共用的 `persistFetchedNotification`）：
+  - `StorageProvider.exclusively`：drift 的 `transaction` 是 deferred `BEGIN`，讀完才拿寫鎖，兩個連線可以都讀到舊副本、各自判 fresh、後寫的蓋掉先寫的新列。
+    現在交易第一句是一個不改任何列的 `UPDATE notice … WHERE 0`，在讀之前就搶到 RESERVED 鎖；另一條連線的第一句立刻 "database is locked"，重試（50 ms × 最多 100 次）
+    直到贏家 commit 後才讀，讀到的就是贏家寫的。`busy_timeout` 管不到這個情況（已持有讀鎖的 deferred 交易升級寫鎖時 sqlite 為避免死鎖直接回 BUSY），所以要自己重試；
+    isolate 連線回來的是 `DriftRemoteException`，`isDatabaseBusy` 會拆開看 `SqliteException` 5／6。
+  - 過期副本：先發出、後回來的回應帶的是較舊的列。`dropStaleCopies` 把 timestamp 小於已存列的提醒／對話整個丟掉（不寫、不算 fresh，也不讓它的已讀旗標蓋掉調和結果）；
+    `freshNotifications` 對話的規則改成「更新的分鐘 → 新；同一分鐘、不同最後一句 → 新；更舊的分鐘 → 不是」。DAO 的 notice／personalMessage upsert 再加一道
+    `WHERE old.timestamp <= new.timestamp`，不管誰寫、什麼順序，舊列都蓋不掉新列。廣播訊息主鍵含 timestamp、內容不變，不需要。
+  - 去重保證：同一份資料庫下，先 commit 的那次同步推播，後到的同步讀到已存副本、`fresh` 為空不推；先發後到的舊回應不推也不寫。仍然不保證的是兩邊在「都沒有已存副本」時
+    同時抓到同一則（各自 commit 前互相看不到）——會各推一次，通知 id 相同畫面只留一條，內容是同一則。
+- `BackgroundSyncBridgeCubit`（`app.dart`，只在 Android 註冊）：收到 `synced` 且 uid 是目前帳號 → 更新未讀徽章、`NotificationReloadFromStorageRequested` 重載提醒頁。
+- 文字：常駐通知標題／內容與推播內容都走 slang（isolate 內依設定 `setLocaleRaw`／`useDeviceLocale`），不再有硬編碼的三語字串表。
+- 日誌：isolate 自己的 `RedactingTalker` 寫到 `log/tsdm_client_bg_<日期>.log`，匯出日誌會一起帶出；uid 一律 `obscured(4)`。
+- 未做：離線佇列、與前景 `AutoNotificationCubit` 的互斥（前景在時兩邊都會抓，代價是多一次請求）。
+
+### 33.3 驗收
+
+- `test_090`：開關預設關且一輪就回 `Disabled`；間隔 0／未登入不抓；新提醒存庫並只宣告一次、同一分鐘第二則仍是新的（審查第 1 點的回歸）；私訊優先且前景同一份儲存體再抓一次沒有 fresh；
+  session 過期不推；服務啟動後才登入的帳號經 `refreshCookieCache` 抓得到；抓取途中經另一個 provider 移除帳號 → 結果 NotAuthorized、不存列、不推；
+  抓取途中切帳號 → `Stale`、列存給舊帳號、不推；途中改從不 → `Stale`；途中關開關 → `Disabled`；`refreshBackgroundNetworkSettings` 重讀另一個 provider 寫的代理設定、
+  只在跟隨系統代理時叫 `updateProxy`、用本機假代理伺服器證明手填代理真的走代理、關掉後直連；代理讀不到 → `Skipped` 且沒有請求。
+  共用控制器：工具列開設定→關（停止逾時）→離開→再開→開 → 新頁透過 getIt 拿到同一個控制器、先確認停止再啟動、開關保持開；早先頁面延後失敗的啟動不回滾後來頁面寫的設定；
+  開機路徑啟動失敗也回滾。並行寫入：先發後到的舊副本不算 fresh、不寫（含另一個 provider）；同分鐘不同最後一句是新的並取代；舊的未讀副本不把 App 內已讀的對話／提醒變回未讀；
+  DAO 直接寫舊列也被擋；兩條檔案連線 → 第二個同步等第一個 commit 才讀、讀到的是新列。
+  `BackgroundSyncController`：從不→定時會重啟已停的服務、運行中只通知重讀、關閉會停並關開機自啟、啟動失敗或丟例外回 `failed`；停止進行中再開 → 「開」等停止完成後真的啟動、服務最後在跑（審查第二輪的重現）；
+  連續三次變更只有最後一個執行並回報、中間的「開」從未啟動；啟動進行中被「關」追上 → 啟動失敗不回報（不回滾）、由「關」收尾；停止逾時 → `stopping` 且下一個「開」先再停、等真的消失才 `start`
+  （審查第三輪的重現）；舊實例一直不消失 → `failed`、不 `start` 不 `notify`；停止呼叫丟例外 → 仍 pending、下一個「開」照樣先確認；`localNotificationBodyOf` 與 widget 版一致；`autoSyncInfoOf` 優先序與截斷；bridge 只理目前帳號並更新徽章、重載。
+- 本機 Android debug 包建置（manifest 合併：specialUse、exported=false）。實機：開開關 → 常駐通知出現 → 退到後台或清掉 App → 另一帳號發私訊 → 到間隔時間收到系統通知 → 點開進訊息中心。
+

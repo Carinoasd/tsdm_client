@@ -7,6 +7,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/notification/utils/auto_sync_info.dart';
 import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -130,8 +131,9 @@ final class NotificationSyncAllRepository with LoggerMixin {
         case Left(:final value):
           return NotificationSyncResultFailed(value.message ?? '${value.runtimeType}');
         case Right(:final value):
-          if (_storageProvider.getCookieByUidSync(uid) == null) {
-            // The account was removed from this device while its pages were fetched: do not bring rows back.
+          if (!await _storageProvider.hasCookieOfUid(uid)) {
+            // The account was removed from this device while its pages were fetched: do not bring rows back. Read
+            // from the database: the removal may have happened in another isolate (#80).
             info('account ${"$uid".obscured(4)} was removed during the sync, result dropped');
             return const NotificationSyncResultNotAuthorized();
           }
@@ -152,6 +154,7 @@ final class NotificationSyncAllRepository with LoggerMixin {
             unreadNotice: persisted.unread.notice,
             unreadPersonalMessage: persisted.unread.personalMessage,
             unreadBroadcastMessage: persisted.unread.broadcastMessage,
+            latest: autoSyncInfoOf(persisted.fresh),
           );
       }
     }

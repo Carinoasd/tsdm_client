@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_styled_toast/flutter_styled_toast.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
 import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
@@ -293,6 +296,20 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               notificationBloc: context.read<NotificationBloc>(),
             ),
           ),
+          if (isAndroid)
+            // What the background message service stored shows up in the app without waiting for its own sync (#80).
+            BlocProvider(
+              create: (context) {
+                final auth = context.repo<AuthenticationRepository>();
+                return BackgroundSyncBridgeCubit(
+                  events: FlutterBackgroundService().on(BackgroundSyncEvents.synced),
+                  notificationBloc: context.read<NotificationBloc>(),
+                  infoRepository: context.repo(),
+                  currentUid: () => auth.effectiveCurrentUid,
+                )..start();
+              },
+              lazy: false,
+            ),
           BlocProvider(
             create: (context) =>
                 SettingsBloc(fragmentsRepository: context.repo(), settingsRepository: getIt.get<SettingsRepository>()),

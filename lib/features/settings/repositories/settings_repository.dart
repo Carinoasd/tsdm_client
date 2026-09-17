@@ -131,6 +131,7 @@ final class SettingsRepository with LoggerMixin {
       showUnreadPersonalMessageBadge: s.extract(_SK.showUnreadPersonalMessageBadge),
       showUnreadBroadcastMessageBadge: s.extract(_SK.showUnreadBroadcastMessageBadge),
       autoSyncNoticeSeconds: s.extract(_SK.autoSyncNoticeSeconds),
+      enableBackgroundMessageService: s.extract(_SK.enableBackgroundMessageService),
       enableDebugOperations: s.extract(_SK.enableDebugOperations),
       fontFamily: s.extract(_SK.fontFamily),
       enableEditorBBCodeParser: s.extract(_SK.enableEditorBBCodeParser),
@@ -237,10 +238,14 @@ final class SettingsRepository with LoggerMixin {
   }
 
   /// Build a default [Dio] instance from current settings.
-  Dio buildDefaultDio() {
+  /// Build the default dio client.
+  ///
+  /// [nativeHttp] selects the Kotlin http client on Android. It lives in the activity's method channel, so an isolate
+  /// without an activity (the background message service) passes false and gets the dart:io client instead.
+  Dio buildDefaultDio({bool? nativeHttp}) {
     final HttpClientAdapter httpClientAdapter;
 
-    if (isAndroid) {
+    if (nativeHttp ?? isAndroid) {
       httpClientAdapter = KotlinHttpClientAdapter(KotlinHttpClient());
     } else {
       httpClientAdapter = IOHttpClientAdapter(
@@ -259,7 +264,7 @@ final class SettingsRepository with LoggerMixin {
               false => settings.netClientProxy,
             };
 
-            if ((useDetected && getIt.get<ProxyProvider>().proxyEnabled && proxy.isNotEmpty) || proxy.isNotEmpty) {
+            if (proxy.isNotEmpty && (!useDetected || getIt.get<ProxyProvider>().proxyEnabled)) {
               client.findProxy = (_) => 'PROXY $proxy';
             }
           }

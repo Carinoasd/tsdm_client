@@ -1,10 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ runtime permission for the auto sync local notification (#13). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Required by permission_handler to open the system "ignore battery optimizations" dialog (#3). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
             android:label="天使动漫"
@@ -42,5 +47,18 @@
         <meta-data
                 android:name="io.flutter.embedding.android.EnableImpeller"
                 android:value="false"/>
+        <!-- 后台消息服务。用 specialUse 类型而不是 dataSync：
+             Android 15 对 dataSync 前台服务有 24 小时内累计 6 小时的超时限制，
+             超时后系统会强制停止服务并可能杀死应用。specialUse 不在超时限制列表里，
+             所以能长时间保持运行。 -->
+        <service
+              android:name="id.flutter.flutter_background_service.BackgroundService"
+              android:foregroundServiceType="specialUse"
+              android:exported="false"
+              tools:replace="android:exported">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keep user logged in to the forum and poll new messages in background" />
+        </service>
     </application>
 </manifest>
