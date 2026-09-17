@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.26.1] - 2026-09-17
+
+### Changed
+
+- 优化 App 与 README 赞助码图片的四边裁切，去除多余外框，收款二维码内容保持不变。感谢 [@Qing-Novel](https://github.com/Qing-Novel)。(#86)
+
 ## [1.26.0] - 2026-09-17
 
 ### Added
