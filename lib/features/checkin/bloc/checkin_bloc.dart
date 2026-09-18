@@ -52,8 +52,8 @@ final class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       CheckinFeeling.from(checkinFeeling),
       checkinMessage,
     );
-    if (result is CheckinStateSuccess) {
-      emit(CheckinStateSuccess((result as CheckinStateSuccess).message));
+    if (result is CheckinResultSuccess) {
+      emit(CheckinStateSuccess(result.message));
       return;
     }
     emit(CheckinStateFailed(result));
