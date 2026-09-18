@@ -1,5 +1,5 @@
 {
-  "version": "1.26.1",
-  "versionCode": 77,
-  "changelog": "### Changed\n\n- 优化 App 与 README 赞助码图片的四边裁切，去除多余外框，收款二维码内容保持不变。感谢 [@Qing-Novel](https://github.com/Qing-Novel)。(#86)"
+  "version": "1.26.2",
+  "versionCode": 78,
+  "changelog": "### Fixed\n\n- 手动签到：修正成功结果的类型判断，避免论坛已签到成功时，客户端仍进入失败状态。感谢 [@zCandy0](https://github.com/zCandy0)。(#87)"
 }

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.26.2] - 2026-09-19
+
+### Fixed
+
+- 手动签到：修正成功结果的类型判断，避免论坛已签到成功时，客户端仍进入失败状态。感谢 [@zCandy0](https://github.com/zCandy0)。(#87)
+
 ## [1.26.1] - 2026-09-17
 
 ### Changed
