@@ -389,7 +389,15 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.manageAccount, builder: (_) => const ManageAccountPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
   AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
-  AppRoute(path: ScreenPaths.openInApp, builder: (_) => const OpenInAppPage()),
+  // 【修改点】将原来的 const OpenInAppPage() 改为接收路由参数
+  AppRoute(
+    path: ScreenPaths.openInApp,
+    builder: (state) {
+      final url = state.uri.queryParameters['url'];
+      final autoOpen = state.uri.queryParameters['autoOpen'] == 'true';
+      return OpenInAppPage(initialUrl: url, autoOpen: autoOpen);
+    },
+  ),
 ];
 
 /// Refer from wondrous app.
