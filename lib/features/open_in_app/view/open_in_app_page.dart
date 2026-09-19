@@ -76,12 +76,14 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
     super.initState();
     targetController = TextEditingController();
 
-    // 如果传入了初始 URL，自动填入并解析跳转
+    // 如果传入了初始 URL，自动填入输入框
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
-      // queryParameters 已经自动解码了 url，直接使用，不要再 decodeComponent
       targetController.text = widget.initialUrl!;
-      // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
-      WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
+      // 根据作者意见：保留填入网址的动作，但只在 widget.autoOpen 为 true 时执行自动跳转
+      if (widget.autoOpen) {
+        // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
+        WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
+      }
     }
   }
 
