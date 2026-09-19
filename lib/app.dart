@@ -155,21 +155,30 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
 
-    // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈
-    const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
-    unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
-      if (link != null && mounted) {
-        unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link, 'autoOpen': 'true'}));
-      }
-    }));
-    deepLinkChannel.setMethodCallHandler((call) async {
-      if (call.method == 'onDeepLink') {
-        final link = call.arguments as String?;
+    // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
+    if (isAndroid) {
+      const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
+      
+      // 获取冷启动链接，加异常捕获
+      unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
         if (link != null && mounted) {
-          unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link, 'autoOpen': 'true'}));
+          unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link}));
         }
-      }
-    });
+      }).catchError((Object e, StackTrace st) {
+        // 忽略非 Android 平台或插件未实现导致的 MissingPluginException
+        talker.error('Failed to get initial deep link: $e');
+      }));
+
+      // 监听热启动链接
+      deepLinkChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onDeepLink') {
+          final link = call.arguments as String?;
+          if (link != null && mounted) {
+            unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link}));
+          }
+        }
+      });
+    }
   }
 
   @override
