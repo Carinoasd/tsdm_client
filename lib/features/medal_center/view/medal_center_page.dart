@@ -34,6 +34,7 @@ class MedalCenterPage extends StatefulWidget {
 class _MedalCenterPageState extends State<MedalCenterPage> {
   late final MedalCenterCubit _cubit;
   StreamSubscription<AuthStatus>? _authSubscription;
+  bool _actionInProgress = false;
 
   @override
   void initState() {
@@ -46,6 +47,13 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
         currentUid: () => auth.effectiveCurrentUid,
         fetchPage: (url) async {
           final result = await getIt.get<NetClientProvider>().get(url).run();
+          return switch (result) {
+            Right(:final value) => value.data as String,
+            Left(:final value) => throw value,
+          };
+        },
+        submitForm: (url, data) async {
+          final result = await getIt.get<NetClientProvider>().postForm(url, data: data).run();
           return switch (result) {
             Right(:final value) => value.data as String,
             Left(:final value) => throw value,
@@ -76,6 +84,69 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
             ? const Icon(Icons.image_not_supported_outlined)
             : CachedImage(url, width: 64, height: 56, fit: BoxFit.contain)),
   );
+
+  Future<void> _runAction(CatalogMedal medal, CatalogMedalAction action) async {
+    if (_actionInProgress) return;
+    setState(() => _actionInProgress = true);
+    final tr = context.t.medalCenter;
+    try {
+      String? reason;
+      if (action.type == MedalActionType.manualReview) {
+        reason = await showDialog<String>(
+          context: context,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(tr.applicationTitle),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 6,
+                decoration: InputDecoration(labelText: tr.applicationReason),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+                  child: Text(tr.submit),
+                ),
+              ],
+            );
+          },
+        );
+        if (!mounted || reason == null) return;
+      }
+      var confirmed = true;
+      if (action.type == MedalActionType.purchase) {
+        confirmed =
+            await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(tr.purchaseTitle),
+                content: Text(tr.purchaseConfirm(name: medal.name)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(context.t.general.cancel),
+                  ),
+                  FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(tr.purchase)),
+                ],
+              ),
+            ) ??
+            false;
+      }
+      if (!confirmed || !mounted) return;
+      final result = await _cubit.performAction(action, reason: reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message ?? (result.success ? tr.actionSuccess : tr.actionFailed))));
+      if (result.success) await _cubit.load();
+    } finally {
+      if (mounted) setState(() => _actionInProgress = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => BlocBuilder<MedalCenterCubit, MedalCenterState>(
@@ -138,6 +209,8 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                 Card(
                   child: ExpansionTile(
                     key: ValueKey('${state.url}-${medal.id}'),
+                    collapsedShape: const Border(),
+                    shape: const Border(),
                     leading: _image(medal.imageUrl),
                     title: Text(medal.name),
                     subtitle: Text(medal.method.isEmpty ? tr.notProvided : medal.method),
@@ -149,11 +222,33 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                       if (medal.details.isEmpty) Text(tr.noDetails),
                       for (final detail in medal.details)
                         Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(detail)),
-                      OutlinedButton.icon(
-                        onPressed: () async => context.dispatchAsUrl(state.url, external: true),
-                        icon: const Icon(Icons.open_in_browser_outlined),
-                        label: Text(tr.openBrowser),
-                      ),
+                      if (medal.actions.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final action in medal.actions)
+                              FilledButton.tonalIcon(
+                                onPressed: _actionInProgress ? null : () => _runAction(medal, action),
+                                icon: Icon(
+                                  switch (action.type) {
+                                    MedalActionType.purchase => Icons.shopping_cart_outlined,
+                                    MedalActionType.manualReview => Icons.rate_review_outlined,
+                                    MedalActionType.signIn => Icons.event_available_outlined,
+                                    MedalActionType.apply => Icons.assignment_outlined,
+                                  },
+                                ),
+                                label: Text(
+                                  switch (action.type) {
+                                    MedalActionType.purchase => tr.purchase,
+                                    MedalActionType.manualReview => tr.manualReview,
+                                    MedalActionType.signIn => tr.signIn,
+                                    MedalActionType.apply => tr.apply,
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

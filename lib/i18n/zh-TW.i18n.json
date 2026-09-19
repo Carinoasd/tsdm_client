@@ -1473,7 +1473,7 @@
     "category": "分類",
     "refresh": "重新整理",
     "openBrowser": "在瀏覽器開啟",
-    "browserNotice": "在此瀏覽勳章和取得條件；購買、申請或管理請前往論壇網頁。",
+    "browserNotice": "在此瀏覽勳章和取得條件；可用的購買和申請操作會顯示在勳章詳情中。",
     "loginRequired": "登入已失效，請重新登入。",
     "unsupported": "論壇未提供可辨識的勳章列表，請用瀏覽器查看。",
     "empty": "此分類暫無勳章。",
@@ -1481,7 +1481,18 @@
     "noDetails": "論壇未提供此勳章的其他條件或價格。",
     "previous": "上一頁",
     "next": "下一頁",
-    "page": "第 $number 頁"
+    "page": "第 $number 頁",
+    "purchase": "購買",
+    "apply": "申請",
+    "manualReview": "申請審核",
+    "signIn": "簽到領取",
+    "purchaseTitle": "購買勳章",
+    "purchaseConfirm": "確定使用論壇設定的積分購買「$name」？",
+    "applicationTitle": "申請勳章",
+    "applicationReason": "申請理由",
+    "submit": "提交",
+    "actionSuccess": "勳章操作已完成",
+    "actionFailed": "勳章操作失敗"
   },
   "myTitlesPage": {
     "title": "我的頭銜",
