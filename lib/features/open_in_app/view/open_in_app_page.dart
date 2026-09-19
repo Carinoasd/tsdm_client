@@ -38,7 +38,13 @@ class OpenInAppPageButton extends StatelessWidget {
 /// * Post id.
 class OpenInAppPage extends StatefulWidget {
   /// Constructor.
-  const OpenInAppPage({super.key});
+  const OpenInAppPage({super.key, this.initialUrl, this.autoOpen = false});
+
+  /// Optional URL passed in from a deep link.
+  final String? initialUrl;
+
+  /// Whether to automatically parse and open the [initialUrl] on page load.
+  final bool autoOpen;
 
   @override
   State<OpenInAppPage> createState() => _OpenInAppPageState();
@@ -69,6 +75,41 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
   void initState() {
     super.initState();
     targetController = TextEditingController();
+
+    // 【新增】如果传入了初始 URL，自动填入并解析跳转
+    if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
+      // 由于我们是从查询参数传来的，可能被 URL 编码过，需要解码
+      final decodedUrl = Uri.decodeComponent(widget.initialUrl!);
+      targetController.text = decodedUrl;
+      // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
+      WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
+    }
+  }
+
+  /// 【新增】自动执行解析并跳转的逻辑
+  Future<void> _autoOpenIfNeeded() async {
+    if (!mounted) {
+      return;
+    }
+
+    // 使用现有的 validator 逻辑解析 URL，它会自动填充 currentRoute
+    final validator = availableResources[currentResourceIndex].validator();
+    validator(context, targetController.text);
+
+    if (currentRoute == null || !mounted) {
+      return;
+    }
+
+    // 解析成功，直接跳转到对应的页面
+    await context.pushNamed(
+      currentRoute!.screenPath,
+      pathParameters: currentRoute!.pathParameters,
+      queryParameters: currentRoute!.queryParameters,
+    );
+    if (!mounted) {
+      return;
+    }
+    context.pop();
   }
 
   @override
