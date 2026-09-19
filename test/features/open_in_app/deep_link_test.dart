@@ -8,7 +8,6 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 
 void main() {
   setUpAll(() async {
-    // 【修复点】把 AppLocale.zhCN 改为 AppLocale.zhCn
     await LocaleSettings.setLocale(AppLocale.zhCn);
   });
 
@@ -18,6 +17,8 @@ void main() {
         initialLocation: ScreenPaths.openInApp,
         routes: [
           GoRoute(
+            // 【修复点】补上 name，让路由可以被 named 方式访问
+            name: ScreenPaths.openInApp,
             path: ScreenPaths.openInApp,
             builder: (context, state) => OpenInAppPage(
               initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
@@ -46,6 +47,7 @@ void main() {
         initialLocation: ScreenPaths.openInApp,
         routes: [
           GoRoute(
+            name: ScreenPaths.openInApp,
             path: ScreenPaths.openInApp,
             builder: (context, state) => OpenInAppPage(
               initialUrl: 'https://www.tsdm39.net/forum.php?mod=viewthread&tid=1266556',
@@ -71,6 +73,7 @@ void main() {
         initialLocation: ScreenPaths.openInApp,
         routes: [
           GoRoute(
+            name: ScreenPaths.openInApp,
             path: ScreenPaths.openInApp,
             builder: (context, state) => OpenInAppPage(
               initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
@@ -78,6 +81,8 @@ void main() {
             ),
           ),
           GoRoute(
+            // 【修复点】补上 name，让 pushReplacementNamed 能按名字找到这条路由
+            name: ScreenPaths.threadV1,
             path: ScreenPaths.threadV1,
             builder: (context, state) => const Scaffold(body: Text('Thread Page')),
           ),
