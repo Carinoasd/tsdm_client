@@ -212,6 +212,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           if (localeGroup == null) {
             return;
           }
+
+          // 明确指定语言 或 跟随系统
           if (localeGroup.$2) {
             // Use system language.
             await LocaleSettings.useDeviceLocale();
@@ -219,15 +221,22 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (!context.mounted) {
               return;
             }
-            context.read<SettingsBloc>().add(const SettingsValueChanged(SettingsKeys.locale, ''));
-            return;
+            // 【修改点1】直接调用 Repository 并 await，确保数据已保存
+            await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, '');
+          } else {
+            await LocaleSettings.setLocale(localeGroup.$1!);
+            await desktopUpdateWindowTitle();
+            if (!context.mounted) {
+              return;
+            }
+            // 【修改点2】直接调用 Repository 并 await，确保数据已保存
+            await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, localeGroup.$1!.languageTag);
           }
-          await LocaleSettings.setLocale(localeGroup.$1!);
-          await desktopUpdateWindowTitle();
-          if (!context.mounted) {
-            return;
+
+          // 【修改点3】确认数据已落盘后，再通知后台服务读取新语言
+          if (isAndroid && context.mounted) {
+            unawaited(getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>()));
           }
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.locale, localeGroup.$1!.languageTag));
         },
       ),
 

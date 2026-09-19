@@ -33,6 +33,7 @@ Future<void> initializeBackgroundSyncService({required bool autoStartOnBoot}) as
           importance: Importance.low,
         ),
       );
+
   await FlutterBackgroundService().configure(
     androidConfiguration: AndroidConfiguration(
       onStart: backgroundSyncEntryPoint,
