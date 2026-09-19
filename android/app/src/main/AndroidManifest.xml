@@ -44,8 +44,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <!-- 对应解析器 isForumHost 中支持的 www.tsdm39.com -->
                 <data android:scheme="https" android:host="www.tsdm39.com" android:pathPrefix="/forum.php" />
-                <data android:scheme="https" android:host="www.tsdm39.net" android:pathPrefix="/forum.php" />
+                <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
+                <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
