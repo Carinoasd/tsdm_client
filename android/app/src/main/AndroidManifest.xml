@@ -35,8 +35,8 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- 【新增】深度链接：捕获论坛链接，支持在外部点击直接跳转App -->
-            <intent-filter android:autoVerify="true">
+            <!-- 【修改点】删除了 android:autoVerify="true"，让系统弹出“打开方式”选择框 -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
