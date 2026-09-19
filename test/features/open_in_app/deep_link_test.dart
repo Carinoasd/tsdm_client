@@ -8,7 +8,8 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 
 void main() {
   setUpAll(() async {
-    await LocaleSettings.setLocale(AppLocale.zhCN);
+    // 【修复点】把 AppLocale.zhCN 改为 AppLocale.zhCn
+    await LocaleSettings.setLocale(AppLocale.zhCn);
   });
 
   group('OpenInAppPage 深度链接回归测试', () {
