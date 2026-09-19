@@ -101,16 +101,12 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
       return;
     }
 
-    // 解析成功，直接跳转到对应的页面
-    await context.pushNamed(
+    // 【修复】使用 goNamed 代替 pushNamed + pop，避免路由栈错乱和状态丢失
+    context.goNamed(
       currentRoute!.screenPath,
       pathParameters: currentRoute!.pathParameters,
       queryParameters: currentRoute!.queryParameters,
     );
-    if (!mounted) {
-      return;
-    }
-    context.pop();
   }
 
   @override
@@ -168,15 +164,12 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                 return;
               }
 
-              await context.pushNamed(
+              // 【修复】同样使用 goNamed，直接跳转，避免报错
+              context.goNamed(
                 currentRoute!.screenPath,
                 pathParameters: currentRoute!.pathParameters,
                 queryParameters: currentRoute!.queryParameters,
               );
-              if (!context.mounted) {
-                return;
-              }
-              context.pop();
             },
           ),
         ],
