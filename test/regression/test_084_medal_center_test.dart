@@ -157,7 +157,15 @@ void main() {
     expect(find.text(title), findsOneWidget);
     await tester.tap(find.text(title));
     await tester.pumpAndSettle();
-    expect(find.text(t.medalCenter.openBrowser), findsOneWidget);
+    // The browser fallback remains in the app bar after per-medal action buttons were added.
+    final openBrowser = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.widgetWithIcon(IconButton, Icons.open_in_browser_outlined),
+    );
+    expect(openBrowser, findsOneWidget);
+    final browserButton = tester.widget<IconButton>(openBrowser);
+    expect(browserButton.tooltip, t.medalCenter.openBrowser);
+    expect(browserButton.onPressed, isNotNull);
     expect(find.byIcon(Icons.broken_image_outlined), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
