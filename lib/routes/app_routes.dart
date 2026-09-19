@@ -68,21 +68,6 @@ final router = GoRouter(
   initialLocation: ScreenPaths.homepage,
   observers: [popupRouteObserver],
   routes: _appRoutes,
-  // 【新增】拦截外部深层链接，重定向到 openInApp 页面
-  redirect: (context, state) {
-    final location = state.uri.toString();
-    // 如果 location 以 http 开头，说明是外部深层链接
-    if (location.startsWith('http')) {
-      return Uri(
-        path: ScreenPaths.openInApp,
-        queryParameters: {
-          'url': location,
-          'autoOpen': 'true',
-        },
-      ).toString();
-    }
-    return null;
-  },
 );
 
 /// All named routes in app.
@@ -404,7 +389,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.manageAccount, builder: (_) => const ManageAccountPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
   AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
-  // 【修改点】将原来的 const OpenInAppPage() 改为接收路由参数
+  // 接收路由参数
   AppRoute(
     path: ScreenPaths.openInApp,
     builder: (state) {
