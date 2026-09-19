@@ -23,6 +23,10 @@
                 android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize">
+            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivity 主动获取 -->
+            <meta-data
+                    android:name="flutter_deeplinking_enabled"
+                    android:value="false" />
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -35,7 +39,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- 【修改点】删除了 android:autoVerify="true"，让系统弹出“打开方式”选择框 -->
+            <!-- 【Deep Link 监听】捕获论坛链接，支持在外部点击直接跳转App -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
