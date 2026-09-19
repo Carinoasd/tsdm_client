@@ -160,9 +160,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     // 1. 获取冷启动时的链接
     unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
       if (link != null && mounted) {
-        // 【修复】对链接进行 URL 编码，避免 go_router 将其误认为是路由地址
-        final encodedLink = Uri.encodeComponent(link);
-        unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': encodedLink, 'autoOpen': 'true'}));
+        // 【修复】直接拼接路由地址，避免 pushNamed 的解析错误
+        final routeLocation = '${ScreenPaths.openInApp}?url=${Uri.encodeComponent(link)}&autoOpen=true';
+        unawaited(router.push(routeLocation));
       }
     }));
     // 2. 监听热启动时的链接（App已在后台）
@@ -170,9 +170,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       if (call.method == 'onDeepLink') {
         final link = call.arguments as String?;
         if (link != null && mounted) {
-          // 【修复】对链接进行 URL 编码，避免 go_router 将其误认为是路由地址
-          final encodedLink = Uri.encodeComponent(link);
-          unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': encodedLink, 'autoOpen': 'true'}));
+          // 【修复】直接拼接路由地址，避免 pushNamed 的解析错误
+          final routeLocation = '${ScreenPaths.openInApp}?url=${Uri.encodeComponent(link)}&autoOpen=true';
+          unawaited(router.push(routeLocation));
         }
       }
     });
