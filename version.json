@@ -1,5 +1,5 @@
 {
-  "version": "1.26.2",
-  "versionCode": 78,
-  "changelog": "### Fixed\n\n- 手动签到：修正成功结果的类型判断，避免论坛已签到成功时，客户端仍进入失败状态。感谢 [@zCandy0](https://github.com/zCandy0)。(#87)"
+  "version": "1.27.0",
+  "versionCode": 79,
+  "changelog": "### Added\n\n- Android：支持从外部打开论坛的 HTTPS `forum.php` 链接，自动进入对应帖子或版块，返回时保留原页面；支持 `www.tsdm39.com` 与 `tsdm39.com`。如需默认使用客户端打开，请在系统的应用设置中允许打开支持的链接，具体入口依设备而异。感谢 [@Qing-Novel](https://github.com/Qing-Novel)。(#93)\n- 勋章中心：新增勋章购买与申请操作，购买前显示确认，人工审核申请支持填写理由；保留右上角的浏览器入口。感谢 [@zCandy0](https://github.com/zCandy0)。(#92)\n\n### Changed\n\n- 个人资料：将「勋章中心」入口移到勋章展示区下方，仅在自己的资料页显示。感谢 [@zCandy0](https://github.com/zCandy0)。(#91)\n- Android：调整通知权限设置的图标。感谢 [@Qing-Novel](https://github.com/Qing-Novel)。(#88)\n\n### Fixed\n\n- Android：切换语言后同步更新后台常驻通知语言，先完成设置保存再通知后台服务，避免服务读取到旧语言。感谢 [@Qing-Novel](https://github.com/Qing-Novel)。(#89)"
 }
