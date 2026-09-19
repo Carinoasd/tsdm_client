@@ -76,11 +76,10 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
     super.initState();
     targetController = TextEditingController();
 
-    // 【新增】如果传入了初始 URL，自动填入并解析跳转
+    // 【修改】如果传入了初始 URL，自动填入并解析跳转
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
-      // 由于我们是从查询参数传来的，可能被 URL 编码过，需要解码
-      final decodedUrl = Uri.decodeComponent(widget.initialUrl!);
-      targetController.text = decodedUrl;
+      // 【修复】queryParameters 已经自动解码了 url，直接使用，不要再 decodeComponent
+      targetController.text = widget.initialUrl!;
       // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
       WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
     }
