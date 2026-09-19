@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -153,6 +154,24 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     super.initState();
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
+
+    // 【新增】初始化深度链接监听
+    const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
+    // 1. 获取冷启动时的链接
+    deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
+      if (link != null && mounted) {
+        router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link});
+      }
+    });
+    // 2. 监听热启动时的链接（App已在后台）
+    deepLinkChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onDeepLink') {
+        final link = call.arguments as String?;
+        if (link != null && mounted) {
+          router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link});
+        }
+      }
+    });
   }
 
   @override
