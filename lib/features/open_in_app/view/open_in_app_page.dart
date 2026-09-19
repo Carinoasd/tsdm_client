@@ -38,7 +38,13 @@ class OpenInAppPageButton extends StatelessWidget {
 /// * Post id.
 class OpenInAppPage extends StatefulWidget {
   /// Constructor.
-  const OpenInAppPage({super.key});
+  const OpenInAppPage({super.key, this.initialUrl, this.autoOpen = false});
+
+  /// Optional URL passed in from a deep link.
+  final String? initialUrl;
+
+  /// Whether to automatically parse and open the [initialUrl] on page load.
+  final bool autoOpen;
 
   @override
   State<OpenInAppPage> createState() => _OpenInAppPageState();
@@ -69,6 +75,41 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
   void initState() {
     super.initState();
     targetController = TextEditingController();
+
+    // 如果传入了初始 URL，自动填入输入框
+    if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
+      targetController.text = widget.initialUrl!;
+      // 根据作者意见：保留填入网址的动作，但只在 widget.autoOpen 为 true 时执行自动跳转
+      if (widget.autoOpen) {
+        // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
+        WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
+      }
+    }
+  }
+
+  /// 自动执行解析并跳转的逻辑
+  Future<void> _autoOpenIfNeeded() async {
+    if (!mounted) {
+      return;
+    }
+
+    // 主动触发表单校验，此时 TextFormField 的 validator 会被执行，从而更新 currentRoute
+    formKey.currentState?.validate();
+    
+    // 等待一帧，确保 validator 内部的 setState 已经生效
+    await Future<void>.delayed(Duration.zero);
+
+    if (!mounted || currentRoute == null) {
+      return;
+    }
+
+    // 使用 pushReplacementNamed 替换当前的中间页，
+    // 这样既能保留底部的 HomePage（拥有返回键和全局登录状态），又能清除中间的过渡页面。
+    context.pushReplacementNamed(
+      currentRoute!.screenPath,
+      pathParameters: currentRoute!.pathParameters,
+      queryParameters: currentRoute!.queryParameters,
+    );
   }
 
   @override
@@ -126,15 +167,12 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                 return;
               }
 
-              await context.pushNamed(
+              // 手动点击也使用 pushReplacementNamed，保证路由栈干净
+              context.pushReplacementNamed(
                 currentRoute!.screenPath,
                 pathParameters: currentRoute!.pathParameters,
                 queryParameters: currentRoute!.queryParameters,
               );
-              if (!context.mounted) {
-                return;
-              }
-              context.pop();
             },
           ),
         ],

@@ -1,7 +1,9 @@
 package kzs.th000.tsdm_client
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Bundle
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
@@ -28,10 +30,25 @@ class MainActivity: FlutterActivity() {
 
         /** Window size events sent to Dart, see `lib/utils/window_events.dart` (GitHub #28). */
         const val WINDOW_CHANNEL = "kzs.th000.tsdm_client/windowChannel"
+
+        /** Deep link channel to open external tsdm links inside the app. */
+        const val DEEP_LINK_CHANNEL = "kzs.th000.tsdm_client/deepLink"
+        const val GET_INITIAL_LINK = "getInitialLink"
     }
 
     private var windowChannel: MethodChannel? = null
     private var flutterViewWatched = false
+
+    /** Hold the deep link when app is launched from a link (cold start). */
+    private var initialDeepLink: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 冷启动时捕获深度链接
+        if (intent?.action == Intent.ACTION_VIEW) {
+            initialDeepLink = intent?.dataString
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -40,6 +57,29 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL)
             .setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
+
+        // 处理 Flutter 端对深度链接的查询
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == GET_INITIAL_LINK) {
+                    result.success(initialDeepLink)
+                    initialDeepLink = null // 取过一次就清空，避免重复跳转
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+
+    /** 热启动（App 在后台）时接收新的深度链接并推送给 Flutter */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == Intent.ACTION_VIEW) {
+            val link = intent.dataString
+            if (link != null && flutterEngine != null) {
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
+                    .invokeMethod("onDeepLink", link)
+            }
+        }
     }
 
     override fun onStart() {

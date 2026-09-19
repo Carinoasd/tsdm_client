@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -153,6 +154,39 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     super.initState();
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
+
+    // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
+    if (isAndroid) {
+      const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
+
+      // 获取冷启动链接，加异常捕获
+      unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
+        if (link != null && mounted) {
+          // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
+          unawaited(router.pushNamed(
+            ScreenPaths.openInApp,
+            queryParameters: {'url': link, 'autoOpen': 'true'},
+          ));
+        }
+      }).catchError((Object e, StackTrace st) {
+        // 忽略非 Android 平台或插件未实现导致的 MissingPluginException
+        talker.error('Failed to get initial deep link: $e');
+      }));
+
+      // 监听热启动链接
+      deepLinkChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onDeepLink') {
+          final link = call.arguments as String?;
+          if (link != null && mounted) {
+            // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
+            unawaited(router.pushNamed(
+              ScreenPaths.openInApp,
+              queryParameters: {'url': link, 'autoOpen': 'true'},
+            ));
+          }
+        }
+      });
+    }
   }
 
   @override

@@ -23,6 +23,10 @@
                 android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize">
+            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivity 主动获取 -->
+            <meta-data
+                    android:name="flutter_deeplinking_enabled"
+                    android:value="false" />
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -34,6 +38,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- 【Deep Link 监听】捕获论坛链接，支持在外部点击直接跳转App -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- 对应解析器 isForumHost 中支持的 www.tsdm39.com -->
+                <data android:scheme="https" android:host="www.tsdm39.com" android:pathPrefix="/forum.php" />
+                <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
+                <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
