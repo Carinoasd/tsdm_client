@@ -76,16 +76,16 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
     super.initState();
     targetController = TextEditingController();
 
-    // 【修改】如果传入了初始 URL，自动填入并解析跳转
+    // 如果传入了初始 URL，自动填入并解析跳转
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
-      // 【修复】queryParameters 已经自动解码了 url，直接使用，不要再 decodeComponent
+      // queryParameters 已经自动解码了 url，直接使用，不要再 decodeComponent
       targetController.text = widget.initialUrl!;
       // 等待第一帧渲染完毕后再自动解析，避免在 initState 中调用 setState 报错
       WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenIfNeeded());
     }
   }
 
-  /// 【新增】自动执行解析并跳转的逻辑
+  /// 自动执行解析并跳转的逻辑
   Future<void> _autoOpenIfNeeded() async {
     if (!mounted) {
       return;
@@ -101,8 +101,9 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
       return;
     }
 
-    // 【修复】使用 goNamed 代替 pushNamed + pop，避免路由栈错乱和状态丢失
-    context.goNamed(
+    // 使用 pushReplacementNamed 替换当前的中间页，
+    // 这样既能保留底部的 HomePage（拥有返回键和全局登录状态），又能清除中间的过渡页面。
+    context.pushReplacementNamed(
       currentRoute!.screenPath,
       pathParameters: currentRoute!.pathParameters,
       queryParameters: currentRoute!.queryParameters,
@@ -164,8 +165,8 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                 return;
               }
 
-              // 【修复】同样使用 goNamed，直接跳转，避免报错
-              context.goNamed(
+              // 手动点击也使用 pushReplacementNamed，保证路由栈干净
+              context.pushReplacementNamed(
                 currentRoute!.screenPath,
                 pathParameters: currentRoute!.pathParameters,
                 queryParameters: currentRoute!.queryParameters,
