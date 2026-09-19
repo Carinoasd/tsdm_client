@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:slang_flutter/slang_flutter.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
-import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 
@@ -19,12 +18,9 @@ void main() {
         routes: [
           GoRoute(
             path: ScreenPaths.openInApp,
-            builder: (context, state) => RootPage(
-              ScreenPaths.openInApp,
-              OpenInAppPage(
-                initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
-                autoOpen: false,
-              ),
+            builder: (context, state) => OpenInAppPage(
+              initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
+              autoOpen: false,
             ),
           ),
         ],
@@ -38,21 +34,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(OpenInAppPage), findsOneWidget);
-      expect(find.text('https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556'), findsOneWidget);
+      expect(
+        find.text('https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('autoOpen=true 但链接不支持时，不自动跳转', (tester) async {
+    testWidgets('autoOpen=true 但链接域名不受支持时，不自动跳转', (tester) async {
       final router = GoRouter(
         initialLocation: ScreenPaths.openInApp,
         routes: [
           GoRoute(
             path: ScreenPaths.openInApp,
-            builder: (context, state) => RootPage(
-              ScreenPaths.openInApp,
-              OpenInAppPage(
-                initialUrl: 'https://www.tsdm39.net/forum.php?mod=viewthread&tid=1266556',
-                autoOpen: true,
-              ),
+            builder: (context, state) => OpenInAppPage(
+              initialUrl: 'https://www.tsdm39.net/forum.php?mod=viewthread&tid=1266556',
+              autoOpen: true,
             ),
           ),
         ],
@@ -65,6 +61,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // 依旧停留在 OpenInAppPage，说明没有自动跳转
       expect(find.byType(OpenInAppPage), findsOneWidget);
     });
 
@@ -74,12 +71,9 @@ void main() {
         routes: [
           GoRoute(
             path: ScreenPaths.openInApp,
-            builder: (context, state) => RootPage(
-              ScreenPaths.openInApp,
-              OpenInAppPage(
-                initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
-                autoOpen: true,
-              ),
+            builder: (context, state) => OpenInAppPage(
+              initialUrl: 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266556',
+              autoOpen: true,
             ),
           ),
           GoRoute(
@@ -96,6 +90,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // 已经跳到 threadV1 的占位页面
       expect(find.text('Thread Page'), findsOneWidget);
     });
   });
