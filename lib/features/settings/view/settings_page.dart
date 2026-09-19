@@ -220,14 +220,19 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               return;
             }
             context.read<SettingsBloc>().add(const SettingsValueChanged(SettingsKeys.locale, ''));
-            return;
+          } else {
+            await LocaleSettings.setLocale(localeGroup.$1!);
+            await desktopUpdateWindowTitle();
+            if (!context.mounted) {
+              return;
+            }
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.locale, localeGroup.$1!.languageTag));
           }
-          await LocaleSettings.setLocale(localeGroup.$1!);
-          await desktopUpdateWindowTitle();
-          if (!context.mounted) {
-            return;
+          
+          // 【新增】语言切换后，立即触发后台服务重新读取 i18n 配置，刷新常驻通知卡片
+          if (isAndroid) {
+            unawaited(getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>()));
           }
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.locale, localeGroup.$1!.languageTag));
         },
       ),
 
