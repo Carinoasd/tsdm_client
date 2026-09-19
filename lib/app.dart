@@ -158,11 +158,15 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
     if (isAndroid) {
       const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
-      
+
       // 获取冷启动链接，加异常捕获
       unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
         if (link != null && mounted) {
-          unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link}));
+          // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
+          unawaited(router.pushNamed(
+            ScreenPaths.openInApp,
+            queryParameters: {'url': link, 'autoOpen': 'true'},
+          ));
         }
       }).catchError((Object e, StackTrace st) {
         // 忽略非 Android 平台或插件未实现导致的 MissingPluginException
@@ -174,7 +178,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
         if (call.method == 'onDeepLink') {
           final link = call.arguments as String?;
           if (link != null && mounted) {
-            unawaited(router.pushNamed(ScreenPaths.openInApp, queryParameters: {'url': link}));
+            // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
+            unawaited(router.pushNamed(
+              ScreenPaths.openInApp,
+              queryParameters: {'url': link, 'autoOpen': 'true'},
+            ));
           }
         }
       });
