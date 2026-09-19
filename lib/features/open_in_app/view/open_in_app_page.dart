@@ -91,11 +91,13 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
       return;
     }
 
-    // 使用现有的 validator 逻辑解析 URL，它会自动填充 currentRoute
-    final validator = availableResources[currentResourceIndex].validator();
-    validator(context, targetController.text);
+    // 主动触发表单校验，此时 TextFormField 的 validator 会被执行，从而更新 currentRoute
+    formKey.currentState?.validate();
+    
+    // 等待一帧，确保 validator 内部的 setState 已经生效
+    await Future<void>.delayed(Duration.zero);
 
-    if (currentRoute == null || !mounted) {
+    if (!mounted || currentRoute == null) {
       return;
     }
 
