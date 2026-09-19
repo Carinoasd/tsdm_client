@@ -1473,7 +1473,7 @@
     "category": "分类",
     "refresh": "刷新",
     "openBrowser": "在浏览器打开",
-    "browserNotice": "在此浏览勋章和取得条件；购买、申请或管理请前往论坛网页。",
+    "browserNotice": "在此浏览勋章和取得条件；可用的购买和申请操作会显示在勋章详情中。",
     "loginRequired": "登录已失效，请重新登录。",
     "unsupported": "论坛未提供可识别的勋章列表，请用浏览器查看。",
     "empty": "此分类暂无勋章。",
@@ -1481,7 +1481,18 @@
     "noDetails": "论坛未提供此勋章的其他条件或价格。",
     "previous": "上一页",
     "next": "下一页",
-    "page": "第 $number 页"
+    "page": "第 $number 页",
+    "purchase": "购买",
+    "apply": "申请",
+    "manualReview": "申请审核",
+    "signIn": "签到领取",
+    "purchaseTitle": "购买勋章",
+    "purchaseConfirm": "确定使用论坛设置的积分购买“$name”？",
+    "applicationTitle": "申请勋章",
+    "applicationReason": "申请理由",
+    "submit": "提交",
+    "actionSuccess": "勋章操作已完成",
+    "actionFailed": "勋章操作失败"
   },
   "myTitlesPage": {
     "title": "我的称号",

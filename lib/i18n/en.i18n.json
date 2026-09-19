@@ -1473,7 +1473,7 @@
     "category": "Category",
     "refresh": "Refresh",
     "openBrowser": "Open in browser",
-    "browserNotice": "Browse medals and conditions here. Use the forum website to purchase, apply or manage medals.",
+    "browserNotice": "Browse medals and conditions here. Available purchase and application actions are shown on each medal.",
     "loginRequired": "Your session expired. Sign in again.",
     "unsupported": "The forum did not provide a supported medal list. Open it in your browser.",
     "empty": "No medals in this category.",
@@ -1481,7 +1481,18 @@
     "noDetails": "The forum does not provide further conditions or prices for this medal.",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page $number"
+    "page": "Page $number",
+    "purchase": "Purchase",
+    "apply": "Apply",
+    "manualReview": "Apply for review",
+    "signIn": "Claim by check-in",
+    "purchaseTitle": "Purchase medal",
+    "purchaseConfirm": "Purchase $name using the forum's configured credits?",
+    "applicationTitle": "Apply for medal",
+    "applicationReason": "Application reason",
+    "submit": "Submit",
+    "actionSuccess": "Medal action completed",
+    "actionFailed": "Medal action failed"
   },
   "myTitlesPage": {
     "title": "My titles",

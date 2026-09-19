@@ -26,6 +26,69 @@ String? medalCatalogUrl(String? href) {
   return uri.toString();
 }
 
+/// A server-provided medal acquisition action.
+enum MedalActionType {
+  /// Buy using the forum's configured credits.
+  purchase,
+
+  /// Claim immediately when eligible.
+  apply,
+
+  /// Submit a reason for moderator review.
+  manualReview,
+
+  /// Claim through the forum's sign-in condition.
+  signIn,
+}
+
+/// A safe action URL extracted from the medal catalogue.
+final class CatalogMedalAction {
+  /// Constructor.
+  const CatalogMedalAction({required this.type, required this.url});
+
+  /// Action kind.
+  final MedalActionType type;
+
+  /// Safe server URL.
+  final String url;
+}
+
+/// Validate and classify an action link emitted by dsu_medalCenter.
+CatalogMedalAction? medalActionUrl(String? href) {
+  if (href == null || href.trim().isEmpty) return null;
+  final relative = Uri.tryParse(href.trim());
+  if (relative == null) return null;
+  final uri = Uri.parse(medalCenterUrl).resolveUri(relative);
+  if (!['https', 'http'].contains(uri.scheme) ||
+      uri.origin != Uri.parse(baseUrl).origin ||
+      uri.userInfo.isNotEmpty ||
+      uri.path != '/plugin.php') {
+    return null;
+  }
+  final params = uri.queryParameters;
+  final id = params['id'];
+  final action = params['action'];
+  final medalId = params['medalid'] ?? params['applymedalid'];
+  if (medalId == null || (int.tryParse(medalId) ?? 0) <= 0 || action == null) return null;
+  if (id == 'dsu_medalCenter:memcp' && action == 'apply') {
+    final unexpected = params.keys.toSet()..removeAll({'id', 'action', 'medalid', 'applytype'});
+    if (unexpected.isNotEmpty || params['medalid'] == null) return null;
+    final type = switch (params['applytype']) {
+      '5' => MedalActionType.purchase,
+      '6' => MedalActionType.signIn,
+      '1' => MedalActionType.apply,
+      _ => null,
+    };
+    return type == null ? null : CatalogMedalAction(type: type, url: uri.toString());
+  }
+  if (id == 'dsu_medalCenter:specmedal' && action == 'newapply') {
+    final unexpected = params.keys.toSet()..removeAll({'id', 'action', 'applymedalid'});
+    if (unexpected.isNotEmpty || params['applymedalid'] == null) return null;
+    return CatalogMedalAction(type: MedalActionType.manualReview, url: uri.toString());
+  }
+  return null;
+}
+
 /// Original category label and safe catalogue link.
 final class MedalCategory {
   /// Constructor.
@@ -49,6 +112,7 @@ final class CatalogMedal {
     required this.details,
     this.imageUrl,
     this.accountStatus,
+    this.actions = const [],
   });
 
   /// Server medal ID.
@@ -71,6 +135,9 @@ final class CatalogMedal {
 
   /// Account-specific eligibility statement, if the forum provides one.
   final String? accountStatus;
+
+  /// Actions currently allowed by the server for this account.
+  final List<CatalogMedalAction> actions;
 }
 
 /// One page of the medal catalogue.
@@ -151,6 +218,11 @@ MedalCatalog parseMedalCatalog(uh.Document document) {
       if (text.isNotEmpty) details.add(text);
     }
     final status = _text(item.querySelector('.dsu_medal_unmet'));
+    final actions = <CatalogMedalAction>[];
+    for (final link in item.querySelectorAll('a[href]')) {
+      final action = medalActionUrl(link.getAttribute('href'));
+      if (action != null) actions.add(action);
+    }
     medals.add(
       CatalogMedal(
         id: id,
@@ -159,6 +231,7 @@ MedalCatalog parseMedalCatalog(uh.Document document) {
         description: _text(detail?.querySelector('.desc')),
         details: List.unmodifiable(details),
         accountStatus: status.isEmpty ? null : status,
+        actions: List.unmodifiable(actions),
         imageUrl:
             imageUri != null &&
                 imageUri.host.isNotEmpty &&

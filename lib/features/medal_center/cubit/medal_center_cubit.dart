@@ -3,6 +3,18 @@ import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dar
 import 'package:tsdm_client/features/medal_center/models/medal_catalog.dart';
 import 'package:universal_html/parsing.dart';
 
+/// Result of a state-changing medal action.
+final class MedalActionResult {
+  /// Constructor.
+  const MedalActionResult({required this.success, this.message});
+
+  /// Whether the server accepted the action.
+  final bool success;
+
+  /// Human-readable server message, when supplied.
+  final String? message;
+}
+
 /// An immutable, account-scoped catalogue page.
 final class MedalCenterState {
   /// Constructor.
@@ -33,14 +45,60 @@ final class MedalCenterState {
 /// Read-only loader with request-generation and server identity checks.
 class MedalCenterCubit extends Cubit<MedalCenterState> {
   /// [fetchPage] must use the app's identity-bound network client.
-  MedalCenterCubit({required this.fetchPage, required this.currentUid}) : super(const MedalCenterState());
+  MedalCenterCubit({required this.fetchPage, required this.currentUid, this.submitForm})
+    : super(const MedalCenterState());
 
-  /// GET transport. There is deliberately no submission transport.
+  /// GET transport for catalogue pages and action forms.
   final Future<String> Function(String url) fetchPage;
+
+  /// Form POST transport for manual-review applications.
+  final Future<String> Function(String url, Map<String, String> data)? submitForm;
 
   /// Current account identity (null when browsing as a guest).
   final int? Function() currentUid;
   int _generation = 0;
+
+  /// Execute a server-provided acquisition action once.
+  ///
+  /// Direct actions are GET requests in the plugin. Manual-review applications first fetch the form to obtain the
+  /// session-bound form hash, then POST the reason. The caller should reload the catalogue after success.
+  Future<MedalActionResult> performAction(CatalogMedalAction action, {String? reason}) async {
+    try {
+      final String body;
+      if (action.type == MedalActionType.manualReview) {
+        final post = submitForm;
+        if (post == null) return const MedalActionResult(success: false, message: 'form submission unavailable');
+        final form = parseHtmlDocument(await fetchPage(action.url));
+        final formHash = form.querySelector('input[name="formhash"]')?.attributes['value'];
+        if (formHash == null || formHash.isEmpty) {
+          return const MedalActionResult(success: false, message: 'form hash not found');
+        }
+        body = await post(action.url, {
+          'formhash': formHash,
+          'applyreason': reason ?? '',
+        });
+      } else {
+        body = await fetchPage(action.url);
+      }
+      return _parseActionResult(body);
+    } on Exception catch (error) {
+      return MedalActionResult(success: false, message: error.toString());
+    }
+  }
+
+  MedalActionResult _parseActionResult(String body) {
+    final document = parseHtmlDocument(body);
+    final errorNode = document.querySelector('.alert_error');
+    final messageNode = document.querySelector('#messagetext');
+    final message = messageNode?.innerText.trim();
+    if (errorNode != null) {
+      return MedalActionResult(success: false, message: errorNode.innerText.trim());
+    }
+    if (message == null || message.isEmpty) {
+      return const MedalActionResult(success: false, message: 'server returned an unrecognised response');
+    }
+    return MedalActionResult(success: true, message: message);
+  }
 
   /// Clear account-specific eligibility while authentication changes.
   void invalidate() {
