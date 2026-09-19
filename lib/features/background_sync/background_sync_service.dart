@@ -33,10 +33,8 @@ Future<void> initializeBackgroundSyncService({required bool autoStartOnBoot}) as
           importance: Importance.low,
         ),
       );
-  
-  final service = FlutterBackgroundService();
-  
-  await service.configure(
+
+  await FlutterBackgroundService().configure(
     androidConfiguration: AndroidConfiguration(
       onStart: backgroundSyncEntryPoint,
       autoStart: false,
@@ -51,13 +49,6 @@ Future<void> initializeBackgroundSyncService({required bool autoStartOnBoot}) as
     ),
     iosConfiguration: IosConfiguration(autoStart: false),
   );
-
-  // 【关键修改】如果服务已经在运行，强制调用 startService()。
-  // 这会触发 Android 原生层重新执行 startForeground()，从而读取上方最新的 i18n 配置（标题和内容）并刷新常驻通知。
-  // 这样当应用内切换语言后，只要触发了服务配置（如手动关开开关或其他设置同步），语言就会立刻更新。
-  if (await service.isRunning()) {
-    await service.startService();
-  }
 }
 
 /// Start the service and wait until the plugin reports it running. False when it did not come up in time.
