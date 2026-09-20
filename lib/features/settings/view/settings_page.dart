@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -70,20 +71,11 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   final scrollController = ScrollController();
+  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub; // 新增
 
-  /// Android permission statuses shown in the behavior section; refreshed when the app comes back to the foreground
-  /// so the rows update after the user returns from the system dialogs or the app settings page.
   final _permissionCubit = AndroidPermissionCubit();
-
-  /// Starts, stops or nudges the Android background message service after a settings change (#80).
-  /// Tip of log export path.
   String? _logExportPath;
 
-  /// Show a dialog to let user select locale.
-  ///
-  /// * Return null if user canceled the selection.
-  /// * Return (null, true) if user chose to use system locale.
-  /// * Return (locale, false) if user chose to use specified locale.
   Future<(AppLocale?, bool)?> selectLanguageDialog(BuildContext context, String currentLocale) async {
     return showDialog<(AppLocale?, bool)>(
       context: context,
@@ -91,16 +83,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
-  /// Show a dialog to let user select accent color.
-  ///
-  /// * Return null if user canceled the selection.
-  /// * Return (null, true) if user chose to use default color.
-  /// * Return (color, false) if user chose to use specified color.
   Future<(Color?, bool)?> _showAccentColorPickerDialog(BuildContext context) async {
     final colorValue = getIt.get<SettingsRepository>().currentSettings.accentColor;
-    if (!context.mounted) {
-      return null;
-    }
+    if (!context.mounted) return null;
     return showCustomBottomSheet<(Color?, bool)>(
       title: context.t.colorPickerDialog.title,
       context: context,
@@ -111,9 +96,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         children: [
           TextButton(
             child: Text(context.t.general.reset),
-            onPressed: () async {
-              context.pop((null, true));
-            },
+            onPressed: () async => context.pop((null, true)),
           ),
         ],
       ),
@@ -134,38 +117,22 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   List<Widget> _buildAppearanceSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.appearanceSection;
-    // Locale.
     final settingsLocale = state.settingsMap.locale;
     final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
     final localeName = locale == null ? tr.languages.followSystem : context.t.locale;
-
-    // Theme mode.
     final themeModeIndex = state.settingsMap.themeMode;
-
-    // ForumCard shortcut;
     final showForumCardShortcut = state.settingsMap.showShortcutInForumCard;
-
-    // Accent color.
     final accentColor = state.settingsMap.accentColor;
     final accentColorFollowSystem = state.settingsMap.accentColorFollowSystem;
-
-    // Show badge or unread info count on logged user's unread messages;
     final showUnreadInfoHint = state.settingsMap.showUnreadInfoHint;
-
-    // Unread message on state.
     final showUnreadNoticeBadge = state.settingsMap.showUnreadNoticeBadge;
     final showUnreadPersonalMessageBadge = state.settingsMap.showUnreadPersonalMessageBadge;
     final showUnreadBroadcastMessageBadge = state.settingsMap.showUnreadBroadcastMessageBadge;
-
-    /// App wide font family
     final fontFamily = state.settingsMap.fontFamily;
-
-    // App wide text scale factor.
     final textScaleFactor = state.settingsMap.textScaleFactor;
 
     return [
       SectionTitleText(tr.title),
-      // Theme mode
       SectionListTile(
         leading: const Icon(Icons.contrast_outlined),
         title: Text(tr.themeMode.title),
@@ -182,76 +149,47 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             Icon(Icons.dark_mode_outlined),
           ],
           onPressed: (index) async {
-            // Default: ThemeData.system.
             var themeIndex = 0;
             switch (index) {
-              case 0:
-                // Default: ThemeData.light.
-                themeIndex = 1;
-              case 1:
-                // Default: ThemeData.system.
-                themeIndex = 0;
-              case 2:
-                // Default: ThemeData.dark.
-                themeIndex = 2;
+              case 0: themeIndex = 1;
+              case 1: themeIndex = 0;
+              case 2: themeIndex = 2;
             }
-            // Effect immediately.
             context.read<ThemeCubit>().setThemeModeIndex(themeIndex);
-            // Save to settings.
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.themeMode, themeIndex));
           },
         ),
       ),
-      // Language
       SectionListTile(
         leading: const Icon(Icons.translate_outlined),
         title: Text(tr.languages.title),
         subtitle: Text(localeName),
         onTap: () async {
           final localeGroup = await selectLanguageDialog(context, locale?.languageTag ?? '');
-          if (localeGroup == null) {
-            return;
-          }
-
-          // 明确指定语言 或 跟随系统
+          if (localeGroup == null) return;
           if (localeGroup.$2) {
-            // Use system language.
             await LocaleSettings.useDeviceLocale();
             await desktopUpdateWindowTitle();
-            if (!context.mounted) {
-              return;
-            }
-            // 【修改点1】直接调用 Repository 并 await，确保数据已保存
+            if (!context.mounted) return;
             await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, '');
           } else {
             await LocaleSettings.setLocale(localeGroup.$1!);
             await desktopUpdateWindowTitle();
-            if (!context.mounted) {
-              return;
-            }
-            // 【修改点2】直接调用 Repository 并 await，确保数据已保存
+            if (!context.mounted) return;
             await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, localeGroup.$1!.languageTag);
           }
-
-          // 【修改点3】确认数据已落盘后，再通知后台服务读取新语言
           if (isAndroid && context.mounted) {
             unawaited(getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>()));
           }
         },
       ),
-
-      /// Shortcut in forum card.
       SectionSwitchListTile(
         secondary: const Icon(Icons.shortcut_outlined),
         title: Text(tr.showShortcutInForumCard.title),
         subtitle: Text(tr.showShortcutInForumCard.detail),
         value: showForumCardShortcut,
-        onChanged: (v) async {
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v));
-        },
+        onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v)),
       ),
-
-      // Accent color follow system
       SectionSwitchListTile(
         secondary: const Icon(Icons.border_color_outlined),
         title: Text(tr.colorSchemeFollowSystem.title),
@@ -260,24 +198,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         onChanged: (v) async {
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.accentColorFollowSystem, v));
           if (v) {
-            // Switched to system color.
             await SystemTheme.accentColor.load();
-            if (!context.mounted) {
-              return;
-            }
+            if (!context.mounted) return;
             final systemColor = SystemTheme.accentColor.accent;
-            // Effect immediately, system color.
             context.read<ThemeCubit>().setAccentColor(systemColor);
           } else {
-            // Switched to user specified color.
             context.read<ThemeCubit>().setAccentColor(
               Color(accentColor >= 0 ? accentColor : SettingsKeys.accentColor.defaultValue),
             );
           }
         },
       ),
-
-      // Accent color
       SectionListTile(
         enabled: !accentColorFollowSystem,
         leading: const Icon(Icons.color_lens_outlined),
@@ -286,19 +217,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         trailing: accentColor < 0 || accentColorFollowSystem ? null : ColorPalette(color: Color(accentColor)),
         onTap: () async {
           final color = await _showAccentColorPickerDialog(context);
-          if (color == null) {
-            return;
-          }
-          if (!context.mounted) {
-            return;
-          }
+          if (color == null) return;
+          if (!context.mounted) return;
           if (color.$2) {
-            // Effect immediately.
             context.read<ThemeCubit>().setAccentColor(Color(SettingsKeys.accentColor.defaultValue));
-            // Set to -1 ( < 0) will clear accent color.
-            context.read<SettingsBloc>().add(
-              SettingsValueChanged(SettingsKeys.accentColor, SettingsKeys.accentColor.defaultValue),
-            );
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.accentColor, SettingsKeys.accentColor.defaultValue));
             return;
           }
           context.read<ThemeCubit>().setAccentColor(color.$1!);
@@ -310,53 +233,33 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         title: Text(tr.showUnreadInfoHint.title),
         subtitle: Text(tr.showUnreadInfoHint.detail),
         value: showUnreadInfoHint,
-        onChanged: (v) async {
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadInfoHint, v));
-        },
+        onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadInfoHint, v)),
       ),
-
-      // Unread notice badge.
       SectionSwitchListTile(
         secondary: const Icon(Icons.notifications_paused_outlined),
         title: Text(tr.unreadNoticeBadge),
         value: showUnreadNoticeBadge,
         onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadNoticeBadge, v)),
       ),
-
-      // Unread personal message badge.
       SectionSwitchListTile(
         secondary: const Icon(Icons.notifications_active_outlined),
         title: Text(tr.unreadPersonalMessageBadge),
         value: showUnreadPersonalMessageBadge,
-        onChanged: (v) =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadPersonalMessageBadge, v)),
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadPersonalMessageBadge, v)),
       ),
-
-      // Unread broadcast message badge.
       SectionSwitchListTile(
         secondary: const Icon(Icons.notification_important_outlined),
         title: Text(tr.unreadBroadcastMessageBadge),
         value: showUnreadBroadcastMessageBadge,
-        onChanged: (v) =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadBroadcastMessageBadge, v)),
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadBroadcastMessageBadge, v)),
       ),
-
       Padding(padding: edgeInsetsT4B4, child: Tips(tr.unreadBadgeLimitation)),
-
       SectionListTile(
         leading: const Icon(Icons.article_outlined),
         title: Text(tr.threadCard.title),
         subtitle: Text(tr.threadCard.detail),
         onTap: () => context.pushNamed(ScreenPaths.settingsThreadAppearance.path),
-        // onTap: () async => showCustomBottomSheet(
-        //   context: context,
-        //   title: tr.title,
-        //   builder: (context) => const ThreadCardDialog(),
-        //   constraints: const BoxConstraints(maxHeight: 400),
-        // ),
       ),
-
-      /// Font family
       SectionListTile(
         leading: const Icon(Icons.font_download_outlined),
         title: Text(tr.fontFamily.title),
@@ -366,16 +269,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context: context,
             builder: (_) => RootPage(DialogPaths.fontPicker, FontFamilyDialog(fontFamily)),
           );
-          if (selectedFont == null || !context.mounted) {
-            return;
-          }
-
+          if (selectedFont == null || !context.mounted) return;
           context.read<ThemeCubit>().setFontFamily(selectedFont);
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.fontFamily, selectedFont));
         },
       ),
-
-      /// Text scale factor.
       SectionListTile(
         leading: const Icon(Icons.text_increase_outlined),
         title: Text(tr.textScaleFactor.title),
@@ -384,19 +282,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context: context,
             builder: (_) => RootPage(DialogPaths.textScalePicker, TextScaleDialog(textScaleFactor)),
           );
-          if (!context.mounted || selectedScale == null) {
-            return;
-          }
-
+          if (!context.mounted || selectedScale == null) return;
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.textScaleFactor, selectedScale));
         },
       ),
     ];
   }
 
-  /// App window related settings.
-  ///
-  /// Only available on desktop platforms.
   List<Widget> _buildWindowSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.windowSection;
     final windowRememberSize = state.settingsMap.windowRememberSize;
@@ -417,8 +309,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         title: Text(tr.windowRememberPosition.title),
         subtitle: Text(tr.windowRememberPosition.detail),
         value: windowRememberPosition,
-        onChanged: (v) =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowRememberPosition, v)),
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowRememberPosition, v)),
       ),
       SectionSwitchListTile(
         secondary: const Icon(Icons.filter_center_focus_outlined),
@@ -431,41 +322,24 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ];
   }
 
-  /// Bring the Android background message service in line with the settings just written (#80).
-  ///
-  /// Called after the switch or the auto sync interval changed: the service runs only when both allow it, and it
-  /// stops itself otherwise, so restoring an interval after "never" has to start it again from here. When it should
-  /// run but could not be started (or a plugin call threw) the switch is rolled back so the page never shows a
-  /// service that is not there.
   Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
-    // The app-wide controller: a page opened again while an earlier page's stop is still in flight must queue
-    // behind it, and only the latest change reports (an older one must not roll the switch back).
     final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
-    if (result != BackgroundSyncApplyResult.failed || !context.mounted) {
-      return;
-    }
+    if (result != BackgroundSyncApplyResult.failed || !context.mounted) return;
     showSnackBar(context: context, message: context.t.backgroundService.startFailed);
   }
 
-  /// Turn the Android background message service on or off (#80).
-  ///
-  /// The setting is stored first: the service reads it when it starts and stops itself when it is off.
   Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
     await getIt.get<SettingsRepository>().setValue(SettingsKeys.enableBackgroundMessageService, enable);
     if (enable) {
-      // The pushes need the permission as much as the in-app auto sync does (#13).
       unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
     }
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
     await _applyBackgroundSyncSettings(context);
   }
 
   List<Widget> _buildBehaviorSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.behaviorSection;
     final threadReverseOrder = state.settingsMap.threadReverseOrder;
-    // Duration in seconds.
     final autoSyncNoticeSeconds = state.settingsMap.autoSyncNoticeSeconds;
     Duration? autoSyncNoticeDuration;
     if (autoSyncNoticeSeconds > 0) {
@@ -481,8 +355,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         title: Text(tr.threadReverseOrder.title),
         subtitle: Text(tr.threadReverseOrder.detail),
         value: threadReverseOrder,
-        onChanged: (v) async =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadReverseOrder, v)),
+        onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadReverseOrder, v)),
       ),
       SectionListTile(
         leading: const Icon(Icons.sync_outlined),
@@ -497,18 +370,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context: context,
             builder: (_) => RootPage(DialogPaths.selectAutoSyncDuration, AutoSyncNoticeDialog(autoSyncNoticeSeconds)),
           );
-          if (seconds == null || !context.mounted) {
-            return;
-          }
+          if (seconds == null || !context.mounted) return;
           if (seconds > 0) {
             context.read<AutoNotificationCubit>().start(Duration(seconds: seconds));
-            // Boot only asks when auto sync was already on; ask now so the push is not silently dropped (#13).
             unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
           } else {
             context.read<AutoNotificationCubit>().stop();
           }
-          // Written through the repository so the value is stored before the background service reads it (#80);
-          // the settings bloc follows the repository's stream.
           await getIt.get<SettingsRepository>().setValue(SettingsKeys.autoSyncNoticeSeconds, seconds);
           if (isAndroid && context.mounted) {
             await _applyBackgroundSyncSettings(context);
@@ -517,7 +385,6 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       ),
       if (isAndroid) const AndroidPermissionTiles(),
       if (isAndroid)
-        // Background message service (#80): follows the auto sync interval above.
         SectionSwitchListTile(
           secondary: const Icon(Icons.cloud_sync_outlined),
           title: Text(tr.backgroundMessageService.title),
@@ -544,8 +411,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           ],
         ),
         value: enableBBCodeParser,
-        onChanged: (v) async =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableEditorBBCodeParser, v)),
+        onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableEditorBBCodeParser, v)),
       ),
       SectionListTile(
         leading: const Icon(Icons.star_rate_outlined),
@@ -565,12 +431,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         subtitle: Text(context.t.settingsPage.behaviorSection.threadFloorInteractionMode.detail),
         onTap: () async {
           final result = await showSelectThreadFloorInteractionMode(context, threadFloorInteractionMode);
-          if (result == null) {
-            return;
-          }
-          if (!context.mounted) {
-            return;
-          }
+          if (result == null) return;
+          if (!context.mounted) return;
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadFloorInteractionMode, result));
         },
       ),
@@ -593,48 +455,31 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   List<Widget> _buildCheckinSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.checkinSection;
-
     final checkinFeeling = state.settingsMap.checkinFeeling;
     final checkinMessage = state.settingsMap.checkinMessage;
     final autoCheckin = state.settingsMap.autoCheckin;
 
     return [
       SectionTitleText(tr.title),
-      // Feeling
       SectionListTile(
         leading: const Icon(Icons.emoji_emotions_outlined),
         title: Text(tr.feeling),
         subtitle: Text(CheckinFeeling.from(checkinFeeling).translate(context)),
         onTap: () async {
           final result = await _showSetCheckinFeelingDialog(context, checkinFeeling);
-          if (result == null) {
-            return;
-          }
-          if (!context.mounted) {
-            return;
-          }
-          context.read<SettingsBloc>().add(
-            SettingsValueChanged(
-              SettingsKeys.checkinFeeling,
-              result,
-              // CheckinFeeling.from(result),
-            ),
-          );
+          if (result == null) return;
+          if (!context.mounted) return;
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.checkinFeeling, result));
         },
       ),
-      // Message
       SectionListTile(
         leading: const Icon(Icons.textsms_outlined),
         title: Text(tr.anythingToSay),
         subtitle: Text(checkinMessage),
         onTap: () async {
           final result = await _showSetCheckinMessageDialog(context, checkinMessage);
-          if (result == null) {
-            return;
-          }
-          if (!context.mounted) {
-            return;
-          }
+          if (result == null) return;
+          if (!context.mounted) return;
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.checkinMessage, result));
         },
       ),
@@ -658,22 +503,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     }
 
     return [
-      // Cache.
       SectionTitleText(tr.title),
       SectionListTile(
         leading: const Icon(Icons.cleaning_services_outlined),
         title: Text(tr.clearCache),
-        onTap: () async {
-          await showClearCacheBottomSheet(context: context);
-        },
+        onTap: () async => showClearCacheBottomSheet(context: context),
       ),
       SectionSwitchListTile(
         secondary: const Icon(Icons.image_not_supported_outlined),
         title: Text(tr.scheduledCleaning.title),
         subtitle: Text(tr.scheduledCleaning.details),
         value: enableAutoClearImageCache,
-        onChanged: (v) =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableAutoClearImageCache, v)),
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableAutoClearImageCache, v)),
       ),
       SectionListTile(
         enabled: enableAutoClearImageCache,
@@ -683,14 +524,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         onTap: () async {
           final seconds = await showDialog<int>(
             context: context,
-            builder: (_) => RootPage(
-              DialogPaths.autoClearImageCacheDuration,
-              AutoClearImageCacheDurationDialog(autoClearImageDurationSec),
-            ),
+            builder: (_) => RootPage(DialogPaths.autoClearImageCacheDuration, AutoClearImageCacheDurationDialog(autoClearImageDurationSec)),
           );
-          if (seconds == null || !context.mounted) {
-            return;
-          }
+          if (seconds == null || !context.mounted) return;
           context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoClearImageCacheDuration, seconds));
         },
       ),
@@ -708,10 +544,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       host = parts.elementAtOrNull(0);
       port = parts.elementAtOrNull(1);
     }
-
-    // On these platforms, uses native http client for now and the proxy settings are not configurable.
     final proxyAutomated = isAndroid || isMacOS || isIOS;
-
     final tr = context.t.settingsPage.advancedSection;
 
     return [
@@ -720,12 +553,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         SectionListTile(
           leading: const Icon(Icons.developer_mode_outlined),
           title: const Text('DEBUG SHOWCASE'),
-          onTap: () async {
-            await Navigator.push(context, MaterialPageRoute<void>(builder: (context) => const DebugShowcasePage()));
-          },
+          onTap: () async => Navigator.push(context, MaterialPageRoute<void>(builder: (context) => const DebugShowcasePage())),
         ),
-
-      // Proxy settings, enable or disable.
       if (proxyAutomated)
         SectionListTile(
           leading: Icon(MdiIcons.networkOutline),
@@ -743,19 +572,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             showSnackBar(context: context, message: context.t.general.affectAfterRestart);
           },
         ),
-
       if (!proxyAutomated)
         SectionSwitchListTile(
           secondary: const Icon(Symbols.network_manage),
           title: Text(tr.proxySettings.useDetectProxy.title),
           subtitle: Text(tr.proxySettings.useDetectProxy.detail),
           value: useDetectedProxy,
-          onChanged: netClientUseProxy && !proxyAutomated
-              ? (v) async =>
-                    context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.useDetectedProxyWhenStartup, v))
-              : null,
+          onChanged: netClientUseProxy && !proxyAutomated ? (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.useDetectedProxyWhenStartup, v)) : null,
         ),
-
       if (!proxyAutomated)
         SectionListTile(
           enabled: netClientUseProxy && !useDetectedProxy && !proxyAutomated,
@@ -767,56 +591,33 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             barrierDismissible: false,
           ),
         ),
-
-      // Export data.
       SectionListTile(
         leading: const Icon(Icons.download_outlined),
         title: Text(tr.exportData),
         subtitle: Text(tr.exportDataDetail),
         onTap: () async {
           final choice = await showExportBackupDialog(context);
-          if (choice == null || !context.mounted) {
-            return;
-          }
-          // Never the raw database file: cookies, passwords and the logged in account are removed from the copy; with
-          // a password they travel inside it encrypted instead.
-          final data = await const BackupRepository().exportSanitized(
-            await databaseFile,
-            secretsPassword: choice.password,
-          );
+          if (choice == null || !context.mounted) return;
+          final data = await const BackupRepository().exportSanitized(await databaseFile, secretsPassword: choice.password);
           final stamp = DateTime.now().microsecondsSinceEpoch;
           final name = choice.password == null ? 'tsdm_client_data_$stamp.db' : 'tsdm_client_data_${stamp}_accounts.db';
-
           if (isDesktop) {
-            // On desktop platforms, `saveFiles` only return the selected path.
             final filePath = await FilePicker.platform.saveFile(dialogTitle: tr.exportData, fileName: name);
-            if (filePath == null) {
-              return;
-            }
-
+            if (filePath == null) return;
             await File(filePath).writeAsBytes(data, flush: true);
           } else {
-            // Mobile in one step.
             await FilePicker.platform.saveFile(dialogTitle: tr.exportData, fileName: name, bytes: data);
           }
         },
       ),
-
-      // Import data.
       SectionListTile(
         leading: const Icon(Icons.upload_outlined),
         title: Text(tr.importData.title),
         onTap: () async {
           final ok = await showQuestionDialog(context: context, title: tr.importData.title, message: tr.importData.tip);
-          if (ok != true || !context.mounted) {
-            return;
-          }
-
+          if (ok != true || !context.mounted) return;
           final files = await FilePicker.platform.pickFiles(dialogTitle: tr.importData.title);
-          if (files == null || !context.mounted) {
-            return;
-          }
-
+          if (files == null || !context.mounted) return;
           final file = files.files.firstOrNull;
           if (file == null || file.path == null) {
             showSnackBar(context: context, message: tr.importData.invalidData);
@@ -828,54 +629,29 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ];
   }
 
-  /// Import [source] as the app database: check it first, replace with a fallback copy, then restart the app.
   Future<void> _importBackup(BuildContext context, File source) async {
     final tr = context.t.settingsPage.advancedSection.importData;
     const repository = BackupRepository();
     final schemaVersion = getIt.get<AppDatabase>().schemaVersion;
-
-    // An invalid file never touches the current data.
     final check = await repository.validate(source, currentSchemaVersion: schemaVersion);
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
     if (!check.ok) {
-      await showMessageSingleButtonDialog(
-        context: context,
-        title: tr.title,
-        message: tr.invalidDetail(reason: _backupProblemText(context, check)),
-      );
+      await showMessageSingleButtonDialog(context: context, title: tr.title, message: tr.invalidDetail(reason: _backupProblemText(context, check)));
       return;
     }
-
-    // Account logins travel encrypted; unlock them before anything is touched, so a wrong password changes nothing.
     BackupSecretsPayload? secrets;
     if (await repository.containsSecrets(source)) {
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       secrets = await _unlockSecrets(context, repository, source);
     }
-    if (!context.mounted) {
-      return;
-    }
-
+    if (!context.mounted) return;
     final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.tip);
-    if (ok != true || !context.mounted) {
-      return;
-    }
-
+    if (ok != true || !context.mounted) return;
     BackupValidation? invalid;
     BackupReplaceException? replaceFailure;
     try {
-      // Close the connection so the file can be swapped underneath.
       await getIt.get<StorageProvider>().dispose();
-      await repository.replaceDatabase(
-        target: await databaseFile,
-        source: source,
-        currentSchemaVersion: schemaVersion,
-        secrets: secrets,
-      );
+      await repository.replaceDatabase(target: await databaseFile, source: source, currentSchemaVersion: schemaVersion, secrets: secrets);
     } on BackupInvalidException catch (e) {
       invalid = e.validation;
     } on BackupReplaceException catch (e) {
@@ -892,29 +668,21 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       }
       await showMessageSingleButtonDialog(context: context, title: tr.title, message: message);
     }
-    // The database connection is closed either way; restart the app.
     await exitApp();
   }
 
-  /// Ask for the backup password until the account logins unlock or the user skips them.
   Future<BackupSecretsPayload?> _unlockSecrets(BuildContext context, BackupRepository repository, File source) async {
     final tr = context.t.settingsPage.advancedSection.importData.unlock;
     var wrongPassword = false;
     while (true) {
-      if (!context.mounted) {
-        return null;
-      }
+      if (!context.mounted) return null;
       final password = await showUnlockBackupDialog(context, wrongPassword: wrongPassword);
-      if (password == null) {
-        return null;
-      }
+      if (password == null) return null;
       try {
         return await repository.unlockSecrets(source, password: password);
       } on BackupSecretsPasswordException catch (e) {
         if (e.unsupported) {
-          if (context.mounted) {
-            showSnackBar(context: context, message: tr.unsupported);
-          }
+          if (context.mounted) showSnackBar(context: context, message: tr.unsupported);
           return null;
         }
         wrongPassword = true;
@@ -937,7 +705,6 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   List<Widget> _buildDebugSection(BuildContext context, SettingsState state) {
     final enableDebugOperations = state.settingsMap.enableDebugOperations;
-
     final tr = context.t.settingsPage.debugSection;
     return [
       SectionTitleText(tr.title),
@@ -949,62 +716,38 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             title: Text(tr.enableDebugOperations.title),
             subtitle: Text(tr.enableDebugOperations.detail),
             value: enableDebugOperations,
-            onChanged: (v) {
-              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableDebugOperations, v));
-            },
+            onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableDebugOperations, v)),
           ),
           SectionListTile(title: Text(tr.viewLog.title), onTap: () async => context.pushNamed(ScreenPaths.debugLog)),
           SectionListTile(
             title: Text(tr.exportLog.title),
             subtitle: _logExportPath == null ? null : Text(tr.exportLog.detail(path: _logExportPath!)),
             onTap: () async {
-              // Entries are redacted when logged; redact the export once more so it never carries a secret.
               final logData = talker.history.map((e) => redactSensitive(e.generateTextMessage())).join('\n');
-
-              final outputFile = await FilePicker.platform.saveFile(
-                fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt',
-                bytes: utf8.encode(logData),
-              );
+              final outputFile = await FilePicker.platform.saveFile(fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt', bytes: utf8.encode(logData));
               if (outputFile == null) {
-                setState(() {
-                  _logExportPath = null;
-                });
+                setState(() => _logExportPath = null);
               } else {
-                setState(() {
-                  _logExportPath = outputFile;
-                });
+                setState(() => _logExportPath = outputFile);
               }
             },
           ),
-          // View historical logs.
-          SectionListTile(
-            title: Text(tr.viewHistoryLog.title),
-            onTap: () async => context.pushNamed(ScreenPaths.debugHistoricalLog),
-          ),
+          SectionListTile(title: Text(tr.viewHistoryLog.title), onTap: () async => context.pushNamed(ScreenPaths.debugHistoricalLog)),
           SectionListTile(
             title: Text(tr.copyDatabaseDir),
             onTap: () async {
               final path = (await databaseFile).parent.path;
-              if (!context.mounted) {
-                return;
-              }
+              if (!context.mounted) return;
               await copyToClipboard(context, path);
             },
           ),
-          // Separates "the OS suppresses the push" from "nothing new was fetched" (#13).
           if (isAndroid)
             SectionListTile(
               title: Text(tr.testNotification.title),
               subtitle: Text(tr.testNotification.detail),
               onTap: () async => showLocalNotification(
                 context,
-                NotificationAutoSyncInfoNotice(
-                  msg: tr.testNotification.title,
-                  notice: 1,
-                  personalMessage: 0,
-                  broadcastMessage: 0,
-                  timestamp: DateTime.now().millisecondsSinceEpoch,
-                ),
+                NotificationAutoSyncInfoNotice(msg: tr.testNotification.title, notice: 1, personalMessage: 0, broadcastMessage: 0, timestamp: DateTime.now().millisecondsSinceEpoch),
               ),
             ),
         ],
@@ -1015,39 +758,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   List<Widget> _buildOtherSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.othersSection;
     final enableUpdateCheckOnStartup = state.settingsMap.enableUpdateCheckOnStartup;
-
     return [
       SectionTitleText(tr.title),
-      // About
-      SectionListTile(
-        leading: const Icon(Icons.info_outline),
-        title: Text(tr.about),
-        onTap: () async {
-          await context.pushNamed(ScreenPaths.about);
-        },
-      ),
-
+      SectionListTile(leading: const Icon(Icons.info_outline), title: Text(tr.about), onTap: () async => context.pushNamed(ScreenPaths.about)),
       SectionSwitchListTile(
         secondary: const Icon(Icons.cloud_done_outlined),
         title: Text(tr.updateCheckOnStartup),
         value: enableUpdateCheckOnStartup,
-        onChanged: (v) =>
-            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableUpdateCheckOnStartup, v)),
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableUpdateCheckOnStartup, v)),
       ),
-
-      /// Update
-      SectionListTile(
-        leading: const Icon(Icons.new_releases_outlined),
-        title: Text(tr.update),
-        onTap: () async => context.pushNamed(ScreenPaths.update),
-      ),
-
-      /// Changelog till publish.
-      SectionListTile(
-        leading: const Icon(Icons.history_outlined),
-        title: Text(tr.changelog),
-        onTap: () async => context.pushNamed(ScreenPaths.localChangelog),
-      ),
+      SectionListTile(leading: const Icon(Icons.new_releases_outlined), title: Text(tr.update), onTap: () async => context.pushNamed(ScreenPaths.update)),
+      SectionListTile(leading: const Icon(Icons.history_outlined), title: Text(tr.changelog), onTap: () async => context.pushNamed(ScreenPaths.localChangelog)),
     ];
   }
 
@@ -1056,12 +777,20 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
+
+    // 新增：监听返回顶部事件
+    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
+      if (event.tabIndex == 2 && mounted && scrollController.hasClients && scrollController.offset > 0) {
+        unawaited(scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_permissionCubit.close());
+    unawaited(_scrollToTopSub.cancel()); // 新增
     scrollController.dispose();
     super.dispose();
   }
