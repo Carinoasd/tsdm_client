@@ -81,6 +81,14 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     final forumGroupList = state.forumGroupList;
     _syncTabController(context, forumGroupList);
 
+    // 先清理掉已经不在当前分组列表里的 ScrollController（如切换账号、收藏变化导致分组消失）
+    final currentGroupNames = forumGroupList.map((e) => e.name).toSet();
+    final keysToRemove = _tabScrollControllers.keys.where((key) => !currentGroupNames.contains(key)).toList();
+    for (final key in keysToRemove) {
+      _tabScrollControllers[key]?.dispose();
+      _tabScrollControllers.remove(key);
+    }
+
     final groupTabBodyList = forumGroupList.map((e) {
       _tabScrollControllers.putIfAbsent(e.name, ScrollController.new);
 
