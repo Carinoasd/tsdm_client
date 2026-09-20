@@ -43,9 +43,8 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     if (tabController == null) {
       return;
     }
-    final fragments = RepositoryProvider.of<FragmentsRepository>(context);
-    // 使用级联操作符，解决 cascade_invocations 警告
-    fragments..topicsPageTabIndex = tabController!.index;
+    // 直接连写，不用中间变量，不用级联，消除两个 lint 警告
+    RepositoryProvider.of<FragmentsRepository>(context).topicsPageTabIndex = tabController!.index;
   }
 
   void _syncTabController(BuildContext context, List<ForumGroup> groups) {
@@ -64,7 +63,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
 
     final existingController = tabController;
     if (existingController != null) {
-      // 使用级联操作符，解决 cascade_invocations 警告
       existingController
         ..removeListener(_updateIndexListener!)
         ..dispose();
@@ -128,7 +126,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   void dispose() {
     final existingController = tabController;
     if (existingController != null) {
-      // 使用级联操作符，解决 cascade_invocations 警告
       existingController
         ..removeListener(_updateIndexListener ?? () {})
         ..dispose();
