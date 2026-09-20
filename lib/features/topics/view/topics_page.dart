@@ -1,3 +1,5 @@
+import 'dart:async'; // 新增
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +8,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart'; // 新增
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/features/topics/widgets/group_moderators_row.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -25,9 +28,6 @@ class TopicsPage extends StatefulWidget {
   /// Constructor.
   const TopicsPage({super.key});
 
-  // /// Group of forums.
-  // final List<ForumGroup> forumGroupList;
-
   @override
   State<TopicsPage> createState() => _TopicsPageState();
 }
@@ -45,6 +45,11 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   bool _hadFavorites = false;
 
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
+
+  // 新增：按分组名称维护 ScrollController（防止 Tab 索引错位）
+  final Map<String, ScrollController> _tabScrollControllers = {};
+  // 新增：事件监听订阅
+  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub;
 
   /// Make sure [tabController] exists and has exactly one tab per entry of [groups].
   ///
@@ -86,9 +91,13 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     _syncTabController(context, forumGroupList);
 
     final groupTabBodyList = forumGroupList.map((e) {
+      // 新增：为每个分组绑定独立的 ScrollController
+      _tabScrollControllers.putIfAbsent(e.name, () => ScrollController());
+
       // The site's moderator line comes first in the list, then one card per forum (#22).
       final head = e.moderators.isEmpty ? 0 : 1;
       return ListView.separated(
+        controller: _tabScrollControllers[e.name], // 新增：绑定 controller
         padding: edgeInsetsL12T4R12,
         itemCount: e.forumList.length + head,
         itemBuilder: (context, index) => head == 1 && index == 0
@@ -114,6 +123,25 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // 新增：监听返回顶部事件
+    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
+      if (event.tabIndex == 1 && tabController != null && mounted) {
+        final currentIndex = tabController!.index;
+        final groups = context.read<TopicsBloc>().state.forumGroupList;
+        if (currentIndex < groups.length) {
+          final groupName = groups[currentIndex].name;
+          final controller = _tabScrollControllers[groupName];
+          if (controller != null && controller.hasClients && controller.offset > 0) {
+            controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        }
+      }
+    });
+  }
+
+  @override
   void dispose() {
     if (tabController != null) {
       tabController!
@@ -121,6 +149,10 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
         ..dispose();
     }
     _refreshController.dispose();
+    _scrollToTopSub.cancel(); // 新增
+    for (final controller in _tabScrollControllers.values) {
+      controller.dispose(); // 新增：必须销毁
+    }
     super.dispose();
   }
 
