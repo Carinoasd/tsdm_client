@@ -1,120 +1,1117 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:go_router/go_router.dart';
-import 'package:tsdm_client/constants/constants.dart';
-import 'package:tsdm_client/constants/layout.dart';
-import 'package:tsdm_client/constants/url.dart';
-import 'package:tsdm_client/extensions/build_context.dart';
-import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
-import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/utils/clipboard.dart';
-import 'package:tsdm_client/utils/git_info.dart';
-import 'package:tsdm_client/widgets/section_list_tile.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
-/// Page to show the about information.
-class AboutPage extends StatelessWidget {
+import 'package:collection/collection.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
+import 'package:system_theme/system_theme.dart';
+import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/extensions/duration.dart';
+import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
+import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
+import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
+import 'package:tsdm_client/features/root/view/root_page.dart';
+import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/settings/view/debug_showcase_page.dart';
+import 'package:tsdm_client/features/settings/widgets/android_permission_tiles.dart';
+import 'package:tsdm_client/features/settings/widgets/auto_clear_image_cache_duration_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/auto_sync_notice_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/backup_secrets_dialogs.dart';
+import 'package:tsdm_client/features/settings/widgets/check_in_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/clear_cache_bottom_sheet.dart';
+import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/font_family_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
+import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
+import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/utils/show_bottom_sheet.dart';
+import 'package:tsdm_client/utils/show_dialog.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/window_configs.dart';
+import 'package:tsdm_client/widgets/color_palette.dart';
+import 'package:tsdm_client/widgets/section_list_tile.dart';
+import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
+import 'package:tsdm_client/widgets/section_title_text.dart';
+import 'package:tsdm_client/widgets/shutdown.dart';
+import 'package:tsdm_client/widgets/tips.dart';
+
+/// Settings page of the app.
+class SettingsPage extends StatefulWidget {
   /// Constructor.
-  const AboutPage({super.key});
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
+  final scrollController = ScrollController();
+  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub; // 新增
+
+  /// Android permission statuses shown in the behavior section; refreshed when the app comes back to the foreground
+  /// so the rows update after the user returns from the system dialogs or the app settings page.
+  final _permissionCubit = AndroidPermissionCubit();
+
+  /// Starts, stops or nudges the Android background message service after a settings change (#80).
+  /// Tip of log export path.
+  String? _logExportPath;
+
+  /// Show a dialog to let user select locale.
+  ///
+  /// * Return null if user canceled the selection.
+  /// * Return (null, true) if user chose to use system locale.
+  /// * Return (locale, false) if user chose to use specified locale.
+  Future<(AppLocale?, bool)?> selectLanguageDialog(BuildContext context, String currentLocale) async {
+    return showDialog<(AppLocale?, bool)>(
+      context: context,
+      builder: (context) => RootPage(DialogPaths.selectLanguage, LanguageDialog(currentLocale)),
+    );
+  }
+
+  /// Show a dialog to let user select accent color.
+  ///
+  /// * Return null if user canceled the selection.
+  /// * Return (null, true) if user chose to use default color.
+  /// * Return (color, false) if user chose to use specified color.
+  Future<(Color?, bool)?> _showAccentColorPickerDialog(BuildContext context) async {
+    final colorValue = getIt.get<SettingsRepository>().currentSettings.accentColor;
+    if (!context.mounted) {
+      return null;
+    }
+    return showCustomBottomSheet<(Color?, bool)>(
+      title: context.t.colorPickerDialog.title,
+      context: context,
+      builder: (context) =>
+          RootPage(DialogPaths.colorPicker, ColorPickerDialog(currentColorValue: colorValue, blocContext: context)),
+      bottomBar: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            child: Text(context.t.general.reset),
+            onPressed: () async {
+              context.pop((null, true));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildAccountSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.accountSection;
+    return [
+      SectionTitleText(tr.title),
+      SectionListTile(
+        leading: const Icon(Icons.account_circle_outlined),
+        title: Text(tr.mgmt),
+        onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
+      ),
+    ];
+  }
+
+  List<Widget> _buildAppearanceSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.appearanceSection;
+    // Locale.
+    final settingsLocale = state.settingsMap.locale;
+    final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
+    final localeName = locale == null ? tr.languages.followSystem : context.t.locale;
+
+    // Theme mode.
+    final themeModeIndex = state.settingsMap.themeMode;
+
+    // ForumCard shortcut;
+    final showForumCardShortcut = state.settingsMap.showShortcutInForumCard;
+
+    // Accent color.
+    final accentColor = state.settingsMap.accentColor;
+    final accentColorFollowSystem = state.settingsMap.accentColorFollowSystem;
+
+    // Show badge or unread info count on logged user's unread messages;
+    final showUnreadInfoHint = state.settingsMap.showUnreadInfoHint;
+
+    // Unread message on state.
+    final showUnreadNoticeBadge = state.settingsMap.showUnreadNoticeBadge;
+    final showUnreadPersonalMessageBadge = state.settingsMap.showUnreadPersonalMessageBadge;
+    final showUnreadBroadcastMessageBadge = state.settingsMap.showUnreadBroadcastMessageBadge;
+
+    /// App wide font family
+    final fontFamily = state.settingsMap.fontFamily;
+
+    // App wide text scale factor.
+    final textScaleFactor = state.settingsMap.textScaleFactor;
+
+    return [
+      SectionTitleText(tr.title),
+      // Theme mode
+      SectionListTile(
+        leading: const Icon(Icons.contrast_outlined),
+        title: Text(tr.themeMode.title),
+        subtitle: Text(<String>[tr.themeMode.system, tr.themeMode.light, tr.themeMode.dark][themeModeIndex]),
+        trailing: ToggleButtons(
+          isSelected: [
+            themeModeIndex == ThemeMode.light.index,
+            themeModeIndex == ThemeMode.system.index,
+            themeModeIndex == ThemeMode.dark.index,
+          ],
+          children: const [
+            Icon(Icons.light_mode_outlined),
+            Icon(Icons.auto_mode_outlined),
+            Icon(Icons.dark_mode_outlined),
+          ],
+          onPressed: (index) async {
+            // Default: ThemeData.system.
+            var themeIndex = 0;
+            switch (index) {
+              case 0:
+                // Default: ThemeData.light.
+                themeIndex = 1;
+              case 1:
+                // Default: ThemeData.system.
+                themeIndex = 0;
+              case 2:
+                // Default: ThemeData.dark.
+                themeIndex = 2;
+            }
+            // Effect immediately.
+            context.read<ThemeCubit>().setThemeModeIndex(themeIndex);
+            // Save to settings.
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.themeMode, themeIndex));
+          },
+        ),
+      ),
+      // Language
+      SectionListTile(
+        leading: const Icon(Icons.translate_outlined),
+        title: Text(tr.languages.title),
+        subtitle: Text(localeName),
+        onTap: () async {
+          final localeGroup = await selectLanguageDialog(context, locale?.languageTag ?? '');
+          if (localeGroup == null) {
+            return;
+          }
+
+          // 明确指定语言 或 跟随系统
+          if (localeGroup.$2) {
+            // Use system language.
+            await LocaleSettings.useDeviceLocale();
+            await desktopUpdateWindowTitle();
+            if (!context.mounted) {
+              return;
+            }
+            // 【修改点1】直接调用 Repository 并 await，确保数据已保存
+            await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, '');
+          } else {
+            await LocaleSettings.setLocale(localeGroup.$1!);
+            await desktopUpdateWindowTitle();
+            if (!context.mounted) {
+              return;
+            }
+            // 【修改点2】直接调用 Repository 并 await，确保数据已保存
+            await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, localeGroup.$1!.languageTag);
+          }
+
+          // 【修改点3】确认数据已落盘后，再通知后台服务读取新语言
+          if (isAndroid && context.mounted) {
+            unawaited(getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>()));
+          }
+        },
+      ),
+
+      /// Shortcut in forum card.
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.shortcut_outlined),
+        title: Text(tr.showShortcutInForumCard.title),
+        subtitle: Text(tr.showShortcutInForumCard.detail),
+        value: showForumCardShortcut,
+        onChanged: (v) async {
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v));
+        },
+      ),
+
+      // Accent color follow system
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.border_color_outlined),
+        title: Text(tr.colorSchemeFollowSystem.title),
+        subtitle: Text(tr.colorSchemeFollowSystem.detail),
+        value: accentColorFollowSystem,
+        onChanged: (v) async {
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.accentColorFollowSystem, v));
+          if (v) {
+            // Switched to system color.
+            await SystemTheme.accentColor.load();
+            if (!context.mounted) {
+              return;
+            }
+            final systemColor = SystemTheme.accentColor.accent;
+            // Effect immediately, system color.
+            context.read<ThemeCubit>().setAccentColor(systemColor);
+          } else {
+            // Switched to user specified color.
+            context.read<ThemeCubit>().setAccentColor(
+              Color(accentColor >= 0 ? accentColor : SettingsKeys.accentColor.defaultValue),
+            );
+          }
+        },
+      ),
+
+      // Accent color
+      SectionListTile(
+        enabled: !accentColorFollowSystem,
+        leading: const Icon(Icons.color_lens_outlined),
+        title: Text(tr.colorScheme.title),
+        subtitle: accentColorFollowSystem ? Text(tr.colorScheme.overrideWithSystem) : null,
+        trailing: accentColor < 0 || accentColorFollowSystem ? null : ColorPalette(color: Color(accentColor)),
+        onTap: () async {
+          final color = await _showAccentColorPickerDialog(context);
+          if (color == null) {
+            return;
+          }
+          if (!context.mounted) {
+            return;
+          }
+          if (color.$2) {
+            // Effect immediately.
+            context.read<ThemeCubit>().setAccentColor(Color(SettingsKeys.accentColor.defaultValue));
+            // Set to -1 ( < 0) will clear accent color.
+            context.read<SettingsBloc>().add(
+              SettingsValueChanged(SettingsKeys.accentColor, SettingsKeys.accentColor.defaultValue),
+            );
+            return;
+          }
+          context.read<ThemeCubit>().setAccentColor(color.$1!);
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.accentColor, color.$1!.valueA));
+        },
+      ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.notifications_outlined),
+        title: Text(tr.showUnreadInfoHint.title),
+        subtitle: Text(tr.showUnreadInfoHint.detail),
+        value: showUnreadInfoHint,
+        onChanged: (v) async {
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadInfoHint, v));
+        },
+      ),
+
+      // Unread notice badge.
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.notifications_paused_outlined),
+        title: Text(tr.unreadNoticeBadge),
+        value: showUnreadNoticeBadge,
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadNoticeBadge, v)),
+      ),
+
+      // Unread personal message badge.
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.notifications_active_outlined),
+        title: Text(tr.unreadPersonalMessageBadge),
+        value: showUnreadPersonalMessageBadge,
+        onChanged: (v) =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadPersonalMessageBadge, v)),
+      ),
+
+      // Unread broadcast message badge.
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.notification_important_outlined),
+        title: Text(tr.unreadBroadcastMessageBadge),
+        value: showUnreadBroadcastMessageBadge,
+        onChanged: (v) =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showUnreadBroadcastMessageBadge, v)),
+      ),
+
+      Padding(padding: edgeInsetsT4B4, child: Tips(tr.unreadBadgeLimitation)),
+
+      SectionListTile(
+        leading: const Icon(Icons.article_outlined),
+        title: Text(tr.threadCard.title),
+        subtitle: Text(tr.threadCard.detail),
+        onTap: () => context.pushNamed(ScreenPaths.settingsThreadAppearance.path),
+        // onTap: () async => showCustomBottomSheet(
+        //   context: context,
+        //   title: tr.title,
+        //   builder: (context) => const ThreadCardDialog(),
+        //   constraints: const BoxConstraints(maxHeight: 400),
+        // ),
+      ),
+
+      /// Font family
+      SectionListTile(
+        leading: const Icon(Icons.font_download_outlined),
+        title: Text(tr.fontFamily.title),
+        subtitle: fontFamily.isEmpty ? null : Text(fontFamily),
+        onTap: () async {
+          final selectedFont = await showDialog<String>(
+            context: context,
+            builder: (_) => RootPage(DialogPaths.fontPicker, FontFamilyDialog(fontFamily)),
+          );
+          if (selectedFont == null || !context.mounted) {
+            return;
+          }
+
+          context.read<ThemeCubit>().setFontFamily(selectedFont);
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.fontFamily, selectedFont));
+        },
+      ),
+
+      /// Text scale factor.
+      SectionListTile(
+        leading: const Icon(Icons.text_increase_outlined),
+        title: Text(tr.textScaleFactor.title),
+        onTap: () async {
+          final selectedScale = await showDialog<double>(
+            context: context,
+            builder: (_) => RootPage(DialogPaths.textScalePicker, TextScaleDialog(textScaleFactor)),
+          );
+          if (!context.mounted || selectedScale == null) {
+            return;
+          }
+
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.textScaleFactor, selectedScale));
+        },
+      ),
+    ];
+  }
+
+  /// App window related settings.
+  ///
+  /// Only available on desktop platforms.
+  List<Widget> _buildWindowSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.windowSection;
+    final windowRememberSize = state.settingsMap.windowRememberSize;
+    final windowRememberPosition = state.settingsMap.windowRememberPosition;
+    final windowInCenter = state.settingsMap.windowInCenter;
+
+    return [
+      SectionTitleText(tr.title),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.settings_overscan_outlined),
+        title: Text(tr.windowRememberSize.title),
+        subtitle: Text(tr.windowRememberSize.detail),
+        value: windowRememberSize,
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowRememberSize, v)),
+      ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.open_with_outlined),
+        title: Text(tr.windowRememberPosition.title),
+        subtitle: Text(tr.windowRememberPosition.detail),
+        value: windowRememberPosition,
+        onChanged: (v) =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowRememberPosition, v)),
+      ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.filter_center_focus_outlined),
+        title: Text(tr.windowInCenter.title),
+        subtitle: Text(tr.windowInCenter.detail),
+        value: windowInCenter,
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowInCenter, v)),
+      ),
+      Tips(tr.disableHint),
+    ];
+  }
+
+  /// Bring the Android background message service in line with the settings just written (#80).
+  ///
+  /// Called after the switch or the auto sync interval changed: the service runs only when both allow it, and it
+  /// stops itself otherwise, so restoring an interval after "never" has to start it again from here. When it should
+  /// run but could not be started (or a plugin call threw) the switch is rolled back so the page never shows a
+  /// service that is not there.
+  Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
+    // The app-wide controller: a page opened again while an earlier page's stop is still in flight must queue
+    // behind it, and only the latest change reports (an older one must not roll the switch back).
+    final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
+    if (result != BackgroundSyncApplyResult.failed || !context.mounted) {
+      return;
+    }
+    showSnackBar(context: context, message: context.t.backgroundService.startFailed);
+  }
+
+  /// Turn the Android background message service on or off (#80).
+  ///
+  /// The setting is stored first: the service reads it when it starts and stops itself when it is off.
+  Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
+    await getIt.get<SettingsRepository>().setValue(SettingsKeys.enableBackgroundMessageService, enable);
+    if (enable) {
+      // The pushes need the permission as much as the in-app auto sync does (#13).
+      unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await _applyBackgroundSyncSettings(context);
+  }
+
+  List<Widget> _buildBehaviorSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.behaviorSection;
+    final threadReverseOrder = state.settingsMap.threadReverseOrder;
+    // Duration in seconds.
+    final autoSyncNoticeSeconds = state.settingsMap.autoSyncNoticeSeconds;
+    Duration? autoSyncNoticeDuration;
+    if (autoSyncNoticeSeconds > 0) {
+      autoSyncNoticeDuration = Duration(seconds: autoSyncNoticeSeconds);
+    }
+    final enableBBCodeParser = state.settingsMap.enableEditorBBCodeParser;
+    final threadFloorInteractionMode = state.settingsMap.threadFloorInteractionMode;
+
+    return [
+      SectionTitleText(tr.title),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.align_vertical_top_outlined),
+        title: Text(tr.threadReverseOrder.title),
+        subtitle: Text(tr.threadReverseOrder.detail),
+        value: threadReverseOrder,
+        onChanged: (v) async =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadReverseOrder, v)),
+      ),
+      SectionListTile(
+        leading: const Icon(Icons.sync_outlined),
+        title: Text(tr.autoSyncNotice.title),
+        subtitle: Text(tr.autoSyncNotice.detail),
+        trailing: Text(
+          autoSyncNoticeDuration?.readable(context) ?? context.t.general.never,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.secondary),
+        ),
+        onTap: () async {
+          final seconds = await showDialog<int>(
+            context: context,
+            builder: (_) => RootPage(DialogPaths.selectAutoSyncDuration, AutoSyncNoticeDialog(autoSyncNoticeSeconds)),
+          );
+          if (seconds == null || !context.mounted) {
+            return;
+          }
+          if (seconds > 0) {
+            context.read<AutoNotificationCubit>().start(Duration(seconds: seconds));
+            // Boot only asks when auto sync was already on; ask now so the push is not silently dropped (#13).
+            unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+          } else {
+            context.read<AutoNotificationCubit>().stop();
+          }
+          // Written through the repository so the value is stored before the background service reads it (#80);
+          // the settings bloc follows the repository's stream.
+          await getIt.get<SettingsRepository>().setValue(SettingsKeys.autoSyncNoticeSeconds, seconds);
+          if (isAndroid && context.mounted) {
+            await _applyBackgroundSyncSettings(context);
+          }
+        },
+      ),
+      if (isAndroid) const AndroidPermissionTiles(),
+      if (isAndroid)
+        // Background message service (#80): follows the auto sync interval above.
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.cloud_sync_outlined),
+          title: Text(tr.backgroundMessageService.title),
+          subtitle: Text(tr.backgroundMessageService.detail),
+          value: state.settingsMap.enableBackgroundMessageService,
+          onChanged: (v) async => _toggleBackgroundSync(context, enable: v),
+        ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.code_outlined),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Expanded(child: Text(tr.editorBBCodeParser.title)),
+            sizedBoxW8H8,
+            IconButton(
+              icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.secondary),
+              tooltip: tr.editorBBCodeParser.tip.title,
+              onPressed: () async => showMessageSingleButtonDialog(
+                context: context,
+                title: tr.editorBBCodeParser.tip.title,
+                message: tr.editorBBCodeParser.tip.detail,
+              ),
+            ),
+          ],
+        ),
+        value: enableBBCodeParser,
+        onChanged: (v) async =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableEditorBBCodeParser, v)),
+      ),
+      SectionListTile(
+        leading: const Icon(Icons.star_rate_outlined),
+        title: Text(context.t.fastRateTemplate.title),
+        subtitle: Text(context.t.fastRateTemplate.details),
+        onTap: () async => context.pushNamed(ScreenPaths.fastRateTemplate, pathParameters: {'pick': 'false'}),
+      ),
+      SectionListTile(
+        leading: const Icon(Icons.quickreply_outlined),
+        title: Text(context.t.fastReplyTemplate.title),
+        subtitle: Text(context.t.fastReplyTemplate.details),
+        onTap: () async => context.pushNamed(ScreenPaths.fastReplyTemplate, pathParameters: {'pick': 'false'}),
+      ),
+      SectionListTile(
+        leading: const Icon(Icons.touch_app_outlined),
+        title: Text(context.t.settingsPage.behaviorSection.threadFloorInteractionMode.title),
+        subtitle: Text(context.t.settingsPage.behaviorSection.threadFloorInteractionMode.detail),
+        onTap: () async {
+          final result = await showSelectThreadFloorInteractionMode(context, threadFloorInteractionMode);
+          if (result == null) {
+            return;
+          }
+          if (!context.mounted) {
+            return;
+          }
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadFloorInteractionMode, result));
+        },
+      ),
+    ];
+  }
+
+  Future<String?> _showSetCheckinFeelingDialog(BuildContext context, String defaultFeeling) async {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => RootPage(DialogPaths.selectCheckinFeeling, CheckinFeelingDialog(defaultFeeling)),
+    );
+  }
+
+  Future<String?> _showSetCheckinMessageDialog(BuildContext context, String defaultMessage) async {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => RootPage(DialogPaths.selectCheckinMessage, CheckinMessageDialog(defaultMessage)),
+    );
+  }
+
+  List<Widget> _buildCheckinSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.checkinSection;
+
+    final checkinFeeling = state.settingsMap.checkinFeeling;
+    final checkinMessage = state.settingsMap.checkinMessage;
+    final autoCheckin = state.settingsMap.autoCheckin;
+
+    return [
+      SectionTitleText(tr.title),
+      // Feeling
+      SectionListTile(
+        leading: const Icon(Icons.emoji_emotions_outlined),
+        title: Text(tr.feeling),
+        subtitle: Text(CheckinFeeling.from(checkinFeeling).translate(context)),
+        onTap: () async {
+          final result = await _showSetCheckinFeelingDialog(context, checkinFeeling);
+          if (result == null) {
+            return;
+          }
+          if (!context.mounted) {
+            return;
+          }
+          context.read<SettingsBloc>().add(
+            SettingsValueChanged(
+              SettingsKeys.checkinFeeling,
+              result,
+              // CheckinFeeling.from(result),
+            ),
+          );
+        },
+      ),
+      // Message
+      SectionListTile(
+        leading: const Icon(Icons.textsms_outlined),
+        title: Text(tr.anythingToSay),
+        subtitle: Text(checkinMessage),
+        onTap: () async {
+          final result = await _showSetCheckinMessageDialog(context, checkinMessage);
+          if (result == null) {
+            return;
+          }
+          if (!context.mounted) {
+            return;
+          }
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.checkinMessage, result));
+        },
+      ),
+      SectionSwitchListTile(
+        secondary: Icon(MdiIcons.autoFix),
+        title: Text(tr.autoCheckin.title),
+        subtitle: Text(tr.autoCheckin.detail),
+        value: autoCheckin,
+        onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoCheckin, v)),
+      ),
+    ];
+  }
+
+  List<Widget> _buildStorageSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.storageSection;
+    final enableAutoClearImageCache = state.settingsMap.enableAutoClearImageCache;
+    final autoClearImageDurationSec = state.settingsMap.autoClearImageCacheDuration;
+    Duration? autoClearImageDuration;
+    if (autoClearImageDurationSec > 0) {
+      autoClearImageDuration = Duration(seconds: autoClearImageDurationSec);
+    }
+
+    return [
+      // Cache.
+      SectionTitleText(tr.title),
+      SectionListTile(
+        leading: const Icon(Icons.cleaning_services_outlined),
+        title: Text(tr.clearCache),
+        onTap: () async {
+          await showClearCacheBottomSheet(context: context);
+        },
+      ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.image_not_supported_outlined),
+        title: Text(tr.scheduledCleaning.title),
+        subtitle: Text(tr.scheduledCleaning.details),
+        value: enableAutoClearImageCache,
+        onChanged: (v) =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableAutoClearImageCache, v)),
+      ),
+      SectionListTile(
+        enabled: enableAutoClearImageCache,
+        leading: const Icon(Symbols.auto_timer_rounded),
+        title: Text(tr.scheduledCleaning.duration.title),
+        subtitle: autoClearImageDuration != null ? Text(autoClearImageDuration.readable(context)) : null,
+        onTap: () async {
+          final seconds = await showDialog<int>(
+            context: context,
+            builder: (_) => RootPage(
+              DialogPaths.autoClearImageCacheDuration,
+              AutoClearImageCacheDurationDialog(autoClearImageDurationSec),
+            ),
+          );
+          if (seconds == null || !context.mounted) {
+            return;
+          }
+          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoClearImageCacheDuration, seconds));
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _buildAdvanceSection(BuildContext context, SettingsState state) {
+    final netClientUseProxy = state.settingsMap.netClientUseProxy;
+    final netClientProxy = state.settingsMap.netClientProxy;
+    final useDetectedProxy = state.settingsMap.useDetectedProxyWhenStartup;
+    String? host;
+    String? port;
+    if (netClientProxy.contains(':')) {
+      final parts = netClientProxy.split(':');
+      host = parts.elementAtOrNull(0);
+      port = parts.elementAtOrNull(1);
+    }
+
+    // On these platforms, uses native http client for now and the proxy settings are not configurable.
+    final proxyAutomated = isAndroid || isMacOS || isIOS;
+
+    final tr = context.t.settingsPage.advancedSection;
+
+    return [
+      SectionTitleText(tr.title),
+      if (!kReleaseMode)
+        SectionListTile(
+          leading: const Icon(Icons.developer_mode_outlined),
+          title: const Text('DEBUG SHOWCASE'),
+          onTap: () async {
+            await Navigator.push(context, MaterialPageRoute<void>(builder: (context) => const DebugShowcasePage()));
+          },
+        ),
+
+      // Proxy settings, enable or disable.
+      if (proxyAutomated)
+        SectionListTile(
+          leading: Icon(MdiIcons.networkOutline),
+          title: Text(tr.useProxy),
+          subtitle: Text(tr.proxySettings.automatedOnPlatform),
+          enabled: false,
+        )
+      else
+        SectionSwitchListTile(
+          secondary: Icon(MdiIcons.networkOutline),
+          title: Text(tr.useProxy),
+          value: netClientUseProxy,
+          onChanged: (v) {
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.netClientUseProxy, v));
+            showSnackBar(context: context, message: context.t.general.affectAfterRestart);
+          },
+        ),
+
+      if (!proxyAutomated)
+        SectionSwitchListTile(
+          secondary: const Icon(Symbols.network_manage),
+          title: Text(tr.proxySettings.useDetectProxy.title),
+          subtitle: Text(tr.proxySettings.useDetectProxy.detail),
+          value: useDetectedProxy,
+          onChanged: netClientUseProxy && !proxyAutomated
+              ? (v) async =>
+                    context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.useDetectedProxyWhenStartup, v))
+              : null,
+        ),
+
+      if (!proxyAutomated)
+        SectionListTile(
+          enabled: netClientUseProxy && !useDetectedProxy && !proxyAutomated,
+          leading: const Icon(Icons.network_locked_outlined),
+          title: Text(tr.proxySettings.title),
+          onTap: () async => showDialog<void>(
+            context: context,
+            builder: (context) => RootPage(DialogPaths.setupProxy, ProxySettingsDialog(host: host, port: port)),
+            barrierDismissible: false,
+          ),
+        ),
+
+      // Export data.
+      SectionListTile(
+        leading: const Icon(Icons.download_outlined),
+        title: Text(tr.exportData),
+        subtitle: Text(tr.exportDataDetail),
+        onTap: () async {
+          final choice = await showExportBackupDialog(context);
+          if (choice == null || !context.mounted) {
+            return;
+          }
+          // Never the raw database file: cookies, passwords and the logged in account are removed from the copy; with
+          // a password they travel inside it encrypted instead.
+          final data = await const BackupRepository().exportSanitized(
+            await databaseFile,
+            secretsPassword: choice.password,
+          );
+          final stamp = DateTime.now().microsecondsSinceEpoch;
+          final name = choice.password == null ? 'tsdm_client_data_$stamp.db' : 'tsdm_client_data_${stamp}_accounts.db';
+
+          if (isDesktop) {
+            // On desktop platforms, `saveFiles` only return the selected path.
+            final filePath = await FilePicker.platform.saveFile(dialogTitle: tr.exportData, fileName: name);
+            if (filePath == null) {
+              return;
+            }
+
+            await File(filePath).writeAsBytes(data, flush: true);
+          } else {
+            // Mobile in one step.
+            await FilePicker.platform.saveFile(dialogTitle: tr.exportData, fileName: name, bytes: data);
+          }
+        },
+      ),
+
+      // Import data.
+      SectionListTile(
+        leading: const Icon(Icons.upload_outlined),
+        title: Text(tr.importData.title),
+        onTap: () async {
+          final ok = await showQuestionDialog(context: context, title: tr.importData.title, message: tr.importData.tip);
+          if (ok != true || !context.mounted) {
+            return;
+          }
+
+          final files = await FilePicker.platform.pickFiles(dialogTitle: tr.importData.title);
+          if (files == null || !context.mounted) {
+            return;
+          }
+
+          final file = files.files.firstOrNull;
+          if (file == null || file.path == null) {
+            showSnackBar(context: context, message: tr.importData.invalidData);
+            return;
+          }
+          await _importBackup(context, File(file.path!));
+        },
+      ),
+    ];
+  }
+
+  /// Import [source] as the app database: check it first, replace with a fallback copy, then restart the app.
+  Future<void> _importBackup(BuildContext context, File source) async {
+    final tr = context.t.settingsPage.advancedSection.importData;
+    const repository = BackupRepository();
+    final schemaVersion = getIt.get<AppDatabase>().schemaVersion;
+
+    // An invalid file never touches the current data.
+    final check = await repository.validate(source, currentSchemaVersion: schemaVersion);
+    if (!context.mounted) {
+      return;
+    }
+    if (!check.ok) {
+      await showMessageSingleButtonDialog(
+        context: context,
+        title: tr.title,
+        message: tr.invalidDetail(reason: _backupProblemText(context, check)),
+      );
+      return;
+    }
+
+    // Account logins travel encrypted; unlock them before anything is touched, so a wrong password changes nothing.
+    BackupSecretsPayload? secrets;
+    if (await repository.containsSecrets(source)) {
+      if (!context.mounted) {
+        return;
+      }
+      secrets = await _unlockSecrets(context, repository, source);
+    }
+    if (!context.mounted) {
+      return;
+    }
+
+    final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.tip);
+    if (ok != true || !context.mounted) {
+      return;
+    }
+
+    BackupValidation? invalid;
+    BackupReplaceException? replaceFailure;
+    try {
+      // Close the connection so the file can be swapped underneath.
+      await getIt.get<StorageProvider>().dispose();
+      await repository.replaceDatabase(
+        target: await databaseFile,
+        source: source,
+        currentSchemaVersion: schemaVersion,
+        secrets: secrets,
+      );
+    } on BackupInvalidException catch (e) {
+      invalid = e.validation;
+    } on BackupReplaceException catch (e) {
+      replaceFailure = e;
+    }
+    if (context.mounted) {
+      final String message;
+      if (invalid != null) {
+        message = tr.invalidDetail(reason: _backupProblemText(context, invalid));
+      } else if (replaceFailure != null) {
+        message = replaceFailure.restored ? tr.restored : tr.replaceFailed;
+      } else {
+        message = secrets == null ? tr.success : tr.successWithAccounts;
+      }
+      await showMessageSingleButtonDialog(context: context, title: tr.title, message: message);
+    }
+    // The database connection is closed either way; restart the app.
+    await exitApp();
+  }
+
+  /// Ask for the backup password until the account logins unlock or the user skips them.
+  Future<BackupSecretsPayload?> _unlockSecrets(BuildContext context, BackupRepository repository, File source) async {
+    final tr = context.t.settingsPage.advancedSection.importData.unlock;
+    var wrongPassword = false;
+    while (true) {
+      if (!context.mounted) {
+        return null;
+      }
+      final password = await showUnlockBackupDialog(context, wrongPassword: wrongPassword);
+      if (password == null) {
+        return null;
+      }
+      try {
+        return await repository.unlockSecrets(source, password: password);
+      } on BackupSecretsPasswordException catch (e) {
+        if (e.unsupported) {
+          if (context.mounted) {
+            showSnackBar(context: context, message: tr.unsupported);
+          }
+          return null;
+        }
+        wrongPassword = true;
+      }
+    }
+  }
+
+  String _backupProblemText(BuildContext context, BackupValidation check) {
+    final tr = context.t.settingsPage.advancedSection.importData;
+    return switch (check.problem) {
+      BackupProblem.unreadable => tr.problem.unreadable,
+      BackupProblem.notSqlite => tr.problem.notSqlite,
+      BackupProblem.corrupted => tr.problem.corrupted,
+      BackupProblem.missingTables => tr.problem.missingTables,
+      BackupProblem.invalidVersion => tr.problem.invalidVersion,
+      BackupProblem.newerSchema => tr.problem.newerSchema(version: check.detail ?? ''),
+      null => '',
+    };
+  }
+
+  List<Widget> _buildDebugSection(BuildContext context, SettingsState state) {
+    final enableDebugOperations = state.settingsMap.enableDebugOperations;
+
+    final tr = context.t.settingsPage.debugSection;
+    return [
+      SectionTitleText(tr.title),
+      ExpansionTile(
+        leading: const Icon(Icons.bug_report_outlined),
+        title: Text(tr.tip),
+        children: [
+          SectionSwitchListTile(
+            title: Text(tr.enableDebugOperations.title),
+            subtitle: Text(tr.enableDebugOperations.detail),
+            value: enableDebugOperations,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableDebugOperations, v));
+            },
+          ),
+          SectionListTile(title: Text(tr.viewLog.title), onTap: () async => context.pushNamed(ScreenPaths.debugLog)),
+          SectionListTile(
+            title: Text(tr.exportLog.title),
+            subtitle: _logExportPath == null ? null : Text(tr.exportLog.detail(path: _logExportPath!)),
+            onTap: () async {
+              // Entries are redacted when logged; redact the export once more so it never carries a secret.
+              final logData = talker.history.map((e) => redactSensitive(e.generateTextMessage())).join('\n');
+
+              final outputFile = await FilePicker.platform.saveFile(
+                fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt',
+                bytes: utf8.encode(logData),
+              );
+              if (outputFile == null) {
+                setState(() {
+                  _logExportPath = null;
+                });
+              } else {
+                setState(() {
+                  _logExportPath = outputFile;
+                });
+              }
+            },
+          ),
+          // View historical logs.
+          SectionListTile(
+            title: Text(tr.viewHistoryLog.title),
+            onTap: () async => context.pushNamed(ScreenPaths.debugHistoricalLog),
+          ),
+          SectionListTile(
+            title: Text(tr.copyDatabaseDir),
+            onTap: () async {
+              final path = (await databaseFile).parent.path;
+              if (!context.mounted) {
+                return;
+              }
+              await copyToClipboard(context, path);
+            },
+          ),
+          // Separates "the OS suppresses the push" from "nothing new was fetched" (#13).
+          if (isAndroid)
+            SectionListTile(
+              title: Text(tr.testNotification.title),
+              subtitle: Text(tr.testNotification.detail),
+              onTap: () async => showLocalNotification(
+                context,
+                NotificationAutoSyncInfoNotice(
+                  msg: tr.testNotification.title,
+                  notice: 1,
+                  personalMessage: 0,
+                  broadcastMessage: 0,
+                  timestamp: DateTime.now().millisecondsSinceEpoch,
+                ),
+              ),
+            ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _buildOtherSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.othersSection;
+    final enableUpdateCheckOnStartup = state.settingsMap.enableUpdateCheckOnStartup;
+
+    return [
+      SectionTitleText(tr.title),
+      // About
+      SectionListTile(
+        leading: const Icon(Icons.info_outline),
+        title: Text(tr.about),
+        onTap: () async {
+          await context.pushNamed(ScreenPaths.about);
+        },
+      ),
+
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.cloud_done_outlined),
+        title: Text(tr.updateCheckOnStartup),
+        value: enableUpdateCheckOnStartup,
+        onChanged: (v) =>
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableUpdateCheckOnStartup, v)),
+      ),
+
+      /// Update
+      SectionListTile(
+        leading: const Icon(Icons.new_releases_outlined),
+        title: Text(tr.update),
+        onTap: () async => context.pushNamed(ScreenPaths.update),
+      ),
+
+      /// Changelog till publish.
+      SectionListTile(
+        leading: const Icon(Icons.history_outlined),
+        title: Text(tr.changelog),
+        onTap: () async => context.pushNamed(ScreenPaths.localChangelog),
+      ),
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_permissionCubit.refresh());
+
+    // 新增：监听返回顶部事件
+    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
+      if (event.tabIndex == 2 && mounted && scrollController.hasClients && scrollController.offset > 0) {
+        scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_permissionCubit.close());
+    _scrollToTopSub.cancel(); // 新增
+    scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_permissionCubit.refresh());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final tr = context.t.aboutPage;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(context.t.settingsPage.othersSection.about),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_outlined),
-            tooltip: tr.copyEnvironmentInfo,
-            onPressed: () async {
-              const data =
-                  '''
-## Info
-
-* Version: $appFullVersion
-* Flutter: $flutterVersion $flutterChannel ($flutterFrameworkRevision)
-* Dart: $dartVersion
-''';
-              await copyToClipboard(context, data);
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: edgeInsetsT8.add(context.safePadding()),
-        children: [
-          SvgPicture.asset(assetsLogoSvgPath, width: 192, height: 192),
-          sizedBoxW12H12,
-          SectionListTile(
-            leading: const Icon(Icons.contact_support_outlined),
-            title: Text(tr.whatIsThis),
-            subtitle: Text(tr.description),
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.app_shortcut_outlined),
-            title: Text(tr.packageName),
-            subtitle: const Text('com.tsdm.tsdm_client'),
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.terminal_outlined),
-            title: Text(tr.version),
-            subtitle: const Text(appFullVersion),
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.home_max_outlined),
-            title: Text(context.t.aboutPage.forumHomepage),
-            subtitle: const Text(baseUrl),
-            onTap: () async {
-              await launchUrl(Uri.parse(baseUrl), mode: LaunchMode.externalApplication);
-            },
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.home_outlined),
-            title: Text(context.t.aboutPage.homepage),
-            subtitle: const Text('https://github.com/Carinoasd/tsdm_client'),
-            onTap: () async {
-              await launchUrl(
-                Uri.parse('https://github.com/Carinoasd/tsdm_client'),
-                mode: LaunchMode.externalApplication,
-              );
-            },
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.favorite_border),
-            title: Text(tr.supportDevelopment),
-            subtitle: Text(tr.supportDevelopmentSubtitle),
-            onTap: () async => showDialog<void>(
-              context: context,
-              builder: (_) => const SupportDevelopmentDialog(),
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      builder: (context, state) {
+        return BlocProvider<AndroidPermissionCubit>.value(
+          value: _permissionCubit,
+          child: Scaffold(
+            appBar: AppBar(title: Text(context.t.navigation.settings)),
+            body: SafeArea(
+              left: false,
+              top: false,
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  ..._buildAccountSection(context, state),
+                  ..._buildAppearanceSection(context, state),
+                  if (isDesktop) ..._buildWindowSection(context, state),
+                  ..._buildBehaviorSection(context, state),
+                  ..._buildCheckinSection(context, state),
+                  ..._buildStorageSection(context, state),
+                  ..._buildAdvanceSection(context, state),
+                  ..._buildDebugSection(context, state),
+                  ..._buildOtherSection(context, state),
+                ],
+              ),
             ),
           ),
-          SectionListTile(
-            leading: const FlutterLogo(),
-            title: Text(context.t.aboutPage.flutterVersion),
-            subtitle: const Text('$flutterVersion ($flutterChannel) - $flutterFrameworkRevision'),
-            onTap: () async {
-              await launchUrl(Uri.parse('https://flutter.dev/'), mode: LaunchMode.externalApplication);
-            },
-          ),
-          SectionListTile(
-            leading: SvgPicture.asset(assetDartLogoPath, width: 22, height: 22),
-            title: Text(context.t.aboutPage.dartVersion),
-            subtitle: const Text(dartVersion),
-            onTap: () async {
-              await launchUrl(Uri.parse('https://dart.dev/'), mode: LaunchMode.externalApplication);
-            },
-          ),
-          SectionListTile(
-            leading: const Icon(Icons.balance_outlined),
-            title: Text(context.t.aboutPage.license),
-            subtitle: const Text('MIT license'),
-            onTap: () async => context.pushNamed(ScreenPaths.license),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
