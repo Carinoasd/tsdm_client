@@ -2,6 +2,7 @@ import 'dart:async';
 
 /// Event for scrolling to top.
 class ScrollToTopEvent {
+  /// Constructor.
   const ScrollToTopEvent(this.tabIndex);
 
   /// The index of the navigation bar tab (0: Home, 1: Topics, 2: Settings).
