@@ -61,11 +61,12 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     final favoritesAppeared = tabController != null && hasFavorites && !_hadFavorites;
     _hadFavorites = hasFavorites;
 
-    // 修改：拆分级联调用，消除 cascade_invocations 警告
     final existingController = tabController;
     if (existingController != null) {
-      existingController.removeListener(_updateIndexListener!);
-      existingController.dispose();
+      // 使用级联操作符，解决 cascade_invocations 警告
+      existingController
+        ..removeListener(_updateIndexListener!)
+        ..dispose();
     }
 
     final initialIndex = length == 0 || favoritesAppeared ? 0 : fragments.topicsPageTabIndex.clamp(0, length - 1);
@@ -79,7 +80,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     _syncTabController(context, forumGroupList);
 
     final groupTabBodyList = forumGroupList.map((e) {
-      // 修改：使用 tearoff 替代闭包，消除 unnecessary_lambdas 警告
       _tabScrollControllers.putIfAbsent(e.name, ScrollController.new);
 
       final head = e.moderators.isEmpty ? 0 : 1;
@@ -94,7 +94,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       );
     }).toList();
 
-    // 修改：finishRefresh 返回 void，去掉 unawaited
     _refreshController.finishRefresh();
 
     return EasyRefresh(
@@ -128,8 +127,10 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   void dispose() {
     final existingController = tabController;
     if (existingController != null) {
-      existingController.removeListener(_updateIndexListener ?? () {});
-      existingController.dispose();
+      // 使用级联操作符，解决 cascade_invocations 警告
+      existingController
+        ..removeListener(_updateIndexListener ?? () {})
+        ..dispose();
     }
     _refreshController.dispose();
     unawaited(_scrollToTopSub.cancel());
