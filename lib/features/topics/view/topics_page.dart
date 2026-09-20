@@ -1,4 +1,4 @@
-import 'dart:async'; // 新增
+import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +8,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
-import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart'; // 新增
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/features/topics/widgets/group_moderators_row.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -21,9 +21,6 @@ import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// App topic page.
-///
-/// Contains most subreddits in homepage of server.
-///
 class TopicsPage extends StatefulWidget {
   /// Constructor.
   const TopicsPage({super.key});
@@ -32,49 +29,36 @@ class TopicsPage extends StatefulWidget {
   State<TopicsPage> createState() => _TopicsPageState();
 }
 
-/// State of homepage.
 class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
-  /// Constructor.
-  _TopicsPageState();
-
   TabController? tabController;
-
   VoidCallback? _updateIndexListener;
-
-  /// Whether the groups shown last time started with the "我收藏的版块" panel.
   bool _hadFavorites = false;
-
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
 
-  // 新增：按分组名称维护 ScrollController（防止 Tab 索引错位）
+  // 按分组名称维护 ScrollController，防止 Tab 索引错位
   final Map<String, ScrollController> _tabScrollControllers = {};
-  // 新增：事件监听订阅
   late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub;
 
-  /// Make sure [tabController] exists and has exactly one tab per entry of [groups].
-  ///
-  /// The group count changes when the "我收藏的版块" panel appears or disappears (first favorite forum added,
-  /// last one removed, another account logged in): a controller with the old length makes the TabBar throw
-  /// "Controller's length property does not match the number of tabs" (issue #1), so it is rebuilt with the
-  /// saved tab index clamped into the new range.
+  void _updateTabIndex() {
+    if (tabController == null) {
+      return;
+    }
+    final fragments = RepositoryProvider.of<FragmentsRepository>(context);
+    fragments.topicsPageTabIndex = tabController!.index;
+  }
+
   void _syncTabController(BuildContext context, List<ForumGroup> groups) {
     final length = groups.length;
     final hasFavorites = groups.isNotEmpty && groups.first.isFavorites;
     final fragments = RepositoryProvider.of<FragmentsRepository>(context);
-    // Capture `context` and wrap in a void callback.
-    _updateIndexListener ??= () {
-      if (tabController == null) {
-        return;
-      }
-      fragments.topicsPageTabIndex = tabController!.index;
-    };
+    
+    // 修改：使用 tearoff 替代闭包，解决 unnecessary_lambdas 警告
+    _updateIndexListener ??= _updateTabIndex;
 
     if (tabController != null && tabController!.length == length) {
       _hadFavorites = hasFavorites;
       return;
     }
-    // The panel just showed up in front (favorite added on the web, account switched): select it, otherwise the
-    // saved index keeps the previous tab selected and the new first tab may sit outside the scrollable tab bar.
     final favoritesAppeared = tabController != null && hasFavorites && !_hadFavorites;
     _hadFavorites = hasFavorites;
     tabController
@@ -91,13 +75,11 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     _syncTabController(context, forumGroupList);
 
     final groupTabBodyList = forumGroupList.map((e) {
-      // 新增：为每个分组绑定独立的 ScrollController
       _tabScrollControllers.putIfAbsent(e.name, () => ScrollController());
 
-      // The site's moderator line comes first in the list, then one card per forum (#22).
       final head = e.moderators.isEmpty ? 0 : 1;
       return ListView.separated(
-        controller: _tabScrollControllers[e.name], // 新增：绑定 controller
+        controller: _tabScrollControllers[e.name],
         padding: edgeInsetsL12T4R12,
         itemCount: e.forumList.length + head,
         itemBuilder: (context, index) => head == 1 && index == 0
@@ -107,17 +89,14 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       );
     }).toList();
 
-    _refreshController.finishRefresh();
+    // 修改：加上 unawaited，解决 discarded_futures 警告
+    unawaited(_refreshController.finishRefresh());
 
     return EasyRefresh(
       key: const ValueKey('success'),
       controller: _refreshController,
       header: const MaterialHeader(),
-      onRefresh: () {
-        context.read<TopicsBloc>().add(const TopicsRefreshRequested());
-      },
-      // A new controller gets a fresh page view: the old one may report its previous page while the children
-      // change and would drag the new controller's index along with it.
+      onRefresh: () => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
       child: TabBarView(key: ValueKey(tabController), controller: tabController, children: groupTabBodyList),
     );
   }
@@ -125,7 +104,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // 新增：监听返回顶部事件
     _scrollToTopSub = scrollToTopStream.stream.listen((event) {
       if (event.tabIndex == 1 && tabController != null && mounted) {
         final currentIndex = tabController!.index;
@@ -134,7 +112,8 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
           final groupName = groups[currentIndex].name;
           final controller = _tabScrollControllers[groupName];
           if (controller != null && controller.hasClients && controller.offset > 0) {
-            controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+            // 这里之前已经加了 unawaited
+            unawaited(controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
           }
         }
       }
@@ -149,9 +128,9 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
         ..dispose();
     }
     _refreshController.dispose();
-    _scrollToTopSub.cancel(); // 新增
+    unawaited(_scrollToTopSub.cancel());
     for (final controller in _tabScrollControllers.values) {
-      controller.dispose(); // 新增：必须销毁
+      controller.dispose();
     }
     super.dispose();
   }
@@ -173,23 +152,17 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
               header: const MaterialHeader(),
               child: const CenteredCircularIndicator(),
             ),
-            TopicsStatus.failed => buildRetryButton(context, () {
-              context.read<TopicsBloc>().add(const TopicsRefreshRequested());
-            }),
+            TopicsStatus.failed => buildRetryButton(context, () => context.read<TopicsBloc>().add(const TopicsRefreshRequested())),
             TopicsStatus.success when state.forumGroupList.isNotEmpty => _buildContent(context, state),
-            // Some server enforced situation.
             TopicsStatus.success => NeedLoginPage(
               backUri: GoRouterState.of(context).uri,
               needPop: true,
-              popCallback: (context) {
-                context.read<TopicsBloc>().add(const TopicsRefreshRequested());
-              },
+              popCallback: (context) => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
             ),
           };
 
           final PreferredSizeWidget tabBar;
           if (state.status == TopicsStatus.success) {
-            // `_buildContent` above already made the controller match the tab count.
             tabBar = TabBar(
               controller: tabController,
               tabs: state.forumGroupList.map((e) => Tab(text: e.name)).toList(),
@@ -207,12 +180,9 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
                 IconButton(
                   icon: const Icon(Icons.search_outlined),
                   tooltip: context.t.searchPage.title,
-                  onPressed: () async {
-                    await context.pushNamed(ScreenPaths.search);
-                  },
+                  onPressed: () async => context.pushNamed(ScreenPaths.search),
                 ),
               ],
-              // Some server enforced situation.
               bottom: state.forumGroupList.isNotEmpty ? tabBar : null,
             ),
             body: SafeArea(
