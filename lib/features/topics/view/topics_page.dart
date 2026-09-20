@@ -37,13 +37,16 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
 
   // 按分组名称维护 ScrollController，防止 Tab 索引错位
   final Map<String, ScrollController> _tabScrollControllers = {};
+
+  // 安全缓存：通过 BlocListener 更新，供 initState 的双击事件安全读取
+  List<ForumGroup> _currentGroups = [];
+
   late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub;
 
   void _updateTabIndex() {
     if (tabController == null) {
       return;
     }
-    // 直接连写，不用中间变量，不用级联，消除两个 lint 警告
     RepositoryProvider.of<FragmentsRepository>(context).topicsPageTabIndex = tabController!.index;
   }
 
@@ -110,9 +113,9 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     _scrollToTopSub = scrollToTopStream.stream.listen((event) {
       if (event.tabIndex == 1 && tabController != null && mounted) {
         final currentIndex = tabController!.index;
-        final groups = context.read<TopicsBloc>().state.forumGroupList;
-        if (currentIndex < groups.length) {
-          final groupName = groups[currentIndex].name;
+        // 使用 _currentGroups 缓存，彻底避免 context.read 崩溃
+        if (currentIndex >= 0 && currentIndex < _currentGroups.length) {
+          final groupName = _currentGroups[currentIndex].name;
           final controller = _tabScrollControllers[groupName];
           if (controller != null && controller.hasClients && controller.offset > 0) {
             unawaited(controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
@@ -146,55 +149,62 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
         authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
         favoriteRepository: RepositoryProvider.of<FavoriteRepository>(context),
       )..add(TopicsLoadRequested()),
-      child: BlocBuilder<TopicsBloc, TopicsState>(
-        builder: (context, state) {
-          final body = switch (state.status) {
-            TopicsStatus.loading || TopicsStatus.initial => EasyRefresh(
-              key: const ValueKey('loading'),
-              controller: _refreshController,
-              header: const MaterialHeader(),
-              child: const CenteredCircularIndicator(),
-            ),
-            TopicsStatus.failed => buildRetryButton(context, () => context.read<TopicsBloc>().add(const TopicsRefreshRequested())),
-            TopicsStatus.success when state.forumGroupList.isNotEmpty => _buildContent(context, state),
-            TopicsStatus.success => NeedLoginPage(
-              backUri: GoRouterState.of(context).uri,
-              needPop: true,
-              popCallback: (context) => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
-            ),
-          };
-
-          final PreferredSizeWidget tabBar;
-          if (state.status == TopicsStatus.success) {
-            tabBar = TabBar(
-              controller: tabController,
-              tabs: state.forumGroupList.map((e) => Tab(text: e.name)).toList(),
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-            );
-          } else {
-            tabBar = const PreferredSize(preferredSize: Size(40, 40), child: SizedBox.shrink());
-          }
-
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(context.t.navigation.topics),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search_outlined),
-                  tooltip: context.t.searchPage.title,
-                  onPressed: () async => context.pushNamed(ScreenPaths.search),
-                ),
-              ],
-              bottom: state.forumGroupList.isNotEmpty ? tabBar : null,
-            ),
-            body: SafeArea(
-              left: false,
-              top: false,
-              child: AnimatedSwitcher(duration: duration200, child: body),
-            ),
-          );
+      child: BlocListener<TopicsBloc, TopicsState>(
+        // 监听状态，一旦成功拿到数据，就安全更新缓存
+        listenWhen: (prev, curr) => curr.status == TopicsStatus.success,
+        listener: (context, state) {
+          _currentGroups = state.forumGroupList;
         },
+        child: BlocBuilder<TopicsBloc, TopicsState>(
+          builder: (context, state) {
+            final body = switch (state.status) {
+              TopicsStatus.loading || TopicsStatus.initial => EasyRefresh(
+                key: const ValueKey('loading'),
+                controller: _refreshController,
+                header: const MaterialHeader(),
+                child: const CenteredCircularIndicator(),
+              ),
+              TopicsStatus.failed => buildRetryButton(context, () => context.read<TopicsBloc>().add(const TopicsRefreshRequested())),
+              TopicsStatus.success when state.forumGroupList.isNotEmpty => _buildContent(context, state),
+              TopicsStatus.success => NeedLoginPage(
+                backUri: GoRouterState.of(context).uri,
+                needPop: true,
+                popCallback: (context) => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
+              ),
+            };
+
+            final PreferredSizeWidget tabBar;
+            if (state.status == TopicsStatus.success) {
+              tabBar = TabBar(
+                controller: tabController,
+                tabs: state.forumGroupList.map((e) => Tab(text: e.name)).toList(),
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+              );
+            } else {
+              tabBar = const PreferredSize(preferredSize: Size(40, 40), child: SizedBox.shrink());
+            }
+
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(context.t.navigation.topics),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search_outlined),
+                    tooltip: context.t.searchPage.title,
+                    onPressed: () async => context.pushNamed(ScreenPaths.search),
+                  ),
+                ],
+                bottom: state.forumGroupList.isNotEmpty ? tabBar : null,
+              ),
+              body: SafeArea(
+                left: false,
+                top: false,
+                child: AnimatedSwitcher(duration: duration200, child: body),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
