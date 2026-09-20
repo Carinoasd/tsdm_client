@@ -1,3 +1,5 @@
+import 'dart:async'; // 新增 dart:async，用于 StreamSubscription
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -17,6 +19,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart'; // 新增
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
@@ -44,6 +47,7 @@ class HomepagePage extends StatefulWidget {
 class _HomepagePageState extends State<HomepagePage> {
   final _scrollController = ScrollController();
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
+  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub; // 新增
 
   /// Flag the visibility of floating action button.
   ///
@@ -95,7 +99,19 @@ class _HomepagePageState extends State<HomepagePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // 新增：监听返回顶部事件
+    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
+      if (event.tabIndex == 0 && mounted && _scrollController.hasClients && _scrollController.offset > 0) {
+        _scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _scrollToTopSub.cancel(); // 新增
     _scrollController.dispose();
     _refreshController.dispose();
     super.dispose();
