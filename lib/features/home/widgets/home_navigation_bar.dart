@@ -1,11 +1,5 @@
 part of 'widgets.dart';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
-import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
-import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
-
 /// [NavigationBar] used in home page.
 ///
 /// Use in compact window.
@@ -21,7 +15,7 @@ class _HomeNavigationBarState extends State<HomeNavigationBar> {
   DateTime? _lastTapTime;
   int? _lastTapIndex;
 
-  void _onDestinationSelected(int index, List<Widget> barItems) {
+  void _onDestinationSelected(int index, List<_NavigationItem> barItems) {
     final now = DateTime.now();
 
     // 双击检测 (500ms 内点击同一个 index)
