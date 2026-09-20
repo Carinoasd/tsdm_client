@@ -30,7 +30,13 @@ import 'package:tsdm_client/widgets/notice_button.dart';
 
 const _showFabOffset = 100;
 
+/// Homepage page.
+///
+/// Be stateful because scrollable.
+///
+/// This page is in the Homepage of the app, already wrapped in a [Scaffold].
 class HomepagePage extends StatefulWidget {
+  /// Constructor.
   const HomepagePage({super.key});
 
   @override
