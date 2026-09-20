@@ -44,7 +44,8 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       return;
     }
     final fragments = RepositoryProvider.of<FragmentsRepository>(context);
-    fragments.topicsPageTabIndex = tabController!.index;
+    // 使用级联操作符，解决 cascade_invocations 警告
+    fragments..topicsPageTabIndex = tabController!.index;
   }
 
   void _syncTabController(BuildContext context, List<ForumGroup> groups) {
