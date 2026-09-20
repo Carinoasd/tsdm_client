@@ -51,8 +51,7 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     final length = groups.length;
     final hasFavorites = groups.isNotEmpty && groups.first.isFavorites;
     final fragments = RepositoryProvider.of<FragmentsRepository>(context);
-    
-    // 修改：使用 tearoff 替代闭包，解决 unnecessary_lambdas 警告
+
     _updateIndexListener ??= _updateTabIndex;
 
     if (tabController != null && tabController!.length == length) {
@@ -61,9 +60,14 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     }
     final favoritesAppeared = tabController != null && hasFavorites && !_hadFavorites;
     _hadFavorites = hasFavorites;
-    tabController
-      ?..removeListener(_updateIndexListener!)
-      ..dispose();
+
+    // 修改：拆分级联调用，消除 cascade_invocations 警告
+    final existingController = tabController;
+    if (existingController != null) {
+      existingController.removeListener(_updateIndexListener!);
+      existingController.dispose();
+    }
+
     final initialIndex = length == 0 || favoritesAppeared ? 0 : fragments.topicsPageTabIndex.clamp(0, length - 1);
     fragments.topicsPageTabIndex = initialIndex;
     tabController = TabController(initialIndex: initialIndex, length: length, vsync: this)
@@ -75,7 +79,8 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
     _syncTabController(context, forumGroupList);
 
     final groupTabBodyList = forumGroupList.map((e) {
-      _tabScrollControllers.putIfAbsent(e.name, () => ScrollController());
+      // 修改：使用 tearoff 替代闭包，消除 unnecessary_lambdas 警告
+      _tabScrollControllers.putIfAbsent(e.name, ScrollController.new);
 
       final head = e.moderators.isEmpty ? 0 : 1;
       return ListView.separated(
@@ -89,8 +94,8 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       );
     }).toList();
 
-    // 修改：加上 unawaited，解决 discarded_futures 警告
-    unawaited(_refreshController.finishRefresh());
+    // 修改：finishRefresh 返回 void，去掉 unawaited
+    _refreshController.finishRefresh();
 
     return EasyRefresh(
       key: const ValueKey('success'),
@@ -112,7 +117,6 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
           final groupName = groups[currentIndex].name;
           final controller = _tabScrollControllers[groupName];
           if (controller != null && controller.hasClients && controller.offset > 0) {
-            // 这里之前已经加了 unawaited
             unawaited(controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
           }
         }
@@ -122,10 +126,10 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    if (tabController != null) {
-      tabController!
-        ..removeListener(_updateIndexListener ?? () {})
-        ..dispose();
+    final existingController = tabController;
+    if (existingController != null) {
+      existingController.removeListener(_updateIndexListener ?? () {});
+      existingController.dispose();
     }
     _refreshController.dispose();
     unawaited(_scrollToTopSub.cancel());
