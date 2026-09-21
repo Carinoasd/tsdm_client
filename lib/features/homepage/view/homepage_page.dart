@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -17,6 +19,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
@@ -25,7 +28,6 @@ import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/notice_button.dart';
 
-/// Show [FloatingActionButton] when offset is larger than this value.
 const _showFabOffset = 100;
 
 /// Homepage page.
@@ -44,41 +46,24 @@ class HomepagePage extends StatefulWidget {
 class _HomepagePageState extends State<HomepagePage> {
   final _scrollController = ScrollController();
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
+  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub;
 
-  /// Flag the visibility of floating action button.
-  ///
-  /// Only set to true when scrolling up and offset is larger than
-  /// [_showFabOffset].
-  ///
-  /// Set to false when offset is smaller than [_showFabOffset] or scrolling
-  /// down.
   bool _fabVisible = false;
 
   bool _handleScrollNotification(UserScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) {
       return false;
     }
-
-    // Update fab visibility according to scroll offset.
     if (notification.metrics.pixels <= _showFabOffset) {
-      // Offset smaller than boundary.
       if (_fabVisible) {
-        setState(() {
-          _fabVisible = false;
-        });
+        setState(() => _fabVisible = false);
       }
       return true;
     }
-
-    // Update fab visibility according to scroll direction.
     if (notification.direction == ScrollDirection.forward && !_fabVisible) {
-      setState(() {
-        _fabVisible = true;
-      });
+      setState(() => _fabVisible = true);
     } else if (notification.direction == ScrollDirection.reverse && _fabVisible) {
-      setState(() {
-        _fabVisible = false;
-      });
+      setState(() => _fabVisible = false);
     }
     return true;
   }
@@ -87,7 +72,6 @@ class _HomepagePageState extends State<HomepagePage> {
     if (state.status != HomepageStatus.success || !_fabVisible) {
       return null;
     }
-
     return FloatingActionButton(
       onPressed: () async => _scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut),
       child: const Icon(Icons.arrow_upward_outlined),
@@ -95,7 +79,18 @@ class _HomepagePageState extends State<HomepagePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
+      if (event.tabIndex == 0 && mounted && _scrollController.hasClients && _scrollController.offset > 0) {
+        unawaited(_scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut));
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    unawaited(_scrollToTopSub.cancel());
     _scrollController.dispose();
     _refreshController.dispose();
     super.dispose();
@@ -123,13 +118,10 @@ class _HomepagePageState extends State<HomepagePage> {
           BlocListener<HomepageBloc, HomepageState>(
             listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
             listener: (context, state) {
-              // The freshly fetched page header already tells whether there are unread items: show the badge now
-              // instead of waiting for the full notification sync.
               context.read<NotificationInfoRepository>().applyServerHint(
                 noticeCount: state.unreadNoticeCount,
                 hasPersonalMessage: state.hasUnreadMessage,
               );
-              // From loading state to success state, refresh notice.
               context.read<NotificationBloc>().add(NotificationUpdateAllRequested());
             },
           ),
@@ -142,33 +134,24 @@ class _HomepagePageState extends State<HomepagePage> {
                 scrollController: _scrollController,
                 controller: _refreshController,
                 header: const MaterialHeader(),
-                onRefresh: () {
-                  context.read<HomepageBloc>().add(HomepageRefreshRequested());
-                },
+                onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
                 child: const CenteredCircularIndicator(),
               ),
               HomepageStatus.needLogin => NeedLoginPage(
                 backUri: GoRouterState.of(context).uri,
                 needPop: true,
-                popCallback: (context) {
-                  context.read<HomepageBloc>().add(HomepageRefreshRequested());
-                },
+                popCallback: (context) => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
               ),
-              HomepageStatus.failure => buildRetryButton(context, () {
-                context.read<HomepageBloc>().add(HomepageRefreshRequested());
-              }),
+              HomepageStatus.failure => buildRetryButton(context, () => context.read<HomepageBloc>().add(HomepageRefreshRequested())),
               HomepageStatus.success => EasyRefresh.builder(
                 key: const ValueKey('success'),
                 scrollController: _scrollController,
                 controller: _refreshController,
                 header: const MaterialHeader(),
-                onRefresh: () {
-                  context.read<HomepageBloc>().add(HomepageRefreshRequested());
-                },
+                onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
                 childBuilder: (context, physics) => ListView(
                   physics: physics,
                   controller: _scrollController,
-                  // Same 12 above the first card as between the cards (GitHub #27).
                   padding: edgeInsetsL12T12R12.add(context.safePadding()),
                   children: [
                     WelcomeSection(
@@ -186,7 +169,6 @@ class _HomepagePageState extends State<HomepagePage> {
             };
 
             _refreshController.finishRefresh();
-
             final username = state.loggedUserInfo?.username;
             final avatarUrl = state.loggedUserInfo?.avatarUrl;
 
@@ -213,8 +195,6 @@ class _HomepagePageState extends State<HomepagePage> {
                           username: username,
                           avatarUrl: avatarUrl,
                           heroTag: username,
-                          // Ok to use record.
-                          // ignore: avoid_positional_fields_in_records
                           latestThreadUrl: state.loggedUserInfo?.relatedLinkPairList.lastOrNull?.$2,
                         ),
                       ),
@@ -231,9 +211,7 @@ class _HomepagePageState extends State<HomepagePage> {
                   IconButton(
                     icon: const Icon(Icons.search_outlined),
                     tooltip: context.t.searchPage.title,
-                    onPressed: () async {
-                      await context.pushNamed(ScreenPaths.search);
-                    },
+                    onPressed: () async => context.pushNamed(ScreenPaths.search),
                   ),
                 ],
               ),
