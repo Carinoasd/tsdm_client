@@ -57,6 +57,7 @@ final class RateWindowInfo with RateWindowInfoMappable {
     required this.pid,
     required this.referer,
     required this.handleKey,
+    this.noticeAuthorForced = false,
   });
 
   /// Row title of the rate table.
@@ -87,6 +88,13 @@ final class RateWindowInfo with RateWindowInfoMappable {
 
   /// Handle key in parameter.
   final String handleKey;
+
+  /// The forum always notifies the author of this rate, whatever the user picks.
+  ///
+  /// The user group setting `reasonpm` 2 or 3 renders the "通知作者" checkbox checked and disabled:
+  ///
+  /// `<input type="checkbox" name="sendreasonpm" id="sendreasonpm" class="pc" checked="checked" disabled="disabled" />`
+  final bool noticeAuthorForced;
 
   /// Build from <div class="c"> node [element] or from the floating window raw
   /// html.
@@ -163,6 +171,9 @@ final class RateWindowInfo with RateWindowInfoMappable {
       return null;
     }
 
+    final noticeAuthorInput = element.querySelector('input[name="sendreasonpm"]');
+    final noticeAuthorForced = noticeAuthorInput?.attributes.containsKey('disabled') ?? false;
+
     return RateWindowInfo(
       rowTitleList: rowTitleList,
       scoreList: scoreList,
@@ -172,6 +183,7 @@ final class RateWindowInfo with RateWindowInfoMappable {
       pid: pid,
       referer: referer,
       handleKey: handleKey,
+      noticeAuthorForced: noticeAuthorForced,
     );
   }
 

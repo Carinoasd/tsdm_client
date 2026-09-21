@@ -790,11 +790,12 @@
     "reason": "理由",
     "success": "評分成功",
     "noticeAuthor": "通知作者",
+    "noticeAuthorForced": "論壇設定為一律通知作者",
     "invalidNumber": "無效的數字",
     "notInAllowedRange": "應該在 $range 範圍內",
     "unknownAllowedRange": "無效的評分區間 $range",
     "onlyAllowIntegers": "只允許整數",
-    "failedToRate": "评分失败",
+    "failedToRate": "評分失敗",
     "scoreTodayRemaining": "今日剩餘 $score",
     "fillWithTemplate": "使用模板填滿"
   },

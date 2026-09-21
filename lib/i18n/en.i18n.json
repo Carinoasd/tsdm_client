@@ -790,6 +790,7 @@
     "reason": "Reason",
     "success": "Rate success",
     "noticeAuthor": "Notice the author",
+    "noticeAuthorForced": "The forum always notifies the author",
     "invalidNumber": "Invalid number",
     "notInAllowedRange": "Should in range $range",
     "unknownAllowedRange": "Unknown allowed range $range",

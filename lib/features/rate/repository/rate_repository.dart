@@ -30,10 +30,13 @@ final class RateRepository with LoggerMixin {
   /// Regexp to grep the error text from response html body.
   static final _errorTextRe = RegExp('alert_error">(?<error>[^<]+)<');
 
-  /// Rate limit handler function text.
+  /// The error handler call in the answer to a rate the forum refused.
   ///
-  /// User will trigger this error when too many points rated in 24 hour.
-  static final _errorHandleRateRe = RegExp(r"{errorhandle_rate\('(?<error>[^']+)',");
+  /// Discuz! X5 answers a rate refused on submit (not enough points to rate, over the 24 hour limit, wrong score...)
+  /// with the message followed by the call, the message quoted with `\'` escaped:
+  ///
+  /// `抱歉，您的天使币不足，无法评分<script ...>if(typeof errorhandle_rate=='function') {errorhandle_rate('抱歉，您的天使币不足，无法评分', {'extcreditstitle':'天使币'});}</script>`
+  static final _errorHandleRateRe = RegExp(r"{errorhandle_rate\('(?<error>(?:[^'\\]|\\.)+)',");
 
   String _buildRateLogTarget({required String tid, required String pid}) =>
       '$baseUrl/forum.php?mod=misc&action=viewratings&tid=$tid&pid=$pid'
@@ -124,7 +127,7 @@ final class RateRepository with LoggerMixin {
     }
     final errorHandleRateText = _errorHandleRateRe.firstMatch(data)?.namedGroup('error');
     if (errorHandleRateText != null) {
-      return left(RateFailedException(errorHandleRateText));
+      return left(RateFailedException(errorHandleRateText.replaceAllMapped(RegExp(r'\\(.)'), (m) => m.group(1)!)));
     }
     return rightVoid();
   });

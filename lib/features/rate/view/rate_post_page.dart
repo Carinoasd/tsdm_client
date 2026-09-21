@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +12,7 @@ import 'package:tsdm_client/features/rate/models/models.dart';
 import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -18,6 +21,44 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
+
+/// The "rate success" snack bar of the last rate while it is on screen: the messenger showing it and a token of that
+/// showing, null once it is gone.
+///
+/// The next rate page closes it: it floated over the submit button of that page for seconds. Other snack bars (a
+/// session expiry or check-in notice with an action button) are left alone.
+(ScaffoldMessengerState, Object)? _visibleRateSuccess;
+
+/// Rate pages on screen, without the one that just rated and is closing.
+final _openRatePages = <Object>{};
+
+void _showRateSuccess(String message) {
+  final messenger = snackbarKey.currentState;
+  if (messenger == null) {
+    return;
+  }
+  final token = Object();
+  final controller = messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text(message),
+      onVisible: () {
+        _visibleRateSuccess = (messenger, token);
+        // Queued behind another snack bar, it only shows now: the next rate page may already be open.
+        if (_openRatePages.isNotEmpty) {
+          messenger.hideCurrentSnackBar();
+        }
+      },
+    ),
+  );
+  unawaited(
+    controller.closed.whenComplete(() {
+      if (identical(_visibleRateSuccess?.$2, token)) {
+        _visibleRateSuccess = null;
+      }
+    }),
+  );
+}
 
 /// Page to rate a post in thread.
 class RatePostPage extends StatefulWidget {
@@ -58,8 +99,9 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
 
   /// Config to notice author about the rate action.
   ///
-  /// Set default to true to behave like web side.
-  /// This is also a part of rate action post form. DO NOT FORGET THIS!
+  /// Defaults to true: the author was always notified before the switch took effect. The X5 web page leaves the
+  /// checkbox unchecked unless the user group forces it.
+  /// This is also a part of rate action post form: sent as `sendreasonpm=on` only when on, see [_rate].
   bool noticeAuthor = true;
 
   Widget _buildScoreWidget(BuildContext context, RateWindowScore score) {
@@ -120,7 +162,11 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
       final v = '${e.value.text.parseToInt()}';
       body[e.key] = v == '0' ? '' : v;
     }
-    body['sendreasonpm'] = noticeAuthor ? 'on' : 'off';
+    // A checkbox on the web page: sent only when checked. The forum notifies the author whenever the field is not
+    // empty, so sending "off" notified the author as well.
+    if (noticeAuthor || info.noticeAuthorForced) {
+      body['sendreasonpm'] = 'on';
+    }
     debug('going to rate pid=$pid with ${body.length} fields');
 
     context.read<RateBloc>().add(RateRateRequested(body));
@@ -226,14 +272,25 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
             ],
           ),
           SectionSwitchListTile(
-            value: noticeAuthor,
+            value: noticeAuthor || state.info!.noticeAuthorForced,
             title: Text(tr.noticeAuthor),
-            onChanged: (value) {
-              setState(() {
-                noticeAuthor = value;
-              });
-            },
+            subtitle: state.info!.noticeAuthorForced ? Text(tr.noticeAuthorForced) : null,
+            onChanged: state.info!.noticeAuthorForced
+                ? null
+                : (value) {
+                    setState(() {
+                      noticeAuthor = value;
+                    });
+                  },
           ),
+          if (state.status == RateStatus.rateFailed)
+            Padding(
+              padding: edgeInsetsL12T4R12B4,
+              child: Text(
+                state.failedReason ?? tr.failedToRate,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
           sizedBoxW12H12,
           Row(
             children: [
@@ -311,10 +368,19 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
   @override
   void initState() {
     super.initState();
+    _openRatePages.add(this);
+    // The "rate success" of the previous rate would float over the submit button of this page for seconds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final messenger = snackbarKey.currentState;
+      if (messenger != null && identical(_visibleRateSuccess?.$1, messenger)) {
+        messenger.hideCurrentSnackBar();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _openRatePages.remove(this);
     reasonController.dispose();
     if (scoreMap != null) {
       for (final e in scoreMap!.entries) {
@@ -339,8 +405,9 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
       ],
       child: BlocListener<RateBloc, RateState>(
         listener: (context, state) {
+          // A refused rate (RateStatus.rateFailed) keeps the form and shows the reason above the submit button.
           if (state.status == RateStatus.failed) {
-            // Show reason and pop back if we should not retry.
+            // Failed to load the rate info: show reason and pop back if we should not retry.
             showSnackBar(context: context, message: state.failedReason ?? tr.failedToRate);
             if (state.shouldRetry == false) {
               Navigator.of(context).pop();
@@ -348,7 +415,8 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
             }
             context.read<RateBloc>().add(RateFetchInfoRequested(pid: widget.pid, rateAction: widget.rateAction));
           } else if (state.status == RateStatus.success) {
-            showSnackBar(context: context, message: tr.success);
+            _openRatePages.remove(this);
+            _showRateSuccess(tr.success);
             Navigator.of(context).pop();
           }
         },
