@@ -7,14 +7,16 @@ import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
-/// Whether the unread notice count from a page header may be merged into the badge of account [currentUid] while the
-/// local block list is [blockList].
+/// Whether the unread hints from a page header (the notice count and the personal message flag) may be merged into
+/// the badge of account [currentUid] while the local block list is [blockList].
 ///
-/// Only when the list is known to be empty for that account: the header count carries no authors, so with users
-/// blocked, or a list still loading, failed or of another account, it would bring hidden notices back into the badge
-/// until the next full sync (which may be long or fail). The badge then keeps its filtered notice count; the personal
-/// message hint is never affected. A list without owner that is ready (guest, or no block list provided at all)
-/// hides nothing, as before local blocking existed.
+/// Only when the list is known to be empty for that account: the header count carries no authors and the personal
+/// message flag is an aggregate that cannot tell the sender, so with users blocked, or a list still loading, failed
+/// or of another account, they would bring hidden notices and muted conversations back into the badge until the next
+/// full sync (which may be long or fail). The badge then keeps its filtered counts. A list without owner that is
+/// ready (guest, or no block list provided at all) hides nothing, as before local blocking existed.
+///
+/// The name is kept from when only the notice count was guarded.
 bool noticeHintAllowed(UserBlockList blockList, {required int? currentUid}) =>
     blockList.status == UserBlockListStatus.ready &&
     blockList.uids.isEmpty &&
@@ -58,14 +60,19 @@ final class NotificationInfoRepository with LoggerMixin {
   /// The header only tells the unread notice count and whether unread personal messages exist, so values are
   /// merged by max: a hint can only raise the counts and never lowers what a completed notification sync produced.
   ///
-  /// [noticeCount] null leaves the notice count as it is and only merges the personal message hint: the header count
-  /// is a raw forum total without authors, so it must not be merged while the local block list may hide some notices
-  /// (see [noticeHintAllowed]).
-  void applyServerHint({required int? noticeCount, required bool hasPersonalMessage}) {
+  /// [noticeCount] null leaves the notice count as it is: the header count is a raw forum total without authors, so
+  /// it must not be merged while the local block list may hide some notices (see [noticeHintAllowed]).
+  ///
+  /// [hasPersonalMessage] null leaves the personal message count as it is, for the same reason: the header flag is an
+  /// aggregate that cannot identify the sender, so it must not be merged while the local block list may mute some
+  /// conversations. The next sync recounts the conversations per peer.
+  void applyServerHint({required int? noticeCount, required bool? hasPersonalMessage}) {
     final current = _controller.valueOrNull ?? NotificationStateInfo.empty;
     final merged = NotificationStateInfo(
       notice: noticeCount == null ? current.notice : math.max(current.notice, noticeCount),
-      personalMessage: math.max(current.personalMessage, hasPersonalMessage ? 1 : 0),
+      personalMessage: hasPersonalMessage == null
+          ? current.personalMessage
+          : math.max(current.personalMessage, hasPersonalMessage ? 1 : 0),
       broadcastMessage: current.broadcastMessage,
     );
     if (merged != current) {

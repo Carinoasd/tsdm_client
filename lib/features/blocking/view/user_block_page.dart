@@ -208,9 +208,32 @@ class _UserBlockPageState extends State<UserBlockPage> {
   Widget _buildRules(BuildContext context) {
     final tr = context.t.userBlock.serverRules;
     final rules = _rules;
+    final String loadLabel;
+    if (_rulesFailure != null) {
+      loadLabel = context.t.general.retry;
+    } else if (rules == null) {
+      loadLabel = tr.load;
+    } else {
+      loadLabel = tr.reload;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ListTile(leading: const Icon(Icons.info_outline), title: Text(tr.entryHelp)),
+        // Always visible and apart from the header, disabled while a request is running.
+        Padding(
+          padding: edgeInsetsL4R4,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _loadRules,
+              icon: const Icon(Icons.refresh),
+              label: Text(loadLabel),
+            ),
+          ),
+        ),
+        // Rules are never reported as empty before the forum answered.
+        if (rules == null && _rulesFailure == null && !_busy) ListTile(title: Text(tr.notLoaded)),
         if (_rulesFailure != null)
           ListTile(
             leading: Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),

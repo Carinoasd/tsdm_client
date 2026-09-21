@@ -119,15 +119,16 @@ class _HomepagePageState extends State<HomepagePage> {
           BlocListener<HomepageBloc, HomepageState>(
             listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
             listener: (context, state) {
-              // The header notice count is a raw forum total: merge it only while nothing can be hidden locally,
-              // otherwise keep the filtered badge until the sync requested below recounts it.
-              final allowNoticeHint = noticeHintAllowed(
+              // The header notice count is a raw forum total and the personal message flag an aggregate without
+              // sender: merge them only while nothing can be hidden or muted locally, otherwise keep the filtered
+              // badge until the sync requested below recounts it.
+              final allowHint = noticeHintAllowed(
                 currentBlockList(context, listen: false),
                 currentUid: context.read<AuthenticationRepository>().effectiveCurrentUid,
               );
               context.read<NotificationInfoRepository>().applyServerHint(
-                noticeCount: allowNoticeHint ? state.unreadNoticeCount : null,
-                hasPersonalMessage: state.hasUnreadMessage,
+                noticeCount: allowHint ? state.unreadNoticeCount : null,
+                hasPersonalMessage: allowHint ? state.hasUnreadMessage : null,
               );
               context.read<NotificationBloc>().add(NotificationUpdateAllRequested());
             },

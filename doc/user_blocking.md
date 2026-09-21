@@ -12,7 +12,8 @@ page).
   failed read can not overwrite the saved list. Entries this version can not decode are kept
   (`UserBlockList.unreadableEntries`) and written back unchanged.
 * Never sends a request: no forum blacklist, no friend removal, no PM rejection, the blocked user is not notified.
-  Personal messages are untouched.
+  Personal messages are still delivered; only their local alert and unread badge are muted (see "Personal
+  messages" below).
 * Self block, guests and invalid uids are refused (`UserBlockResult`).
 * `UserBlockCubit` follows the current account (`AuthenticationRepository.effectiveCurrentUid`, re-read on every
   auth status event). State has a status: `loading` / `failed` lists are "unknown" and `UserBlockList.hides` holds
@@ -49,10 +50,30 @@ page).
   foreground and background), from the unread counts, from the notice page and from notice search (the card itself
   also checks), and come back when unblocked. Old rows without metadata are never hidden. A list that can not be read
   holds back attributed notices instead of announcing them.
-* Foreground sync publishes the same filtered storage recount as background sync. Homepage aggregate notice hints
-  are withheld while the local list is nonempty or not known yet, because the forum total has no author information;
-  PM hints remain active. Recounts recheck the current account after reading storage, so switching accounts cannot
-  publish the previous account's badge.
+* Personal messages: a conversation with a blocked peer is muted, not hidden. Only two local things change, both
+  decided by the peer uid (`isMutedPersonalMessagePeer`), never by a name:
+  * no alert: the conversation is left out of `fresh` (`withoutBlockedNotices` in `persistFetchedNotification`), so
+    there is no system notification and no auto sync hint for it, foreground and background;
+  * no badge: `countUnreadNotification` does not count it, on every path that publishes the unread badge.
+
+  Everything else stays as it is. Delivery: the forum still accepts and delivers the messages, they are fetched and
+  stored like any other, and the conversation stays listed in the personal message tab where it can be opened and
+  read by hand at any time. Read state: blocking never marks anything as read; the stored flag is the real one, so a
+  conversation read while muted stays read and an unread one counts again after unblocking (`onListChanged` reloads
+  from storage and recounts). Rights: no request is sent, so the forum blacklist, the friend relation, the PM
+  permissions of both sides and the forum's own unread marker (web and other devices) are unchanged, and the peer
+  can not tell. It applies to the account that blocked only: account B on the same device does not inherit the
+  list of account A. While the list can not be read every conversation is muted the same way instead of announced.
+  The block dialog (`userBlock.blockConfirmContent`) and the card on top of the manager page
+  (`userBlock.localHint`) tell the user exactly this.
+* Foreground sync publishes the same filtered storage recount as background sync. Both homepage header hints are
+  withheld while the local list is nonempty or not known yet (`noticeHintAllowed` guards the two, the name is kept
+  from when only the notice count was guarded): the forum notice total has no author information and the PM flag is
+  an aggregate that can not tell the sender, so either would bring hidden notices or a muted conversation back into
+  the badge until the next sync. `applyServerHint` leaves a count as it is for a null hint. Recounts recheck the
+  current account after reading storage, so switching accounts cannot publish the previous account's badge.
+* Covered by `test/regression/test_096_blocking_unread_integration_test.dart` (badge, `fresh`, unblock recount,
+  accounts apart, header hints).
 
 ## B. Forum notice ignore rules (Discuz `filter_note`, not the blacklist)
 
@@ -61,6 +82,12 @@ page).
   Stored in nullable `notice.ignore_type` / `notice.author_id` (schema v14). A copy without metadata keeps the stored
   metadata only for the same revision (same time and body); a merged notice with a newer time or another body gets
   null (unknown author) instead of inheriting the old one.
+* Entry: a rule is added from a notice only (notifications → notice tab "提醒" → the ⋮ menu of one notice →
+  "屏蔽此类提醒（论坛）…", `showNoticeIgnoreDialog`), because the type and the author come from that notice's own
+  ignore link. There is no such entry on personal messages: these rules are about notices, muting a peer's messages
+  is part of the local block (A). The manager page only lists and removes existing rules; it shows a reminder
+  (`userBlock.serverRules.entryHelp`) telling where the entry is, since an empty rule list gives no hint of how to
+  add one.
 * Add: user picks "this user + type" or "everybody + type" (system notices: everybody only) and confirms; the app
   reads the privacy page (identity check with `parseLoggedUidFromDocument`, falling back to the plain header link),
   returns "already applied" without writing when the rule exists, fetches the ignore form, requires the `ignoresubmit`

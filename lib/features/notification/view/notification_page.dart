@@ -86,7 +86,10 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         if (state.status == NotificationStatus.success) {
           final blocked = currentBlockList(context, listen: false);
           final n = state.noticeList.where((e) => !e.alreadyRead && !isBlockedNoticeAuthor(e.authorId, blocked)).length;
-          final pm = state.personalMessageList.where((e) => !e.alreadyRead).length;
+          // Conversations with locally blocked users stay listed below but are muted: they do not count in the badge.
+          final pm = state.personalMessageList
+              .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))
+              .length;
           final bm = state.broadcastMessageList.where((e) => !e.alreadyRead).length;
           context.read<NotificationStateCubit>().setAll(
             noticeCount: n,

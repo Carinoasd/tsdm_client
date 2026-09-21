@@ -157,6 +157,11 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
                       ],
                     ),
                   ),
+                ] else ...<PopupMenuEntry<_Actions>>[
+                  // Without the ignore link there is nothing to act on; say so instead of silently dropping the entries
+                  // above.
+                  const PopupMenuDivider(),
+                  PopupMenuItem<_Actions>(enabled: false, child: Text(context.t.userBlock.serverRules.notAvailable)),
                 ],
                 if (context.read<SettingsBloc>().state.settingsMap.enableDebugOperations) ...<PopupMenuEntry<_Actions>>[
                   const PopupMenuDivider(),
@@ -234,7 +239,9 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
   Future<void> _onTap(BuildContext context, {required bool markAsRead, required bool launch}) async {
     // Record the read state before navigating. Recording it once the chat page popped lost the mark whenever this card
     // was gone by then (the list refreshed, the user left the notification page), and the badge stayed on.
-    if (markAsRead != widget.data.alreadyRead) {
+    // A muted peer's conversation is never counted as unread, so there is nothing to adjust for it.
+    if (markAsRead != widget.data.alreadyRead &&
+        !isMutedPersonalMessagePeer(widget.data.peerUid, currentBlockList(context, listen: false))) {
       if (markAsRead) {
         context.read<NotificationStateCubit>().decreasePersonalMessage();
       } else {
@@ -264,6 +271,8 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
   Widget build(BuildContext context) {
     final tr = context.t.noticePage.cardMenu;
     final showBadge = getIt.get<SettingsRepository>().currentSettings.showUnreadPersonalMessageBadge;
+    // Muted peers keep their conversation in the list, only the unread badge is dropped.
+    final muted = isMutedPersonalMessagePeer(widget.data.peerUid, currentBlockList(context));
 
     return Card(
       margin: EdgeInsets.zero,
@@ -278,7 +287,7 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
                 onTap: () async =>
                     context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '${widget.data.peerUid}'}),
                 child: Badge(
-                  isLabelVisible: showBadge && !widget.data.alreadyRead,
+                  isLabelVisible: showBadge && !muted && !widget.data.alreadyRead,
                   child: HeroUserAvatar(username: widget.data.peerUsername, avatarUrl: null, disableHero: true),
                 ),
               ),
@@ -339,7 +348,8 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
                         return;
                       }
 
-                      if (!widget.data.alreadyRead) {
+                      if (!widget.data.alreadyRead &&
+                          !isMutedPersonalMessagePeer(widget.data.peerUid, currentBlockList(context, listen: false))) {
                         context.read<NotificationStateCubit>().decreasePersonalMessage();
                       }
                       context.read<NotificationBloc>().add(

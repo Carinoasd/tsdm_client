@@ -154,15 +154,49 @@ Uri? _formAction(uh.Element form, Map<String, String> query) {
   return uri == null ? null : canonicalForumOperationUrl(uri, query);
 }
 
+/// Elements that only exist in a Cloudflare interstitial (managed challenge, legacy browser check, block page).
+const _challengeSelectors = [
+  '#challenge-form',
+  '#challenge-running',
+  '#challenge-stage',
+  '#challenge-error-text',
+  '#cf-challenge-running',
+  '.cf-browser-verification',
+  '#cf-error-details',
+];
+
+/// Whether [doc] is a Cloudflare interstitial instead of a forum page.
+///
+/// Cloudflare also injects a background script into ordinary forum pages (JS detection:
+/// `/cdn-cgi/challenge-platform/scripts/jsd/main.js` with `window.__CF$cv$params`), so the path `challenge-platform`
+/// alone says nothing. An interstitial is recognised by its own title, its own elements, or a script that carries the
+/// challenge options (`_cf_chl_opt`) or loads the challenge orchestrator.
+bool isCloudflareChallengePage(uh.Document doc) {
+  final title = doc.querySelector('title')?.text ?? '';
+  if (title.contains('Just a moment') || title.contains('Attention Required')) {
+    return true;
+  }
+  if (_challengeSelectors.any((e) => doc.querySelector(e) != null)) {
+    return true;
+  }
+  for (final script in doc.querySelectorAll('script')) {
+    final src = script.attributes['src'] ?? '';
+    if (src.contains('/cdn-cgi/challenge-platform/') && src.contains('/orchestrate/')) {
+      return true;
+    }
+    final body = script.text ?? '';
+    if (body.contains('_cf_chl_opt') || body.contains('/orchestrate/chl_page')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Reject pages that are not a normal forum answer for the logged in account [expectedUid].
 ///
 /// Set [requireIdentity] to false for ajax fragments which carry no page header.
-void checkForumPage(uh.Document doc, String raw, {required int expectedUid, required bool requireIdentity}) {
-  final title = doc.querySelector('title')?.text ?? '';
-  if (title.contains('Just a moment') ||
-      raw.contains('challenge-platform') ||
-      raw.contains('cf-chl') ||
-      doc.querySelector('#challenge-form') != null) {
+void checkForumPage(uh.Document doc, {required int expectedUid, required bool requireIdentity}) {
+  if (isCloudflareChallengePage(doc)) {
     throw const _PageRejected(NoticeIgnoreFailure.challenge, 'cloudflare challenge');
   }
   final isGuest =
@@ -317,7 +351,7 @@ ParsedForumForm parsePrivacyFilterPage(String raw, {required int expectedUid}) {
 
 ParsedForumForm _parsePrivacyFilterPage(String raw, {required int expectedUid}) {
   final doc = parseHtmlDocument(raw);
-  checkForumPage(doc, raw, expectedUid: expectedUid, requireIdentity: true);
+  checkForumPage(doc, expectedUid: expectedUid, requireIdentity: true);
   const query = {'mod': 'spacecp', 'ac': 'privacy', 'op': 'filter'};
   final forms = doc.querySelectorAll('form').where((f) => _formAction(f, query) != null).toList();
   if (forms.length != 1) {
@@ -370,7 +404,7 @@ ParsedForumForm parseNoticeIgnoreForm(String raw, {required NoticeIgnoreTarget t
 ParsedForumForm _parseNoticeIgnoreForm(String raw, {required NoticeIgnoreTarget target, required int expectedUid}) {
   final html = unwrapAjax(raw);
   final doc = parseHtmlDocument(html);
-  checkForumPage(doc, html, expectedUid: expectedUid, requireIdentity: false);
+  checkForumPage(doc, expectedUid: expectedUid, requireIdentity: false);
   final query = {'mod': 'spacecp', 'ac': 'common', 'op': 'ignore', 'type': target.type};
   final forms = doc.querySelectorAll('form').where((f) => _formAction(f, query) != null).toList();
   if (forms.length != 1) {
@@ -535,7 +569,7 @@ class NoticeIgnoreRepository with LoggerMixin {
     if (raw is String) {
       try {
         final html = unwrapAjax(raw);
-        checkForumPage(parseHtmlDocument(html), html, expectedUid: uid, requireIdentity: false);
+        checkForumPage(parseHtmlDocument(html), expectedUid: uid, requireIdentity: false);
       } on _PageRejected catch (e) {
         // Explicit refusal from the forum: never reported as success. The list is still reloaded below so the page
         // shows the real state.

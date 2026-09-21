@@ -293,8 +293,8 @@ void main() {
         list,
       );
       expect(filtered.noticeList.map((e) => e.id), [2, 3]);
-      // Personal messages are never touched by the local block.
-      expect(filtered.personalMessageList, hasLength(1));
+      // Only the fresh alert payload is filtered; persistence keeps the conversation.
+      expect(filtered.personalMessageList, isEmpty);
     });
 
     test('blocked notices are stored raw but neither fresh nor unread; unblocking counts them again', () async {
@@ -366,8 +366,25 @@ void main() {
       await storage.saveString(UserBlockRepository.keyOf(_alice), 'damaged row');
       final list = await noticeBlockListOf(storage, _alice);
       expect(list.status, UserBlockListStatus.failed);
-      final fetched = notices([notice(1, author: _troll), notice(2)]);
+      final fetched = notices([notice(1, author: _troll), notice(2)]).copyWith(
+        personalMessageList: const [
+          PersonalMessageV2(
+            timestamp: 1,
+            data: 'kept while list unavailable',
+            peerUid: _troll,
+            peerUsername: 'troll',
+            sender: false,
+            alreadyRead: false,
+          ),
+        ],
+      );
       expect(withoutBlockedNotices(fetched, list).noticeList.map((e) => e.id), [2]);
+      final persisted = await persistFetchedNotification(storage: storage, uid: _alice, fetched: fetched);
+      expect(persisted.fresh.personalMessageList, isEmpty);
+      expect(persisted.unread.personalMessage, 0);
+      final stored = await storage.fetchNotificationSince(uid: _alice, timestamp: 0).run();
+      expect(stored.personalMessageList.single.alreadyRead, isFalse);
+      expect(stored.personalMessageList.single.peerUid, _troll);
       final repository = UserBlockRepository(storage);
       addTearDown(repository.dispose);
       await expectLater(

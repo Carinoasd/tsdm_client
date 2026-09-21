@@ -172,6 +172,40 @@ void main() {
 
   const repo = NoticeIgnoreRepository();
 
+  group('Cloudflare background script versus interstitial', () {
+    test('captured normal page containing background JS passes the page guard', () {
+      final raw = File('test/data/favorite_forum_list_empty_x5.html').readAsStringSync();
+      expect(raw, contains('/cdn-cgi/challenge-platform/scripts/jsd/main.js'));
+      expect(() => checkForumPage(parseHtmlDocument(raw), expectedUid: _me, requireIdentity: false), returnsNormally);
+    });
+
+    test('background JS on a valid privacy page loads rules', () async {
+      final forum = _Forum(checked: {'privacy[filter_note][post|3000]'});
+      forum.privacyPageOverride = forum.privacyPage().replaceFirst(
+        '</body>',
+        '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script></body>',
+      );
+      final result = await repo.fetchRules(_clientOf(forum), uid: _me);
+      expect(result.isSuccess, isTrue, reason: '${result.failure}');
+      expect(result.rules!.map((e) => e.key), ['post|3000']);
+      expect(forum.posts, isEmpty);
+    });
+
+    for (final marker in [
+      '<title>Just a moment...</title>',
+      '<form id="challenge-form"></form>',
+      '<script src="/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1"></script>',
+      '<script>window._cf_chl_opt = {};</script>',
+    ]) {
+      test('real challenge is refused: $marker', () async {
+        final forum = _Forum(checked: {})..privacyPageOverride = '<html><head>$marker</head><body></body></html>';
+        final result = await repo.fetchRules(_clientOf(forum), uid: _me);
+        expect(result.failure, NoticeIgnoreFailure.challenge);
+        expect(forum.posts, isEmpty);
+      });
+    }
+  });
+
   group('notice metadata', () {
     test('type and author come from the ignore link of real notice pages', () {
       NoticeV2 first(String file) =>

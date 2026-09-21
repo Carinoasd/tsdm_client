@@ -186,8 +186,9 @@ Future<PersistedNotification> _persistFetchedNotification({
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fetched = dropStaleCopies(fetched: received, stored: stored);
-  // Notices of users blocked locally by [uid] are stored as they are (unblocking shows them again) but never count as
-  // news: no system notification, no auto sync hint. Only the author from the notice's own ignore link is used.
+  // Notices of users blocked locally by [uid], and personal messages from them, are stored as they are (unblocking
+  // shows them again, the conversations stay listed) but never count as news: no system notification, no auto sync
+  // hint. For notices only the author from the notice's own ignore link is used, for conversations the peer.
   final blocked = await noticeBlockListOf(storage, uid);
   final fresh = withoutBlockedNotices(freshNotifications(fetched: fetched, stored: stored), blocked);
   // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
@@ -280,13 +281,16 @@ NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
 /// user after every mark and every sync.
 Future<NotificationStateInfo> countUnreadNotification({required StorageProvider storage, required int uid}) async {
   final group = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
-  // Hidden notices of locally blocked users do not show in the badge; their read state is left untouched.
+  // Hidden notices of locally blocked users and conversations with them do not show in the badge; their read state
+  // is left untouched.
   final blocked = await noticeBlockListOf(storage, uid);
   return NotificationStateInfo(
     notice: group.noticeList
         .where((e) => !(e.alreadyRead ?? false) && !isBlockedNoticeAuthor(e.authorId, blocked))
         .length,
-    personalMessage: group.personalMessageList.where((e) => !e.alreadyRead).length,
+    personalMessage: group.personalMessageList
+        .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))
+        .length,
     broadcastMessage: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
   );
 }
@@ -482,8 +486,8 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     ];
 
     // Post the latest unread notification info to global state cubit: recounted from storage like every other path,
-    // so notices of locally blocked users (or all attributed ones while the list can not be read) never reach the
-    // badge. Counting the raw lists above overwrote the filtered badge whenever the notification page was not open to
+    // so notices of locally blocked users and conversations with them (or all attributed ones while the list can not
+    // be read) never reach the badge. Counting the raw lists above overwrote the filtered badge whenever the notification page was not open to
     // correct it. Skipped when the account changed meanwhile.
     await _publishUnreadCounts(uid);
     if (_authRepo.currentUser?.uid != uid) {
@@ -682,7 +686,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         broadcastMessageList: broadcastMessageList,
       ),
     );
-    // Also after a change of the local block list: hidden notices do not count.
+    // Also after a change of the local block list: hidden notices and muted conversations do not count.
     await _publishUnreadCounts(uid);
   }
 

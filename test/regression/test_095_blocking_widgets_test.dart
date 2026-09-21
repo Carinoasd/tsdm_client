@@ -106,6 +106,11 @@ final class _Rules extends NoticeIgnoreRepository {
 final class _Notifications extends Fake implements NotificationBloc {
   _Notifications(this.state);
 
+  final events = <NotificationEvent>[];
+
+  @override
+  void add(NotificationEvent event) => events.add(event);
+
   @override
   final NotificationState state;
 
@@ -374,6 +379,30 @@ void main() {
   });
 
   group('management page', () {
+    testWidgets('visible load button distinguishes unloaded, failure and empty rules', (tester) async {
+      final rules = _Rules();
+      await pump(tester, UserBlockPage(noticeIgnoreRepository: rules, clientFactory: _client));
+      expect(find.text(tr.userBlock.serverRules.entryHelp), findsOneWidget);
+      expect(find.text(tr.userBlock.serverRules.notLoaded), findsOneWidget);
+      await tester.ensureVisible(find.text(tr.userBlock.serverRules.load));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tr.userBlock.serverRules.load));
+      await tester.pump();
+      expect(rules.fetches, hasLength(1));
+      rules.fetches.single.$2.complete(const NoticeIgnoreResult.failed(NoticeIgnoreFailure.challenge));
+      await settle(tester);
+      expect(find.text(tr.userBlock.serverRules.notLoaded), findsNothing);
+      await tester.ensureVisible(find.text(tr.general.retry));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tr.general.retry));
+      await tester.pump();
+      expect(rules.fetches, hasLength(2));
+      rules.fetches.last.$2.complete(const NoticeIgnoreResult.success([]));
+      await settle(tester);
+      expect(find.text(tr.userBlock.serverRules.reload), findsOneWidget);
+      expect(find.text(tr.userBlock.serverRules.empty), findsOneWidget);
+    });
+
     testWidgets('rules of A are cleared when B becomes current and a late answer for A is dropped', (tester) async {
       final rules = _Rules();
       await pump(tester, UserBlockPage(noticeIgnoreRepository: rules, clientFactory: _client));
@@ -419,6 +448,8 @@ void main() {
       );
       await settle(tester);
 
+      await tester.ensureVisible(find.text(tr.userBlock.serverRules.remove));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(tr.userBlock.serverRules.remove));
       // The page shows its progress indicator while the dialog is open: pump frames instead of settling.
       await settle(tester);
@@ -436,6 +467,47 @@ void main() {
       await settle(tester);
       expect(find.byKey(const ValueKey('blocked-$_troll')), findsNothing);
       expect(find.text(tr.userBlock.empty), findsOneWidget);
+      auth.switchTo(_alice);
+      await settle(tester);
+      expect(find.byKey(const ValueKey('blocked-$_troll')), findsOneWidget);
+    });
+  });
+
+  group('muted personal message card', () {
+    testWidgets('conversation stays visible without badge and reading does not decrement other peers', (tester) async {
+      await tester.runAsync(() => blockNow(_alice.uid!, _troll));
+      final notifications = _Notifications(const NotificationState(status: NotificationStatus.success));
+      final cubit = await pump(
+        tester,
+        BlocProvider<NotificationBloc>.value(
+          value: notifications,
+          child: const Scaffold(
+            body: PersonalMessageCardV2(
+              PersonalMessageV2(
+                timestamp: 150,
+                data: 'still available',
+                peerUid: _troll,
+                peerUsername: 'troll',
+                sender: false,
+                alreadyRead: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('still available', findRichText: true), findsOneWidget);
+      expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isFalse);
+      final counts = tester.element(find.byType(PersonalMessageCardV2)).read<NotificationStateCubit>()
+        ..setPersonalMessage(1);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tr.noticePage.cardMenu.markAsRead));
+      await settle(tester);
+      expect(counts.state.personalMessage, 1);
+      expect(notifications.events.single, isA<NotificationMarkReadRequested>());
+      await tester.runAsync(() => cubit.unblock(_troll, expectedOwner: _alice.uid));
+      await settle(tester);
+      expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isTrue);
     });
   });
 
