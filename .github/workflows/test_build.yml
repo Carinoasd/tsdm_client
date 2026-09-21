@@ -145,7 +145,7 @@ jobs:
       - name: Build Android
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |
-          flutter build apk --release
+          flutter build apk --release --build-name=1.27.1-blocking.1 --build-number=80
       - name: Pack Android apk
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |
