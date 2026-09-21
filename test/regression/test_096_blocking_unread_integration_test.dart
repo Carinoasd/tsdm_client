@@ -343,8 +343,9 @@ void main() {
     test('only a known empty list of the current account allows the notice hint', () {
       final uid = _alice.uid;
       expect(noticeHintAllowed(UserBlockList.empty(uid), currentUid: uid), isTrue);
-      // No block list provided / guest: behaves as before local blocking.
-      expect(noticeHintAllowed(const UserBlockList.empty(null), currentUid: uid), isTrue);
+      // A guest list cannot authorize raw hints for a logged-in account.
+      expect(noticeHintAllowed(const UserBlockList.empty(null), currentUid: uid), isFalse);
+      expect(noticeHintAllowed(const UserBlockList.empty(null), currentUid: null), isTrue);
 
       final active = UserBlockList(
         ownerUid: uid,

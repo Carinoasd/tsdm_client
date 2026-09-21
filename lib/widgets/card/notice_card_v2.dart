@@ -136,14 +136,16 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
                 // can only be ignored for everybody on the forum, there is no user to block.
                 if (widget.data.authorId != null && widget.data.ignoreType != null) ...<PopupMenuEntry<_Actions>>[
                   const PopupMenuDivider(),
-                  if (widget.data.authorId! > 0 && widget.data.authorId != currentBlockList(context).ownerUid)
+                  // Not listening: the menu is built on tap, outside of the build phase.
+                  if (widget.data.authorId! > 0 &&
+                      widget.data.authorId != currentBlockList(context, listen: false).ownerUid)
                     PopupMenuItem(
                       value: _Actions.blockAuthor,
                       child: Row(
                         children: [
                           const Icon(Icons.block_outlined),
                           sizedBoxPopupMenuItemIconSpacing,
-                          Text(context.t.userBlock.block),
+                          Expanded(child: Text(context.t.userBlock.block)),
                         ],
                       ),
                     ),
@@ -153,7 +155,7 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
                       children: [
                         const Icon(Icons.notifications_off_outlined),
                         sizedBoxPopupMenuItemIconSpacing,
-                        Text(context.t.userBlock.serverRules.entry),
+                        Expanded(child: Text(context.t.userBlock.serverRules.entry)),
                       ],
                     ),
                   ),

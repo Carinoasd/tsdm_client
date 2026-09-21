@@ -13,14 +13,15 @@ import 'package:tsdm_client/utils/platform.dart';
 /// Only when the list is known to be empty for that account: the header count carries no authors and the personal
 /// message flag is an aggregate that cannot tell the sender, so with users blocked, or a list still loading, failed
 /// or of another account, they would bring hidden notices and muted conversations back into the badge until the next
-/// full sync (which may be long or fail). The badge then keeps its filtered counts. A list without owner that is
-/// ready (guest, or no block list provided at all) hides nothing, as before local blocking existed.
+/// full sync (which may be long or fail). The badge then keeps its filtered counts.
+///
+/// The owner must be exactly [currentUid]. A ready list without owner only passes for a guest ([currentUid] null),
+/// where it hides nothing, as before local blocking existed. With an account logged in it is not that account's list
+/// (not loaded yet, or left over from the guest session), so it says nothing about who the account blocked.
 ///
 /// The name is kept from when only the notice count was guarded.
 bool noticeHintAllowed(UserBlockList blockList, {required int? currentUid}) =>
-    blockList.status == UserBlockListStatus.ready &&
-    blockList.uids.isEmpty &&
-    (blockList.ownerUid == null || blockList.ownerUid == currentUid);
+    blockList.status == UserBlockListStatus.ready && blockList.uids.isEmpty && blockList.ownerUid == currentUid;
 
 /// A small repository for notification state cubit.
 ///

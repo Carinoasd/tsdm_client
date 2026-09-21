@@ -511,6 +511,27 @@ void main() {
     });
   });
 
+  testWidgets('an attributed notice menu opens with local and forum actions', (tester) async {
+    await pump(
+      tester,
+      const Scaffold(
+        body: NoticeCardV2(
+          NoticeV2(
+            id: 888,
+            timestamp: 150,
+            data: 'notice menu regression',
+            ignoreType: 'post',
+            authorId: _troll,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text(tr.userBlock.serverRules.entry), findsOneWidget);
+  });
+
   group('notice search', () {
     NoticeV2 notice(int id, String text, {int? author}) => NoticeV2(
       id: id,
