@@ -53,9 +53,21 @@ class PinSection extends StatelessWidget with LoggerMixin {
   /// Build a list of [PinnedThread] to a list of [ListTile] and
   /// wrap in a [Card].
   /// All [PinnedThread] inside [threads] should guarantee not null.
+  ///
+  /// Rows whose author link names a user blocked locally are left out; the uid only comes from the forum's profile
+  /// link of the row, never from the name.
   Widget _buildSectionThreads(BuildContext context, List<PinnedThread?> threads, {bool reverseTitle = false}) {
+    final blockList = currentBlockList(context);
     final listTileList = threads
         .whereType<PinnedThread>()
+        .where((e) {
+          final authorUid = uidOfProfileUrl(e.authorUrl);
+          if (!reverseTitle) {
+            final tid = Uri.tryParse(e.threadUrl.replaceAll('&amp;', '&'))?.queryParameters['tid'];
+            ThreadAuthorCache.record(tid, authorUid?.toString());
+          }
+          return !blockList.hides(authorUid);
+        })
         .map((e) => _sectionThreadBuilder(context, e, isRank: reverseTitle))
         .toList();
 

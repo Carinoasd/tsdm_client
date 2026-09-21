@@ -23,6 +23,20 @@ class Notice extends Table {
   // ignore: unnecessary_nullable_return_type
   BoolColumn? get alreadyRead => boolean().nullable().withDefault(const Constant(true))();
 
+  /// Notice type from the notice's own ignore link (`type=post`, `type=friend`, ...).
+  ///
+  /// Null when the link is absent or the notice was saved before v14: never guessed from the body.
+  ///
+  /// Added in v14.
+  TextColumn get ignoreType => text().nullable()();
+
+  /// Uid of the user who triggered the notice, from the notice's own ignore link (`authorid=`).
+  ///
+  /// Null when the link is absent or the notice was saved before v14: never guessed from links in the body.
+  ///
+  /// Added in v14.
+  IntColumn get authorId => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {uid, nid};
 }

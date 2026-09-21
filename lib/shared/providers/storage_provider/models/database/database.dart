@@ -33,7 +33,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -161,6 +161,13 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
         // The user's own image stickers (#5).
         await m.create(schema.customImage);
         info('migrating database schema from 12 to 13... ok!');
+      },
+      from13To14: (m, schema) async {
+        info('migrating database schema from 13 to 14...');
+        // Notice type and author from the notice's ignore link, for blocking and server ignore rules.
+        await m.addColumn(schema.notice, schema.notice.ignoreType);
+        await m.addColumn(schema.notice, schema.notice.authorId);
+        info('migrating database schema from 13 to 14... ok!');
       },
     ),
   );

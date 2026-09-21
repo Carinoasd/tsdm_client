@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;

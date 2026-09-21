@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/list.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
+import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -52,6 +54,8 @@ class _NotificationSearchPageState extends State<NotificationSearchPage> {
     }
 
     final tr = context.t.noticeSearchPage;
+    // Filtered on every build (not in the snapshot): blocking or unblocking while this page is open applies at once.
+    final blocked = currentBlockList(context);
     return Scaffold(
       appBar: AppBar(
         title: SearchBar(
@@ -67,7 +71,9 @@ class _NotificationSearchPageState extends State<NotificationSearchPage> {
       body: ListView(
         padding: edgeInsetsL12T4R12B4,
         children: <Widget>[
-          ...notice!.noticeList.where((e) => e.data.contains(_searchContent)).map(NoticeCardV2.new),
+          ...notice!.noticeList
+              .where((e) => !isBlockedNoticeAuthor(e.authorId, blocked) && e.data.contains(_searchContent))
+              .map(NoticeCardV2.new),
           ...notice!.personalMessageList.where((e) => e.data.contains(_searchContent)).map(PersonalMessageCardV2.new),
           ...notice!.broadcastMessageList.where((e) => e.data.contains(_searchContent)).map(BroadcastMessageCardV2.new),
         ].insertBetween(sizedBoxW4H4),

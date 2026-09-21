@@ -118,4 +118,31 @@ void main() {
     await verifier.migrateAndValidate(db, 13);
     await db.close();
   });
+
+  test('upgrade from 13 to 14', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final connection = await verifier.startAt(13);
+    final db = AppDatabase(connection);
+    await verifier.migrateAndValidate(db, 14);
+    await db.close();
+  });
+
+  test('upgrade from 13 to 14 keeps stored notices and leaves their metadata unknown', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(13);
+    schema.rawDatabase.execute(
+      'INSERT INTO notice (uid, nid, timestamp, data, already_read) VALUES (1000, 1984, 100, '
+      '\'<a href="home.php?mod=space&uid=2000">x</a>\', 0)',
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 14);
+    final rows = await db.select(db.notice).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.nid, 1984);
+    expect(rows.single.alreadyRead, false);
+    // Old rows never get an author guessed from the links in the body.
+    expect(rows.single.authorId, isNull);
+    expect(rows.single.ignoreType, isNull);
+    await db.close();
+  });
 }

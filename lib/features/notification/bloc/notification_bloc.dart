@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
@@ -185,7 +186,10 @@ Future<PersistedNotification> _persistFetchedNotification({
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fetched = dropStaleCopies(fetched: received, stored: stored);
-  final fresh = freshNotifications(fetched: fetched, stored: stored);
+  // Notices of users blocked locally by [uid] are stored as they are (unblocking shows them again) but never count as
+  // news: no system notification, no auto sync hint. Only the author from the notice's own ignore link is used.
+  final blocked = await noticeBlockListOf(storage, uid);
+  final fresh = withoutBlockedNotices(freshNotifications(fetched: fetched, stored: stored), blocked);
   // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
   // fetched 是本次从服务器拿到的所有副本，fresh 是其中真正算"新消息"的。
   // 当 fetched > 0 但 fresh == 0，说明服务器返回的都被过滤（老副本 / 自己发的）；
@@ -225,6 +229,8 @@ Future<PersistedNotification> _persistFetchedNotification({
                   timestamp: e.timestamp,
                   data: e.data,
                   alreadyRead: e.alreadyRead,
+                  ignoreType: e.ignoreType,
+                  authorId: e.authorId,
                 ),
               )
               .toList(),
@@ -258,14 +264,28 @@ Future<PersistedNotification> _persistFetchedNotification({
   return (fresh: fresh, reconciled: info, unread: await countUnreadNotification(storage: storage, uid: uid));
 }
 
+/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link (null for old rows).
+NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
+  id: e.nid,
+  timestamp: e.timestamp,
+  data: e.data,
+  alreadyRead: e.alreadyRead ?? false,
+  ignoreType: e.ignoreType,
+  authorId: e.authorId,
+);
+
 /// Recount the unread notifications of [uid] from [storage].
 ///
 /// Storage is the source of truth of the unread badge; this is what `NotificationBloc` publishes for the current
 /// user after every mark and every sync.
 Future<NotificationStateInfo> countUnreadNotification({required StorageProvider storage, required int uid}) async {
   final group = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
+  // Hidden notices of locally blocked users do not show in the badge; their read state is left untouched.
+  final blocked = await noticeBlockListOf(storage, uid);
   return NotificationStateInfo(
-    notice: group.noticeList.where((e) => !(e.alreadyRead ?? false)).length,
+    notice: group.noticeList
+        .where((e) => !(e.alreadyRead ?? false) && !isBlockedNoticeAuthor(e.authorId, blocked))
+        .length,
     personalMessage: group.personalMessageList.where((e) => !e.alreadyRead).length,
     broadcastMessage: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
   );
@@ -437,7 +457,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     final allNotice = [
       ...info.noticeList,
       ...localNoticeData.noticeList.map(
-        (e) => NoticeV2(id: e.nid, timestamp: e.timestamp, data: e.data, alreadyRead: e.alreadyRead ?? false),
+        noticeEntityToV2,
       ),
     ];
     final allPersonalMessage = [
@@ -461,12 +481,14 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       ),
     ];
 
-    // Post the latest unread notification info to global state cubit.
-    _infoRepository.updateInfo(
-      unreadNoticeCount: allNotice.where((e) => !e.alreadyRead).length,
-      unreadPersonalMessageCount: allPersonalMessage.where((e) => !e.alreadyRead).length,
-      unreadBroadcastMessageCount: allBroadcastMessage.where((e) => !e.alreadyRead).length,
-    );
+    // Post the latest unread notification info to global state cubit: recounted from storage like every other path,
+    // so notices of locally blocked users (or all attributed ones while the list can not be read) never reach the
+    // badge. Counting the raw lists above overwrote the filtered badge whenever the notification page was not open to
+    // correct it. Skipped when the account changed meanwhile.
+    await _publishUnreadCounts(uid);
+    if (_authRepo.currentUser?.uid != uid) {
+      return;
+    }
 
     // Post the latest sync result in the action to global auto sync info state
     // cubit.
@@ -595,6 +617,9 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
     final unread = await countUnreadNotification(storage: _storageProvider, uid: uid);
+    if (_authRepo.currentUser?.uid != uid) {
+      return;
+    }
     _infoRepository.updateInfo(
       unreadNoticeCount: unread.notice,
       unreadPersonalMessageCount: unread.personalMessage,
@@ -622,9 +647,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('Async gap meets uid changes, do NOT update state.');
       return;
     }
-    final noticeList = group.noticeList
-        .map((e) => NoticeV2(id: e.nid, timestamp: e.timestamp, data: e.data, alreadyRead: e.alreadyRead ?? false))
-        .toList();
+    final noticeList = group.noticeList.map(noticeEntityToV2).toList();
     final personalMessageList = group.personalMessageList
         .map(
           (e) => PersonalMessageV2(
@@ -659,6 +682,8 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         broadcastMessageList: broadcastMessageList,
       ),
     );
+    // Also after a change of the local block list: hidden notices do not count.
+    await _publishUnreadCounts(uid);
   }
 
   Future<void> _onDeleteNotice(_Emit emit, {required int uid, required int nid}) async {

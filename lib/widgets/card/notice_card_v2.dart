@@ -6,6 +6,11 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
+import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
+import 'package:tsdm_client/features/blocking/widgets/notice_ignore_actions.dart';
+import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -20,7 +25,7 @@ import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 
-enum _Actions { markAsRead, markAsUnread, deleteItem, copyRawContent }
+enum _Actions { markAsRead, markAsUnread, deleteItem, copyRawContent, blockAuthor, ignoreOnForum }
 
 /// Widgets in this file are for models fetched through notification APIs.
 ///
@@ -71,6 +76,11 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.noticePage.cardMenu;
+    // Every list showing notice cards filters them already; the card checks again so a list that forgets (or holds
+    // an old snapshot) never shows a notice of a blocked user.
+    if (isBlockedNoticeAuthor(widget.data.authorId, currentBlockList(context))) {
+      return const SizedBox.shrink();
+    }
     final showBadge = getIt.get<SettingsRepository>().currentSettings.showUnreadNoticeBadge;
     return Card(
       margin: EdgeInsets.zero,
@@ -122,6 +132,32 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
                     ],
                   ),
                 ),
+                // Only offered when the notice's own ignore link names its author and type. System notices (author 0)
+                // can only be ignored for everybody on the forum, there is no user to block.
+                if (widget.data.authorId != null && widget.data.ignoreType != null) ...<PopupMenuEntry<_Actions>>[
+                  const PopupMenuDivider(),
+                  if (widget.data.authorId! > 0 && widget.data.authorId != currentBlockList(context).ownerUid)
+                    PopupMenuItem(
+                      value: _Actions.blockAuthor,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.block_outlined),
+                          sizedBoxPopupMenuItemIconSpacing,
+                          Text(context.t.userBlock.block),
+                        ],
+                      ),
+                    ),
+                  PopupMenuItem(
+                    value: _Actions.ignoreOnForum,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_off_outlined),
+                        sizedBoxPopupMenuItemIconSpacing,
+                        Text(context.t.userBlock.serverRules.entry),
+                      ],
+                    ),
+                  ),
+                ],
                 if (context.read<SettingsBloc>().state.settingsMap.enableDebugOperations) ...<PopupMenuEntry<_Actions>>[
                   const PopupMenuDivider(),
                   PopupMenuItem(value: _Actions.copyRawContent, child: Text(tr.copyRawContent)),
@@ -129,6 +165,15 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
               ],
               onSelected: (value) async {
                 switch (value) {
+                  case _Actions.blockAuthor:
+                    // The notice names no reliable username, the management page shows the uid.
+                    final authorId = widget.data.authorId!;
+                    await confirmAndBlockUser(context, uid: authorId, username: 'UID $authorId');
+                  case _Actions.ignoreOnForum:
+                    await showNoticeIgnoreDialog(
+                      context,
+                      NoticeIgnoreTarget(type: widget.data.ignoreType!, authorId: widget.data.authorId!),
+                    );
                   case _Actions.markAsRead:
                     _onUrlLaunched(markAsRead: true);
                   case _Actions.markAsUnread:
@@ -305,6 +350,9 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
                       );
                     case _Actions.copyRawContent:
                       await copyToClipboard(context, widget.data.data);
+                    case _Actions.blockAuthor || _Actions.ignoreOnForum:
+                      // Only offered on notices.
+                      break;
                   }
                 },
               ),
@@ -443,6 +491,9 @@ class _BroadcastMessageCardV2State extends State<BroadcastMessageCardV2> {
                       );
                     case _Actions.copyRawContent:
                       await copyToClipboard(context, widget.data.data);
+                    case _Actions.blockAuthor || _Actions.ignoreOnForum:
+                      // Only offered on notices.
+                      break;
                   }
                 },
               ),

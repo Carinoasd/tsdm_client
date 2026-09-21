@@ -1,10 +1,24 @@
 import 'dart:math' as math;
 
 import 'package:rxdart/rxdart.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
+
+/// Whether the unread notice count from a page header may be merged into the badge of account [currentUid] while the
+/// local block list is [blockList].
+///
+/// Only when the list is known to be empty for that account: the header count carries no authors, so with users
+/// blocked, or a list still loading, failed or of another account, it would bring hidden notices back into the badge
+/// until the next full sync (which may be long or fail). The badge then keeps its filtered notice count; the personal
+/// message hint is never affected. A list without owner that is ready (guest, or no block list provided at all)
+/// hides nothing, as before local blocking existed.
+bool noticeHintAllowed(UserBlockList blockList, {required int? currentUid}) =>
+    blockList.status == UserBlockListStatus.ready &&
+    blockList.uids.isEmpty &&
+    (blockList.ownerUid == null || blockList.ownerUid == currentUid);
 
 /// A small repository for notification state cubit.
 ///
@@ -43,10 +57,14 @@ final class NotificationInfoRepository with LoggerMixin {
   ///
   /// The header only tells the unread notice count and whether unread personal messages exist, so values are
   /// merged by max: a hint can only raise the counts and never lowers what a completed notification sync produced.
-  void applyServerHint({required int noticeCount, required bool hasPersonalMessage}) {
+  ///
+  /// [noticeCount] null leaves the notice count as it is and only merges the personal message hint: the header count
+  /// is a raw forum total without authors, so it must not be merged while the local block list may hide some notices
+  /// (see [noticeHintAllowed]).
+  void applyServerHint({required int? noticeCount, required bool hasPersonalMessage}) {
     final current = _controller.valueOrNull ?? NotificationStateInfo.empty;
     final merged = NotificationStateInfo(
-      notice: math.max(current.notice, noticeCount),
+      notice: noticeCount == null ? current.notice : math.max(current.notice, noticeCount),
       personalMessage: math.max(current.personalMessage, hasPersonalMessage ? 1 : 0),
       broadcastMessage: current.broadcastMessage,
     );

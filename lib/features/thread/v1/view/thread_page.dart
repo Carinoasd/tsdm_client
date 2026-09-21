@@ -12,6 +12,9 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
+import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
+import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
@@ -22,6 +25,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
@@ -137,6 +141,133 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// Floor to scroll to when the thread reloads after a reply or edit. Read by the next
   /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
   String? _scrollToPidOnReload;
+
+  /// Tid whose first page was asked for to learn who started the thread, see [_threadAuthorOf].
+  String? _resolvedTid;
+
+  /// The first page of [_resolvedTid] could not be fetched or did not name who started the thread.
+  bool _authorLookupFailed = false;
+
+  /// Bumped on every lookup, retry and dispose so that an answer arriving late is dropped.
+  int _authorLookup = 0;
+
+  /// Uid of the user who started the thread shown in [state], null when not known.
+  ///
+  /// Taken from the first floor when it is on the page (not when only one user's floors are listed: the floor
+  /// numbers are then not the thread's), else from what lists and earlier pages recorded (see [ThreadAuthorCache]).
+  int? _threadAuthorOf(ThreadState state) {
+    final tid = state.tid ?? widget.threadID;
+    if (state.onlyVisibleUid == null) {
+      final first = state.postList.firstWhereOrNull((e) => e.postFloor == 1);
+      if (first != null) {
+        ThreadAuthorCache.record(tid, first.author.uid);
+      }
+    }
+    return ThreadAuthorCache.authorOf(tid);
+  }
+
+  /// Fetch the first page of thread [tid] once to learn who started it.
+  ///
+  /// Only needed when the thread was opened on a later page and the current account blocks somebody.
+  void _resolveThreadAuthor(String tid) {
+    if (_resolvedTid == tid) {
+      return;
+    }
+    _resolvedTid = tid;
+    _authorLookupFailed = false;
+    final lookup = ++_authorLookup;
+    unawaited(() async {
+      var found = false;
+      try {
+        // A separate repository: the page's own one remembers the url of the page shown. Oldest first, so the first
+        // floor is on the first page whatever the thread's own order is.
+        final result = await ThreadRepository().fetchThread(tid: tid, reverseOrder: false).run();
+        result.match((e) => error('failed to learn the author of thread $tid: $e'), (doc) {
+          final first = parseThreadDocument(doc, 1).postList.firstWhereOrNull((e) => e.postFloor == 1);
+          ThreadAuthorCache.record(tid, first?.author.uid);
+          found = ThreadAuthorCache.authorOf(tid) != null;
+          if (!found) {
+            error('first page of thread $tid does not name its author');
+          }
+        });
+      } on Object catch (e, st) {
+        handleRaw(e, st);
+      }
+      // Dropped when the page is gone, retried or now shows another thread.
+      if (!mounted || lookup != _authorLookup || _resolvedTid != tid) {
+        return;
+      }
+      setState(() => _authorLookupFailed = !found);
+    }());
+  }
+
+  /// Ask the first page again after a failed lookup.
+  void _retryThreadAuthor() {
+    setState(() {
+      _authorLookup++;
+      _resolvedTid = null;
+      _authorLookupFailed = false;
+    });
+  }
+
+  /// What the local block list does to the thread in [state]: null to show it, or the app bar title and the body
+  /// shown instead of the whole thread (title, floors and reply bar).
+  ({String title, Widget body})? _blockedThreadBody(BuildContext context, ThreadState state) {
+    final list = currentBlockList(context);
+    if (list.uids.isEmpty && list.isKnown) {
+      return null;
+    }
+    final authorUid = _threadAuthorOf(state);
+    final username = state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name ?? 'UID ${authorUid ?? ''}';
+    // Not known to be blocked: a neutral title, never the thread's own one.
+    final neutral = context.t.threadPage.title;
+    if (!list.isKnown) {
+      // The list of the current account is not read yet (or failed): hold the thread back, do not show it early.
+      return (title: neutral, body: BlockedThreadNotice(uid: authorUid ?? 0, username: username, pending: true));
+    }
+    if (authorUid != null) {
+      if (!list.hides(authorUid)) {
+        return null;
+      }
+      return (
+        title: context.t.userBlock.threadHiddenTitle,
+        body: BlockedThreadNotice(uid: authorUid, username: username),
+      );
+    }
+    // Somebody is blocked and the author is not known yet (a later page, a `findpost` link, still loading): hold the
+    // whole thread back until the first floor tells who started it.
+    final tid = state.tid ?? widget.threadID;
+    if (tid != _resolvedTid) {
+      // Another thread than the one looked up (a `findpost` link learnt its tid): forget the old lookup.
+      _authorLookup++;
+      _resolvedTid = null;
+      _authorLookupFailed = false;
+    }
+    switch (state.status) {
+      case ThreadStatus.initial || ThreadStatus.loading:
+        return (title: neutral, body: const CenteredCircularIndicator());
+      case ThreadStatus.failure:
+        // The page itself failed: its retry, without the title given by the caller.
+        return (
+          title: neutral,
+          body: _AuthorLookupFailure(
+            onRetry: () => context.read<ThreadBloc>().add(ThreadLoadMoreRequested(state.currentPage)),
+          ),
+        );
+      case ThreadStatus.success:
+        if (tid == null) {
+          return (
+            title: neutral,
+            body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(ThreadRefreshRequested())),
+          );
+        }
+        _resolveThreadAuthor(tid);
+        if (_authorLookupFailed) {
+          return (title: neutral, body: _AuthorLookupFailure(onRetry: _retryThreadAuthor));
+        }
+        return (title: neutral, body: const CenteredCircularIndicator());
+    }
+  }
 
   Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight, {required bool replied}) {
     final infoTextStyle = Theme.of(
@@ -263,10 +394,15 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             pageNumber: context.read<JumpPageCubit>().state.currentPage,
             initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
             scrollController: _listScrollController,
-            widgetBuilder: (context, post) => PostCard(
-              post,
-              replyCallback: replyPostCallback,
-              onEdited: () => _scrollToPidOnReload = post.postID,
+            // Posts of locally blocked users become placeholders in place, the floors keep their positions.
+            widgetBuilder: (context, post) => BlockAwarePost(
+              post: post,
+              postList: state.postList,
+              builder: (context, post) => PostCard(
+                post,
+                replyCallback: replyPostCallback,
+                onEdited: () => _scrollToPidOnReload = post.postID,
+              ),
             ),
             useDivider: true,
             postList: state.postList,
@@ -341,6 +477,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _authorLookup++;
     _listScrollController.dispose();
     super.dispose();
   }
@@ -421,6 +558,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   info('not prepared to save visit history yet');
                   return;
                 }
+                // The history would list the title of a thread the user blocked the author of, or might have.
+                final blockList = currentBlockList(context, listen: false);
+                final author = _threadAuthorOf(state);
+                if (!blockList.isKnown || (blockList.uids.isNotEmpty && author == null) || blockList.hides(author)) {
+                  return;
+                }
                 debug('save thread visit history tid=${state.tid}');
                 context.read<ThreadVisitHistoryBloc>().add(
                   ThreadVisitHistoryUpdateRequested(
@@ -484,6 +627,16 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             final textScaleExtraBreadHeight = context.select<SettingsBloc, double>(
               (bloc) => 1 * math.max(0, (bloc.state.settingsMap.textScaleFactor - 1) / 0.1),
             );
+
+            // A thread started by a locally blocked user shows nothing of it, not even the title; neither does a
+            // thread whose author is still unknown while somebody is blocked.
+            final blocked = _blockedThreadBody(context, state);
+            if (blocked != null) {
+              return Scaffold(
+                appBar: AppBar(title: Text(blocked.title)),
+                body: SafeArea(child: blocked.body),
+              );
+            }
 
             final title = widget.title ?? state.title;
             final replied = isThreadReplied(context, state.tid ?? widget.threadID);
@@ -567,6 +720,45 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               body: SafeArea(bottom: false, child: _buildBody(context, state)),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown instead of a thread whose author could not be learnt while the current account blocks somebody.
+///
+/// Neutral: the thread is not known to be blocked, only not shown until its author is known.
+class _AuthorLookupFailure extends StatelessWidget {
+  const _AuthorLookupFailure({required this.onRetry});
+
+  /// Try again.
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: edgeInsetsL12T12R12B12,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48),
+            sizedBoxW8H8,
+            Text(context.t.general.failedToLoad, textAlign: TextAlign.center),
+            sizedBoxW8H8,
+            Wrap(
+              spacing: 8,
+              children: [
+                if (Navigator.of(context).canPop())
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    child: Text(context.t.userBlock.goBack),
+                  ),
+                FilledButton(onPressed: onRetry, child: Text(context.t.general.retry)),
+              ],
+            ),
+          ],
         ),
       ),
     );

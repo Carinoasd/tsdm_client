@@ -74,6 +74,9 @@ class ScreenPaths {
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 
+  /// Local block list and server notice ignore rules of the current account.
+  static const String userBlock = '/userBlock';
+
   /// Read-only medal catalogue.
   static const String medalCenter = '/medalCenter';
 

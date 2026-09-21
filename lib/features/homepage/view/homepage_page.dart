@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
@@ -118,8 +119,14 @@ class _HomepagePageState extends State<HomepagePage> {
           BlocListener<HomepageBloc, HomepageState>(
             listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
             listener: (context, state) {
+              // The header notice count is a raw forum total: merge it only while nothing can be hidden locally,
+              // otherwise keep the filtered badge until the sync requested below recounts it.
+              final allowNoticeHint = noticeHintAllowed(
+                currentBlockList(context, listen: false),
+                currentUid: context.read<AuthenticationRepository>().effectiveCurrentUid,
+              );
               context.read<NotificationInfoRepository>().applyServerHint(
-                noticeCount: state.unreadNoticeCount,
+                noticeCount: allowNoticeHint ? state.unreadNoticeCount : null,
                 hasPersonalMessage: state.hasUnreadMessage,
               );
               context.read<NotificationBloc>().add(NotificationUpdateAllRequested());
@@ -142,7 +149,10 @@ class _HomepagePageState extends State<HomepagePage> {
                 needPop: true,
                 popCallback: (context) => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
               ),
-              HomepageStatus.failure => buildRetryButton(context, () => context.read<HomepageBloc>().add(HomepageRefreshRequested())),
+              HomepageStatus.failure => buildRetryButton(
+                context,
+                () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
+              ),
               HomepageStatus.success => EasyRefresh.builder(
                 key: const ValueKey('success'),
                 scrollController: _scrollController,
