@@ -149,9 +149,9 @@ page).
 * The feature adds database schema version 14 (`notice.ignore_type`, `notice.author_id`, `from13To14`). Version 14 is
   only this migration: any other schema change starts at 15. `from13To14` adds each column only when missing (the
   background service isolate may run the step together with the app after an update).
-* Android previews for testers were published as 1.27.1-blocking.1+80 and 1.27.1-blocking.2+81 (split apks with
-  version codes 80x and 81x) and already hold schema 14. So the next release installed over them:
-  * must have a build number above the last published preview's (81 now, so at least 82). Not only equal: the
+* Android previews for testers were published as 1.27.1-blocking.1+80 and 1.27.1-blocking.3+82 (split apks with
+  version codes 80x and 82x; 1.27.1-blocking.2+81 was built but never published) and already hold schema 14. So the next release installed over them:
+  * must have a build number above the last published preview's (82 now, so at least 83). Not only equal: the
     version code is the build number times 10 plus an ABI digit (arm64 3, armeabi 2, universal 9), so a release with
     the preview's number would be lower than that preview's universal apk. A lower version code is refused by
     Android: the only way back is to uninstall, losing every local account, cookie and block list;
@@ -159,7 +159,7 @@ page).
     downgrade) and stops at start, the background service as well.
 * Testers keep a backup (Settings, export) before installing a preview and never install an older build over one.
 * Preview builds: run the "Test build" workflow on this branch with `build_android`, `build_name` (for example
-  `1.27.1-blocking.3`) and `build_number`, a number above every published preview (82 for the next one). Once the
+  `1.27.1-blocking.3`) and `build_number`, a number above every published preview (83 for the next one). Once the
   preview is published, add it to the list above: that raises the minimum of the next release with it; the version is written to `pubspec.yaml` before code generation, so the apk
   and the version inside the app match. Staging into a draft release is done by hand: download the artifact, check
   the signature (`apksigner verify --print-certs`) and the version (`aapt dump badging`), then
