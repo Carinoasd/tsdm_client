@@ -125,8 +125,13 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
         if (currentIndex >= 0 && currentIndex < _currentGroups.length) {
           final groupName = _currentGroups[currentIndex].name;
           final controller = _tabScrollControllers[groupName];
-          if (controller != null && controller.hasClients && controller.offset > 0) {
-            unawaited(controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+          if (controller != null && controller.hasClients) {
+            if (controller.offset > 0) {
+              unawaited(controller.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+            } else {
+              // 已在顶部时双击：触发下拉刷新 (#99)；controller 有 clients 说明当前正显示成功加载的列表
+              unawaited(_refreshController.callRefresh());
+            }
           }
         }
       }
