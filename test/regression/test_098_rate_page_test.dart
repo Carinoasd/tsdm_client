@@ -32,7 +32,7 @@ import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
 /// * rate_submit_rejected_x5.xml: the answer to a rate the forum refused, captured live (score far above what the
 ///   account could give, nothing was rated).
 /// * rate_submit_success_x5.xml: built from the X5 source (`showmessage('thread_rate_succeed', dreferer())` in an
-///   ajax post), a real success was not sent to keep the forum untouched.
+///   ajax post); byte for byte the answer of a real +1 rate between two test accounts, captured later the same day.
 String _data(String name) => File('test/data/$name').readAsStringSync();
 
 const _pid = '77983792';
