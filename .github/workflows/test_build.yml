@@ -8,11 +8,16 @@ on:
       - master
   workflow_dispatch:
     inputs:
-      stage_issue96:
-        description: Verify the fixed issue 96 build and upload APKs to its existing draft release.
-        required: true
-        type: boolean
-        default: false
+      build_name:
+        description: Version name for a preview build (for example 1.27.1-blocking.3), empty to keep pubspec.yaml.
+        required: false
+        type: string
+        default: ''
+      build_number:
+        description: Build number for a preview build, required with build_name.
+        required: false
+        type: string
+        default: ''
       build_android:
         description: Build Android platform artifacts.
         required: true
@@ -49,63 +54,6 @@ env:
   CI_RUST_VERSION: "1.83.0"
 
 jobs:
-  stage-issue96:
-    name: Verify and stage issue 96 APKs
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.stage_issue96 }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      BUILD_RUN: '35621037854'
-      TEST_RUN: '35621040171'
-      SOURCE_SHA: 1632646c0a5180235ca5428ffdb411ff2bf53c7d
-      RELEASE_TAG: test-blocking-96-20260921-2
-      SIGNER_SHA256: 71f7ca2c928a6af8d5d954e36bb5c6eea96f9a1fb82138ad399eda5851108f23
-    steps:
-      - uses: actions/setup-java@v4
-        with:
-          distribution: zulu
-          java-version: '17'
-      - name: Verify source and completed checks
-        shell: bash
-        run: |
-          set -euo pipefail
-          for run in "$BUILD_RUN" "$TEST_RUN"; do
-            gh api "repos/$GH_REPO/actions/runs/$run" > "$run.json"
-            jq -e --arg sha "$SOURCE_SHA" '.head_sha == $sha and .head_branch == "feat/silent-blocking" and .conclusion == "success"' "$run.json"
-          done
-          gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,targetCommitish | jq -e --arg sha "$SOURCE_SHA" '.isDraft and .isPrerelease and .targetCommitish == $sha'
-      - name: Download and verify APKs
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh run download "$BUILD_RUN" --name tsdm_client-apk-arm64_v8a --dir apks
-          build_tools="$ANDROID_HOME/build-tools/36.0.0"
-          test -x "$build_tools/apksigner"
-          test -x "$build_tools/aapt"
-          cd apks
-          test "$(find . -maxdepth 1 -name '*.apk' | wc -l)" -eq 3
-          for variant in arm64_v8a armeabi_v7a universal; do
-            apk="tsdm_client-$variant.apk"
-            case "$variant" in arm64_v8a) code=813 ;; armeabi_v7a) code=812 ;; universal) code=819 ;; esac
-            "$build_tools/apksigner" verify --print-certs "$apk" > "$variant-signature.txt"
-            grep -Fx "Signer #1 certificate SHA-256 digest: $SIGNER_SHA256" "$variant-signature.txt"
-            "$build_tools/aapt" dump badging "$apk" > "$variant-manifest.txt"
-            grep -E "^package: name='com.tsdm.tsdm_client' versionCode='$code' versionName='1.27.1-blocking.2'" "$variant-manifest.txt"
-            if grep -q '^application-debuggable' "$variant-manifest.txt"; then exit 1; fi
-            grep -E '^(sdkVersion|targetSdkVersion|native-code):' "$variant-manifest.txt"
-          done
-          sha256sum *.apk > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-          printf 'Source: %s\nBuild run: %s\nTest run: %s\nOfficial signing certificate SHA-256: %s\n' "$SOURCE_SHA" "$BUILD_RUN" "$TEST_RUN" "$SIGNER_SHA256" > BUILD-INFO.txt
-      - name: Upload verified APKs to draft only
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release upload "$RELEASE_TAG" apks/*.apk apks/SHA256SUMS.txt apks/BUILD-INFO.txt
   build-linux:
     name: Build Linux
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.build_linux }}
@@ -195,6 +143,19 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_LATEST_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+      - name: Set preview version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_name != '' }}
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        # Written to pubspec.yaml before code generation, so the in-app version (lib/utils/git_info.g.dart) and the
+        # apk version match.
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]
+          [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          sed -i -E "s/^version: .*/version: ${BUILD_NAME}+${BUILD_NUMBER}/" pubspec.yaml
+          grep -n '^version:' pubspec.yaml
       - name: Precompile
         run: |
           flutter pub get
@@ -207,7 +168,7 @@ jobs:
       - name: Build Android
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |
-          flutter build apk --release --build-name=1.27.1-blocking.2 --build-number=81
+          flutter build apk --release
       - name: Pack Android apk
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |

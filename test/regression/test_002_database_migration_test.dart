@@ -127,6 +127,17 @@ void main() {
     await db.close();
   });
 
+  test('the 13 to 14 step runs again safely when another connection already added the columns', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    // The columns are there but the version is still 13: the other connection is between its ALTER TABLE and its
+    // version write (the background service isolate and the app opening the file together after an update).
+    final schema = await verifier.schemaAt(14);
+    schema.rawDatabase.execute('PRAGMA user_version = 13');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 14);
+    await db.close();
+  });
+
   test('upgrade from 13 to 14 keeps stored notices and leaves their metadata unknown', () async {
     final verifier = SchemaVerifier(GeneratedHelper());
     final schema = await verifier.schemaAt(13);

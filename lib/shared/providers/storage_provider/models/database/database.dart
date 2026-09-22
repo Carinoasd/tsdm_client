@@ -165,8 +165,26 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
       from13To14: (m, schema) async {
         info('migrating database schema from 13 to 14...');
         // Notice type and author from the notice's ignore link, for blocking and server ignore rules.
-        await m.addColumn(schema.notice, schema.notice.ignoreType);
-        await m.addColumn(schema.notice, schema.notice.authorId);
+        //
+        // Each column is added only when missing: after an update the background service isolate may open the file
+        // together with the app and run this step too (the new version is written only once the step is done).
+        final existing = (await schema.database.customSelect('PRAGMA table_info(notice)').get())
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        for (final column in [schema.notice.ignoreType, schema.notice.authorId]) {
+          if (existing.contains(column.name)) {
+            continue;
+          }
+          try {
+            await m.addColumn(schema.notice, column);
+          } on Object catch (e) {
+            // Added by the other connection between the check and here.
+            if (!'$e'.contains('duplicate column name')) {
+              rethrow;
+            }
+            info('notice.${column.name} added by another connection');
+          }
+        }
         info('migrating database schema from 13 to 14... ok!');
       },
     ),

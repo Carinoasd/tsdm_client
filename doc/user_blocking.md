@@ -39,7 +39,17 @@ page).
   the thread's nor the one passed by the caller), no floors, no reply bar, no visit history entry. Loading shows a
   neutral indicator; a failed page, a failed page 1 request, or a page 1 without a floor 1 author shows a neutral
   "failed to load" with back / retry. It is never called blocked unless the author uid is known. Late answers
-  (disposed page, retried lookup, another tid) are dropped.
+  (disposed page, retried lookup, another tid) are dropped. The author learnt from page 1 is also kept by the page,
+  so a later eviction from `ThreadAuthorCache` does not start the hold-back again; the visit is recorded once the
+  author is known not to be blocked.
+* Not held back: a page the forum refused (login, no permission, deleted thread) or without any floor keeps its own
+  login page, reason or retry (nothing of anybody is on it). A thread whose first floor names no user (anonymous or
+  guest: the author has no user link and the post parser skips the floor) is shown, nobody on a uid list can be its
+  author; only the author parts of that floor are looked at (`td.pls`, `div.authi`), never links in its body. A page 1
+  without a first floor at all still counts as unknown.
+* A thread already on screen when somebody gets blocked (the list was empty, or its author was known then) stays on
+  screen while its author is looked up, and when that lookup fails: hiding it would not unshow it, only lose the
+  reading position. It is replaced once the author is known to be blocked.
 * Replies: `BlockAwarePost` turns a blocked author's floor into a placeholder keeping the floor number, with an
   unblock button only; there is no "show once".
 * Quotes: replaced only when the quote carries the forum's exact `forum.php?mod=redirect&goto=findpost&pid=` link
@@ -92,6 +102,12 @@ page).
   reads the privacy page (identity check with `parseLoggedUidFromDocument`, falling back to the plain header link),
   returns "already applied" without writing when the rule exists, fetches the ignore form, requires the `ignoresubmit`
   flag and author choices exactly `{author, 0}`, posts once, then re-reads the privacy page to confirm.
+* Every write is posted as a string map (`formDataOf`): the Android client (`KotlinHttpClientAdapter`) only sends a
+  `Map<String, String>` form, a url encoded string failed before anything was sent. A name repeated with the same value
+  is sent once; a name repeated with another value can not be a map and refuses the form (`unknownForm`).
+* A write answered with a redirect (301/302/303, Discuz `showmessage` with `msgforward` quick; the dart:io client
+  does not follow it for a POST) reached the forum: it is verified by the re-read like any other answer, not reported
+  as unknown.
 * Remove: fresh GET of the full privacy filter form. One form, action exactly the forum's `home.php` with
   `ac=privacy&op=filter`, `formhash`, the `privacy2submit` flag (the template repeats the same button under each
   group: identical buttons are accepted and the flag sent once, conflicting values refused), no multiple selects, and
@@ -103,3 +119,21 @@ page).
   forum is reported as that failure (or `unknownAfterSubmit` when the state changed anyway), never as success. No
   retries, no automatic writes.
 * The page layouts used by the tests follow the Discuz source; they are not recorded from the live TSDM deployment.
+
+## C. Versions, previews and upgrades
+
+* The feature adds database schema version 14 (`notice.ignore_type`, `notice.author_id`, `from13To14`). Version 14 is
+  only this migration: any other schema change starts at 15. `from13To14` adds each column only when missing (the
+  background service isolate may run the step together with the app after an update).
+* Android previews for testers were published as 1.27.1-blocking.1+80 and 1.27.1-blocking.2+81 (split apks with
+  version codes 80x and 81x) and already hold schema 14. So the next release installed over them:
+  * must have a build number of at least 82 (a lower version code is refused by Android: the only way back is to
+    uninstall, losing every local account, cookie and block list);
+  * must contain this feature's schema 14: a schema 13 app refuses to open a version 14 file (drift does not
+    downgrade) and stops at start, the background service as well.
+* Testers keep a backup (Settings, export) before installing a preview and never install an older build over one.
+* Preview builds: run the "Test build" workflow on this branch with `build_android`, `build_name` (for example
+  `1.27.1-blocking.3`) and `build_number`; the version is written to `pubspec.yaml` before code generation, so the apk
+  and the version inside the app match. Staging into a draft release is done by hand: download the artifact, check
+  the signature (`apksigner verify --print-certs`) and the version (`aapt dump badging`), then
+  `gh release upload <tag> <apks> SHA256SUMS.txt BUILD-INFO.txt` to the draft.
