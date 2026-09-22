@@ -20,8 +20,19 @@ enum RateStatus {
   /// Rate succeed.
   success,
 
-  /// Rate failed.
-  failed;
+  /// Failed to load the rate info (the rate window).
+  ///
+  /// There is no form to show: retry loading it, or leave when [RateState.shouldRetry] is false.
+  failed,
+
+  /// The rate was sent but not accepted: the forum refused it (the reason is in [RateState.failedReason]) or the
+  /// request failed.
+  ///
+  /// The form and what the user filled in stay on screen so the user can read the reason, change the rate and send
+  /// it again. The rate window is loaded again in the background and only [RateState.info] is replaced (new form
+  /// hash, today's remaining scores), so [RateState.info] may still change in this state; a failed reload is ignored.
+  rateFailed
+  ;
 
   /// Is loading data.
   ///
@@ -44,7 +55,7 @@ final class RateState with RateStateMappable {
   /// browser.
   final RateWindowInfo? info;
 
-  /// Why failed to rate.
+  /// Why failed to load the rate info or to rate, the forum's own message when it gave one.
   final String? failedReason;
 
   /// Flag indicating whether should let user have chance to retry.

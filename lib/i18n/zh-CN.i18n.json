@@ -790,6 +790,7 @@
     "reason": "理由",
     "success": "评分成功",
     "noticeAuthor": "通知作者",
+    "noticeAuthorForced": "论坛设置为总是通知作者",
     "invalidNumber": "无效的数字",
     "notInAllowedRange": "应该在 $range 范围内",
     "unknownAllowedRange": "无效的评分区间 $range",

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<div class="tm_c" id="floatlayout_topicadmin">
+<h3 class="flb">
+<em id="return_rate">评分</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('rate')" title="关闭">关闭</a></span>
+</h3>
+<form id="rateform" method="post" autocomplete="off" action="forum.php?mod=misc&amp;action=rate&amp;ratesubmit=yes&amp;infloat=yes" onsubmit="ajaxpost('rateform', 'return_rate', 'return_rate', 'onerror');">
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<input type="hidden" name="tid" value="1264975" />
+<input type="hidden" name="pid" value="77983792" />
+<input type="hidden" name="referer" value="https://www.tsdm39.com/forum.php?mod=viewthread&tid=1264975&page=0#pid77983792" />
+<input type="hidden" name="handlekey" value="rate"><div class="c">
+<table cellspacing="0" cellpadding="0" class="dt mbm">
+<tr>
+<th>&nbsp;</th>
+<th width="65">&nbsp;</th>
+<th width="65">评分区间</th>
+<th width="55">今日剩余</th>
+</tr><tr>
+<td> 天使币</td>
+<td>
+<input type="text" name="score2" id="score2" class="px z" value="0" style="width: 25px;" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'score2', 'scoreoption2')">^</a>
+<ul id="scoreoption2" style="display:none"><li>+10</li><li>+9</li><li>+8</li><li>+7</li><li>+6</li><li>+5</li><li>+4</li><li>+3</li><li>+2</li><li>+1</li></ul>
+</td>
+<td>0 ~ 10</td><td>20</td>
+</tr>
+<tr>
+<td> 天然</td>
+<td>
+<input type="text" name="score4" id="score4" class="px z" value="0" style="width: 25px;" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'score4', 'scoreoption4')">^</a>
+<ul id="scoreoption4" style="display:none"><li>+15</li><li>+13</li><li>+11</li><li>+9</li><li>+7</li><li>+5</li><li>+3</li><li>+1</li><li>-1</li><li>-3</li><li>-5</li></ul>
+</td>
+<td>-5 ~ 15</td><td>40</td>
+</tr>
+<tr>
+<td> 腹黑</td>
+<td>
+<input type="text" name="score5" id="score5" class="px z" value="0" style="width: 25px;" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'score5', 'scoreoption5')">^</a>
+<ul id="scoreoption5" style="display:none"><li>+15</li><li>+13</li><li>+11</li><li>+9</li><li>+7</li><li>+5</li><li>+3</li><li>+1</li><li>-1</li><li>-3</li><li>-5</li></ul>
+</td>
+<td>-5 ~ 15</td><td>40</td>
+</tr>
+</table>
+
+<div class="tpclg">
+<h4>可选评分理由:</h4>
+<table cellspacing="0" cellpadding="0" class="reason_slct"> 	<tr>
+ 		<td>
+ 			<ul id="reasonselect" class="reasonselect pt"><li>很给力!</li><li>神马都是浮云</li><li>赞一个!</li><li>淡定</li><li>恶意灌水</li><li>违规帖子</li></ul>
+ 			<script type="text/javascript" reload="1">
+ 				var reasonSelectOption = $('reasonselect').getElementsByTagName('li');
+ 				if (reasonSelectOption) {
+ 					for (i=0; i<reasonSelectOption.length; i++) {
+ 						reasonSelectOption[i].onmouseover = function() { this.className = 'xi2 cur1'; }
+ 						reasonSelectOption[i].onmouseout = function() { this.className = ''; }
+ 						reasonSelectOption[i].onclick = function() {
+ 							$('reason').value = this.innerHTML;
+ 						}
+ 					}
+ 				}
+ 			</script>
+ 		</td>
+ 	</tr>
+<tr>
+ 	 	<td><input type="text" name="reason" id="reason" class="px" onkeyup="seditor_ctlent(event, '$(\'rateform\').ratesubmit.click()')" /></td>
+</tr>
+</table>
+</div>
+<div class="xg1">评分扣除自身相应积分</div>
+</div>
+<p class="o pns">
+<label for="sendreasonpm"><input type="checkbox" name="sendreasonpm" id="sendreasonpm" class="pc" />通知作者</label>
+<button name="ratesubmit" type="submit" value="true" class="pn pnc"><span>确定</span></button>
+</p>
+</form>
+</div>
+
+
+<script type="text/javascript" reload="1">
+function succeedhandle_rate(locationhref) {
+ajaxget('forum.php?mod=viewthread&tid=1264975&viewpid=77983792', 'post_77983792', 'post_77983792');
+hideWindow('rate');
+}
+loadcss('forum_moderator');
+</script>
+
+]]></root>
