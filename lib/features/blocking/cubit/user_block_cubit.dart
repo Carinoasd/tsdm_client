@@ -10,7 +10,9 @@ import 'package:tsdm_client/utils/logger.dart';
 ///
 /// State is always the list of exactly one owner: after a switch the state is "loading" for the new account (content
 /// with an identified author is held back, see [UserBlockList.hides]) until its list is read, changes of other
-/// accounts are ignored. A failed read keeps the last known list of the same account, or stays unknown.
+/// accounts are ignored. A failed read keeps the last known list of the same account, or stays unknown ("failed"):
+/// then the list is read again after each of [retryDelays], on the next auth event of the same account, and on
+/// [reload].
 final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
   /// Constructor.
   ///
@@ -18,11 +20,14 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
   ///
   /// [onListChanged] is called every time the known blocked uids of the current account differ from the last known
   /// ones, including the first time a list is known (so counts computed before are redone once on purpose).
+  ///
+  /// [retryDelays] are the waits before each automatic read after the list of the current account failed to load.
   UserBlockCubit({
     required UserBlockRepository repository,
     required int? Function() currentUid,
     required Stream<AuthStatus> authStatus,
     VoidCallback? onListChanged,
+    this.retryDelays = defaultRetryDelays,
   }) : _repository = repository,
        _currentUid = currentUid,
        _onListChanged = onListChanged,
@@ -31,6 +36,21 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
     _follow(_currentUid());
   }
 
+  /// Default [retryDelays].
+  ///
+  /// A read fails rarely (the database stays busy, the row is damaged) and content of identified authors is held back
+  /// until it works, so it is tried again on its own a few times, then left to the user and to auth events: a row
+  /// that stays unreadable is not read again and again in the background.
+  static const defaultRetryDelays = [
+    Duration(seconds: 2),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+    Duration(minutes: 2),
+  ];
+
+  /// Waits before each automatic read after a failed one, see [defaultRetryDelays].
+  final List<Duration> retryDelays;
+
   final UserBlockRepository _repository;
   final int? Function() _currentUid;
   final VoidCallback? _onListChanged;
@@ -38,6 +58,10 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
   StreamSubscription<UserBlockList>? _listSub;
   int? _owner;
   bool _followed = false;
+
+  /// Next automatic read of a list that failed to load, and how many of [retryDelays] were used.
+  Timer? _retryTimer;
+  int _retries = 0;
 
   /// Owner and uids of the last known list reported through [_onListChanged].
   (int?, Set<int>)? _reported;
@@ -66,10 +90,15 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
 
   void _follow(int? owner) {
     if (_followed && owner == _owner) {
+      // Same account (a login check, a relogin): a good moment to read a list that failed to load.
+      if (state.status == UserBlockListStatus.failed) {
+        _read(owner, showLoading: false);
+      }
       return;
     }
     _followed = true;
     _owner = owner;
+    _stopRetries();
     unawaited(_listSub?.cancel());
     _listSub = null;
     // Never show the list of the previous account, and never show content as "not blocked" before the list of the
@@ -88,6 +117,7 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
         .listen(
           (list) {
             if (list.ownerUid == _owner) {
+              _stopRetries();
               emit(list);
             }
           },
@@ -96,22 +126,56 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
               return;
             }
             error('failed to read the block list: $e');
-            // Keep a list already known for this account; otherwise stay unknown.
+            // Keep a list already known for this account; otherwise stay unknown and read it again later.
             if (!(state.ownerUid == owner && state.status == UserBlockListStatus.ready)) {
-              emit(UserBlockList.unknown(owner, status: UserBlockListStatus.failed));
+              if (state.ownerUid != owner || state.status != UserBlockListStatus.failed) {
+                emit(UserBlockList.unknown(owner, status: UserBlockListStatus.failed));
+              }
+              _scheduleRetry(owner);
             }
           },
         );
   }
 
-  /// Read the list of the current account again, e.g. after a failure.
+  void _scheduleRetry(int? owner) {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    if (isClosed || _retries >= retryDelays.length) {
+      return;
+    }
+    _retryTimer = Timer(retryDelays[_retries++], () {
+      _retryTimer = null;
+      if (!isClosed && owner == _owner && state.status == UserBlockListStatus.failed) {
+        _read(owner, showLoading: false);
+      }
+    });
+  }
+
+  void _stopRetries() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retries = 0;
+  }
+
+  /// Read the list of the current account again, e.g. after a failure. The automatic retries start over.
   Future<void> reload() async {
-    final owner = _owner;
-    await _listSub?.cancel();
+    _stopRetries();
+    _read(_owner, showLoading: true);
+  }
+
+  /// Read the list of [owner] again. [showLoading] turns a failed state into loading while it is read (a retry the
+  /// user asked for); automatic retries stay "failed" until a read works.
+  ///
+  /// The previous subscription delivers nothing once cancelled, its cleanup is not waited for.
+  void _read(int? owner, {required bool showLoading}) {
+    _retryTimer?.cancel();
+    _retryTimer = null;
     if (isClosed || owner != _owner) {
       return;
     }
-    if (state.status == UserBlockListStatus.failed) {
+    unawaited(_listSub?.cancel());
+    _listSub = null;
+    if (showLoading && state.status == UserBlockListStatus.failed) {
       emit(UserBlockList.unknown(owner, status: UserBlockListStatus.loading));
     }
     _listen(owner);
@@ -140,6 +204,7 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
 
   @override
   Future<void> close() async {
+    _retryTimer?.cancel();
     await _authSub.cancel();
     await _listSub?.cancel();
     return super.close();

@@ -12,6 +12,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
@@ -279,7 +280,15 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     final neutral = context.t.threadPage.title;
     if (!list.isKnown) {
       // The list of the current account is not read yet (or failed): hold the thread back, do not show it early.
-      return (title: neutral, body: BlockedThreadNotice(uid: authorUid ?? 0, username: username, pending: true));
+      return (
+        title: neutral,
+        body: BlockedThreadNotice(
+          uid: authorUid ?? 0,
+          username: username,
+          pending: true,
+          failed: list.status == UserBlockListStatus.failed,
+        ),
+      );
     }
     if (authorUid != null) {
       if (!list.hides(authorUid)) {

@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubi
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/blocking/widgets/user_block_failure_listener.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
 import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
@@ -585,6 +586,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 await showLocalNotification(context, state!);
               },
             ),
+            // Content of identified authors is held back while the block list can not be read; say why, with a retry.
+            const UserBlockFailureListener(),
             BlocListener<InitCubit, InitState>(
               listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
               listener: (context, state) async {

@@ -243,14 +243,16 @@ class _UserBlockPageState extends State<UserBlockPage> {
         if (rules != null)
           ...rules.map((r) {
             final who = r.everybody ? tr.everybody : tr.userUid(uid: '${r.authorId}');
-            final label = '${r.type} · $who';
+            final label = '${noticeTypeName(context, r.type)} · $who';
+            // The forum's own text when it gives one; the confirmation names the rule the way the list does.
+            final title = r.label?.isNotEmpty ?? false ? r.label! : label;
             return ListTile(
               key: ValueKey('rule-${r.key}'),
               leading: const Icon(Icons.notifications_off_outlined),
-              title: Text(r.label?.isNotEmpty ?? false ? r.label! : label),
+              title: Text(title),
               subtitle: Text(label),
               trailing: TextButton(
-                onPressed: _busy ? null : () async => _removeRule(r, label),
+                onPressed: _busy ? null : () async => _removeRule(r, title),
                 child: Text(tr.remove),
               ),
             );

@@ -1,5 +1,6 @@
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
+import 'package:dio/dio.dart' show Options, Response;
 import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -212,6 +213,32 @@ bool isCloudflareChallengePage(uh.Document doc) {
     }
   }
   return false;
+}
+
+/// Options of a page read that keep the answer of every status, see [failureOfPageStatus].
+Options pageReadOptions() => Options(validateStatus: (_) => true);
+
+/// Why a page read failed whose [response] has another status than 200.
+///
+/// Cloudflare answers its interstitial with 403 (managed challenge, block page) or 503 (legacy browser check), which
+/// a plain read reports as a transport error. It is [NoticeIgnoreFailure.challenge] when Cloudflare marks the answer
+/// (`cf-mitigated: challenge`) or the page is an interstitial ([isCloudflareChallengePage], which ignores the
+/// background script of ordinary pages); any other status is [NoticeIgnoreFailure.network]. Never throws.
+NoticeIgnoreFailure failureOfPageStatus(Response<dynamic> response) {
+  if (response.headers.value('cf-mitigated')?.toLowerCase() == 'challenge') {
+    return NoticeIgnoreFailure.challenge;
+  }
+  final data = response.data;
+  if (data is String) {
+    try {
+      if (isCloudflareChallengePage(parseHtmlDocument(data))) {
+        return NoticeIgnoreFailure.challenge;
+      }
+    } on Object {
+      // Not a page: nothing tells a challenge.
+    }
+  }
+  return NoticeIgnoreFailure.network;
 }
 
 /// Reject pages that are not a normal forum answer for the logged in account [expectedUid].
@@ -462,13 +489,15 @@ class NoticeIgnoreRepository with LoggerMixin {
   const NoticeIgnoreRepository();
 
   Future<Either<NoticeIgnoreFailure, ParsedForumForm>> _fetchPrivacyForm(NetClientProvider client, int uid) async {
-    final resp = await client.get(privacyFilterUrl).run();
+    final resp = await client.get(privacyFilterUrl, options: pageReadOptions()).run();
     switch (resp) {
       case Left(:final value):
         error('failed to fetch privacy filter form: $value');
         return left(NoticeIgnoreFailure.network);
       case Right(:final value) when value.statusCode != HttpStatus.ok:
-        return left(NoticeIgnoreFailure.network);
+        final failure = failureOfPageStatus(value);
+        error('privacy filter form answered ${value.statusCode}: $failure');
+        return left(failure);
       case Right(:final value) when value.data is! String:
         return left(NoticeIgnoreFailure.unknownForm);
       case Right(:final value):
@@ -514,12 +543,19 @@ class NoticeIgnoreRepository with LoggerMixin {
       return NoticeIgnoreResult.success(rulesBefore, alreadyApplied: true);
     }
     final ParsedForumForm form;
-    final resp = await client.get(noticeIgnoreFormUrl(type: target.type, authorId: target.authorId)).run();
+    final resp = await client
+        .get(
+          noticeIgnoreFormUrl(type: target.type, authorId: target.authorId),
+          options: pageReadOptions(),
+        )
+        .run();
     switch (resp) {
       case Left():
         return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.network);
       case Right(:final value) when value.statusCode != HttpStatus.ok:
-        return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.network);
+        final failure = failureOfPageStatus(value);
+        error('notice ignore form answered ${value.statusCode}: $failure');
+        return NoticeIgnoreResult.failed(failure);
       case Right(:final value) when value.data is! String:
         return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownForm);
       case Right(:final value):

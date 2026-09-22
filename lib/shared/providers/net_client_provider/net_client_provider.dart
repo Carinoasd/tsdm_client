@@ -129,8 +129,13 @@ final class NetClientProvider with LoggerMixin {
   final Dio _dio;
 
   /// Make a GET request to [path].
-  AsyncEither<Response<dynamic>> get(String path, {Map<String, dynamic>? queryParameters}) =>
-      AsyncEither.tryCatch(() async => _dio.get<dynamic>(path, queryParameters: queryParameters), mapException);
+  ///
+  /// [options] apply to this request only, e.g. a `validateStatus` that keeps the body of an error answer.
+  AsyncEither<Response<dynamic>> get(String path, {Map<String, dynamic>? queryParameters, Options? options}) =>
+      AsyncEither.tryCatch(
+        () async => _dio.get<dynamic>(path, queryParameters: queryParameters, options: options),
+        mapException,
+      );
 
   /// Make a GET request to the given [uri].
   AsyncEither<Response<dynamic>> getUri(Uri uri) =>
