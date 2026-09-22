@@ -659,6 +659,10 @@ class StorageProvider with LoggerMixin {
               data: Value(e.data),
               nid: Value(e.nid),
               alreadyRead: Value(e.alreadyRead),
+              // A copy without the metadata keeps the stored one only for the same revision, see
+              // `NotificationDao.insertManyNotice`.
+              ignoreType: Value(e.ignoreType),
+              authorId: Value(e.authorId),
             ),
           )
           .toList(),

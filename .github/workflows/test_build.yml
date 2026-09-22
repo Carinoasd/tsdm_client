@@ -8,6 +8,16 @@ on:
       - master
   workflow_dispatch:
     inputs:
+      build_name:
+        description: Version name for a preview build (for example 1.27.1-blocking.3), empty to keep pubspec.yaml.
+        required: false
+        type: string
+        default: ''
+      build_number:
+        description: Build number for a preview build, required with build_name.
+        required: false
+        type: string
+        default: ''
       build_android:
         description: Build Android platform artifacts.
         required: true
@@ -133,6 +143,19 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_LATEST_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+      - name: Set preview version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_name != '' }}
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        # Written to pubspec.yaml before code generation, so the in-app version (lib/utils/git_info.g.dart) and the
+        # apk version match.
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]
+          [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          sed -i -E "s/^version: .*/version: ${BUILD_NAME}+${BUILD_NUMBER}/" pubspec.yaml
+          grep -n '^version:' pubspec.yaml
       - name: Precompile
         run: |
           flutter pub get
@@ -152,6 +175,7 @@ jobs:
           pushd build/app/outputs/flutter-apk/
           mv app-arm64-v8a-release.apk tsdm_client-arm64_v8a.apk
           mv app-armeabi-v7a-release.apk tsdm_client-armeabi_v7a.apk
+          mv app-release.apk tsdm_client-universal.apk
           popd
       - name: Upload Android artifacts
         if: ${{ github.event_name != 'push' && inputs.build_android && !inputs.dry_run }}
@@ -161,6 +185,7 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/tsdm_client-arm64_v8a.apk
             build/app/outputs/flutter-apk/tsdm_client-armeabi_v7a.apk
+            build/app/outputs/flutter-apk/tsdm_client-universal.apk
   build-windows:
     name: Build Windows
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.build_windows }}

@@ -10,6 +10,8 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
+import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -397,6 +399,11 @@ class NormalThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Topics of locally blocked users are hidden, the list and its pagination stay untouched.
+    ThreadAuthorCache.record(thread.threadID, thread.author.uid);
+    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+      return const SizedBox.shrink();
+    }
     return _CardLayout(
       threadID: thread.threadID,
       title: thread.title,
@@ -428,6 +435,10 @@ class SearchedThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ThreadAuthorCache.record('${thread.threadID}', thread.author.uid);
+    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+      return const SizedBox.shrink();
+    }
     return _CardLayout(
       threadID: '${thread.threadID}',
       title: thread.title,
@@ -473,6 +484,10 @@ class LatestThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
+    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
+      return const SizedBox.shrink();
+    }
     return _CardLayout(
       threadID: thread.threadID!,
       title: thread.title!,

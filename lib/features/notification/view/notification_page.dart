@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
+import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
@@ -82,8 +84,12 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     return BlocListener<NotificationBloc, NotificationState>(
       listener: (context, state) {
         if (state.status == NotificationStatus.success) {
-          final n = state.noticeList.where((e) => !e.alreadyRead).length;
-          final pm = state.personalMessageList.where((e) => !e.alreadyRead).length;
+          final blocked = currentBlockList(context, listen: false);
+          final n = state.noticeList.where((e) => !e.alreadyRead && !isBlockedNoticeAuthor(e.authorId, blocked)).length;
+          // Conversations with locally blocked users stay listed below but are muted: they do not count in the badge.
+          final pm = state.personalMessageList
+              .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))
+              .length;
           final bm = state.broadcastMessageList.where((e) => !e.alreadyRead).length;
           context.read<NotificationStateCubit>().setAll(
             noticeCount: n,
@@ -94,13 +100,16 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
       },
       child: BlocBuilder<NotificationBloc, NotificationState>(
         builder: (context, state) {
+          // Notices of locally blocked users stay stored (and keep their read state) but are not listed.
+          final blocked = currentBlockList(context);
+          final noticeList = state.noticeList.where((e) => !isBlockedNoticeAuthor(e.authorId, blocked));
           final (n, pm, bm) = switch (onlyShowUnread) {
             true => (
-              state.noticeList.where((e) => !e.alreadyRead),
+              noticeList.where((e) => !e.alreadyRead),
               state.personalMessageList.where((e) => !e.alreadyRead),
               state.broadcastMessageList.where((e) => !e.alreadyRead),
             ),
-            false => (state.noticeList, state.personalMessageList, state.broadcastMessageList),
+            false => (noticeList, state.personalMessageList, state.broadcastMessageList),
           };
 
           final body = switch (state.status) {
@@ -175,6 +184,11 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                   onSelected: (_) {
                     setState(() => onlyShowUnread = !onlyShowUnread);
                   },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.block_outlined),
+                  tooltip: context.t.userBlock.manageEntry,
+                  onPressed: () async => context.pushNamed(ScreenPaths.userBlock),
                 ),
                 // TODO: Notification search.
                 // IconButton(

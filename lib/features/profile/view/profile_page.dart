@@ -16,6 +16,7 @@ import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
@@ -94,6 +95,7 @@ enum _ProfileActions {
   editProfile,
   logout,
   editAvatar,
+  blockedUsers,
 }
 
 /// Page of user profile.
@@ -203,6 +205,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 context.read<ProfileBloc>().add(ProfileLogoutRequested());
               case _ProfileActions.editAvatar:
                 await context.pushNamed(ScreenPaths.editAvatar);
+              case _ProfileActions.blockedUsers:
+                await context.pushNamed(ScreenPaths.userBlock);
             }
           },
           itemBuilder: (context) => [
@@ -274,6 +278,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             PopupMenuItem(
+              value: _ProfileActions.blockedUsers,
+              child: Row(
+                children: [
+                  const Icon(Icons.block_outlined),
+                  sizedBoxPopupMenuItemIconSpacing,
+                  Text(context.t.userBlock.manageEntry),
+                ],
+              ),
+            ),
+            PopupMenuItem(
               enabled: !logout,
               value: _ProfileActions.logout,
               child: Row(
@@ -314,6 +328,9 @@ class _ProfilePageState extends State<ProfilePage> {
             extra: <String, dynamic>{'username': userProfile.username},
           ),
         ),
+        // Local and silent: nothing is sent to the forum.
+        if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int blockUid)
+          UserBlockButton(uid: blockUid, username: userProfile.username ?? widget.username ?? '$blockUid'),
       ];
     }
 

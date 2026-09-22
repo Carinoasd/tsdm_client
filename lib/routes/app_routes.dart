@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
+import 'package:tsdm_client/features/blocking/view/user_block_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
@@ -284,6 +285,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.editAvatar, builder: (_) => const EditAvatarPage()),
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
+  AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),
   AppRoute(

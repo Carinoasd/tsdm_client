@@ -47,7 +47,33 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
   /// earlier and arrives later (two syncs at once, see `StorageProvider.exclusively`) carries the older copy: the
   /// condition keeps the newer row whatever order the writes land in.
   Future<int> insertNotice(NoticeCompanion message) async {
-    return into(notice).insert(message, onConflict: _newerOrSameNotice(message));
+    return transaction(() async {
+      final n = await _withRevisionMetadata(message);
+      return into(notice).insert(n, onConflict: _newerOrSameNotice(n));
+    });
+  }
+
+  /// Resolve the author metadata (`ignoreType`, `authorId`) of [message] before it replaces a stored copy.
+  ///
+  /// A copy carrying metadata is stored as is. A copy without metadata (layout change, parse failure) keeps the
+  /// stored metadata only when it is the same revision (same time and same body); a merged notice that got a newer
+  /// time or another body may come from another author, so its metadata becomes unknown (null) instead of
+  /// inheriting the old author.
+  Future<NoticeCompanion> _withRevisionMetadata(NoticeCompanion message) async {
+    final hasMetadata =
+        (message.authorId.present && message.authorId.value != null) ||
+        (message.ignoreType.present && message.ignoreType.value != null);
+    if (hasMetadata) {
+      return message;
+    }
+    final old = await (select(
+      notice,
+    )..where((e) => e.uid.equals(message.uid.value) & e.nid.equals(message.nid.value))).getSingleOrNull();
+    final sameRevision = old != null && old.timestamp == message.timestamp.value && old.data == message.data.value;
+    return message.copyWith(
+      ignoreType: Value(sameRevision ? old.ignoreType : null),
+      authorId: Value(sameRevision ? old.authorId : null),
+    );
   }
 
   /// Insert personal message [message] into table [personalMessage], or replace the stored conversation unless that
@@ -80,7 +106,8 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
     List<BroadcastMessageCompanion> broadcastMessageList = const [],
   }) async {
     return transaction(() async {
-      for (final n in noticeList) {
+      for (final message in noticeList) {
+        final n = await _withRevisionMetadata(message);
         await into(notice).insert(n, onConflict: _newerOrSameNotice(n));
       }
       for (final p in personalMessageList) {

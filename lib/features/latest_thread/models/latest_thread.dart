@@ -17,6 +17,7 @@ class _LatestThreadInfo {
     required this.latestReplyAuthor,
     required this.latestReplyTime,
     required this.quotedMessage,
+    this.threadAuthor,
   });
 
   /// Thread title.
@@ -57,6 +58,9 @@ class _LatestThreadInfo {
 
   /// Quoted message of last replied user that only exists in reply list.
   final String? quotedMessage;
+
+  /// Author of the thread itself, only known in the guide page layout.
+  final User? threadAuthor;
 }
 
 /// Latest thread model.
@@ -120,6 +124,9 @@ class LatestThread {
   /// Quoted message to show.
   String? get quotedMessage => _info?.quotedMessage;
 
+  /// Author of the thread (not the latest reply), null when the layout does not tell.
+  User? get threadAuthor => _info?.threadAuthor;
+
   static _LatestThreadInfo? _buildFromTBodyNode(uh.Element element) {
     final thread = NormalThread.fromTBody(element);
     if (thread == null) {
@@ -149,6 +156,7 @@ class LatestThread {
       latestReplyAuthor: thread.latestReplyAuthor,
       latestReplyTime: thread.latestReplyTime,
       quotedMessage: null,
+      threadAuthor: thread.author,
     );
   }
 

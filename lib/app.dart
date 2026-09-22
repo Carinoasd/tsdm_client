@@ -11,6 +11,9 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
+import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/blocking/widgets/user_block_failure_listener.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
 import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
@@ -160,18 +163,25 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       const deepLinkChannel = MethodChannel('kzs.th000.tsdm_client/deepLink');
 
       // 获取冷启动链接，加异常捕获
-      unawaited(deepLinkChannel.invokeMethod<String>('getInitialLink').then((link) {
-        if (link != null && mounted) {
-          // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
-          unawaited(router.pushNamed(
-            ScreenPaths.openInApp,
-            queryParameters: {'url': link, 'autoOpen': 'true'},
-          ));
-        }
-      }).catchError((Object e, StackTrace st) {
-        // 忽略非 Android 平台或插件未实现导致的 MissingPluginException
-        talker.error('Failed to get initial deep link: $e');
-      }));
+      unawaited(
+        deepLinkChannel
+            .invokeMethod<String>('getInitialLink')
+            .then((link) {
+              if (link != null && mounted) {
+                // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
+                unawaited(
+                  router.pushNamed(
+                    ScreenPaths.openInApp,
+                    queryParameters: {'url': link, 'autoOpen': 'true'},
+                  ),
+                );
+              }
+            })
+            .catchError((Object e, StackTrace st) {
+              // 忽略非 Android 平台或插件未实现导致的 MissingPluginException
+              talker.error('Failed to get initial deep link: $e');
+            }),
+      );
 
       // 监听热启动链接
       deepLinkChannel.setMethodCallHandler((call) async {
@@ -179,10 +189,12 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           final link = call.arguments as String?;
           if (link != null && mounted) {
             // 【修复点】补上 autoOpen=true，让 OpenInAppPage 自动解析并跳转
-            unawaited(router.pushNamed(
-              ScreenPaths.openInApp,
-              queryParameters: {'url': link, 'autoOpen': 'true'},
-            ));
+            unawaited(
+              router.pushNamed(
+                ScreenPaths.openInApp,
+                queryParameters: {'url': link, 'autoOpen': 'true'},
+              ),
+            );
           }
         }
       });
@@ -261,6 +273,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           create: (_) => AuthenticationRepository(),
           dispose: (repo) async => repo.dispose(),
         ),
+        RepositoryProvider<UserBlockRepository>(
+          create: (_) => UserBlockRepository(getIt.get<StorageProvider>()),
+          dispose: (repo) async => repo.dispose(),
+        ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(
           create: (_) => ForumHomeRepository(),
@@ -318,6 +334,27 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               authRepo: context.repo(),
               storageProvider: getIt(),
             ),
+          ),
+          // Local block list of the current account. Every change of the known list (including the first one, so a
+          // count made before the list was read is redone) reloads the notices from storage and recounts the unread
+          // badge; hidden notices stay stored so unblocking shows them again. The callback is owned by the cubit and
+          // ends with it.
+          BlocProvider(
+            create: (context) {
+              final auth = context.repo<AuthenticationRepository>();
+              final notificationBloc = context.read<NotificationBloc>();
+              return UserBlockCubit(
+                repository: context.repo(),
+                currentUid: () => auth.effectiveCurrentUid,
+                authStatus: auth.status,
+                onListChanged: () {
+                  if (!notificationBloc.isClosed) {
+                    notificationBloc.add(NotificationReloadFromStorageRequested());
+                  }
+                },
+              );
+            },
+            lazy: false,
           ),
           // Top level: leaving the progress page must not cancel the run, like the auto checkin.
           BlocProvider(
@@ -549,6 +586,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 await showLocalNotification(context, state!);
               },
             ),
+            // Content of identified authors is held back while the block list can not be read; say why, with a retry.
+            const UserBlockFailureListener(),
             BlocListener<InitCubit, InitState>(
               listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
               listener: (context, state) async {

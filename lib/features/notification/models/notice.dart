@@ -168,6 +168,24 @@ class Notice with NoticeMappable {
     return style.replaceAll(' ', '').contains('font-weight:bold');
   }
 
+  /// Parse the notice type and author from the notice's own ignore link in `<dt>`:
+  ///
+  /// ```html
+  /// <dt><a class="d b" href="home.php?mod=spacecp&amp;ac=common&amp;op=ignore&amp;authorid=1000&amp;type=post&amp;handlekey=noticeignore">屏蔽</a>
+  /// ```
+  ///
+  /// Null when there is no such link (system notices) or it is not exactly the forum's ignore operation; links in the
+  /// notice body are never used.
+  static NoticeIgnoreTarget? parseIgnoreTarget(uh.Element element) {
+    for (final a in element.querySelectorAll('dt > a[href]')) {
+      final target = NoticeIgnoreTarget.tryParse(a.attributes['href']);
+      if (target != null) {
+        return target;
+      }
+    }
+    return null;
+  }
+
   /// Convert a `<dl>` notice node in the notice page into [NoticeV2].
   ///
   /// Return null if any of id, time or body not found.
@@ -180,7 +198,15 @@ class Notice with NoticeMappable {
       return null;
     }
     final alreadyRead = !isUnreadNoticeNode(element);
-    return NoticeV2(id: id, timestamp: time.millisecondsSinceEpoch ~/ 1000, data: data, alreadyRead: alreadyRead);
+    final target = parseIgnoreTarget(element);
+    return NoticeV2(
+      id: id,
+      timestamp: time.millisecondsSinceEpoch ~/ 1000,
+      data: data,
+      alreadyRead: alreadyRead,
+      ignoreType: target?.type,
+      authorId: target?.authorId,
+    );
   }
 
   /// Build a [Notice] from html node [element] :

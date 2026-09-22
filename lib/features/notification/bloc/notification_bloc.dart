@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
@@ -185,7 +186,11 @@ Future<PersistedNotification> _persistFetchedNotification({
 }) async {
   final stored = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
   final fetched = dropStaleCopies(fetched: received, stored: stored);
-  final fresh = freshNotifications(fetched: fetched, stored: stored);
+  // Notices of users blocked locally by [uid], and personal messages from them, are stored as they are (unblocking
+  // shows them again, the conversations stay listed) but never count as news: no system notification, no auto sync
+  // hint. For notices only the author from the notice's own ignore link is used, for conversations the peer.
+  final blocked = await noticeBlockListOf(storage, uid);
+  final fresh = withoutBlockedNotices(freshNotifications(fetched: fetched, stored: stored), blocked);
   // 诊断日志：区分"服务器没返回"和"fresh 过滤了"。
   // fetched 是本次从服务器拿到的所有副本，fresh 是其中真正算"新消息"的。
   // 当 fetched > 0 但 fresh == 0，说明服务器返回的都被过滤（老副本 / 自己发的）；
@@ -225,6 +230,8 @@ Future<PersistedNotification> _persistFetchedNotification({
                   timestamp: e.timestamp,
                   data: e.data,
                   alreadyRead: e.alreadyRead,
+                  ignoreType: e.ignoreType,
+                  authorId: e.authorId,
                 ),
               )
               .toList(),
@@ -258,15 +265,32 @@ Future<PersistedNotification> _persistFetchedNotification({
   return (fresh: fresh, reconciled: info, unread: await countUnreadNotification(storage: storage, uid: uid));
 }
 
+/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link (null for old rows).
+NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
+  id: e.nid,
+  timestamp: e.timestamp,
+  data: e.data,
+  alreadyRead: e.alreadyRead ?? false,
+  ignoreType: e.ignoreType,
+  authorId: e.authorId,
+);
+
 /// Recount the unread notifications of [uid] from [storage].
 ///
 /// Storage is the source of truth of the unread badge; this is what `NotificationBloc` publishes for the current
 /// user after every mark and every sync.
 Future<NotificationStateInfo> countUnreadNotification({required StorageProvider storage, required int uid}) async {
   final group = await storage.fetchNotificationSince(uid: uid, timestamp: 0).run();
+  // Hidden notices of locally blocked users and conversations with them do not show in the badge; their read state
+  // is left untouched.
+  final blocked = await noticeBlockListOf(storage, uid);
   return NotificationStateInfo(
-    notice: group.noticeList.where((e) => !(e.alreadyRead ?? false)).length,
-    personalMessage: group.personalMessageList.where((e) => !e.alreadyRead).length,
+    notice: group.noticeList
+        .where((e) => !(e.alreadyRead ?? false) && !isBlockedNoticeAuthor(e.authorId, blocked))
+        .length,
+    personalMessage: group.personalMessageList
+        .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))
+        .length,
     broadcastMessage: group.broadcastMessageList.where((e) => !(e.alreadyRead ?? false)).length,
   );
 }
@@ -326,14 +350,16 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('update all notifications, skipped because already loading one');
       return;
     }
-    debug('updating all notifications...');
-
-    emit(state.copyWith(status: NotificationStatus.loading));
+    // Checked before the state turns loading: nothing is fetched for a guest, and a state left loading would skip
+    // every later sync and reload, also after logging in.
     final uid = _authRepo.currentUser?.uid;
     if (uid == null) {
       info('skip request of update notification: uid is null, not authorized');
       return;
     }
+    debug('updating all notifications...');
+
+    emit(state.copyWith(status: NotificationStatus.loading));
     final lastFetchTimeEither = await _storageProvider.fetchLastFetchNoticeTime(uid).run();
     int? timestamp;
     if (lastFetchTimeEither.isRight()) {
@@ -394,7 +420,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final currentUid = _authRepo.currentUser?.uid;
     if (currentUid != uid) {
-      debug('Async gap meets uid changes, do NOT update state.');
+      _dropAfterAccountChange(emit);
       return;
     }
 
@@ -437,7 +463,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     final allNotice = [
       ...info.noticeList,
       ...localNoticeData.noticeList.map(
-        (e) => NoticeV2(id: e.nid, timestamp: e.timestamp, data: e.data, alreadyRead: e.alreadyRead ?? false),
+        noticeEntityToV2,
       ),
     ];
     final allPersonalMessage = [
@@ -461,12 +487,15 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       ),
     ];
 
-    // Post the latest unread notification info to global state cubit.
-    _infoRepository.updateInfo(
-      unreadNoticeCount: allNotice.where((e) => !e.alreadyRead).length,
-      unreadPersonalMessageCount: allPersonalMessage.where((e) => !e.alreadyRead).length,
-      unreadBroadcastMessageCount: allBroadcastMessage.where((e) => !e.alreadyRead).length,
-    );
+    // Post the latest unread notification info to global state cubit: recounted from storage like every other path,
+    // so notices of locally blocked users and conversations with them (or all attributed ones while the list can not
+    // be read) never reach the badge. Counting the raw lists above overwrote the filtered badge whenever the notification page was not open to
+    // correct it. Skipped when the account changed meanwhile.
+    await _publishUnreadCounts(uid);
+    if (_authRepo.currentUser?.uid != uid) {
+      _dropAfterAccountChange(emit);
+      return;
+    }
 
     // Post the latest sync result in the action to global auto sync info state
     // cubit.
@@ -490,6 +519,18 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         latestTime: latestMessageTime,
       ),
     );
+  }
+
+  /// The current account changed while a fetch result of another account was handled: nothing of that result is
+  /// shown, and the state is reset instead of left loading.
+  ///
+  /// A state left loading made the later syncs and reloads of the current account skip themselves. The lists and the
+  /// latest time in the state may belong to the previous account and are dropped as well: a mark as read keeps the
+  /// latest time it finds in the state, and the latest time of a success is recorded as the fetch time of the current
+  /// account.
+  void _dropAfterAccountChange(_Emit emit) {
+    debug('Async gap meets uid changes, do NOT update state.');
+    emit(const NotificationState());
   }
 
   Future<void> _onMarkTypeReadRequested(_Emit emit, NotificationType markType, {required bool markAsRead}) async {
@@ -529,7 +570,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
     // Never move the time backwards: the state keeps the latest message time of an earlier fetch and publishes it
-    // again on every success (reload from storage, mark as read), while the auto sync and the sync of all accounts
+    // again on every success of a mark as read, while the auto sync and the sync of all accounts
     // have already moved the time to the minute their fetch started in. A fetched message is never older than the
     // inclusive bound it was fetched since, so a record from a real fetch is never skipped here.
     final stored = (await _storageProvider.fetchLastFetchNoticeTime(uid).run()).getOrElse((_) => null);
@@ -595,6 +636,9 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
     final unread = await countUnreadNotification(storage: _storageProvider, uid: uid);
+    if (_authRepo.currentUser?.uid != uid) {
+      return;
+    }
     _infoRepository.updateInfo(
       unreadNoticeCount: unread.notice,
       unreadPersonalMessageCount: unread.personalMessage,
@@ -622,9 +666,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('Async gap meets uid changes, do NOT update state.');
       return;
     }
-    final noticeList = group.noticeList
-        .map((e) => NoticeV2(id: e.nid, timestamp: e.timestamp, data: e.data, alreadyRead: e.alreadyRead ?? false))
-        .toList();
+    final noticeList = group.noticeList.map(noticeEntityToV2).toList();
     final personalMessageList = group.personalMessageList
         .map(
           (e) => PersonalMessageV2(
@@ -657,8 +699,14 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         noticeList: noticeList,
         personalMessageList: personalMessageList,
         broadcastMessageList: broadcastMessageList,
+        // Nothing was fetched here, so there is no fetch time to record. The latest time in the state may come from a
+        // fetch of the previous account (a change of the block list reloads right after every account switch), and
+        // the latest time of a success is recorded as the fetch time of the current account.
+        latestTime: null,
       ),
     );
+    // Also after a change of the local block list: hidden notices and muted conversations do not count.
+    await _publishUnreadCounts(uid);
   }
 
   Future<void> _onDeleteNotice(_Emit emit, {required int uid, required int nid}) async {
