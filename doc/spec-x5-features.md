@@ -1008,6 +1008,41 @@ release 版大小：universal 60MB／arm64 30MB（debug 142MB／106MB）。
 - 本機 Android debug 包建置（manifest 合併：specialUse、exported=false）。實機：開開關 → 常駐通知出現 → 退到後台或清掉 App → 另一帳號發私訊 → 到間隔時間收到系統通知 → 點開進訊息中心。
 
 
+## 34. 圖片模式版塊在 App 裡看不到帖子（論壇回報：原创绘图区，2026-09-22）
+
+### 34.1 回報與論壇端事實
+
+- 論壇 1.18.0 發布帖有人回報「App 裡面看不了原创绘图区的帖子」。原创绘图区是 fid=73。
+- 這一版在論壇後台開了 Discuz 的圖片模式（`picstyle`）。用測試帳號登入後實測（2026-09-22，只讀）：
+  - 預設請求：`table#threadlisttableid` 是**空的**，帖子改成縮圖牆 `ul#waterfall > li`（封面、標題、喜歡／回覆數、作者），沒有發帖時間、查看數、分類。
+    第 1 頁 50 張＝本版置頂 4 篇＋一般帖 46 篇：本版置頂排在最前面但**沒有置頂標記**；全局置頂、分類置頂不在牆上。
+  - 帶 `&forumdefstyle=yes`（網頁上「图片模式」按鈕）：論壇種 `forumdefstyle` cookie（一年），回一般帖子表格，第 1 頁一般帖 46 篇＋置頂 16 篇（全局 10、分類 2、本版 4），App 既有解析器全部讀得到。
+- Discuz 原始碼 `source/module/forum/forum_forumdisplay.php`：`forumdefstyle` 只在 `$_G['forum']['picstyle']` 為真時處理，沒開圖片模式的版塊完全忽略這個參數。
+  圖片模式下（沒有該 cookie）把每頁數量換成縮圖數，並把 `stickycount`／`showsticky` 歸零：不另外抓全局／分類置頂；本版置頂（`displayorder` > 0）仍在主查詢裡，照 `displayorder DESC` 排在最前面；另外略過沒封面的跨版帖。
+
+### 34.2 根因
+
+- `forum_page_parser.dart` 只讀 `tbody[id^="normalthread_"]`，縮圖牆沒有任何 tbody → 0 篇。
+- 這一版有子版塊（美术部 fid=163），`normalThreadList` 空但 `subredditList` 不空，權限檢查被跳過，畫面只顯示「没有帖子」，沒有任何錯誤提示。
+- 不只原创绘图区：任何開了圖片模式的版塊都一樣。
+
+### 34.3 App 端行為
+
+- `ForumRepository._formatForumUrl` 每次請求版塊都帶 `forumdefstyle=yes`（分頁、所有篩選都帶），直接要一般表格；不依賴 cookie 是否存下來。
+- 「複製連結」與「在瀏覽器開啟」用的 `ForumPage.forumUrl` 不加這個參數，不改變使用者瀏覽器裡的顯示方式。
+- 解析器不解析縮圖牆：資訊太少（沒有時間、查看數），本版置頂也分不出來。改成遇到「沒有帖子行但有縮圖牆」時記一條 warning 日誌
+  （`forum <fid> is in picture mode, N threads on the thumbnail wall are not parsed`），以後論壇若不再理會這個參數，日誌能直接看出原因。
+
+### 34.4 驗收
+
+- `test_097`（樣本的 id、名字、時間、數字都是編的，兩份樣本彼此一致：縮圖牆第一張 1000001 是本版置頂，全局置頂 1000004 只在表格裡）：
+  - 圖片模式樣本 `forum_picture_mode_x5.html` 解析為 0 篇、不判成無權限、記下一條 warning（拿掉解析器的 warning 會失敗）。
+  - `forumdefstyle=yes` 樣本 `forum_picture_mode_defstyle_x5.html` 解析出置頂 2 篇（全局、本版）、一般 2 篇，作者 uid、分類、回覆／查看數正確、不記 warning（對照組，修正前也通過）。
+  - `ForumRepository.fetchForum` 的兩個請求測試：假伺服器照論壇行為，只有帶 `forumdefstyle=yes` 才回表格、否則回縮圖牆。
+    第 1 頁要拿到 2 篇且沒有 warning；第 1 頁與第 3 頁＋全部篩選的網址參數完全比對。拿掉 `forumdefstyle=yes` 時兩個都會失敗（網址比對；放寬網址比對時解析斷言也會失敗）。
+- 線上實測（測試帳號，只讀，臨時腳本已刪）：fid=73 第 1 頁 46＋16 置頂、第 2 頁 50 篇且與第 1 頁無重複、分類篩選 28 篇全屬該分類、子版塊 fid=163 正常；一般版塊 fid=4 帶與不帶參數帖子完全相同；全程沒有 picture mode warning。
+- 實機：進原创绘图区看得到帖子列表與置頂、能往下載入下一頁、能點進帖子。
+
 ## 35. 評分頁：失敗原因、通知作者開關、提示遮住送出鈕（論壇回報：連續評分，2026-09-22）
 
 ### 35.1 回報與調查結論

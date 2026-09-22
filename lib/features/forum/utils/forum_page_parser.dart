@@ -93,6 +93,15 @@ ForumPageData parseForumPage(uh.Document document, String fid) {
   final stickThreadList = _buildThreadList<StickThread>(document, 'stickthread', StickThread.fromTBody);
   final subredditList = _buildForumList(document, fid);
 
+  // Picture mode boards answer with a thumbnail wall instead of thread rows unless `forumdefstyle=yes` is requested
+  // (see `ForumRepository`), the wall is not parsed.
+  if (normalThreadList.isEmpty) {
+    final wallCount = document.querySelectorAll('ul#waterfall > li').length;
+    if (wallCount > 0) {
+      talker.warning('forum $fid is in picture mode, $wallCount threads on the thumbnail wall are not parsed');
+    }
+  }
+
   var needLogin = false;
   var havePermission = true;
   uh.Element? permissionDeniedMessage;
