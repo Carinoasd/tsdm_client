@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- 版块：修复开启「图片模式」的版块（如原创绘图区）在客户端中看不到帖子的问题，现在会以普通列表显示帖子和置顶帖。
+
 ## [1.27.0] - 2026-09-19
 
 ### Added

@@ -33,7 +33,16 @@ class ForumRepository {
       });
 
   Uri _formatForumUrl(String fid, int pageNumber, FilterState filterState) {
-    final queryMap = {'mod': 'forumdisplay', 'fid': fid, 'page': '$pageNumber'};
+    final queryMap = {
+      'mod': 'forumdisplay',
+      'fid': fid,
+      'page': '$pageNumber',
+      // Boards in picture mode (Discuz `picstyle`, e.g. 原创绘图区 fid 73) otherwise answer with a thumbnail wall
+      // `ul#waterfall` and an empty thread table, so no thread is parsed and the board looks empty.
+      // `forumdefstyle=yes` is the "图片模式" switch of the web page: the forum answers with the normal thread table
+      // (and remembers it in the `forumdefstyle` cookie). Boards without picture mode ignore it.
+      'forumdefstyle': 'yes',
+    };
 
     // Recommend flag checking MUST before the check of thread order as
     // order will be changed if recommend filter is on, we do this behave
