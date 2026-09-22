@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.28.1] - 2026-09-22
+
 ### Added
 
 - Android：主页与分区页已在顶部时，双击底栏按键刷新当前页面。感谢 [@Qing-Novel](https://github.com/Qing-Novel) 的建议。(#99)
