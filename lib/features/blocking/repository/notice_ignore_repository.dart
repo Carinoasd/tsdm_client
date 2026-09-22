@@ -3,6 +3,7 @@ import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
@@ -82,16 +83,37 @@ final class ParsedForumForm {
       .whereType<NoticeIgnoreRule>()
       .toList();
 
-  /// Build the request body of this form with every checked filter checkbox kept, except the note rule [removeKey].
-  String encode({String? removeKey, List<(String, String)> extra = const []}) {
-    final pairs = <(String, String)>[
-      ...fields,
-      for (final c in checkboxes)
-        if (c.checked && !(c.category == PrivacyFilterCategory.note && c.key == removeKey)) (c.name, c.value),
-      ...extra,
-    ];
-    return pairs.map((e) => '${Uri.encodeQueryComponent(e.$1)}=${Uri.encodeQueryComponent(e.$2)}').join('&');
+  /// Fields of the request body of this form with every checked filter checkbox kept, except the note rule
+  /// [removeKey].
+  List<(String, String)> pairs({String? removeKey, List<(String, String)> extra = const []}) => [
+    ...fields,
+    for (final c in checkboxes)
+      if (c.checked && !(c.category == PrivacyFilterCategory.note && c.key == removeKey)) (c.name, c.value),
+    ...extra,
+  ];
+
+  /// Build the request body of this form url encoded, see [pairs].
+  String encode({String? removeKey, List<(String, String)> extra = const []}) => pairs(
+    removeKey: removeKey,
+    extra: extra,
+  ).map((e) => '${Uri.encodeQueryComponent(e.$1)}=${Uri.encodeQueryComponent(e.$2)}').join('&');
+}
+
+/// The form [pairs] as the map posted by [NetClientProvider.postForm], null when it can not be one.
+///
+/// The Android client only posts a string map (a url encoded string fails before anything is sent). Discuz forms do
+/// not repeat a field name, except the save button of each privacy group (same value, sent once); a name repeated with
+/// another value can not be sent as a map and refuses the form.
+Map<String, String>? formDataOf(List<(String, String)> pairs) {
+  final data = <String, String>{};
+  for (final (name, value) in pairs) {
+    final previous = data[name];
+    if (previous != null && previous != value) {
+      return null;
+    }
+    data[name] = value;
   }
+  return data;
 }
 
 /// Parse error of a forum page, maps to a [NoticeIgnoreFailure].
@@ -508,13 +530,16 @@ class NoticeIgnoreRepository with LoggerMixin {
           return NoticeIgnoreResult.failed(e.failure);
         }
     }
-    final fields = [
+    final data = formDataOf([
       for (final f in form.fields)
         if (f.$1 != 'authorid') f,
       ('authorid', '${rule.authorId}'),
-    ];
-    final body = fields.map((e) => '${Uri.encodeQueryComponent(e.$1)}=${Uri.encodeQueryComponent(e.$2)}').join('&');
-    return _submitAndVerify(client, uid: uid, action: form.action, body: body, expect: (rules) => rules.contains(rule));
+    ]);
+    if (data == null) {
+      error('notice ignore form repeats a field with another value, not sent');
+      return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownForm);
+    }
+    return _submitAndVerify(client, uid: uid, action: form.action, data: data, expect: (rules) => rules.contains(rule));
   }
 
   /// Remove [rule] of account [uid], keeping every other checked filter of the privacy form.
@@ -537,11 +562,16 @@ class NoticeIgnoreRepository with LoggerMixin {
         .where((c) => c.checked && !(c.category == PrivacyFilterCategory.note && c.key == rule.key))
         .map((c) => (c.category, c.key))
         .toSet();
+    final data = formDataOf(form.pairs(removeKey: rule.key));
+    if (data == null) {
+      error('privacy filter form repeats a field with another value, not sent');
+      return NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownForm, rules: form.noteRules);
+    }
     return _submitAndVerify(
       client,
       uid: uid,
       action: form.action,
-      body: form.encode(removeKey: rule.key),
+      data: data,
       expect: (_) => true,
       expectForm: (after) {
         final now = after.checkboxes.where((c) => c.checked).map((c) => (c.category, c.key)).toSet();
@@ -554,17 +584,23 @@ class NoticeIgnoreRepository with LoggerMixin {
     NetClientProvider client, {
     required int uid,
     required Uri action,
-    required String body,
+    required Map<String, String> data,
     required bool Function(List<NoticeIgnoreRule>) expect,
     bool Function(ParsedForumForm)? expectForm,
   }) async {
-    final resp = await client.postForm(action.toString(), data: body).run();
-    if (resp case Left(:final value)) {
-      // The request may have reached the forum: do not claim either outcome.
-      error('notice ignore submit failed, result unknown: $value');
-      return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownAfterSubmit);
+    final Object? raw;
+    switch (await client.postForm(action.toString(), data: data).run()) {
+      case Left(value: HttpHandshakeFailedException(statusCode: 301 || 302 || 303)):
+        // Discuz answers a form post it handled with a redirect (`showmessage` with `msgforward` quick). The dart:io
+        // client does not follow it for a POST (the Android one does): the forum got the request, verify below.
+        raw = null;
+      case Left(:final value):
+        // The request may have reached the forum: do not claim either outcome.
+        error('notice ignore submit failed, result unknown: $value');
+        return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownAfterSubmit);
+      case Right(:final value):
+        raw = value.data;
     }
-    final raw = resp.getOrElse((_) => throw StateError('unreachable')).data;
     NoticeIgnoreFailure? refused;
     if (raw is String) {
       try {

@@ -47,7 +47,13 @@ class _Forum implements HttpClientAdapter {
   /// Accept a POST but do not change anything.
   bool ignoreWrites = false;
 
+  /// Apply a POST and answer it with a redirect, like Discuz `showmessage` with `msgforward` quick.
+  bool redirectWrites = false;
+
   final posts = <({Uri uri, Map<String, String> form})>[];
+
+  /// What each POST handed to the client as its data: the Android client only takes a string map.
+  final postData = <Object?>[];
   final gets = <Uri>[];
 
   static const allBoxes = [
@@ -121,6 +127,7 @@ $boxes
     }
     final form = Uri.splitQueryString(body);
     posts.add((uri: uri, form: form));
+    postData.add(options.data);
     if (failPost) {
       throw DioException.connectionError(requestOptions: options, reason: 'reset');
     }
@@ -130,6 +137,15 @@ $boxes
       } else if (q['ac'] == 'common' && q['op'] == 'ignore') {
         checked = {...checked, 'privacy[filter_note][${q['type']}|${form['authorid']}]'};
       }
+    }
+    if (redirectWrites) {
+      return ResponseBody.fromString(
+        '',
+        301,
+        headers: {
+          'location': ['home.php?mod=spacecp&ac=privacy&op=filter'],
+        },
+      );
     }
     return _html('<html><body><div id="messagetext" class="alert_right"><p>操作成功</p></div></body></html>');
   }
@@ -309,6 +325,55 @@ void main() {
         rule: const NoticeIgnoreRule(type: 'post', authorId: _troll),
       );
       expect(result.failure, NoticeIgnoreFailure.unknownAfterSubmit);
+    });
+
+    test('writes are posted as a string map, the only body the Android client sends', () async {
+      final forum = _Forum(checked: {'privacy[filter_note][post|3000]', 'privacy[filter_icon][1003]'});
+      final client = _clientOf(forum);
+      final removed = await repo.removeRule(
+        client,
+        uid: _me,
+        rule: const NoticeIgnoreRule(type: 'post', authorId: _troll),
+      );
+      final added = await repo.addRule(
+        client,
+        uid: _me,
+        target: const NoticeIgnoreTarget(type: 'friend', authorId: _troll),
+        everybody: false,
+      );
+      expect(removed.isSuccess, isTrue, reason: '${removed.failure}');
+      expect(added.isSuccess, isTrue, reason: '${added.failure}');
+      expect(forum.postData, hasLength(2));
+      expect(forum.postData, everyElement(isA<Map<String, String>>()));
+    });
+
+    test('a write answered with a redirect is verified like any other answer', () async {
+      final forum = _Forum(checked: {'privacy[filter_note][post|3000]', 'privacy[filter_icon][1003]'})
+        ..redirectWrites = true;
+      final client = _clientOf(forum);
+      final removed = await repo.removeRule(
+        client,
+        uid: _me,
+        rule: const NoticeIgnoreRule(type: 'post', authorId: _troll),
+      );
+      expect(removed.isSuccess, isTrue, reason: '${removed.failure}');
+      expect(removed.rules, isEmpty);
+      expect(forum.checked, {'privacy[filter_icon][1003]'});
+
+      final added = await repo.addRule(
+        client,
+        uid: _me,
+        target: const NoticeIgnoreTarget(type: 'post', authorId: _troll),
+        everybody: true,
+      );
+      expect(added.isSuccess, isTrue, reason: '${added.failure}');
+      expect(added.rules!.map((e) => e.key), ['post|0']);
+      expect(forum.posts, hasLength(2));
+    });
+
+    test('a field repeated with another value can not be posted as a map and is refused', () {
+      expect(formDataOf(const [('a', '1'), ('b', '2'), ('a', '1')]), {'a': '1', 'b': '2'});
+      expect(formDataOf(const [('a', '1'), ('a', '2')]), isNull);
     });
 
     test('a transport error after sending is unknown and never retried', () async {
