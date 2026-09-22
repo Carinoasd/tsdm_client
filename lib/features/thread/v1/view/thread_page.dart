@@ -49,6 +49,7 @@ import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
+import 'package:universal_html/html.dart' as uh;
 
 /// Page to show thread.
 class ThreadPage extends StatefulWidget {
@@ -132,6 +133,16 @@ class ThreadPage extends StatefulWidget {
   State<ThreadPage> createState() => _ThreadPageState();
 }
 
+/// The first floor on the thread page [document] names no user: an anonymous or guest post, whose author has no user
+/// link (the post parser skips such floors). Nobody on a block list can be its author. Links in the post body are
+/// not looked at; a page without a first floor is not such a thread.
+bool _firstFloorNamesNoUser(uh.Document document) {
+  final first = document
+      .querySelectorAll('div#postlist div[id^="post_"]')
+      .firstWhereOrNull((e) => e.querySelector('div.pi strong em')?.text?.trim() == '1');
+  return first != null && first.querySelector('td.pls a[href*="uid="], div.authi a[href*="uid="]') == null;
+}
+
 class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateMixin, LoggerMixin {
   /// Controller of thread tab.
   final _listScrollController = ScrollController();
@@ -151,6 +162,31 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// Bumped on every lookup, retry and dispose so that an answer arriving late is dropped.
   int _authorLookup = 0;
 
+  /// The first page of [_resolvedTid] was read and has floors, but its first floor names no user (an anonymous or
+  /// guest post has no user link and is not parsed): nobody on the block list can be the author, the thread is shown.
+  bool _authorUnattributable = false;
+
+  /// Author of [_resolvedTid] learnt from its first page, kept in case [ThreadAuthorCache] drops it later.
+  int? _resolvedAuthor;
+
+  /// Thread already shown on screen, set when [_blockedThreadBody] let it through. When somebody gets blocked while
+  /// it is read, it stays on screen while its author is looked up (hiding it now would not unshow it, only lose the
+  /// reading position) and is replaced only once the author is known to be blocked.
+  String? _shownTid;
+
+  bool _isUnattributable(ThreadState state) {
+    final tid = state.tid ?? widget.threadID;
+    return tid != null && tid == _resolvedTid && _authorUnattributable;
+  }
+
+  void _forgetAuthorLookup() {
+    _authorLookup++;
+    _resolvedTid = null;
+    _authorLookupFailed = false;
+    _authorUnattributable = false;
+    _resolvedAuthor = null;
+  }
+
   /// Uid of the user who started the thread shown in [state], null when not known.
   ///
   /// Taken from the first floor when it is on the page (not when only one user's floors are listed: the floor
@@ -163,30 +199,33 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         ThreadAuthorCache.record(tid, first.author.uid);
       }
     }
-    return ThreadAuthorCache.authorOf(tid);
+    return ThreadAuthorCache.authorOf(tid) ?? (tid != null && tid == _resolvedTid ? _resolvedAuthor : null);
   }
 
   /// Fetch the first page of thread [tid] once to learn who started it.
   ///
   /// Only needed when the thread was opened on a later page and the current account blocks somebody.
-  void _resolveThreadAuthor(String tid) {
+  void _resolveThreadAuthor(BuildContext context, String tid) {
     if (_resolvedTid == tid) {
       return;
     }
+    _forgetAuthorLookup();
     _resolvedTid = tid;
-    _authorLookupFailed = false;
-    final lookup = ++_authorLookup;
+    final lookup = _authorLookup;
     unawaited(() async {
-      var found = false;
+      int? author;
+      var unattributable = false;
       try {
         // A separate repository: the page's own one remembers the url of the page shown. Oldest first, so the first
         // floor is on the first page whatever the thread's own order is.
         final result = await ThreadRepository().fetchThread(tid: tid, reverseOrder: false).run();
         result.match((e) => error('failed to learn the author of thread $tid: $e'), (doc) {
-          final first = parseThreadDocument(doc, 1).postList.firstWhereOrNull((e) => e.postFloor == 1);
+          final page = parseThreadDocument(doc, 1);
+          final first = page.postList.firstWhereOrNull((e) => e.postFloor == 1);
           ThreadAuthorCache.record(tid, first?.author.uid);
-          found = ThreadAuthorCache.authorOf(tid) != null;
-          if (!found) {
+          author = ThreadAuthorCache.authorOf(tid);
+          unattributable = author == null && page.havePermission && !page.needLogin && _firstFloorNamesNoUser(doc);
+          if (author == null && !unattributable) {
             error('first page of thread $tid does not name its author');
           }
         });
@@ -197,24 +236,41 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       if (!mounted || lookup != _authorLookup || _resolvedTid != tid) {
         return;
       }
-      setState(() => _authorLookupFailed = !found);
+      setState(() {
+        _resolvedAuthor = author;
+        _authorUnattributable = unattributable;
+        _authorLookupFailed = author == null && !unattributable;
+      });
+      // The visit was not recorded while the author was unknown.
+      if (context.mounted) {
+        _recordVisitHistory(context, context.read<ThreadBloc>().state);
+      }
     }());
   }
 
   /// Ask the first page again after a failed lookup.
   void _retryThreadAuthor() {
-    setState(() {
-      _authorLookup++;
-      _resolvedTid = null;
-      _authorLookupFailed = false;
-    });
+    setState(_forgetAuthorLookup);
   }
 
   /// What the local block list does to the thread in [state]: null to show it, or the app bar title and the body
   /// shown instead of the whole thread (title, floors and reply bar).
   ({String title, Widget body})? _blockedThreadBody(BuildContext context, ThreadState state) {
+    final held = _holdBack(context, state);
+    if (held == null && state.status == ThreadStatus.success) {
+      _shownTid = state.tid ?? widget.threadID;
+    }
+    return held;
+  }
+
+  ({String title, Widget body})? _holdBack(BuildContext context, ThreadState state) {
     final list = currentBlockList(context);
     if (list.uids.isEmpty && list.isKnown) {
+      return null;
+    }
+    // A page the forum refused (login, no permission, deleted thread) or without any floor shows nothing of anybody:
+    // its login page, reason or retry stay as they are.
+    if (state.status == ThreadStatus.success && (state.needLogin || !state.havePermission || state.postList.isEmpty)) {
       return null;
     }
     final authorUid = _threadAuthorOf(state);
@@ -239,9 +295,15 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     final tid = state.tid ?? widget.threadID;
     if (tid != _resolvedTid) {
       // Another thread than the one looked up (a `findpost` link learnt its tid): forget the old lookup.
-      _authorLookup++;
-      _resolvedTid = null;
-      _authorLookupFailed = false;
+      _forgetAuthorLookup();
+    }
+    if (tid != null && tid == _resolvedTid && _authorUnattributable) {
+      return null;
+    }
+    if (tid != null && tid == _shownTid && state.status == ThreadStatus.success) {
+      // Already on screen: keep it there while the author is looked up, and when the lookup fails.
+      _resolveThreadAuthor(context, tid);
+      return null;
     }
     switch (state.status) {
       case ThreadStatus.initial || ThreadStatus.loading:
@@ -261,12 +323,70 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(ThreadRefreshRequested())),
           );
         }
-        _resolveThreadAuthor(tid);
+        _resolveThreadAuthor(context, tid);
         if (_authorLookupFailed) {
           return (title: neutral, body: _AuthorLookupFailure(onRetry: _retryThreadAuthor));
         }
         return (title: neutral, body: const CenteredCircularIndicator());
     }
+  }
+
+  /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
+  void _recordVisitHistory(BuildContext context, ThreadState state) {
+    if (state.status != ThreadStatus.success) {
+      return;
+    }
+    // Record thread visit history.
+    final currentUser = context.read<AuthenticationRepository>().currentUser;
+    if (currentUser == null) {
+      // Do nothing if not logged in.
+      return;
+    }
+    final uid = currentUser.uid;
+    final username = currentUser.username;
+    if (uid == null || username == null) {
+      unreachable(
+        'intend to record thread visit history but '
+        'user info is incomplete: uid=$uid, username=$username',
+      );
+      return;
+    }
+    // A floor of the current user on this page: mark the thread as replied (issue #21).
+    unawaited(
+      seedRepliedThreadFromPosts(
+        storageProvider: getIt.get<StorageProvider>(),
+        uid: uid,
+        tid: state.tid,
+        fid: state.fid,
+        posts: state.postList,
+      ),
+    );
+    if (state.tid == null || state.title == null || state.fid == null || state.forumName == null) {
+      info('not prepared to save visit history yet');
+      return;
+    }
+    // The history would list the title of a thread the user blocked the author of, or might have.
+    final blockList = currentBlockList(context, listen: false);
+    final author = _threadAuthorOf(state);
+    if (!blockList.isKnown ||
+        (blockList.uids.isNotEmpty && author == null && !_isUnattributable(state)) ||
+        blockList.hides(author)) {
+      return;
+    }
+    debug('save thread visit history tid=${state.tid}');
+    context.read<ThreadVisitHistoryBloc>().add(
+      ThreadVisitHistoryUpdateRequested(
+        ThreadVisitHistoryModel(
+          uid: uid,
+          threadId: int.parse(state.tid!),
+          forumId: state.fid!,
+          username: username,
+          threadTitle: state.title!,
+          forumName: state.forumName!,
+          visitTime: DateTime.now(),
+        ),
+      ),
+    );
   }
 
   Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight, {required bool replied}) {
@@ -529,55 +649,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               }
 
               if (state.status == ThreadStatus.success) {
-                // Record thread visit history.
-                final currentUser = context.read<AuthenticationRepository>().currentUser;
-                if (currentUser == null) {
-                  // Do nothing if not logged in.
-                  return;
-                }
-                final uid = currentUser.uid;
-                final username = currentUser.username;
-                if (uid == null || username == null) {
-                  unreachable(
-                    'intend to record thread visit history but '
-                    'user info is incomplete: uid=$uid, username=$username',
-                  );
-                  return;
-                }
-                // A floor of the current user on this page: mark the thread as replied (issue #21).
-                unawaited(
-                  seedRepliedThreadFromPosts(
-                    storageProvider: getIt.get<StorageProvider>(),
-                    uid: uid,
-                    tid: state.tid,
-                    fid: state.fid,
-                    posts: state.postList,
-                  ),
-                );
-                if (state.tid == null || state.title == null || state.fid == null || state.forumName == null) {
-                  info('not prepared to save visit history yet');
-                  return;
-                }
-                // The history would list the title of a thread the user blocked the author of, or might have.
-                final blockList = currentBlockList(context, listen: false);
-                final author = _threadAuthorOf(state);
-                if (!blockList.isKnown || (blockList.uids.isNotEmpty && author == null) || blockList.hides(author)) {
-                  return;
-                }
-                debug('save thread visit history tid=${state.tid}');
-                context.read<ThreadVisitHistoryBloc>().add(
-                  ThreadVisitHistoryUpdateRequested(
-                    ThreadVisitHistoryModel(
-                      uid: uid,
-                      threadId: int.parse(state.tid!),
-                      forumId: state.fid!,
-                      username: username,
-                      threadTitle: state.title!,
-                      forumName: state.forumName!,
-                      visitTime: DateTime.now(),
-                    ),
-                  ),
-                );
+                _recordVisitHistory(context, state);
               }
             },
           ),

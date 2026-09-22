@@ -48,6 +48,7 @@ import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_r
 import 'package:tsdm_client/widgets/card/notice_card_v2.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
+import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
@@ -142,6 +143,16 @@ String _floor({required int pid, required int floor, required int uid, required 
 <td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
 </strong><div class="authi"><a href="home.php?mod=space&amp;uid=$uid" class="xi2">$name</a></div></div>
 <div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor text</div></div></div></td>
+</tr></tbody></table></div>''';
+
+/// A floor posted anonymously (or by a guest): the author is plain text, without any user link.
+String _anonymousFloor({required int pid, required int floor}) =>
+    '''
+<div id="post_$pid"><table><tbody><tr>
+<td class="pls"><div class="pi">匿名</div></td>
+<td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
+</strong><div class="authi">匿名&nbsp;<em id="authorposton$pid">发表于 2026-9-20 10:00</em></div></div>
+<div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor text <a href="home.php?mod=space&amp;uid=4242">a user linked in the body</a></div></div></div></td>
 </tr></tbody></table></div>''';
 
 String _threadPage(List<String> floors) =>
@@ -719,6 +730,68 @@ void main() {
       await pump(tester, thread('2', title: 'Provided title'), router: true);
       expectHeldBack(title: 'Provided title');
       expect(find.text(tr.general.retry), findsOneWidget);
+    });
+
+    testWidgets('a thread started anonymously is shown: nobody on the list can be its author', (tester) async {
+      await tester.runAsync(() => blockNow(_alice.uid!, _troll));
+      final firstPage = _threadPage([
+        _anonymousFloor(pid: 1, floor: 1),
+        _floor(pid: 2, floor: 2, uid: _bob.uid!, name: 'Bob'),
+      ]);
+      serve({'1': firstPage, '2': laterPage});
+      await pump(tester, thread('2', title: 'Provided title'), router: true);
+      expect(shows('floor 11 text'), isTrue);
+      expect(find.text(tr.general.retry), findsNothing);
+      expect(find.byType(ReplyBar), findsOneWidget);
+    });
+
+    testWidgets('a first page whose first floor links a user only in its body is not anonymous', (tester) async {
+      await tester.runAsync(() => blockNow(_alice.uid!, _troll));
+      // Floor 1 absent, floor 2 by a named user: nothing tells who started the thread.
+      serve({
+        '1': _threadPage([_floor(pid: 2, floor: 2, uid: _bob.uid!, name: 'Bob')]),
+        '2': laterPage,
+      });
+      await pump(tester, thread('2', title: 'Provided title'), router: true);
+      expectHeldBack(title: 'Provided title');
+    });
+
+    for (final (name, fixture, reason) in [
+      ('a board the account may not read', 'thread_restricted_board_member_x5.html', '本版块只有特定用户可以访问'),
+      ('a deleted thread', 'thread_findpost_missing_x5.html', '抱歉，指定的主题不存在或已被删除或正在被审核'),
+    ]) {
+      testWidgets('$name keeps the forum reason when somebody is blocked', (tester) async {
+        await tester.runAsync(() => blockNow(_alice.uid!, _troll));
+        final page = File('test/data/$fixture').readAsStringSync();
+        serve({'1': page, '2': page});
+        await pump(tester, thread('2'), router: true);
+        expect(shows(reason), isTrue);
+        expect(find.text(tr.general.retry), findsNothing);
+        expect(adapter.requests.where((e) => e.queryParameters['page'] == '1'), isEmpty, reason: 'no author lookup');
+      });
+    }
+
+    testWidgets('a thread already on screen stays there while its author is looked up after a block', (tester) async {
+      serve({
+        '1': _threadPage([_floor(pid: 1, floor: 1, uid: _troll, name: 'troll')]),
+        '2': laterPage,
+      });
+      final page1 = adapter.gates['1'] = Completer<void>();
+      await pump(tester, thread('2'), router: true);
+      expect(shows('floor 11 text'), isTrue);
+
+      await tester.runAsync(() => blockNow(_alice.uid!, _bob.uid!));
+      await settle(tester);
+      // Author unknown and being looked up: the floors stay, Bob's own floor becomes a placeholder.
+      expect(shows('floor 12 text'), isTrue);
+      expect(find.byType(CenteredCircularIndicator), findsNothing);
+
+      await tester.runAsync(() => blockNow(_alice.uid!, _troll));
+      page1.complete();
+      await settle(tester);
+      // The lookup names the troll: now the thread is replaced.
+      expect(find.text(tr.userBlock.threadHidden), findsOneWidget);
+      expect(shows('floor 12 text'), isFalse);
     });
 
     testWidgets('with newest first set, the author read still asks the first page oldest first', (tester) async {
