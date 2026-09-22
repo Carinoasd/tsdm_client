@@ -51,6 +51,9 @@ class _HomepagePageState extends State<HomepagePage> {
 
   bool _fabVisible = false;
 
+  // 状态缓存：initState 里的双击事件监听拿不到 build 中创建的 HomepageBloc，靠 BlocListener 更新
+  HomepageStatus _lastStatus = HomepageStatus.initial;
+
   bool _handleScrollNotification(UserScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) {
       return false;
@@ -83,8 +86,14 @@ class _HomepagePageState extends State<HomepagePage> {
   void initState() {
     super.initState();
     _scrollToTopSub = scrollToTopStream.stream.listen((event) {
-      if (event.tabIndex == 0 && mounted && _scrollController.hasClients && _scrollController.offset > 0) {
+      if (event.tabIndex != 0 || !mounted || !_scrollController.hasClients) {
+        return;
+      }
+      if (_scrollController.offset > 0) {
         unawaited(_scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut));
+      } else if (_lastStatus == HomepageStatus.success) {
+        // 已在顶部时双击：触发下拉刷新 (#99)
+        unawaited(_refreshController.callRefresh());
       }
     });
   }
@@ -107,6 +116,7 @@ class _HomepagePageState extends State<HomepagePage> {
       )..add(HomepageLoadRequested()),
       child: MultiBlocListener(
         listeners: [
+          BlocListener<HomepageBloc, HomepageState>(listener: (context, state) => _lastStatus = state.status),
           BlocListener<HomeCubit, HomeState>(
             listener: (context, state) {
               if (state.inHome ?? false) {
