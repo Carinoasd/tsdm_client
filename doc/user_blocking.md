@@ -11,7 +11,9 @@ page).
 * A row that can not be read throws `UserBlockStorageException`: it is never treated as empty, so a block after a
   failed read can not overwrite the saved list. Entries this version can not decode are kept
   (`UserBlockList.unreadableEntries`) and written back unchanged.
-* Never sends a request: no forum blacklist, no friend removal, no PM rejection, the blocked user is not notified.
+* Blocking and unblocking send no request: no forum blacklist, no friend removal, no PM rejection, the blocked user
+  is not notified. The thread page may still read page 1 of a thread to learn its author (see "Thread opened
+  directly" below).
   Personal messages are still delivered; only their local alert and unread badge are muted (see "Personal
   messages" below).
 * Self block, guests and invalid uids are refused (`UserBlockResult`).
@@ -20,6 +22,13 @@ page).
   back every identified author until the list is known, so nothing is shown for a moment before its list is read.
   A failed re-read keeps the last known list of the same account. `watch` subscribes to changes before its first
   read, a change saved while that read is pending is not lost.
+* A list that failed to load is read again on its own after 2 s, 10 s, 30 s and 2 min (`retryDelays`, it stays
+  `failed` meanwhile), then on the next auth event of the same account and on every retry button. Held back floors
+  and threads say "could not read" instead of "reading"; lists of topics only leave rows out, so the app shows one
+  hint with a retry each time the list turns `failed` (`UserBlockFailureListener`). The hint shares the queue of the
+  app wide messenger: it goes away on its own after 8 s (not kept like other snack bars with an action), closes once
+  the list is read or the account changes (a hint still waiting in the queue closes itself when its turn comes), and
+  failing again while it waits does not queue another one.
 * Actions bind the account before any dialog (`confirmAndBlockUser`, `showNoticeIgnoreDialog`, `UserBlockPage`):
   the cubit refuses a choice made for another account (`UserBlockResult.accountChanged`), forum actions check the
   current account again before writing and drop late answers.
@@ -70,7 +79,7 @@ page).
   stored like any other, and the conversation stays listed in the personal message tab where it can be opened and
   read by hand at any time. Read state: blocking never marks anything as read; the stored flag is the real one, so a
   conversation read while muted stays read and an unread one counts again after unblocking (`onListChanged` reloads
-  from storage and recounts). Rights: no request is sent, so the forum blacklist, the friend relation, the PM
+  from storage and recounts). Rights: muting sends no request, so the forum blacklist, the friend relation, the PM
   permissions of both sides and the forum's own unread marker (web and other devices) are unchanged, and the peer
   can not tell. It applies to the account that blocked only: account B on the same device does not inherit the
   list of account A. While the list can not be read every conversation is muted the same way instead of announced.
@@ -83,15 +92,21 @@ page).
   the badge until the next sync. `applyServerHint` leaves a count as it is for a null hint. Recounts recheck the
   current account after reading storage, so switching accounts cannot publish the previous account's badge.
 * Covered by `test/regression/test_096_blocking_unread_integration_test.dart` (badge, `fresh`, unblock recount,
-  accounts apart, header hints).
+  accounts apart, `noticeHintAllowed` and `applyServerHint` with null hints), by
+  `test/regression/test_101_blocking_badge_paths_test.dart` on the real pages (the homepage merging the header hints,
+  the notification page counting what it lists, deleting a muted conversation) and by
+  `test/regression/test_090_background_sync_test.dart` (a background tick with a blocked peer announces nothing of
+  it and does not count it).
 
 ## B. Forum notice ignore rules (Discuz `filter_note`, not the blacklist)
 
 * Notice metadata: `NoticeV2.ignoreType` / `authorId` parsed from `dt > a[href*="op=ignore"]` (relative or forum
   host on the default port, exactly `home.php`, `mod=spacecp&ac=common&op=ignore`, `authorid >= 0`, safe `type`).
-  Stored in nullable `notice.ignore_type` / `notice.author_id` (schema v14). A copy without metadata keeps the stored
-  metadata only for the same revision (same time and body); a merged notice with a newer time or another body gets
-  null (unknown author) instead of inheriting the old one.
+  Stored in nullable `notice.ignore_type` / `notice.author_id` (schema v14). A copy without metadata keeps the
+  stored metadata only for the same revision (same time and body); a merged notice with a newer time or another body
+  gets null (unknown author) instead of inheriting the old one. Rows stored before v14 are not filled in later (a
+  sync only fetches notices since the last one): their menu shows one disabled line (`serverRules.notAvailable`)
+  pointing at notices received later and at the profile page, and `entryHelp` says old notices have no entry.
 * Entry: a rule is added from a notice only (notifications → notice tab "提醒" → the ⋮ menu of one notice →
   "屏蔽此类提醒（论坛）…", `showNoticeIgnoreDialog`), because the type and the author come from that notice's own
   ignore link. There is no such entry on personal messages: these rules are about notices, muting a peer's messages
@@ -102,6 +117,14 @@ page).
   reads the privacy page (identity check with `parseLoggedUidFromDocument`, falling back to the plain header link),
   returns "already applied" without writing when the rule exists, fetches the ignore form, requires the `ignoresubmit`
   flag and author choices exactly `{author, 0}`, posts once, then re-reads the privacy page to confirm.
+* The flow keeps running when the notice card that opened it goes away (the notice list reloads on every auto sync):
+  its dialogs are on the root navigator and its result on the app's messenger. While the forum answers a progress
+  dialog is shown and a second rule is refused (`busy`). A rule that exists already is reported as such, not as
+  updated. Notice types are named for reading (`serverRules.types`, the code itself when unknown); the forum gets
+  the code.
+* Page reads keep the answer of every status (Cloudflare answers its interstitials with 403 or 503): an answer other
+  than 200 that Cloudflare marks (`cf-mitigated: challenge`) or whose page is an interstitial
+  (`isCloudflareChallengePage`) is `challenge`, any other one `network`.
 * Every write is posted as a string map (`formDataOf`): the Android client (`KotlinHttpClientAdapter`) only sends a
   `Map<String, String>` form, a url encoded string failed before anything was sent. A name repeated with the same value
   is sent once; a name repeated with another value can not be a map and refuses the form (`unknownForm`).

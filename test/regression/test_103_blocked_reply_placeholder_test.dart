@@ -26,6 +26,11 @@ class _MemorySettings extends Fake implements StorageProvider {
   }
 }
 
+/// A reply of a locally blocked author becomes a placeholder in place: the floor number stays, the body is not built,
+/// and unblocking from the placeholder brings the body back.
+const _alice = 1000;
+const _bob = 1001;
+
 void main() {
   setUpAll(() async {
     talker = TalkerFlutter.init();
@@ -33,10 +38,10 @@ void main() {
   });
   testWidgets('actual blocked reply retains its floor and restores body only after unblock', (tester) async {
     final repository = UserBlockRepository(_MemorySettings());
-    await repository.block(ownerUid: 10, uid: 20, username: 'Hidden');
+    await repository.block(ownerUid: _alice, uid: _bob, username: 'Bob');
     final cubit = UserBlockCubit(
       repository: repository,
-      currentUid: () => 10,
+      currentUid: () => _alice,
       authStatus: const Stream<AuthStatus>.empty(),
     );
     addTearDown(() async {
@@ -46,7 +51,7 @@ void main() {
     const post = Post(
       postID: '420',
       postFloor: 42,
-      author: User(name: 'Hidden', uid: '20', url: 'home.php?mod=space&uid=20'),
+      author: User(name: 'Bob', uid: '$_bob', url: 'home.php?mod=space&uid=$_bob'),
       publishTime: null,
       data: 'SHOULD_NOT_BE_VISIBLE',
       replyAction: null,
