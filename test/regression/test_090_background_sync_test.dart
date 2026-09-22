@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_tick.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
@@ -52,10 +53,12 @@ String _timeTextOf(DateTime time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
 /// A notice stamped [at] (default one hour ago); a later fetch only returns what is inside its window.
-String _notice(int nid, {DateTime? at}) =>
+///
+/// With [author] the notice carries the forum's own ignore link naming that author, like the notices of users do.
+String _notice(int nid, {DateTime? at, int? author}) =>
     '<dl class="cl" notice="$nid" id="notice_$nid">\n'
     '<dd class="m avt mbn"><a href="home.php?mod=space&amp;uid=1001"><img src="a.jpg"></a></dd>\n'
-    '<dt><a class="d b" href="#">屏蔽</a> <span class="xg1 xw0"><span title="${at == null ? _timeText : _timeTextOf(at)}">1 分钟前</span></span></dt>\n'
+    '<dt><a class="d b" href="${author == null ? '#' : 'home.php?mod=spacecp&amp;ac=common&amp;op=ignore&amp;authorid=$author&amp;type=post&amp;handlekey=noticeignore'}">屏蔽</a> <span class="xg1 xw0"><span title="${at == null ? _timeText : _timeTextOf(at)}">1 分钟前</span></span></dt>\n'
     '<dd class="ntc_body" style="color:#000;font-weight:bold;">\n'
     '<a href="home.php?mod=space&uid=1001">Peer</a> 回复了您的帖子 <a href="forum.php?mod=redirect&pid=$nid">T</a></dd>\n'
     '</dl>\n';
@@ -278,6 +281,47 @@ void main() {
       expect(fresh.noticeList, isEmpty);
       expect(fresh.personalMessageList, isEmpty);
       expect(autoSyncInfoOf(fresh), isNull);
+    });
+
+    test('a blocked user is stored but never announced: no push for the message, no count in the badge', () async {
+      await loggedIn();
+      // Alice blocked the peer locally; the service reads her list from the database like the app does.
+      final blocks = UserBlockRepository(storage);
+      addTearDown(blocks.dispose);
+      await blocks.block(ownerUid: _alice.uid, uid: 3001, username: 'Peer');
+      final repo = repository();
+      addTearDown(repo.dispose);
+      adapter
+        // Notice 11 names no author (never hidden), notice 12 is one of the blocked peer.
+        ..notice = _noticePage([_notice(12, author: 3001), _notice(11)])
+        ..pm = _pmPage(3001, 'hello there');
+      final done = await backgroundSyncTick(storage: storage, repository: repo) as BackgroundSyncDone;
+      expect(
+        done.result,
+        isA<NotificationSyncResultSuccess>()
+            .having((e) => (e.newNotice, e.newPersonalMessage, e.newBroadcastMessage), 'new', (1, 0, 0))
+            .having((e) => (e.unreadNotice, e.unreadPersonalMessage, e.unreadBroadcastMessage), 'unread', (1, 0, 0)),
+      );
+      // The message of the blocked peer would win the announcement: only the other notice is announced.
+      expect(done.latest, isA<NotificationAutoSyncInfoNotice>().having((e) => e.notice, 'notice', 1));
+
+      // Stored like any other: both notices, and the conversation still unread for when it is read by hand.
+      final stored = await storage.fetchNotificationSince(uid: _alice.uid!, timestamp: 0).run();
+      expect(stored.noticeList.map((e) => (e.nid, e.authorId)), unorderedEquals([(11, null), (12, 3001)]));
+      expect(stored.personalMessageList.map((e) => (e.peerUid, e.alreadyRead)), [(3001, false)]);
+
+      // Unblocked, the next tick announces nothing old again; the recount from storage counts the peer once more.
+      await blocks.unblock(ownerUid: _alice.uid, uid: 3001);
+      final again = await backgroundSyncTick(storage: storage, repository: repo) as BackgroundSyncDone;
+      expect(again.latest, isNull, reason: 'what was stored while blocked is not news later');
+      expect(
+        again.result,
+        isA<NotificationSyncResultSuccess>().having(
+          (e) => (e.unreadNotice, e.unreadPersonalMessage),
+          'unread',
+          (2, 1),
+        ),
+      );
     });
 
     test('an expired session announces nothing', () async {

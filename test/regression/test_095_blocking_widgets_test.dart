@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
 import 'package:tsdm_client/features/blocking/widgets/notice_ignore_actions.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
+import 'package:tsdm_client/features/latest_thread/bloc/latest_thread_bloc.dart';
 import 'package:tsdm_client/features/latest_thread/repository/latest_thread_repository.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -205,15 +206,18 @@ final class _ThreadAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-/// Serves a captured guide page instead of the network.
+/// Serves a captured guide page instead of the network, for every page; the urls asked for are recorded.
 final class _FixtureRepository extends LatestThreadRepository {
   _FixtureRepository(this.name);
 
   final String name;
+  final urls = <String>[];
 
   @override
-  AsyncEither<uh.Document> fetchDocument(String url) =>
-      AsyncEither.of(parseHtmlDocument(File('test/data/$name').readAsStringSync()));
+  AsyncEither<uh.Document> fetchDocument(String url) {
+    urls.add(url);
+    return AsyncEither.of(parseHtmlDocument(File('test/data/$name').readAsStringSync()));
+  }
 }
 
 void main() {
@@ -354,7 +358,7 @@ void main() {
       );
       await tester.tap(find.text('ignore'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(tr.userBlock.serverRules.ignoreThisUser(type: 'post')));
+      await tester.tap(find.text(tr.userBlock.serverRules.ignoreThisUser(type: tr.userBlock.serverRules.types.post)));
       await tester.pumpAndSettle();
       auth.switchTo(_bob);
       await tester.tap(find.text(tr.general.ok));
@@ -384,8 +388,9 @@ void main() {
       );
       await tester.tap(find.text('ignore'));
       await tester.pumpAndSettle();
-      expect(find.text(tr.userBlock.serverRules.ignoreThisUser(type: 'system')), findsNothing);
-      expect(find.text(tr.userBlock.serverRules.ignoreEverybody(type: 'system')), findsOneWidget);
+      final system = tr.userBlock.serverRules.types.system;
+      expect(find.text(tr.userBlock.serverRules.ignoreThisUser(type: system)), findsNothing);
+      expect(find.text(tr.userBlock.serverRules.ignoreEverybody(type: system)), findsOneWidget);
     });
   });
 
@@ -540,6 +545,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    expect(find.text(tr.userBlock.block), findsOneWidget);
     expect(find.text(tr.userBlock.serverRules.entry), findsOneWidget);
   });
 
@@ -590,27 +596,38 @@ void main() {
 
   group('lists', () {
     testWidgets('a page whose topics are all hidden keeps its list and its pagination', (tester) async {
-      await pump(
-        tester,
-        LatestThreadPage(url: guideUrl('hot'), title: 'hot', repository: _FixtureRepository('guide_hot_x5.html')),
-        router: true,
-      );
-      final cards = tester.widgetList<LatestThreadCard>(find.byType(LatestThreadCard)).toList();
-      final authors = cards.map((e) => int.tryParse(e.thread.threadAuthor?.uid ?? '')).whereType<int>().toSet();
-      expect(authors, isNotEmpty);
+      final repository = _FixtureRepository('guide_hot_x5.html');
+      await pump(tester, LatestThreadPage(url: guideUrl('hot'), title: 'hot', repository: repository), router: true);
+      LatestThreadState page() => tester.element(find.byType(EasyRefresh)).read<LatestThreadBloc>().state;
+      final threads = page().threadList;
+      final authors = threads.map((e) => int.tryParse(e.threadAuthor?.uid ?? '')).toList();
+      expect(threads, isNotEmpty);
+      expect(authors, everyElement(isNotNull), reason: 'every row of the page names its author');
+      expect(page().nextPageUrl, isNotNull);
+
+      // Block every author of the page, not only the rows built on screen.
       await tester.runAsync(() async {
-        for (final uid in authors) {
-          await blockNow(_alice.uid!, uid);
+        for (final uid in authors.toSet()) {
+          await blockNow(_alice.uid!, uid!);
         }
       });
       await settle(tester);
-      final withAuthor = cards.where((e) => e.thread.threadAuthor?.uid != null).map((e) => e.thread.title!);
-      for (final title in withAuthor) {
+      for (final title in threads.map((e) => e.title!)) {
         expect(find.text(title), findsNothing, reason: 'topic of a blocked author: $title');
       }
-      // Not turned into the empty page: the list and its load-more stay.
+      // Not turned into the empty page: the list keeps its rows (built as nothing) and its load-more.
       expect(find.text(tr.latestThreadPage.empty), findsNothing);
-      expect(find.byType(EasyRefresh), findsOneWidget);
+      expect(find.byType(LatestThreadCard), findsWidgets);
+      expect(page().threadList, hasLength(threads.length));
+
+      // Pulling up past the end still loads the next page.
+      expect(repository.urls, hasLength(1));
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(repository.urls, hasLength(2));
+      expect(repository.urls.last, contains('page=2'));
+      expect(page().threadList.length, greaterThan(threads.length));
     });
   });
 
