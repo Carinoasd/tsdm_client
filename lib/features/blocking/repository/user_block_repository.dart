@@ -205,9 +205,12 @@ final class UserBlockRepository with LoggerMixin {
     if (ownerUid == null || ownerUid <= 0) {
       return UserBlockList.empty(ownerUid);
     }
-    final List<String>? raw;
+    final List<String> raw;
     try {
-      raw = await _storage.getStringList(keyOf(ownerUid));
+      final stored = await _storage.getStringList(keyOf(ownerUid));
+      // The row converter returns a lazily cast view: copy it here so an element that is not a string (a row edited
+      // by hand or restored from a modified backup) fails this read instead of throwing a TypeError at a caller.
+      raw = stored == null ? const [] : List<String>.of(stored);
     } on Object catch (e) {
       error('failed to load user block list: $e');
       throw UserBlockStorageException(e);
@@ -215,7 +218,7 @@ final class UserBlockRepository with LoggerMixin {
     final users = <BlockedUser>[];
     final unreadable = <String>[];
     final seen = <int>{};
-    for (final entry in raw ?? const <String>[]) {
+    for (final entry in raw) {
       final user = BlockedUser.decode(entry);
       if (user == null) {
         unreadable.add(entry);

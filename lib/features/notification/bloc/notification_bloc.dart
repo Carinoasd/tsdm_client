@@ -350,14 +350,16 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       debug('update all notifications, skipped because already loading one');
       return;
     }
-    debug('updating all notifications...');
-
-    emit(state.copyWith(status: NotificationStatus.loading));
+    // Checked before the state turns loading: nothing is fetched for a guest, and a state left loading would skip
+    // every later sync and reload, also after logging in.
     final uid = _authRepo.currentUser?.uid;
     if (uid == null) {
       info('skip request of update notification: uid is null, not authorized');
       return;
     }
+    debug('updating all notifications...');
+
+    emit(state.copyWith(status: NotificationStatus.loading));
     final lastFetchTimeEither = await _storageProvider.fetchLastFetchNoticeTime(uid).run();
     int? timestamp;
     if (lastFetchTimeEither.isRight()) {
@@ -418,7 +420,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
 
     final currentUid = _authRepo.currentUser?.uid;
     if (currentUid != uid) {
-      debug('Async gap meets uid changes, do NOT update state.');
+      _dropAfterAccountChange(emit);
       return;
     }
 
@@ -491,6 +493,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // correct it. Skipped when the account changed meanwhile.
     await _publishUnreadCounts(uid);
     if (_authRepo.currentUser?.uid != uid) {
+      _dropAfterAccountChange(emit);
       return;
     }
 
@@ -516,6 +519,18 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         latestTime: latestMessageTime,
       ),
     );
+  }
+
+  /// The current account changed while a fetch result of another account was handled: nothing of that result is
+  /// shown, and the state is reset instead of left loading.
+  ///
+  /// A state left loading made the later syncs and reloads of the current account skip themselves. The lists and the
+  /// latest time in the state may belong to the previous account and are dropped as well: a mark as read keeps the
+  /// latest time it finds in the state, and the latest time of a success is recorded as the fetch time of the current
+  /// account.
+  void _dropAfterAccountChange(_Emit emit) {
+    debug('Async gap meets uid changes, do NOT update state.');
+    emit(const NotificationState());
   }
 
   Future<void> _onMarkTypeReadRequested(_Emit emit, NotificationType markType, {required bool markAsRead}) async {
@@ -555,7 +570,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
     // Never move the time backwards: the state keeps the latest message time of an earlier fetch and publishes it
-    // again on every success (reload from storage, mark as read), while the auto sync and the sync of all accounts
+    // again on every success of a mark as read, while the auto sync and the sync of all accounts
     // have already moved the time to the minute their fetch started in. A fetched message is never older than the
     // inclusive bound it was fetched since, so a record from a real fetch is never skipped here.
     final stored = (await _storageProvider.fetchLastFetchNoticeTime(uid).run()).getOrElse((_) => null);
@@ -684,6 +699,10 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         noticeList: noticeList,
         personalMessageList: personalMessageList,
         broadcastMessageList: broadcastMessageList,
+        // Nothing was fetched here, so there is no fetch time to record. The latest time in the state may come from a
+        // fetch of the previous account (a change of the block list reloads right after every account switch), and
+        // the latest time of a success is recorded as the fetch time of the current account.
+        latestTime: null,
       ),
     );
     // Also after a change of the local block list: hidden notices and muted conversations do not count.

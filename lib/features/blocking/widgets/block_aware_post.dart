@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -36,13 +37,15 @@ class BlockAwarePost extends StatelessWidget {
         username: post.author.name,
         floor: post.postFloor,
         pending: !list.isKnown,
+        failed: list.status == UserBlockListStatus.failed,
       );
     }
     if (list.uids.isEmpty) {
       return builder(context, post);
     }
-    final data = redactBlockedQuotes(
-      post.data,
+    // Remembered with the post: a rebuild of the page does not parse every kept post with a quote again.
+    final data = redactBlockedQuotesOf(
+      post,
       blockedUids: list.uids,
       authorOfPost: (pid) => int.tryParse(postList.where((e) => e.postID == '$pid').firstOrNull?.author.uid ?? ''),
       placeholder: context.t.userBlock.quotePlaceholder,
@@ -59,6 +62,7 @@ class BlockedPostPlaceholder extends StatelessWidget {
     required this.username,
     this.floor,
     this.pending = false,
+    this.failed = false,
     super.key,
   });
 
@@ -74,6 +78,9 @@ class BlockedPostPlaceholder extends StatelessWidget {
   /// The block list is not known yet (loading or failed): the post is held back, not known as blocked.
   final bool pending;
 
+  /// With [pending]: reading the block list failed, said so instead of "reading".
+  final bool failed;
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.userBlock;
@@ -85,9 +92,9 @@ class BlockedPostPlaceholder extends StatelessWidget {
           children: [
             Text(floor == null ? '#' : '#$floor', style: Theme.of(context).textTheme.labelMedium),
             sizedBoxW8H8,
-            Icon(pending ? Icons.hourglass_empty_outlined : Icons.block_outlined, size: 18),
+            Icon(_pendingIcon(pending: pending, failed: failed), size: 18),
             sizedBoxW8H8,
-            Expanded(child: Text(pending ? tr.listPending : tr.postPlaceholder)),
+            Expanded(child: Text(pending ? _pendingText(tr, failed: failed) : tr.postPlaceholder)),
             if (pending)
               TextButton(
                 onPressed: () async => context.read<UserBlockCubit>().reload(),
@@ -110,7 +117,13 @@ class BlockedPostPlaceholder extends StatelessWidget {
 /// Nothing of the thread (title, first post, replies) is shown; the user can go back or unblock the author.
 class BlockedThreadNotice extends StatelessWidget {
   /// Constructor.
-  const BlockedThreadNotice({required this.uid, required this.username, this.pending = false, super.key});
+  const BlockedThreadNotice({
+    required this.uid,
+    required this.username,
+    this.pending = false,
+    this.failed = false,
+    super.key,
+  });
 
   /// Uid of the thread author.
   final int uid;
@@ -121,6 +134,9 @@ class BlockedThreadNotice extends StatelessWidget {
   /// The block list is not known yet: the thread is held back, not known as blocked.
   final bool pending;
 
+  /// With [pending]: reading the block list failed, said so instead of "reading".
+  final bool failed;
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.userBlock;
@@ -130,9 +146,9 @@ class BlockedThreadNotice extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(pending ? Icons.hourglass_empty_outlined : Icons.block_outlined, size: 48),
+            Icon(_pendingIcon(pending: pending, failed: failed), size: 48),
             sizedBoxW8H8,
-            Text(pending ? tr.listPending : tr.threadHidden, textAlign: TextAlign.center),
+            Text(pending ? _pendingText(tr, failed: failed) : tr.threadHidden, textAlign: TextAlign.center),
             sizedBoxW8H8,
             Wrap(
               spacing: 8,
@@ -160,3 +176,12 @@ class BlockedThreadNotice extends StatelessWidget {
     );
   }
 }
+
+IconData _pendingIcon({required bool pending, required bool failed}) => switch ((pending, failed)) {
+  (false, _) => Icons.block_outlined,
+  (true, false) => Icons.hourglass_empty_outlined,
+  (true, true) => Icons.error_outline,
+};
+
+/// Text of content held back while the block list is unknown: still being read, or [failed] to be read.
+String _pendingText(TranslationsUserBlockEn tr, {required bool failed}) => failed ? tr.loadFailed : tr.listPending;
