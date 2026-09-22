@@ -175,6 +175,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// reading position) and is replaced only once the author is known to be blocked.
   String? _shownTid;
 
+  /// Account whose block list let [_shownTid] through: the list of another account starts over.
+  int? _shownOwner;
+
   bool _isUnattributable(ThreadState state) {
     final tid = state.tid ?? widget.threadID;
     return tid != null && tid == _resolvedTid && _authorUnattributable;
@@ -257,9 +260,15 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// What the local block list does to the thread in [state]: null to show it, or the app bar title and the body
   /// shown instead of the whole thread (title, floors and reply bar).
   ({String title, Widget body})? _blockedThreadBody(BuildContext context, ThreadState state) {
+    final owner = currentBlockList(context).ownerUid;
+    if (owner != _shownOwner) {
+      // Shown under the list of another account (switched, logged out): that account's own rules apply again.
+      _shownTid = null;
+    }
     final held = _holdBack(context, state);
     if (held == null && state.status == ThreadStatus.success) {
       _shownTid = state.tid ?? widget.threadID;
+      _shownOwner = owner;
     }
     return held;
   }
@@ -309,9 +318,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     if (tid != null && tid == _resolvedTid && _authorUnattributable) {
       return null;
     }
-    if (tid != null && tid == _shownTid && state.status == ThreadStatus.success) {
-      // Already on screen: keep it there while the author is looked up, and when the lookup fails.
-      _resolveThreadAuthor(context, tid);
+    if (tid != null && tid == _shownTid) {
+      // Already on screen: keep it there while the author is looked up, when the lookup fails, and while the page
+      // reloads or fails to load more (it keeps its floors and says so itself).
+      if (state.status == ThreadStatus.success) {
+        _resolveThreadAuthor(context, tid);
+      }
       return null;
     }
     switch (state.status) {

@@ -130,7 +130,8 @@ page).
   is sent once; a name repeated with another value can not be a map and refuses the form (`unknownForm`).
 * A write answered with a redirect (301/302/303, Discuz `showmessage` with `msgforward` quick; the dart:io client
   does not follow it for a POST) reached the forum: it is verified by the re-read like any other answer, not reported
-  as unknown.
+  as unknown. A write stopped by Cloudflare (403/503 with `cf-mitigated: challenge`) never reached the forum: it is
+  reported as the challenge, with the rules read again.
 * Remove: fresh GET of the full privacy filter form. One form, action exactly the forum's `home.php` with
   `ac=privacy&op=filter`, `formhash`, the `privacy2submit` flag (the template repeats the same button under each
   group: identical buttons are accepted and the flag sent once, conflicting values refused), no multiple selects, and
@@ -150,13 +151,16 @@ page).
   background service isolate may run the step together with the app after an update).
 * Android previews for testers were published as 1.27.1-blocking.1+80 and 1.27.1-blocking.2+81 (split apks with
   version codes 80x and 81x) and already hold schema 14. So the next release installed over them:
-  * must have a build number of at least 82 (a lower version code is refused by Android: the only way back is to
-    uninstall, losing every local account, cookie and block list);
+  * must have a build number above the last published preview's (81 now, so at least 82). Not only equal: the
+    version code is the build number times 10 plus an ABI digit (arm64 3, armeabi 2, universal 9), so a release with
+    the preview's number would be lower than that preview's universal apk. A lower version code is refused by
+    Android: the only way back is to uninstall, losing every local account, cookie and block list;
   * must contain this feature's schema 14: a schema 13 app refuses to open a version 14 file (drift does not
     downgrade) and stops at start, the background service as well.
 * Testers keep a backup (Settings, export) before installing a preview and never install an older build over one.
 * Preview builds: run the "Test build" workflow on this branch with `build_android`, `build_name` (for example
-  `1.27.1-blocking.3`) and `build_number`; the version is written to `pubspec.yaml` before code generation, so the apk
+  `1.27.1-blocking.3`) and `build_number`, a number above every published preview (82 for the next one). Once the
+  preview is published, add it to the list above: that raises the minimum of the next release with it; the version is written to `pubspec.yaml` before code generation, so the apk
   and the version inside the app match. Staging into a draft release is done by hand: download the artifact, check
   the signature (`apksigner verify --print-certs`) and the version (`aapt dump badging`), then
   `gh release upload <tag> <apks> SHA256SUMS.txt BUILD-INFO.txt` to the draft.

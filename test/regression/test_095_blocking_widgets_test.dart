@@ -34,6 +34,7 @@ import 'package:tsdm_client/features/notification/repository/notification_info_r
 import 'package:tsdm_client/features/notification/view/notification_search_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -154,6 +155,17 @@ String _anonymousFloor({required int pid, required int floor}) =>
 <td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
 </strong><div class="authi">匿名&nbsp;<em id="authorposton$pid">发表于 2026-9-20 10:00</em></div></div>
 <div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor text <a href="home.php?mod=space&amp;uid=4242">a user linked in the body</a></div></div></div></td>
+</tr></tbody></table></div>''';
+
+/// A first floor whose author area links a user without a name: the post parser skips it (no valid author), but a
+/// user is named, so it is not anonymous.
+String _unnamedLinkedFloor({required int pid, required int floor, required int uid}) =>
+    '''
+<div id="post_$pid"><table><tbody><tr>
+<td class="pls"></td>
+<td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
+</strong><div class="authi"><a href="home.php?mod=space&amp;uid=$uid" class="xi2"></a></div></div>
+<div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor text</div></div></div></td>
 </tr></tbody></table></div>''';
 
 String _threadPage(List<String> floors) =>
@@ -762,15 +774,20 @@ void main() {
       expect(find.byType(ReplyBar), findsOneWidget);
     });
 
-    testWidgets('a first page whose first floor links a user only in its body is not anonymous', (tester) async {
+    testWidgets('a first floor that links a user in its author area is not anonymous, even without a name', (
+      tester,
+    ) async {
       await tester.runAsync(() => blockNow(_alice.uid!, _troll));
-      // Floor 1 absent, floor 2 by a named user: nothing tells who started the thread.
       serve({
-        '1': _threadPage([_floor(pid: 2, floor: 2, uid: _bob.uid!, name: 'Bob')]),
+        '1': _threadPage([
+          _unnamedLinkedFloor(pid: 1, floor: 1, uid: _troll),
+          _floor(pid: 2, floor: 2, uid: _bob.uid!, name: 'Bob'),
+        ]),
         '2': laterPage,
       });
       await pump(tester, thread('2', title: 'Provided title'), router: true);
       expectHeldBack(title: 'Provided title');
+      expect(find.text(tr.general.retry), findsOneWidget);
     });
 
     for (final (name, fixture, reason) in [
@@ -809,6 +826,50 @@ void main() {
       // The lookup names the troll: now the thread is replaced.
       expect(find.text(tr.userBlock.threadHidden), findsOneWidget);
       expect(shows('floor 12 text'), isFalse);
+    });
+
+    testWidgets('a thread on screen keeps its floors when loading more fails while its author is looked up', (
+      tester,
+    ) async {
+      serve({
+        '1': _threadPage([_floor(pid: 1, floor: 1, uid: _troll, name: 'troll')]),
+        '2': laterPage,
+      });
+      adapter.gates['1'] = Completer<void>();
+      await pump(tester, thread('2'), router: true);
+      expect(shows('floor 11 text'), isTrue);
+
+      await tester.runAsync(() => blockNow(_alice.uid!, _bob.uid!));
+      await settle(tester);
+      // Loading the next page fails (a reload or a jump keeps the floors the same way).
+      adapter.failures['3'] = 1;
+      tester.element(find.byType(ReplyBar)).read<ThreadBloc>().add(const ThreadLoadMoreRequested(3));
+      await settle(tester);
+      // The page says loading failed and keeps its floors (Bob's floor 11 is now a placeholder); it is not turned
+      // into a lookup failure.
+      expect(shows('floor 12 text'), isTrue);
+      expect(find.byType(ReplyBar), findsOneWidget);
+      expect(find.text(tr.general.retry), findsNothing);
+    });
+
+    testWidgets('a thread on screen follows the list of the account switched to', (tester) async {
+      await tester.runAsync(() => blockNow(_bob.uid!, _troll));
+      serve({
+        '1': _threadPage([_floor(pid: 1, floor: 1, uid: _troll, name: 'troll')]),
+        '2': laterPage,
+      });
+      await pump(tester, thread('2'), router: true);
+      // Alice blocks nobody: shown, without asking page 1.
+      expect(shows('floor 12 text'), isTrue);
+
+      // Bob blocks somebody, and page 1 can not be read to learn who started the thread.
+      adapter.failures['1'] = 10;
+      auth.switchTo(_bob);
+      await settle(tester);
+      await settle(tester);
+      // What Alice was shown is not kept for Bob: held back until the author is known.
+      expect(shows('floor 12 text'), isFalse);
+      expect(find.text(tr.general.retry), findsOneWidget);
     });
 
     testWidgets('with newest first set, the author read still asks the first page oldest first', (tester) async {

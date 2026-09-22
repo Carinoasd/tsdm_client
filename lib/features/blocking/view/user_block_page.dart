@@ -205,6 +205,21 @@ class _UserBlockPageState extends State<UserBlockPage> {
     );
   }
 
+  /// The forum's own text of rule [r], null when it gives none.
+  ///
+  /// The privacy page names the types it knows and prints the bare type for the others (`at (Alice)`, `poke (Bob)`,
+  /// Discuz `spacecp_privacy`); that code is replaced by the app's name of the type.
+  String? _forumLabelOf(BuildContext context, NoticeIgnoreRule r) {
+    final label = r.label?.trim();
+    if (label == null || label.isEmpty) {
+      return null;
+    }
+    if (label == r.type || label.startsWith('${r.type} ') || label.startsWith('${r.type}(')) {
+      return '${noticeTypeName(context, r.type)}${label.substring(r.type.length)}';
+    }
+    return label;
+  }
+
   Widget _buildRules(BuildContext context) {
     final tr = context.t.userBlock.serverRules;
     final rules = _rules;
@@ -245,7 +260,7 @@ class _UserBlockPageState extends State<UserBlockPage> {
             final who = r.everybody ? tr.everybody : tr.userUid(uid: '${r.authorId}');
             final label = '${noticeTypeName(context, r.type)} · $who';
             // The forum's own text when it gives one; the confirmation names the rule the way the list does.
-            final title = r.label?.isNotEmpty ?? false ? r.label! : label;
+            final title = _forumLabelOf(context, r) ?? label;
             return ListTile(
               key: ValueKey('rule-${r.key}'),
               leading: const Icon(Icons.notifications_off_outlined),

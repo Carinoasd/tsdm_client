@@ -122,11 +122,15 @@ NetClientProvider _client(UserLoginInfo _) => NetClientProvider.buildNoCookie(
 
 /// A forum site answering the privacy page and the ignore form with the given answers.
 final class _Site implements HttpClientAdapter {
-  _Site({required this.privacy, this.ignoreForm});
+  _Site({required this.privacy, this.ignoreForm, this.post});
 
   final ResponseBody Function() privacy;
   final ResponseBody Function()? ignoreForm;
+
+  /// Answer to a write, the forum's success page when null.
+  final ResponseBody Function()? post;
   int posts = 0;
+  int privacyReads = 0;
 
   @override
   Future<ResponseBody> fetch(
@@ -136,10 +140,12 @@ final class _Site implements HttpClientAdapter {
   ) async {
     if (options.method != 'GET') {
       posts++;
-      return _answer(200, '<html><body><div id="messagetext" class="alert_right"><p>ok</p></div></body></html>');
+      return post?.call() ??
+          _answer(200, '<html><body><div id="messagetext" class="alert_right"><p>ok</p></div></body></html>');
     }
     final q = options.uri.queryParameters;
     if (q['ac'] == 'privacy') {
+      privacyReads++;
       return privacy();
     }
     return ignoreForm!();
@@ -168,6 +174,21 @@ const _privacyPage =
 <input type="hidden" name="formhash" value="XXXXXXXX" />
 <button type="submit" name="privacy2submit" value="true">保存</button>
 </form></body></html>''';
+
+/// The forum's form to ignore a notice type of an author (ajax), for Bob's `post` notices.
+const _ignoreForm =
+    '''
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>屏蔽</em></h3>
+<form method="post" autocomplete="off" id="ignoreform_x" name="ignoreform_x" action="home.php?mod=spacecp&ac=common&op=ignore&type=post">
+<input type="hidden" name="referer" value="home.php?mod=space&do=notice">
+<input type="hidden" name="ignoresubmit" value="true" />
+<input type="hidden" name="formhash" value="XXXXXXXX" />
+<input type="hidden" name="handlekey" value="noticeignore" />
+<div class="c"><p><label><input type="radio" name="authorid" value="$_bobUid" checked="checked" />屏蔽该用户</label></p>
+<p><label><input type="radio" name="authorid" value="0" />屏蔽所有人</label></p></div>
+<p class="o pns"><button type="submit" name="ignoresubmitbtn" value="true" class="pn pnc"><strong>确定</strong></button></p>
+</form>]]></root>''';
 
 /// Managed challenge (403): its own title, stage element and challenge options.
 const _managedChallenge = '''
@@ -298,6 +319,24 @@ void main() {
         expect(result.failure, NoticeIgnoreFailure.network);
       });
     }
+
+    test('a write stopped by Cloudflare is reported as the challenge, with the rules read again', () async {
+      final site = _Site(
+        privacy: () => _answer(200, _privacyPage),
+        ignoreForm: () => _answer(200, _ignoreForm),
+        post: challenges['403 managed challenge'],
+      );
+      final result = await repo.addRule(
+        clientOf(site),
+        uid: _aliceUid,
+        target: const NoticeIgnoreTarget(type: 'post', authorId: _bobUid),
+        everybody: false,
+      );
+      expect(result.failure, NoticeIgnoreFailure.challenge);
+      expect(result.rules, isEmpty, reason: 'read again: the page shows the rules as they are');
+      expect(site.posts, 1);
+      expect(site.privacyReads, 2);
+    });
 
     test('a challenge on the ignore form stops the rule before anything is sent', () async {
       final site = _Site(
@@ -678,6 +717,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(hint, findsNothing, reason: 'no second hint behind the first one');
     });
+
+    testWidgets('a hint dropped from the queue by another message clearing it is shown again on the next failure', (
+      tester,
+    ) async {
+      final cubit = await pumpApp(tester, const []);
+      await tester.pumpAndSettle();
+      snackbarKey.currentState!.showSnackBar(const SnackBar(content: Text('earlier'), duration: Duration(minutes: 1)));
+      await tester.pumpAndSettle();
+
+      settings.failures = 100;
+      switchToBob();
+      await tester.pump();
+      expect(cubit.state.status, UserBlockListStatus.failed);
+      // The hint waits behind "earlier"; a message that clears previous ones drops it from the queue for good.
+      showSnackBar(context: tester.element(find.text('forum threads')), message: 'favorite added', clearPrevious: true);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(hint, findsNothing);
+
+      // A retry that fails again tells again.
+      await cubit.reload();
+      await tester.pumpAndSettle();
+      expect(cubit.state.status, UserBlockListStatus.failed);
+      expect(hint, findsOneWidget);
+    });
   });
 
   group('manager page', () {
@@ -730,6 +795,8 @@ void main() {
         _Rules(const [
           NoticeIgnoreRule(type: 'post', authorId: _bobUid),
           NoticeIgnoreRule(type: 'pcomment', authorId: 0, label: 'forum text'),
+          // The privacy page prints the bare type of the types it has no name for.
+          NoticeIgnoreRule(type: 'at', authorId: _bobUid, label: 'at (Bob)'),
         ]),
       );
       final serverRules = tr.userBlock.serverRules;
@@ -754,6 +821,13 @@ void main() {
 
       await removeAndCancel('rule-post|$_bobUid', post);
       await removeAndCancel('rule-pcomment|0', 'forum text');
+
+      final at = '${serverRules.types.at} (Bob)';
+      await tester.ensureVisible(find.byKey(const ValueKey('rule-at|$_bobUid')));
+      await tester.pumpAndSettle();
+      expect(find.text(at), findsOneWidget);
+      expect(find.text('at (Bob)'), findsNothing);
+      await removeAndCancel('rule-at|$_bobUid', at);
     });
   });
 

@@ -625,11 +625,18 @@ class NoticeIgnoreRepository with LoggerMixin {
     bool Function(ParsedForumForm)? expectForm,
   }) async {
     final Object? raw;
+    NoticeIgnoreFailure? refused;
     switch (await client.postForm(action.toString(), data: data).run()) {
       case Left(value: HttpHandshakeFailedException(statusCode: 301 || 302 || 303)):
         // Discuz answers a form post it handled with a redirect (`showmessage` with `msgforward` quick). The dart:io
         // client does not follow it for a POST (the Android one does): the forum got the request, verify below.
         raw = null;
+      case Left(value: HttpHandshakeFailedException(statusCode: 403 || 503, :final headers))
+          when headers?.value('cf-mitigated')?.toLowerCase() == 'challenge':
+        // Stopped by Cloudflare before reaching the forum: say so, with the rules as they are.
+        warning('notice ignore submit stopped by a site challenge');
+        raw = null;
+        refused = NoticeIgnoreFailure.challenge;
       case Left(:final value):
         // The request may have reached the forum: do not claim either outcome.
         error('notice ignore submit failed, result unknown: $value');
@@ -637,7 +644,6 @@ class NoticeIgnoreRepository with LoggerMixin {
       case Right(:final value):
         raw = value.data;
     }
-    NoticeIgnoreFailure? refused;
     if (raw is String) {
       try {
         final html = unwrapAjax(raw);

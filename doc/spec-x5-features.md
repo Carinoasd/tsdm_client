@@ -1070,9 +1070,10 @@ B. 論壇提醒屏蔽規則
   欄位已存在就跳過：更新後背景服務的 isolate 可能和 App 同時開檔、同時跑這一步。
 - **schema 14 只能是這個遷移**：之後任何 schema 變更從 15 開始。
 - 給測試者的 Android 預覽版 1.27.1-blocking.1+80、1.27.1-blocking.2+81（分包 versionCode 80x、81x）已經是 schema 14。之後覆蓋安裝在它們上面的正式版：
-  - build number **至少 82**：Android 拒絕較低的 versionCode，退回只能解除安裝，會失去所有本機帳號、cookie 與屏蔽名單；
+  - build number 必須**大於**最後一個已發布預覽版（目前是 81，所以至少 82）。不能只是相等：versionCode 是 build number × 10 加 ABI 碼（arm64 3、armeabi 2、universal 9），同號的正式版會低於那個預覽版的 universal apk。Android 拒絕較低的 versionCode，退回只能解除安裝，會失去所有本機帳號、cookie 與屏蔽名單；
   - 必須含本功能的 schema 14：schema 13 的 App 打不開 14 的資料庫檔（drift 不降級），啟動就停，背景服務也一樣。
 - 預覽版由「Test build」workflow 手動觸發（`build_android`、`build_name`、`build_number`，版號在產生程式碼前寫進 `pubspec.yaml`）；放進 draft release 前人工核對簽章與版本。
+  每個新預覽版的 build number 要大於所有已發布的預覽版（下一個是 82）；發布後把它加進上面的預覽清單，正式版的下限跟著調高。
   步驟見 `doc/user_blocking.md` C 節。
 
 ### 36.5 驗收

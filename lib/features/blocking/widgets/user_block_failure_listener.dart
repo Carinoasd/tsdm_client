@@ -16,7 +16,8 @@ import 'package:tsdm_client/instance.dart';
 ///
 /// The hint shares the queue of the app wide messenger with every other snack bar, so it never stays on its own (a
 /// snack bar with an action would by default) and it is closed once the list is read or the account changes. Failing
-/// again while a hint waits in the queue does not queue another one.
+/// again while a hint waits in the queue marks that one stale (it closes itself if its turn ever comes) and queues a
+/// new one: a queued snack bar may have been dropped by `clearSnackBars`, which never completes it.
 class UserBlockFailureListener extends BlocListener<UserBlockCubit, UserBlockList> {
   /// Constructor.
   const UserBlockFailureListener({super.key, super.child}) : super(listenWhen: _changed, listener: _onChanged);
@@ -35,15 +36,12 @@ class UserBlockFailureListener extends BlocListener<UserBlockCubit, UserBlockLis
     if (hint != null && hint.done) {
       hint = _hints[context] = null;
     }
-    // Read again (a retry from another page): the hint stays until the answer. Failed again while the hint still
-    // waits in the queue: it says the same, do not queue another one.
-    if (hint != null &&
-        hint.owner == state.ownerUid &&
-        (state.status == UserBlockListStatus.loading ||
-            (state.status == UserBlockListStatus.failed && !hint.current))) {
+    // Read again (a retry from another page): the hint stays until the answer.
+    if (hint != null && hint.owner == state.ownerUid && state.status == UserBlockListStatus.loading) {
       return;
     }
-    // Read, another account, or failed again while shown (told again, after the old hint).
+    // Read, another account, or failed again: the old hint goes (closed if shown, else marked stale) and a new one
+    // tells, after it.
     hint?.close();
     _hints[context] = state.status == UserBlockListStatus.failed ? _show(context, state.ownerUid) : null;
   }
