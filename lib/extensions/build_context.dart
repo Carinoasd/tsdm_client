@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/map.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
+import 'package:tsdm_client/features/friend/widgets/approve_friend_dialog.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -30,6 +32,12 @@ extension DispatchUrl<T> on BuildContext {
     }
     if (external) {
       await launchUrl(u, mode: LaunchMode.externalApplication);
+      return null;
+    }
+    // The "批准申请" link of a friend request notice: approve inside the app instead of the browser.
+    final approveUid = friendApprovalUidOfUrl(url);
+    if (approveUid != null) {
+      await showApproveFriendDialog(this, targetUid: approveUid);
       return null;
     }
     final route = url.parseUrlToRoute();

@@ -747,6 +747,25 @@
       "group": "分組",
       "send": "送出請求",
       "failed": "好友請求送出失敗"
+    },
+    "approveFriend": {
+      "title": "批准好友請求",
+      "loading": "正在載入好友請求…",
+      "content": "批准 ${name} 的好友請求，並分組：",
+      "group": "分組",
+      "approve": "批准",
+      "submitting": "正在批准…",
+      "approved": "已批准好友請求",
+      "busy": "這個好友請求正在處理中",
+      "refused": "論壇拒絕了這次批准",
+      "failure": {
+        "network": "無法載入好友請求，請檢查網路後重試",
+        "notLoggedIn": "請先登入再批准好友請求",
+        "accountMismatch": "目前帳號已切換，原帳號的操作已停止，請到原帳號的提醒中確認結果",
+        "challenge": "網站要求瀏覽器驗證，請在瀏覽器中開啟這則提醒",
+        "unknownForm": "論壇回傳的不是可識別的批准表單，未送出任何內容",
+        "unknownAfterSubmit": "已送出批准，但無法識別論壇的回應，請到好友列表確認"
+      }
     }
   },
   "redPacket": {

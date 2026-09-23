@@ -747,6 +747,25 @@
       "group": "Group",
       "send": "Send request",
       "failed": "The friend request could not be sent"
+    },
+    "approveFriend": {
+      "title": "Approve friend request",
+      "loading": "Loading the friend request…",
+      "content": "Approve the friend request of ${name} and file the new friend under:",
+      "group": "Group",
+      "approve": "Approve",
+      "submitting": "Approving…",
+      "approved": "Friend request approved",
+      "busy": "This friend request is already being handled",
+      "refused": "The forum refused the approval",
+      "failure": {
+        "network": "The friend request could not be loaded, check the network and try again",
+        "notLoggedIn": "Log in to approve friend requests",
+        "accountMismatch": "The current account changed, nothing more was done for the previous account. Check its notices for the result",
+        "challenge": "The site asked for a browser check, open the notice in the browser",
+        "unknownForm": "The forum did not answer with a known approval form, nothing was sent",
+        "unknownAfterSubmit": "The approval was sent but the answer was not understood, check your friends list"
+      }
     }
   },
   "redPacket": {
