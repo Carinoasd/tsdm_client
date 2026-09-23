@@ -747,6 +747,25 @@
       "group": "分组",
       "send": "发送请求",
       "failed": "好友请求发送失败"
+    },
+    "approveFriend": {
+      "title": "批准好友请求",
+      "loading": "正在加载好友请求…",
+      "content": "批准 ${name} 的好友请求，并分组：",
+      "group": "分组",
+      "approve": "批准",
+      "submitting": "正在批准…",
+      "approved": "已批准好友请求",
+      "busy": "这个好友请求正在处理中",
+      "refused": "论坛拒绝了这次批准",
+      "failure": {
+        "network": "无法加载好友请求，请检查网络后重试",
+        "notLoggedIn": "请先登录再批准好友请求",
+        "accountMismatch": "当前账号已切换，原账号的操作已停止，请到原账号的提醒中确认结果",
+        "challenge": "网站要求浏览器验证，请在浏览器中打开这条提醒",
+        "unknownForm": "论坛返回的不是可识别的批准表单，未发送任何内容",
+        "unknownAfterSubmit": "已发送批准，但无法识别论坛的回应，请到好友列表确认"
+      }
     }
   },
   "redPacket": {

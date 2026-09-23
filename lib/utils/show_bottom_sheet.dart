@@ -13,6 +13,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
 import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
+import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -255,7 +256,7 @@ Future<void> showUrlInfoBottomSheet({
   final theme = Theme.of(context);
 
   final route = url.parseUrlToRoute();
-  final isInternal = route != null;
+  final isInternal = route != null || friendApprovalUidOfUrl(url) != null;
   final parseResultTitle = isInternal ? tr.urlTypes.internal.title : tr.urlTypes.external.title;
   final parseResultDetail = isInternal ? tr.urlTypes.internal.detail : tr.urlTypes.external.detail;
 
