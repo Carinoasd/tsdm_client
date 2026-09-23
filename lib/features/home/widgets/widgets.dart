@@ -9,6 +9,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 part 'home_navigation_bar.dart';
 part 'home_navigation_drawer.dart';
 part 'home_navigation_rail.dart';
+part 'home_tab_tap.dart';
 
 /// Bar item in app navigator.
 final class _NavigationItem {

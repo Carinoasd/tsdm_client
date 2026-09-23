@@ -1,8 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Option, left, right;
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+
+/// A forum script link without host, as the forum writes them in its pages: `home.php?mod=space&do=notice`,
+/// `/forum.php?mod=viewthread&tid=1#pid2`.
+final _forumScriptRe = RegExp(r'^/?[A-Za-z0-9_]+\.php(?:[?#]\S*)?$');
+
+/// The web link a user typed, to be opened in the browser whether or not the app can open it itself (#105).
+///
+/// * Surrounding whitespace is trimmed; whitespace left inside the link rejects it.
+/// * Absolute `http` and `https` links with a host are kept as typed, query and fragment included.
+/// * A forum script link without host (see [_forumScriptRe]) is put on the canonical forum host [baseUrl].
+/// * Anything else is rejected: empty input, other schemes (`javascript:`, `data:`, `file:`, `mailto:`, app schemes),
+///   links without host, and plain usernames or ids.
+Uri? parseBrowserLink(String? input) {
+  final s = input?.trim() ?? '';
+  if (s.isEmpty || s.contains(RegExp(r'\s'))) {
+    return null;
+  }
+  final uri = Uri.tryParse(_forumScriptRe.hasMatch(s) ? '$baseUrl/${s.startsWith('/') ? s.substring(1) : s}' : s);
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https')) || uri.host.isEmpty) {
+    return null;
+  }
+  return uri;
+}
 
 /// Validator of resource format.
 ///
@@ -39,7 +63,7 @@ final class UrlResource extends OpenableForumResource<TranslationsOpenInAppPageU
       return left(_i18n(context).unsupportedUrl);
     }
 
-    final parsedRoute = v.parseUrlToRoute();
+    final parsedRoute = v.trim().parseUrlToRoute();
     if (parsedRoute == null) {
       return left(_i18n(context).unsupportedUrl);
     }

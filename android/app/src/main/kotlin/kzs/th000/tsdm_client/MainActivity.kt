@@ -1,5 +1,6 @@
 package kzs.th000.tsdm_client
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
@@ -22,6 +23,7 @@ class MainActivity: FlutterActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
+        const val OPEN_IN_BROWSER = "openInBrowser"
 
         const val HTTP_CHANNEL = "kzs.th000.tsdm_client/httpChannel"
         const val HTTP_GET = "get"
@@ -167,11 +169,32 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun handleMainChannelCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == EXIT_APP) {
-            moveTaskToBack(true)
-            result.success(true)
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            EXIT_APP -> {
+                moveTaskToBack(true)
+                result.success(true)
+            }
+            OPEN_IN_BROWSER -> result.success(openInBrowser(call.argument<Any>("url") as? String))
+            else -> result.notImplemented()
+        }
+    }
+
+    /** Open [url] in a browser, never in this app (GitHub #105). Returns whether a browser was started. */
+    private fun openInBrowser(url: String?): Boolean {
+        val uri = BrowserIntents.parseWebUri(url)
+        if (uri == null) {
+            Log.e("OPEN_IN_BROWSER", "refused to open invalid url")
+            return false
+        }
+        return try {
+            startActivity(BrowserIntents.browserOnlyViewIntent(uri))
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.e("OPEN_IN_BROWSER", "no browser found: ${e.message ?: "unknown error"}")
+            false
+        } catch (e: SecurityException) {
+            Log.e("OPEN_IN_BROWSER", "not allowed to start browser: ${e.message ?: "unknown error"}")
+            false
         }
     }
 

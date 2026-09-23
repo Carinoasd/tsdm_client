@@ -1241,7 +1241,11 @@
       "detail": "查看指定貼文樓層。可在樓層的分享連結中找到pid",
       "invalidPid": "無效的pid"
     },
-    "open": "開啟"
+    "open": "開啟",
+    "openInBrowser": "在瀏覽器中開啟",
+    "browserHint": "應用程式內無法開啟的連結，仍可在瀏覽器中開啟",
+    "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
+    "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
   },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",

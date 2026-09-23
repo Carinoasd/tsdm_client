@@ -8,6 +8,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -16,6 +17,8 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
+import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
+import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -23,8 +26,10 @@ import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/features/topics/view/topics_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
@@ -123,8 +128,17 @@ final class _FakeAuth extends AuthenticationRepository {
   }
 }
 
-/// A `forum.php` served to [user] with [names] as groups (no forums, so no cards and no images are built).
-String _index(List<String> names, {UserLoginInfo? user = _alice}) {
+/// A fake X5 expanded forum row (no icon, so no image is fetched).
+String _forumRow(int fid, String name) =>
+    '<tr class="fl_row"><td class="fl_icn"></td> '
+    '<td><h2><a href="forum.php?mod=forumdisplay&amp;fid=$fid">$name</a></h2></td> '
+    '<td class="fl_i"><span class="xi2"><span title="10">10</span></span> '
+    '<span class="xg1"> / <span title="20">20</span></span></td></tr>';
+
+/// A `forum.php` served to [user] with [names] as groups.
+///
+/// Groups have no forums (so no cards and no images are built) unless [forums] lists fake forum names for them.
+String _index(List<String> names, {UserLoginInfo? user = _alice, Map<String, List<String>> forums = const {}}) {
   final header = user == null
       ? ''
       : '<div id="hd"><div class="wp"><div class="hdc cl"><div id="um"> '
@@ -134,7 +148,9 @@ String _index(List<String> names, {UserLoginInfo? user = _alice}) {
       .map(
         (e) =>
             '<div class="bm bmw  cl"><div class="bm_h cl"><h2><a href="${e.$2 == '我收藏的版块' ? 'home.php?mod=space&amp;do=favorite&amp;type=forum' : 'forum.php?gid=${e.$1 + 1}'}">${e.$2}</a></h2></div> '
-            '<div id="category_${e.$1 + 1}" class="bm_c"><table class="fl_tb"><tr class="fl_row"></tr></table></div></div>',
+            '<div id="category_${e.$1 + 1}" class="bm_c"><table class="fl_tb">'
+            '${(forums[e.$2] ?? const []).indexed.map((f) => _forumRow(1000 * (e.$1 + 1) + f.$1, f.$2)).join()}'
+            '<tr class="fl_row"></tr></table></div></div>',
       )
       .join();
   return '<html><body>$header<div id="ct"><div class="mn"><div class="fl bm">$groups</div></div></div></body></html>';
@@ -447,6 +463,8 @@ void main() {
           () => NetClientProvider.build(dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter),
         );
       await settings.init();
+      // Forum cards build a cached image; the fake rows have no icon, so nothing is fetched.
+      getIt.registerSingleton<ImageCacheProvider>(ImageCacheProvider(getIt.get<NetClientProvider>()));
       forumHome = ForumHomeRepository();
       favorites = FavoriteRepository();
       auth = _FakeAuth(alice);
@@ -461,7 +479,8 @@ void main() {
       await db.close();
     });
 
-    Widget host() => TranslationProvider(
+    /// [app] under the repositories the topics page reads.
+    Widget withRepositories(Widget app) => TranslationProvider(
       child: MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ForumHomeRepository>.value(value: forumHome),
@@ -469,8 +488,57 @@ void main() {
           RepositoryProvider<FavoriteRepository>.value(value: favorites),
           RepositoryProvider<FragmentsRepository>.value(value: fragments),
         ],
-        child: const MaterialApp(home: TopicsPage()),
+        child: app,
       ),
+    );
+
+    Widget host() => withRepositories(const MaterialApp(home: TopicsPage()));
+
+    /// The topics page as the app shows it on a phone: in the home shell route, under the real navigation bar and
+    /// [HomeCubit], with the topics tab selected.
+    Widget homeHost(HomeCubit cubit, GoRouter router) => withRepositories(
+      BlocProvider<HomeCubit>.value(
+        value: cubit,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    GoRouter homeRouter(String layout) => GoRouter(
+      initialLocation: ScreenPaths.topic,
+      routes: [
+        ShellRoute(
+          builder: (context, state, child) => layout == 'bar'
+              ? Scaffold(body: child, bottomNavigationBar: const HomeNavigationBar())
+              : Scaffold(
+                  body: Row(
+                    children: [
+                      if (layout == 'rail')
+                        const HomeNavigationRail()
+                      else
+                        const SizedBox(width: 250, child: HomeNavigationDrawer()),
+                      Expanded(child: child),
+                    ],
+                  ),
+                ),
+          routes: [
+            GoRoute(
+              path: ScreenPaths.homepage,
+              name: ScreenPaths.homepage,
+              pageBuilder: (context, state) => const NoTransitionPage(child: Text('homepage')),
+            ),
+            GoRoute(
+              path: ScreenPaths.topic,
+              name: ScreenPaths.topic,
+              pageBuilder: (context, state) => const NoTransitionPage(child: TopicsPage()),
+            ),
+            GoRoute(
+              path: ScreenPaths.settings.path,
+              name: ScreenPaths.settings.path,
+              pageBuilder: (context, state) => const NoTransitionPage(child: Text('settings')),
+            ),
+          ],
+        ),
+      ],
     );
 
     /// Pump a few frames; `pumpAndSettle` never returns here because a refresh indicator keeps animating.
@@ -521,5 +589,81 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(Tab), findsNWidgets(2));
     });
+
+    for (final layout in ['bar', 'rail', 'drawer']) {
+      testWidgets('$layout double tap on topics scrolls to top, then refreshes from the server', (tester) async {
+        var now = DateTime(2026, 9, 23, 12);
+        HomeTabDoubleTapDetector.clock = () => now;
+        addTearDown(() => HomeTabDoubleTapDetector.clock = DateTime.now);
+
+        // Fake data only: one group with enough forums to scroll; the server renames the last forum after the first
+        // fetch so a real refresh is visible on screen, not only in the request log.
+        var generation = 1;
+        List<String> forumNames() => [for (var i = 0; i < 29; i++) '版块$i', '末尾版块$generation'];
+        adapter.answers[(uri, _) => uri.path == '/forum.php'] = () =>
+            _index(['动漫综合', '天使·后花园'], forums: {'动漫综合': forumNames()});
+        int indexRequests() => adapter.requests.where((e) => e.$1.path == '/forum.php').length;
+
+        final cubit = HomeCubit()..setTab(HomeTab.topic);
+        addTearDown(cubit.close);
+        final router = homeRouter(layout);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(homeHost(cubit, router));
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(find.byType(TopicsPage), findsOneWidget);
+        expect(
+          find.byType(switch (layout) {
+            'bar' => HomeNavigationBar,
+            'rail' => HomeNavigationRail,
+            _ => HomeNavigationDrawer,
+          }),
+          findsOneWidget,
+        );
+        expect(find.text('版块0'), findsOneWidget);
+        expect(indexRequests(), 1);
+        generation = 2;
+
+        final list = find.descendant(of: find.byType(TabBarView), matching: find.byType(ListView)).first;
+        ScrollController controller() => tester.widget<ListView>(list).controller!;
+
+        Future<void> doubleTapTopics() async {
+          // The topics destination is selected, so its filled icon is drawn.
+          await tester.tap(find.byIcon(Icons.topic));
+          await tester.pump();
+          now = now.add(const Duration(milliseconds: 150));
+          await tester.tap(find.byIcon(Icons.topic));
+          await tester.pump();
+        }
+
+        // Scrolled down: a double tap scrolls back to the top and does not touch the server.
+        await tester.drag(list, const Offset(0, -1500));
+        await settle(tester);
+        expect(controller().offset, greaterThan(0));
+        expect(find.text('版块0'), findsNothing);
+        await doubleTapTopics();
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(controller().offset, 0);
+        expect(find.text('版块0'), findsOneWidget);
+        expect(indexRequests(), 1, reason: 'scrolling to top is not a refresh');
+        expect(cubit.state.tab, HomeTab.topic);
+
+        // At the top: another double tap (well after the first one) pulls a fresh forum index.
+        now = now.add(const Duration(seconds: 2));
+        await doubleTapTopics();
+        for (var i = 0; i < 30 && indexRequests() == 1; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(indexRequests(), 2, reason: 'double tap at the top refreshes from the server');
+        expect(find.byType(Tab), findsNWidgets(2), reason: 'the refreshed groups are shown again');
+        await tester.drag(list, const Offset(0, -5000));
+        await settle(tester);
+        expect(find.text('末尾版块2'), findsOneWidget, reason: 'the fresh document is on screen');
+        expect(find.text('末尾版块1'), findsNothing);
+      });
+    }
   });
 }
