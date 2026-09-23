@@ -43,8 +43,13 @@ int? friendApprovalUidOfUrl(String url) {
   return int.parse(uid);
 }
 
-/// Url of the approval form of the friend request of [uid], the same operation as the notice link, loaded as ajax.
-String approveFriendFormUrl(int uid) => '$baseUrl/home.php?mod=spacecp&ac=friend&op=add&uid=$uid&from=notice&inajax=1';
+/// Url of the approval form of the friend request of [uid], loaded as the notice link's popup does.
+///
+/// The notice link (`id="afr_N"`, `showWindow(this.id, this.href, 'get', 0)`) is loaded by the forum's `common.js`
+/// with `infloat=yes&handlekey=afr_N` appended, then as ajax. The forum builds the form around that handle key: without
+/// it the form carries an empty one.
+String approveFriendFormUrl(int uid) =>
+    '$baseUrl/home.php?mod=spacecp&ac=friend&op=add&uid=$uid&from=notice&infloat=yes&handlekey=afr_$uid&inajax=1';
 
 /// Where the approval of the friend request of [uid] is posted.
 String approveFriendSubmitUrl(int uid) => '$baseUrl/home.php?mod=spacecp&ac=friend&op=add&uid=$uid&inajax=1';

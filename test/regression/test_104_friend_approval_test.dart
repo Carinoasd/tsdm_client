@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -100,6 +101,26 @@ NetClientProvider _client(_Forum forum) => NetClientProvider.buildNoCookie(
 /// Query of [uri] without the `mobile=no` every forum request gets.
 Map<String, String> _query(Uri uri) => Map.of(uri.queryParameters)..remove('mobile');
 
+/// Handle key of the captured approval form and answer, replaced by what the request carried.
+const _capturedHandleKey = 'afrfriendhk_1001';
+
+/// A forum that, like Discuz, builds the approval form around the `handlekey` and `from` of the GET (empty when the
+/// request carried none) and answers a post with the success handler of the posted `handlekey` and `from`.
+_Answer _popupForum(RequestOptions o) {
+  const esc = HtmlEscape();
+  if (o.method == 'GET') {
+    final q = o.uri.queryParameters;
+    final form = _formWith('name="from" value=""', 'name="from" value="${esc.convert(q['from'] ?? '')}"');
+    return _Answer(form.replaceAll(_capturedHandleKey, esc.convert(q['handlekey'] ?? '')));
+  }
+  final data = o.data as Map;
+  final raw = _data('friend_accept_result_x5.xml');
+  expect(raw, contains("'from':''"), reason: 'fixture changed: from');
+  return _Answer(
+    raw.replaceAll(_capturedHandleKey, '${data['handlekey']}').replaceFirst("'from':''", "'from':'${data['from']}'"),
+  );
+}
+
 void main() {
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
 
@@ -146,7 +167,9 @@ void main() {
       test('is not recognized: $reason', () => expect(friendApprovalUidOfUrl(url), isNull));
     }
 
-    test('the request urls are the notice operation (as ajax) and its canonical submit url', () {
+    test('the request urls are the notice popup (as ajax) and its canonical submit url', () {
+      // The notice link as common.js showWindow(..., 'get') loads it: infloat and the link id as handle key.
+      expect(_data('notice_friend_request_x5.html'), contains('id="afr_1000"'));
       final form = Uri.parse(approveFriendFormUrl(_alice));
       expect(form.origin, 'https://www.tsdm39.com');
       expect(form.path, '/home.php');
@@ -156,13 +179,15 @@ void main() {
         'op': 'add',
         'uid': '1000',
         'from': 'notice',
+        'infloat': 'yes',
+        'handlekey': 'afr_1000',
         'inajax': '1',
       });
       final submit = Uri.parse(approveFriendSubmitUrl(_alice));
       expect(submit.origin, 'https://www.tsdm39.com');
       expect(submit.path, '/home.php');
       expect(submit.queryParameters, {'mod': 'spacecp', 'ac': 'friend', 'op': 'add', 'uid': '1000', 'inajax': '1'});
-      expect(submit.queryParameters, isNot(contains('handlekey')), reason: 'the handle key is never guessed');
+      expect(submit.queryParameters, isNot(contains('handlekey')), reason: 'the handle key is posted as served');
     });
   });
 
@@ -394,6 +419,8 @@ void main() {
         'op': 'add',
         'uid': '1000',
         'from': 'notice',
+        'infloat': 'yes',
+        'handlekey': 'afr_1000',
         'inajax': '1',
       });
 
@@ -417,6 +444,36 @@ void main() {
         'gid': '3',
       });
       expect((post.data as Map).keys, isNot(anyOf(contains('addsubmit'), contains('note'))));
+    });
+
+    test('a forum keying the form on the request: the bare link fails, the popup url approves once', () async {
+      // Before the fix the form was read without infloat/handlekey: the forum serves an empty handle key.
+      const bareUrl = 'https://www.tsdm39.com/home.php?mod=spacecp&ac=friend&op=add&uid=1000&from=notice&inajax=1';
+      final bare = _Forum(_popupForum);
+      final bareAnswer = (await _client(bare).get(bareUrl).run()).getOrElse((l) => fail('$l')).data as String;
+      expect(bareAnswer, contains('name="handlekey" value=""'));
+      expect(_rejection(() => parseApproveFriendForm(bareAnswer, targetUid: _alice)), ApproveFriendFailure.unknownForm);
+      expect(bare.posts, isEmpty);
+
+      final forum = _Forum(_popupForum);
+      final form = await loadForm(forum);
+      expect(_query(forum.requests.single.uri), containsPair('handlekey', 'afr_1000'));
+      expect(form.field('handlekey'), 'afr_1000');
+      expect(form.field('from'), 'notice');
+
+      final result = await repository.approve(_client(forum), form: form, gid: form.selectedGid);
+      final answer = result.getOrElse((l) => fail('$l'));
+      expect(answer.success, isTrue);
+      expect(answer.message, '您已和Alice成为好友');
+      expect(forum.posts, hasLength(1));
+      expect(forum.posts.single.data, {
+        'referer': 'https://www.tsdm39.com/forum.php',
+        'add2submit': 'true',
+        'from': 'notice',
+        'handlekey': 'afr_1000',
+        'formhash': 'XXXXXXXX',
+        'gid': '1',
+      });
     });
 
     test('a group the form did not offer is never posted', () async {
