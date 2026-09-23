@@ -187,7 +187,12 @@ class MainActivity: FlutterActivity() {
             return false
         }
         return try {
-            startActivity(BrowserIntents.browserOnlyViewIntent(uri))
+            val intent = BrowserIntents.browserIntent(uri, BrowserIntents.PackageManagerResolver(packageManager), packageName)
+            if (intent == null) {
+                Log.e("OPEN_IN_BROWSER", "no browser found")
+                return false
+            }
+            startActivity(intent)
             true
         } catch (e: ActivityNotFoundException) {
             Log.e("OPEN_IN_BROWSER", "no browser found: ${e.message ?: "unknown error"}")
