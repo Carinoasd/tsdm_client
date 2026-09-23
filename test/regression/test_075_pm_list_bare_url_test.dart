@@ -124,19 +124,37 @@ void main() {
     expect(url.parseUrlToRoute()?.screenPath, ScreenPaths.threadV1);
   });
 
-  testWidgets('the summary used to be rendered with a tappable url that launched the browser', (tester) async {
-    await tester.pumpWidget(
-      TranslationProvider(
-        child: MaterialApp(home: Scaffold(body: MunchedHtml(summary().data))),
-      ),
+  testWidgets('the summary used to be rendered with a tappable url; unknown to the app, it is not launched', (
+    tester,
+  ) async {
+    final opened = <String?>[];
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => Scaffold(body: MunchedHtml(summary().data)),
+        ),
+        GoRoute(
+          path: ScreenPaths.openInApp,
+          name: ScreenPaths.openInApp,
+          builder: (_, state) {
+            opened.add(state.uri.queryParameters['url']);
+            return const Text('open in app');
+          },
+        ),
+      ],
     );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(TranslationProvider(child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     final spans = tappableSpans(tester);
     expect(spans.map((e) => e.text), ['https://www.tsdm39.com/forum.php?mod=viewthreadtid=1264975']);
     // Tests run as desktop: a tap-down opens the url.
     (spans.single.recognizer! as TapGestureRecognizer).onTapDown!(TapDownDetails());
     await tester.pumpAndSettle();
-    expect(launched, ['https://www.tsdm39.com/forum.php?mod=viewthreadtid=1264975']);
+    // An unknown forum link goes to the "Open in app" page, the browser only on request there (#105).
+    expect(launched, isEmpty);
+    expect(opened.toSet(), {'https://www.tsdm39.com/forum.php?mod=viewthreadtid=1264975'});
   });
 
   testWidgets('the message card shows the summary as plain text; a tap opens the conversation, not the browser', (

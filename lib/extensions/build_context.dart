@@ -1,11 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/map.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
 import 'package:tsdm_client/features/friend/widgets/approve_friend_dialog.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Extension on [BuildContext] that provides ability to dispatch a [String]
@@ -13,7 +16,11 @@ import 'package:url_launcher/url_launcher.dart';
 extension DispatchUrl<T> on BuildContext {
   /// If [url] is an valid url:
   /// * Try parse route and push route to the corresponding page.
-  /// * If is unrecognized route, launch url in external browser.
+  /// * If is an unrecognized forum (or relative) url, push the "Open in app" page with the url filled in; the browser
+  ///   is only started from there, by the user.
+  /// * If is a foreign url, launch url in external browser.
+  ///
+  /// With [external] the url is launched in external browser directly.
   ///
   /// If current string is not an valid url:
   /// * Do nothing.
@@ -49,7 +56,20 @@ extension DispatchUrl<T> on BuildContext {
         queryParameters: route.queryParameters.copyWith(extraPathParameters ?? {}),
       );
     }
-    // Launch in external browser if is unsupported url.
+    // An unsupported forum url never goes to the platform on its own: on Android another installed build of this app
+    // may claim forum links and open before the user had a choice (#105). The "Open in app" page shows the link and
+    // opens it in the browser only when asked to.
+    if (u.isForumOrRelative) {
+      final router = GoRouter.maybeOf(this);
+      if (router == null) {
+        talker.error('no router to open unsupported forum url: $url');
+        return null;
+      }
+      // Relative links are resolved on the forum host, keeping query and fragment.
+      final absolute = u.hasScheme ? u : Uri.parse('$baseUrl/').resolveUri(u);
+      return router.pushNamed<T>(ScreenPaths.openInApp, queryParameters: {'url': '$absolute', 'autoOpen': 'false'});
+    }
+    // Launch in external browser if is a foreign url.
     await launchUrl(u, mode: LaunchMode.externalApplication);
     return null;
   }
