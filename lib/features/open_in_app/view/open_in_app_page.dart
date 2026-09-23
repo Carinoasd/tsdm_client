@@ -7,7 +7,10 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/open_in_app/models/openable_forum_resource_model.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/browser_launcher.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/tips.dart';
 
 /// A button opens route to [OpenInAppPage],
@@ -62,6 +65,9 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
   /// Current parsed and recognized route parsed from user input url.
   RecognizedRoute? currentRoute;
 
+  /// A browser launch is in flight: further taps are ignored until it answers.
+  bool _launchingBrowser = false;
+
   final List<OpenableForumResource<dynamic>> availableResources = [
     UrlResource(),
     UsernameResource(),
@@ -95,10 +101,11 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
 
     // 主动触发表单校验，此时 TextFormField 的 validator 会被执行，从而更新 currentRoute
     formKey.currentState?.validate();
-    
-    // 等待一帧，确保 validator 内部的 setState 已经生效
+
+    // 等待一帧，让校验错误显示出来后再跳转
     await Future<void>.delayed(Duration.zero);
 
+    // 无法识别的链接留在本页，由用户决定是否用浏览器打开，绝不自动启动浏览器 (#105)
     if (!mounted || currentRoute == null) {
       return;
     }
@@ -110,6 +117,40 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
       pathParameters: currentRoute!.pathParameters,
       queryParameters: currentRoute!.queryParameters,
     );
+  }
+
+  /// Open the link in the input box in the external browser, recognized by the app or not (#105).
+  ///
+  /// An unknown link from a deep link is never launched on its own: only this button launches.
+  Future<void> _openInBrowser() async {
+    if (_launchingBrowser) {
+      return;
+    }
+    final tr = context.t.openInAppPage;
+    final uri = parseBrowserLink(targetController.text);
+    if (uri == null) {
+      showSnackBar(context: context, message: tr.invalidBrowserLink, clearPrevious: true);
+      return;
+    }
+
+    setState(() => _launchingBrowser = true);
+    // Do not include the URL: queries and fragments may contain private forum data.
+    talker.info('browser launch requested (scheme=${uri.scheme})');
+    var launched = false;
+    try {
+      launched = await openInExternalBrowser(uri);
+    } on Object catch (e, st) {
+      talker.handle('failed to open link in browser: $e', st);
+    }
+    talker.info(launched ? 'browser launch accepted' : 'browser launch refused');
+    _launchingBrowser = false;
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    if (!launched) {
+      showSnackBar(context: context, message: tr.browserLaunchFailed, clearPrevious: true);
+    }
   }
 
   @override
@@ -133,7 +174,13 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                 .mapIndexed(
                   (idx, v) => FilterChip(
                     label: Text(v.typename(context)),
-                    onSelected: (selected) => selected ? setState(() => currentResourceIndex = idx) : null,
+                    onSelected: (selected) => selected
+                        ? setState(() {
+                            currentResourceIndex = idx;
+                            // A route recognized as another kind of resource is not what the input means now.
+                            currentRoute = null;
+                          })
+                        : null,
                     selected: currentResourceIndex == idx,
                   ),
                 )
@@ -149,10 +196,18 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
               autofocus: true,
               keyboardType: TextInputType.url,
               decoration: InputDecoration(labelText: availableResources[currentResourceIndex].typename(context)),
-              validator: (v) => availableResources[currentResourceIndex].validator()(context, v).match((e) => e, (v) {
-                setState(() => currentRoute = v);
-                return null;
-              }),
+              onChanged: (_) => currentRoute = null,
+              // Only [currentRoute] is updated here, it is not part of the build: no setState.
+              validator: (v) => availableResources[currentResourceIndex].validator()(context, v).match(
+                (e) {
+                  currentRoute = null;
+                  return e;
+                },
+                (v) {
+                  currentRoute = v;
+                  return null;
+                },
+              ),
             ),
           ),
           sizedBoxW24H24,
@@ -175,6 +230,17 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
               );
             },
           ),
+          if (availableResources[currentResourceIndex] is UrlResource) ...[
+            sizedBoxW8H8,
+            OutlinedButton.icon(
+              key: const ValueKey('open-in-app-browser'),
+              label: Text(tr.openInBrowser),
+              icon: const Icon(Icons.open_in_browser),
+              onPressed: _launchingBrowser ? null : _openInBrowser,
+            ),
+            sizedBoxW8H8,
+            Tips(tr.browserHint, enablePadding: false),
+          ],
         ],
       ),
     );

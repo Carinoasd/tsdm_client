@@ -169,6 +169,16 @@ jobs:
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |
           flutter build apk --release
+      - name: Test Android browser routing
+        working-directory: android
+        run: ./gradlew :app:testReleaseUnitTest --tests kzs.th000.tsdm_client.BrowserIntentsTest
+      - name: Upload Android browser test reports
+        if: ${{ always() && (github.event_name == 'push' || inputs.build_android) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-browser-test-reports
+          path: build/app/test-results/testReleaseUnitTest/*.xml
+          if-no-files-found: ignore
       - name: Pack Android apk
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |

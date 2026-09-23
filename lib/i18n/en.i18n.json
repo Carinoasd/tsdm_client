@@ -1241,7 +1241,11 @@
       "detail": "Find specified post. Pid can be found in share link of each floor",
       "invalidPid": "Invalid pid"
     },
-    "open": "Open"
+    "open": "Open",
+    "openInBrowser": "Open in browser",
+    "browserHint": "Links the app can not open here can still be opened in the browser",
+    "invalidBrowserLink": "Enter a web link starting with http:// or https://",
+    "browserLaunchFailed": "Could not open the link in the browser"
   },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",

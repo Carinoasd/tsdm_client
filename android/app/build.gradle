@@ -48,6 +48,12 @@ android {
         jvmTarget = '17'
     }
 
+    testOptions {
+        unitTests.all {
+            systemProperty 'appManifest', file('src/main/AndroidManifest.xml').absolutePath
+        }
+    }
+
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -130,6 +136,8 @@ flutter {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     // For splash screen Theme.SplashScreen

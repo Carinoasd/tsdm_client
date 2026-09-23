@@ -22,6 +22,7 @@ class MainActivity: FlutterActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
+        const val OPEN_IN_BROWSER = "openInBrowser"
 
         const val HTTP_CHANNEL = "kzs.th000.tsdm_client/httpChannel"
         const val HTTP_GET = "get"
@@ -167,11 +168,28 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun handleMainChannelCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == EXIT_APP) {
-            moveTaskToBack(true)
+        when (call.method) {
+            EXIT_APP -> {
+                moveTaskToBack(true)
+                result.success(true)
+            }
+            OPEN_IN_BROWSER -> openInBrowser(call.argument<Any>("url") as? String, result)
+            else -> result.notImplemented()
+        }
+    }
+
+    /** Forward native launch failures to the exportable Flutter log, without including the URL or its parameters. */
+    private fun openInBrowser(url: String?, result: MethodChannel.Result) {
+        val outcome = BrowserIntents.launch(url) { startActivity(it) }
+        if (outcome == BrowserIntents.LaunchResult.STARTED) {
             result.success(true)
         } else {
-            result.notImplemented()
+            result.error(outcome.errorCode!!, outcome.message, mapOf(
+                "strategy" to BrowserIntents.STRATEGY,
+                "sdk" to Build.VERSION.SDK_INT,
+                "manufacturer" to Build.MANUFACTURER,
+                "model" to Build.MODEL,
+            ))
         }
     }
 
