@@ -134,12 +134,15 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
     }
 
     setState(() => _launchingBrowser = true);
+    // Do not include the URL: queries and fragments may contain private forum data.
+    talker.info('browser launch requested (scheme=${uri.scheme})');
     var launched = false;
     try {
       launched = await openInExternalBrowser(uri);
     } on Object catch (e, st) {
       talker.handle('failed to open link in browser: $e', st);
     }
+    talker.info(launched ? 'browser launch accepted' : 'browser launch refused');
     _launchingBrowser = false;
     if (!mounted) {
       return;

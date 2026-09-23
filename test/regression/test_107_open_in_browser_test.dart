@@ -82,7 +82,7 @@ void main() {
   final opened = <LocalKey, (String, Map<String, String>)>{};
 
   setUpAll(() async {
-    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
+    talker = TalkerFlutter.init(settings: TalkerSettings(useConsoleLogs: false));
     await LocaleSettings.setLocale(AppLocale.en);
   });
 
@@ -464,6 +464,37 @@ void main() {
       answer = () async => true;
       await tapBrowser(tester);
       expect(launched, [_report, _report]);
+    });
+
+    testWidgets('browser refusal is recorded without copying the private URL into diagnostics', (tester) async {
+      final historyStart = talker.history.length;
+      await pumpApp(tester);
+      answer = () async => false;
+      await enter(tester, 'https://example.com/?secret=private-token#private-fragment');
+      await tapBrowser(tester);
+      final log = talker.history.skip(historyStart).map((entry) => entry.generateTextMessage()).join('\n');
+      expect(log, contains('browser launch'));
+      expect(log, contains('refused'));
+      expect(log, isNot(contains('private-token')));
+      expect(log, isNot(contains('private-fragment')));
+      expect(find.text(tr.openInAppPage.browserLaunchFailed), findsOneWidget);
+    });
+
+    testWidgets('native browser failure reason reaches the exported log', (tester) async {
+      final historyStart = talker.history.length;
+      await pumpApp(tester);
+      answer = () async => throw PlatformException(
+        code: 'BROWSER_NOT_ALLOWED',
+        message: 'Android refused the browser launch',
+        details: {'sdk': 30, 'strategy': 'web-selector-v4'},
+      );
+      await enter(tester, _report);
+      await tapBrowser(tester);
+      final log = talker.history.skip(historyStart).map((entry) => entry.generateTextMessage()).join('\n');
+      expect(log, contains('BROWSER_NOT_ALLOWED'));
+      expect(log, contains('web-selector-v4'));
+      expect(enabled(tester), isTrue);
+      expect(find.text(tr.openInAppPage.browserLaunchFailed), findsOneWidget);
     });
 
     testWidgets('a launch that throws shows a failure and the button works again', (tester) async {
