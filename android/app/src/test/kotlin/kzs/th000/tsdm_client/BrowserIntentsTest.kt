@@ -201,6 +201,12 @@ class BrowserIntentsTest {
         assertOpensIn(oem, httpUrl, open(httpUrl, device))
     }
 
+    @Test fun wildcardBrowserThatAcceptsEveryHostMustRemainUsable() {
+        val device = Device()
+        val browser = device.install("com.oem.browser", webFilter("http", "https", host = "*"))
+        assertOpensIn(browser, reportUrl, open(reportUrl, device))
+    }
+
     @Test fun noBrowserGivesNoIntent() {
         val device = Device()
         device.install("idm.internet.download.manager", appBrowserFilter())

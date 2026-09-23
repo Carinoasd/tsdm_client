@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.library' version '8.13.1'
+    id 'org.jetbrains.kotlin.android' version '2.2.21'
+}
+
+// Compile the actual app sources without building Flutter, Rust or the release APK.
+tasks.register('prepareBrowserSources', Copy) {
+    from('../../android/app/src/main/kotlin') { include '**/Browser*.kt'; into 'main' }
+    from('../../android/app/src/test/kotlin') { include '**/Browser*Test.kt'; into 'test' }
+    into layout.buildDirectory.dir('browser-sources')
+}
+android {
+    namespace 'kzs.th000.tsdm_client.browser_test'
+    compileSdk 35
+    defaultConfig { minSdk 24 }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+    sourceSets {
+        main.java.srcDirs = [layout.buildDirectory.dir('browser-sources/main')]
+        test.java.srcDirs = [layout.buildDirectory.dir('browser-sources/test')]
+    }
+    testOptions.unitTests.all {
+        systemProperty 'appManifest', file('../../android/app/src/main/AndroidManifest.xml').absolutePath
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'prepareBrowserSources' }
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
+}
