@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:tsdm_client/extensions/string.dart';
 
 part 'points_changes_cubit.mapper.dart';
 
@@ -20,6 +21,40 @@ final class PointsChangesValue with PointsChangesValueMappable {
 
   /// The empty one.
   static const empty = PointsChangesValue();
+
+  /// Parse a Discuz! `creditnotice` cookie value into a [PointsChangesValue].
+  ///
+  /// The value is ten `D`-separated segments: an unknown leading segment, 威望,
+  /// 天使币, 宣传, 天然, 腹黑, 精灵, 福袋, 通关文牒 and the trailing uid. For
+  /// example `0D1D1D0D0D0D0D0D0D2234424` is 威望 +1 and 天使币 +1. Returns null
+  /// when the value is not in that shape.
+  static PointsChangesValue? fromCreditNotice(String value) {
+    final segments = value.split('D');
+    if (segments.length != 10) {
+      return null;
+    }
+    final ww = segments.elementAt(1).parseToInt();
+    final tsb = segments.elementAt(2).parseToInt();
+    final xc = segments.elementAt(3).parseToInt();
+    final tr = segments.elementAt(4).parseToInt();
+    final fh = segments.elementAt(5).parseToInt();
+    final jl = segments.elementAt(6).parseToInt();
+    final specialAttr = segments.elementAt(7).parseToInt();
+    final specialAttr2 = segments.elementAt(8).parseToInt();
+    if (ww == null || tsb == null || xc == null || tr == null || fh == null || jl == null || specialAttr == null) {
+      return null;
+    }
+    return PointsChangesValue(
+      ww: ww,
+      tsb: tsb,
+      xc: xc,
+      tr: tr,
+      fh: fh,
+      jl: jl,
+      specialAttr: specialAttr,
+      specialAttr2: specialAttr2 ?? 0,
+    );
+  }
 
   /// 威望
   final int ww;
@@ -52,5 +87,13 @@ final class PointsChangesCubit extends Cubit<PointsChangesValue> {
   PointsChangesCubit() : super(PointsChangesValue.empty);
 
   /// New points changes arrived.
-  void recordsChanges(PointsChangesValue value) => emit(value);
+  void recordsChanges(PointsChangesValue value) {
+    if (value == PointsChangesValue.empty) {
+      return;
+    }
+    // These are awards for individual actions, not a balance. Two replies can earn the same award;
+    // reset the transient state so Cubit equality does not swallow the second notification.
+    emit(PointsChangesValue.empty);
+    emit(value);
+  }
 }
