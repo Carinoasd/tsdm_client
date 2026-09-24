@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_styled_toast/flutter_styled_toast.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -37,6 +36,7 @@ import 'package:tsdm_client/features/profile/repository/profile_repository.dart'
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/points_changes_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
+import 'package:tsdm_client/features/root/view/singleton.dart';
 import 'package:tsdm_client/features/session_expiry/cubit/session_expiry_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -60,14 +60,6 @@ import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_events.dart';
 import 'package:window_manager/window_manager.dart';
-
-extension _SignedInteger on int {
-  String withSign() => this < 0
-      ? '$this'
-      : this > 0
-      ? '+$this'
-      : '0';
-}
 
 /// Main app for tsdm_client.
 class App extends StatefulWidget {
@@ -111,9 +103,6 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Only save the latest value to storage if in recent duration no more attr
   /// changes triggered.
   static const _syncDebounceDuration = Duration(milliseconds: 80);
-
-  /// The same value in flutter/lib/src/material/snack_bar.dart;
-  static const Duration _snackBarDisplayDuration = Duration(milliseconds: 4000 - 1000);
 
   /// Temporary store of current window position value.
   Offset _windowPosition = Offset.zero;
@@ -460,181 +449,151 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             },
           ),
         ],
-        child: MultiBlocListener(
-          listeners: [
-            BlocListener<AutoCheckinBloc, AutoCheckinState>(
-              listenWhen: (prev, curr) => prev is! AutoCheckinStateFinished && curr is AutoCheckinStateFinished,
-              listener: (context, state) {
-                if (state is AutoCheckinStateFinished) {
-                  talker.debug(
-                    'auto checkin finished: succeeded=${state.succeeded.length} failed=${state.failed.length}',
-                  );
-                  showSnackBar(
-                    context: context,
-                    message: tr.autoCheckinFinished,
-                    clearPrevious: true,
-                    // No close icon: with it the bar wrapped onto two rows on small screens (issue #4); swipe,
-                    // the action and the timeout still dismiss it.
-                    actionOverflowThreshold: 0.6,
-                    action: SnackBarAction(
-                      label: tr.viewDetail,
-                      onPressed: () async => router.pushNamed(ScreenPaths.autoCheckinDetail),
-                    ),
-                  );
-                }
-              },
-            ),
-            BlocListener<NotificationSyncAllCubit, NotificationSyncAllState>(
-              listenWhen: (prev, curr) =>
-                  prev is! NotificationSyncAllStateFinished && curr is NotificationSyncAllStateFinished,
-              listener: (context, state) {
-                if (state is NotificationSyncAllStateFinished) {
-                  talker.debug('sync all accounts finished: ${state.results.length} account(s)');
-                  // The progress page shows the result already: no action to open it again on top of itself.
-                  final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.notificationSyncAll;
-                  showSnackBar(
-                    context: context,
-                    message: tr.syncAllFinished,
-                    clearPrevious: true,
-                    actionOverflowThreshold: 0.6,
-                    action: onPage
-                        ? null
-                        : SnackBarAction(
-                            label: tr.viewDetail,
-                            onPressed: () async => router.pushNamed(ScreenPaths.notificationSyncAll),
-                          ),
-                  );
-                }
-              },
-            ),
-            BlocListener<SessionExpiryCubit, SessionExpiryState>(
-              listenWhen: (prev, curr) => prev.noticeSeq != curr.noticeSeq,
-              listener: (context, state) {
-                // The manage accounts page shows the expired accounts already: no action to open it on top of itself.
-                final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.manageAccount;
-                showSnackBar(
-                  context: context,
-                  message: tr.sessionExpired.message(count: state.noticeCount),
-                  actionOverflowThreshold: 0.6,
-                  action: onPage
-                      ? null
-                      : SnackBarAction(
-                          label: tr.sessionExpired.view,
-                          onPressed: () async => router.pushNamed(ScreenPaths.manageAccount),
+        child: Stack(
+          alignment: Alignment.topLeft,
+          children: [
+            MultiBlocListener(
+              listeners: [
+                BlocListener<AutoCheckinBloc, AutoCheckinState>(
+                  listenWhen: (prev, curr) => prev is! AutoCheckinStateFinished && curr is AutoCheckinStateFinished,
+                  listener: (context, state) {
+                    if (state is AutoCheckinStateFinished) {
+                      talker.debug(
+                        'auto checkin finished: succeeded=${state.succeeded.length} failed=${state.failed.length}',
+                      );
+                      showSnackBar(
+                        context: context,
+                        message: tr.autoCheckinFinished,
+                        clearPrevious: true,
+                        // No close icon: with it the bar wrapped onto two rows on small screens (issue #4); swipe,
+                        // the action and the timeout still dismiss it.
+                        actionOverflowThreshold: 0.6,
+                        action: SnackBarAction(
+                          label: tr.viewDetail,
+                          onPressed: () async => router.pushNamed(ScreenPaths.autoCheckinDetail),
                         ),
-                );
-              },
-            ),
-            BlocListener<NotificationBloc, NotificationState>(
-              listener: (context, state) {
-                if (state.status == NotificationStatus.loading) {
-                  final autoSyncState = context.read<AutoNotificationCubit>();
-                  if (autoSyncState.state is AutoNoticeStateTicking) {
-                    // Restart the auto notification sync process.
-                    context.read<AutoNotificationCubit>().restart();
-                  }
-                } else if (state.status == NotificationStatus.success) {
-                  // Update last fetch notification time.
-                  // We do it here because it's a global action lives in the entire lifetime of the app, not only when
-                  // the notification page is live. This fixes the critical issue where time not updated.
-                  if (state.latestTime != null) {
-                    context.read<NotificationBloc>().add(NotificationRecordFetchTimeRequested(state.latestTime!));
-                  }
-                }
-              },
-            ),
-            BlocListener<PointsChangesCubit, PointsChangesValue>(
-              listenWhen: (prev, curr) => prev != curr && curr != PointsChangesValue.empty,
-              listener: (context, state) {
-                final tr = context.t.pointsChangesDialog;
+                      );
+                    }
+                  },
+                ),
+                BlocListener<NotificationSyncAllCubit, NotificationSyncAllState>(
+                  listenWhen: (prev, curr) =>
+                      prev is! NotificationSyncAllStateFinished && curr is NotificationSyncAllStateFinished,
+                  listener: (context, state) {
+                    if (state is NotificationSyncAllStateFinished) {
+                      talker.debug('sync all accounts finished: ${state.results.length} account(s)');
+                      // The progress page shows the result already: no action to open it again on top of itself.
+                      final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.notificationSyncAll;
+                      showSnackBar(
+                        context: context,
+                        message: tr.syncAllFinished,
+                        clearPrevious: true,
+                        actionOverflowThreshold: 0.6,
+                        action: onPage
+                            ? null
+                            : SnackBarAction(
+                                label: tr.viewDetail,
+                                onPressed: () async => router.pushNamed(ScreenPaths.notificationSyncAll),
+                              ),
+                      );
+                    }
+                  },
+                ),
+                BlocListener<SessionExpiryCubit, SessionExpiryState>(
+                  listenWhen: (prev, curr) => prev.noticeSeq != curr.noticeSeq,
+                  listener: (context, state) {
+                    // The manage accounts page shows the expired accounts already: no action to open it on top of itself.
+                    final onPage = context.read<RootLocationCubit>().currentPath == ScreenPaths.manageAccount;
+                    showSnackBar(
+                      context: context,
+                      message: tr.sessionExpired.message(count: state.noticeCount),
+                      actionOverflowThreshold: 0.6,
+                      action: onPage
+                          ? null
+                          : SnackBarAction(
+                              label: tr.sessionExpired.view,
+                              onPressed: () async => router.pushNamed(ScreenPaths.manageAccount),
+                            ),
+                    );
+                  },
+                ),
+                BlocListener<NotificationBloc, NotificationState>(
+                  listener: (context, state) {
+                    if (state.status == NotificationStatus.loading) {
+                      final autoSyncState = context.read<AutoNotificationCubit>();
+                      if (autoSyncState.state is AutoNoticeStateTicking) {
+                        // Restart the auto notification sync process.
+                        context.read<AutoNotificationCubit>().restart();
+                      }
+                    } else if (state.status == NotificationStatus.success) {
+                      // Update last fetch notification time.
+                      // We do it here because it's a global action lives in the entire lifetime of the app, not only when
+                      // the notification page is live. This fixes the critical issue where time not updated.
+                      if (state.latestTime != null) {
+                        context.read<NotificationBloc>().add(NotificationRecordFetchTimeRequested(state.latestTime!));
+                      }
+                    }
+                  },
+                ),
+                BlocListener<NotificationStateAutoSyncCubit, NotificationAutoSyncInfo?>(
+                  listenWhen: (prev, curr) => curr != null && prev != curr,
+                  listener: (context, state) async {
+                    await showLocalNotification(context, state!);
+                  },
+                ),
+                // Content of identified authors is held back while the block list can not be read; say why, with a retry.
+                const UserBlockFailureListener(),
+                BlocListener<InitCubit, InitState>(
+                  listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
+                  listener: (context, state) async {
+                    if (!state.v0LegacyDataDeleted) {
+                      return;
+                    }
+                    final tr = context.t.init.v1DeleteLegacyData;
+                    await showMessageSingleButtonDialog(context: context, title: tr.title, message: tr.detail);
+                  },
+                ),
+              ],
+              child: BlocBuilder<ThemeCubit, ThemeState>(
+                buildWhen: (prev, curr) => prev != curr,
+                builder: (context, state) {
+                  final themeState = context.watch<ThemeCubit>().state;
+                  final accentColor = themeState.accentColor;
+                  final themeModeIndex = themeState.themeModeIndex;
+                  final fontFamily = themeState.fontFamily;
+                  final textScaleFactor = context.select<SettingsBloc, double>(
+                    (bloc) => bloc.state.settingsMap.textScaleFactor,
+                  );
 
-                final kinds = <String>[];
-                if (state.ww != 0) {
-                  kinds.add(tr.points.ww(value: state.ww.withSign()));
-                }
-                if (state.tsb != 0) {
-                  kinds.add(tr.points.tsb(value: state.tsb.withSign()));
-                }
-                if (state.xc != 0) {
-                  kinds.add(tr.points.xc(value: state.xc.withSign()));
-                }
-                if (state.tr != 0) {
-                  kinds.add(tr.points.tr(value: state.tr.withSign()));
-                }
-                if (state.fh != 0) {
-                  kinds.add(tr.points.fh(value: state.fh.withSign()));
-                }
-                if (state.jl != 0) {
-                  kinds.add(tr.points.jl(value: state.jl.withSign()));
-                }
-                if (state.specialAttr != 0) {
-                  kinds.add(tr.points.specialAttr(value: state.specialAttr.withSign()));
-                }
-                showToast(
-                  kinds.join(tr.sep),
-                  context: context,
-                  duration: _snackBarDisplayDuration,
-                  position: const StyledToastPosition(align: Alignment.topCenter, offset: kToolbarHeight),
-                  textStyle: Theme.of(context).snackBarTheme.contentTextStyle,
-                  backgroundColor: Theme.of(context).snackBarTheme.backgroundColor,
-                );
-              },
-            ),
-            BlocListener<NotificationStateAutoSyncCubit, NotificationAutoSyncInfo?>(
-              listenWhen: (prev, curr) => curr != null && prev != curr,
-              listener: (context, state) async {
-                await showLocalNotification(context, state!);
-              },
-            ),
-            // Content of identified authors is held back while the block list can not be read; say why, with a retry.
-            const UserBlockFailureListener(),
-            BlocListener<InitCubit, InitState>(
-              listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
-              listener: (context, state) async {
-                if (!state.v0LegacyDataDeleted) {
-                  return;
-                }
-                final tr = context.t.init.v1DeleteLegacyData;
-                await showMessageSingleButtonDialog(context: context, title: tr.title, message: tr.detail);
-              },
-            ),
-          ],
-          child: BlocBuilder<ThemeCubit, ThemeState>(
-            buildWhen: (prev, curr) => prev != curr,
-            builder: (context, state) {
-              final themeState = context.watch<ThemeCubit>().state;
-              final accentColor = themeState.accentColor;
-              final themeModeIndex = themeState.themeModeIndex;
-              final fontFamily = themeState.fontFamily;
-              final textScaleFactor = context.select<SettingsBloc, double>(
-                (bloc) => bloc.state.settingsMap.textScaleFactor,
-              );
+                  final lightTheme = AppTheme.makeLight(context, seedColor: accentColor, fontFamily: fontFamily);
+                  final darkTheme = AppTheme.makeDark(context, seedColor: accentColor, fontFamily: fontFamily);
 
-              final lightTheme = AppTheme.makeLight(context, seedColor: accentColor, fontFamily: fontFamily);
-              final darkTheme = AppTheme.makeDark(context, seedColor: accentColor, fontFamily: fontFamily);
-
-              return MaterialApp.router(
-                title: context.t.appName,
-                routerConfig: router,
-                locale: TranslationProvider.of(context).flutterLocale,
-                supportedLocales: AppLocaleUtils.supportedLocales,
-                localizationsDelegates: GlobalMaterialLocalizations.delegates,
-                theme: lightTheme,
-                darkTheme: darkTheme,
-                themeMode: ThemeMode.values[themeModeIndex],
-                scaffoldMessengerKey: snackbarKey,
-                builder: (context, child) {
-                  final data = MediaQuery.of(context);
-                  return MediaQuery(
-                    data: data.copyWith(
-                      textScaler: TextScaler.linear(textScaleFactor)..clamp(minScaleFactor: 0.7, maxScaleFactor: 1.5),
-                    ),
-                    child: child ?? sizedBoxEmpty,
+                  return MaterialApp.router(
+                    title: context.t.appName,
+                    routerConfig: router,
+                    locale: TranslationProvider.of(context).flutterLocale,
+                    supportedLocales: AppLocaleUtils.supportedLocales,
+                    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+                    theme: lightTheme,
+                    darkTheme: darkTheme,
+                    themeMode: ThemeMode.values[themeModeIndex],
+                    scaffoldMessengerKey: snackbarKey,
+                    builder: (context, child) {
+                      final data = MediaQuery.of(context);
+                      return MediaQuery(
+                        data: data.copyWith(
+                          textScaler: TextScaler.linear(textScaleFactor)
+                            ..clamp(minScaleFactor: 0.7, maxScaleFactor: 1.5),
+                        ),
+                        child: child ?? sizedBoxEmpty,
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
+              ),
+            ),
+            const RootSingleton(),
+          ],
         ),
       ),
     );
