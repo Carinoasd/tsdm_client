@@ -15,8 +15,10 @@ import 'package:tsdm_client/features/root/stream/root_location_stream.dart';
 import 'package:tsdm_client/features/root/view/singleton.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/view/update_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/git_info.dart';
 
@@ -63,6 +65,7 @@ void main() {
             alignment: Alignment.topLeft,
             children: [
               MaterialApp(
+                navigatorKey: router.routerDelegate.navigatorKey,
                 scaffoldMessengerKey: snackbarKey,
                 builder: (context, child) => ResponsiveBreakpoints.builder(
                   breakpoints: const [Breakpoint(start: 0, end: double.infinity, name: 'compact')],
@@ -178,7 +181,69 @@ void main() {
     );
     final tr = LocaleSettings.instance.currentTranslations;
     expect(find.text(tr.updatePage.availableDialog.title), findsOneWidget);
-    expect(find.widgetWithText(SnackBarAction, tr.settingsPage.othersSection.update), findsOneWidget);
+    expect(find.widgetWithText(TextButton, tr.settingsPage.othersSection.update), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('new version details survive reward notices and remain until dismissed', (tester) async {
+    await pumpHost(tester, home: false);
+    await checkFinished(
+      tester,
+      const UpdateCubitState(
+        latestVersionInfo: LatestVersionInfo(
+          version: '99.0.0',
+          versionCode: 999999,
+          changelog: 'Important update notes',
+        ),
+      ),
+    );
+    final tr = LocaleSettings.instance.currentTranslations;
+    expect(find.text(tr.updatePage.availableDialog.version(version: '99.0.0')), findsOneWidget);
+    expect(location.isIn(DialogPaths.updateNotice), isTrue);
+    expect(find.text('Important update notes'), findsOneWidget);
+    pointsChangesStream.add('0D1D1D0D0D0D0D0D0D42');
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.text(tr.updatePage.availableDialog.title), findsOneWidget);
+    expect(find.text('Important update notes'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, tr.general.cancel));
+    await tester.pumpAndSettle();
+    expect(find.text(tr.updatePage.availableDialog.title), findsNothing);
+    expect(location.state.locations, isNot(contains(DialogPaths.updateNotice)));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a reward does not erase the available update announcement', (tester) async {
+    await pumpHost(tester);
+    await checkFinished(
+      tester,
+      const UpdateCubitState(
+        latestVersionInfo: LatestVersionInfo(version: '99.0.0', versionCode: 999999, changelog: 'test update'),
+      ),
+    );
+    final title = LocaleSettings.instance.currentTranslations.updatePage.availableDialog.title;
+    expect(find.text(title), findsOneWidget);
+    pointsChangesStream.add('0D1D1D0D0D0D0D0D0D42');
+    await tester.pumpAndSettle();
+    expect(find.text(title), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('another check while the update dialog is open does not stack dialogs', (tester) async {
+    await pumpHost(tester);
+    const result = UpdateCubitState(
+      latestVersionInfo: LatestVersionInfo(version: '99.0.0', versionCode: 999999, changelog: 'test update'),
+    );
+    await checkFinished(tester, result);
+    await checkFinished(tester, result);
+    expect(find.byType(AlertDialog, skipOffstage: false), findsOneWidget);
+    final tr = LocaleSettings.instance.currentTranslations;
+    await tester.tap(find.widgetWithText(TextButton, tr.general.cancel));
+    await tester.pumpAndSettle();
+    expect(find.text(tr.updatePage.availableDialog.title), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -237,6 +302,51 @@ void main() {
       ),
     );
     expect(find.byType(SnackBar), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the real app router opens update from the dialog and leaves no duplicate route', (tester) async {
+    router.go(ScreenPaths.debugLog);
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: points),
+            BlocProvider.value(value: updates),
+            BlocProvider.value(value: location),
+          ],
+          child: Stack(
+            alignment: Alignment.topLeft,
+            children: [
+              MaterialApp.router(routerConfig: router, scaffoldMessengerKey: snackbarKey),
+              const RootSingleton(),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(location.isIn(ScreenPaths.debugLog), isTrue);
+    const result = UpdateCubitState(
+      latestVersionInfo: LatestVersionInfo(version: '99.0.0', versionCode: 999999, changelog: 'test update'),
+    );
+    await checkFinished(tester, result);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(location.isIn(DialogPaths.updateNotice), isTrue);
+    await tester.tap(
+      find.widgetWithText(TextButton, LocaleSettings.instance.currentTranslations.settingsPage.othersSection.update),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(UpdatePage), findsOneWidget);
+    expect(location.isIn(ScreenPaths.update), isTrue);
+    expect(location.state.locations, isNot(contains(DialogPaths.updateNotice)));
+    await checkFinished(tester, result);
+    expect(find.byType(AlertDialog), findsNothing);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(location.isIn(ScreenPaths.debugLog), isTrue);
+    expect(find.byType(UpdatePage), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
