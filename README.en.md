@@ -16,6 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
+## Latest update: 1.28.2 (2026-09-25)
+
+- Supports the rebuilt medal center, restoring category listings and adapting purchase and application forms.
+- Adds in-app friend request approval and fixes tablet navigation, browser opening, credit reward notices and update alerts.
+- Android build number 93 supports updating directly from the UI4 and rewards.1 test builds.
+
+[Download 1.28.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.2) · [Full changelog](./CHANGELOG.md)
+
 ## What it is
 
 A cross-platform client for the [天使动漫 forum](https://www.tsdm39.com/). When the forum moved to Discuz! X5 in 2026 the original client could no longer parse its pages; this project took over maintenance at the forum's request, adapted the app to the X5 page structure and keeps adding features. It is the client version recognised by the forum as official.
@@ -71,7 +79,7 @@ The package name is `com.tsdm.tsdm_client`, signed with the forum's official key
 - Delete several accounts at once, or remove the current account from this device without a network connection
 - Backup export/import, optionally encrypting the login data with a password so other devices need no re-login
 - Friend list and friend requests; red packets, including the daily one
-- "My achievements" and "Medal centre" on your profile page: read achievements, browse medal categories and pages with their conditions; buying, applying and claiming rewards stay on the website
+- "My achievements" and "Medal centre" on your profile page: read achievements, browse medal categories and conditions, and use the medal purchase, application and claim actions offered by the forum; open unsupported features in the browser
 
 ### Notifications and settings
 - Foreground/background polling for new messages with system notifications; a cold start from a notification goes straight to the message centre
