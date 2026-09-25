@@ -119,12 +119,16 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
       }
       var confirmed = true;
       if (action.type == MedalActionType.purchase) {
+        // Prefer the server's own confirmation sentence: it carries the exact price.
+        final confirmText = action.confirmText;
         confirmed =
             await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
                 title: Text(tr.purchaseTitle),
-                content: Text(tr.purchaseConfirm(name: medal.name)),
+                content: Text(
+                  confirmText?.isNotEmpty ?? false ? confirmText! : tr.purchaseConfirm(name: medal.name),
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
@@ -146,6 +150,29 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
     }
+  }
+
+  /// One acquisition button; the server disables ineligible actions and labels the reason on the control.
+  Widget _actionButton(CatalogMedal medal, CatalogMedalAction action, TranslationsMedalCenterEn tr) {
+    final button = FilledButton.tonalIcon(
+      onPressed: _actionInProgress || action.disabledReason != null ? null : () => _runAction(medal, action),
+      icon: Icon(switch (action.type) {
+        MedalActionType.purchase => Icons.shopping_cart_outlined,
+        MedalActionType.manualReview => Icons.rate_review_outlined,
+        MedalActionType.signIn => Icons.event_available_outlined,
+        MedalActionType.apply => Icons.assignment_outlined,
+      }),
+      label: Text(switch (action.type) {
+        MedalActionType.purchase => tr.purchase,
+        MedalActionType.manualReview => tr.manualReview,
+        MedalActionType.signIn => tr.signIn,
+        MedalActionType.apply => tr.apply,
+      }),
+    );
+    if (action.disabledReason?.isNotEmpty ?? false) {
+      return Tooltip(message: action.disabledReason, triggerMode: TooltipTriggerMode.tap, child: button);
+    }
+    return button;
   }
 
   @override
@@ -204,7 +231,10 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
               if (catalog?.supported == false)
                 Text(catalog!.message?.isNotEmpty ?? false ? catalog.message! : tr.unsupported)
               else if (catalog?.medals.isEmpty ?? true)
-                Padding(padding: const EdgeInsets.all(24), child: Text(tr.empty)),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(catalog?.message?.isNotEmpty ?? false ? catalog!.message! : tr.empty),
+                ),
               for (final medal in catalog?.medals ?? <CatalogMedal>[])
                 Card(
                   child: ExpansionTile(
@@ -227,26 +257,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            for (final action in medal.actions)
-                              FilledButton.tonalIcon(
-                                onPressed: _actionInProgress ? null : () => _runAction(medal, action),
-                                icon: Icon(
-                                  switch (action.type) {
-                                    MedalActionType.purchase => Icons.shopping_cart_outlined,
-                                    MedalActionType.manualReview => Icons.rate_review_outlined,
-                                    MedalActionType.signIn => Icons.event_available_outlined,
-                                    MedalActionType.apply => Icons.assignment_outlined,
-                                  },
-                                ),
-                                label: Text(
-                                  switch (action.type) {
-                                    MedalActionType.purchase => tr.purchase,
-                                    MedalActionType.manualReview => tr.manualReview,
-                                    MedalActionType.signIn => tr.signIn,
-                                    MedalActionType.apply => tr.apply,
-                                  },
-                                ),
-                              ),
+                            for (final action in medal.actions) _actionButton(medal, action, tr),
                           ],
                         ),
                     ],
