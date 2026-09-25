@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- 勋章中心：适配论坛重新制作的勋章插件，修复所有分类都显示「此分类暂无勋章」的问题。购买、自主申请、申请审核按现在的方式提交；未满足条件时按钮不可用，点按可以查看论坛给出的原因；购买确认与操作结果直接显示论坛的原文（含价格）。感谢 [@stylezzy](https://github.com/stylezzy) 的反馈。(#112)
+
 ## [1.28.1] - 2026-09-22
 
 ### Added

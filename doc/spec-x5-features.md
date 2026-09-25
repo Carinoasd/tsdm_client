@@ -1185,3 +1185,38 @@ B. 論壇提醒屏蔽規則
   - 小號被屏蔽後發私訊：前景、背景服務、同步所有帳號都不推播、角標不增加，對話仍在列表可開啟；解除後計數恢復；
   - 新舊提醒的 ⋮ 選單內容；A 帳號屏蔽後切到 B 帳號名單是空的、切回 A 名單還在；
   - 從預覽版覆蓋安裝後資料保留；開著背景服務覆蓋安裝後立刻開 App 能正常啟動。
+
+## 37. 勳章中心適配重製版勳章插件（GitHub #112，2026-09-25）
+
+- 現象：App 勳章中心每個分類都顯示「此分类暂无勋章」，分頁卻顯示可以翻頁。回報：GitHub #112（@stylezzy）。
+- 根因：論壇把 dsu_medalCenter 插件重新製作（3.x）。清單項從 `li.pns` 改為 `li#dsumc_mN`，App 的解析器一枚都選不到；
+  分類列與 `.pg` 分頁仍是舊選擇器可解析的形狀，所以頁面其餘部分看起來正常。
+- 重製版協定（以線上實測與插件原始碼確認）：
+  - 取得方式代碼：0 管理员颁发（無操作）、1 自主申请、2 人工审核、5 积分购买、6 签到领取。
+  - 1／5／6 在清單項內是 POST 表單：`plugin.php?id=dsu_medalCenter:memcp&action=claim`，隱藏欄位
+    `formhash`、`dsumcsubmit=1`、`medalid`、`method`、`credit`、`typeid`；不符資格時按鈕帶 `disabled`，
+    原因在按鈕 `title`；購買表單的 `data-confirm` 帶論壇原文的確認句（含價格）。
+  - 2（人工审核）是 `a.pn` 連到 `action=apply&medalid=N` 的申請頁：符合資格時頁內有同款 claim 表單
+    （`method=2`）加 `reason` 文字欄（上限 200 字）；不符合、已擁有、審核中時只有 `p.emp` 說明、沒有表單。
+  - 狀態行：`p.unmet` 未達條件、`p.mine` 已經拥有、`p.wait` 申请审核中（取代舊版 `.dsu_medal_unmet`）。
+  - 懸浮詳情 `#mc_medalN_menu` 開頭多了名稱＋`span.xg1`「ID N」的標題行；空分類是 `p.emp` 直接出現、
+    整個 `ul.mdl` 不渲染。
+  - 送出後回應是標準 showmessage 整頁：成功 `#messagetext.alert_right`、拒絕 `.alert_error`，訊息段落內
+    夾著自動跳轉 script。
+- App 側修法（`lib/features/medal_center/`）：
+  - 解析器同時認得新舊兩種清單項與狀態行；詳情行略過標題／ID 重複行；空分類視為「論壇說沒有」而不是
+    「不支援的版面」，並顯示論壇原文。
+  - 動作改為帶表單資料的模型：claim 表單經 `medalClaimForm` 驗證（同源、`/plugin.php`、只允許
+    `id`+`action=claim` 兩個查詢參數、必須帶 formhash），被竄改的頁面不會把帶登入態的 POST 導去別處；
+    隱藏欄位原樣轉送、不設白名單——插件還在持續新增功能，多一個欄位不能讓按鈕消失，安全性由收件網址
+    釘死在插件自己的 claim 端點保證；未知的取得方式代碼不出現按鈕、勳章本身照常顯示。`disabled` 按鈕
+    保留原因、在 App 中不可按、點按顯示論壇原因。
+  - 人工审核：先 GET 申請頁，頁內有 claim 表單才把理由一起 POST；只有 `p.emp` 時直接把論壇原因回給
+    使用者、不送出任何東西。舊插件的 GET 動作與 specmedal 流程保留為後備。
+  - 操作結果訊息去掉跳轉 script 與備援連結，只留論壇原文；購買確認優先顯示 `data-confirm` 原句。
+- fixtures（`test/data/medal_*_v3_x5.html`）：登入版第一頁、空分類、遊客版第一頁、人工审核申請頁
+  （未達條件為實抓、可申請版依插件模板組成）、claim 拒絕（實測實抓）與成功（依拒絕頁鏡像組成）；
+  formhash 一律改為 `XXXXXXXX`、uid 改為假值。回歸測試：`test/regression/test_112_medal_center_plugin_v3_test.dart`；
+  舊版形狀仍由 `test_084` 覆蓋。
+- 尚未實機驗證：實際購買／申請成功的線上寫入（測試帳號條件不足，僅實測了拒絕路徑）；簽到領取（6）
+  目前線上沒有此類勳章，僅按協定支援。
