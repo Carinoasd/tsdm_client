@@ -490,6 +490,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         value: autoCheckin,
         onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoCheckin, v)),
       ),
+      SectionSwitchListTile(
+        secondary: const Icon(Icons.redeem_outlined),
+        title: Text(tr.autoDailyRedPacket.title),
+        subtitle: Text(tr.autoDailyRedPacket.detail),
+        value: state.settingsMap.autoDailyRedPacket,
+        onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.autoDailyRedPacket, v)),
+      ),
     ];
   }
 

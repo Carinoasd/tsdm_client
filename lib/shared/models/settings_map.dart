@@ -54,6 +54,7 @@ class SettingsMap with SettingsMapMappable {
     required this.textScaleFactor,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
+    this.autoDailyRedPacket = false,
   });
 
   final String netClientAccept;
@@ -86,6 +87,7 @@ class SettingsMap with SettingsMapMappable {
   final String netClientProxy;
   final bool netClientUseProxy;
   final bool autoCheckin;
+  final bool autoDailyRedPacket;
   final bool showUnreadNoticeBadge;
   final bool showUnreadPersonalMessageBadge;
   final bool showUnreadBroadcastMessageBadge;
@@ -143,6 +145,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
       SettingsKeys.netClientUseProxy => copyWith(netClientUseProxy: value as bool?),
       SettingsKeys.autoCheckin => copyWith(autoCheckin: value as bool?),
+      SettingsKeys.autoDailyRedPacket => copyWith(autoDailyRedPacket: value as bool?),
       SettingsKeys.showUnreadNoticeBadge => copyWith(showUnreadNoticeBadge: value as bool?),
       SettingsKeys.showUnreadPersonalMessageBadge => copyWith(showUnreadPersonalMessageBadge: value as bool?),
       SettingsKeys.showUnreadBroadcastMessageBadge => copyWith(showUnreadBroadcastMessageBadge: value as bool?),

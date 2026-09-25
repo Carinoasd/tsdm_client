@@ -55,7 +55,7 @@ final class RedPacketRepository {
       _json(getIt.get<NetClientProvider>().get(recordUrl(tid))).map(RedPacketRecordsResult.fromJson);
 
   /// Claim today's daily red packet.
-  AsyncEither<DailyRedPacketResult> claimDaily({required String formHash}) => _json(
-    getIt.get<NetClientProvider>().postForm(dailyUrl, data: {'formhash': formHash}),
+  AsyncEither<DailyRedPacketResult> claimDaily({required String formHash, NetClientProvider? client}) => _json(
+    (client ?? getIt.get<NetClientProvider>()).postForm(dailyUrl, data: {'formhash': formHash}),
   ).map(DailyRedPacketResult.fromJson);
 }

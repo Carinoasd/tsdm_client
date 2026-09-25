@@ -3,7 +3,12 @@ import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
+import 'package:tsdm_client/features/red_packet/repository/daily_rewards_repository.dart';
+import 'package:tsdm_client/features/red_packet/repository/red_packet_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -17,6 +22,8 @@ import 'package:universal_html/parsing.dart';
 ///
 /// **Need to call dispose.**
 final class ForumHomeRepository with LoggerMixin {
+  final _dailyRewards = DailyRewardsRepository();
+
   /// Cached document of forum homepage.
   uh.Document? _document;
 
@@ -73,6 +80,46 @@ final class ForumHomeRepository with LoggerMixin {
   /// # Exception
   ///
   /// * [HttpHandshakeFailedException] if GET request failed.
-  AsyncEither<uh.Document> _fetchForumHome() =>
-      getIt.get<NetClientProvider>().get(homePage).mapHttp((v) => parseHtmlDocument(v.data as String));
+  AsyncEither<uh.Document> _fetchForumHome() => AsyncEither(() async {
+    // Keep every follow-up on the same identity-bound client, including after an account switch.
+    final client = getIt.get<NetClientProvider>();
+    final cookie = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>() : null;
+    final uid = cookie?.userLoginInfo.uid;
+    final first = await client.get(homePage).mapHttp((v) => parseHtmlDocument(v.data as String)).run();
+    if (first.isLeft()) return first;
+    final document = first.unwrap();
+    bool isCurrent() => cookie?.userLoginInfo.uid == uid;
+    final refresh = await _dailyRewards.process(
+      document: document,
+      uid: uid,
+      isCurrent: isCurrent,
+      autoClaimEnabled: () =>
+          getIt.isRegistered<SettingsRepository>() &&
+          getIt.get<SettingsRepository>().currentSettings.autoDailyRedPacket,
+      visit: (uri) async {
+        final result = await client.getUri(uri).run();
+        return result.fold(
+          (_) => false,
+          // Stock checknewpm answers an empty JavaScript response. A login/error page is not a successful visit.
+          (response) => response.statusCode == 200 && '${response.data ?? ''}'.trim().isEmpty,
+        );
+      },
+      claim: (formHash) async =>
+          (await const RedPacketRepository().claimDaily(formHash: formHash, client: client).run()).fold(
+            (_) => null,
+            (value) => value,
+          ),
+    );
+    if (refresh && isCurrent()) {
+      // Not recursive: one best-effort reload updates the balance and removes the claimed packet entry.
+      try {
+        final updated = await client.get(homePage).mapHttp((v) => parseHtmlDocument(v.data as String)).run();
+        if (updated.isRight() && isCurrent() && parseLoggedUidFromDocument(updated.unwrap()) == uid) return updated;
+      } on Object {
+        warning('daily rewards homepage reload failed; keep the original page');
+      }
+    }
+    if (!isCurrent()) return left(IdentityChangedException());
+    return first;
+  });
 }
