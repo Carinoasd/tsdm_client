@@ -262,6 +262,10 @@
       "autoCheckin": {
         "title": "自動簽到",
         "detail": "應用程式啟動時會自動為所有使用者簽到"
+      },
+      "autoDailyRedPacket": {
+        "title": "自動領取每日紅包",
+        "detail": "開啟應用程式或重新整理首頁時，為目前帳號領取每日紅包，與自動簽到分開設定"
       }
     },
     "storageSection": {

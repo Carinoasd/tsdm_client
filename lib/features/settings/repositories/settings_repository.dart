@@ -127,6 +127,7 @@ final class SettingsRepository with LoggerMixin {
       netClientUseProxy: s.extract(_SK.netClientUseProxy),
       netClientProxy: s.extract(_SK.netClientProxy),
       autoCheckin: s.extract(_SK.autoCheckin),
+      autoDailyRedPacket: s.extract(_SK.autoDailyRedPacket),
       showUnreadNoticeBadge: s.extract(_SK.showUnreadNoticeBadge),
       showUnreadPersonalMessageBadge: s.extract(_SK.showUnreadPersonalMessageBadge),
       showUnreadBroadcastMessageBadge: s.extract(_SK.showUnreadBroadcastMessageBadge),

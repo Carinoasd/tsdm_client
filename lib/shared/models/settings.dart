@@ -137,6 +137,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Enable auto checkin for all users when app startup.
   autoCheckin<bool>(name: 'autoCheckin', type: bool, defaultValue: true),
 
+  /// Claim the current account's daily red packet when loading the homepage, independently of auto check-in.
+  autoDailyRedPacket<bool>(name: 'autoDailyRedPacket', type: bool, defaultValue: false),
+
   /// Show unread badge on notice card.
   ///
   /// Disabled by default because the read/unread flag is offline.

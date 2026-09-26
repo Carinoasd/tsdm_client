@@ -262,6 +262,10 @@
       "autoCheckin": {
         "title": "Automatic checkin",
         "detail": "Automatically checkin for all accounts when app startup"
+      },
+      "autoDailyRedPacket": {
+        "title": "Automatically claim daily red packet",
+        "detail": "Claim for the current account when opening the app or refreshing the homepage, independently of automatic checkin"
       }
     },
     "storageSection": {

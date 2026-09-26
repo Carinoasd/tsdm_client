@@ -262,6 +262,10 @@
       "autoCheckin": {
         "title": "自动签到",
         "detail": "应用启动时自动为所有用户签到"
+      },
+      "autoDailyRedPacket": {
+        "title": "自动领取每日红包",
+        "detail": "打开应用或刷新首页时，为当前账号领取每日红包，与自动签到分开设置"
       }
     },
     "storageSection": {
