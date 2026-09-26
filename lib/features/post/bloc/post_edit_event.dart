@@ -7,6 +7,13 @@ sealed class PostEditEvent with PostEditEventMappable {
   const PostEditEvent();
 }
 
+/// Invalidate the editor immediately on any authentication transition.
+@MappableClass()
+final class PostEditIdentityChanged extends PostEditEvent with PostEditIdentityChangedMappable {
+  /// Constructor.
+  const PostEditIdentityChanged();
+}
+
 /// User requested to load the data to edit.
 @MappableClass()
 final class PostEditLoadDataRequested extends PostEditEvent with PostEditLoadDataRequestedMappable {

@@ -364,7 +364,7 @@ class Post with PostMappable {
       talker.info('post $postID: user profile node not found, maybe not logged in');
     }
 
-    final isDraft = element.querySelector('a.psave') != null;
+    final isDraft = isFirstThreadPost(element) && element.querySelectorAll('a.psave').any(isDraftPublishLink);
 
     // Medals used by the current posts' author.
     //

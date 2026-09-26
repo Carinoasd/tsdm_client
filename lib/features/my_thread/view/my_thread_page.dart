@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/draft_box/view/draft_box_panel.dart';
 import 'package:tsdm_client/features/my_thread/bloc/my_thread_bloc.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -12,7 +13,10 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// Page to show the threads and replies published by current logged user.
 class MyThreadPage extends StatefulWidget {
   /// Constructor.
-  const MyThreadPage({super.key});
+  const MyThreadPage({super.key, this.showDrafts = false});
+
+  /// Enter the draft tab after saving from the editor.
+  final bool showDrafts;
 
   @override
   State<MyThreadPage> createState() => _MyThreadPageState();
@@ -114,7 +118,7 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, initialIndex: widget.showDrafts ? 2 : 0, vsync: this);
     _threadRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
     _replyRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
   }
@@ -147,6 +151,7 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
                 tabs: [
                   Tab(child: Text(context.t.myThreadPage.threadTab.title)),
                   Tab(child: Text(context.t.myThreadPage.replyTab.title)),
+                  Tab(child: Text(context.t.draftBox.title)),
                 ],
               ),
             ),
@@ -154,7 +159,7 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
               bottom: false,
               child: TabBarView(
                 controller: _tabController,
-                children: [_buildThreadTab(context, state), _buildReplyTab(context, state)],
+                children: [_buildThreadTab(context, state), _buildReplyTab(context, state), const DraftBoxPanel()],
               ),
             ),
           );

@@ -12,6 +12,12 @@ enum PostEditStatus {
   /// Failed to load data.
   failedToLoad,
 
+  /// Authentication changed; the old private form is no longer usable.
+  identityChanged,
+
+  /// Structured editor data requires the website editor.
+  unsupported,
+
   /// Waiting for user to edit.
   editing,
 
@@ -23,6 +29,9 @@ enum PostEditStatus {
 
   /// Post edit result success.
   success,
+
+  /// Server accepted the content, but it could not be confirmed as a private draft.
+  draftUnconfirmed,
 }
 
 /// State of mappable.

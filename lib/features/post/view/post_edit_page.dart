@@ -15,6 +15,7 @@ import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
 import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
@@ -24,9 +25,12 @@ import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
+import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -191,6 +195,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   late BBCodeEditorController bbcodeController;
 
   bool initialized = false;
+  bool _confirming = false;
 
   // BBCode text attribute status.
   Color? foregroundColor;
@@ -219,7 +224,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       price: price,
       perm: threadPerm?.perm,
     );
-    debug('collected EditorDocumentMetadata $metadata');
+    debug('collected editor metadata');
     return metadata;
   }
 
@@ -296,83 +301,93 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }
 
   Future<void> _onFinish(BuildContext context, PostEditState state, {bool saveDraft = false}) async {
-    if (widget.editType.isEditingDraft) {
-      final tr = context.t.postEditPage.threadPublish;
-      final ret = await showQuestionDialog(
-        context: context,
-        title: saveDraft ? context.t.postEditPage.saveAsDraft : tr.title,
-        richMessage: tr.warningBeforePost.body(
-          forumName: TextSpan(
-            text: state.forumName ?? '<unknown>',
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-          threadTitle: TextSpan(
-            text: threadTitleController.text,
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-          threadType: TextSpan(
-            text: threadTypeController.text,
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-          warning: TextSpan(
-            text: tr.warningBeforePost.warning,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-      );
-      if (ret != true) {
+    final bloc = context.read<PostEditBloc>();
+    if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
+    if (saveDraft && !state.content!.canSaveDraft) return;
+    setState(() => _confirming = true);
+    try {
+      if (widget.editType.isEditingDraft) {
+        final tr = context.t.postEditPage.threadPublish;
+        final ret = await showQuestionDialog(
+          context: context,
+          title: saveDraft ? context.t.postEditPage.saveAsDraft : tr.title,
+          message: saveDraft ? context.t.draftBox.saveConfirm : null,
+          richMessage: saveDraft
+              ? null
+              : tr.warningBeforePost.body(
+                  forumName: TextSpan(
+                    text: state.forumName ?? '#${widget.fid}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                  ),
+                  threadTitle: TextSpan(
+                    text: threadTitleController.text,
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                  ),
+                  threadType: TextSpan(
+                    text: threadTypeController.text,
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                  ),
+                  warning: TextSpan(
+                    text: tr.warningBeforePost.warning,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+        );
+        if (ret != true) {
+          return;
+        }
+      }
+      if (!context.mounted || !bloc.canSubmit || !identical(state.content, bloc.state.content)) {
         return;
       }
-    }
-    if (!context.mounted) {
-      return;
-    }
 
-    final event = switch (widget.editType) {
-      PostEditType.editPost || PostEditType.editDraft => PostEditCompleteEditRequested(
-        formHash: state.content!.formHash,
-        postTime: state.content!.postTime,
-        delattachop: state.content?.delattachop ?? '0',
-        page: state.content!.page!,
-        wysiwyg: state.content!.wysiwyg,
-        fid: widget.fid,
-        // Not null when editing post
-        tid: widget.tid!,
-        // Not null when editing post
-        pid: widget.pid!,
-        threadType: threadType,
-        threadTitle: threadTitleController.text,
-        data: bbcodeController.toForumBBCode(),
-        options: additionalOptionsMap?.values.toList() ?? [],
-        save: saveDraft ? '1' : '',
-        perm: threadPerm?.perm,
-        price: price,
-      ),
-      PostEditType.newThread => ThreadPubPostThread(
-        ThreadPublishInfo(
+      final event = switch (widget.editType) {
+        PostEditType.editPost || PostEditType.editDraft => PostEditCompleteEditRequested(
           formHash: state.content!.formHash,
           postTime: state.content!.postTime,
-          delAttachOp: state.content?.delattachop ?? '0',
-          wysiwyg: state.content?.wysiwyg ?? '0',
+          delattachop: state.content?.delattachop ?? '0',
+          page: state.content!.page!,
+          wysiwyg: state.content!.wysiwyg,
           fid: widget.fid,
+          // Not null when editing post
+          tid: widget.tid!,
+          // Not null when editing post
+          pid: widget.pid!,
           threadType: threadType,
-          checkbox: '0',
-          subject: threadTitleController.text,
-          message: bbcodeController.toForumBBCode(),
+          threadTitle: threadTitleController.text,
+          data: bbcodeController.toForumBBCode(),
+          options: additionalOptionsMap?.values.toList() ?? [],
+          save: saveDraft ? '1' : '',
           perm: threadPerm?.perm,
           price: price,
-          save: saveDraft ? '1' : '',
-          options: additionalOptionsMap?.values.toList() ?? [],
         ),
-      ),
-    };
-    if (saveDraft) {
-      uploadMethod = _UploadMethod.saveDraft;
-    } else {
-      uploadMethod = _UploadMethod.publish;
+        PostEditType.newThread => ThreadPubPostThread(
+          ThreadPublishInfo(
+            formHash: state.content!.formHash,
+            postTime: state.content!.postTime,
+            delAttachOp: state.content?.delattachop ?? '0',
+            wysiwyg: state.content?.wysiwyg ?? '0',
+            fid: widget.fid,
+            threadType: threadType,
+            checkbox: '0',
+            subject: threadTitleController.text,
+            message: bbcodeController.toForumBBCode(),
+            perm: threadPerm?.perm,
+            price: price,
+            save: saveDraft ? '1' : '',
+            options: additionalOptionsMap?.values.toList() ?? [],
+          ),
+        ),
+      };
+      if (saveDraft) {
+        uploadMethod = _UploadMethod.saveDraft;
+      } else {
+        uploadMethod = _UploadMethod.publish;
+      }
+      context.read<PostEditBloc>().add(event);
+    } finally {
+      if (mounted) setState(() => _confirming = false);
     }
-    context.read<PostEditBloc>().add(event);
-    return;
   }
 
   // TODO: Fix duplicate with same logic in fast reply edit page.
@@ -684,6 +699,37 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }
 
   Widget _buildBody(BuildContext context, PostEditState state) {
+    if (state.status == PostEditStatus.identityChanged) {
+      return Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: Text(context.t.draftBox.accountChanged)),
+      );
+    }
+    if (state.status == PostEditStatus.unsupported) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(context.t.draftBox.unsupported),
+              TextButton(
+                onPressed: () async {
+                  final url = widget.editType == PostEditType.newThread
+                      ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
+                      : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
+                  try {
+                    await openInExternalBrowser(Uri.parse(url));
+                  } on Object {
+                    if (context.mounted) showSnackBar(context: context, message: context.t.general.failedToLoad);
+                  }
+                },
+                child: Text(context.t.draftBox.openBrowser),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (state.status == PostEditStatus.initial || state.status == PostEditStatus.loading) {
       return const CenteredCircularIndicator();
     }
@@ -765,12 +811,50 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }
 
   Future<void> _onListen(BuildContext context, PostEditState state) async {
+    if (state.status == PostEditStatus.identityChanged) {
+      threadTitleController.clear();
+      threadTypeController.clear();
+      bbcodeController.setDocumentFromRawText('');
+      additionalOptionsMap = null;
+      return;
+    }
     if (state.status == PostEditStatus.failedToUpload) {
-      showSnackBar(context: context, message: state.errorText ?? context.t.general.failedToLoad);
+      showSnackBar(
+        context: context,
+        message:
+            state.errorText ??
+            (widget.editType.isEditingPost ? context.t.draftBox.editUnconfirmed : context.t.draftBox.submitUnconfirmed),
+      );
       if (isMobile) {
         WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
       }
+    } else if (state.status == PostEditStatus.draftUnconfirmed) {
+      await showMessageSingleButtonDialog(
+        context: context,
+        title: context.t.draftBox.title,
+        message: context.t.draftBox.acceptedUnconfirmed,
+      );
+      if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.success) {
+      if (uploadMethod == _UploadMethod.saveDraft) {
+        if (widget.editType == PostEditType.editDraft) {
+          showSnackBar(context: context, message: context.t.draftBox.saved);
+          context.pop(true);
+          return;
+        }
+        final view = await showQuestionDialog(
+          context: context,
+          title: context.t.draftBox.saved,
+          message: context.t.draftBox.viewSaved,
+        );
+        if (!context.mounted || !context.read<PostEditRepository>().isCurrent) return;
+        if (view ?? false) {
+          context.pushReplacementNamed(ScreenPaths.myThread, queryParameters: {'tab': 'drafts'});
+        } else {
+          context.pop(true);
+        }
+        return;
+      }
       // Some action succeeded.
       if (widget.editType.isEditingPost) {
         // Edit post.
@@ -785,7 +869,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           // Could redirect to new thread page.
           final tr = context.t.postEditPage.threadPublish.afterPostDialog;
           final result = await showQuestionDialog(context: context, title: tr.title, message: tr.message);
-          if (!context.mounted) {
+          if (!context.mounted || !context.read<PostEditRepository>().isCurrent) {
             return;
           }
           if (result ?? false) {
@@ -794,7 +878,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           }
         }
 
-        context.pop();
+        context.pop(true);
       }
     } else if (state.status == PostEditStatus.editing && !init) {
       threadTypeController.text = state.content?.threadType?.name ?? '  ';
@@ -873,10 +957,18 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       },
       child: MultiBlocProvider(
         providers: [
-          RepositoryProvider(create: (_) => PostEditRepository()),
+          RepositoryProvider(
+            create: (context) => PostEditRepository(
+              client: getIt.get<NetClientProvider>(),
+              currentUid: () => context.read<AuthenticationRepository>().effectiveCurrentUid,
+            ),
+          ),
           BlocProvider(
             create: (context) {
-              final bloc = PostEditBloc(postEditRepository: context.repo());
+              final bloc = PostEditBloc(
+                postEditRepository: context.repo(),
+                authenticationChanges: context.read<AuthenticationRepository>().status,
+              );
 
               final event = switch (widget.editType) {
                 PostEditType.editPost || PostEditType.editDraft => PostEditLoadDataRequested(
@@ -898,9 +990,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               appBar: AppBar(
                 title: Text(title),
                 actions: [
-                  if (widget.editType.isEditingDraft) ...[
+                  if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
                     IconButton(
-                      onPressed: state.status == PostEditStatus.uploading
+                      onPressed: _confirming || !context.read<PostEditBloc>().canSubmit
                           ? null
                           : () async => _onFinish(context, state, saveDraft: true),
                       icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft
@@ -914,7 +1006,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.publish
                         ? sizedCircularProgressIndicator
                         : const Icon(Icons.send),
-                    onPressed: state.status == PostEditStatus.uploading ? null : () async => _onFinish(context, state),
+                    onPressed: _confirming || !context.read<PostEditBloc>().canSubmit
+                        ? null
+                        : () async => _onFinish(context, state),
                   ),
                 ],
               ),

@@ -99,8 +99,8 @@ final class ThreadPublishInfo with ThreadPublishInfoMappable {
 
   /// Save to draft or not.
   ///
-  /// * Draft if 0.
-  /// * Publish if 1.
+  /// * Draft if "1".
+  /// * Publish if empty.
   final String save;
 
   /// Options.
