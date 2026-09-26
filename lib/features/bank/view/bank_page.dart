@@ -15,7 +15,9 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
-/// Forum bank directory, current savings and logs for the signed-in account.
+part 'bank_service_widgets.dart';
+
+/// Forum bank services and account records for the signed-in account.
 class BankPage extends StatefulWidget {
   /// An injected [controller] is owned by its caller.
   const BankPage({super.key, this.controller});
@@ -101,6 +103,157 @@ class _BankPageState extends State<BankPage> {
     }
   }
 
+  Future<void> _serviceTransaction(BankServiceData data, BankServiceForm form) async {
+    if (_dialogOpen || !_cubit.isCurrentService(data, form)) return;
+    final controller = _cubit;
+    final bankName = controller.state.bank!.name;
+    setState(() => _dialogOpen = true);
+    try {
+      final values = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (context) => _BankServiceDialog(controller: controller, data: data, form: form, bankName: bankName),
+      );
+      if (!mounted || values == null || !identical(controller, _cubit) || !controller.isCurrentService(data, form)) {
+        return;
+      }
+      try {
+        await controller.submitService(expected: data, form: form, values: values);
+      } finally {
+        values.clear();
+      }
+    } finally {
+      if (mounted) setState(() => _dialogOpen = false);
+    }
+  }
+
+  Widget _services(BankState state, {required bool disabled}) {
+    final bank = state.bank;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: context.t.bank.services, border: const OutlineInputBorder()),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            key: const ValueKey('bank-service-picker'),
+            isExpanded: true,
+            isDense: true,
+            value: state.service?.name ?? ((bank?.hasAccount ?? false) ? 'current' : null),
+            hint: Text(context.t.bank.services),
+            onChanged: disabled
+                ? null
+                : (value) {
+                    if (value == 'current') {
+                      unawaited(_cubit.selectBank(bank!));
+                    } else if (value != null) {
+                      unawaited(_cubit.loadService(BankService.values.byName(value)));
+                    }
+                  },
+            items: [
+              if (bank?.hasAccount ?? false) DropdownMenuItem(value: 'current', child: Text(context.t.bank.savings)),
+              for (final service in BankService.values.where(
+                (service) =>
+                    service == state.service ||
+                    service.global ||
+                    bank != null && (bank.hasAccount || service == BankService.hall),
+              ))
+                DropdownMenuItem(
+                  key: ValueKey('bank-service-${service.name}'),
+                  value: service.name,
+                  child: Text(_serviceTitle(context, service)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _serviceContent(BankState state, {required bool disabled}) {
+    final tr = context.t.bank;
+    final data = state.serviceData;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: disabled ? null : _cubit.load,
+            icon: const Icon(Icons.arrow_back),
+            label: Text(tr.backToBanks),
+          ),
+        ),
+        Text(
+          [
+            if (!state.service!.global && state.bank != null) state.bank!.name,
+            _serviceTitle(context, state.service!),
+          ].join(' · '),
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        if (data != null) ...[
+          if (data.unavailable.isNotEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(data.unavailable)),
+          if (data.walletBalance.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('${tr.availableBalance}: ${data.walletBalance} ${data.currency}'),
+            ),
+          for (final form in data.forms)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (form.context.isNotEmpty)
+                      Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(form.context)),
+                    FilledButton(
+                      onPressed: disabled ? null : () => _serviceTransaction(data, form),
+                      child: Text(_serviceActionTitle(context, form)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          for (final block in data.blocks)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              child: Text(block.text, style: block.heading ? Theme.of(context).textTheme.titleMedium : null),
+            ),
+          if (data.unsupportedForms) Padding(padding: const EdgeInsets.all(12), child: Text(tr.unsupported)),
+          if (data.hasNext || state.servicePage > 1)
+            Wrap(
+              spacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: disabled || state.servicePage <= 1
+                      ? null
+                      : () => _cubit.loadService(state.service!, page: state.servicePage - 1),
+                  child: Text(tr.previous),
+                ),
+                Text('${state.servicePage}'),
+                TextButton(
+                  onPressed: disabled || !data.hasNext
+                      ? null
+                      : () => _cubit.loadService(state.service!, page: state.servicePage + 1),
+                  child: Text(tr.next),
+                ),
+              ],
+            ),
+        ],
+        TextButton.icon(
+          onPressed: disabled
+              ? null
+              : () async => context.dispatchAsUrl(
+                  bankServiceUrl(state.service!, bankId: state.bank?.id, page: state.servicePage),
+                  external: true,
+                ),
+          icon: const Icon(Icons.open_in_browser_outlined),
+          label: Text(tr.openWebsite),
+        ),
+      ],
+    );
+  }
+
   Widget _savings(ForumBank bank, BankSavings savings, {required bool disabled}) {
     final tr = context.t.bank;
     return Card(
@@ -171,6 +324,7 @@ class _BankPageState extends State<BankPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(tr.logs, style: Theme.of(context).textTheme.titleMedium),
+            if (state.logsFailed) Text(tr.logsFailed, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -254,7 +408,9 @@ class _BankPageState extends State<BankPage> {
                 onPressed: disabled
                     ? null
                     : () async => context.dispatchAsUrl(
-                        bankPageUrl(bankId: bank?.id, action: bank == null ? null : 'cur'),
+                        state.service == null
+                            ? bankPageUrl(bankId: bank?.id, action: bank == null ? null : 'cur')
+                            : bankServiceUrl(state.service!, bankId: bank?.id, page: state.servicePage),
                         external: true,
                       ),
                 icon: const Icon(Icons.open_in_browser_outlined),
@@ -286,12 +442,15 @@ class _BankPageState extends State<BankPage> {
                       child: Text(tr.loginRequired),
                     )
                   else ...[
+                    if (state.uid != null) _services(state, disabled: disabled),
                     if (state.failed)
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(tr.loadFailed, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                       ),
-                    if (bank == null) ...[
+                    if (state.service != null)
+                      _serviceContent(state, disabled: disabled)
+                    else if (bank == null) ...[
                       Padding(
                         padding: const EdgeInsets.all(12),
                         child: Text(tr.chooseBank, style: Theme.of(context).textTheme.titleMedium),

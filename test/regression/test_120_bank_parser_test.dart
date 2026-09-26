@@ -246,6 +246,26 @@ void main() {
     );
   });
 
+  test('real bank pagination inside the records table is not a malformed transaction', () {
+    final html = _logs().replaceFirst(
+      '</tbody></table>',
+      '<tr><td colspan="3"><div class="pg"><strong>1</strong>'
+          '<a href="plugin.php?id=bank_ane:bank&amp;bankid=1&amp;action=log&amp;show=0&amp;page=2">下一页</a>'
+          '</div></td></tr></tbody></table>',
+    );
+    final logs = parseBankLogs(parseHtmlDocument(html), bankId: 1, received: false, page: 1);
+    expect(logs.entries, hasLength(2));
+    expect(logs.hasNext, isTrue);
+  });
+
+  test('empty bank response with line breaks and center element remains empty', () {
+    final html = _logs(empty: true).replaceFirst(
+      '<center>还没有相关数据。</center>',
+      '<br><br><center>还没有相关数据。</center><br><br><br>',
+    );
+    expect(parseBankLogs(parseHtmlDocument(html), bankId: 1, received: true, page: 1).entries, isEmpty);
+  });
+
   test('pagination is restricted to the same bank, tab, action and next numeric page', () {
     const next = 'plugin.php?id=bank_ane:bank&amp;bankid=1&amp;action=log&amp;show=0&amp;page=2';
     expect(

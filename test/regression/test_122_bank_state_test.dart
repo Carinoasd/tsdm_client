@@ -460,7 +460,7 @@ void main() {
   });
 
   group('bank read races', () {
-    test('a log read failure clears a previously usable savings form', () async {
+    test('a log failure preserves balance and a later explicit transaction still preflights once', () async {
       var posts = 0;
       final repository = BankRepository(
         getPage: (url) async {
@@ -477,11 +477,15 @@ void main() {
       final cubit = await _loadedCubit(repository);
       final expected = cubit.state.savings!;
       await cubit.loadLogs();
-      expect(cubit.state.failed, isTrue);
-      expect(cubit.state.savings, isNull);
-      expect(cubit.isCurrent(expected), isFalse);
+      expect(cubit.state.failed, isFalse);
+      expect(cubit.state.logsFailed, isTrue);
+      expect(cubit.state.savings, same(expected));
+      expect(cubit.isCurrent(expected), isTrue);
       await _deposit(cubit, expected);
-      expect(posts, 0);
+      expect(posts, 1);
+      expect(cubit.state.savings, isNotNull);
+      expect(cubit.state.logsFailed, isTrue);
+      expect(cubit.state.unconfirmed, isTrue);
     });
 
     test('slow savings from the previous bank never replace the newly selected bank', () async {

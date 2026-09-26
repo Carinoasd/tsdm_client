@@ -54,6 +54,20 @@ class BankRepository {
     page: page,
   );
 
+  /// Loads a service with the same authenticated identity checks as savings.
+  Future<BankServiceData> fetchService(BankService service, int uid, {int? bankId, int page = 1}) async =>
+      parseBankService(
+        await _fetch(bankServiceUrl(service, bankId: bankId, page: page), uid),
+        service,
+        bankId: bankId,
+        page: page,
+      );
+
+  /// Submit one freshly validated service form. Transport never retries it.
+  Future<void> submitService(BankServiceForm form, Map<String, String> values) async {
+    await postForm(form.action, form.body(values));
+  }
+
   /// A response, including HTTP 200, is not evidence that a transaction succeeded.
   /// The caller must show an unconfirmed result and refresh via GET only.
   Future<void> submit(BankTransactionForm form, BankOperation operation, String amount, String password) async {

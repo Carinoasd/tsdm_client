@@ -29,14 +29,14 @@ final _formHashInputRe = RegExp(
 
 /// Bank passwords, even if an HTML value attribute precedes the field name.
 final _bankPasswordInputRe = RegExp(
-  r"""(?<key><input\b(?=[^>]*\bname=["']bankpass["'])[^>]*?\bvalue=["'])(?<value>[^"']*)""",
+  r"""(?<key><input\b(?=[^>]*\bname=["'](?:bankpass2?|newbankpass2?)["'])[^>]*?\bvalue=["'])(?<value>[^"']*)""",
   caseSensitive: false,
 );
 
 /// Names of private form fields: replies, messages, notes, security answers.
 const _privateFields =
     'message|pmmessage|subject|description|answer|questionid|email|oldpassword|newpassword|newpassword2|password2|'
-    'seccodeverify|comment|note|bankpass';
+    'seccodeverify|comment|note|bankpass|bankpass2|newbankpass|newbankpass2';
 
 /// Private form fields as url-encoded body parts (`message=...`, wherever they appear).
 final _privateFormRe = RegExp('(?<key>\\b(?:$_privateFields)=)(?<value>[^&\\s]*)', caseSensitive: false);

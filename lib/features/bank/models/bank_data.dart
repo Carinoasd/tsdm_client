@@ -1,6 +1,8 @@
 import 'package:tsdm_client/constants/url.dart';
 import 'package:universal_html/html.dart' as uh;
 
+part 'bank_service_data.dart';
+
 const _pluginId = 'bank_ane:bank';
 const _endpoint = '$baseUrl/plugin.php';
 
@@ -358,6 +360,14 @@ BankLogs parseBankLogs(uh.Document document, {required int bankId, required bool
   var empty = false;
   for (final row in records.querySelectorAll('tr').where((row) => _nearestTable(row) == records)) {
     final cells = row.children.where((cell) => cell.localName == 'td').toList();
+    // The forum places pagination inside the records table, after the last record.
+    if (cells.length == 1 && cells.single.querySelector('div.pg') != null) {
+      final copy = cells.single.clone(true) as uh.Element;
+      for (final pagination in copy.querySelectorAll('div.pg')) {
+        pagination.remove();
+      }
+      if (_text(copy).isEmpty) continue;
+    }
     if (cells.length == 1 && {'还没有相关数据。', '还没有相关数据'}.contains(_text(cells.single))) {
       empty = true;
       continue;

@@ -18,6 +18,10 @@ final class BankState {
     this.unconfirmed = false,
     this.received = false,
     this.logPage = 1,
+    this.logsFailed = false,
+    this.service,
+    this.serviceData,
+    this.servicePage = 1,
   });
 
   /// Available banks for this account.
@@ -55,6 +59,18 @@ final class BankState {
 
   /// Current log page (one-based).
   final int logPage;
+
+  /// A records-only failure must not erase already loaded savings.
+  final bool logsFailed;
+
+  /// Selected native service, or null for current savings and logs.
+  final BankService? service;
+
+  /// Current service snapshot, separate from current savings.
+  final BankServiceData? serviceData;
+
+  /// Current page of the selected service.
+  final int servicePage;
 }
 
 /// Serializes transactions and discards obsolete account/bank completions.
@@ -149,6 +165,10 @@ class BankCubit extends Cubit<BankState> {
       await load();
       return;
     }
+    if (state.service case final service?) {
+      await loadService(service, page: state.servicePage);
+      return;
+    }
     final bank = state.bank;
     if (bank == null) {
       await load();
@@ -197,13 +217,13 @@ class BankCubit extends Cubit<BankState> {
       );
     } on Object {
       if (!_current(generation, uid)) return;
-      _loadedRepository = null;
       emit(
         BankState(
           uid: uid,
           banks: snapshot.banks,
           bank: snapshot.bank,
-          failed: true,
+          savings: snapshot.savings,
+          logsFailed: true,
           unconfirmed: snapshot.unconfirmed,
           received: received,
           logPage: page,
@@ -254,10 +274,26 @@ class BankCubit extends Cubit<BankState> {
       if (!_current(generation, uid)) return;
       final savings = await repo.fetchSavings(bank.id, uid);
       if (!_current(generation, uid)) return;
-      final logs = await repo.fetchLogs(bank.id, uid);
+      BankLogs? logs;
+      var logsFailed = false;
+      try {
+        logs = await repo.fetchLogs(bank.id, uid);
+      } on Object {
+        logsFailed = true;
+      }
       if (!_current(generation, uid)) return;
       _loadedRepository = repo;
-      emit(BankState(uid: uid, banks: snapshot.banks, bank: bank, savings: savings, logs: logs, unconfirmed: true));
+      emit(
+        BankState(
+          uid: uid,
+          banks: snapshot.banks,
+          bank: bank,
+          savings: savings,
+          logs: logs,
+          logsFailed: logsFailed,
+          unconfirmed: true,
+        ),
+      );
     } on Object {
       if (_current(generation, uid)) {
         emit(
@@ -265,6 +301,168 @@ class BankCubit extends Cubit<BankState> {
             uid: uid,
             banks: snapshot.banks,
             bank: bank,
+            failed: true,
+            unconfirmed: attempted || snapshot.unconfirmed,
+          ),
+        );
+      }
+    } finally {
+      if (_current(generation, uid)) _submitting = false;
+    }
+  }
+
+  /// Read one bank or global service without depending on a savings record.
+  Future<void> loadService(BankService service, {int page = 1}) async {
+    if (_submitting || isClosed || page < 1 || state.uid != currentUid()) return;
+    final uid = state.uid;
+    final bank = state.bank;
+    if (uid == null || (!service.global && bank == null)) return;
+    final snapshot = state;
+    final generation = ++_generation;
+    _loadedRepository = null;
+    emit(
+      BankState(
+        uid: uid,
+        banks: snapshot.banks,
+        bank: bank,
+        service: service,
+        servicePage: page,
+        busy: true,
+        unconfirmed: snapshot.unconfirmed,
+      ),
+    );
+    try {
+      final repo = repository();
+      final data = await repo.fetchService(service, uid, bankId: bank?.id, page: page);
+      if (!_current(generation, uid)) return;
+      _loadedRepository = repo;
+      emit(
+        BankState(
+          uid: uid,
+          banks: snapshot.banks,
+          bank: bank,
+          service: service,
+          serviceData: data,
+          servicePage: page,
+          unconfirmed: snapshot.unconfirmed,
+        ),
+      );
+    } on Object {
+      if (_current(generation, uid)) {
+        emit(
+          BankState(
+            uid: uid,
+            banks: snapshot.banks,
+            bank: bank,
+            service: service,
+            servicePage: page,
+            failed: true,
+            unconfirmed: snapshot.unconfirmed,
+          ),
+        );
+      }
+    }
+  }
+
+  /// A service confirmation must belong to the exact visible snapshot and account.
+  bool isCurrentService(BankServiceData expected, BankServiceForm form) =>
+      !isClosed &&
+      !state.busy &&
+      !_submitting &&
+      state.uid != null &&
+      state.uid == currentUid() &&
+      identical(state.serviceData, expected) &&
+      expected.forms.any((item) => identical(item, form)) &&
+      state.bank?.id == form.bankId &&
+      _loadedRepository != null;
+
+  /// Revalidate the specific record/form and terms, then issue at most one POST.
+  Future<void> submitService({
+    required BankServiceData expected,
+    required BankServiceForm form,
+    required Map<String, String> values,
+  }) async {
+    if (!isCurrentService(expected, form)) return;
+    try {
+      form.body(values);
+    } on FormatException {
+      return;
+    }
+    final snapshot = state;
+    final uid = snapshot.uid!;
+    final repo = _loadedRepository!;
+    final bank = snapshot.bank!;
+    final service = snapshot.service!;
+    final generation = ++_generation;
+    _submitting = true;
+    _loadedRepository = null;
+    emit(
+      BankState(
+        uid: uid,
+        banks: snapshot.banks,
+        bank: bank,
+        service: service,
+        servicePage: snapshot.servicePage,
+        busy: true,
+        submitting: true,
+        unconfirmed: snapshot.unconfirmed,
+      ),
+    );
+    var attempted = false;
+    try {
+      final fresh = await repo.fetchService(service, uid, bankId: bank.id, page: snapshot.servicePage);
+      if (!_current(generation, uid)) return;
+      final matches = fresh.forms.where(form.matches).toList();
+      if (matches.length != 1 ||
+          fresh.currency != expected.currency ||
+          fresh.confirmationTerms != expected.confirmationTerms ||
+          fresh.feeRate != expected.feeRate) {
+        throw const FormatException('Bank service or terms changed before confirmation');
+      }
+      final currentForm = matches.single..body(values);
+      attempted = true;
+      try {
+        await repo.submitService(currentForm, values);
+      } on Object {
+        // The server may already have accepted the action. Never send it twice.
+      }
+      if (!_current(generation, uid)) return;
+      final data = await repo.fetchService(service, uid, bankId: bank.id, page: snapshot.servicePage);
+      if (!_current(generation, uid)) return;
+      var banks = snapshot.banks;
+      var currentBank = bank;
+      if (service == BankService.hall || service == BankService.account) {
+        try {
+          final directory = await repo.fetchDirectory(uid);
+          if (!_current(generation, uid)) return;
+          banks = directory.banks;
+          currentBank = banks.where((item) => item.id == bank.id).firstOrNull ?? bank;
+        } on Object {
+          // A directory refresh cannot erase the operation result or trigger a retry.
+        }
+      }
+      if (!_current(generation, uid)) return;
+      _loadedRepository = repo;
+      emit(
+        BankState(
+          uid: uid,
+          banks: banks,
+          bank: currentBank,
+          service: service,
+          serviceData: data,
+          servicePage: snapshot.servicePage,
+          unconfirmed: true,
+        ),
+      );
+    } on Object {
+      if (_current(generation, uid)) {
+        emit(
+          BankState(
+            uid: uid,
+            banks: snapshot.banks,
+            bank: bank,
+            service: service,
+            servicePage: snapshot.servicePage,
             failed: true,
             unconfirmed: attempted || snapshot.unconfirmed,
           ),
