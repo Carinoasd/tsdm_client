@@ -15,6 +15,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/back_to_home_button.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
@@ -144,6 +145,7 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
               appBar: AppBar(
                 title: Text(title),
                 actions: [
+                  const BackToHomeButton(),
                   IconButton(
                     icon: const Icon(Icons.open_in_new_outlined),
                     tooltip: context.t.general.openInBrowser,

@@ -628,7 +628,9 @@
     "title": "通知",
     "appBar": {
       "unread": "未讀",
-      "unreadDetail": "只顯示未讀"
+      "unreadDetail": "只顯示未讀",
+      "backToHome": "回到首頁",
+      "backToHomeStopped": "已停在可能有未儲存內容的頁面"
     },
     "noticeTab": {
       "title": "提醒",
