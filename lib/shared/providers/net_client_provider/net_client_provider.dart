@@ -17,6 +17,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/antitheft_interceptor.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -44,16 +45,24 @@ AppException mapException(Object error, StackTrace st) {
 }
 
 extension _WithFormExt<T> on Dio {
-  AsyncEither<Response<T>> postWithForm(String path, {Object? data, Map<String, dynamic>? queryParameters}) =>
-      AsyncEither.tryCatch(
-        () async => post(
-          path,
-          data: data,
-          queryParameters: queryParameters,
-          options: Options(headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'}),
-        ),
-        mapException,
-      );
+  AsyncEither<Response<T>> postWithForm(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    bool singleAttempt = false,
+  }) => AsyncEither.tryCatch(
+    () async => post(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: Options(
+        headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'},
+        followRedirects: singleAttempt ? false : null,
+        extra: singleAttempt ? {singleAttemptHttpRequestKey: true} : null,
+      ),
+    ),
+    mapException,
+  );
 }
 
 /// Http client acts on web request.
@@ -195,8 +204,14 @@ final class NetClientProvider with LoggerMixin {
   /// Post a form [data] to url [path] with [queryParameters].
   ///
   /// Automatically set `Content-Type` to `application/x-www-form-urlencoded`.
-  AsyncEither<Response<dynamic>> postForm(String path, {Object? data, Map<String, dynamic>? queryParameters}) =>
-      _dio.postWithForm(path, data: data, queryParameters: queryParameters);
+  /// [singleAttempt] prevents transport retries and redirects for non-idempotent
+  /// transactions. Its caller must reconcile an ambiguous result through GET.
+  AsyncEither<Response<dynamic>> postForm(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    bool singleAttempt = false,
+  }) => _dio.postWithForm(path, data: data, queryParameters: queryParameters, singleAttempt: singleAttempt);
 
   /// Post a form [data] to url [path] in `Content-Type` multipart/form-data.
   ///

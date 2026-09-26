@@ -7,6 +7,9 @@ import 'package:fpdart/fpdart.dart';
 import 'package:http/http.dart' as http;
 import 'package:tsdm_client/instance.dart';
 
+/// Internal Dio metadata; never transmitted in an HTTP header or form body.
+const singleAttemptHttpRequestKey = 'tsdm_single_attempt';
+
 /// The method channel for [KotlinHttpClient].
 abstract class _AndroidHttpMethodChannel {
   static const _httpChannel = MethodChannel('kzs.th000.tsdm_client/httpChannel');
@@ -34,12 +37,14 @@ abstract class _AndroidHttpMethodChannel {
     required String url,
     required Map<String, String> headers,
     required Map<String, String> body,
+    bool singleAttempt = false,
   }) async {
     try {
       final resp = await _httpChannel.invokeMethod<Map<Object?, Object?>>(_methodPost, {
         'url': url,
         'headers': headers,
         'body': body,
+        'singleAttempt': singleAttempt,
       });
       if (resp == null) {
         return null;
@@ -135,7 +140,12 @@ final class KotlinHttpClient {
     return rawResp;
   }
 
-  Future<_KotlinHttpResponse> _post(Uri url, {Map<String, String>? headers, Object? body}) async {
+  Future<_KotlinHttpResponse> _post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    bool singleAttempt = false,
+  }) async {
     if (!Platform.isAndroid) {
       throw http.ClientException('Only available on Android');
     }
@@ -144,11 +154,17 @@ final class KotlinHttpClient {
       throw http.ClientException('post body is null');
     }
 
-    final rawResp = switch (headers?[HttpHeaders.contentTypeHeader]?.split(';').firstOrNull ?? '') {
+    final contentType = headers?[HttpHeaders.contentTypeHeader]?.split(';').firstOrNull ?? '';
+    if (singleAttempt && contentType != 'application/x-www-form-urlencoded') {
+      throw UnsupportedError('Single-attempt requests require a URL-encoded form');
+    }
+
+    final rawResp = switch (contentType) {
       'application/x-www-form-urlencoded' => await _AndroidHttpMethodChannel._postForm(
         url: url.toString(),
         headers: headers ?? {},
         body: body as Map<String, String>,
+        singleAttempt: singleAttempt,
       ),
       'multipart/form-data' => await _AndroidHttpMethodChannel._postMultipart(
         url: url.toString(),
@@ -194,6 +210,7 @@ class KotlinHttpClientAdapter implements HttpClientAdapter {
         headers: Map.from(options.headers.filter((v) => v is String))
           ..removeWhere((k, v) => k.toLowerCase() == HttpHeaders.acceptEncodingHeader),
         body: options.data,
+        singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
       ),
       final v => throw UnsupportedError('unsupported http method $v'),
     };

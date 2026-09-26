@@ -27,10 +27,16 @@ final _formHashInputRe = RegExp(
   caseSensitive: false,
 );
 
+/// Bank passwords, even if an HTML value attribute precedes the field name.
+final _bankPasswordInputRe = RegExp(
+  r"""(?<key><input\b(?=[^>]*\bname=["'](?:bankpass2?|newbankpass2?)["'])[^>]*?\bvalue=["'])(?<value>[^"']*)""",
+  caseSensitive: false,
+);
+
 /// Names of private form fields: replies, messages, notes, security answers.
 const _privateFields =
     'message|pmmessage|subject|description|answer|questionid|email|oldpassword|newpassword|newpassword2|password2|'
-    'seccodeverify|comment|note';
+    'seccodeverify|comment|note|bankpass|bankpass2|newbankpass|newbankpass2';
 
 /// Private form fields as url-encoded body parts (`message=...`, wherever they appear).
 final _privateFormRe = RegExp('(?<key>\\b(?:$_privateFields)=)(?<value>[^&\\s]*)', caseSensitive: false);
@@ -53,12 +59,14 @@ String redactSensitive(String text) {
   var out = text;
   out = out.replaceAllMapped(_headerRe, keep);
   out = out.replaceAllMapped(_formHashInputRe, keep);
+  out = out.replaceAllMapped(_bankPasswordInputRe, keep);
   out = out.replaceAllMapped(_tokenRe, keep);
   String keepNonEmpty(Match m) {
     final match = m as RegExpMatch;
     final value = match.namedGroup('value') ?? '';
     return value.isEmpty ? match.group(0)! : '${match.namedGroup('key')}$_mask';
   }
+
   out = out.replaceAllMapped(_privateFormRe, keepNonEmpty);
   out = out.replaceAllMapped(_privateMapRe, keepNonEmpty);
   return out;
