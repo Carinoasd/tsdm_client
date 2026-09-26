@@ -8,7 +8,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-/// Voluntary maintainer donations, opened explicitly from the About page.
+/// Voluntary maintainer donations, opened explicitly by the user.
 class SupportDevelopmentDialog extends StatefulWidget {
   /// Constructor.
   const SupportDevelopmentDialog({super.key});

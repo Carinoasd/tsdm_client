@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 首页：在论坛统计／轮播下方新增「支持开发」卡片，点击即可查看自愿赞助说明与收款码；「关于」页的入口继续保留。
+
 ### Changed
 
 - 检查更新：「公告帖」改为打开论坛上的官方公告帖。
