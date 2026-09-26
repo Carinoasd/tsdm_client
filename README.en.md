@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.28.3 (2026-09-26)
+## Latest update: 1.28.4 (2026-09-26)
 
-- Reuses notification pages after repeated system notification taps and adds a Back to home button, preserving unsent replies and editing pages.
-- Adds an independent daily red-packet claim option (off by default) and restores the request used for daily login rewards. Reward eligibility and amounts are determined by the forum.
-- Android build number 94 supports upgrading directly from the previous release.
+- Adds a home-page entry for donations and feature requests. View the donation code or suggest a feature on GitHub; the maintainer evaluates acceptance and timing.
+- The update page's announcement link now opens the official forum announcement.
+- Android build number 95 supports upgrading directly from the previous release.
 
-[Download 1.28.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.3) · [Full changelog](./CHANGELOG.md)
+[Download 1.28.4](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.4) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
@@ -116,7 +116,7 @@ flutter build apk --release      # needs android/key.properties pointing at your
 
 Linux builds need `libgtk-3-dev`, `libsqlite3-dev` and `libayatana-appindicator3-dev`; tests: `flutter test`.
 
-Releasing: bump the version in `pubspec.yaml` (`x.y.z+N`) and add the CHANGELOG section → `dart scripts/write_version_json.dart` → tests → commit and push master → `git tag -a vX.Y.Z && git push origin vX.Y.Z`. CI builds every platform from `.github/workflows/release_build.yml` and publishes the Release with that CHANGELOG section as its notes. Android version codes: split APKs are N×10 + ABI code (armv7 2, arm64 3), the universal APK is N×10 + 9.
+Releasing: create a release branch from the merged master, update `pubspec.yaml` (`x.y.z+N`), add the CHANGELOG section and update all three README announcements → `dart scripts/write_version_json.dart` → tests → commit and push the release branch and `vX.Y.Z` tag. CI builds every platform from `.github/workflows/release_build.yml` and publishes the Release with that CHANGELOG section as its notes. After every platform succeeds and all seven downloads are available, merge the release commit into master to activate the in-app update notice and homepage announcements. Android version codes: split APKs are N×10 + ABI code (armv7 2, arm64 3), the universal APK is N×10 + 9.
 
 ## License
 

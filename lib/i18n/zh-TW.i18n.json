@@ -391,8 +391,13 @@
     }
   },
   "aboutPage": {
-    "supportDevelopment": "支持開發",
-    "supportDevelopmentSubtitle": "自願贊助維護者 Carinoasd",
+    "supportDevelopment": "贊助與功能許願",
+    "supportDevelopmentSubtitle": "支持 Carinoasd 開發，也能提出想要的功能",
+    "featureRequestTitle": "功能許願",
+    "featureRequestDescription": "歡迎贊助支持開發，並告訴我你希望新增的功能。請先提出需求，說明使用情境與預期效果，我會依可行性與維護成本評估。贊助不保證功能一定會實作，是否採納與時程需另行確認。",
+    "featureRequestAction": "到 GitHub 提出功能需求",
+    "featureRequestOpenFailed": "無法開啟瀏覽器，請重試，或複製下方連結自行開啟。",
+    "donationTitle": "自願贊助",
     "donationDescription": "本專案免費開源，歡迎自願贊助，支持客戶端的開發與維護。贊助由維護者 Carinoasd 個人收取，非論壇官方募款；是否贊助不影響功能使用。",
     "donationInstructions": "使用支付寶掃碼，或截圖後在支付寶掃一掃中選擇圖片。也可以儲存原圖。",
     "donationCodeLabel": "支付寶自願贊助 QR Code，收款人為 Carinoasd",

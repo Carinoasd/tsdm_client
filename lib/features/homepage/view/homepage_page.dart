@@ -21,6 +21,7 @@ import 'package:tsdm_client/features/notification/repository/notification_info_r
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
+import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
@@ -179,6 +180,24 @@ class _HomepagePageState extends State<HomepagePage> {
                       forumStatus: state.forumStatus,
                       loggedUserInfo: state.loggedUserInfo,
                       swiperUrlList: state.swiperUrlList,
+                    ),
+                    sizedBoxW12H12,
+                    Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      child: ListTile(
+                        leading: const Icon(Icons.favorite_border),
+                        title: Text(context.t.aboutPage.supportDevelopment),
+                        subtitle: Text(context.t.aboutPage.supportDevelopmentSubtitle),
+                        trailing: const Icon(Icons.chevron_right),
+                        textColor: Theme.of(context).colorScheme.onTertiaryContainer,
+                        iconColor: Theme.of(context).colorScheme.onTertiaryContainer,
+                        onTap: () async => showDialog<void>(
+                          context: context,
+                          builder: (_) => const SupportDevelopmentDialog(),
+                        ),
+                      ),
                     ),
                     sizedBoxW12H12,
                     PinSection(state.pinnedThreadGroupList),

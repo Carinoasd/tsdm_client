@@ -391,8 +391,13 @@
     }
   },
   "aboutPage": {
-    "supportDevelopment": "Support development",
-    "supportDevelopmentSubtitle": "Voluntary donations to maintainer Carinoasd",
+    "supportDevelopment": "Support & feature requests",
+    "supportDevelopmentSubtitle": "Support Carinoasd and suggest features",
+    "featureRequestTitle": "Suggest a feature",
+    "featureRequestDescription": "You are welcome to support development and suggest a feature. Please describe your request, how you would use it, and the expected result first. I will assess feasibility and maintenance effort. A donation does not guarantee implementation; acceptance and timing need to be discussed separately.",
+    "featureRequestAction": "Request a feature on GitHub",
+    "featureRequestOpenFailed": "Could not open the browser. Please try again, or copy the link below and open it yourself.",
+    "donationTitle": "Voluntary donation",
     "donationDescription": "This project is free and open source. Donations support the development and maintenance of the client and are received personally by Carinoasd. This is not an official forum fundraiser. All features remain available whether or not you donate.",
     "donationInstructions": "Scan with Alipay, or take a screenshot and select it from the Alipay scanner. You can also save the original image.",
     "donationCodeLabel": "Alipay QR code for voluntary donations to Carinoasd",
