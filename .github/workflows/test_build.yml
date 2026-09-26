@@ -207,6 +207,31 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{env.CI_FLUTTER_VERSION}}
+      - name: Set preview version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_name != '' }}
+        shell: pwsh
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        # Match Android's preview version before generating the in-app version.
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:BUILD_NAME -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$') {
+            throw 'Invalid preview build name'
+          }
+          if ($env:BUILD_NUMBER -notmatch '^[0-9]+$') {
+            throw 'Invalid preview build number'
+          }
+          $pubspecPath = Join-Path $PWD 'pubspec.yaml'
+          $pubspecText = [System.IO.File]::ReadAllText($pubspecPath)
+          $versionLine = [regex]::new('(?m)^version:[^\r\n]*')
+          if ($versionLine.Matches($pubspecText).Count -ne 1) {
+            throw 'Expected exactly one pubspec version line'
+          }
+          $previewVersion = "version: $($env:BUILD_NAME)+$($env:BUILD_NUMBER)"
+          $pubspecText = $versionLine.Replace($pubspecText, $previewVersion)
+          [System.IO.File]::WriteAllText($pubspecPath, $pubspecText, [System.Text.UTF8Encoding]::new($false))
+          Select-String -LiteralPath $pubspecPath -Pattern '^version:'
       - name: Precompile
         shell: pwsh
         run: |
