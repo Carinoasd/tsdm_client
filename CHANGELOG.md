@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- 首页：在论坛统计／轮播下方新增「支持开发」卡片，点击即可查看自愿赞助说明与收款码；「关于」页的入口继续保留。
+- 首页：在论坛统计／轮播下方新增「赞助与功能许愿」卡片，整合自愿赞助说明、收款码与 GitHub 功能需求入口；需求由维护者评估是否采纳及时间安排，「关于」页的入口继续保留。
 
 ### Changed
 

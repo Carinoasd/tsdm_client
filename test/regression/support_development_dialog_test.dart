@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -30,11 +31,26 @@ class _Picker extends FilePicker {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  const browserChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
+  const featureRequestUrl = 'https://github.com/Carinoasd/tsdm_client/issues/new?template=02_feedback.yml';
+  final browserCalls = <MethodCall>[];
+  late Future<Object?> Function() browserAnswer;
   late _Picker picker;
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
   setUp(() {
     picker = _Picker();
     FilePicker.platform = picker;
+    browserCalls.clear();
+    browserAnswer = () async => true;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(browserChannel, (
+      call,
+    ) async {
+      browserCalls.add(call);
+      return browserAnswer();
+    });
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(browserChannel, null);
   });
 
   Future<void> open(WidgetTester tester, {AppLocale locale = AppLocale.en, double scale = 1}) async {
@@ -74,6 +90,78 @@ void main() {
       expect(find.byType(SupportDevelopmentDialog), findsNothing);
     });
   }
+
+  testWidgets('feature request opens the feedback form and keeps the donation dialog available', (tester) async {
+    await open(tester);
+    final request = find.widgetWithText(OutlinedButton, t.aboutPage.featureRequestAction);
+    await tester.ensureVisible(request);
+    await tester.tap(request);
+    await tester.pumpAndSettle();
+
+    expect(browserCalls.single.method, 'openInBrowser');
+    expect(browserCalls.single.arguments, {'url': featureRequestUrl});
+    expect(find.byType(SupportDevelopmentDialog), findsOneWidget);
+    expect(find.text(t.aboutPage.featureRequestOpenFailed), findsNothing);
+    expect(tester.widget<OutlinedButton>(request).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('refused and failed browser launches show a link in the dialog and allow retry', (tester) async {
+    await open(tester);
+    final request = find.widgetWithText(OutlinedButton, t.aboutPage.featureRequestAction);
+    final dialog = find.byType(SupportDevelopmentDialog);
+
+    for (final answer in <Future<Object?> Function()>[
+      () async => false,
+      () async => throw PlatformException(code: 'no_browser'),
+    ]) {
+      browserAnswer = answer;
+      await tester.ensureVisible(request);
+      await tester.tap(request);
+      await tester.pumpAndSettle();
+
+      expect(find.descendant(of: dialog, matching: find.text(t.aboutPage.featureRequestOpenFailed)), findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.widgetWithText(SelectableText, featureRequestUrl)),
+        findsOneWidget,
+      );
+      expect(tester.widget<OutlinedButton>(request).onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    }
+
+    browserAnswer = () async => true;
+    await tester.ensureVisible(request);
+    await tester.tap(request);
+    await tester.pumpAndSettle();
+    expect(browserCalls, hasLength(3));
+    expect(find.text(t.aboutPage.featureRequestOpenFailed), findsNothing);
+    expect(find.byType(SelectableText), findsNothing);
+    expect(dialog, findsOneWidget);
+  });
+
+  testWidgets('pending launch disables repeat requests and can finish after the dialog is closed', (tester) async {
+    final pending = Completer<Object?>();
+    browserAnswer = () => pending.future;
+    await open(tester);
+    final request = find.widgetWithText(OutlinedButton, t.aboutPage.featureRequestAction);
+    await tester.ensureVisible(request);
+    await tester.tap(request);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<OutlinedButton>(request).onPressed, isNull);
+    await tester.tap(request);
+    await tester.pump();
+    expect(browserCalls, hasLength(1));
+
+    await tester.tap(find.text(t.general.close));
+    await tester.pumpAndSettle();
+    expect(find.byType(SupportDevelopmentDialog), findsNothing);
+    pending.complete(false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text(t.aboutPage.featureRequestOpenFailed), findsNothing);
+    expect(browserCalls, hasLength(1));
+  });
 
   testWidgets('desktop export preserves the original image bytes', (tester) async {
     final directory = Directory.systemTemp.createTempSync('tsdm-donation-test-');
