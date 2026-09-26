@@ -42,7 +42,7 @@ class _UpdatePageState extends State<UpdatePage> {
           ListTile(
             leading: const Icon(Icons.campaign_outlined),
             title: Text(tr.announcementThread),
-            onTap: () async => context.dispatchAsUrl('forum.php?mod=viewthread&tid=628244'),
+            onTap: () async => context.dispatchAsUrl('forum.php?mod=viewthread&tid=1265238'),
           ),
           ListTile(
             leading: Icon(MdiIcons.github),

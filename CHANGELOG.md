@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- 检查更新：「公告帖」改为打开论坛上的官方公告帖。
+
 ## [1.28.3] - 2026-09-26
 
 ### Added
