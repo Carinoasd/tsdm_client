@@ -238,7 +238,10 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.noticeSearch, builder: (_) => const NotificationSearchPage()),
   AppRoute(path: ScreenPaths.notificationSyncAll, builder: (_) => const NotificationSyncAllPage()),
-  AppRoute(path: ScreenPaths.myThread, builder: (_) => const MyThreadPage()),
+  AppRoute(
+    path: ScreenPaths.myThread,
+    builder: (state) => MyThreadPage(showDrafts: state.uri.queryParameters['tab'] == 'drafts'),
+  ),
   AppRoute(
     path: ScreenPaths.favorite,
     builder: (state) => FavoritePage(

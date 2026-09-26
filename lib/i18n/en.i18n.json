@@ -1,4 +1,22 @@
 {
+  "draftBox": {
+    "editUnconfirmed": "The edit result could not be confirmed. Check the original thread or website for the updated content or moderation status before submitting again.",
+    "acceptedUnconfirmed": "The forum accepted your content, but its draft status could not be verified. It may be awaiting moderation. Check My threads or the website before submitting again.",
+    "title": "Drafts",
+    "empty": "No forum drafts yet. Choose Save as draft when composing a thread to continue it here.",
+    "loginRequired": "Sign in to view your drafts.",
+    "loadFailed": "Could not load drafts. Check your login and refresh.",
+    "openFailed": "Could not open this draft. It may have been published or deleted, or your login may have expired. Refresh and try again.",
+    "refresh": "Refresh",
+    "loadMore": "Load more",
+    "saveConfirm": "Save this content to your forum drafts without publishing it.",
+    "saved": "Draft saved",
+    "viewSaved": "Open My threads → Drafts?",
+    "accountChanged": "Your account changed and this editing session has ended. Reopen the draft to continue.",
+    "unsupported": "This content uses a special thread type or editor format that the app cannot preserve. Continue in your browser.",
+    "openBrowser": "Continue in browser",
+    "submitUnconfirmed": "The result could not be confirmed. Check Drafts or My threads before submitting again to avoid a duplicate."
+  },
   "activitiesPage": {
     "title": "Forum activities",
     "refresh": "Refresh",
