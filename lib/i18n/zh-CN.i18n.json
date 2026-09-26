@@ -391,8 +391,13 @@
     }
   },
   "aboutPage": {
-    "supportDevelopment": "支持开发",
-    "supportDevelopmentSubtitle": "自愿赞助维护者 Carinoasd",
+    "supportDevelopment": "赞助与功能许愿",
+    "supportDevelopmentSubtitle": "支持 Carinoasd 开发，也能提出想要的功能",
+    "featureRequestTitle": "功能许愿",
+    "featureRequestDescription": "欢迎赞助支持开发，并告诉我你希望新增的功能。请先提出需求，说明使用场景与预期效果，我会依可行性与维护成本评估。赞助不保证功能一定会实现，是否采纳与时间安排需另行确认。",
+    "featureRequestAction": "到 GitHub 提出功能需求",
+    "featureRequestOpenFailed": "无法打开浏览器，请重试，或复制下方链接自行打开。",
+    "donationTitle": "自愿赞助",
     "donationDescription": "本项目免费开源，欢迎自愿赞助，支持客户端的开发与维护。赞助由维护者 Carinoasd 个人收取，非论坛官方募款；是否赞助不影响功能使用。",
     "donationInstructions": "使用支付宝扫码，或截图后在支付宝扫一扫中选择图片。也可以保存原图。",
     "donationCodeLabel": "支付宝自愿赞助二维码，收款人为 Carinoasd",

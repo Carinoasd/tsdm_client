@@ -4,11 +4,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-/// Voluntary maintainer donations, opened explicitly from the About page.
+final _featureRequestUri = Uri.https('github.com', '/Carinoasd/tsdm_client/issues/new', {
+  'template': '02_feedback.yml',
+});
+
+/// Voluntary donations and feature requests, opened explicitly by the user.
 class SupportDevelopmentDialog extends StatefulWidget {
   /// Constructor.
   const SupportDevelopmentDialog({super.key});
@@ -22,6 +27,31 @@ class SupportDevelopmentDialog extends StatefulWidget {
 
 class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> with LoggerMixin {
   bool _saving = false;
+  bool _openingRequest = false;
+  bool _requestOpenFailed = false;
+
+  Future<void> _openFeatureRequest() async {
+    if (_openingRequest) {
+      return;
+    }
+    setState(() {
+      _openingRequest = true;
+      _requestOpenFailed = false;
+    });
+    var opened = false;
+    try {
+      opened = await openInExternalBrowser(_featureRequestUri);
+    } on Object catch (e, st) {
+      handleRaw(e, st);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingRequest = false;
+          _requestOpenFailed = !opened;
+        });
+      }
+    }
+  }
 
   Future<void> _saveImage() async {
     if (_saving) {
@@ -74,6 +104,23 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
           children: [
             Text(tr.donationDescription),
             const SizedBox(height: 16),
+            Text(tr.featureRequestTitle, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(tr.featureRequestDescription),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _openingRequest ? null : _openFeatureRequest,
+              icon: const Icon(Icons.lightbulb_outline),
+              label: Text(tr.featureRequestAction),
+            ),
+            if (_requestOpenFailed) ...[
+              const SizedBox(height: 8),
+              Text(tr.featureRequestOpenFailed, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              SelectableText(_featureRequestUri.toString()),
+            ],
+            const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()),
+            Text(tr.donationTitle, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
             Image.asset(SupportDevelopmentDialog.imagePath, semanticLabel: tr.donationCodeLabel),
             const SizedBox(height: 16),
             Text(tr.donationInstructions),
