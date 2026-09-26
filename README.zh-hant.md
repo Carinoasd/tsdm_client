@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.28.3（2026-09-26）
+## 最新更新：1.28.4（2026-09-26）
 
-- 修正反覆點擊系統通知造成通知頁疊加，通知頁與詳情頁新增「回到首頁」按鈕，並保留未送出的回覆及編輯中的內容。
-- 新增獨立的每日紅包自動領取開關（預設關閉），補上論壇每日登入獎勵所需的檢查請求；獎勵是否發放由論壇決定。
-- Android 內部版本號為 94，可直接從上一版升級。
+- 首頁新增「贊助與功能許願」入口，可查看贊助碼或到 GitHub 提出功能需求，由維護者評估是否採納與時程。
+- 檢查更新中的「公告帖」改為開啟論壇官方公告。
+- Android 建置編號為 95，可直接從上一版升級。
 
-[下載 1.28.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.3) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.28.4](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.4) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 
@@ -115,7 +115,7 @@ flutter build apk --release      # 需要 android/key.properties 指向你的 ke
 
 Linux 建置需要 `libgtk-3-dev`、`libsqlite3-dev` 與 `libayatana-appindicator3-dev`；測試：`flutter test`。
 
-發版：改 `pubspec.yaml` 的版本（`x.y.z+N`）與 CHANGELOG 新段 → `dart scripts/write_version_json.dart` → 測試 → 提交並推 master → `git tag -a vX.Y.Z && git push origin vX.Y.Z`，CI 依 `.github/workflows/release_build.yml` 建好各平台檔案並發布 Release，內文取自 CHANGELOG 該段。Android 內部版本號：分包為 N×10＋ABI 碼（armv7 2、arm64 3），universal 為 N×10＋9。
+發版：從合併後的 master 建立發布分支，修改 `pubspec.yaml` 的版本（`x.y.z+N`）、CHANGELOG 新段與三語首頁公告 → `dart scripts/write_version_json.dart` → 測試 → 提交並推送發布分支與 `vX.Y.Z` 標籤。CI 依 `.github/workflows/release_build.yml` 建好各平台檔案並發布 Release，內文取自 CHANGELOG 該段。確認全部平台成功、7 個下載檔齊全後，再將發布提交合入 master，啟用 App 版本提示和首頁公告。Android 內部版本號：分包為 N×10＋ABI 碼（armv7 2、arm64 3），universal 為 N×10＋9。
 
 ## 授權
 
