@@ -228,7 +228,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final title = find.text('【端午节】粽子勋章');
-    await tester.scrollUntilVisible(title, 400);
+    await tester.scrollUntilVisible(title, 400, scrollable: _catalogScrollable);
     await tester.tap(title);
     await tester.pumpAndSettle();
     await tester.tap(find.text(t.medalCenter.purchase).last);
@@ -259,7 +259,7 @@ void main() {
     await tester.pumpAndSettle();
     final saber = _parseSaberName(cubit);
     final title = find.text(saber);
-    await tester.scrollUntilVisible(title, 400);
+    await tester.scrollUntilVisible(title, 400, scrollable: _catalogScrollable);
     await tester.tap(title);
     await tester.pumpAndSettle();
     final button = tester.widget<FilledButton>(
@@ -293,5 +293,8 @@ void main() {
     await cubit.close();
   });
 }
+
+/// The catalogue list; the search box above it (#122) is a scrollable of its own.
+final _catalogScrollable = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
 
 String _parseSaberName(MedalCenterCubit cubit) => cubit.state.catalog!.medals.firstWhere((m) => m.id == '519').name;

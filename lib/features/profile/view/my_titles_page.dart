@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
-import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/profile/bloc/my_titles_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/my_titles_repository.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -106,8 +107,12 @@ class _MyTitlesPageState extends State<MyTitlesPage> {
                 IconButton(
                   icon: const Icon(Icons.shopping_bag_outlined),
                   tooltip: tr.openTitleShop,
-                  onPressed: () async =>
-                      context.dispatchAsUrl('$baseUrl/plugin.php?id=tsdmtitle:tsdmtitle&action=shop'),
+                  onPressed: () async {
+                    final cubit = context.read<MyTitlesCubit>();
+                    await context.pushNamed(ScreenPaths.titleShop);
+                    // A purchase adds an owned title (never equipped); show it on return.
+                    if (!cubit.isClosed) await cubit.fetchAvailableSecondaryTitles();
+                  },
                 ),
               ],
             ),

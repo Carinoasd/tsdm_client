@@ -79,7 +79,8 @@ The package name is `com.tsdm.tsdm_client`, signed with the forum's official key
 - Delete several accounts at once, or remove the current account from this device without a network connection
 - Backup export/import, optionally encrypting the login data with a password so other devices need no re-login
 - Friend list and friend requests; red packets, including the daily one
-- "My achievements" and "Medal centre" on your profile page: read achievements, browse medal categories and conditions, and use the medal purchase, application and claim actions offered by the forum; open unsupported features in the browser
+- "My achievements" and "Medal centre" on your profile page: read achievements, browse medal categories/pages, search by keyword and read acquisition conditions, and use the medal purchase, application and claim actions offered by the forum; open unsupported features in the browser
+- "My titles" to switch the worn title, plus an in-app title shop to browse and buy titles (a bought title is not worn automatically)
 
 ### Notifications and settings
 - Foreground/background polling for new messages with system notifications; a cold start from a notification goes straight to the message centre
