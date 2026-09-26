@@ -6,6 +6,20 @@ import 'package:tsdm_client/utils/redacting_talker.dart';
 /// Logs must never carry cookies, passwords, form hashes or private form contents.
 void main() {
   group('redactSensitive', () {
+    test('bank passwords are removed from forms, maps, JSON and HTML', () {
+      for (final sample in [
+        'bankpass=bank%20secret&banknum=100',
+        '{bankpass: bank secret, banknum: 100}',
+        '"bankpass":"bank secret","banknum":"100"',
+        '<input name="bankpass" type="password" value="bank secret">',
+        '<input value="bank secret" name="bankpass" type="password">',
+      ]) {
+        final result = redactSensitive(sample);
+        expect(result, contains('<redacted>'));
+        expect(result, isNot(contains('bank secret')));
+        expect(result, isNot(contains('bank%20secret')));
+      }
+    });
     test('http headers', () {
       expect(
         redactSensitive('Cookie: Ystv_2132_auth=abc123; Ystv_2132_saltkey=s4lt'),
@@ -86,7 +100,11 @@ void main() {
     });
 
     test('handled exceptions keep their type name, lose the secret', () {
-      talker.handle(const FormatException('bad formhash=abcd1234'), StackTrace.current, 'while posting message=zz9secret');
+      talker.handle(
+        const FormatException('bad formhash=abcd1234'),
+        StackTrace.current,
+        'while posting message=zz9secret',
+      );
       final data = talker.history.single;
       final text = data.generateTextMessage();
       expect(text, isNot(contains('abcd1234')));

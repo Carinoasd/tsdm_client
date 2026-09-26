@@ -80,6 +80,9 @@ class ScreenPaths {
   /// Read-only medal catalogue.
   static const String medalCenter = '/medalCenter';
 
+  /// Community bank balances, records and current-account transactions.
+  static const String bank = '/bank';
+
   /// Page to edit current user's profile.
   static const String editUserProfile = '/editUserProfile';
 

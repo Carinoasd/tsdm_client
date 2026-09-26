@@ -788,6 +788,14 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () async => context.pushNamed(ScreenPaths.medalCenter),
         ),
 
+      if (widget.username == null && widget.uid == null)
+        ListTile(
+          leading: const Icon(Icons.account_balance_outlined),
+          title: Text(context.t.bank.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.bank),
+        ),
+
       if (userProfile.mangedForums?.isNotEmpty ?? false) ...[
         _SectionTitle(tr.mangedForum),
         Wrap(

@@ -4,6 +4,12 @@ on:
     paths:
       - 'android/app/src/main/kotlin/**/Browser*.kt'
       - 'android/app/src/test/kotlin/**/Browser*Test.kt'
+      - 'android/app/src/main/kotlin/**/HttpClient.kt'
+      - 'android/app/src/main/kotlin/**/MainActivity.kt'
+      - 'android/app/src/test/kotlin/**/HttpClientTest.kt'
+      - 'android/app/build.gradle'
+      - 'lib/features/bank/**'
+      - 'lib/shared/providers/net_client_provider/**'
       - 'android/app/src/main/AndroidManifest.xml'
       - 'scripts/browser-routing-tests/**'
       - '.github/workflows/browser_routing_test.yml'
@@ -20,7 +26,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Test native browser routing without APK build
+      - name: Test native browser routing and single-attempt bank transport
         working-directory: scripts/browser-routing-tests
         run: gradle testDebugUnitTest --no-daemon
       - uses: actions/upload-artifact@v4
