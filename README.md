@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.28.2（2026-09-25）
+## 最新更新：1.28.3（2026-09-26）
 
-- 适配重制后的勋章中心，恢复分类与勋章显示，支持新版购买及申请流程。
-- 支持在 App 内批准好友申请，修复平板导航、浏览器打开、积分奖励与更新提醒。
-- Android 内部版本号为 93，可直接覆盖 UI4／rewards.1 测试版。
+- 修复反复点击系统通知造成通知页叠加，通知页与详情页新增「回到首页」按钮，并保留未发送的回复及编辑中的内容。
+- 新增独立的每日红包自动领取开关（默认关闭），补上论坛每日登录奖励所需的检查请求；奖励是否发放由论坛决定。
+- Android 内部版本号为 94，可直接从上一版升级。
 
-[下载 1.28.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.2) · [完整更新日志](./CHANGELOG.md)
+[下载 1.28.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.3) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 

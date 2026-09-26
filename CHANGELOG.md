@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.28.3] - 2026-09-26
+
 ### Added
 
 - 每日红包：设置 → 签到新增独立的「自动领取每日红包」开关，默认关闭；开启后，在打开应用或刷新首页时为当前账号领取，失败仍可手动领取。(#110)

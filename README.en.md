@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.28.2 (2026-09-25)
+## Latest update: 1.28.3 (2026-09-26)
 
-- Supports the rebuilt medal center, restoring category listings and adapting purchase and application forms.
-- Adds in-app friend request approval and fixes tablet navigation, browser opening, credit reward notices and update alerts.
-- Android build number 93 supports updating directly from the UI4 and rewards.1 test builds.
+- Reuses notification pages after repeated system notification taps and adds a Back to home button, preserving unsent replies and editing pages.
+- Adds an independent daily red-packet claim option (off by default) and restores the request used for daily login rewards. Reward eligibility and amounts are determined by the forum.
+- Android build number 94 supports upgrading directly from the previous release.
 
-[Download 1.28.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.2) · [Full changelog](./CHANGELOG.md)
+[Download 1.28.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.3) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

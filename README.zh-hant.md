@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.28.2（2026-09-25）
+## 最新更新：1.28.3（2026-09-26）
 
-- 適配重製後的勳章中心，恢復分類與勳章顯示，支援新版購買及申請流程。
-- 支援在 App 內批准好友申請，修復平板導覽、瀏覽器開啟、積分獎勵與更新提醒。
-- Android 內部版本號為 93，可直接覆蓋 UI4／rewards.1 測試版。
+- 修正反覆點擊系統通知造成通知頁疊加，通知頁與詳情頁新增「回到首頁」按鈕，並保留未送出的回覆及編輯中的內容。
+- 新增獨立的每日紅包自動領取開關（預設關閉），補上論壇每日登入獎勵所需的檢查請求；獎勵是否發放由論壇決定。
+- Android 內部版本號為 94，可直接從上一版升級。
 
-[下載 1.28.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.2) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.28.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.28.3) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 
