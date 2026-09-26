@@ -18,6 +18,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/widgets/back_to_home_button.dart';
 import 'package:tsdm_client/widgets/card/notice_card_v2.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -177,6 +178,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
             appBar: AppBar(
               title: Text(tr.title),
               actions: [
+                const BackToHomeButton(),
                 FilterChip(
                   label: Text(tr.appBar.unread),
                   tooltip: tr.appBar.unreadDetail,

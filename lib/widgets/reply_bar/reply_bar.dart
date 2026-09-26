@@ -20,6 +20,7 @@ import 'package:tsdm_client/features/root/stream/root_location_stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
@@ -84,6 +85,17 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
   /// Text controller to display head part of entered bbcode.
   final controller = TextEditingController();
 
+  /// Route of the page this bar is on, told about the reply not sent yet ([RouteDrafts]).
+  Route<dynamic>? _route;
+
+  /// Whether the user can write here: otherwise [controller] shows a hint (need login, thread closed), not a reply.
+  bool _enabled = false;
+
+  /// Whether a reply is being written or was written and not sent.
+  ///
+  /// An open editor counts even while empty: the user is in the middle of writing.
+  bool _hasDraft() => widget.controller._showingEditor || (_enabled && controller.text.trim().isNotEmpty);
+
   Future<void> showEditor() async {
     if (widget.controller._showingEditor) {
       // Now we already have an editor, not now override with another one.
@@ -132,7 +144,25 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (!identical(route, _route)) {
+      if (_route != null) {
+        RouteDrafts.unregister(_route!, _hasDraft);
+      }
+      _route = route;
+      if (route != null) {
+        RouteDrafts.register(route, _hasDraft);
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    if (_route != null) {
+      RouteDrafts.unregister(_route!, _hasDraft);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.controller.dispose();
     });
@@ -161,6 +191,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     } else {
       onTapCallback = showEditor;
     }
+    _enabled = onTapCallback != null;
 
     return BlocConsumer<ReplyBloc, ReplyState>(
       // Only a status change may clear the draft: later states with an unchanged `success` status (e.g. reply

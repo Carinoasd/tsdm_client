@@ -628,7 +628,9 @@
     "title": "Notifications",
     "appBar": {
       "unread": "unread",
-      "unreadDetail": "Only show unread"
+      "unreadDetail": "Only show unread",
+      "backToHome": "Back to home",
+      "backToHomeStopped": "Stopped at a page that may hold unsaved input"
     },
     "noticeTab": {
       "title": "Notice",
