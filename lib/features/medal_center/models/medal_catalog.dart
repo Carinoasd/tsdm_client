@@ -1,10 +1,17 @@
+import 'dart:convert';
+
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/utils/raw_query_parameters.dart';
 import 'package:universal_html/html.dart' as uh;
 
 /// The read-only medal catalogue endpoint.
 const medalCenterUrl = '$baseUrl/plugin.php?id=dsu_medalCenter:memcp';
 
 /// Only catalogue navigation is allowed; apply/buy/manage URLs are never fetched.
+///
+/// Search result pages are `sq=<base64 of the UTF-8 query>&page=N` (the search is global, so never with a `typeid`).
+/// The result is canonical: parameters in a fixed order and `sq` percent-encoded, so a base64 `+` survives as `%2B`
+/// instead of turning into a space. Repeated parameters are ambiguous and rejected.
 String? medalCatalogUrl(String? href) {
   if (href == null || href.trim().isEmpty) return null;
   final relative = Uri.tryParse(href.trim());
@@ -13,17 +20,84 @@ String? medalCatalogUrl(String? href) {
   if (!['https', 'http'].contains(uri.scheme) ||
       uri.origin != Uri.parse(baseUrl).origin ||
       uri.userInfo.isNotEmpty ||
-      uri.path != '/plugin.php' ||
-      uri.queryParameters['id'] != 'dsu_medalCenter:memcp' ||
-      uri.queryParameters.keys.any((k) => !{'id', 'typeid', 'page'}.contains(k))) {
+      uri.path != '/plugin.php') {
+    return null;
+  }
+  final params = rawQueryParameters(uri.query);
+  if (params == null ||
+      params['id'] != 'dsu_medalCenter:memcp' ||
+      params.keys.any((k) => !{'id', 'typeid', 'page', 'sq'}.contains(k)) ||
+      (params.containsKey('sq') && params.containsKey('typeid'))) {
     return null;
   }
   for (final key in ['typeid', 'page']) {
-    if (uri.queryParameters[key] case final value?) {
-      if ((int.tryParse(value) ?? 0) <= 0) return null;
+    if (params[key] case final value?) {
+      if (!RegExp(r'^\d+$').hasMatch(value) || (int.tryParse(value) ?? 0) <= 0) return null;
     }
   }
-  return uri.toString();
+  final sq = params['sq'];
+  if (sq != null && medalSearchQuery(sq) == null) return null;
+  return [
+    medalCenterUrl,
+    if (params['typeid'] case final typeId?) 'typeid=$typeId',
+    if (sq != null) 'sq=${Uri.encodeQueryComponent(sq)}',
+    if (params['page'] case final page?) 'page=$page',
+  ].join('&');
+}
+
+/// The search text encoded in a result page's `sq` parameter; null when it is not base64 of non-blank UTF-8.
+String? medalSearchQuery(String sq) {
+  if (sq.isEmpty || sq.length % 4 != 0 || !RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(sq)) return null;
+  try {
+    final query = utf8.decode(base64.decode(sq));
+    return query.trim().isEmpty ? null : query;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// The catalogue's keyword search: a POST of `searchstr` to the catalogue endpoint itself.
+final class MedalSearchForm {
+  /// Constructor.
+  const MedalSearchForm({required this.url, this.formHash});
+
+  /// Validated catalogue endpoint the form posts to.
+  final String url;
+
+  /// Session token served with the form, when present.
+  final String? formHash;
+
+  /// Form body for [query]; only the search text and the session token are sent.
+  Map<String, String> body(String query) => {'formhash': ?formHash, 'searchstr': query};
+}
+
+/// Find the catalogue search form; null when it is missing, ambiguous or posts anywhere but the catalogue itself.
+MedalSearchForm? medalSearchForm(uh.Document document) {
+  final forms = document.querySelectorAll('form').where((f) => f.querySelector('input[name="searchstr"]') != null);
+  if (forms.length != 1) return null;
+  final form = forms.single;
+  final action = form.getAttribute('action')?.trim();
+  if ((form.getAttribute('method') ?? '').toLowerCase() != 'post' || action == null || action.isEmpty) return null;
+  final relative = Uri.tryParse(action);
+  if (relative == null) return null;
+  final uri = Uri.parse(medalCenterUrl).resolveUri(relative);
+  final params = rawQueryParameters(uri.query);
+  if (!['https', 'http'].contains(uri.scheme) ||
+      uri.origin != Uri.parse(baseUrl).origin ||
+      uri.userInfo.isNotEmpty ||
+      uri.path != '/plugin.php' ||
+      params == null ||
+      params.length != 1 ||
+      params['id'] != 'dsu_medalCenter:memcp') {
+    return null;
+  }
+  final hashes = form
+      .querySelectorAll('input[name="formhash"]')
+      .map((e) => e.getAttribute('value') ?? '')
+      .where((v) => v.isNotEmpty)
+      .toSet();
+  if (hashes.length > 1) return null;
+  return MedalSearchForm(url: medalCenterUrl, formHash: hashes.firstOrNull);
 }
 
 /// A server-provided medal acquisition action.
@@ -216,6 +290,7 @@ final class MedalCatalog {
     this.nextUrl,
     this.supported = true,
     this.message,
+    this.searchForm,
   });
 
   /// Categories in source order.
@@ -238,6 +313,9 @@ final class MedalCatalog {
 
   /// A server-provided permission/empty message.
   final String? message;
+
+  /// The keyword search form served with this page, if any.
+  final MedalSearchForm? searchForm;
 }
 
 /// Visible text of a catalogue/message node: scripts, styles and controls removed, lines trimmed.
@@ -268,7 +346,11 @@ MedalCatalog parseMedalCatalog(uh.Document document) {
   // The remade plugin renders an empty category as a `p.emp` line with no list at all.
   final emptyNote = list == null ? document.querySelector('div.dsumc p.emp') : null;
   if (list == null && emptyNote == null) {
-    return MedalCatalog(supported: false, message: _text(document.querySelector('#messagetext')));
+    return MedalCatalog(
+      supported: false,
+      message: _text(document.querySelector('#messagetext')),
+      searchForm: medalSearchForm(document),
+    );
   }
   final categories = <MedalCategory>[];
   for (final link in document.querySelectorAll('h3.tbmu a[href]')) {
@@ -345,5 +427,6 @@ MedalCatalog parseMedalCatalog(uh.Document document) {
     previousUrl: medalCatalogUrl(pagination?.querySelector('a.prev')?.getAttribute('href')),
     nextUrl: medalCatalogUrl(pagination?.querySelector('a.nxt')?.getAttribute('href')),
     message: message.isEmpty ? null : message,
+    searchForm: medalSearchForm(document),
   );
 }

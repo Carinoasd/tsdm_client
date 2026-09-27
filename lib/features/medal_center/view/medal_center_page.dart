@@ -17,7 +17,8 @@ import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
-/// Category browsing and acquisition details; all transactions stay on the website.
+/// Category browsing, keyword search and acquisition details. The purchase, application and claim forms the forum
+/// offers are submitted natively after confirmation; anything unsupported opens in the browser.
 class MedalCenterPage extends StatefulWidget {
   /// Optional controller/image renderer for deterministic tests.
   const MedalCenterPage({super.key, this.controller, this.imageBuilder});
@@ -35,6 +36,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
   late final MedalCenterCubit _cubit;
   StreamSubscription<AuthStatus>? _authSubscription;
   bool _actionInProgress = false;
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -72,8 +74,36 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
   void dispose() {
     unawaited(_authSubscription?.cancel());
     if (widget.controller == null) unawaited(_cubit.close());
+    _searchController.dispose();
     super.dispose();
   }
+
+  Widget _searchBar(MedalCenterState state, TranslationsMedalCenterEn tr) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    child: TextField(
+      key: const ValueKey('medal-search'),
+      controller: _searchController,
+      enabled: state.searchForm != null,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: tr.searchHint,
+        prefixIcon: const Icon(Icons.search),
+        border: const OutlineInputBorder(),
+        isDense: true,
+        suffixIcon: state.query == null
+            ? null
+            : IconButton(
+                tooltip: tr.clearSearch,
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  unawaited(_cubit.clearSearch());
+                },
+              ),
+      ),
+      onSubmitted: (text) => unawaited(_cubit.search(text)),
+    ),
+  );
 
   Widget _image(String? url) => SizedBox(
     width: 64,
@@ -176,16 +206,38 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
   }
 
   @override
-  Widget build(BuildContext context) => BlocBuilder<MedalCenterCubit, MedalCenterState>(
+  Widget build(BuildContext context) => BlocConsumer<MedalCenterCubit, MedalCenterState>(
     bloc: _cubit,
+    // Keep the box in step when the search ends elsewhere (category change, account switch) or a result link
+    // carries another query; typing alone never changes the state.
+    listenWhen: (previous, current) => previous.query != current.query,
+    listener: (context, state) {
+      final text = state.query ?? '';
+      if (_searchController.text.trim() != text) _searchController.text = text;
+    },
     builder: (context, state) {
       final tr = context.t.medalCenter;
       final catalog = state.catalog;
+      final query = state.query;
       final type = Uri.parse(state.url).queryParameters['typeid'];
-      final selected = catalog?.categories.where((c) => Uri.parse(c.url).queryParameters['typeid'] == type).firstOrNull;
+      // Search results span every category, so none is selected.
+      final selected = query != null
+          ? null
+          : catalog?.categories.where((c) => Uri.parse(c.url).queryParameters['typeid'] == type).firstOrNull;
       final Widget body;
       if (state.loading) {
-        body = const CenteredCircularIndicator();
+        body = query == null
+            ? const CenteredCircularIndicator()
+            : Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(tr.searching(query: query), textAlign: TextAlign.center),
+                  ],
+                ),
+              );
       } else if (state.needLogin) {
         body = Center(
           child: TextButton(
@@ -197,24 +249,32 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
           ),
         );
       } else if (state.failed) {
-        body = buildRetryButton(context, () => unawaited(_cubit.load()), message: context.t.general.failedToLoad);
+        body = buildRetryButton(
+          context,
+          () => unawaited(_cubit.load()),
+          message: query == null ? context.t.general.failedToLoad : tr.searchFailed(query: query),
+        );
       } else {
         body = RefreshIndicator(
           onRefresh: _cubit.load,
           child: ListView(
-            key: ValueKey(state.url),
+            key: ValueKey('${state.url}|$query'),
             padding: const EdgeInsets.all(12),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              Text(tr.browserNotice),
+              if (query == null)
+                Text(tr.browserNotice)
+              else
+                Text(tr.searchResults(query: query), style: Theme.of(context).textTheme.titleSmall),
               if (catalog?.categories.isNotEmpty ?? false)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: DropdownButtonFormField<String>(
-                    key: ValueKey('category-${state.url}'),
+                    key: ValueKey('category-${state.url}|$query'),
                     initialValue: selected?.url,
                     isExpanded: true,
                     menuMaxHeight: 400,
+                    hint: query == null ? null : Text(tr.allResults, overflow: TextOverflow.ellipsis),
                     decoration: InputDecoration(labelText: tr.category),
                     items: [
                       for (final category in catalog!.categories)
@@ -233,7 +293,12 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
               else if (catalog?.medals.isEmpty ?? true)
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(catalog?.message?.isNotEmpty ?? false ? catalog!.message! : tr.empty),
+                  child: Text(
+                    [
+                      if (query != null) tr.searchEmpty(query: query),
+                      if (catalog?.message?.isNotEmpty ?? false) catalog!.message! else if (query == null) tr.empty,
+                    ].join('\n'),
+                  ),
                 ),
               for (final medal in catalog?.medals ?? <CatalogMedal>[])
                 Card(
@@ -300,7 +365,14 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
             ),
           ],
         ),
-        body: SafeArea(child: body),
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (state.searchForm != null || query != null) _searchBar(state, tr),
+              Expanded(child: body),
+            ],
+          ),
+        ),
       );
     },
   );

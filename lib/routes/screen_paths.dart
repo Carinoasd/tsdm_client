@@ -74,6 +74,9 @@ class ScreenPaths {
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 
+  /// Native secondary title shop.
+  static const String titleShop = '/titleShop';
+
   /// Local block list and server notice ignore rules of the current account.
   static const String userBlock = '/userBlock';
 

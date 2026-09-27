@@ -25,10 +25,22 @@ final class MedalCenterState {
     this.loading = false,
     this.failed = false,
     this.needLogin = false,
+    this.query,
+    this.returnUrl,
+    this.searchForm,
   });
 
-  /// Requested safe catalogue URL.
+  /// Requested safe catalogue URL. The first page of a search is the search form's POST target.
   final String url;
+
+  /// Active keyword search, or null while browsing the ordinary catalogue.
+  final String? query;
+
+  /// The catalogue page shown before the search began; clearing the search returns there.
+  final String? returnUrl;
+
+  /// The last search form served to this account, kept across page loads so a failed page can still search.
+  final MedalSearchForm? searchForm;
 
   /// Fresh catalogue, never reused across account changes.
   final MedalCatalog? catalog;
@@ -125,26 +137,99 @@ class MedalCenterCubit extends Cubit<MedalCenterState> {
   }
 
   /// Fetch an allowed category/page; all purchase/apply URLs are rejected.
+  ///
+  /// Without [target] the current page is reloaded, including the first page of an active search. A category or
+  /// ordinary page link leaves the search, as it does on the website; a search result page link keeps it.
   Future<void> load([String? target]) async {
+    if (target == null && state.query != null && !_isSearchPage(state.url)) {
+      await search(state.query!);
+      return;
+    }
     final url = medalCatalogUrl(target ?? state.url);
     if (url == null) return;
+    final sq = Uri.parse(url).queryParameters['sq'];
+    final query = sq == null ? null : medalSearchQuery(sq);
+    await _fetch(
+      url: url,
+      query: query,
+      returnUrl: query == null ? null : _returnUrl,
+      request: () => fetchPage(url),
+    );
+  }
+
+  /// Search the whole catalogue by medal name or description through the forum's own search form.
+  ///
+  /// Blank text returns to the ordinary catalogue.
+  Future<void> search(String text) async {
+    final query = text.trim();
+    if (query.isEmpty) {
+      await clearSearch();
+      return;
+    }
+    final form = state.searchForm;
+    final post = submitForm;
+    if (form == null || post == null) {
+      // No form to post (never served, or no transport): an active search degrades to the catalogue it came from.
+      if (state.query != null) await load(_returnUrl);
+      return;
+    }
+    await _fetch(
+      url: form.url,
+      query: query,
+      returnUrl: _returnUrl,
+      request: () => post(form.url, form.body(query)),
+    );
+  }
+
+  /// Leave the search and show the category page that was open before it.
+  Future<void> clearSearch() async {
+    if (state.query == null) return;
+    await load(_returnUrl);
+  }
+
+  bool _isSearchPage(String url) => Uri.parse(url).queryParameters.containsKey('sq');
+
+  String get _returnUrl => state.returnUrl ?? (state.query == null ? state.url : medalCenterUrl);
+
+  Future<void> _fetch({
+    required String url,
+    required String? query,
+    required String? returnUrl,
+    required Future<String> Function() request,
+  }) async {
     final generation = ++_generation;
     final uid = currentUid();
-    emit(MedalCenterState(url: url, loading: true));
+    final form = state.searchForm;
+    MedalCenterState next({
+      MedalCatalog? catalog,
+      bool loading = false,
+      bool failed = false,
+      bool needLogin = false,
+    }) => MedalCenterState(
+      url: url,
+      query: query,
+      returnUrl: returnUrl,
+      searchForm: catalog?.searchForm ?? form,
+      catalog: catalog,
+      loading: loading,
+      failed: failed,
+      needLogin: needLogin,
+    );
+    emit(next(loading: true));
     try {
-      final document = parseHtmlDocument(await fetchPage(url));
+      final document = parseHtmlDocument(await request());
       if (isClosed || generation != _generation || currentUid() != uid) return;
       final servedUid = parseLoggedUidFromDocument(document);
       if (uid != null && servedUid == null) {
-        emit(MedalCenterState(url: url, needLogin: true));
+        emit(next(needLogin: true));
       } else if (servedUid != uid) {
-        emit(MedalCenterState(url: url, failed: true));
+        emit(next(failed: true));
       } else {
-        emit(MedalCenterState(url: url, catalog: parseMedalCatalog(document)));
+        emit(next(catalog: parseMedalCatalog(document)));
       }
     } on Exception {
       if (!isClosed && generation == _generation && currentUid() == uid) {
-        emit(MedalCenterState(url: url, failed: true));
+        emit(next(failed: true));
       }
     }
   }
