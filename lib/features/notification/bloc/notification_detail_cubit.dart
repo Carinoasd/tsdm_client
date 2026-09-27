@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/post_report/utils/report_page_context.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -57,8 +58,6 @@ class NotificationDetailCubit extends Cubit<NotificationDetailState> with Logger
               emit(state.copyWith(status: NotificationDetailStatus.failed));
               return;
             }
-            final postData = Post.fromPostNode(postNode, document.currentPage() ?? 1);
-
             // Parse thread id.
             final tidMatch = _tidRe.firstMatch(url);
             final tid = tidMatch?.namedGroup('ptid');
@@ -67,6 +66,12 @@ class NotificationDetailCubit extends Cubit<NotificationDetailState> with Logger
               emit(state.copyWith(status: NotificationDetailStatus.failed));
               return;
             }
+            // Report links are only kept when the page is the thread the notice points to (#127).
+            final postData = Post.fromPostNode(
+              postNode,
+              document.currentPage() ?? 1,
+              reportContext: postReportPageContextOf(document, expectedTid: tid),
+            );
             final replyParameters = _parseParameters(document, tid);
             if (isClosed) {
               return;

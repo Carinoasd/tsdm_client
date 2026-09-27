@@ -29,6 +29,7 @@ part 'locked.dart';
 part 'models.mapper.dart';
 part 'normal_thread.dart';
 part 'post.dart';
+part 'post_report_target.dart';
 part 'post_v2.dart';
 part 'rate.dart';
 part 'rate_v2.dart';

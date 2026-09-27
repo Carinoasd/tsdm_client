@@ -9,6 +9,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -66,6 +67,11 @@ enum _PostCardActions {
 
   /// Copy post id.
   copyPid,
+
+  /// Report the post to the forum.
+  ///
+  /// Only available when the forum offered the report link of this floor to the account that read the page (#127).
+  report,
 }
 
 /// Card for a [Post] model.
@@ -106,7 +112,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
     final avatarHeroTag = 'Avatar-${widget.post.author.uid}-${widget.post.postFloor}';
     final nameHeroTag = 'Name-${widget.post.author.name}-${widget.post.postFloor}';
 
-    final knownMedals = context.read<ThreadBloc>().state.postMedals;
+    // No thread above the card on the notice detail page.
+    final knownMedals = context.readOrNull<ThreadBloc>()?.state.postMedals ?? const [];
 
     final medals =
         widget.post.postMedals
@@ -391,6 +398,17 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
           ),
         ),
       ],
+      if (widget.post.reportTarget != null)
+        PopupMenuItem(
+          value: _PostCardActions.report,
+          child: Row(
+            children: [
+              const Icon(Icons.flag_outlined),
+              sizedBoxPopupMenuItemIconSpacing,
+              Text(context.t.postReport.menu),
+            ],
+          ),
+        ),
     ];
   }
 
@@ -463,6 +481,8 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
         await showCopySelectContentDialog(context: context, data: data);
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
+      case _PostCardActions.report:
+        await showPostReportDialog(context, widget.post);
     }
   }
 

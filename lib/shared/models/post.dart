@@ -61,6 +61,7 @@ class Post with PostMappable {
     this.signature,
     this.pokemon,
     this.checkin,
+    this.reportTarget,
   });
 
   /// Post ID.
@@ -163,8 +164,15 @@ class Post with PostMappable {
   /// Author checkin status.
   final PostCheckinStatus? checkin;
 
+  /// The report the forum offered for this floor to the account that read the page, see [extractPostReportTarget].
+  ///
+  /// Null when the page context is unknown, for own posts and floors without the report link (#127).
+  final PostReportTarget? reportTarget;
+
   /// Build [Post] from [element] that has attribute id "post_$postID".
-  static Post? fromPostNode(uh.Element element, int page) {
+  ///
+  /// [reportContext] holds the ids of the page [element] was read from; without it no report target is kept.
+  static Post? fromPostNode(uh.Element element, int page, {PostReportPageContext? reportContext}) {
     final trRootNode = element.querySelector('table > tbody > tr');
     final postID = element.id.replaceFirst('post_', '');
     if (postID.isEmpty) {
@@ -444,13 +452,23 @@ class Post with PostMappable {
       signature: signature,
       pokemon: pokemon,
       checkin: checkin,
+      reportTarget: extractPostReportTarget(
+        element,
+        postId: postID,
+        context: reportContext,
+        authorUid: postAuthor.uid,
+      ),
     );
   }
 
   /// Build a list of [Post] from the given [ThreadData] [uh.Element].
   ///
   /// [element]'s id is "postlist".
-  static List<Post> buildListFromThreadDataNode(uh.Element? element, int page) {
+  static List<Post> buildListFromThreadDataNode(
+    uh.Element? element,
+    int page, {
+    PostReportPageContext? reportContext,
+  }) {
     if (element == null) {
       return [];
     }
@@ -465,7 +483,7 @@ class Post with PostMappable {
       // This while is a while (0), will not loop twice.
       if ((currentElement.attributes['id'] ?? '').startsWith('post_')) {
         // Build post here.
-        final post = Post.fromPostNode(currentElement, page);
+        final post = Post.fromPostNode(currentElement, page, reportContext: reportContext);
         if (post == null) {
           talker.error('warning: post is empty');
           currentElement = currentElement.nextElementSibling;

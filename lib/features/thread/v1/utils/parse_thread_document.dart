@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
+import 'package:tsdm_client/features/post_report/utils/report_page_context.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -131,7 +132,12 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
       document.querySelector('div#postlist h1.ts i[title="关闭"]') != null;
   final threadClosed = isThreadClosedForReply(document);
   final threadDataNode = document.querySelector('div#postlist');
-  final postList = Post.buildListFromThreadDataNode(threadDataNode, document.currentPage() ?? 1);
+  // Ids of the page itself (not of any post link) that report links must match (#127).
+  final postList = Post.buildListFromThreadDataNode(
+    threadDataNode,
+    document.currentPage() ?? 1,
+    reportContext: postReportPageContextOf(document),
+  );
   // Title node ALWAYS has a node with id `thread_subject`.
   // It's an `<a>` node in legacy styles (invisible in most styles and visible in 爱丽丝 style) and a `<span>` node on
   // Discuz X5.
