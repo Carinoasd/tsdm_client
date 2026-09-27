@@ -749,6 +749,16 @@ void main() {
     late _Auth auth;
     late UserBlockRepository blocks;
 
+    Future<void> scrollTo(WidgetTester tester, Finder target) async {
+      final list = find.descendant(of: find.byType(UserBlockPage), matching: find.byType(ListView));
+      await tester.scrollUntilVisible(
+        target,
+        200,
+        scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
+      );
+      await tester.pumpAndSettle();
+    }
+
     setUp(() {
       auth = _Auth(_alice);
       blocks = UserBlockRepository(_FlakySettings());
@@ -783,8 +793,7 @@ void main() {
       await pumpPage(tester, _Rules());
       final serverRules = tr.userBlock.serverRules;
       final hint = find.text(serverRules.notLoaded);
-      await tester.ensureVisible(hint);
-      await tester.pumpAndSettle();
+      await scrollTo(tester, hint);
       expect(tester.getTopLeft(hint).dy, greaterThan(tester.getTopLeft(find.text(serverRules.load)).dy));
       expect(serverRules.notLoaded, contains('above'));
     });
@@ -804,14 +813,14 @@ void main() {
       await tester.pumpAndSettle();
       final post = '${serverRules.types.post} · ${serverRules.userUid(uid: '$_bobUid')}';
       final pcomment = '${serverRules.types.pcomment} · ${serverRules.everybody}';
-      await tester.ensureVisible(find.byKey(const ValueKey('rule-pcomment|0')));
-      await tester.pumpAndSettle();
+      await scrollTo(tester, find.byKey(const ValueKey('rule-pcomment|0')));
       expect(find.text(post), findsNWidgets(2), reason: 'title and subtitle without a forum text');
       expect(find.text(pcomment), findsOneWidget);
       expect(find.text('forum text'), findsOneWidget);
       expect(find.textContaining('post ·'), findsNothing);
 
       Future<void> removeAndCancel(String key, String name) async {
+        await scrollTo(tester, find.byKey(ValueKey(key)));
         await tester.tap(find.descendant(of: find.byKey(ValueKey(key)), matching: find.text(serverRules.remove)));
         await _frames(tester);
         expect(find.text(serverRules.removeConfirmContent(rule: name)), findsOneWidget);
@@ -823,8 +832,7 @@ void main() {
       await removeAndCancel('rule-pcomment|0', 'forum text');
 
       final at = '${serverRules.types.at} (Bob)';
-      await tester.ensureVisible(find.byKey(const ValueKey('rule-at|$_bobUid')));
-      await tester.pumpAndSettle();
+      await scrollTo(tester, find.byKey(const ValueKey('rule-at|$_bobUid')));
       expect(find.text(at), findsOneWidget);
       expect(find.text('at (Bob)'), findsNothing);
       await removeAndCancel('rule-at|$_bobUid', at);

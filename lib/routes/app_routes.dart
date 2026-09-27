@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/bank/view/bank_page.dart';
 import 'package:tsdm_client/features/blocking/view/user_block_page.dart';
+import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
@@ -292,6 +293,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
+  AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),

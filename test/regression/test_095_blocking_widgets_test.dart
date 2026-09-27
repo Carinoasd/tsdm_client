@@ -407,21 +407,30 @@ void main() {
   });
 
   group('management page', () {
+    Future<void> scrollTo(WidgetTester tester, Finder target) async {
+      final list = find.descendant(of: find.byType(UserBlockPage), matching: find.byType(ListView));
+      await tester.scrollUntilVisible(
+        target,
+        200,
+        scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
+      );
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('visible load button distinguishes unloaded, failure and empty rules', (tester) async {
       final rules = _Rules();
       await pump(tester, UserBlockPage(noticeIgnoreRepository: rules, clientFactory: _client));
+      await scrollTo(tester, find.text(tr.userBlock.serverRules.entryHelp));
       expect(find.text(tr.userBlock.serverRules.entryHelp), findsOneWidget);
       expect(find.text(tr.userBlock.serverRules.notLoaded), findsOneWidget);
-      await tester.ensureVisible(find.text(tr.userBlock.serverRules.load));
-      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text(tr.userBlock.serverRules.load));
       await tester.tap(find.text(tr.userBlock.serverRules.load));
       await tester.pump();
       expect(rules.fetches, hasLength(1));
       rules.fetches.single.$2.complete(const NoticeIgnoreResult.failed(NoticeIgnoreFailure.challenge));
       await settle(tester);
       expect(find.text(tr.userBlock.serverRules.notLoaded), findsNothing);
-      await tester.ensureVisible(find.text(tr.general.retry));
-      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text(tr.general.retry));
       await tester.tap(find.text(tr.general.retry));
       await tester.pump();
       expect(rules.fetches, hasLength(2));
@@ -447,6 +456,7 @@ void main() {
         const NoticeIgnoreResult.success([NoticeIgnoreRule(type: 'post', authorId: _troll)]),
       );
       await settle(tester);
+      await scrollTo(tester, find.byKey(const ValueKey('rule-post|3000')));
       expect(find.byKey(const ValueKey('rule-post|3000')), findsOneWidget);
 
       auth.switchTo(_bob);
@@ -476,8 +486,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.ensureVisible(find.text(tr.userBlock.serverRules.remove));
-      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text(tr.userBlock.serverRules.remove));
       await tester.tap(find.text(tr.userBlock.serverRules.remove));
       // The page shows its progress indicator while the dialog is open: pump frames instead of settling.
       await settle(tester);

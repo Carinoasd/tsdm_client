@@ -20,7 +20,8 @@ import 'package:tsdm_client/utils/show_toast.dart';
 
 /// Manage the local block list and the forum's notice ignore rules of the current account.
 ///
-/// The two are shown apart on purpose: the local list never touches the forum, the rules live on the forum.
+/// The two are shown apart on purpose: the local list never touches the forum, the rules live on the forum. The
+/// forum's own blacklist (the `blockuser` plugin) is a third, separate list with its own page, linked from here.
 ///
 /// Forum rules belong to the account they were loaded for: when the current account changes they are cleared, and
 /// an answer that arrives for the previous account is dropped.
@@ -297,6 +298,16 @@ class _UserBlockPageState extends State<UserBlockPage> {
             child: Padding(padding: edgeInsetsL12T12R12B12, child: Text(tr.localHint)),
           ),
           BlocBuilder<UserBlockCubit, UserBlockList>(builder: _buildLocalList),
+          const Divider(),
+          // The forum's blacklist has its own page: it lives in the forum account, unlike the list above.
+          ListTile(
+            key: const ValueKey('website-blocklist-entry'),
+            leading: const Icon(Icons.public_outlined),
+            title: Text(tr.website.entry, style: Theme.of(context).textTheme.titleMedium),
+            subtitle: Text(tr.website.entryHint),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.websiteBlocklist),
+          ),
           const Divider(),
           ListTile(
             title: Text(tr.serverRules.title, style: Theme.of(context).textTheme.titleMedium),

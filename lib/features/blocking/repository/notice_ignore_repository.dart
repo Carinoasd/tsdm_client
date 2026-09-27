@@ -274,6 +274,22 @@ void checkForumPage(uh.Document doc, {required int expectedUid, required bool re
   }
 }
 
+/// Why [doc] is not a normal forum answer for [expectedUid] (see [checkForumPage]), null when it is one.
+///
+/// For [NoticeIgnoreFailure.forumError] the record also carries the forum's own message, for display only.
+({NoticeIgnoreFailure failure, String? message})? forumPageProblem(
+  uh.Document doc, {
+  required int expectedUid,
+  required bool requireIdentity,
+}) {
+  try {
+    checkForumPage(doc, expectedUid: expectedUid, requireIdentity: requireIdentity);
+    return null;
+  } on _PageRejected catch (e) {
+    return (failure: e.failure, message: e.failure == NoticeIgnoreFailure.forumError ? e.reason : null);
+  }
+}
+
 /// Collect every field of [form]; unknown kinds of fields fail closed.
 ///
 /// The operation flag [requiredSubmit] (`privacy2submit`, `ignoresubmit`: the name the forum checks to run the

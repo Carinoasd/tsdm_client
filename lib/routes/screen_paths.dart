@@ -77,6 +77,9 @@ class ScreenPaths {
   /// Local block list and server notice ignore rules of the current account.
   static const String userBlock = '/userBlock';
 
+  /// Website blacklist (the forum's `blockuser` plugin) of the current account.
+  static const String websiteBlocklist = '/websiteBlocklist';
+
   /// Read-only medal catalogue.
   static const String medalCenter = '/medalCenter';
 
