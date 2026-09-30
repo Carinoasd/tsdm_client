@@ -44,4 +44,4 @@ jobs:
           additional_permissions: |
             actions: read
           # Always answer in Traditional Chinese, whatever language the request or the PR uses.
-          claude_args: '--append-system-prompt "一律使用繁體中文（台灣用語）回覆，包括留言、審查意見與摘要；即使請求或 PR 使用其他語言也一樣。程式碼、識別名稱與技術專有名詞保持原文。"'
+          claude_args: '--model claude-opus-5-5 --append-system-prompt "一律使用繁體中文（台灣用語）回覆，包括留言、審查意見與摘要；即使請求或 PR 使用其他語言也一樣。程式碼、識別名稱與技術專有名詞保持原文。"'
