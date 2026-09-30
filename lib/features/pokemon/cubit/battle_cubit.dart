@@ -229,6 +229,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     if (instanceId <= 0) {
       return const BattleActionResult(success: false);
     }
+    // A resume or a newer action makes this answer stale: the busy state it clears would be theirs, not this one's.
+    final generation = _generation;
     emit(state.copyWith(actionInProgress: true));
     try {
       final result = await _repository.healAndFlee(instanceId).run();
@@ -239,7 +241,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     } on Object catch (e) {
       return BattleActionResult(success: false, message: '$e');
     } finally {
-      if (!isClosed) emit(state.copyWith(actionInProgress: false));
+      if (!isClosed && generation == _generation) emit(state.copyWith(actionInProgress: false));
     }
   }
 
