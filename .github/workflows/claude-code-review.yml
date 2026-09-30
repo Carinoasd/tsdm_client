@@ -51,4 +51,4 @@ jobs:
 
             只回報有把握的問題，不要挑風格上的小事。
             請用繁體中文，透過 `gh pr comment` 留下一則總結評論。
-          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"'
+          claude_args: '--model claude-opus-5-5 --allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"'
