@@ -51,7 +51,7 @@ final class PokemonRepository with LoggerMixin {
   ///
   /// It has to outlast the transport's own read timeout (30s in the android client), or a write that was still in flight
   /// would be reported as a failure although the server may well have carried it out.
-  static const _writeDeadline = Duration(seconds: 35);
+  static const _writeDeadline = Duration(seconds: 45);
 
   /// Header the plugin's API expects for its cross-site request check.
   ///
@@ -406,6 +406,7 @@ final class PokemonRepository with LoggerMixin {
 
   /// Read the formhash from the plugin page and remember it; a failed read is not cached.
   Future<String?> _readFormHash() async {
+    final uid = getIt.get<CookieProvider>().userLoginInfo.uid;
     // The page read runs under the same deadline as the call that waits for it: a parked read must not hold it.
     final resp = await _net
         .get(_formHashPageUrl, options: _options())
@@ -420,7 +421,11 @@ final class PokemonRepository with LoggerMixin {
       warning('failed to read the formhash from $_formHashPageUrl');
       return null;
     }
-    _formHash = hash;
+    // The account may have switched while the page was on its way: that hash belongs to the old session.
+    if (getIt.get<CookieProvider>().userLoginInfo.uid == uid) {
+      _formHash = hash;
+      _formHashUid = uid;
+    }
     return hash;
   }
 
