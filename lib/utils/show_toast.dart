@@ -43,15 +43,24 @@ void showSnackBar({
     // label and a close icon crossed that on 360dp phones (issue #4), so callers can raise the threshold.
     actionOverflowThreshold: actionOverflowThreshold,
   );
+  /// Show [bar] on the app-level messenger, unless that messenger was torn down meanwhile.
+  void show() {
+    final current = snackbarKey.currentState;
+    // A messenger whose page was just torn down trips the "deactivated widget's ancestor" assertion inside it, so skip
+    // the bar instead of queueing it on a dead element.
+    if (current == null || !current.mounted) return;
+    current.showSnackBar(bar);
+  }
+
   try {
-    messenger?.showSnackBar(bar);
+    show();
     // Debug builds assert inside the messenger when one of its scaffolds is being torn down in this very frame (seen
     // on the chat pages while the reply sheet closed). Show the bar once the tree settled instead of dropping it
     // together with whatever the caller does next.
     // ignore: avoid_catching_errors
   } on FlutterError {
     WidgetsBinding.instance
-      ..addPostFrameCallback((_) => messenger?.showSnackBar(bar))
+      ..addPostFrameCallback((_) => show())
       ..ensureVisualUpdate();
   }
 }
