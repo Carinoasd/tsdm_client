@@ -103,6 +103,9 @@ final class BattleState {
   final String? failureMessage;
 
   /// Copy with the given fields.
+  ///
+  /// [clearFailure] drops the message of an earlier failure: one set once would otherwise stay in the state for the rest
+  /// of the battle.
   BattleState copyWith({
     BattleStatus? status,
     BattleScene? scene,
@@ -112,6 +115,7 @@ final class BattleState {
     int? turn,
     bool? actionInProgress,
     String? failureMessage,
+    bool clearFailure = false,
   }) => BattleState(
     status: status ?? this.status,
     scene: scene ?? this.scene,
@@ -120,7 +124,7 @@ final class BattleState {
     skillOrder: skillOrder ?? this.skillOrder,
     turn: turn ?? this.turn,
     actionInProgress: actionInProgress ?? this.actionInProgress,
-    failureMessage: failureMessage ?? this.failureMessage,
+    failureMessage: clearFailure ? null : failureMessage ?? this.failureMessage,
   );
 }
 
@@ -164,7 +168,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   /// healing the party once and retrying, which [retryAfterHeal] guards against looping.
   Future<void> start(int mapId, {int? bossTypeId, bool keepScene = false, bool retryAfterHeal = true}) async {
     final keep = keepScene && state.scene != null;
-    final generation = _generation;
+    // Starting a battle makes anything read back before it stale, exactly like a resume does.
+    final generation = ++_generation;
     _turn = 1;
     emit(state.copyWith(status: keep ? null : BattleStatus.loading, actionInProgress: keep, turn: _turn));
     final result = await _repository.startBattle(mapId, bossTypeId: bossTypeId).run();
@@ -301,11 +306,14 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   /// may or may not have happened); the page has to show the server's own scene instead of the one the player acted on.
   /// A battle the server no longer has is left alone: the page's own handling reports that on the next action.
   Future<void> resync() async {
+    final generation = _generation;
     final result = await _repository.recoverBattle().run();
     if (isClosed || result.isLeft()) return;
     final scene = result.fold((_) => null, (value) => value);
     if (scene == null) return;
-    _emitScene(scene, status: BattleStatus.success, actionInProgress: false);
+    // An action the player started while the battle was being read back owns the screen now.
+    if (state.actionInProgress) return;
+    _emitSceneIfCurrent(scene, generation, status: BattleStatus.success, actionInProgress: false);
   }
 
   /// Throw the ball [ballId].
@@ -321,7 +329,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
 
   /// Use item [itemId] in battle; returns the scene or asks for a skill selection.
   Future<BattleUseItemResult> useItem(int itemId) async {
-    final generation = _generation;
+    // A new action owns the screen from here on, so a read-back started earlier must not paint over its answer.
+    final generation = ++_generation;
     emit(state.copyWith(actionInProgress: true));
     try {
       final result = await _repository.useBattleItem(itemId).run();
@@ -371,7 +380,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
 
   /// Run a battle action that resolves a [BattleScene].
   Future<BattleActionResult> _runAction(AsyncEither<BattleScene> Function() action) async {
-    final generation = _generation;
+    // A new action owns the screen from here on, so a read-back started earlier must not paint over its answer.
+    final generation = ++_generation;
     emit(state.copyWith(actionInProgress: true));
     try {
       final result = await action().run();
@@ -408,6 +418,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
       state.copyWith(
         status: status,
         scene: scene,
+        clearFailure: true,
         wildGender: scene.isActive ? scene.wildPokemon.gender : null,
         wildShiny: scene.isActive ? scene.wildPokemon.isShiny : null,
         turn: _turn,
