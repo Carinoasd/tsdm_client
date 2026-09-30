@@ -479,3 +479,16 @@ final class AntitheftChallengedRequestException extends AppException with Antith
   /// Url of the challenged request.
   final String url;
 }
+
+/// The pokemon plugin JSON API answered an error envelope (`success: false`).
+///
+/// [message] carries the human-readable `error` field, [code] the optional numeric `code` field (e.g. 401 when a login
+/// is required, 400 for a rejected action).
+@MappableClass()
+final class PokemonApiException extends AppException with PokemonApiExceptionMappable {
+  /// Constructor.
+  PokemonApiException(String message, {this.code}) : super(message: message);
+
+  /// Optional error code from the plugin API.
+  final int? code;
+}

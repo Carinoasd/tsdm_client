@@ -77,6 +77,11 @@ const broadcastMessageUrl = '$baseUrl/home.php?mod=space&do=pm&filter=announcepm
 /// Broadcast message detail page.
 const broadcastMessageDetailUrl = '$baseUrl/home.php?mod=space&do=pm&subop=viewg&pmid=';
 
+/// Base url of the pokemon (宠物中心) plugin JSON API.
+///
+/// Requests add `&endpoint=<name>&action=<action>` to this base, e.g. `&endpoint=pokemon&action=list`.
+const pokemonApiBase = '$baseUrl/plugin.php?id=pokemon:pokemon';
+
 /// The Discuz! built-in guide index page (`forum.php?mod=guide&view=index`).
 ///
 /// Lists the four guide modules 最新热门 (hot), 最新精华 (digest), 最新回复 (new) and 最新发表 (newthread) with a few
