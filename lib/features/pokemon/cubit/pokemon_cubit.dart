@@ -405,8 +405,8 @@ class PokemonCubit extends Cubit<PokemonState> {
         (_) => null,
         (page) {
           // The player may have switched category (or gone to another page) while this answer was on its way, and that
-          // page does not belong to the list that is on screen now.
-          if (state.inventoryPage != next) return;
+          // page does not belong to the list that is on screen now. `next - 1` is the page the request started from.
+          if (state.inventoryPage != next - 1) return;
           emit(
             state.copyWith(
               inventory: InventoryPage(
@@ -454,7 +454,7 @@ class PokemonCubit extends Cubit<PokemonState> {
           (_) => null,
           (page) {
             // The player may have switched category while this answer was on its way: it does not belong to that list.
-            if (!state.shopCategory.isPet || state.shopPage != next) return;
+            if (!state.shopCategory.isPet || state.shopPage != next - 1) return;
             emit(
               state.copyWith(
                 shopPets: ShopPetsPage(
@@ -480,7 +480,7 @@ class PokemonCubit extends Cubit<PokemonState> {
         (_) => null,
         (page) {
           // The player may have switched category while this answer was on its way: it does not belong to that list.
-          if (state.shopCategory.isPet || state.shopPage != next) return;
+          if (state.shopCategory.isPet || state.shopPage != next - 1) return;
           emit(
             state.copyWith(
               shop: ShopPage(
