@@ -217,11 +217,15 @@ final class NetClientProvider with LoggerMixin {
   ///
   /// The response body is returned as a plain string and every status code is accepted so the caller can read the
   /// plugin's JSON envelope (including its error body) itself. [headers] are added to this request's headers.
+  ///
+  /// [singleAttempt] marks a write the server may already have carried out: no transport retry and no redirect follow
+  /// up, so it is never sent twice (see `postWithForm` for the same idea on form posts).
   AsyncEither<Response<dynamic>> postJson(
     String path, {
     Object? data,
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    bool singleAttempt = false,
   }) => AsyncEither.tryCatch(
     () async {
       final resp = await _dio.post<dynamic>(
@@ -232,6 +236,8 @@ final class NetClientProvider with LoggerMixin {
           headers: {HttpHeaders.contentTypeHeader: Headers.jsonContentType, ...?headers},
           responseType: ResponseType.plain,
           validateStatus: (_) => true,
+          followRedirects: singleAttempt ? false : null,
+          extra: singleAttempt ? {singleAttemptHttpRequestKey: true} : null,
         ),
       );
       final status = resp.statusCode ?? 0;
@@ -390,12 +396,20 @@ class _ErrorHandler extends Interceptor with LoggerMixin {
     handler.next(response);
   }
 
+  /// Whether a 404 is an answer the app asked for rather than a page it lost.
+  ///
+  /// The pet sprites sit next to the forum and half the pokemon have none, and the plugin answers 404 for `recover`
+  /// while no battle is running: both are normal answers, kept out of the error log and the network error banner. A
+  /// forum page that is really gone still reports normally.
+  bool _isExpectedMissing(RequestOptions options) {
+    final accept = options.headers[HttpHeaders.acceptHeader]?.toString() ?? '';
+    return accept.contains('image/') || options.uri.queryParameters['id'] == 'pokemon:pokemon';
+  }
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final status = err.response?.statusCode;
-    // A missing resource (an avatar a user never uploaded, for example) is not a network problem, so keep it out of the
-    // error log and out of the network error banner.
-    if (err.type == DioExceptionType.badResponse && status == 404) {
+    if (err.type == DioExceptionType.badResponse && status == 404 && _isExpectedMissing(err.requestOptions)) {
       debug('${err.requestOptions.uri} ${err.type}: status code: $status');
       handler.next(err);
       return;

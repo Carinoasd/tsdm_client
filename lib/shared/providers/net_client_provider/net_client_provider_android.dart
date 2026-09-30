@@ -84,12 +84,14 @@ abstract class _AndroidHttpMethodChannel {
     required String url,
     required Map<String, String> headers,
     required String body,
+    required bool singleAttempt,
   }) async {
     try {
       final resp = await _httpChannel.invokeMethod<Map<Object?, Object?>>(_methodPostJson, {
         'url': url,
         'headers': headers,
         'body': body,
+        'singleAttempt': singleAttempt,
       });
       if (resp == null) {
         return null;
@@ -178,8 +180,10 @@ final class KotlinHttpClient {
     }
 
     final contentType = headers?[HttpHeaders.contentTypeHeader]?.split(';').firstOrNull ?? '';
-    if (singleAttempt && contentType != 'application/x-www-form-urlencoded') {
-      throw UnsupportedError('Single-attempt requests require a URL-encoded form');
+    if (singleAttempt &&
+        contentType != 'application/x-www-form-urlencoded' &&
+        contentType != 'application/json') {
+      throw UnsupportedError('Single-attempt requests require a URL-encoded form or a JSON body');
     }
 
     final rawResp = switch (contentType) {
@@ -198,6 +202,7 @@ final class KotlinHttpClient {
         url: url.toString(),
         headers: headers ?? {},
         body: body as String,
+        singleAttempt: singleAttempt,
       ),
       final v => throw UnsupportedError('unsupported content type: $v'),
     };

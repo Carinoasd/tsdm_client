@@ -114,8 +114,23 @@ object HttpClient {
         }
     }
 
-    suspend fun postJson(url: String, headers: HashMap<String, String>, body: String): Response {
-        val requestBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
+    suspend fun postJson(
+        url: String,
+        headers: HashMap<String, String>,
+        body: String,
+        singleAttempt: Boolean = false,
+    ): Response {
+        val jsonBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
+
+        // Same reason as postForm: a write the server may already have carried out must not be sent a second time, so a
+        // one-shot body (OkHttp checks isOneShot before resending) goes out on the client that does not retry.
+        val requestBody = if (singleAttempt) object : RequestBody() {
+            override fun contentType() = jsonBody.contentType()
+            override fun contentLength() = jsonBody.contentLength()
+            override fun isOneShot() = true
+            override fun writeTo(sink: BufferedSink) = jsonBody.writeTo(sink)
+        } else jsonBody
+
         val request = Request.Builder()
             .url(url)
             .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
@@ -124,7 +139,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                client.newCall(request).execute()
+                (if (singleAttempt) singleAttemptClient else client).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }
