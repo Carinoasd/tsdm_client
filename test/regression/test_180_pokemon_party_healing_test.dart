@@ -180,6 +180,50 @@ void main() {
     expect(result.isLeft(), isTrue, reason: 'a call that never answers is a failure, not a pending request');
     expect(stopwatch.elapsedMilliseconds, lessThan(2000), reason: 'and it is reported long before the platform client');
   });
+
+  test('a write is sent as a single attempt, a read is not', () async {
+    // The android client replays a request on a connection reset unless the request is marked one-shot, and a replayed
+    // write (a purchase, a battle turn) would be carried out twice.
+    final attempts = <String, Object?>{};
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            // Key and flag as `net_client_provider_android.dart` defines them.
+            attempts[options.uri.queryParameters['action'] ?? ''] = options.extra['tsdm_single_attempt'];
+            handler.resolve(
+              Response<dynamic>(requestOptions: options, statusCode: 200, data: _answer(options.uri, [pet(1, hp: 1)])),
+            );
+          },
+        ),
+      );
+    final cookie = CookieProvider(const UserLoginInfo(username: 'Alice', uid: 1), const {});
+    getIt
+      ..registerSingleton<CookieProvider>(cookie)
+      ..registerSingleton<NetErrorSaver>(NetErrorSaver())
+      ..registerFactory<NetClientProvider>(() => NetClientProvider.buildNoCookie(dio: dio, cookie: cookie));
+
+    final repository = PokemonRepository();
+    await repository.healParty();
+    await repository.getProfile().run();
+
+    expect(attempts['heal'], isTrue);
+    expect(attempts['profile'], isNull);
+  });
+
+  test('the formhash is read again after the account switched', () async {
+    useFakeApi([pet(1)]);
+    final repository = PokemonRepository();
+    await repository.loadParty();
+    final reads = paths.where((path) => path.contains('id=pokemon:game')).length;
+
+    // The hash belongs to one account's session, so the new account must not send the previous one's.
+    await getIt.unregister<CookieProvider>();
+    getIt.registerSingleton<CookieProvider>(CookieProvider(const UserLoginInfo(username: 'Bob', uid: 2), const {}));
+    await repository.loadParty();
+
+    expect(paths.where((path) => path.contains('id=pokemon:game')).length, reads + 1);
+  });
 }
 
 /// The answer the fake forum gives [uri]: the party for the list, a success envelope for a heal, and a page carrying a

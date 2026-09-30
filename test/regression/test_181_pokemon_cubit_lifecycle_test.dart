@@ -30,12 +30,15 @@ void main() {
 
   /// Answer every request after [delay] from a forum that keeps [serverStatusBarHidden].
   ///
-  /// With [turnFails] a battle turn loses the transport (no answer at all), and [recoveredScene] is what the read-back
-  /// after such a failure finds: this is how a scene that changed while the answer was lost is modeled.
+  /// With [turnFails] a battle turn loses the transport (no answer at all); [recoverDelay] holds the read-back after
+  /// such a failure open; [recoveredScene] is what that read-back finds and [startedScene] what the next battle start
+  /// answers, so a scene that changed while an answer was lost can be told apart from the one that was read back.
   void useFakeForum({
     Duration delay = Duration.zero,
     bool turnFails = false,
+    Duration recoverDelay = Duration.zero,
     Map<String, dynamic>? recoveredScene,
+    Map<String, dynamic>? startedScene,
   }) {
     serverStatusBarHidden = false;
     paths = [];
@@ -48,6 +51,9 @@ void main() {
       }
       if (action == 'recover' && recoveredScene != null) {
         return jsonEncode({'success': true, 'data': recoveredScene});
+      }
+      if (action == 'start' && startedScene != null) {
+        return jsonEncode({'success': true, 'data': startedScene});
       }
       if (action == 'refresh_badge') {
         final hide = body is String ? (jsonDecode(body) as Map<String, dynamic>)['hide'] : null;
@@ -79,6 +85,9 @@ void main() {
             paths.add(options.uri.toString());
             if (delay > Duration.zero) {
               await Future<void>.delayed(delay);
+            }
+            if (options.uri.queryParameters['action'] == 'recover' && recoverDelay > Duration.zero) {
+              await Future<void>.delayed(recoverDelay);
             }
             // A transport failure has no answer at all, which is what the client has to treat as a network problem.
             if (turnFails && options.uri.queryParameters['action'] == 'turn') {
@@ -221,5 +230,51 @@ void main() {
 
     expect(paths.where((path) => path.contains('action=recover')), hasLength(1));
     expect(cubit.state.scene?.wildPokemon.hp, 1);
+  });
+
+  test('a battle read-back a newer action overtook is dropped', () async {
+    const started = {
+      'battle_id': 'battle_2',
+      'map_id': 3,
+      'status': 'active',
+      'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+      'wild_pokemon': {'id': 25, 'hp': 9, 'max_hp': 18},
+    };
+    useFakeForum(
+      turnFails: true,
+      recoverDelay: const Duration(milliseconds: 150),
+      // What the read-back finds: the turn did land server-side.
+      recoveredScene: {
+        'battle_id': 'battle_1',
+        'map_id': 3,
+        'status': 'active',
+        'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 1, 'max_hp': 18},
+      },
+      startedScene: started,
+    );
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+    cubit.resume(
+      BattleScene.fromMap(const {
+        'battle_id': 'battle_1',
+        'map_id': 3,
+        'status': 'active',
+        'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 18, 'max_hp': 18},
+      }),
+    );
+
+    final failed = await cubit.useSkill(0);
+    expect(failed.success, isFalse);
+
+    // The player starts the next battle while the read-back is still in flight.
+    await cubit.start(3);
+    expect(cubit.state.scene?.battleId, 'battle_2');
+
+    // It lands after the newer scene and must not paint over it.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(cubit.state.scene?.battleId, 'battle_2');
+    expect(cubit.state.scene?.wildPokemon.hp, 9);
   });
 }
