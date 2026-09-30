@@ -43,7 +43,8 @@ void showSnackBar({
     // label and a close icon crossed that on 360dp phones (issue #4), so callers can raise the threshold.
     actionOverflowThreshold: actionOverflowThreshold,
   );
-  /// Show [bar] on the app-level messenger, unless that messenger was torn down meanwhile.
+
+  // Show [bar] on the app-level messenger, unless that messenger was torn down meanwhile.
   void show() {
     final current = snackbarKey.currentState;
     // A messenger whose page was just torn down trips the "deactivated widget's ancestor" assertion inside it, so skip
