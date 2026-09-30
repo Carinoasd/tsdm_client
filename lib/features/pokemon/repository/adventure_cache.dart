@@ -128,6 +128,13 @@ final class AdventureCache {
     _finishedBattles.add(battleKey(scene));
   }
 
+  /// Forget that [scene]'s battle is over: the client just started this battle itself, and on the same map for the
+  /// same species with the same own pokemon the key repeats, so that new fight is not the finished one.
+  void forgetFinishedBattle(BattleScene scene) {
+    _forgetOtherAccount();
+    _finishedBattles.remove(battleKey(scene));
+  }
+
   /// Whether [scene]'s battle is one the player already finished.
   bool isBattleFinished(BattleScene scene) {
     _forgetOtherAccount();

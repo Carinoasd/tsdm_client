@@ -83,6 +83,17 @@ void main() {
       expect(cache.isBattleFinished(scene()), isFalse);
     });
 
+    test('forgets the battle the client starts again instead of taking it for the finished one', () {
+      // The key is map + wild species + own pokemon, which repeats while the player keeps fighting on one map, so a new
+      // fight must not be read as the one that already ended.
+      final cache = AdventureCache()..markBattleFinished(scene());
+      expect(cache.isBattleFinished(scene()), isTrue);
+
+      cache.forgetFinishedBattle(scene());
+
+      expect(cache.isBattleFinished(scene()), isFalse);
+    });
+
     test('forgets what the previous account remembered', () async {
       final cache = AdventureCache()..markBattleFinished(scene());
 

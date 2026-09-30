@@ -531,7 +531,7 @@ class PokemonCubit extends Cubit<PokemonState> {
       };
       if (!actionResult.success) await refreshPokemons();
       return actionResult;
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return PokemonActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -556,7 +556,7 @@ class PokemonCubit extends Cubit<PokemonState> {
       };
       if (actionResult.success) await Future.wait([refreshShop(), refreshProfile()]);
       return actionResult;
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return PokemonActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -574,7 +574,7 @@ class PokemonCubit extends Cubit<PokemonState> {
       };
       if (actionResult.success) await Future.wait([refreshShop(), refreshProfile(), refreshPokemons()]);
       return actionResult;
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return PokemonActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -591,7 +591,7 @@ class PokemonCubit extends Cubit<PokemonState> {
       // before the player tries again.
       if (result.isLeft() && message == null) unawaited(_reloadAfterLostAnswer());
       return PokemonActionResult(success: result.isRight(), message: message);
-    } on Exception catch (e) {
+    } on Object catch (e) {
       unawaited(_reloadAfterLostAnswer());
       return PokemonActionResult(success: false, message: '$e');
     } finally {

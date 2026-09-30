@@ -4,10 +4,12 @@ import 'package:bloc/bloc.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/pokemon/models/models.dart';
+import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/features/pokemon/repository/pokemon_repository.dart';
 import 'package:tsdm_client/features/pokemon/repository/skill_order_store.dart';
 import 'package:tsdm_client/features/pokemon/utils/action_feedback.dart';
 import 'package:tsdm_client/features/pokemon/utils/item_merge.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// Loading status of a battle.
@@ -192,6 +194,9 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
           ),
         );
       case Right(:final value):
+        // The client started this battle itself, so it is not one the adventure page already saw end: on the same map
+        // against the same species with the same own pokemon the key repeats.
+        getIt.get<AdventureCache>().forgetFinishedBattle(value);
         _emitSceneIfCurrent(value, generation, status: BattleStatus.success, actionInProgress: false);
     }
   }
@@ -221,7 +226,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
         (e) => BattleActionResult(success: false, message: _messageOf(e)),
         (heal) => BattleActionResult(success: true, message: heal.message),
       );
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return BattleActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -348,12 +353,12 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
             if (scene.isActive) _turn++;
             if (!isClosed) _emitSceneIfCurrent(scene, generation);
             return BattleUseItemResult(scene: scene);
-          } on Exception {
+          } on Object {
             return const BattleUseItemResult(message: 'unexpected battle item response');
           }
         },
       );
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return BattleUseItemResult(message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -399,7 +404,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
           return const BattleActionResult(success: true);
         },
       );
-    } on Exception catch (e) {
+    } on Object catch (e) {
       return BattleActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));

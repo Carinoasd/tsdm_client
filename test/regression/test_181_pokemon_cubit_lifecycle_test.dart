@@ -6,6 +6,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/pokemon/cubit/battle_cubit.dart';
 import 'package:tsdm_client/features/pokemon/cubit/pokemon_cubit.dart';
 import 'package:tsdm_client/features/pokemon/models/models.dart';
+import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -103,6 +104,7 @@ void main() {
     final cookie = CookieProvider(const UserLoginInfo(username: 'Alice', uid: 1), const {});
     getIt
       ..registerSingleton<CookieProvider>(cookie)
+      ..registerSingleton<AdventureCache>(AdventureCache())
       ..registerSingleton<NetErrorSaver>(NetErrorSaver())
       ..registerSingleton<NetClientProvider>(NetClientProvider.buildNoCookie(dio: dio, cookie: cookie));
   }
