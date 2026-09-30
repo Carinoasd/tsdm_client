@@ -192,13 +192,17 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
           await start(mapId, bossTypeId: bossTypeId, keepScene: keepScene, retryAfterHeal: false);
           return;
         }
-        emit(
-          state.copyWith(
-            status: _isNeedLogin(value) ? BattleStatus.needLogin : BattleStatus.failure,
-            failureMessage: _messageOf(value),
-            actionInProgress: false,
-          ),
-        );
+        // A resume (or a newer action) makes this answer stale: it must not switch the page to the failure state, nor
+        // unlock a page another action is running on.
+        if (generation == _generation) {
+          emit(
+            state.copyWith(
+              status: _isNeedLogin(value) ? BattleStatus.needLogin : BattleStatus.failure,
+              failureMessage: _messageOf(value),
+              actionInProgress: false,
+            ),
+          );
+        }
       case Right(:final value):
         // The client started this battle itself, so it is not one the adventure page already saw end: on the same map
         // against the same species with the same own pokemon the key repeats.

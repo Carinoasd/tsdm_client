@@ -50,7 +50,8 @@ final class PokemonRepository with LoggerMixin {
   /// Deadline of a write.
   ///
   /// It has to outlast the transport's own read timeout (30s in the android client), or a write that was still in flight
-  /// would be reported as a failure although the server may well have carried it out.
+  /// would be reported as a failure although the server may well have carried it out. Reading the session's formhash
+  /// (up to [_requestDeadline]) happens before it, so one call can take longer than this deadline on its own.
   static const _writeDeadline = Duration(seconds: 45);
 
   /// Header the plugin's API expects for its cross-site request check.
