@@ -47,9 +47,11 @@ object HttpClient {
         else -> client
     }
 
-    // The plugin's own header marks its api calls, and the image cache accepts images; both are the endpoints that
-    // need more time. Keeping the choice here avoids a second method channel flag for the same meaning.
-    private fun needsMoreTime(headers: Map<String, String>): Boolean {
+    // The plugin's own pages and api answer slowly, and so does the image cdn: those requests get the wider timeouts.
+    // The url matters most: the read that fetches the session formhash carries no plugin header yet, and a request made
+    // without one (a formhash that could not be read) has to keep the wider timeouts too.
+    private fun needsMoreTime(url: String, headers: Map<String, String>): Boolean {
+        if (url.contains("id=pokemon")) return true
         val wantsImage = headers.entries.any { (key, value) ->
             key.equals("Accept", ignoreCase = true) && value.startsWith("image/")
         }
@@ -65,7 +67,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                pick(needsMoreTime(headers), false).newCall(request).execute()
+                pick(needsMoreTime(url, headers), false).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }
@@ -159,7 +161,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                pick(needsMoreTime(headers), singleAttempt).newCall(request).execute()
+                pick(needsMoreTime(url, headers), singleAttempt).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }
