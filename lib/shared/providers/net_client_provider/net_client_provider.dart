@@ -36,7 +36,7 @@ AppException mapException(Object error, StackTrace st) {
   }
   if (error case DioException(:final response)) {
     return HttpHandshakeFailedException(
-      error.message ?? '<unknown error>',
+      error.message ?? error.error?.toString() ?? error.type.name,
       statusCode: response?.statusCode,
       headers: response?.headers,
     );
@@ -213,6 +213,38 @@ final class NetClientProvider with LoggerMixin {
     bool singleAttempt = false,
   }) => _dio.postWithForm(path, data: data, queryParameters: queryParameters, singleAttempt: singleAttempt);
 
+  /// Post [data] as JSON (`Content-Type: application/json`) to [path].
+  ///
+  /// The response body is returned as a plain string and every status code is accepted so the caller can read the
+  /// plugin's JSON envelope (including its error body) itself. [headers] are added to this request's headers.
+  AsyncEither<Response<dynamic>> postJson(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+  }) => AsyncEither.tryCatch(
+    () async {
+      final resp = await _dio.post<dynamic>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(
+          headers: {HttpHeaders.contentTypeHeader: Headers.jsonContentType, ...?headers},
+          responseType: ResponseType.plain,
+          validateStatus: (_) => true,
+        ),
+      );
+      final status = resp.statusCode ?? 0;
+      if (status < HttpStatus.ok || status >= HttpStatus.multipleChoices) {
+        // Every status is accepted above so the caller can read the plugin's own envelope; log the bad ones anyway, or a
+        // call the server keeps rejecting leaves no trace in an exported log.
+        warning('${resp.requestOptions.method} ${resp.requestOptions.uri} answered $status');
+      }
+      return resp;
+    },
+    mapException,
+  );
+
   /// Post a form [data] to url [path] in `Content-Type` multipart/form-data.
   ///
   /// Automatically set `Content-Type` to `multipart/form-data`.
@@ -360,7 +392,15 @@ class _ErrorHandler extends Interceptor with LoggerMixin {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    error('${err.requestOptions.uri} ${err.type}: error: ${err.error}, status code: ${err.response?.statusCode}');
+    final status = err.response?.statusCode;
+    // A missing resource (an avatar a user never uploaded, for example) is not a network problem, so keep it out of the
+    // error log and out of the network error banner.
+    if (err.type == DioExceptionType.badResponse && status == 404) {
+      debug('${err.requestOptions.uri} ${err.type}: status code: $status');
+      handler.next(err);
+      return;
+    }
+    error('${err.requestOptions.uri} ${err.type}: error: ${err.error}, status code: $status');
     getIt.get<NetErrorSaver>().save(err.message);
 
     if (err.type == DioExceptionType.badResponse) {
@@ -472,7 +512,9 @@ final class _GzipEncodingChecker extends Interceptor with LoggerMixin {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     // Likely to have redirect on post methods.
     if (options.method != 'GET' || options.uri.queryParameters['goto'] == 'findpost') {
-      info('removing gzip encoding in request');
+      // The method and the url belong in the line: without them a burst of these lines cannot be traced back to a caller
+      // from an exported log, where a repeating write request otherwise leaves no trace at all.
+      info('removing gzip encoding in request: ${options.method} ${options.uri}');
       options.headers[HttpHeaders.acceptEncodingHeader] = 'deflate, br';
     }
 

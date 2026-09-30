@@ -28,6 +28,7 @@ class MainActivity: FlutterActivity() {
         const val HTTP_GET = "get"
         const val HTTP_POST_FORM = "postForm"
         const val HTTP_POST_MULTIPART = "postMultipart"
+        const val HTTP_POST_JSON = "postJson"
 
         /** Window size events sent to Dart, see `lib/utils/window_events.dart` (GitHub #28). */
         const val WINDOW_CHANNEL = "kzs.th000.tsdm_client/windowChannel"
@@ -249,6 +250,24 @@ class MainActivity: FlutterActivity() {
                     }
                 }
 
+            }
+            HTTP_POST_JSON -> {
+                val url = call.argument<String>("url")!!
+                val headers = call.argument<HashMap<String, String>>("headers")!!
+                val body = call.argument<String>("body")!!
+                CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                    try {
+                        val resp = HttpClient.postJson(url, headers, body)
+                        val statusCode = resp.code
+                        val headers = HashMap(resp.headers.toMultimap())
+                        val body = resp.body.bytes()
+                        val isRedirect = resp.isRedirect
+                        result.success(buildResponse(statusCode, headers, body, isRedirect))
+                    } catch (e: Exception) {
+                        Log.e("KT_HTTP_ERROR", "failed to post json: ${e.message ?: "unknown error"}")
+                        result.error("KT_HTTP_ERROR", "failed to perform http POST json", e.message ?: "unknown error")
+                    }
+                }
             }
             else -> {
                 result.notImplemented()

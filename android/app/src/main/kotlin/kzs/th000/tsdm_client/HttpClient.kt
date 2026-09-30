@@ -4,17 +4,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.BufferedSink
 import java.net.ProxySelector
+import java.util.concurrent.TimeUnit
 
 object HttpClient {
+    // The forum and its CDN answer slowly under load (the 10s OkHttp defaults timed out the pokemon heal and the
+    // sprite downloads on slower devices), so relax the timeouts. Write stays generous for uploads.
     private val client by lazy {
-        OkHttpClient.Builder().proxySelector(ProxySelector.getDefault()).build()
+        OkHttpClient.Builder()
+            .proxySelector(ProxySelector.getDefault())
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
     }
 
     // Share connections and dispatchers, but never replay a non-idempotent transaction.
@@ -93,6 +103,23 @@ object HttpClient {
             .url(url)
             .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
             .post(multipartBody)
+            .build()
+
+        return withContext(Dispatchers.IO) {
+            try {
+                client.newCall(request).execute()
+            } catch (e: Exception) {
+                throw e
+            }
+        }
+    }
+
+    suspend fun postJson(url: String, headers: HashMap<String, String>, body: String): Response {
+        val requestBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url(url)
+            .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
+            .post(requestBody)
             .build()
 
         return withContext(Dispatchers.IO) {
