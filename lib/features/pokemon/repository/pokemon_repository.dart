@@ -59,6 +59,9 @@ final class PokemonRepository with LoggerMixin {
   /// Formhash of the current session, cached because it is bound to the cookie session.
   static String? _formHash;
 
+  /// Account the cached formhash belongs to: another account must not send the previous session's hash.
+  static int? _formHashUid;
+
   /// A formhash read that is still in flight, so the requests of one page load share a single read of the page.
   static Future<String?>? _formHashRead;
 
@@ -303,12 +306,15 @@ final class PokemonRepository with LoggerMixin {
   }, deadline: deadline);
 
   /// POST [endpoint] (optionally with a JSON [body]) and ignore the response `data`.
+  ///
+  /// The write helpers mark their calls single-attempt: a write the server already carried out must not be sent again.
   AsyncVoidEither _postAction(String endpoint, {Map<String, dynamic>? body}) => _send<void>((headers) async {
     final resp = await _net
         .postJson(
           '$pokemonApiBase&endpoint=$endpoint',
           data: jsonEncode(body ?? const <String, dynamic>{}),
           headers: headers,
+          singleAttempt: true,
         )
         .run();
     return switch (resp) {
@@ -327,7 +333,7 @@ final class PokemonRepository with LoggerMixin {
     required T Function(Map<String, dynamic>) decode,
   }) => _send((headers) async {
     final resp = await _net
-        .postJson('$pokemonApiBase&endpoint=$endpoint', data: jsonEncode(body), headers: headers)
+        .postJson('$pokemonApiBase&endpoint=$endpoint', data: jsonEncode(body), headers: headers, singleAttempt: true)
         .run();
     return switch (resp) {
       Left(:final value) => left<AppException, T>(value),
@@ -371,43 +377,51 @@ final class PokemonRepository with LoggerMixin {
   /// A page load starts several requests at once and they all need the header, so a read that is already in flight is
   /// shared instead of fetching the page once per request.
   Future<String?> _ensureFormHash({bool refresh = false}) {
-    if (refresh) {
+    // The formhash belongs to one account's session, so a cached one is only reused for that same account.
+    final uid = getIt.get<CookieProvider>().userLoginInfo.uid;
+    if (_formHashUid != uid) {
+      _formHash = null;
       _formHashRead = null;
-      return _readFormHash();
+      _formHashUid = uid;
     }
-    final cached = _formHash;
-    if (cached != null) return Future.value(cached);
-    return _formHashRead ??= _readFormHash();
+    if (!refresh) {
+      final cached = _formHash;
+      if (cached != null) return Future.value(cached);
+      final inFlight = _formHashRead;
+      if (inFlight != null) return inFlight;
+    }
+    // A refresh starts a read of its own; an older one is left to finish without clearing this one.
+    final read = _readFormHash();
+    _formHashRead = read;
+    return read.whenComplete(() {
+      if (identical(_formHashRead, read)) _formHashRead = null;
+    });
   }
 
   /// Read the formhash from the plugin page and remember it; a failed read is not cached.
   Future<String?> _readFormHash() async {
-    try {
-      // The page read runs under the same deadline as the call that waits for it: a parked read must not hold it.
-      final resp = await _net
-          .get(_formHashPageUrl, options: _options())
-          .run()
-          .timeout(
-            _requestDeadline,
-            onTimeout: () => left<AppException, Response<dynamic>>(HttpRequestFailedException(null)),
-          );
-      if (resp.isLeft()) return null;
-      final hash = formHashOf('${resp.fold((_) => '', (value) => value.data)}');
-      if (hash == null) {
-        warning('failed to read the formhash from $_formHashPageUrl');
-        return null;
-      }
-      _formHash = hash;
-      return hash;
-    } finally {
-      _formHashRead = null;
+    // The page read runs under the same deadline as the call that waits for it: a parked read must not hold it.
+    final resp = await _net
+        .get(_formHashPageUrl, options: _options())
+        .run()
+        .timeout(
+          _requestDeadline,
+          onTimeout: () => left<AppException, Response<dynamic>>(HttpRequestFailedException(null)),
+        );
+    if (resp.isLeft()) return null;
+    final hash = formHashOf('${resp.fold((_) => '', (value) => value.data)}');
+    if (hash == null) {
+      warning('failed to read the formhash from $_formHashPageUrl');
+      return null;
     }
+    _formHash = hash;
+    return hash;
   }
 
   /// POST [endpoint] with a JSON [body] and return its `data` object as a raw map.
   AsyncEither<Map<String, dynamic>> _postRaw(String endpoint, Map<String, dynamic> body) => _send((headers) async {
     final resp = await _net
-        .postJson('$pokemonApiBase&endpoint=$endpoint', data: jsonEncode(body), headers: headers)
+        .postJson('$pokemonApiBase&endpoint=$endpoint', data: jsonEncode(body), headers: headers, singleAttempt: true)
         .run();
     return switch (resp) {
       Left(:final value) => left<AppException, Map<String, dynamic>>(value),
