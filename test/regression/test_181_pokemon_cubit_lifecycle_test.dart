@@ -34,9 +34,13 @@ void main() {
   /// With [turnFails] a battle turn loses the transport (no answer at all); [recoverDelay] holds the read-back after
   /// such a failure open; [recoveredScene] is what that read-back finds and [startedScene] what the next battle start
   /// answers, so a scene that changed while an answer was lost can be told apart from the one that was read back.
+  /// [turnDelay] holds a battle turn open and [pageTwoDelay] the second page of a list, so a newer action or a category
+  /// switch can overtake them.
   void useFakeForum({
     Duration delay = Duration.zero,
     bool turnFails = false,
+    Duration turnDelay = Duration.zero,
+    Duration pageTwoDelay = Duration.zero,
     Duration recoverDelay = Duration.zero,
     Map<String, dynamic>? recoveredScene,
     Map<String, dynamic>? startedScene,
@@ -107,6 +111,12 @@ void main() {
             }
             if (options.uri.queryParameters['action'] == 'recover' && recoverDelay > Duration.zero) {
               await Future<void>.delayed(recoverDelay);
+            }
+            if (options.uri.queryParameters['action'] == 'turn' && turnDelay > Duration.zero) {
+              await Future<void>.delayed(turnDelay);
+            }
+            if (options.uri.queryParameters['page'] == '2' && pageTwoDelay > Duration.zero) {
+              await Future<void>.delayed(pageTwoDelay);
             }
             // A transport failure has no answer at all, which is what the client has to treat as a network problem.
             if (turnFails && options.uri.queryParameters['action'] == 'turn') {
@@ -371,5 +381,121 @@ void main() {
     expect(paths.where((path) => path.contains('action=inventory') && path.contains('page=1')), hasLength(1));
     expect(cubit.state.shopPage, 1);
     expect(cubit.state.inventoryPage, 1);
+  });
+
+  test('a load-more the player switched category under is dropped', () async {
+    useFakeForum(pageTwoDelay: const Duration(milliseconds: 150));
+    final cubit = PokemonCubit();
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    // The player scrolls to the end of the first page of both lists...
+    final inventoryMore = cubit.loadMoreInventory();
+    final shopMore = cubit.loadMoreShop();
+    // ...and picks another category while the second pages are still on their way.
+    await cubit.setInventoryCategory(ShopCategory.ball);
+    await cubit.setShopCategory(ShopCategory.ball);
+    await Future.wait([inventoryMore, shopMore]);
+
+    // Those pages belong to the lists of the old category: appending them would show them under the new one and skip
+    // the new list's own second page. The page counter cannot tell, since the switch reset it to 1, the very page the
+    // load-more started from.
+    expect(cubit.state.inventoryCategory, ShopCategory.ball);
+    expect(cubit.state.inventoryPage, 1);
+    expect(cubit.state.shopCategory, ShopCategory.ball);
+    expect(cubit.state.shopPage, 1);
+  });
+
+  test('a stale action that loses its answer does not read the battle back', () async {
+    useFakeForum(
+      turnFails: true,
+      turnDelay: const Duration(milliseconds: 150),
+      startedScene: {
+        'battle_id': 'battle_2',
+        'map_id': 3,
+        'status': 'active',
+        'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 9, 'max_hp': 18},
+      },
+    );
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+    cubit.resume(
+      BattleScene.fromMap(const {
+        'battle_id': 'battle_1',
+        'map_id': 3,
+        'status': 'active',
+        'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 18, 'max_hp': 18},
+      }),
+    );
+
+    final stale = cubit.useSkill(0);
+    // A newer action takes the screen while the turn is still on its way.
+    await cubit.start(3);
+    final result = await stale;
+    expect(result.success, isFalse);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    // The read-back would take the newer action's generation and could paint a scene from before it over the screen.
+    expect(paths.where((path) => path.contains('action=recover')), isEmpty);
+    expect(cubit.state.scene?.battleId, 'battle_2');
+  });
+
+  test('fight again heals the pet the running scene named when the end scene lost its id', () async {
+    useFakeForum();
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+    cubit
+      ..resume(
+        BattleScene.fromMap(const {
+          'battle_id': 'battle_1',
+          'map_id': 3,
+          'status': 'active',
+          'my_pokemon': {'instance_id': 7, 'hp': 20, 'max_hp': 20},
+          'wild_pokemon': {'id': 25, 'hp': 18, 'max_hp': 18},
+        }),
+      )
+      // The end-of-battle answer names neither the battle nor the pet, but the pet is hurt.
+      ..resume(
+        BattleScene.fromMap(const {
+          'battle_id': '',
+          'map_id': 3,
+          'status': 'victory',
+          'my_pokemon': {'instance_id': 0, 'hp': 3, 'max_hp': 20},
+          'wild_pokemon': {'id': 25, 'hp': 0, 'max_hp': 18},
+        }),
+      );
+    paths.clear();
+
+    await cubit.fightAgain(3);
+
+    expect(paths.where((path) => path.contains('action=heal') && path.contains('pokemon_id=7')), hasLength(1));
+    expect(paths.where((path) => path.contains('pokemon_id=0')), isEmpty);
+    expect(paths.where((path) => path.contains('action=start')), hasLength(1));
+  });
+
+  test('fight again heals the party when no scene named the pet', () async {
+    useFakeForum();
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+    // The battle was never seen running, and the end answer does not name the pet.
+    cubit.resume(
+      BattleScene.fromMap(const {
+        'battle_id': '',
+        'map_id': 3,
+        'status': 'victory',
+        'my_pokemon': {'instance_id': 0, 'hp': 3, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 0, 'max_hp': 18},
+      }),
+    );
+    paths.clear();
+
+    await cubit.fightAgain(3);
+
+    // Healing pokemon 0 would fail silently; the party list names the pets that need it instead.
+    expect(paths.where((path) => path.contains('pokemon_id=0')), isEmpty);
+    expect(paths.where((path) => path.contains('action=list')), hasLength(1));
+    expect(paths.where((path) => path.contains('action=start')), hasLength(1));
   });
 }

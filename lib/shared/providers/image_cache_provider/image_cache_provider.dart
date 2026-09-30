@@ -397,6 +397,13 @@ final class ImageCacheProvider with LoggerMixin {
       await cache.writeAsBytes(imageData);
     } on FileSystemException catch (e) {
       warning('could not save the image cache (${imageUrl.length} char url): ${e.message}');
+      // A write that failed halfway (a full disk) leaves a truncated file; a row an earlier save left for this url would
+      // then serve a broken image, so drop the file and let the next load download it again.
+      try {
+        if (cache.existsSync()) await cache.delete();
+      } on FileSystemException catch (_) {
+        // Best effort: the warning above already reports the failed save.
+      }
       return;
     }
 

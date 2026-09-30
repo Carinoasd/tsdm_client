@@ -378,10 +378,12 @@ class PokemonCubit extends Cubit<PokemonState> {
       });
       return;
     }
-    final result = await _repository.getShop(type: state.shopCategory.type).run();
+    final category = state.shopCategory;
+    final result = await _repository.getShop(type: category.type).run();
     if (isClosed) return;
     result.fold((_) => null, (shop) {
-      if (state.shopCategory.isPet) return;
+      // The player may have switched to another item category (or to the pets) while the answer was on its way.
+      if (state.shopCategory != category) return;
       emit(state.copyWith(shop: shop, shopPage: 1));
     });
   }
@@ -404,9 +406,10 @@ class PokemonCubit extends Cubit<PokemonState> {
       result.fold(
         (_) => null,
         (page) {
-          // The player may have switched category (or gone to another page) while this answer was on its way, and that
-          // page does not belong to the list that is on screen now. `next - 1` is the page the request started from.
-          if (state.inventoryPage != next - 1) return;
+          // A category switch, a refresh or another load-more replaces the list while this answer is on its way, and the
+          // page then belongs to a list that is no longer on screen. The page number cannot tell: a switch or a refresh
+          // resets it to 1, the very page most load-mores start from.
+          if (!identical(state.inventory, current)) return;
           emit(
             state.copyWith(
               inventory: InventoryPage(
@@ -453,8 +456,8 @@ class PokemonCubit extends Cubit<PokemonState> {
         result.fold(
           (_) => null,
           (page) {
-            // The player may have switched category while this answer was on its way: it does not belong to that list.
-            if (!state.shopCategory.isPet || state.shopPage != next - 1) return;
+            // Same as the inventory: a switch or a refresh replaced the list, and this page belongs to the old one.
+            if (!identical(state.shopPets, current)) return;
             emit(
               state.copyWith(
                 shopPets: ShopPetsPage(
@@ -479,8 +482,8 @@ class PokemonCubit extends Cubit<PokemonState> {
       result.fold(
         (_) => null,
         (page) {
-          // The player may have switched category while this answer was on its way: it does not belong to that list.
-          if (state.shopCategory.isPet || state.shopPage != next - 1) return;
+          // Same as the inventory: a switch or a refresh replaced the list, and this page belongs to the old one.
+          if (!identical(state.shop, current)) return;
           emit(
             state.copyWith(
               shop: ShopPage(
@@ -634,11 +637,11 @@ class PokemonCubit extends Cubit<PokemonState> {
       final result = await action().run();
       final message = result.fold(_messageOf, (_) => null);
       // A write that lost its answer may or may not have happened on the server, so read the money and the bag back
-      // before the player tries again.
-      if (result.isLeft() && message == null) unawaited(_reloadAfterLostAnswer());
+      // (and the party, which these writes change) before the player tries again.
+      if (result.isLeft() && message == null) unawaited(_reloadAfterLostWrite());
       return PokemonActionResult(success: result.isRight(), message: message);
     } on Object catch (e) {
-      unawaited(_reloadAfterLostAnswer());
+      unawaited(_reloadAfterLostWrite());
       return PokemonActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
@@ -649,6 +652,11 @@ class PokemonCubit extends Cubit<PokemonState> {
   Future<void> _reloadAfterLostAnswer() async {
     await refreshProfile();
     await refreshInventory();
+  }
+
+  /// [_reloadAfterLostAnswer] plus the pokemon list, for the writes [_runVoid] runs on the party.
+  Future<void> _reloadAfterLostWrite() async {
+    await Future.wait([_reloadAfterLostAnswer(), refreshPokemons()]);
   }
 
   /// Find a pokemon by id in the current state, or null.

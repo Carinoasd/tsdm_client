@@ -283,7 +283,16 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     emit(state.copyWith(actionInProgress: true));
     final scene = state.scene;
     if (scene != null && _scenePetNeedsHealing(scene)) {
-      await healPet(scene.myPokemon.instanceId);
+      // The end-of-battle answer may leave the pokemon's id at 0, and healing pokemon 0 would fail silently and send the
+      // pet into the next fight hurt: take the id from the last running scene, or heal the whole party without one.
+      final instanceId = scene.myPokemon.instanceId > 0
+          ? scene.myPokemon.instanceId
+          : _runningScene?.myPokemon.instanceId ?? 0;
+      if (instanceId > 0) {
+        await healPet(instanceId);
+      } else {
+        await healParty();
+      }
       if (isClosed) return;
     }
     await start(mapId, bossTypeId: bossTypeId, keepScene: true);
@@ -411,8 +420,10 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
       return result.fold(
         (e) {
           // The answer never arrived, so the scene on screen may no longer be the server's: read it again instead of
-          // leaving the player acting on a stale one.
-          if (_messageOf(e) == null) unawaited(resync());
+          // leaving the player acting on a stale one. A stale action (a resume or a newer action came in) must not: the
+          // read-back would take the newer generation and could paint a scene from before the newer action over it,
+          // and the resume reads the battle again itself.
+          if (_messageOf(e) == null && generation == _generation) unawaited(resync());
           return BattleActionResult(success: false, message: _messageOf(e));
         },
         (scene) {
