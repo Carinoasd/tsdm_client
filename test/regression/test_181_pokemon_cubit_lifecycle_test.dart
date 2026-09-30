@@ -320,4 +320,23 @@ void main() {
     expect(paths.where((path) => path.contains('action=flee')), hasLength(1));
     expect(paths.where((path) => path.contains('heal_and_flee')), isEmpty);
   });
+
+  test('does not report a battle as ended when nothing could end it', () async {
+    useFakeForum();
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+
+    // The battle was never seen running, and the end answer names neither the battle nor the pokemon.
+    final result = await cubit.finishDefeat(
+      BattleScene.fromMap(const {
+        'battle_id': '',
+        'map_id': 3,
+        'status': 'defeat',
+        'my_pokemon': {'instance_id': 0, 'hp': 0, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 1, 'max_hp': 18},
+      }),
+    );
+
+    expect(result.success, isFalse, reason: 'the battle may still be running on the server');
+  });
 }

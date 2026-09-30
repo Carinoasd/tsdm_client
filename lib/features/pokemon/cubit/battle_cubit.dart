@@ -356,8 +356,11 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
           }
           try {
             final scene = BattleScene.fromMap(data);
-            if (scene.isActive) _turn++;
-            if (!isClosed) _emitSceneIfCurrent(scene, generation);
+            // A stale answer (a resume or a newer action came in) must not touch the round count or the scene.
+            if (generation == _generation) {
+              if (scene.isActive) _turn++;
+              if (!isClosed) _emitSceneIfCurrent(scene, generation);
+            }
             return BattleUseItemResult(scene: scene);
           } on Object {
             return const BattleUseItemResult(message: 'unexpected battle item response');
@@ -367,7 +370,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     } on Object catch (e) {
       return BattleUseItemResult(message: '$e');
     } finally {
-      if (!isClosed) emit(state.copyWith(actionInProgress: false));
+      // The busy state belongs to the action that is actually running: a stale answer must not unlock the page.
+      if (!isClosed && generation == _generation) emit(state.copyWith(actionInProgress: false));
     }
   }
 
@@ -404,16 +408,20 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
           return BattleActionResult(success: false, message: _messageOf(e));
         },
         (scene) {
-          // A turn the server accepted and that left the battle running is one more round; ending it does not count.
-          if (scene.isActive) _turn++;
-          if (!isClosed) _emitSceneIfCurrent(scene, generation);
+          // A turn the server accepted and that left the battle running is one more round; ending it does not count. A
+          // resume (or a newer action) makes this answer stale, and a stale answer must not touch the round count.
+          if (generation == _generation) {
+            if (scene.isActive) _turn++;
+            if (!isClosed) _emitSceneIfCurrent(scene, generation);
+          }
           return const BattleActionResult(success: true);
         },
       );
     } on Object catch (e) {
       return BattleActionResult(success: false, message: '$e');
     } finally {
-      if (!isClosed) emit(state.copyWith(actionInProgress: false));
+      // The busy state belongs to the action that is actually running: a stale answer must not unlock the page.
+      if (!isClosed && generation == _generation) emit(state.copyWith(actionInProgress: false));
     }
   }
 
@@ -475,6 +483,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     final instanceId = scene.myPokemon.instanceId > 0 ? scene.myPokemon.instanceId : running?.myPokemon.instanceId ?? 0;
     final battleId = scene.battleId.isNotEmpty ? scene.battleId : running?.battleId ?? '';
 
+    AppException? healError;
     if (instanceId > 0) {
       final healed = await _repository.healAndFlee(instanceId).run();
       if (isClosed) return const BattleActionResult(success: false);
@@ -486,16 +495,17 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
       }
       // The server had already cleared the battle (no usable backup, or another client ended it): heal directly, so the
       // pet is restored even when there is nothing left to end.
-      final healError = healed.fold((e) => e, (_) => null);
+      healError = healed.fold((e) => e, (_) => null);
       if (battleAlreadyOverError(healError)) {
         return healPet(instanceId);
       }
     }
 
     if (battleId.isEmpty) {
-      // Nothing left to end the battle with: heal what the party needs, and the page remembers the battle as over.
+      // Nothing left to end the battle with. The party is healed anyway, but the battle may well still be running on the
+      // server, so this is not reported as done (only "the battle is already over" is).
       await healParty();
-      return const BattleActionResult(success: true);
+      return BattleActionResult(success: false, message: _messageOf(healError ?? HttpRequestFailedException(null)));
     }
 
     final fled = await _repository.flee(battleId).run();
