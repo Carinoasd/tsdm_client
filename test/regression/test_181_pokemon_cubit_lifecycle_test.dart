@@ -80,6 +80,14 @@ void main() {
           'data': {'status_bar_hidden': serverStatusBarHidden},
         });
       }
+      // Two pages of shop and bag items, so a load-more can advance the page counter.
+      if (action == 'inventory' || (action == 'list' && uri.queryParameters['endpoint'] == 'shop')) {
+        final page = int.tryParse(uri.queryParameters['page'] ?? '1') ?? 1;
+        return jsonEncode({
+          'success': true,
+          'data': {'items': <Object>[], 'total': 30, 'page': page, 'per_page': 20, 'total_pages': 2},
+        });
+      }
       if (action == 'list') {
         return jsonEncode({
           'success': true,
@@ -338,5 +346,30 @@ void main() {
     );
 
     expect(result.success, isFalse, reason: 'the battle may still be running on the server');
+  });
+
+  test('a refresh reads the lists from their first page again', () async {
+    useFakeForum();
+    final cubit = PokemonCubit();
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    // The player scrolled one page into both lists.
+    await cubit.loadMoreShop();
+    await cubit.loadMoreInventory();
+    expect(cubit.state.shopPage, 2);
+    expect(cubit.state.inventoryPage, 2);
+    paths.clear();
+
+    await cubit.refreshShop();
+    await cubit.refreshInventory();
+
+    // The pages loaded before belong to the list that was on screen: a refresh asks for the first page again and moves
+    // the counter back with it (keeping only the page the player had reached would drop everything before it, and
+    // loadMore only goes forward).
+    expect(paths.where((path) => path.contains('endpoint=shop') && path.contains('page=1')), hasLength(1));
+    expect(paths.where((path) => path.contains('action=inventory') && path.contains('page=1')), hasLength(1));
+    expect(cubit.state.shopPage, 1);
+    expect(cubit.state.inventoryPage, 1);
   });
 }
