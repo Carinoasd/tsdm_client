@@ -554,7 +554,14 @@ class PokemonCubit extends Cubit<PokemonState> {
         Left(:final value) => PokemonActionResult(success: false, message: _messageOf(value)),
         Right(:final value) => PokemonActionResult(success: true, message: value.message),
       };
-      if (actionResult.success) await Future.wait([refreshShop(), refreshProfile()]);
+      if (actionResult.success) {
+        await Future.wait([refreshShop(), refreshProfile()]);
+      } else if (actionResult.message == null) {
+        // A purchase that lost its answer may have gone through: read the money and the bag back before the player
+        // tries again.
+        await _reloadAfterLostAnswer();
+        await refreshShop();
+      }
       return actionResult;
     } on Object catch (e) {
       return PokemonActionResult(success: false, message: '$e');
@@ -572,7 +579,15 @@ class PokemonCubit extends Cubit<PokemonState> {
         Left(:final value) => PokemonActionResult(success: false, message: _messageOf(value)),
         Right(:final value) => PokemonActionResult(success: true, message: value.message),
       };
-      if (actionResult.success) await Future.wait([refreshShop(), refreshProfile(), refreshPokemons()]);
+      if (actionResult.success) {
+        await Future.wait([refreshShop(), refreshProfile(), refreshPokemons()]);
+      } else if (actionResult.message == null) {
+        // A purchase that lost its answer may have gone through: read the money, the bag and the party back before the
+        // player tries again.
+        await _reloadAfterLostAnswer();
+        await refreshShop();
+        await refreshPokemons();
+      }
       return actionResult;
     } on Object catch (e) {
       return PokemonActionResult(success: false, message: '$e');
