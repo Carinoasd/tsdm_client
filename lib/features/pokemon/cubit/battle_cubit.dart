@@ -296,7 +296,9 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   /// wait and read the battle again from the server. The answers of requests that were in flight are dropped.
   Future<BattleResumeResult> onAppResumed() async {
     if (!state.actionInProgress) return BattleResumeResult.nothing;
-    _generation++;
+    // A resume is a new generation: answers that were in flight are dropped, including this read-back's own scene if the
+    // player started an action while the battle was being read again.
+    final generation = ++_generation;
     emit(state.copyWith(actionInProgress: false));
     final result = await _repository.recoverBattle().run();
     if (isClosed) return BattleResumeResult.failed;
@@ -307,7 +309,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
       unawaited(healParty());
       return BattleResumeResult.gone;
     }
-    _emitScene(scene, status: BattleStatus.success, actionInProgress: false);
+    _emitSceneIfCurrent(scene, generation, status: BattleStatus.success, actionInProgress: false);
     return BattleResumeResult.refreshed;
   }
 
