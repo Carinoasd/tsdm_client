@@ -802,6 +802,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async => context.pushNamed(ScreenPaths.bank),
               ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: const Icon(Icons.catching_pokemon),
+                title: Text(context.t.pokemon.title),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async => context.pushNamed(ScreenPaths.pokemon),
+              ),
             ],
           ),
         ),

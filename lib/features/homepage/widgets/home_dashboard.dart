@@ -534,6 +534,7 @@ class HomeToolsCard extends StatelessWidget {
       (Icons.star_outline, tr.welcome.favorite, ScreenPaths.favorite),
       (Icons.history_outlined, tr.welcome.history, ScreenPaths.threadVisitHistory),
       (Icons.account_balance_outlined, context.t.bank.title, ScreenPaths.bank),
+      (Icons.catching_pokemon, context.t.pokemon.title, ScreenPaths.pokemon),
     ];
     return Card(
       margin: EdgeInsets.zero,

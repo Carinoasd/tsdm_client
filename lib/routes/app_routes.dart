@@ -34,6 +34,13 @@ import 'package:tsdm_client/features/notification/view/notification_sync_all_pag
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/packet/view/packet_detail_page.dart';
 import 'package:tsdm_client/features/points/views/points_page.dart';
+import 'package:tsdm_client/features/pokemon/models/models.dart';
+import 'package:tsdm_client/features/pokemon/view/adventure_page.dart';
+import 'package:tsdm_client/features/pokemon/view/battle_page.dart';
+import 'package:tsdm_client/features/pokemon/view/pokemon_detail_page.dart';
+import 'package:tsdm_client/features/pokemon/view/pokemon_equipment_page.dart';
+import 'package:tsdm_client/features/pokemon/view/pokemon_page.dart';
+import 'package:tsdm_client/features/pokemon/view/pokemon_storage_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/view/fast_reply_edit_template_page.dart';
@@ -71,10 +78,14 @@ import 'package:tsdm_client/shared/models/models.dart';
 /// Tracks root dialogs so external navigation respects their modal barriers.
 final popupRouteObserver = PopupRouteObserver();
 
+/// Tracks pushed pages, so a page that is only covered (the pokemon centre, while the battle page is on top of it) can
+/// refresh itself when it is shown again.
+final routeObserver = RouteObserver<PageRoute<dynamic>>();
+
 /// App router instance wrapped with global singleton widgets.
 final router = GoRouter(
   initialLocation: ScreenPaths.homepage,
-  observers: [popupRouteObserver],
+  observers: [popupRouteObserver, routeObserver],
   routes: _appRoutes,
 );
 
@@ -304,6 +315,21 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
+  AppRoute(path: ScreenPaths.pokemon, builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0)),
+  AppRoute(
+    path: ScreenPaths.pokemonDetail,
+    builder: (state) => PokemonDetailPage(pokemon: state.extra! as Pokemon),
+  ),
+  AppRoute(path: ScreenPaths.pokemonAdventure, builder: (_) => const AdventurePage()),
+  AppRoute(
+    path: ScreenPaths.pokemonBattle,
+    builder: (state) => BattlePage(args: state.extra! as BattlePageArgs),
+  ),
+  AppRoute(path: ScreenPaths.pokemonStorage, builder: (_) => const PokemonStoragePage()),
+  AppRoute(
+    path: ScreenPaths.pokemonEquipment,
+    builder: (state) => PokemonEquipmentPage(pokemon: state.extra! as Pokemon),
+  ),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),
   AppRoute(
     path: ScreenPaths.ratePost,

@@ -1,4 +1,5 @@
 import 'package:system_network_proxy/system_network_proxy.dart';
+import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -58,7 +59,8 @@ Future<void> initProviders() async {
     ..registerSingleton(ImageCacheProvider.new)
     ..registerFactory(NetClientProvider.build)
     ..registerFactory(NetClientProvider.buildNoCookie, instanceName: ServiceKeys.noCookie)
-    ..registerSingleton(NetErrorSaver());
+    ..registerSingleton(NetErrorSaver())
+    ..registerSingleton(AdventureCache());
   await getIt.allReady();
 
   getIt.registerSingleton(

@@ -376,6 +376,11 @@ class _HomepagePageState extends State<HomepagePage> {
                     if (showDailyActionsInBar) const CheckinButton(enableSnackBar: true),
                     const NoticeButton(),
                     IconButton(
+                      icon: const Icon(Icons.catching_pokemon),
+                      tooltip: context.t.pokemon.title,
+                      onPressed: () async => context.pushNamed(ScreenPaths.pokemon),
+                    ),
+                    IconButton(
                       icon: SizedBox(
                         width: 32,
                         height: 32,
