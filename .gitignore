@@ -13,6 +13,9 @@ schema_versions.dart
 /web/sqlite3.debug.wasm
 /web/sqlite3.wasm
 
+# Coverage output of `flutter test --coverage`
+/coverage/
+
 # Genetated files
 /lib/generated
 *.g.dart
