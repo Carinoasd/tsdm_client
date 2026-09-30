@@ -299,7 +299,7 @@ class PokemonCubit extends Cubit<PokemonState> {
     }
     final data = result.fold((_) => const <String, dynamic>{}, (value) => value);
     // Hiding must be confirmed by the answer; refreshing is what the request itself does.
-    final applied = !hide || statusBarHiddenFromBadge(data) == true;
+    final applied = !hide || (statusBarHiddenFromBadge(data) ?? false);
     if (applied) {
       _pendingStatusBar = null;
     }

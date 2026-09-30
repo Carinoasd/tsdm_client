@@ -496,7 +496,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
         if (!mounted) return;
         if (!result.success) _showError(result.message);
       }
-      if (mapId != null && again == true) {
+      if (mapId != null && (again ?? false)) {
         // Healing happens inside, after the page is already marked busy, so the tap is acknowledged immediately; only
         // the pet that just fought is healed (the scene knows its HP and PP).
         await _cubit.fightAgain(mapId, bossTypeId: widget.args.bossTypeId);
