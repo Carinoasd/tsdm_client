@@ -130,3 +130,5 @@ MIT。原作品 Copyright (c) 2023 realth000；修改部分 (C) 2026 Carinoasd�
 使用支付寶掃描下方 QR Code 即可贊助，點擊圖片可查看原圖。
 
 <a href="./doc/pic/alipay-donation.jpg"><img src="./doc/pic/alipay-donation.jpg" width="300" alt="支付寶自願贊助 QR Code，收款人為維護者 Carinoasd"></a>
+
+<!-- Claude review smoke test: this PR will be closed without merging. -->
