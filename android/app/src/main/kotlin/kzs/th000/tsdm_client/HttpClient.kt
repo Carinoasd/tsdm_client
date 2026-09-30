@@ -16,11 +16,14 @@ import java.net.ProxySelector
 import java.util.concurrent.TimeUnit
 
 object HttpClient {
-    // The forum and its CDN answer slowly under load (the 10s OkHttp defaults timed out the pokemon heal and the
-    // sprite downloads on slower devices), so relax the timeouts. Write stays generous for uploads.
-    private val client by lazy {
-        OkHttpClient.Builder()
-            .proxySelector(ProxySelector.getDefault())
+    // The forum answers quickly, so its requests keep the OkHttp defaults (10s): a page under a weak network must fail
+    // as fast as it always did.
+    private val client by lazy { OkHttpClient.Builder().proxySelector(ProxySelector.getDefault()).build() }
+
+    // The plugin api and the image cdn answer slowly under load (the 10s defaults timed out the pokemon heal and the
+    // sprite downloads on slower devices), so the requests that go there get more time.
+    private val relaxedClient by lazy {
+        client.newBuilder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
@@ -28,12 +31,29 @@ object HttpClient {
     }
 
     // Share connections and dispatchers, but never replay a non-idempotent transaction.
-    private val singleAttemptClient by lazy {
-        client.newBuilder()
-            .retryOnConnectionFailure(false)
-            .followRedirects(false)
-            .followSslRedirects(false)
-            .build()
+    private val singleAttemptClient by lazy { noReplay(client) }
+    private val relaxedSingleAttemptClient by lazy { noReplay(relaxedClient) }
+
+    private fun noReplay(base: OkHttpClient) = base.newBuilder()
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .build()
+
+    private fun pick(relaxed: Boolean, singleAttempt: Boolean) = when {
+        relaxed && singleAttempt -> relaxedSingleAttemptClient
+        relaxed -> relaxedClient
+        singleAttempt -> singleAttemptClient
+        else -> client
+    }
+
+    // The plugin's own header marks its api calls, and the image cache accepts images; both are the endpoints that
+    // need more time. Keeping the choice here avoids a second method channel flag for the same meaning.
+    private fun needsMoreTime(headers: Map<String, String>): Boolean {
+        val wantsImage = headers.entries.any { (key, value) ->
+            key.equals("Accept", ignoreCase = true) && value.startsWith("image/")
+        }
+        return wantsImage || headers.keys.any { it.equals("X-Pm-Formhash", ignoreCase = true) }
     }
 
     suspend fun get(url: String, headers: HashMap<String, String>): Response {
@@ -45,7 +65,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                client.newCall(request).execute()
+                pick(needsMoreTime(headers), false).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }
@@ -139,7 +159,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                (if (singleAttempt) singleAttemptClient else client).newCall(request).execute()
+                pick(needsMoreTime(headers), singleAttempt).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }
