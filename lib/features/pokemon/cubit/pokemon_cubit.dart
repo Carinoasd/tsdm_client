@@ -346,7 +346,11 @@ class PokemonCubit extends Cubit<PokemonState> {
   Future<void> refreshInventory() async {
     final result = await _repository.getInventory(page: state.inventoryPage, type: state.inventoryCategory.type).run();
     if (isClosed) return;
-    result.fold((_) => null, (inventory) => emit(state.copyWith(inventory: inventory)));
+    // The player may have moved to another page while the answer was on its way: it would replace the wrong list.
+    result.fold((_) => null, (inventory) {
+      if (inventory.page != state.inventoryPage) return;
+      emit(state.copyWith(inventory: inventory));
+    });
   }
 
   /// Switch the inventory to [category] and load its first page.
@@ -360,12 +364,20 @@ class PokemonCubit extends Cubit<PokemonState> {
     if (state.shopCategory.isPet) {
       final result = await _repository.getShopPets(page: state.shopPage).run();
       if (isClosed) return;
-      result.fold((_) => null, (pets) => emit(state.copyWith(shopPets: pets)));
+      // The player may have switched category while the answer was on its way: it belongs to the old one.
+      result.fold((_) => null, (pets) {
+        if (!state.shopCategory.isPet || state.shopPage != pets.page) return;
+        emit(state.copyWith(shopPets: pets));
+      });
       return;
     }
     final result = await _repository.getShop(page: state.shopPage, type: state.shopCategory.type).run();
     if (isClosed) return;
-    result.fold((_) => null, (shop) => emit(state.copyWith(shop: shop)));
+    // Same for the items: a category switch makes this answer stale.
+    result.fold((_) => null, (shop) {
+      if (state.shopCategory.isPet || state.shopPage != shop.page) return;
+      emit(state.copyWith(shop: shop));
+    });
   }
 
   /// Switch the shop to [category] and load its first page.
@@ -385,18 +397,23 @@ class PokemonCubit extends Cubit<PokemonState> {
       if (isClosed) return;
       result.fold(
         (_) => null,
-        (page) => emit(
-          state.copyWith(
-            inventory: InventoryPage(
-              items: [...current.items, ...page.items],
-              total: page.total,
-              page: page.page,
-              perPage: page.perPage,
-              totalPages: page.totalPages,
+        (page) {
+          // The player may have switched category (or gone to another page) while this answer was on its way, and that
+          // page does not belong to the list that is on screen now.
+          if (state.inventoryPage != next) return;
+          emit(
+            state.copyWith(
+              inventory: InventoryPage(
+                items: [...current.items, ...page.items],
+                total: page.total,
+                page: page.page,
+                perPage: page.perPage,
+                totalPages: page.totalPages,
+              ),
+              inventoryPage: next,
             ),
-            inventoryPage: next,
-          ),
-        ),
+          );
+        },
       );
     } finally {
       _loadingMoreInventory = false;
@@ -429,18 +446,22 @@ class PokemonCubit extends Cubit<PokemonState> {
         if (isClosed) return;
         result.fold(
           (_) => null,
-          (page) => emit(
-            state.copyWith(
-              shopPets: ShopPetsPage(
-                pets: [...current.pets, ...page.pets],
-                total: page.total,
-                page: page.page,
-                perPage: page.perPage,
-                totalPages: page.totalPages,
+          (page) {
+            // The player may have switched category while this answer was on its way: it does not belong to that list.
+            if (!state.shopCategory.isPet || state.shopPage != next) return;
+            emit(
+              state.copyWith(
+                shopPets: ShopPetsPage(
+                  pets: [...current.pets, ...page.pets],
+                  total: page.total,
+                  page: page.page,
+                  perPage: page.perPage,
+                  totalPages: page.totalPages,
+                ),
+                shopPage: next,
               ),
-              shopPage: next,
-            ),
-          ),
+            );
+          },
         );
         return;
       }
@@ -451,18 +472,22 @@ class PokemonCubit extends Cubit<PokemonState> {
       if (isClosed) return;
       result.fold(
         (_) => null,
-        (page) => emit(
-          state.copyWith(
-            shop: ShopPage(
-              items: [...current.items, ...page.items],
-              total: page.total,
-              page: page.page,
-              perPage: page.perPage,
-              totalPages: page.totalPages,
+        (page) {
+          // The player may have switched category while this answer was on its way: it does not belong to that list.
+          if (state.shopCategory.isPet || state.shopPage != next) return;
+          emit(
+            state.copyWith(
+              shop: ShopPage(
+                items: [...current.items, ...page.items],
+                total: page.total,
+                page: page.page,
+                perPage: page.perPage,
+                totalPages: page.totalPages,
+              ),
+              shopPage: next,
             ),
-            shopPage: next,
-          ),
-        ),
+          );
+        },
       );
     } finally {
       _loadingMoreShop = false;
