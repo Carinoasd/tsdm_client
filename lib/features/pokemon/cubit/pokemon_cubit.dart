@@ -200,11 +200,10 @@ class PokemonCubit extends Cubit<PokemonState> {
     final configFuture = _repository.getGlobalConfig().run();
     final pokemonsFuture = _repository.getMyPokemon().run();
     final profileFuture = _repository.getProfile().run();
-    final inventoryFuture = _repository.getInventory(
-      page: state.inventoryPage,
-      type: state.inventoryCategory.type,
-    ).run();
-    final shopFuture = _repository.getShop(page: state.shopPage).run();
+    // The lists are read from their first page: pages held before belong to the list that was on screen, and keeping
+    // only the page the player had reached would drop everything before it.
+    final inventoryFuture = _repository.getInventory(type: state.inventoryCategory.type).run();
+    final shopFuture = _repository.getShop(type: state.shopCategory.type).run();
 
     final config = await configFuture;
     final pokemons = await pokemonsFuture;
@@ -231,7 +230,9 @@ class PokemonCubit extends Cubit<PokemonState> {
         pokemons: (pokemons as Right<AppException, List<Pokemon>>).value,
         profile: (profile as Right<AppException, PokemonUserProfile>).value,
         inventory: (inventory as Right<AppException, InventoryPage>).value,
+        inventoryPage: 1,
         shop: (shop as Right<AppException, ShopPage>).value,
+        shopPage: 1,
       ),
     );
     // The profile can lag behind the actual status bar pet (or not carry the flag at all), so read it like the website.
@@ -343,13 +344,15 @@ class PokemonCubit extends Cubit<PokemonState> {
   }
 
   /// Refresh the inventory in place, for the currently selected category.
+  ///
+  /// Like the shop, the list starts at its first page again rather than keeping only the page the player had reached.
   Future<void> refreshInventory() async {
-    final result = await _repository.getInventory(page: state.inventoryPage, type: state.inventoryCategory.type).run();
+    final category = state.inventoryCategory;
+    final result = await _repository.getInventory(type: category.type).run();
     if (isClosed) return;
-    // The player may have moved to another page while the answer was on its way: it would replace the wrong list.
     result.fold((_) => null, (inventory) {
-      if (inventory.page != state.inventoryPage) return;
-      emit(state.copyWith(inventory: inventory));
+      if (state.inventoryCategory != category) return;
+      emit(state.copyWith(inventory: inventory, inventoryPage: 1));
     });
   }
 
@@ -360,23 +363,26 @@ class PokemonCubit extends Cubit<PokemonState> {
   }
 
   /// Refresh the shop in place, for the currently selected category.
+  ///
+  /// The list starts at its first page again: the pages loaded after it belong to the list that was on screen, and
+  /// replacing them with just the page the player had reached would drop everything before it (with `loadMore` only
+  /// going forward, only a reload could bring it back).
   Future<void> refreshShop() async {
     if (state.shopCategory.isPet) {
-      final result = await _repository.getShopPets(page: state.shopPage).run();
+      final result = await _repository.getShopPets().run();
       if (isClosed) return;
       // The player may have switched category while the answer was on its way: it belongs to the old one.
       result.fold((_) => null, (pets) {
-        if (!state.shopCategory.isPet || state.shopPage != pets.page) return;
-        emit(state.copyWith(shopPets: pets));
+        if (!state.shopCategory.isPet) return;
+        emit(state.copyWith(shopPets: pets, shopPage: 1));
       });
       return;
     }
-    final result = await _repository.getShop(page: state.shopPage, type: state.shopCategory.type).run();
+    final result = await _repository.getShop(type: state.shopCategory.type).run();
     if (isClosed) return;
-    // Same for the items: a category switch makes this answer stale.
     result.fold((_) => null, (shop) {
-      if (state.shopCategory.isPet || state.shopPage != shop.page) return;
-      emit(state.copyWith(shop: shop));
+      if (state.shopCategory.isPet) return;
+      emit(state.copyWith(shop: shop, shopPage: 1));
     });
   }
 
