@@ -392,7 +392,14 @@ final class ImageCacheProvider with LoggerMixin {
     if (cache == null) {
       return;
     }
-    await cache.writeAsBytes(imageData);
+    // Android can clear this directory while the app runs (storage pressure, or the cache screen), so make sure it is
+    // there again — and never let a cache write fail the image being loaded: its bytes are already in hand.
+    try {
+      await cache.parent.create(recursive: true);
+      await cache.writeAsBytes(imageData);
+    } on FileSystemException catch (e) {
+      warning('could not save the image cache (${imageUrl.length} char url): ${e.message}');
+    }
 
     // Update other cache ref tables, if necessary.
     switch (usage) {
