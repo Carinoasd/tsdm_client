@@ -160,6 +160,12 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   /// Bumped when a resume invalidates the answers of requests that were still in flight.
   int _generation = 0;
 
+  /// The last scene the server reported while the battle was still running.
+  ///
+  /// The end-of-battle answer carries no battle id, and may leave the pokemon's id at 0, but ending the battle on the
+  /// server needs both, so the running values are kept (as the gender and the shiny state are).
+  BattleScene? _runningScene;
+
   /// Round counter of the current battle; the plugin itself does not count turns.
   int _turn = 1;
 
@@ -432,6 +438,9 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
     );
     // The device-local skill order belongs to one pokemon, so re-read it whenever the battling one changes.
     if (otherPokemon) unawaited(_loadSkillOrder(scene.myPokemon.instanceId));
+    // Keep the last scene that named its battle: ending a battle on the server needs a battle id, and the end-of-battle
+    // answer (and a scene without one) cannot provide it.
+    if (scene.battleId.isNotEmpty) _runningScene = scene;
   }
 
   /// Emit [scene] unless the app resumed while the answer was in flight, which made that answer stale.
@@ -460,22 +469,39 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   /// finished battle and the player had to flee by hand. `heal_and_flee` clears the battle unconditionally and heals
   /// the pokemon for free, so it goes first; the randomized `flee` is the fallback.
   Future<BattleActionResult> finishDefeat(BattleScene scene) async {
-    final healed = await _repository.healAndFlee(scene.myPokemon.instanceId).run();
-    if (isClosed) return const BattleActionResult(success: false);
-    if (healed.isRight()) {
-      return healed.fold(
-        (_) => const BattleActionResult(success: true),
-        (data) => BattleActionResult(success: true, message: data.message),
-      );
+    // The end-of-battle answer carries no battle id and may leave the pokemon's id at 0, so the last running scene fills
+    // them in: without a usable id nothing could end the battle the server still keeps.
+    final running = _runningScene;
+    final instanceId = scene.myPokemon.instanceId > 0 ? scene.myPokemon.instanceId : running?.myPokemon.instanceId ?? 0;
+    final battleId = scene.battleId.isNotEmpty ? scene.battleId : running?.battleId ?? '';
+
+    if (instanceId > 0) {
+      final healed = await _repository.healAndFlee(instanceId).run();
+      if (isClosed) return const BattleActionResult(success: false);
+      if (healed.isRight()) {
+        return healed.fold(
+          (_) => const BattleActionResult(success: true),
+          (data) => BattleActionResult(success: true, message: data.message),
+        );
+      }
+      // The server had already cleared the battle (no usable backup, or another client ended it): heal directly, so the
+      // pet is restored even when there is nothing left to end.
+      final healError = healed.fold((e) => e, (_) => null);
+      if (battleAlreadyOverError(healError)) {
+        return healPet(instanceId);
+      }
     }
-    // The server had already cleared the battle (no usable backup, or another client ended it): heal directly, so the
-    // pet is restored even when there is nothing left to end.
-    final healError = healed.fold((e) => e, (_) => null);
-    if (battleAlreadyOverError(healError)) {
-      return healPet(scene.myPokemon.instanceId);
+
+    if (battleId.isEmpty) {
+      // Nothing left to end the battle with: heal what the party needs, and the page remembers the battle as over.
+      await healParty();
+      return const BattleActionResult(success: true);
     }
-    final fled = await _repository.flee(scene.battleId).run();
+
+    final fled = await _repository.flee(battleId).run();
     if (isClosed) return const BattleActionResult(success: false);
+    // The pet could not be named, so its own heal was skipped: heal whatever the party needs once the battle is over.
+    if (instanceId <= 0) await healParty();
     return fled.fold(
       (e) => BattleActionResult(success: false, message: _messageOf(e)),
       (fledScene) => BattleActionResult(success: true, message: fledScene.message),

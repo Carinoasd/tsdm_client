@@ -56,6 +56,16 @@ void main() {
       if (action == 'start' && startedScene != null) {
         return jsonEncode({'success': true, 'data': startedScene});
       }
+      if (action == 'flee') {
+        // A flee needs the battle id, which the end-of-battle answer lacks: only a caller that kept it can end the fight.
+        final id = body is String ? (jsonDecode(body) as Map<String, dynamic>)['battle_id'] : null;
+        final ended = id is String && id.isNotEmpty;
+        return jsonEncode({
+          'success': ended,
+          'data': {'message': '已逃跑'},
+          if (!ended) 'error': '不存在的战斗',
+        });
+      }
       if (action == 'refresh_badge') {
         final hide = body is String ? (jsonDecode(body) as Map<String, dynamic>)['hide'] : null;
         if (hide is bool) serverStatusBarHidden = hide;
@@ -278,5 +288,36 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     expect(cubit.state.scene?.battleId, 'battle_2');
     expect(cubit.state.scene?.wildPokemon.hp, 9);
+  });
+
+  test('ends a lost battle the end scene no longer names', () async {
+    useFakeForum();
+    final cubit = BattleCubit();
+    addTearDown(cubit.close);
+    // The running scene carries the battle id (the pet itself may already be gone from the answer)...
+    cubit.resume(
+      BattleScene.fromMap(const {
+        'battle_id': 'battle_1',
+        'map_id': 3,
+        'status': 'active',
+        'my_pokemon': {'instance_id': 0, 'hp': 20, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 1, 'max_hp': 18},
+      }),
+    );
+
+    // ...while the end-of-battle answer has neither, so `heal_and_flee` and `flee` would both be sent with nothing.
+    final result = await cubit.finishDefeat(
+      BattleScene.fromMap(const {
+        'battle_id': '',
+        'map_id': 3,
+        'status': 'defeat',
+        'my_pokemon': {'instance_id': 0, 'hp': 0, 'max_hp': 20},
+        'wild_pokemon': {'id': 25, 'hp': 1, 'max_hp': 18},
+      }),
+    );
+
+    expect(result.success, isTrue, reason: 'the battle has to be ended with the id the running scene kept');
+    expect(paths.where((path) => path.contains('action=flee')), hasLength(1));
+    expect(paths.where((path) => path.contains('heal_and_flee')), isEmpty);
   });
 }
