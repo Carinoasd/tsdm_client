@@ -47,6 +47,12 @@ final class PokemonRepository with LoggerMixin {
   /// Deadline of the map list: on the plugin side it runs a sub-query for every map, so it is the one slow endpoint.
   static const _mapsDeadline = Duration(seconds: 60);
 
+  /// Deadline of a write.
+  ///
+  /// It has to outlast the transport's own read timeout (30s in the android client), or a write that was still in flight
+  /// would be reported as a failure although the server may well have carried it out.
+  static const _writeDeadline = Duration(seconds: 35);
+
   /// Header the plugin's API expects for its cross-site request check.
   ///
   /// The plugin answers `formhash 校验失败，请刷新页面后重试` when a request does not carry the session's formhash, so it
@@ -324,7 +330,7 @@ final class PokemonRepository with LoggerMixin {
         (_) => right<AppException, void>(null),
       ),
     };
-  });
+  }, deadline: _writeDeadline);
 
   /// POST [endpoint] with a JSON [body] and decode its `data` object with [decode].
   AsyncEither<T> _postData<T>(
@@ -339,7 +345,7 @@ final class PokemonRepository with LoggerMixin {
       Left(:final value) => left<AppException, T>(value),
       Right(:final value) => _decodeEnvelope(value).fold((e) => left<AppException, T>(e), (data) => _decode(data, decode, value)),
     };
-  });
+  }, deadline: _writeDeadline);
 
   /// Send [request] with the session formhash attached, reading it again and retrying once when the server calls it
   /// stale (the plugin ties it to the session, which the forum may renew).
@@ -427,7 +433,7 @@ final class PokemonRepository with LoggerMixin {
       Left(:final value) => left<AppException, Map<String, dynamic>>(value),
       Right(:final value) => _decodeEnvelope(value),
     };
-  });
+  }, deadline: _writeDeadline);
 
   /// GET [endpoint] and return its `data` object as a raw map.
   AsyncEither<Map<String, dynamic>> _getRaw(String endpoint) => _send((headers) async {
