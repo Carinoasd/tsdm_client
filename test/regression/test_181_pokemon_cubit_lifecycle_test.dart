@@ -214,8 +214,10 @@ void main() {
     // A transport failure carries no server message, which is how the page tells it apart from a refusal.
     expect(result.success, isFalse);
     expect(result.message, isNull);
-    // The read-back runs after the failed action, so give it its turn.
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    // The read-back runs after the failed action; wait for it instead of assuming how long it takes.
+    for (var i = 0; i < 200 && cubit.state.scene?.wildPokemon.hp != 1; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
 
     expect(paths.where((path) => path.contains('action=recover')), hasLength(1));
     expect(cubit.state.scene?.wildPokemon.hp, 1);
