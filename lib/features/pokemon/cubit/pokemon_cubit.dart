@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -584,15 +586,23 @@ class PokemonCubit extends Cubit<PokemonState> {
     emit(state.copyWith(actionInProgress: true));
     try {
       final result = await action().run();
-      return switch (result) {
-        Left(:final value) => PokemonActionResult(success: false, message: _messageOf(value)),
-        Right() => const PokemonActionResult(success: true),
-      };
+      final message = result.fold(_messageOf, (_) => null);
+      // A write that lost its answer may or may not have happened on the server, so read the money and the bag back
+      // before the player tries again.
+      if (result.isLeft() && message == null) unawaited(_reloadAfterLostAnswer());
+      return PokemonActionResult(success: result.isRight(), message: message);
     } on Exception catch (e) {
+      unawaited(_reloadAfterLostAnswer());
       return PokemonActionResult(success: false, message: '$e');
     } finally {
       if (!isClosed) emit(state.copyWith(actionInProgress: false));
     }
+  }
+
+  /// Read back what a write with a lost answer may have changed: the money and the bag.
+  Future<void> _reloadAfterLostAnswer() async {
+    await refreshProfile();
+    await refreshInventory();
   }
 
   /// Find a pokemon by id in the current state, or null.
