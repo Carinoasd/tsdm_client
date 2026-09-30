@@ -398,12 +398,14 @@ class _ErrorHandler extends Interceptor with LoggerMixin {
 
   /// Whether a 404 is an answer the app asked for rather than a page it lost.
   ///
-  /// The pet sprites sit next to the forum and half the pokemon have none, and the plugin answers 404 for `recover`
-  /// while no battle is running: both are normal answers, kept out of the error log and the network error banner. A
-  /// forum page that is really gone still reports normally.
+  /// A pokemon sprite that is not on the cdn and the plugin's `recover` (which answers 404 while no battle is running)
+  /// are normal answers, kept out of the error log and the network error banner. A plugin that is disabled or renamed
+  /// answers 404 as well, and that is not an answer anybody asked for: it keeps reporting.
   bool _isExpectedMissing(RequestOptions options) {
     final accept = options.headers[HttpHeaders.acceptHeader]?.toString() ?? '';
-    return accept.contains('image/') || options.uri.queryParameters['id'] == 'pokemon:pokemon';
+    if (accept.contains('image/')) return true;
+    final query = options.uri.queryParameters;
+    return query['id'] == 'pokemon:pokemon' && query['endpoint'] == 'battle' && query['action'] == 'recover';
   }
 
   @override
