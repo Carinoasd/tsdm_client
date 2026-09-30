@@ -384,22 +384,24 @@ final class ImageCacheProvider with LoggerMixin {
   }) async {
     final fileName = imageUrl.fileNameV5();
 
-    // Update image cache info to database.
-    await getIt.get<StorageProvider>().updateImageCache(imageUrl, fileName: fileName);
-
     // Make cache.
     final cache = getCacheFile(fileName);
     if (cache == null) {
       return;
     }
     // Android can clear this directory while the app runs (storage pressure, or the cache screen), so make sure it is
-    // there again — and never let a cache write fail the image being loaded: its bytes are already in hand.
+    // there again. A cache write is best effort — its bytes are already in hand — but a row written before the file
+    // would point at a file that is not there, so the file goes first and a failed write ends the save.
     try {
       await cache.parent.create(recursive: true);
       await cache.writeAsBytes(imageData);
     } on FileSystemException catch (e) {
       warning('could not save the image cache (${imageUrl.length} char url): ${e.message}');
+      return;
     }
+
+    // Update image cache info to database.
+    await getIt.get<StorageProvider>().updateImageCache(imageUrl, fileName: fileName);
 
     // Update other cache ref tables, if necessary.
     switch (usage) {
