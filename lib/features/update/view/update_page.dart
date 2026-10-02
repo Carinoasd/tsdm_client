@@ -8,6 +8,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
+import 'package:tsdm_client/features/update/widgets/update_download_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/git_info.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -85,28 +86,13 @@ class _UpdatePageState extends State<UpdatePage> {
     if (info.versionCode <= current) {
       return AppNoticeBanner(message: tr.alreadyLatest, icon: Icons.check_circle_outline);
     }
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppNoticeBanner(
-            title: tr.availableDialog.title,
-            message: tr.availableDialog.versionUpgrade(
-              oldVersion: appVersion.split('+').first,
-              newVersion: info.version,
-            ),
-            icon: Icons.new_releases_outlined,
-          ),
-          if (info.changelog.isNotEmpty) ...[
-            AppSectionHeader(tr.availableDialog.changelog, icon: Icons.history_outlined),
-            AppInsetBlock(
-              outlined: true,
-              padding: edgeInsetsL12T12R12B12,
-              child: MarkdownBody(data: info.changelog),
-            ),
-          ],
-        ],
+    return AppNoticeBanner(
+      title: tr.availableDialog.title,
+      message: tr.availableDialog.versionUpgrade(
+        oldVersion: appVersion.split('+').first,
+        newVersion: info.version,
       ),
+      icon: Icons.new_releases_outlined,
     );
   }
 
@@ -132,6 +118,9 @@ class _UpdatePageState extends State<UpdatePage> {
         child: BlocBuilder<UpdateCubit, UpdateCubitState>(
           builder: (context, state) {
             final result = _buildResult(context, state);
+            final info = state.latestVersionInfo;
+            final current = appVersion.split('+').last.parseToInt() ?? 0;
+            final newer = !state.loading && info != null && info.versionCode > current ? info : null;
             return AppCenteredList(
               maxWidth: appFormMaxWidth,
               builder: (context, padding, _) => ListView(
@@ -139,6 +128,23 @@ class _UpdatePageState extends State<UpdatePage> {
                 children: [
                   _buildVersionSurface(context, state),
                   if (result != null) ...[const SizedBox(height: appSurfaceGap), result],
+                  UpdateDownloadCard(cubit: context.read<UpdateCubit>().download, latest: newer),
+                  if (newer != null && newer.changelog.isNotEmpty) ...[
+                    const SizedBox(height: appSurfaceGap),
+                    AppSurface(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AppSectionHeader(tr.availableDialog.changelog, icon: Icons.history_outlined),
+                          AppInsetBlock(
+                            outlined: true,
+                            padding: edgeInsetsL12T12R12B12,
+                            child: MarkdownBody(data: newer.changelog),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: appSurfaceGap),
                   AppTileGroup(
                     children: [
@@ -150,8 +156,8 @@ class _UpdatePageState extends State<UpdatePage> {
                       ),
                       SectionListTile(
                         leading: Icon(MdiIcons.github),
-                        title: const Text('GitHub'),
-                        subtitle: const Text(upgradeGithubReleaseUrl),
+                        title: Text(tr.download.github),
+                        subtitle: Text(tr.download.githubTip),
                         trailing: const Icon(Icons.open_in_new),
                         onTap: () async =>
                             launchUrl(Uri.parse(upgradeGithubReleaseUrl), mode: LaunchMode.externalApplication),

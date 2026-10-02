@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -34,7 +35,18 @@ final class UpdateCubitState with UpdateCubitStateMappable {
 /// Checking cubit.
 final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
   /// Constructor.
-  UpdateCubit() : super(const UpdateCubitState());
+  UpdateCubit({UpdateDownloadCubit? download})
+    : download = download ?? UpdateDownloadCubit(),
+      super(const UpdateCubitState());
+
+  /// Download state belongs to the app-scoped update service, so navigation does not interrupt it.
+  final UpdateDownloadCubit download;
+
+  @override
+  Future<void> close() async {
+    await download.close();
+    await super.close();
+  }
 
   /// Check app update.
   ///

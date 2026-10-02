@@ -1,5 +1,6 @@
 package kzs.th000.tsdm_client
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
@@ -13,16 +14,21 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity: FlutterActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
+
+        const val UPDATE_CHANNEL = "kzs.th000.tsdm_client/updateChannel"
 
         const val HTTP_CHANNEL = "kzs.th000.tsdm_client/httpChannel"
         const val HTTP_GET = "get"
@@ -40,6 +46,8 @@ class MainActivity: FlutterActivity() {
 
     private var windowChannel: MethodChannel? = null
     private var flutterViewWatched = false
+    private val updateScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private var installingUpdate = false
 
     /** Hold the deep link when app is launched from a link (cold start). */
     private var initialDeepLink: String? = null
@@ -58,6 +66,8 @@ class MainActivity: FlutterActivity() {
             .setMethodCallHandler{ call, result -> handleMainChannelCall(call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL)
             .setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL)
+            .setMethodCallHandler { call, result -> handleUpdateChannelCall(call, result) }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
 
         // 处理 Flutter 端对深度链接的查询
@@ -87,6 +97,70 @@ class MainActivity: FlutterActivity() {
     override fun onStart() {
         super.onStart()
         watchFlutterView()
+    }
+
+    override fun onDestroy() {
+        updateScope.cancel()
+        super.onDestroy()
+    }
+
+    private fun handleUpdateChannelCall(call: MethodCall, result: MethodChannel.Result) {
+        val installer = UpdateInstaller(this)
+        if (call.method == "installUpdate" && installingUpdate) {
+            result.error("update_install_in_progress", "An update installation request is already in progress.", null)
+            return
+        }
+        updateScope.launch {
+            try {
+                when (call.method) {
+                    "getUpdateDirectory" -> result.success(withContext(Dispatchers.IO) { installer.updateDirectory().path })
+                    "canInstallPackages" -> result.success(installer.canInstallPackages())
+                    "openInstallPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startActivity(installer.permissionIntent())
+                        }
+                        result.success(true)
+                    }
+                    "installUpdate" -> {
+                        installingUpdate = true
+                        val path = call.argument<Any>("path") as? String
+                        val version = call.argument<Any>("version") as? String
+                        val versionCode = when (val value = call.argument<Any>("versionCode")) {
+                            is Int -> value.toLong()
+                            is Long -> value
+                            else -> null
+                        }
+                        if (path.isNullOrBlank() || version.isNullOrBlank() || versionCode == null || versionCode <= 0) {
+                            throw UpdateInstaller.Failure("invalid_update_arguments", "The update request is incomplete.")
+                        }
+                        if (!installer.canInstallPackages()) {
+                            throw UpdateInstaller.Failure("install_permission_required", "Allow this app to install updates in system settings.")
+                        }
+                        val intent = withContext(Dispatchers.IO) { installer.prepareInstall(path, version, versionCode) }
+                        // Permission can change while a large APK is being checked.
+                        if (!installer.canInstallPackages()) {
+                            throw UpdateInstaller.Failure("install_permission_required", "Allow this app to install updates in system settings.")
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: UpdateInstaller.Failure) {
+                result.error(error.code, error.message, null)
+            } catch (_: ActivityNotFoundException) {
+                val code = if (call.method == "openInstallPermission") "install_permission_unavailable" else "installer_unavailable"
+                result.error(code, "The required system screen is unavailable.", null)
+            } catch (_: SecurityException) {
+                result.error("installer_not_allowed", "The system did not allow this update request.", null)
+            } catch (_: Exception) {
+                result.error("invalid_update_apk", "The update could not be verified or opened.", null)
+            } finally {
+                if (call.method == "installUpdate") installingUpdate = false
+            }
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

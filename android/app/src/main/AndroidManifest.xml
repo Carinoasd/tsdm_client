@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- User-confirmed installation of an update downloaded into the app's private cache. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Android 13+ runtime permission for the auto sync local notification (#13). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Required by permission_handler to open the system "ignore battery optimizations" dialog (#3). -->
@@ -15,6 +17,15 @@
             android:label="天使动漫"
             android:name="${applicationName}"
             android:icon="@mipmap/ic_launcher">
+        <provider
+                android:name="kzs.th000.tsdm_client.UpdateFileProvider"
+                android:authorities="${applicationId}.updates"
+                android:exported="false"
+                android:grantUriPermissions="true">
+            <meta-data
+                    android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/update_file_paths" />
+        </provider>
         <activity
                 android:name=".MainActivity"
                 android:exported="true"

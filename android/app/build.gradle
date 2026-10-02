@@ -139,6 +139,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.16.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    // Update validation runs off the UI thread and returns to Android's main dispatcher before opening system UI.
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 
     // For splash screen Theme.SplashScreen
     implementation "androidx.core:core-splashscreen:1.2.0"
