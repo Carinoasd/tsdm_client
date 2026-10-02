@@ -27,6 +27,12 @@
                     android:resource="@xml/update_file_paths" />
         </provider>
         <activity
+                android:name="kzs.th000.tsdm_client.InteractiveHtmlActivity"
+                android:exported="false"
+                android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                android:hardwareAccelerated="true"
+                android:windowSoftInputMode="adjustResize" />
+        <activity
                 android:name=".MainActivity"
                 android:exported="true"
                 android:launchMode="singleTop"

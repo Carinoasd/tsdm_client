@@ -29,6 +29,7 @@ class MainActivity: FlutterActivity() {
         const val OPEN_IN_BROWSER = "openInBrowser"
 
         const val UPDATE_CHANNEL = "kzs.th000.tsdm_client/updateChannel"
+        const val INTERACTIVE_HTML_CHANNEL = "kzs.th000.tsdm_client/interactiveHtmlChannel"
 
         const val HTTP_CHANNEL = "kzs.th000.tsdm_client/httpChannel"
         const val HTTP_GET = "get"
@@ -68,6 +69,26 @@ class MainActivity: FlutterActivity() {
             .setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL)
             .setMethodCallHandler { call, result -> handleUpdateChannelCall(call, result) }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INTERACTIVE_HTML_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "openHtml") {
+                    result.notImplemented()
+                } else {
+                    try {
+                        startActivity(InteractiveHtmlActivity.intent(this,
+                            call.argument<Any>("html") as? String,
+                            call.argument<Any>("sourceUrl") as? String,
+                            call.argument<Any>("accountScope") as? String,
+                            call.argument<Any>("postId") as? String,
+                        ))
+                        result.success(true)
+                    } catch (error: InteractiveHtmlPolicy.Failure) {
+                        result.error(error.code, error.message, null)
+                    } catch (_: Exception) {
+                        result.error("interactive_html_unavailable", "Unable to open interactive content on this device.", null)
+                    }
+                }
+            }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
 
         // 处理 Flutter 端对深度链接的查询

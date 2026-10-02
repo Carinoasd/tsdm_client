@@ -1204,6 +1204,13 @@
     }
   },
   "postCard": {
+    "interactiveHtml": {
+      "open": "互動內容",
+      "description": "開啟此樓層的互動排版、表單與按鈕。",
+      "browserDescription": "在瀏覽器開啟原文，使用其中的互動內容。",
+      "browserFallback": "已在瀏覽器開啟原文。",
+      "openFailed": "無法開啟互動內容，請嘗試在瀏覽器開啟原文。"
+    },
     "reply": "回覆",
     "rate": "評分",
     "onlyViewAuthor": "只看該作者",

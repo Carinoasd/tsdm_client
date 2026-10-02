@@ -1204,6 +1204,13 @@
     }
   },
   "postCard": {
+    "interactiveHtml": {
+      "open": "Interactive content",
+      "description": "Open this post’s interactive layout, forms and buttons.",
+      "browserDescription": "Open the original post in your browser to use its interactive content.",
+      "browserFallback": "Opened the original post in your browser.",
+      "openFailed": "Could not open interactive content. Try opening the original post in your browser."
+    },
     "reply": "Reply",
     "rate": "Rate",
     "onlyViewAuthor": "Only view the author",

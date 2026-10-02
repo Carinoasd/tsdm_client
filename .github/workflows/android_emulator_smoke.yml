@@ -1,0 +1,97 @@
+name: Android interactive HTML and update emulator
+
+on:
+  workflow_dispatch:
+  # Allows first execution before this new workflow exists on the default branch.
+  push:
+    branches: [feat/in-app-android-update]
+    paths: [.github/workflows/android_emulator_smoke.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          cache: true
+      - name: Prepare runner and submodules
+        run: |
+          sudo ./scripts/github_free_disk_space.sh
+          sudo apt update -y
+          sudo apt install -y ninja-build libgtk-3-dev libayatana-appindicator3-dev make meson nasm
+          git submodule update --init --recursive --force
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.83.0'
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r29
+      - name: Build native image decoder
+        env:
+          ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_LATEST_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          export PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          cargo install cargo-ndk@3.5.4 --locked
+          ./scripts/build-flutter_avif-android.sh
+      - name: Generate disposable lower-version test entry
+        run: |
+          # The normal app version/source entry stays unchanged in Git.
+          sed -i -E 's/^version: .*/version: 1.29.9-emulator+119/' pubspec.yaml
+          flutter pub get
+          dart ./Makefile.dart
+      - name: Prepare existing signing configuration
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+        run: |
+          printf '%s' "$KEYSTORE" | base64 --decode > android/app/key.jks
+          printf '%s' "$KEY_PROPERTIES" > android/key.properties
+      - name: Build emulator-only app and instrumentation
+        run: |
+          flutter build apk --release --target test_driver/android_update_smoke.dart
+          cd android
+          ./gradlew :app:assembleReleaseAndroidTest -Ptarget=../test_driver/android_update_smoke.dart
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/app/key.jks android/key.properties
+      - name: Exercise actual Android WebView and system installer
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          ram-size: 4096M
+          heap-size: 512M
+          disk-size: 6000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: python3 scripts/run-android-emulator-smoke.py
+      - name: Upload emulator evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-emulator-evidence
+          path: outputs/android-emulator/**
+          if-no-files-found: warn
+          retention-days: 14

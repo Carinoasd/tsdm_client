@@ -31,6 +31,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "kzs.th000.tsdm_client"
+    // Instrument the same signed release-native code on an isolated emulator.
+    testBuildType "release"
     compileSdkVersion 36
     // ndkVersion flutter.ndkVersion
     ndkVersion "29.0.14206865" // r29, keep using the same version in workflows.
@@ -62,6 +64,7 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "com.tsdm.tsdm_client"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
 
@@ -136,6 +139,11 @@ flutter {
 }
 
 dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-web:3.6.1'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.16.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"

@@ -9,6 +9,8 @@ on:
       - 'android/app/src/test/kotlin/**/HttpClientTest.kt'
       - 'android/app/src/main/kotlin/**/Update*.kt'
       - 'android/app/src/test/kotlin/**/Update*Test.kt'
+      - 'android/app/src/main/kotlin/**/InteractiveHtml*.kt'
+      - 'android/app/src/test/kotlin/**/InteractiveHtml*Test.kt'
       - 'android/app/src/main/res/xml/update_file_paths.xml'
       - 'lib/features/update/**'
       - 'android/app/build.gradle'

@@ -1,0 +1,41 @@
+<!-- Offline compatibility fixture from thread 1266801 post 78060680.
+     The form structure is reduced and test-authored; the tfOpen handler below was
+     read from that post on 2026-10-03. No forum session, hidden replies or user data. -->
+<style>
+body{font-family:sans-serif;margin:16px;color:#173330;background:#f1fcfa}
+.card{max-width:920px;margin:auto;padding:20px;border-radius:20px;background:white;border:1px solid #b9ddd5}
+h1{font-size:26px;color:#087c70}button{padding:12px;margin:6px;border:0;border-radius:12px;background:#087c70;color:white}
+input,textarea{box-sizing:border-box;width:100%;padding:12px;margin:6px 0;border:1px solid #a8c8c1;border-radius:8px}
+input[type=checkbox]{width:auto}.on{background:#f6a742}.chip,.fe{padding:3px}.cnt{font-size:12px}
+@keyframes spin{to{transform:rotate(360deg)}}#tfVinyl{animation:spin 4s linear infinite;transform-origin:center}.paused{animation-play-state:paused!important}
+</style>
+<div class="card">
+<h1>TSDM FES 2026 · 互動相容性測試</h1>
+<p>離線測試表單；不會向論壇送出回覆。</p>
+<svg width="100" height="80" viewBox="0 0 100 80"><g id="tfVinyl"><circle cx="50" cy="40" r="30" fill="#087c70"/><circle cx="60" cy="30" r="8" fill="#f6a742"/></g><g id="tfBulbs" fill="#f59e0b"><circle cx="8" cy="8" r="5"/></g></svg>
+<span id="tfCheer">0</span><button id="cheer" onclick="var n=document.getElementById('tfCheer');var k=(parseInt(n.textContent,10)||0)+1;n.textContent=k;var c=['#f59e0b','#14b8a6','#f97316','#ec4899','#0ea5e9','#8b5cf6'];document.getElementById('tfBulbs').setAttribute('fill',c[k%6]);">應援</button>
+<span id="tfPlayerText">Live 音波感应中...</span><span id="tfEq"></span>
+<button id="pause" onclick="var d=document.getElementById('tfVinyl');var p=d.classList.toggle('paused');document.getElementById('tfEq').classList.toggle('paused',p);document.getElementById('tfPlayerText').textContent=p?'音波已暂停':'Live 音波感应中...';this.textContent=p?'播放音波':'暂停音波';">暂停音波</button>
+<button id="tfOpen" onclick="if(!window.tfUpd){(function(){var $=function(id){return document.getElementById(id);};var V=function(id){var e=$(id);if(!e){return '';}return e.value.replace(/^\s+|\s+$/g,'');};var L=function(id){var e=$(id);if(!e){return 0;}return e.value.replace(/\s/g,'').length;};var ge=function(n,m){return Math.min(n,m)===m;};var AT=String.fromCharCode(64);var M2=['','','','',''];var TM='';var F=['fSeSong','fSeMod','fSeMsg','fMc0s','fMc0r','fMc1s','fMc1r','fMc2s','fMc2r','fMc3s','fMc3r','fEnSong','fEnTxt','fEnWho','fEnWhen','fOt'];function cnt(id,cid,need){var n=L(id),c=$(cid);if(!c){return;}if(ge(n,need)){c.textContent='✓ 已写 '+n+' 字，达标';c.className='cnt ok';}else{c.textContent='已写 '+n+' 字，还差 '+(need-n)+' 字';c.className='cnt';}}function paint(){var rows=document.querySelectorAll('#tfB .m2row');for(var r=0;r!==rows.length;r++){var bs=rows.item(r).querySelectorAll('.pk');for(var q=0;q!==bs.length;q++){var btn=bs.item(q);if(btn.textContent===M2[r]){btn.className='pk on';}else{btn.className='pk';}}}var ts=document.querySelectorAll('#tfB .tm');for(var t=0;t!==ts.length;t++){var x=ts.item(t);if(x.textContent===TM){x.className='tm on';}else{x.className='tm';}}}function save(){try{var o={m2:M2,tm:TM,ck:!!$('fM1').checked};for(var k=0;k!==F.length;k++){o[F[k]]=$(F[k]).value;}localStorage.setItem('tfFes2026',JSON.stringify(o));}catch(e){}}function load(){try{var sv=localStorage.getItem('tfFes2026');if(!sv){return;}var o=JSON.parse(sv);for(var k=0;k!==F.length;k++){if(typeof o[F[k]]==='string'){$(F[k]).value=o[F[k]];}}$('fM1').checked=!!o.ck;if(o.m2){M2=o.m2;}TM=o.tm||'';}catch(e){}}function upd(){var est=0,ch={};var se=0;if(V('fSeSong')){if(V('fSeMod').indexOf(AT)!==-1){if(V('fSeMsg')){se=1;}}}est+=se;ch.SE=se===1;var m1=0;if($('fM1').checked){m1=1;}est+=m1;ch.M1=m1===1;var an=0;for(var k=0;k!==5;k++){if(M2[k]){an++;}}ch.M2=an===5;$('tfM2n').textContent='已作答 '+an+' / 5';var mcS=1,mcR=1;for(var k2=0;k2!==4;k2++){if(!V('fMc'+k2+'s')){mcS=0;}if(!V('fMc'+k2+'r')){mcS=0;}if(!ge(L('fMc'+k2+'r'),20)){mcR=0;}cnt('fMc'+k2+'r','cMc'+k2,20);}var mc=0;if(mcS){mc=2;if(mcR){mc=3;}}est+=mc;ch.MC=mcS===1;var en=0;cnt('fEnTxt','cEn',100);if(V('fEnSong')){if(ge(L('fEnTxt'),100)){en=1;if(V('fEnWho')){if(V('fEnWhen')){en=2;}}}}est+=en;ch.EN=en!==0;var ot=0;cnt('fOt','cOt',30);if(ge(L('fOt'),30)){ot=1;}est+=ot;ch.OT=ot===1;var fs=document.querySelectorAll('#tfMeter .fe');for(var k3=0;k3!==fs.length;k3++){var cl='fe';if(ge(est,k3+1)){cl='fe on';}else{if(ch.M2){if(ge(est+2,k3+1)){cl='fe q';}}}fs.item(k3).className=cl;}$('tfEst').textContent=est;if(ch.M2){$('tfEstNote').textContent=' / 10　M2 已答完，依正误再加 0～2';}else{$('tfEstNote').textContent=' / 10　M2 尚未答完';}var ks=['SE','M1','M2','MC','EN','OT'];for(var k4=0;k4!==6;k4++){var cp=$('ch'+ks[k4]);if(ch[ks[k4]]){cp.className='chip on';}else{cp.className='chip';}}save();return ch;}function gen(){var ch=upd();var done=ch.SE*ch.M1*ch.M2*ch.MC*ch.EN*ch.OT;var N=String.fromCharCode(10),H=String.fromCharCode(91),J=String.fromCharCode(93),D='----------------------------------';var st='未完成';if(done){st='已完成';}var t=D+N+'活动帖状态：'+st+N+D+N+'SE 入场曲'+N+'推荐歌曲：'+V('fSeSong')+N+'致版主：'+V('fSeMod')+N+'留言：'+V('fSeMsg')+N+N+H+'hide=9999999'+J+N+'M1 EMOJI 舞台'+N+'手环截图：（贴在这一行下面）'+N+N+'M2 抓轨试音'+N;for(var k=0;k!==5;k++){t+=(k+1)+'：'+(M2[k]||'')+N;}var lb=['刚入坑动漫时','最沉迷的时候','最忙的时候','现在'];t+=N+'MC 人生 BGM'+N;for(var k2=0;k2!==4;k2++){t+=lb[k2]+'：'+V('fMc'+k2+'s')+N+'　理由：'+V('fMc'+k2+'r')+N;}t+=N+'ENCORE 安可'+N+'推荐歌曲：'+V('fEnSong')+N+'推荐语：'+V('fEnTxt')+N+'推荐给谁听：'+V('fEnWho')+N+'什么场景听：'+V('fEnWhen')+N+N+'OUTRO 散场留言'+N+V('fOt')+N+N;var tm='____';if(TM){tm=TM;}t+='你使用了多少时间参与本活动（仅计活动本身耗时，以10分钟为单位）：'+tm+' 分钟'+N+H+'/hide'+J;$('tfOut').value=t;$('tfOut').scrollIntoView({behavior:'smooth',block:'center'});}window.tfPick=function(el,q){M2[q]=el.textContent;paint();upd();};window.tfTime=function(el){TM=el.textContent;paint();upd();};window.tfUpd=upd;window.tfGen=gen;window.tfCopy=function(btn){var t=$('tfOut');if(!t.value){gen();}t.focus();t.select();t.setSelectionRange(0,t.value.length);var ok=false;try{ok=document.execCommand('copy');}catch(e){}if(ok){btn.textContent='已复制 ✓';}else{btn.textContent='已选中，请手动复制';}};window.tfReset=function(){if(!window.confirm('确定清空所有草稿？')){return;}try{localStorage.removeItem('tfFes2026');}catch(e){}for(var k=0;k!==F.length;k++){$(F[k]).value='';}M2=['','','','',''];TM='';$('fM1').checked=false;$('tfOut').value='';paint();upd();};load();paint();})();}document.getElementById('tfB').style.display='block';this.style.display='none';tfUpd();">▶ 打开应援手册</button>
+<div id="tfB" style="display:none">
+<h2>應援手冊</h2>
+<label>推薦歌曲<input id="fSeSong" oninput="tfUpd()"></label>
+<label>致版主<input id="fSeMod" oninput="tfUpd()"></label>
+<label>留言<textarea id="fSeMsg" oninput="tfUpd()"></textarea></label>
+<label><input id="fM1" type="checkbox" onchange="tfUpd()">測試完成</label>
+<div id="tfMeter"><span class="fe">1</span><span class="fe">2</span></div>
+<span id="tfEst"></span><span id="tfEstNote"></span><p id="tfM2n"></p>
+<span id="chSE"></span><span id="chM1"></span><span id="chM2"></span><span id="chMC"></span><span id="chEN"></span><span id="chOT"></span>
+<div class="m2row"><button class="pk" id="answerA" onclick="tfPick(this,0)">A</button><button class="pk" onclick="tfPick(this,0)">B</button></div>
+<button class="tm" id="time10" onclick="tfTime(this)">10</button>
+<input id="fMc0s" oninput="tfUpd()"><textarea id="fMc0r" oninput="tfUpd()"></textarea><span id="cMc0"></span>
+<input id="fMc1s" oninput="tfUpd()"><textarea id="fMc1r" oninput="tfUpd()"></textarea><span id="cMc1"></span>
+<input id="fMc2s" oninput="tfUpd()"><textarea id="fMc2r" oninput="tfUpd()"></textarea><span id="cMc2"></span>
+<input id="fMc3s" oninput="tfUpd()"><textarea id="fMc3r" oninput="tfUpd()"></textarea><span id="cMc3"></span>
+<input id="fEnSong" oninput="tfUpd()"><textarea id="fEnTxt" oninput="tfUpd()"></textarea><span id="cEn"></span>
+<input id="fEnWho" oninput="tfUpd()"><input id="fEnWhen" oninput="tfUpd()">
+<textarea id="fOt" oninput="tfUpd()"></textarea><span id="cOt"></span>
+<button id="generate" onclick="tfGen()">生成回覆文字</button>
+<textarea id="tfOut" rows="8"></textarea>
+<button id="copy" onclick="tfCopy(this)">复制文字</button><button id="reset" onclick="tfReset()">清空草稿</button>
+</div></div>

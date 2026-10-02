@@ -1204,6 +1204,13 @@
     }
   },
   "postCard": {
+    "interactiveHtml": {
+      "open": "互动内容",
+      "description": "打开此楼层的互动排版、表单和按钮。",
+      "browserDescription": "在浏览器中打开原帖，使用其中的互动内容。",
+      "browserFallback": "已在浏览器中打开原帖。",
+      "openFailed": "无法打开互动内容，请尝试在浏览器中打开原帖。"
+    },
     "reply": "回复",
     "rate": "评分",
     "onlyViewAuthor": "只看该作者",

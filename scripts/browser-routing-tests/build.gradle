@@ -5,8 +5,8 @@ plugins {
 
 // Compile the actual app sources without building Flutter, Rust or the release APK.
 tasks.register('prepareBrowserSources', Copy) {
-    from('../../android/app/src/main/kotlin') { include '**/Browser*.kt', '**/HttpClient.kt', '**/Update*.kt'; into 'main' }
-    from('../../android/app/src/test/kotlin') { include '**/Browser*Test.kt', '**/HttpClientTest.kt', '**/Update*Test.kt'; into 'test' }
+    from('../../android/app/src/main/kotlin') { include '**/Browser*.kt', '**/HttpClient.kt', '**/Update*.kt', '**/InteractiveHtml*.kt'; into 'main' }
+    from('../../android/app/src/test/kotlin') { include '**/Browser*Test.kt', '**/HttpClientTest.kt', '**/Update*Test.kt', '**/InteractiveHtml*Test.kt'; into 'test' }
     into layout.buildDirectory.dir('browser-sources')
 }
 android {
