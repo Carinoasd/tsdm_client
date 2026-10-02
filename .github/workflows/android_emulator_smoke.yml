@@ -70,7 +70,7 @@ jobs:
         run: |
           flutter build apk --release --target test_driver/android_update_smoke.dart
           cd android
-          ./gradlew :app:assembleReleaseAndroidTest -Ptarget=../test_driver/android_update_smoke.dart
+          ./gradlew :app:assembleReleaseAndroidTest -Ptarget="$GITHUB_WORKSPACE/test_driver/android_update_smoke.dart"
       - name: Remove signing material
         if: always()
         run: rm -f android/app/key.jks android/key.properties
