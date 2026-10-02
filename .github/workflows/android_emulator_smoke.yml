@@ -43,7 +43,16 @@ jobs:
         id: ndk
         with:
           ndk-version: r29
+      - name: Identify native decoder revision
+        id: decoder-revision
+        run: echo "revision=$(git -C packages/flutter_avif rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: decoder-cache
+        with:
+          path: packages/flutter_avif/flutter_avif_android/android/src/main/jniLibs
+          key: emulator-avif-r29-rust183-${{ runner.os }}-${{ steps.decoder-revision.outputs.revision }}-${{ hashFiles('scripts/build-flutter_avif-android.sh') }}
       - name: Build native image decoder
+        if: steps.decoder-cache.outputs.cache-hit != 'true'
         env:
           ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
@@ -53,6 +62,12 @@ jobs:
           export PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           cargo install cargo-ndk@3.5.4 --locked
           ./scripts/build-flutter_avif-android.sh
+      # Persist only public decoder binaries even when a later device test fails.
+      - uses: actions/cache/save@v4
+        if: steps.decoder-cache.outputs.cache-hit != 'true'
+        with:
+          path: packages/flutter_avif/flutter_avif_android/android/src/main/jniLibs
+          key: ${{ steps.decoder-cache.outputs.cache-primary-key }}
       - name: Generate disposable lower-version test entry
         run: |
           # The normal app version/source entry stays unchanged in Git.

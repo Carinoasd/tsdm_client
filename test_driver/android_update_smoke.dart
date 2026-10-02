@@ -1,5 +1,7 @@
 // Isolated emulator entry point, never used by release workflows.
 // Exercises the production update page/downloader/native installer without a forum account.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -15,16 +17,12 @@ Future<void> main() async {
   await LocaleSettings.setLocale(AppLocale.en);
   // Pinned public release: only version discovery is seeded. The production repository
   // fetches the real GitHub release, downloads its APK and verifies its published digest.
-  final updates = UpdateCubit()
-    ..emit(
-      const UpdateCubitState(
-        latestVersionInfo: LatestVersionInfo(
-          version: '1.30.0',
-          versionCode: 120,
-          changelog: 'Android emulator verification against public v1.30.0.',
-        ),
-      ),
-    );
+  const info = LatestVersionInfo(
+    version: '1.30.0',
+    versionCode: 120,
+    changelog: 'Android emulator verification against public v1.30.0.',
+  );
+  final updates = UpdateCubit()..emit(const UpdateCubitState(latestVersionInfo: info));
   runApp(
     TranslationProvider(
       child: BlocProvider.value(
@@ -33,4 +31,6 @@ Future<void> main() async {
       ),
     ),
   );
+  // Same recovery called after production version discovery. Never installs by itself.
+  unawaited(updates.download.restore(info));
 }

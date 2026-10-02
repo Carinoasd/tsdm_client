@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -20,10 +21,8 @@ import androidx.test.uiautomator.Until
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
 
 /** Runs in a real Android WebView; the reduced fixture uses the forum's actual inline form handler. */
 @RunWith(AndroidJUnit4::class)
@@ -32,6 +31,13 @@ class InteractiveHtmlDeviceTest {
     private val device = UiDevice.getInstance(instrumentation)
     private var activity: Activity? = null
     private val source = "https://www.tsdm39.com/forum.php?mod=viewthread&tid=1266801"
+    private var phase = "start"
+    private val resetMessage = By.res("android:id/message").text("确定清空所有草稿？")
+
+    private fun phase(name: String) {
+        phase = name
+        Log.i("InteractiveHtmlTest", "Starting $name")
+    }
 
     private fun open(scope: String, post: String = "78060680") {
         activity?.let { old -> instrumentation.runOnMainSync { old.finish() } }
@@ -59,8 +65,11 @@ class InteractiveHtmlDeviceTest {
         val done = CountDownLatch(1)
         var answer = "null"
         instrumentation.runOnMainSync {
-            val web = webView(activity!!.window.decorView)
-            checkNotNull(web) { "No production WebView" }
+            val current = checkNotNull(activity) { "No viewer activity during $phase" }
+            val web = webView(current.window.decorView)
+            checkNotNull(web) {
+                "No production WebView during $phase (activity=$current, destroyed=${current.isDestroyed}, finishing=${current.isFinishing})"
+            }
             web.evaluateJavascript(expression) { answer = it; done.countDown() }
         }
         check(done.await(10, TimeUnit.SECONDS)) { "WebView JS read timed out" }
@@ -82,12 +91,22 @@ class InteractiveHtmlDeviceTest {
         checkNotNull(device.wait(Until.findObject(By.text("清空草稿")), 5000)) {
             "Visible reset button"
         }.click()
+        // Input injection returns before WebView dispatches the handler and
+        // onJsConfirm shows its native dialog. Back before this point can close
+        // the entire activity instead of cancelling the draft reset.
+        checkNotNull(device.wait(Until.findObject(resetMessage), 10000)) {
+            "JavaScript reset confirmation must be visible during $phase"
+        }
+        assertTrue(device.wait(Until.hasObject(By.res("android:id/button1")), 5000))
+    }
+
+    private fun waitForResetDismissal() {
+        assertTrue("Reset confirmation must dismiss during $phase", device.wait(Until.gone(resetMessage), 5000))
+        instrumentation.waitForIdleSync()
     }
 
     private fun screenshot(name: String) {
-        val output = File(instrumentation.targetContext.getExternalFilesDir(null), "emulator-evidence")
-        output.mkdirs()
-        assertTrue(device.takeScreenshot(File(output, "$name.png")))
+        EmulatorEvidence.capture(device, name, hierarchy = true)
     }
 
     private fun refreshActivityAfterRotation() {
@@ -106,12 +125,14 @@ class InteractiveHtmlDeviceTest {
 
     @Test fun liveWebViewFormCopyDraftIsolationAndRotation() {
         try {
+            phase("initial-interactions")
             open("emulator-alice")
             click("cheer")
             assertEquals("\"1\"", js("document.getElementById('tfCheer').textContent"))
             click("pause")
             assertEquals("true", js("document.getElementById('tfVinyl').classList.contains('paused')"))
             screenshot("html-portrait")
+            phase("form-and-generation")
             click("tfOpen")
             type("fSeSong", "Offline emulator song")
             type("fSeMod", "@fixture")
@@ -122,6 +143,7 @@ class InteractiveHtmlDeviceTest {
             click("generate")
             assertEquals("true", js("document.getElementById('tfOut').value.includes('[hide=9999999]')"))
             assertEquals("true", js("document.getElementById('tfOut').value.includes('Offline emulator song')"))
+            phase("clipboard")
             onWebView().withElement(findElement(Locator.ID, "copy")).perform(webScrollIntoView())
             // Clipboard writes require a real user gesture, not a synthetic WebDriver DOM click.
             val copy = checkNotNull(device.wait(Until.findObject(By.text("复制文字")), 5000)) { "Visible copy button" }
@@ -133,32 +155,50 @@ class InteractiveHtmlDeviceTest {
                 assertTrue(clipboard.primaryClip!!.getItemAt(0).coerceToText(instrumentation.targetContext).contains("Offline emulator song"))
             }
             screenshot("html-generated-and-copied")
+            phase("landscape")
             device.setOrientationLeft()
             device.waitForIdle()
             refreshActivityAfterRotation()
             screenshot("html-landscape")
+            phase("portrait")
             device.setOrientationNatural()
             device.waitForIdle()
             refreshActivityAfterRotation()
+            phase("persisted-draft")
             open("emulator-alice")
             click("tfOpen")
             assertEquals("\"Offline emulator song\"", js("document.getElementById('fSeSong').value"))
+            phase("account-isolation")
             open("emulator-bob")
             click("tfOpen")
             assertEquals("\"\"", js("document.getElementById('fSeSong').value"))
+            phase("post-isolation")
             open("emulator-alice", "78060681")
             click("tfOpen")
             assertEquals("\"\"", js("document.getElementById('fSeSong').value"))
+            phase("cancel-reset")
             open("emulator-alice")
             click("tfOpen")
             clickReset()
+            screenshot("html-reset-confirmation")
             device.pressBack()
+            waitForResetDismissal()
             assertEquals("\"Offline emulator song\"", js("document.getElementById('fSeSong').value"))
+            phase("confirm-reset")
             clickReset()
-            val confirm = checkNotNull(device.wait(Until.findObject(By.text(Pattern.compile("(?i)OK|确定|確定"))), 5000)) { "JavaScript confirmation must be visible" }
+            val confirm = checkNotNull(device.findObject(By.res("android:id/button1"))) { "Native confirmation button" }
             confirm.click()
-            device.waitForIdle()
+            waitForResetDismissal()
             assertEquals("\"\"", js("document.getElementById('fSeSong').value"))
+            screenshot("html-reset-complete")
+        } catch (failure: Throwable) {
+            Log.e("InteractiveHtmlTest", "Failed during $phase", failure)
+            try {
+                screenshot("html-failure-$phase")
+            } catch (diagnosticFailure: Exception) {
+                failure.addSuppressed(diagnosticFailure)
+            }
+            throw failure
         } finally {
             device.unfreezeRotation()
             activity?.let { old -> instrumentation.runOnMainSync { old.finish() } }

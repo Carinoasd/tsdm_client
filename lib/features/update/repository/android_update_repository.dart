@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cryptography/dart.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
 
 /// Actionable failures, translated by the update page instead of exposing raw network errors.
@@ -53,6 +54,14 @@ class DownloadedUpdate {
   final int versionCode;
 }
 
+class _ReleaseAsset {
+  const _ReleaseAsset({required this.url, required this.size, required this.digest});
+
+  final String url;
+  final int size;
+  final String digest;
+}
+
 /// Native operations are separate from downloading, allowing offline verification of both layers.
 class AndroidUpdateInstaller {
   static const _channel = MethodChannel('kzs.th000.tsdm_client/updateChannel');
@@ -101,12 +110,125 @@ class AndroidUpdateRepository {
 
   final Dio _dio;
 
-  /// Platform bridge used only after an explicit user action.
+  /// Platform bridge for private cache access and explicit installation actions.
   final AndroidUpdateInstaller installer;
 
   static const _repository = 'Carinoasd/tsdm_client';
   static const _assetName = 'tsdm_client-universal.apk';
   static const int _maxSize = 512 * 1024 * 1024;
+
+  Future<_ReleaseAsset> _resolve(LatestVersionInfo info, CancelToken cancelToken) async {
+    if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(info.version) || info.versionCode <= 0) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+    }
+    final tag = 'v${info.version}';
+    final response = await _dio.get<Object?>(
+      'https://api.github.com/repos/$_repository/releases/tags/$tag',
+      options: Options(headers: {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}),
+      cancelToken: cancelToken,
+    );
+    final release = response.data;
+    if (release is! Map<String, dynamic> ||
+        release['tag_name'] != tag ||
+        release['draft'] != false ||
+        release['prerelease'] != false ||
+        release['assets'] is! List<dynamic>) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+    }
+    final assets = (release['assets'] as List<dynamic>).whereType<Map<String, dynamic>>().where(
+      (asset) => asset['name'] == _assetName && asset['state'] == 'uploaded',
+    );
+    if (assets.length != 1) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.releaseUnavailable);
+    }
+    final asset = assets.single;
+    final expectedUrl = 'https://github.com/$_repository/releases/download/$tag/$_assetName';
+    final size = asset['size'];
+    final digest = asset['digest'];
+    if (asset['browser_download_url'] != expectedUrl ||
+        size is! int ||
+        size <= 0 ||
+        size > _maxSize ||
+        digest is! String ||
+        !RegExp(r'^sha256:[0-9a-fA-F]{64}$').hasMatch(digest)) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+    }
+    return _ReleaseAsset(url: expectedUrl, size: size, digest: digest.substring(7).toLowerCase());
+  }
+
+  Future<bool> _matchesAsset(File file, _ReleaseAsset asset, CancelToken cancelToken) async {
+    if (cancelToken.cancelError case final error?) throw error;
+    if (FileSystemEntity.typeSync(file.path, followLinks: false) != FileSystemEntityType.file ||
+        await file.length() != asset.size) {
+      return false;
+    }
+    final hash = const DartSha256().newHashSink();
+    var received = 0;
+    await for (final bytes in file.openRead()) {
+      if (cancelToken.cancelError case final error?) throw error;
+      received += bytes.length;
+      if (received > asset.size) return false;
+      hash.add(bytes);
+    }
+    hash.close();
+    final actual = (await hash.hash()).bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    if (cancelToken.cancelError case final error?) throw error;
+    return received == asset.size && actual == asset.digest;
+  }
+
+  /// Recover a completed download after Android restarts the app when installation permission changes.
+  ///
+  /// Only matching regular APK files in the native private update directory are candidates. No cached receipt or
+  /// manifest is trusted: the exact official release metadata is fetched again and every byte is rehashed against
+  /// its current published length and SHA-256. APK download and installation never start here. Native package,
+  /// version and signer checks still run when the reader explicitly presses Install.
+  Future<DownloadedUpdate?> restore(
+    LatestVersionInfo info, {
+    required CancelToken cancelToken,
+    required void Function() onVerifying,
+  }) async {
+    try {
+      if (cancelToken.cancelError case final error?) throw error;
+      if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(info.version) || info.versionCode <= 0) {
+        throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+      }
+      final directory = Directory(await installer.directory());
+      if (!directory.existsSync()) return null;
+      final name = RegExp('^update-${info.versionCode}-[0-9]+\\.apk\$');
+      final candidates = await directory
+          .list(followLinks: false)
+          .where((entry) => entry is File && name.hasMatch(p.basename(entry.path)))
+          .cast<File>()
+          .toList();
+      if (cancelToken.cancelError case final error?) throw error;
+      if (candidates.isEmpty) return null;
+      final asset = await _resolve(info, cancelToken);
+      onVerifying();
+      // Try the most recent complete file first; an interrupted replacement may leave an older valid candidate.
+      candidates.sort((a, b) => b.path.compareTo(a.path));
+      for (final candidate in candidates) {
+        if (cancelToken.cancelError case final error?) throw error;
+        if (await _matchesAsset(candidate, asset, cancelToken)) {
+          return DownloadedUpdate(
+            path: candidate.path,
+            version: info.version,
+            versionCode: info.versionCode * 10 + 9,
+          );
+        }
+        await _delete(candidate);
+      }
+      return null;
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) rethrow;
+      throw UpdateDownloadException(
+        error.response?.statusCode == 404 ? UpdateDownloadFailure.releaseUnavailable : UpdateDownloadFailure.network,
+      );
+    } on FileSystemException {
+      throw const UpdateDownloadException(UpdateDownloadFailure.storage);
+    } on PlatformException {
+      throw const UpdateDownloadException(UpdateDownloadFailure.storage);
+    }
+  }
 
   /// Resolve metadata, stream to a partial file, verify, then atomically make the APK available for installation.
   Future<DownloadedUpdate> download(
@@ -120,41 +242,8 @@ class AndroidUpdateRepository {
     RandomAccessFile? writer;
     var success = false;
     try {
-      if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(info.version) || info.versionCode <= 0) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
-      }
-      final tag = 'v${info.version}';
-      final response = await _dio.get<Object?>(
-        'https://api.github.com/repos/$_repository/releases/tags/$tag',
-        options: Options(headers: {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}),
-        cancelToken: cancelToken,
-      );
-      final release = response.data;
-      if (release is! Map<String, dynamic> ||
-          release['tag_name'] != tag ||
-          release['draft'] != false ||
-          release['prerelease'] != false ||
-          release['assets'] is! List<dynamic>) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
-      }
-      final assets = (release['assets'] as List<dynamic>).whereType<Map<String, dynamic>>().where(
-        (asset) => asset['name'] == _assetName && asset['state'] == 'uploaded',
-      );
-      if (assets.length != 1) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.releaseUnavailable);
-      }
-      final asset = assets.single;
-      final expectedUrl = 'https://github.com/$_repository/releases/download/$tag/$_assetName';
-      final size = asset['size'];
-      final digest = asset['digest'];
-      if (asset['browser_download_url'] != expectedUrl ||
-          size is! int ||
-          size <= 0 ||
-          size > _maxSize ||
-          digest is! String ||
-          !RegExp(r'^sha256:[0-9a-fA-F]{64}$').hasMatch(digest)) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
-      }
+      final asset = await _resolve(info, cancelToken);
+      final size = asset.size;
       if (cancelToken.cancelError case final error?) throw error;
       final directory = Directory(await installer.directory());
       await directory.create(recursive: true);
@@ -163,7 +252,7 @@ class AndroidUpdateRepository {
       complete = File('${directory.path}/$name.apk');
       writer = await partial.open(mode: FileMode.writeOnly);
       final body = await _dio.get<ResponseBody>(
-        expectedUrl,
+        asset.url,
         options: Options(responseType: ResponseType.stream),
         cancelToken: cancelToken,
       );
@@ -188,14 +277,7 @@ class AndroidUpdateRepository {
         throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
       }
       onVerifying();
-      final hash = const DartSha256().newHashSink();
-      await for (final bytes in partial.openRead()) {
-        if (cancelToken.cancelError case final error?) throw error;
-        hash.add(bytes);
-      }
-      hash.close();
-      final actual = (await hash.hash()).bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-      if (actual != digest.substring(7).toLowerCase()) {
+      if (!await _matchesAsset(partial, asset, cancelToken)) {
         throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
       }
       if (cancelToken.cancelError case final error?) throw error;

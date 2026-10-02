@@ -66,10 +66,13 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
             error('failed to check latest version: $e');
             emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
           },
-          (v) {
+          (v) async {
             try {
               final latestVersionInfo = parseLatestVersionInfo(v);
               emit(state.copyWith(loading: false, latestVersionInfo: latestVersionInfo, notice: false));
+              // Android may kill the process when installation permission changes. Revalidate an existing APK
+              // after version discovery, then let the user explicitly request installation again.
+              await download.restore(latestVersionInfo);
             } on Exception catch (e) {
               error('failed to deserialize latest version info: $e');
               emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));

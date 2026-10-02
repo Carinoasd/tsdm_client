@@ -78,6 +78,19 @@ def installed_code():
     return int(matches[0]) if matches else None
 
 
+def ui_xml(name):
+    adb("shell", "uiautomator", "dump", "/sdcard/emulator-ui.xml")
+    xml = adb("shell", "cat", "/sdcard/emulator-ui.xml")
+    (OUT / f"{name}.xml").write_text(xml, encoding="utf-8")
+    return ET.fromstring(xml)
+
+
+def tap_node(node):
+    bounds = [int(x) for x in re.findall(r"\d+", node.get("bounds", ""))]
+    assert len(bounds) == 4
+    adb("shell", "input", "tap", str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
+
+
 results = {"physical_device": False, "real_forum_submissions": 0}
 failures = []
 try:
@@ -108,22 +121,31 @@ try:
             failures.append(str(error))
             print(f"FAILED: {error}", flush=True)
     if results.get("UpdateInstallerDeviceTest") != "passed":
-        raise RuntimeError("Update test did not reach the system installer")
+        raise RuntimeError("Update test did not reach installation permission settings")
+    # Android kills the target app when REQUEST_INSTALL_PACKAGES changes. The
+    # real Settings tap must happen outside the target instrumentation process.
+    print("Granting installation permission through the actual Android Settings UI", flush=True)
+    root = ui_xml("unknown-source-permission-before")
+    toggles = [node for node in root.iter("node")
+               if node.get("package") == "com.android.settings"
+               and node.get("class") == "android.widget.Switch"
+               and node.get("checkable") == "true" and node.get("checked") == "false"]
+    assert len(toggles) == 1, "Expected one unchecked per-app installation permission toggle"
+    tap_node(toggles[0])
+    screenshot("unknown-source-permission-enabled")
+    adb("shell", "input", "keyevent", "4")
+    instrument("UpdateInstallerResumeDeviceTest")
+    results["UpdateInstallerResumeDeviceTest"] = "passed"
     # Instrumentation must finish before updating its host package, which Android kills.
     print("Confirming Android system installation of verified official APK", flush=True)
-    adb("shell", "uiautomator", "dump", "/sdcard/installer.xml")
-    xml = adb("shell", "cat", "/sdcard/installer.xml")
-    (OUT / "installer-final.xml").write_text(xml, encoding="utf-8")
-    root = ET.fromstring(xml)
+    root = ui_xml("installer-final")
     actions = [node for node in root.iter("node")
                if node.get("text", "").upper() in {"INSTALL", "UPDATE"}
                and node.get("enabled") == "true"
                and "packageinstaller" in node.get("package", "")]
     assert len(actions) == 1, "Expected one visible Android system Install/Update confirmation"
-    bounds = [int(x) for x in re.findall(r"\d+", actions[0].get("bounds", ""))]
-    assert len(bounds) == 4
     screenshot("system-installer-before-confirm")
-    adb("shell", "input", "tap", str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
+    tap_node(actions[0])
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline and installed_code() != 1209:
         time.sleep(1)
@@ -137,7 +159,7 @@ finally:
     results["failures"] = failures
     (OUT / "result.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     try:
-        subprocess.run(["adb", "pull", f"/sdcard/Android/data/{PACKAGE}/files/emulator-evidence", str(OUT)],
+        subprocess.run(["adb", "pull", "/sdcard/Download/tsdm-emulator-evidence", str(OUT)],
                        check=False, timeout=60)
         (OUT / "logcat.txt").write_text(adb("logcat", "-d", "-v", "threadtime"), encoding="utf-8")
         screenshot("final-screen")

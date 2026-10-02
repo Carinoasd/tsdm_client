@@ -117,6 +117,44 @@ class UpdateDownloadCubit extends Cubit<UpdateDownloadState> {
     }
   }
 
+  /// Recheck a previously downloaded APK after process death, without downloading or opening the installer.
+  ///
+  /// Version discovery may call this on startup. In-flight and user-visible download states are never replaced;
+  /// returning from permission settings still requires an explicit Install action, even after a successful restore.
+  Future<void> restore(LatestVersionInfo info) async {
+    if (isClosed ||
+        !supported ||
+        info.versionCode <= _currentVersionCode ||
+        state.status != UpdateDownloadStatus.idle) {
+      return;
+    }
+    final token = CancelToken();
+    _token = token;
+    emit(UpdateDownloadState(status: UpdateDownloadStatus.resolving, version: info.version));
+    try {
+      final update = await _repository.restore(
+        info,
+        cancelToken: token,
+        onVerifying: () {
+          if (_token == token && !token.isCancelled) _stage(UpdateDownloadStatus.verifying);
+        },
+      );
+      if (isClosed || _token != token || token.isCancelled) return;
+      if (update == null) {
+        emit(const UpdateDownloadState());
+        return;
+      }
+      _downloaded = update;
+      _stage(UpdateDownloadStatus.ready);
+    } on UpdateDownloadException catch (error) {
+      if (_token == token && !token.isCancelled) _stage(UpdateDownloadStatus.failed, failure: error.failure);
+    } on Exception {
+      if (_token == token && !token.isCancelled) {
+        _stage(UpdateDownloadStatus.failed, failure: UpdateDownloadFailure.network);
+      }
+    }
+  }
+
   /// Start one download of a newer version; duplicate clicks are ignored.
   Future<void> download(LatestVersionInfo info) async {
     if (isClosed || state.isBusy) return;
