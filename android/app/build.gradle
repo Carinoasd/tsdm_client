@@ -28,6 +28,23 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// The emulator runner shares dependencies with its target APK. R8 only sees the
+// app's references, so it can remove APIs needed by AndroidJUnitRunner/Espresso.
+// Opt in for BOTH the Flutter APK and assembleReleaseAndroidTest invocations.
+def emulatorInstrumentation = providers.gradleProperty('tsdmEmulatorInstrumentation').getOrElse('false') == 'true'
+if (emulatorInstrumentation) {
+    def target = providers.gradleProperty('target').orNull
+    def selectedTarget = target == null ? null : new File(target)
+    if (selectedTarget != null && !selectedTarget.isAbsolute()) {
+        selectedTarget = new File(rootProject.projectDir.parentFile, target)
+    }
+    def expectedTarget = rootProject.file('../test_driver/android_update_smoke.dart').canonicalFile
+    if (selectedTarget?.canonicalFile != expectedTarget) {
+        throw new GradleException('tsdmEmulatorInstrumentation is only allowed with test_driver/android_update_smoke.dart')
+    }
+    logger.lifecycle('Disposable emulator instrumentation build: native R8 and resource shrinking disabled; release AOT and signing retained.')
+}
+
 
 android {
     namespace = "kzs.th000.tsdm_client"
@@ -89,6 +106,12 @@ android {
 
     buildTypes {
         release {
+            // Flutter enables these before this block. Keep those production
+            // defaults unless building the explicitly guarded emulator target.
+            if (emulatorInstrumentation) {
+                minifyEnabled false
+                shrinkResources false
+            }
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig signingConfigs.release

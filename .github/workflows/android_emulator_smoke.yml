@@ -67,10 +67,15 @@ jobs:
           printf '%s' "$KEYSTORE" | base64 --decode > android/app/key.jks
           printf '%s' "$KEY_PROPERTIES" > android/key.properties
       - name: Build emulator-only app and instrumentation
+        env:
+          # Instrumentation shares target dependencies. Release R8 otherwise
+          # strips classes used only by the test runner (e.g. androidx.tracing).
+          # This opt-in is guarded to the disposable smoke entry in build.gradle.
+          ORG_GRADLE_PROJECT_tsdmEmulatorInstrumentation: 'true'
         run: |
           flutter build apk --release --target test_driver/android_update_smoke.dart
           cd android
-          ./gradlew :app:assembleReleaseAndroidTest -Ptarget="$GITHUB_WORKSPACE/test_driver/android_update_smoke.dart"
+          ./gradlew :app:assembleReleaseAndroidTest -PtsdmEmulatorInstrumentation=true -Ptarget="$GITHUB_WORKSPACE/test_driver/android_update_smoke.dart"
       - name: Remove signing material
         if: always()
         run: rm -f android/app/key.jks android/key.properties

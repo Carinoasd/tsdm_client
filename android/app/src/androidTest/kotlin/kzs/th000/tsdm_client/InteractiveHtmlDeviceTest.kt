@@ -75,6 +75,15 @@ class InteractiveHtmlDeviceTest {
         onWebView().withElement(findElement(Locator.ID, id)).perform(webScrollIntoView()).perform(webKeys(value))
     }
 
+    private fun clickReset() {
+        onWebView().withElement(findElement(Locator.ID, "reset")).perform(webScrollIntoView())
+        // A WebDriver JS click waits for window.confirm to return, preventing
+        // this test from reaching the native dialog controls that resolve it.
+        checkNotNull(device.wait(Until.findObject(By.text("清空草稿")), 5000)) {
+            "Visible reset button"
+        }.click()
+    }
+
     private fun screenshot(name: String) {
         val output = File(instrumentation.targetContext.getExternalFilesDir(null), "emulator-evidence")
         output.mkdirs()
@@ -142,10 +151,10 @@ class InteractiveHtmlDeviceTest {
             assertEquals("\"\"", js("document.getElementById('fSeSong').value"))
             open("emulator-alice")
             click("tfOpen")
-            click("reset")
+            clickReset()
             device.pressBack()
             assertEquals("\"Offline emulator song\"", js("document.getElementById('fSeSong').value"))
-            click("reset")
+            clickReset()
             val confirm = checkNotNull(device.wait(Until.findObject(By.text(Pattern.compile("(?i)OK|确定|確定"))), 5000)) { "JavaScript confirmation must be visible" }
             confirm.click()
             device.waitForIdle()

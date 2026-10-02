@@ -25,16 +25,51 @@ def adb(*args, timeout=60):
 
 def screenshot(name):
     with (OUT / f"{name}.png").open("wb") as image:
-        subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=image, check=True)
+        subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=image,
+                       check=True, timeout=30)
 
 
 def instrument(class_name):
-    result = adb("shell", "am", "instrument", "-w", "-r", "-e", "class",
-                 f"kzs.th000.tsdm_client.{class_name}", RUNNER, timeout=480)
-    (OUT / f"{class_name}.txt").write_text(result, encoding="utf-8")
+    print(f"Starting Android instrumentation: {class_name}", flush=True)
+    adb("logcat", "-c")
+    output = OUT / f"{class_name}.txt"
+    failure = None
+    # Persist output as it arrives: a runner crash can leave am instrument waiting
+    # forever, and subprocess.run's TimeoutExpired would otherwise hide its output.
+    with output.open("w", encoding="utf-8") as stream:
+        process = subprocess.Popen([
+            "adb", "shell", "am", "instrument", "-w", "-r", "-e", "class",
+            f"kzs.th000.tsdm_client.{class_name}", RUNNER,
+        ], stdout=stream, stderr=subprocess.STDOUT, text=True)
+        deadline = time.monotonic() + 480
+        try:
+            while process.poll() is None:
+                time.sleep(5)
+                crash = adb("logcat", "-d", "-b", "crash")
+                if "FATAL EXCEPTION" in crash and f"Process: {PACKAGE}," in crash:
+                    failure = "Android instrumentation host crashed; see crash log"
+                    (OUT / f"{class_name}-crash.txt").write_text(crash, encoding="utf-8")
+                    break
+                if time.monotonic() >= deadline:
+                    failure = "Android instrumentation exceeded 480 seconds"
+                    break
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+            log = adb("logcat", "-d", "-v", "threadtime")
+            (OUT / f"{class_name}-logcat.txt").write_text(log, encoding="utf-8")
+    result = output.read_text(encoding="utf-8")
     print(result, flush=True)
-    if not re.search(r"OK \(1 test\)", result) or "FAILURES" in result:
-        raise RuntimeError(f"Real-device instrumentation failed: {class_name}")
+    if failure or process.returncode != 0 or not re.search(r"OK \(1 test\)", result) or "FAILURES" in result:
+        screenshot(f"{class_name}-failure")
+        adb("shell", "am", "force-stop", PACKAGE)
+        raise RuntimeError(f"{class_name}: {failure or 'instrumentation failed'}")
+    print(f"Passed Android instrumentation: {class_name}", flush=True)
 
 
 def installed_code():
@@ -43,7 +78,10 @@ def installed_code():
     return int(matches[0]) if matches else None
 
 
+results = {"physical_device": False, "real_forum_submissions": 0}
+failures = []
 try:
+    print("Inspecting disposable Android emulator and installing test packages", flush=True)
     abi = adb("shell", "getprop", "ro.product.cpu.abilist").strip()
     (OUT / "device.json").write_text(json.dumps({
         "abi": abi, "android": adb("shell", "getprop", "ro.build.version.release").strip(),
@@ -59,9 +97,20 @@ try:
     adb("install", str(app), timeout=180)
     adb("install", "-t", str(tests[0]), timeout=180)
     assert installed_code() == 1199
-    instrument("InteractiveHtmlDeviceTest")
-    instrument("UpdateInstallerDeviceTest")
+    results["baseline_versionCode"] = 1199
+    # These paths are independent: retain updater evidence even if HTML fails.
+    for test in ("InteractiveHtmlDeviceTest", "UpdateInstallerDeviceTest"):
+        try:
+            instrument(test)
+            results[test] = "passed"
+        except Exception as error:
+            results[test] = str(error)
+            failures.append(str(error))
+            print(f"FAILED: {error}", flush=True)
+    if results.get("UpdateInstallerDeviceTest") != "passed":
+        raise RuntimeError("Update test did not reach the system installer")
     # Instrumentation must finish before updating its host package, which Android kills.
+    print("Confirming Android system installation of verified official APK", flush=True)
     adb("shell", "uiautomator", "dump", "/sdcard/installer.xml")
     xml = adb("shell", "cat", "/sdcard/installer.xml")
     (OUT / "installer-final.xml").write_text(xml, encoding="utf-8")
@@ -80,12 +129,19 @@ try:
         time.sleep(1)
     assert installed_code() == 1209, "System installation did not upgrade the package to official versionCode1209"
     screenshot("system-install-complete")
-    (OUT / "result.json").write_text(json.dumps({
-        "html_instrumentation": "passed", "update_instrumentation": "passed",
-        "baseline_versionCode": 1199, "installed_versionCode": installed_code(),
-        "real_forum_submissions": 0, "physical_device": False,
-    }, indent=2), encoding="utf-8")
+    results["installed_versionCode"] = installed_code()
+    print("Official update installed: versionCode1209", flush=True)
+except Exception as error:
+    failures.append(str(error))
 finally:
-    subprocess.run(["adb", "pull", f"/sdcard/Android/data/{PACKAGE}/files/emulator-evidence", str(OUT)], check=False)
-    (OUT / "logcat.txt").write_text(adb("logcat", "-d", "-v", "threadtime"), encoding="utf-8")
-    screenshot("final-screen")
+    results["failures"] = failures
+    (OUT / "result.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+    try:
+        subprocess.run(["adb", "pull", f"/sdcard/Android/data/{PACKAGE}/files/emulator-evidence", str(OUT)],
+                       check=False, timeout=60)
+        (OUT / "logcat.txt").write_text(adb("logcat", "-d", "-v", "threadtime"), encoding="utf-8")
+        screenshot("final-screen")
+    except (subprocess.SubprocessError, OSError) as error:
+        print(f"Evidence collection error: {error}", flush=True)
+if failures:
+    raise SystemExit("; ".join(failures))

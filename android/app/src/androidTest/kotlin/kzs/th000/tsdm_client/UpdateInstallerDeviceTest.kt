@@ -20,12 +20,13 @@ class UpdateInstallerDeviceTest {
 
     private fun click(text: String, timeout: Long = 30000) {
         val deadline = System.currentTimeMillis() + timeout
-        var node = device.findObject(By.textContains(text)) ?: device.findObject(By.descContains(text))
+        // Guidance text quotes these same labels; only tap the actionable button.
+        var node = device.findObject(By.text(text).clickable(true)) ?: device.findObject(By.desc(text).clickable(true))
         while (node == null && System.currentTimeMillis() < deadline) {
             device.swipe(device.displayWidth / 2, device.displayHeight * 4 / 5,
                 device.displayWidth / 2, device.displayHeight / 3, 15)
             Thread.sleep(500)
-            node = device.findObject(By.textContains(text)) ?: device.findObject(By.descContains(text))
+            node = device.findObject(By.text(text).clickable(true)) ?: device.findObject(By.desc(text).clickable(true))
         }
         checkNotNull(node) { "Missing update action: $text" }.click()
         device.waitForIdle()
