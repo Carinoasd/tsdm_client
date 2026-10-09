@@ -58,8 +58,12 @@ final class MedalCenterState {
 /// Read-only loader with request-generation and server identity checks.
 class MedalCenterCubit extends Cubit<MedalCenterState> {
   /// [fetchPage] must use the app's identity-bound network client.
-  MedalCenterCubit({required this.fetchPage, required this.currentUid, this.submitForm})
+  MedalCenterCubit({required this.fetchPage, required this.currentUid, this.submitForm, this.fetchApi})
     : super(const MedalCenterState());
+
+  /// The forum's app API (`medals`, plugin 1.5.0) with a query of [medalApiQuery], asked before the web page; a null
+  /// or unusable answer falls back to [fetchPage].
+  final Future<Map<String, dynamic>?> Function(Map<String, String> query)? fetchApi;
 
   /// GET transport for catalogue pages and action forms.
   final Future<String> Function(String url) fetchPage;
@@ -83,7 +87,11 @@ class MedalCenterCubit extends Cubit<MedalCenterState> {
       final post = submitForm;
       if (action.formData case final data?) {
         if (post == null) return const MedalActionResult(success: false, message: 'form submission unavailable');
-        body = await post(action.url, data);
+        // A claim form from the app API: a manual-review application carries its reason in the same form.
+        body = await post(action.url, {
+          ...data,
+          if (action.type == MedalActionType.manualReview) 'reason': reason ?? '',
+        });
       } else if (action.type == MedalActionType.manualReview) {
         if (post == null) return const MedalActionResult(success: false, message: 'form submission unavailable');
         final form = parseHtmlDocument(await fetchPage(action.url));
@@ -166,6 +174,11 @@ class MedalCenterCubit extends Cubit<MedalCenterState> {
       await clearSearch();
       return;
     }
+    if (fetchApi != null && (state.catalog?.viaApi ?? state.searchForm == null)) {
+      // The app API searches by its `q`: the search is an ordinary catalogue URL with `sq`, as the website's results.
+      await load(medalSearchUrl(query));
+      return;
+    }
     final form = state.searchForm;
     final post = submitForm;
     if (form == null || post == null) {
@@ -216,6 +229,26 @@ class MedalCenterCubit extends Cubit<MedalCenterState> {
       needLogin: needLogin,
     );
     emit(next(loading: true));
+    if (fetchApi case final api? when Uri.parse(url).queryParameters['id'] == 'dsu_medalCenter:memcp') {
+      try {
+        final json = await api(medalApiQuery(url));
+        if (isClosed || generation != _generation || currentUid() != uid) return;
+        if (medalCatalogFromApi(json, url) case final catalog?) {
+          final served = (json!['uid'] as num?)?.toInt() ?? 0;
+          if (uid != null && served == 0) {
+            emit(next(needLogin: true));
+          } else if (served != (uid ?? 0)) {
+            emit(next(failed: true));
+          } else {
+            emit(next(catalog: catalog));
+          }
+          return;
+        }
+      } on Exception {
+        // The web page below.
+      }
+      if (isClosed || generation != _generation || currentUid() != uid) return;
+    }
     try {
       final document = parseHtmlDocument(await request());
       if (isClosed || generation != _generation || currentUid() != uid) return;
