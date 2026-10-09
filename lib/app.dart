@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.dart';
 import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart';
+import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
@@ -471,6 +472,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       talker.debug(
                         'auto checkin finished: succeeded=${state.succeeded.length} failed=${state.failed.length}',
                       );
+                      // The current account may be one of them: its button shows the recorded check-in.
+                      context.read<CheckinBloc>().add(const CheckinStatusRequested());
                       showSnackBar(
                         context: context,
                         message: tr.autoCheckinFinished,
@@ -603,6 +606,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               ),
             ),
             const RootSingleton(),
+            CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
           ],
         ),
       ),

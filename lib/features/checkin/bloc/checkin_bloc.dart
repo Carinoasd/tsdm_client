@@ -76,11 +76,18 @@ final class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     }
     if (checked) {
       emit(const CheckinStateChecked());
-    } else if (state is CheckinStateChecked) {
-      // A new day, or another account without a record.
+    } else if (_showsChecked(state)) {
+      // A new day (the app stayed open past midnight), or another account without a record: the check-in of this
+      // run counted for its own day only.
       emit(const CheckinStateInitial());
     }
   }
+
+  /// Whether [state] shows the account as checked in: recorded, checked in now, or answered "already checked in".
+  static bool _showsChecked(CheckinState state) =>
+      state is CheckinStateChecked ||
+      state is CheckinStateSuccess ||
+      (state is CheckinStateFailed && state.result is CheckinResultAlreadyChecked);
 
   void _onCheckinAuthChanged(CheckinAuthChanged event, Emitter<CheckinState> emit) {
     if (event.authed) {
