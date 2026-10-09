@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/medal_title_tools/repository/medal_title_tools_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Common entry of the medal centre, the titles of the current account and the title shop.
@@ -22,6 +27,7 @@ class MedalTitleHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.medalTitleHub;
+    final tools = context.t.medalTitleTools;
     final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
     return Scaffold(
       appBar: AppBar(title: Text(tr.title)),
@@ -56,6 +62,23 @@ class MedalTitleHubPage extends StatelessWidget {
                   description: tr.titleShopDescription,
                   path: ScreenPaths.titleShop,
                 ),
+                if (uid != null) ...[
+                  sizedBoxW12H12,
+                  _HubDestination(
+                    icon: Icons.swap_horiz_outlined,
+                    title: tools.exchangeTitle,
+                    description: tools.hubExchange,
+                    path: ScreenPaths.titleExchange,
+                  ),
+                  sizedBoxW12H12,
+                  _HubDestination(
+                    icon: Icons.military_tech_outlined,
+                    title: tools.myMedalsTitle,
+                    description: tools.hubMyMedals,
+                    path: ScreenPaths.myMedals,
+                  ),
+                  _StaffDestinations(uid: uid),
+                ],
               ],
             ),
           ),
@@ -164,6 +187,78 @@ class _HubDestination extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () async => context.pushNamed(path),
       ),
+    );
+  }
+}
+
+/// Sending medals and issuing titles, shown only to the accounts the forum lets use them.
+///
+/// Whether the account may is asked once and kept for ten minutes: the answers carry the whole medal list and the
+/// latest sendings, too much to read each time this page opens.
+class _StaffDestinations extends StatefulWidget {
+  const _StaffDestinations({required this.uid});
+
+  final int uid;
+
+  static final _known = <int, ({bool grant, bool issue, DateTime at})>{};
+
+  @override
+  State<_StaffDestinations> createState() => _StaffDestinationsState();
+}
+
+class _StaffDestinationsState extends State<_StaffDestinations> {
+  ({bool grant, bool issue})? _can;
+
+  @override
+  void initState() {
+    super.initState();
+    final known = _StaffDestinations._known[widget.uid];
+    if (known != null && DateTime.now().difference(known.at) < const Duration(minutes: 10)) {
+      _can = (grant: known.grant, issue: known.issue);
+    } else {
+      unawaited(_ask());
+    }
+  }
+
+  Future<void> _ask() async {
+    final repo = MedalTitleToolsRepository.network(getIt.get<NetClientProvider>());
+    try {
+      final grant = await repo.grant();
+      final issue = await repo.issue();
+      final can = (grant: grant?.canGrant ?? false, issue: issue?.canIssue ?? false);
+      _StaffDestinations._known[widget.uid] = (grant: can.grant, issue: can.issue, at: DateTime.now());
+      if (mounted) setState(() => _can = can);
+    } on Exception {
+      // Not shown; the website has them.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final can = _can;
+    final tools = context.t.medalTitleTools;
+    if (can == null) return const SizedBox.shrink();
+    return Column(
+      children: [
+        if (can.grant) ...[
+          sizedBoxW12H12,
+          _HubDestination(
+            icon: Icons.card_giftcard_outlined,
+            title: tools.grantTitle,
+            description: tools.hubGrant,
+            path: ScreenPaths.medalGrant,
+          ),
+        ],
+        if (can.issue) ...[
+          sizedBoxW12H12,
+          _HubDestination(
+            icon: Icons.verified_outlined,
+            title: tools.issueTitle,
+            description: tools.hubIssue,
+            path: ScreenPaths.titleIssue,
+          ),
+        ],
+      ],
     );
   }
 }

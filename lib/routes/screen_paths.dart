@@ -89,6 +89,18 @@ class ScreenPaths {
   /// Common entry of the medal centre, the current account's titles and the title shop.
   static const String medalTitleHub = '/medalTitleHub';
 
+  /// Titles got with medals (app API).
+  static const String titleExchange = '/titleExchange';
+
+  /// The current account's medals: shown in posts or hidden, and the medal record (app API).
+  static const String myMedals = '/myMedals';
+
+  /// Sending medals to members, for the medal centre's sending list (app API).
+  static const String medalGrant = '/medalGrant';
+
+  /// Issuing titles to members, for administrators and the title plugin's list (app API).
+  static const String titleIssue = '/titleIssue';
+
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
 
