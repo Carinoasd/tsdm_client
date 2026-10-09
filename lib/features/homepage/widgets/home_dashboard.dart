@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/settings/widgets/support_development_dialog
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/hour_ticker.dart';
 
 /// Corner radius of the homepage cards, the app wide [appSurfaceRadius].
 const double homeCardRadius = appSurfaceRadius;
@@ -156,34 +157,37 @@ class HomeGreetingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final now = DateTime.now();
     final hasStatus = forumStatus != const ForumStatus.empty();
 
-    final greeting = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
-          // Phones keep the greeting narrower beside the title badge: the date wraps instead of being cut.
-          maxLines: compact ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: textTheme.labelMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
-        ),
-        sizedBoxW4H4,
-        Text(
-          homeGreeting(context, now.hour, username),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        if (hasStatus) ...[
+    // The date and the greeting follow the clock: an app left open overnight showed yesterday's date (and "good
+    // night" in the morning) until the page was built again.
+    final greeting = HourTicker(
+      builder: (context, now) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
+            // Phones keep the greeting narrower beside the title badge: the date wraps instead of being cut.
+            maxLines: compact ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.labelMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+          ),
           sizedBoxW4H4,
           Text(
-            context.t.homepage.todayPosts(count: forumStatus.todayCount),
-            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            homeGreeting(context, now.hour, username),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(fontWeight: FontWeight.bold),
           ),
+          if (hasStatus) ...[
+            sizedBoxW4H4,
+            Text(
+              context.t.homepage.todayPosts(count: forumStatus.todayCount),
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
         ],
-      ],
+      ),
     );
 
     // Always visible next to the check-in, with the state the homepage can tell (claimable, claimed in this run, none
