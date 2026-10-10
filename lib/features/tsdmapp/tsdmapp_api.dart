@@ -46,7 +46,7 @@ abstract final class TsdmAppApi {
     NetClientProvider client,
     String action, [
     Map<String, String> query = const {},
-  ]) => _ask(client, action, query, waitBusy: false);
+  ]) => _ask(client, action, query, waitBusy: false, tries: 1);
 
   /// [ask], and an answer "too soon" (HTTP 429, `error: busy`, plugin 1.1.0) of a few seconds is waited for and asked
   /// once more: pages read the same action again right after a change (a title worn, a medal bought) to show the
@@ -55,13 +55,14 @@ abstract final class TsdmAppApi {
     NetClientProvider client,
     String action, [
     Map<String, String> query = const {},
-  ]) => _ask(client, action, query, waitBusy: true);
+  ]) => _ask(client, action, query, waitBusy: true, tries: 3);
 
   static Future<Map<String, dynamic>?> _ask(
     NetClientProvider client,
     String action,
     Map<String, String> query, {
     required bool waitBusy,
+    required int tries,
   }) async {
     if (knownUnavailable) {
       return null;
@@ -86,7 +87,9 @@ abstract final class TsdmAppApi {
           return null;
         }
         await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
-        return _ask(client, action, query, waitBusy: false);
+        // Another page or poller of the account may take the action again meanwhile: a few more waits, never the web
+        // page of a plugin the parsers may not know any more.
+        return _ask(client, action, query, waitBusy: tries > 2, tries: tries - 1);
       }
     }
     switch (result) {
