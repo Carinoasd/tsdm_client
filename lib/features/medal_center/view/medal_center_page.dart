@@ -8,6 +8,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/authentication/utils/account_changes.dart';
 import 'package:tsdm_client/features/medal_center/cubit/medal_center_cubit.dart';
 import 'package:tsdm_client/features/medal_center/models/medal_catalog.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -67,10 +68,14 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
           };
         },
       );
-      _authSubscription = auth.status.listen((status) {
-        _cubit.invalidate();
-        if (status is! AuthStatusLoading) unawaited(_cubit.load());
-      });
+      _authSubscription = listenAccountChanges(
+        auth,
+        onLoggingIn: _cubit.invalidate,
+        onChanged: () {
+          _cubit.invalidate();
+          unawaited(_cubit.load());
+        },
+      );
     }
     unawaited(_cubit.load());
   }

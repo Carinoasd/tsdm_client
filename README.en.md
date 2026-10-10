@@ -16,14 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.34.0 (2026-10-10)
+## Latest update: 1.34.1 (2026-10-10)
 
-- Medals and titles: with the forum's new card-style medal centre and title plugin, the medal centre, title shop and my titles now read the forum's app API, so they keep working after the forum's update; without the API the web pages are read as before.
-- New in "Medals & titles": title exchange (the medals each title needs, exchange when you have them all) and my medals (show or hide each medal in posts, with the forum's warning before hiding; the medal record); accounts with permission also get sending medals and issuing titles.
-- Check-in: an app left open past midnight kept showing yesterday's date and "checked in" and did not check in again the next day; the button now resets after midnight, the auto check-in runs again once check-in opens at 1:00, and the homepage date and greeting follow the clock.
-- Android build number 131, installs over earlier releases and test builds.
+- Medal centre and title shop: opening them took several seconds and now and then showed "the forum gives no medal list it can read"; fixed (the page asked the forum's app API twice when opened and its rate limit held back the second call).
+- 1.34.0: the medal centre, title shop and my titles read the forum's app API; "Medals & titles" adds title exchange and my medals (sending medals and issuing titles for accounts with permission); the check-in past midnight is fixed.
+- Android build number 132, installs over earlier releases and test builds.
 
-[Download 1.34.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.34.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.34.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.34.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

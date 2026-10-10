@@ -7,6 +7,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/authentication/utils/account_changes.dart';
 import 'package:tsdm_client/features/title_shop/cubit/title_shop_cubit.dart';
 import 'package:tsdm_client/features/title_shop/models/title_shop.dart';
 import 'package:tsdm_client/features/title_shop/repository/title_shop_repository.dart';
@@ -53,10 +54,14 @@ class _TitleShopPageState extends State<TitleShopPage> {
         currentUid: () => auth.effectiveCurrentUid,
         repository: () => TitleShopRepository.network(getIt.get<NetClientProvider>()),
       );
-      _authSubscription = auth.status.listen((status) {
-        _cubit.invalidate();
-        if (status is! AuthStatusLoading) unawaited(_cubit.load());
-      });
+      _authSubscription = listenAccountChanges(
+        auth,
+        onLoggingIn: _cubit.invalidate,
+        onChanged: () {
+          _cubit.invalidate();
+          unawaited(_cubit.load());
+        },
+      );
     }
     unawaited(_cubit.load());
   }
