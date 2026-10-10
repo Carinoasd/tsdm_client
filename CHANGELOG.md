@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-10
+
 ### Added
 
 - 勋章与称号：配合论坛的 App 接口插件 1.5.0，「勋章与称号」页新增四个功能：

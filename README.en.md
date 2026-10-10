@@ -16,15 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.33.3 (2026-10-09)
+## Latest update: 1.34.0 (2026-10-10)
 
-- Rating: the page stays after an accepted rate, with a notice above the button; scores and reason are kept and today's remaining is reduced, so the same floor can be rated again at once or with other scores; press back to leave.
-- Rating floor after floor in one thread shows the form at once instead of loading the rate window for every floor.
-- Message sync (Android): the background service's requests time out, so a request held while the phone sleeps no longer blocks new messages; the app and the service no longer each poll.
-- In-app update (Windows): "cannot start the update" is fixed; the upgrade from 1.33.0 still has to be installed by hand, later ones update in the app.
-- Android build number 130, installs over earlier releases and test builds.
+- Medals and titles: with the forum's new card-style medal centre and title plugin, the medal centre, title shop and my titles now read the forum's app API, so they keep working after the forum's update; without the API the web pages are read as before.
+- New in "Medals & titles": title exchange (the medals each title needs, exchange when you have them all) and my medals (show or hide each medal in posts, with the forum's warning before hiding; the medal record); accounts with permission also get sending medals and issuing titles.
+- Check-in: an app left open past midnight kept showing yesterday's date and "checked in" and did not check in again the next day; the button now resets after midnight, the auto check-in runs again once check-in opens at 1:00, and the homepage date and greeting follow the clock.
+- Android build number 131, installs over earlier releases and test builds.
 
-[Download 1.33.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.33.3) · [Full changelog](./CHANGELOG.md)
+[Download 1.34.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.34.0) · [Full changelog](./CHANGELOG.md)
+
 ## What it is
 
 A cross-platform client for the [天使动漫 forum](https://www.tsdm39.com/). When the forum moved to Discuz! X5 in 2026 the original client could no longer parse its pages; this project took over maintenance at the forum's request, adapted the app to the X5 page structure and keeps adding features. It is the client version recognised by the forum as official.
