@@ -226,6 +226,11 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     type: double,
     defaultValue: 1,
   ),
+
+  /// Ask Android for the highest refresh rate the screen offers at the current resolution.
+  ///
+  /// Some vendor systems keep apps that do not ask at 60Hz on 90/120Hz screens (GitHub #182). Android only.
+  highRefreshRate<bool>(name: 'highRefreshRate', type: bool, defaultValue: true),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

@@ -56,6 +56,7 @@ class SettingsMap with SettingsMapMappable {
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
     this.autoDailyRedPacket = false,
+    this.highRefreshRate = true,
   });
 
   final String netClientAccept;
@@ -108,6 +109,9 @@ class SettingsMap with SettingsMapMappable {
   final ThreadFloorInteractionMode threadFloorInteractionMode;
   final double textScaleFactor;
   final double threadContentScale;
+
+  /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
+  final bool highRefreshRate;
 
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
@@ -167,6 +171,7 @@ class SettingsMap with SettingsMapMappable {
       ),
       SettingsKeys.textScaleFactor => copyWith(textScaleFactor: value as double?),
       SettingsKeys.threadContentScale => copyWith(threadContentScale: value as double?),
+      SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
     };
   }
 }

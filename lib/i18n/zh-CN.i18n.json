@@ -257,6 +257,10 @@
         "followSystem": "跟随系统",
         "selectLanguage": "选择语言"
       },
+      "highRefreshRate": {
+        "title": "高刷新率",
+        "detail": "使用屏幕支持的最高刷新率，滚动更流畅，但会稍微多耗电"
+      },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
         "detail": "论坛卡片上显示可跳转到最新帖子和子板块的部件"

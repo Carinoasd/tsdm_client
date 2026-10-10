@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- 设置 → 外观：新增「高刷新率」开关（仅 Android，默认开启）。部分厂商系统在 90/120Hz 屏幕上把没主动要求的应用锁在 60Hz，现在会请系统用屏幕在当前分辨率下最高的刷新率，滑动更流畅；嫌耗电可关掉（#182）。
+
 ## [1.34.1] - 2026-10-10
 
 ### Fixed

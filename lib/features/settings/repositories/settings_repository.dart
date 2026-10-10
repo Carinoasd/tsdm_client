@@ -145,6 +145,7 @@ final class SettingsRepository with LoggerMixin {
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       textScaleFactor: s.extract(_SK.textScaleFactor),
       threadContentScale: s.extract(_SK.threadContentScale),
+      highRefreshRate: s.extract(_SK.highRefreshRate),
     );
   }
 

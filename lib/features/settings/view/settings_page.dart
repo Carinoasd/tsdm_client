@@ -234,6 +234,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final localeName = locale == null ? tr.languages.followSystem : context.t.locale;
     final themeModeIndex = state.settingsMap.themeMode;
     final showForumCardShortcut = state.settingsMap.showShortcutInForumCard;
+    final highRefreshRate = state.settingsMap.highRefreshRate;
     final accentColor = state.settingsMap.accentColor;
     final accentColorFollowSystem = state.settingsMap.accentColorFollowSystem;
     final fontFamily = state.settingsMap.fontFamily;
@@ -367,6 +368,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v)),
         ),
+        if (isAndroid)
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.speed_outlined),
+            title: Text(tr.highRefreshRate.title),
+            subtitle: Text(tr.highRefreshRate.detail),
+            value: highRefreshRate,
+            onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.highRefreshRate, v)),
+          ),
       ],
     );
   }
