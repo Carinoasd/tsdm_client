@@ -91,6 +91,25 @@ final class SecondaryTitle with SecondaryTitleMappable {
     return allAvailableTitles;
   }
 
+  /// The titles of a `titles` answer of the forum's app API (plugin 1.5.0), the worn one marked; null when [json] is
+  /// not a usable answer. Expired titles are left out: they can not be worn.
+  static List<SecondaryTitle>? fromApi(Map<String, dynamic>? json) {
+    if (json == null || json['ok'] != 1 || json['installed'] != 1 || json['titles'] is! List) {
+      return null;
+    }
+    final out = <SecondaryTitle>[];
+    for (final e in (json['titles'] as List).whereType<Map<String, dynamic>>()) {
+      final id = (e['id'] as num?)?.toInt() ?? 0;
+      final name = '${e['name'] ?? ''}'.trim();
+      final image = '${e['image'] ?? ''}'.trim();
+      if (id <= 0 || name.isEmpty || image.isEmpty || e['expired'] == 1) {
+        continue;
+      }
+      out.add(SecondaryTitle(id: id, name: name, imageUrl: image, activated: e['worn'] == 1));
+    }
+    return out;
+  }
+
   /// Title id.
   final int id;
 

@@ -384,3 +384,82 @@ TitleShopCatalog parseTitleShop(uh.Document document) {
   final text = titleShopText(message?.querySelector('p') ?? message);
   return (error: false, message: text.isEmpty ? null : text);
 }
+
+/// The shop page from the forum's app API (`tsdmapp:api&action=titleshop`, plugin 1.5.0); null when [json] is not a
+/// usable answer (no plugin, no title plugin, an error), then the web page is read instead.
+///
+/// The purchase form is the plugin's own one as the API describes it: the same endpoint and fields as on the website,
+/// so [TitleBuyForm] and the purchase flow stay as they are. The API states owned, for sale and affordable plainly.
+TitleShopCatalog? titleShopFromApi(Map<String, dynamic>? json) {
+  if (json == null || json['ok'] != 1 || json['installed'] != 1) return null;
+  final items = json['items'];
+  final query = json['query'];
+  final form = json['buy_form'];
+  final credit = json['credit'];
+  if (items is! List || query is! Map<String, dynamic> || form is! Map<String, dynamic> || credit is! Map) return null;
+  final fields = form['fields'];
+  if (fields is! Map) return null;
+  final formHash = '${fields['formhash'] ?? ''}';
+  final returnPath = '${fields['tsdmtitle_return'] ?? ''}';
+  final usableForm = formHash.isNotEmpty && _isShopReturn(returnPath);
+  final creditTitle = '${credit['title'] ?? ''}';
+  final out = <TitleShopItem>[];
+  final seen = <int>{};
+  for (final e in items.whereType<Map<String, dynamic>>()) {
+    final id = (e['id'] as num?)?.toInt() ?? 0;
+    final name = '${e['name'] ?? ''}'.trim();
+    final price = (e['price'] as num?)?.toInt() ?? -1;
+    if (id <= 0 || name.isEmpty || price < 0 || !seen.add(id)) continue;
+    final owned = e['owned'] == 1;
+    final forSale = e['for_sale'] == 1;
+    final afford = e['afford'] == 1;
+    final buyable = !owned && forSale && afford && usableForm;
+    final image = Uri.tryParse('${e['image'] ?? ''}');
+    final imageUri = image == null ? null : Uri.parse(baseUrl).resolveUri(image);
+    out.add(
+      TitleShopItem(
+        id: id,
+        name: name,
+        price: '$price',
+        imageUrl:
+            imageUri != null &&
+                '${e['image'] ?? ''}'.isNotEmpty &&
+                ['https', 'http'].contains(imageUri.scheme) &&
+                imageUri.host.isNotEmpty &&
+                imageUri.userInfo.isEmpty
+            ? imageUri.toString()
+            : null,
+        status: owned
+            ? TitleShopStatus.owned
+            : buyable
+            ? TitleShopStatus.purchasable
+            : TitleShopStatus.unavailable,
+        statusText: owned
+            ? '已拥有'
+            : !forSale
+            ? '非卖品'
+            : !afford
+            ? '$creditTitle不足'
+            : null,
+        form: buyable
+            ? TitleBuyForm(
+                formHash: formHash,
+                returnPath: returnPath,
+                buyId: id,
+                confirmText: '确定花费 $price $creditTitle 购买称号「$name」吗？',
+              )
+            : null,
+      ),
+    );
+  }
+  final page = (query['page'] as num?)?.toInt() ?? 1;
+  final pages = (query['pages'] as num?)?.toInt() ?? 1;
+  return TitleShopCatalog(
+    heading: '称号商店',
+    items: List.unmodifiable(out),
+    page: page,
+    previousUrl: page > 1 ? titleShopPageUrl('$titleShopUrl&page=${page - 1}') : null,
+    nextUrl: page < pages ? titleShopPageUrl('$titleShopUrl&page=${page + 1}') : null,
+    balance: creditTitle.isEmpty ? null : '$creditTitle：${credit['balance'] ?? ''}',
+  );
+}

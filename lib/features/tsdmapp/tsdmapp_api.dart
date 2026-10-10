@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/instance.dart';
@@ -45,11 +46,49 @@ abstract final class TsdmAppApi {
     NetClientProvider client,
     String action, [
     Map<String, String> query = const {},
-  ]) async {
+  ]) => _ask(client, action, query, waitBusy: false);
+
+  /// [ask], and an answer "too soon" (HTTP 429, `error: busy`, plugin 1.1.0) of a few seconds is waited for and asked
+  /// once more: pages read the same action again right after a change (a title worn, a medal bought) to show the
+  /// result, and the plugin takes one call per action and account every few seconds.
+  static Future<Map<String, dynamic>?> askWaiting(
+    NetClientProvider client,
+    String action, [
+    Map<String, String> query = const {},
+  ]) => _ask(client, action, query, waitBusy: true);
+
+  static Future<Map<String, dynamic>?> _ask(
+    NetClientProvider client,
+    String action,
+    Map<String, String> query, {
+    required bool waitBusy,
+  }) async {
     if (knownUnavailable) {
       return null;
     }
-    final result = await client.get(url(action, query)).run();
+    final result = await client
+        .get(
+          url(action, query),
+          options: waitBusy ? Options(validateStatus: (code) => code != null && (code < 300 || code == 429)) : null,
+        )
+        .run();
+    if (waitBusy) {
+      if (result case Right(value: final Response<dynamic> resp) when resp.statusCode == 429) {
+        final data = resp.data;
+        Object? json;
+        try {
+          json = data is Map ? data : jsonDecode('$data');
+        } on FormatException {
+          json = null;
+        }
+        final wait = json is Map ? (json['retry_after'] as num?)?.toInt() ?? 3 : 3;
+        if (wait > 10) {
+          return null;
+        }
+        await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
+        return _ask(client, action, query, waitBusy: false);
+      }
+    }
     switch (result) {
       case Left(:final value):
         talker.debug('tsdmapp api $action failed: $value');

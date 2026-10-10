@@ -291,7 +291,11 @@ final class MedalCatalog {
     this.supported = true,
     this.message,
     this.searchForm,
+    this.viaApi = false,
   });
+
+  /// Read from the forum's app API: the search is the `q` of the API, no form is posted.
+  final bool viaApi;
 
   /// Categories in source order.
   final List<MedalCategory> categories;
@@ -428,5 +432,141 @@ MedalCatalog parseMedalCatalog(uh.Document document) {
     nextUrl: medalCatalogUrl(pagination?.querySelector('a.nxt')?.getAttribute('href')),
     message: message.isEmpty ? null : message,
     searchForm: medalSearchForm(document),
+  );
+}
+
+/// Query of the forum's app API (`medals`) for a catalogue [url]: its category, page and search text.
+Map<String, String> medalApiQuery(String url) {
+  final params = Uri.parse(url).queryParameters;
+  final sq = params['sq'];
+  final query = sq == null ? null : medalSearchQuery(sq);
+  return {
+    'typeid': ?params['typeid'],
+    'page': ?params['page'],
+    'q': ?query,
+  };
+}
+
+/// The catalogue URL of a search for [query] (page 1): `sq` is base64 of the UTF-8 text, as the website writes it.
+String medalSearchUrl(String query) => medalCatalogUrl('$medalCenterUrl&sq=${base64.encode(utf8.encode(query))}')!;
+
+String? _apiImage(Object? value) {
+  final src = '${value ?? ''}'.trim();
+  if (src.isEmpty) return null;
+  final relative = Uri.tryParse(src);
+  if (relative == null) return null;
+  final uri = Uri.parse(baseUrl).resolveUri(relative);
+  if (!['https', 'http'].contains(uri.scheme) || uri.host.isEmpty || uri.userInfo.isNotEmpty) return null;
+  return uri.toString();
+}
+
+/// The catalogue page [url] from a `medals` answer of the forum's app API (plugin 1.5.0); null when [json] is not a
+/// usable answer, then the web page is read instead.
+///
+/// The medal centre 3.2 lays its catalogue out as cards the web parser does not know; the API states the same: the way
+/// to get each medal, its conditions with whether this account meets them, and the claim actions with the reason one
+/// is not possible. Actions post the plugin's own claim form, as on the website.
+MedalCatalog? medalCatalogFromApi(Map<String, dynamic>? json, String url) {
+  if (json == null || json['ok'] != 1 || json['installed'] != 1) return null;
+  final medals = json['medals'];
+  final query = json['query'];
+  final form = json['claim_form'];
+  if (medals is! List || query is! Map<String, dynamic> || form is! Map<String, dynamic>) return null;
+  final fields = form['fields'];
+  final claimUrl = Uri.parse(medalCenterUrl).resolve('${form['url'] ?? ''}');
+  final validClaim =
+      fields is Map &&
+      claimUrl.origin == Uri.parse(baseUrl).origin &&
+      claimUrl.path == '/plugin.php' &&
+      claimUrl.queryParameters['id'] == 'dsu_medalCenter:memcp' &&
+      claimUrl.queryParameters['action'] == 'claim';
+  final categories = <MedalCategory>[
+    const MedalCategory('全部', medalCenterUrl),
+    for (final t in (json['types'] as List? ?? const []).whereType<Map<String, dynamic>>())
+      if (((t['typeid'] as num?)?.toInt() ?? 0) > 0 && '${t['name'] ?? ''}'.trim().isNotEmpty)
+        MedalCategory('${t['name']}'.trim(), medalCatalogUrl('$medalCenterUrl&typeid=${t['typeid']}')!),
+  ];
+  final out = <CatalogMedal>[];
+  for (final m in medals.whereType<Map<String, dynamic>>()) {
+    final id = (m['id'] as num?)?.toInt() ?? 0;
+    final name = '${m['name'] ?? ''}'.trim();
+    if (id <= 0 || name.isEmpty) continue;
+    final days = (m['expiration_days'] as num?)?.toInt() ?? 0;
+    final details = <String>[
+      if ('${m['price_text'] ?? ''}'.isNotEmpty) '价格：${m['price_text']}',
+      if ('${m['sign_text'] ?? ''}'.isNotEmpty) '${m['sign_text']}',
+      if (days > 0) '有效期：$days 天' else '有效期：永久',
+      for (final c in (m['conds'] as List? ?? const []).whereType<Map<String, dynamic>>())
+        [
+          if ('${c['label'] ?? ''}'.isNotEmpty) '${c['label']}：' else '',
+          '${c['text'] ?? ''}',
+          if (c['ok'] == true) ' ✓' else if (c['ok'] == false) ' ✗',
+        ].join(),
+    ];
+    final actions = <CatalogMedalAction>[];
+    String? why;
+    for (final a in (m['actions'] as List? ?? const []).whereType<Map<String, dynamic>>()) {
+      final method = (a['method'] as num?)?.toInt() ?? 0;
+      final type = medalMethodType(method);
+      final ok = a['ok'];
+      // A guest (ok null) sees the ways to get a medal, not buttons.
+      if (type == null || ok is! bool || !validClaim) continue;
+      final reason = '${a['why'] ?? ''}'.trim();
+      if (!ok && reason.isNotEmpty) why ??= reason;
+      final confirm = '${a['confirm'] ?? ''}'.trim();
+      actions.add(
+        CatalogMedalAction(
+          type: type,
+          url: claimUrl.toString(),
+          formData: Map.unmodifiable({
+            for (final e in fields.entries) '${e.key}': '${e.value}',
+            'medalid': '$id',
+            'method': '$method',
+            'credit': '${(a['credit'] as num?)?.toInt() ?? 0}',
+          }),
+          confirmText: confirm.isEmpty ? null : confirm,
+          disabledReason: ok ? null : reason,
+        ),
+      );
+    }
+    out.add(
+      CatalogMedal(
+        id: '$id',
+        name: name,
+        imageUrl: _apiImage(m['image']),
+        method: '${m['method_text'] ?? ''}',
+        description: '${m['description'] ?? ''}',
+        details: List.unmodifiable(details),
+        accountStatus: m['owned'] == 1
+            ? '已拥有'
+            : m['pending'] == 1
+            ? '审核中'
+            : why,
+        actions: List.unmodifiable(m['owned'] == 1 || m['pending'] == 1 ? const <CatalogMedalAction>[] : actions),
+      ),
+    );
+  }
+  final page = (query['page'] as num?)?.toInt() ?? 1;
+  final pages = (query['pages'] as num?)?.toInt() ?? 1;
+  String? pageUrl(int n) {
+    final params = Uri.parse(url).queryParameters;
+    return medalCatalogUrl(
+      [
+        medalCenterUrl,
+        if (params['typeid'] case final t?) 'typeid=$t',
+        if (params['sq'] case final sq?) 'sq=${Uri.encodeQueryComponent(sq)}',
+        'page=$n',
+      ].join('&'),
+    );
+  }
+
+  return MedalCatalog(
+    categories: List.unmodifiable(categories),
+    medals: List.unmodifiable(out),
+    page: page,
+    previousUrl: page > 1 ? pageUrl(page - 1) : null,
+    nextUrl: page < pages ? pageUrl(page + 1) : null,
+    message: out.isEmpty ? '没有符合的勋章' : null,
+    viaApi: true,
   );
 }

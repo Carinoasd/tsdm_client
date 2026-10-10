@@ -58,6 +58,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
             Left(:final value) => throw value,
           };
         },
+        fetchApi: (query) => TsdmAppApi.askWaiting(getIt.get<NetClientProvider>(), 'medals', query),
         submitForm: (url, data) async {
           final result = await getIt.get<NetClientProvider>().postForm(url, data: data).run();
           return switch (result) {

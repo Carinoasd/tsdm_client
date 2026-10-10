@@ -40,7 +40,32 @@ final class MyTitlesRepository with LoggerMixin {
   String? _formHash;
 
   /// Fetch all available secondary titles for current user.
-  AsyncEither<List<SecondaryTitle>> fetchSecondaryTitles() => getIt
+  ///
+  /// The forum's app API (`titles`, plugin 1.5.0) first: the card layout of the title plugin 6.2 has no table to
+  /// parse. Every page of it is read (up to 200 titles each); the web page is the path when the API can not answer.
+  AsyncEither<List<SecondaryTitle>> fetchSecondaryTitles() => TaskEither(() async {
+    final client = getIt.get<NetClientProvider>();
+    final titles = <SecondaryTitle>[];
+    for (var page = 1; page <= 20; page++) {
+      final json = await TsdmAppApi.askWaiting(client, 'titles', {'pp': '200', 'page': '$page'});
+      final got = SecondaryTitle.fromApi(json);
+      if (got == null || ((json!['uid'] as num?)?.toInt() ?? 0) <= 0) {
+        break;
+      }
+      _formHash = json['formhash'] is String && (json['formhash'] as String).isNotEmpty
+          ? json['formhash'] as String
+          : _formHash;
+      titles.addAll(got);
+      final query = json['query'];
+      final pages = query is Map ? (query['pages'] as num?)?.toInt() ?? 1 : 1;
+      if (page >= pages) {
+        return Right(titles);
+      }
+    }
+    return _fetchWebTitles().run();
+  });
+
+  AsyncEither<List<SecondaryTitle>> _fetchWebTitles() => getIt
       .get<NetClientProvider>()
       .get(withTsdmAppJson(_pageUrl))
       .mapHttp((v) => tsdmAppPageDocument(v.data))

@@ -23,6 +23,10 @@ import 'package:tsdm_client/features/image/view/image_detail_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/my_medals_page.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/title_exchange_page.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
 import 'package:tsdm_client/features/my_thread/view/my_thread_page.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -314,8 +318,15 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
+  AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
+  AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
+  AppRoute(path: ScreenPaths.medalGrant, builder: (_) => const MedalGrantPage()),
+  AppRoute(path: ScreenPaths.titleIssue, builder: (_) => const TitleIssuePage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
-  AppRoute(path: ScreenPaths.pokemon, builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0)),
+  AppRoute(
+    path: ScreenPaths.pokemon,
+    builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.pokemonDetail,
     builder: (state) => PokemonDetailPage(pokemon: state.extra! as Pokemon),

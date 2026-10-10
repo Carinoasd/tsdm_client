@@ -17,7 +17,7 @@ final class TitleShopIdentityException implements Exception {
 /// Title shop access bound to one network client's account. Never retries a purchase POST.
 class TitleShopRepository {
   /// Injected transports allow purchases to be tested without a live account.
-  TitleShopRepository({required this.getPage, required this.postForm});
+  TitleShopRepository({required this.getPage, required this.postForm, this.askApi});
 
   /// Uses the account-bound client; the purchase is a single attempt that follows no redirect.
   factory TitleShopRepository.network(NetClientProvider client) => TitleShopRepository(
@@ -30,7 +30,11 @@ class TitleShopRepository {
       Right(:final value) => value.data as String,
       Left(:final value) => throw value,
     },
+    askApi: (query) => TsdmAppApi.askWaiting(client, 'titleshop', query),
   );
+
+  /// The forum's app API (`titleshop`), asked first when set; null answers fall back to [getPage].
+  final Future<Map<String, dynamic>?> Function(Map<String, String> query)? askApi;
 
   /// Reads shop pages only.
   final Future<String> Function(String url) getPage;
@@ -42,6 +46,18 @@ class TitleShopRepository {
   Future<TitleShopCatalog> fetchPage(String url, int uid) async {
     final safe = titleShopPageUrl(url);
     if (safe == null || uid <= 0) throw const FormatException('Title shop page refused');
+    if (askApi case final ask?) {
+      final page = Uri.parse(safe).queryParameters['page'];
+      final json = await ask({'page': ?page});
+      if (titleShopFromApi(json) case final catalog?) {
+        final served = (json!['uid'] as num?)?.toInt() ?? 0;
+        if (served != uid) throw TitleShopIdentityException(guest: served == 0);
+        return catalog;
+      }
+      if (json != null && json['ok'] == 0 && json['error'] == 'login') {
+        throw const TitleShopIdentityException(guest: true);
+      }
+    }
     final document = parseHtmlDocument(await getPage(safe));
     final served = parseLoggedUidFromDocument(document);
     if (served != uid) throw TitleShopIdentityException(guest: served == null);
