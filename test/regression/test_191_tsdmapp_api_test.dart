@@ -28,7 +28,8 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 
-const _now = 1791269898;
+/// The forum clock: now, since the repository clamps `since` to three days ago (a fixed time broke on 2026-10-10).
+final int _now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
 /// A `notify` answer as the plugin gives it (1.1.0 on the test forum, names replaced).
 Map<String, Object?> _notify({
@@ -143,7 +144,7 @@ void main() {
   setUp(TsdmAppApi.reset);
 
   group('notify gate', () {
-    const since = _now - 60;
+    final since = _now - 60;
 
     test('nothing since the last fetch: no page, the forum clock', () {
       final gate = notifyGateOf(_notify(notices: [_notice(since - 600)]), since: since);

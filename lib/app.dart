@@ -55,6 +55,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/high_refresh_rate.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -126,6 +127,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Which metrics changes get a log line (GitHub #28).
   final _viewMetricsLogGate = ViewMetricsLogGate();
 
+  /// Applies the high refresh rate setting on Android (GitHub #182).
+  HighRefreshRateFollower? _highRefreshRate;
+
   Future<void> _saveWindowPosition() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     if (settings.windowRememberPosition && !settings.windowInCenter && await _hasNormalWindowBounds()) {
@@ -149,6 +153,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     super.initState();
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
+
+    if (isAndroid) {
+      _highRefreshRate = HighRefreshRateFollower(getIt.get<SettingsRepository>().settings);
+    }
 
     // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
     if (isAndroid) {
@@ -199,6 +207,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
+    unawaited(_highRefreshRate?.dispose());
     if (isWindows) {
       unawaited(TrayHelper.instance.dispose());
     }

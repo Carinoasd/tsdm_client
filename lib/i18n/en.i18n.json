@@ -257,6 +257,10 @@
         "followSystem": "Follow System",
         "selectLanguage": "Select Language"
       },
+      "highRefreshRate": {
+        "title": "High Refresh Rate",
+        "detail": "Run at the highest refresh rate the screen supports, smoother scrolling but uses a little more battery"
+      },
       "showShortcutInForumCard": {
         "title": "Forum Card Shortcut Entries",
         "detail": "Show shortcut entries towards latest thread and subreddits in forum card"

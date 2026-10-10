@@ -27,6 +27,7 @@ class MainActivity: FlutterActivity() {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
+        const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
 
         const val UPDATE_CHANNEL = "kzs.th000.tsdm_client/updateChannel"
         const val INTERACTIVE_HTML_CHANNEL = "kzs.th000.tsdm_client/interactiveHtmlChannel"
@@ -49,6 +50,9 @@ class MainActivity: FlutterActivity() {
     private var flutterViewWatched = false
     private val updateScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var installingUpdate = false
+
+    /** Whether Dart asked for the highest refresh rate, re-applied when the window comes back (GitHub #182). */
+    private var preferHighRefreshRate = false
 
     /** Hold the deep link when app is launched from a link (cold start). */
     private var initialDeepLink: String? = null
@@ -120,6 +124,12 @@ class MainActivity: FlutterActivity() {
     override fun onStart() {
         super.onStart()
         watchFlutterView()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The display can change while in background (folding, an external screen), so pick the mode again.
+        if (preferHighRefreshRate) applyRefreshRate()
     }
 
     override fun onDestroy() {
@@ -272,8 +282,42 @@ class MainActivity: FlutterActivity() {
                 result.success(true)
             }
             OPEN_IN_BROWSER -> openInBrowser(call.argument<Any>("url") as? String, result)
+            SET_HIGH_REFRESH_RATE -> {
+                preferHighRefreshRate = call.argument<Any>("enable") as? Boolean ?: false
+                result.success(applyRefreshRate())
+            }
             else -> result.notImplemented()
         }
+    }
+
+    /**
+     * Prefer the display mode with the highest refresh rate at the current resolution, or clear the preference
+     * (GitHub #182).
+     *
+     * Some vendor systems keep apps that set no preferred mode at 60Hz on 90/120Hz screens. Only modes with the
+     * current resolution are considered so the screen never switches resolution. Returns the refresh rate of the
+     * preferred mode, 0 when nothing is preferred.
+     */
+    private fun applyRefreshRate(): Double {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return 0.0
+        @Suppress("DEPRECATION")
+        val display = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay)
+            ?: return 0.0
+        val mode = if (preferHighRefreshRate) {
+            val current = display.mode
+            display.supportedModes
+                .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+                .maxByOrNull { it.refreshRate }
+        } else {
+            null
+        }
+        val attributes = window.attributes
+        val modeId = mode?.modeId ?: 0
+        if (attributes.preferredDisplayModeId != modeId) {
+            attributes.preferredDisplayModeId = modeId
+            window.attributes = attributes
+        }
+        return mode?.refreshRate?.toDouble() ?: 0.0
     }
 
     /** Forward native launch failures to the exportable Flutter log, without including the URL or its parameters. */
