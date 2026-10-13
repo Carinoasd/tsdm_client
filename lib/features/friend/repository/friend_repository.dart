@@ -3,9 +3,9 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/friend/models/add_friend.dart';
 import 'package:tsdm_client/features/friend/utils/parse_add_friend.dart';
 import 'package:tsdm_client/features/friend/utils/parse_friend.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
-import 'package:universal_html/parsing.dart';
 
 /// Repository of friends lists.
 final class FriendRepository {
@@ -19,8 +19,14 @@ final class FriendRepository {
   }
 
   /// Fetch and parse one page of a friends list.
-  AsyncEither<FriendListPage> fetchPage(String url) =>
-      getIt.get<NetClientProvider>().get(url).mapHttp((v) => parseFriendListPage(parseHtmlDocument('${v.data}')));
+  ///
+  /// Asked in the JSON mode of the forum's app API, which answers the friends pages (`do=friend`) since plugin 1.6.0
+  /// (roadmap item 3); an older plugin answers the web page, which parses the same. The `@` candidates read the own
+  /// list through here too when the `atplus` plugin is not there.
+  AsyncEither<FriendListPage> fetchPage(String url) => getIt
+      .get<NetClientProvider>()
+      .get(withTsdmAppJson(url))
+      .mapHttp((v) => parseFriendListPage(tsdmAppPageDocument(v.data)));
 
   /// The add-friend form for [uid], as the forum's popup loads it.
   static String addFriendFormUrl(String uid) =>

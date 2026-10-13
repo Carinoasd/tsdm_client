@@ -11,7 +11,6 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/html.dart' as uh;
-import 'package:universal_html/parsing.dart';
 
 /// Repository of building a forum.
 class ForumRepository {
@@ -83,11 +82,13 @@ class ForumRepository {
   }
 
   /// Fetch the page data on a forum group specified by group id [gid].
+  ///
+  /// The forum serves a group page as its board index (`CURMODULE` index), which the forum's app API answers in JSON
+  /// mode like the homepage (roadmap item 3); the web page otherwise.
   AsyncEither<ForumGroup?> fetchForumGroup(String gid) => getIt
       .get<NetClientProvider>()
-      .get('$baseUrl/forum.php?gid=$gid')
-      .mapHttp((v) => v.data as String)
-      .map(parseHtmlDocument)
+      .get(withTsdmAppJson('$baseUrl/forum.php?gid=$gid'))
+      .mapHttp((v) => tsdmAppPageDocument(v.data))
       .map(buildGroupListFromDocument)
       .map((v) => v.firstOrNull);
 }

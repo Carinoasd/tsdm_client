@@ -19,6 +19,16 @@ import 'package:tsdm_client/widgets/card/poll_card.dart';
 import 'package:universal_html/parsing.dart';
 
 String _fixture(String name) => File('test/data/poll_${name}_x5.html').readAsStringSync();
+
+/// What the forum's app API (plugin 1.5.0 and 1.6.0) answers a thread page asked in JSON mode that is challenged: the
+/// script printed before the thread was built is lost, a form hash is all the document holds.
+final String _challengedJson = jsonEncode({
+  'ok': 0,
+  'error': 'unknown',
+  'head': '',
+  'document': '<input type="hidden" name="formhash" value="abcd1234" />\n',
+});
+
 ForumPoll _parse(String html, {bool loggedIn = true}) => parseForumPoll(parseHtmlDocument(html), loggedIn: loggedIn);
 
 class _FormAdapter implements HttpClientAdapter {
@@ -41,11 +51,12 @@ class _FormAdapter implements HttpClientAdapter {
     requests.add(options);
     data = options.data;
     encodedBody = requestStream == null ? null : utf8.decode(await requestStream.expand((chunk) => chunk).toList());
+    final body = respond?.call(options) ?? '<html><body>Accepted</body></html>';
     return ResponseBody.fromString(
-      respond?.call(options) ?? '<html><body>Accepted</body></html>',
+      body,
       200,
       headers: {
-        Headers.contentTypeHeader: ['text/html; charset=utf-8'],
+        Headers.contentTypeHeader: [if (body.startsWith('{')) 'application/json' else 'text/html; charset=utf-8'],
       },
     );
   }
@@ -168,7 +179,11 @@ void main() {
             submitted = true;
             return challenge;
           }
-          if (submitted && !options.uri.queryParameters.containsKey('_dsign')) return challenge;
+          if (submitted && !options.uri.queryParameters.containsKey('_dsign')) {
+            // The poll is read in the JSON mode of the forum's app API, where the plugin (1.5.0 and 1.6.0) wraps the
+            // challenge in its JSON and the script is lost (roadmap item 3): only the web page carries it.
+            return options.uri.queryParameters['tsdmapp'] == 'json' ? _challengedJson : challenge;
+          }
           return _fixture(submitted && confirmed ? 'voted' : 'multiple').replaceAll('1266029', tid);
         },
       );
@@ -187,8 +202,10 @@ void main() {
         ..select('40029', selected: true);
       await cubit.submit();
 
-      expect(adapter.requests.map((r) => r.method), ['GET', 'POST', 'GET', 'GET']);
+      expect(adapter.requests.map((r) => r.method), ['GET', 'POST', 'GET', 'GET', 'GET']);
       expect(adapter.requests.where((r) => r.method == 'GET').every((r) => r.data == null), isTrue);
+      // The fresh GET in JSON mode, the same page without it to get the challenge, the page with the sign.
+      expect(adapter.requests.map((r) => r.uri.queryParameters['tsdmapp']), ['json', null, 'json', null, null]);
       expect(adapter.requests.last.uri.queryParameters['_dsign'], isNotEmpty);
       expect(cubit.state.submissionUnconfirmed, !confirmed);
       expect(cubit.state.poll!.availability, confirmed ? PollAvailability.voted : PollAvailability.available);

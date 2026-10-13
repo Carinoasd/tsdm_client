@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -10,9 +11,13 @@ class PollRepository {
   PollRepository({required this.getPage, required this.postForm});
 
   /// Build using the app's existing cookie, identity and error handling.
+  ///
+  /// The poll's post is read in the JSON mode of the forum's app API (roadmap item 3): the `findpost` redirect is
+  /// carried to the thread page, whose blocks hold the poll form and the `discuz_uid` the identity check reads. Every
+  /// poll card on screen reads it again whenever the account changes. Without the plugin the web page comes back.
   factory PollRepository.network(NetClientProvider client) => PollRepository(
-    getPage: (url) async => switch (await client.get(url).run()) {
-      Right(:final value) => value.data as String,
+    getPage: (url) async => switch (await client.get(withTsdmAppJson(url)).run()) {
+      Right(:final value) => tsdmAppPageHtml(value.data),
       Left(:final value) => throw value,
     },
     postForm: (url, body) async => switch (await client.postForm(url, data: body).run()) {

@@ -36,7 +36,17 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
       case (checkedToday: false, openNow: false):
         talker.warning('check in not done: checkin is not open now (app api)');
         return const CheckinResultEarlyInTime();
-      case (checkedToday: false, openNow: true) || null:
+      case (checkedToday: false, openNow: true):
+        // With the state told, the checkin page is only read for its form hash, and it is the heaviest page of all
+        // (every account, every day) and the one most bound to the checkin plugin's template. The API tells the hash:
+        // post the form directly (roadmap item 3). Without it (an older plugin, a busy answer) the page is read as
+        // before.
+        final formHash = await _apiFormHash(netClient, apiAnswer!);
+        if (formHash != null) {
+          talker.info('check in: form hash from the app api, checkin page skipped');
+          return _postCheckin(netClient, formHash, feeling, message);
+        }
+      case null:
         break;
     }
 
@@ -81,36 +91,69 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
       return const CheckinResultFormHashNotFound();
     }
 
-    final body = <String, String>{
-      'formhash': formHash,
-      'qdxq': feeling.toString(),
-      'qdmode': '1',
-      'todaysay': message,
-      'fastreply': '1',
-    };
-
-    final checkInRespEither = await netClient.postForm(_checkInRequestUrl, data: body).run();
-    if (checkInRespEither.isLeft()) {
-      return _requestFailed(checkInRespEither.unwrapErr());
-    }
-    final checkInResp = checkInRespEither.unwrap();
-    final checkInRespData = checkInResp.data as String;
-    final checkInResult = parseCheckinResponseMessage(checkInRespData);
-
-    // Return results.
-    if (checkInResult == null) {
-      talker.error('check in result in null: ${checkInRespData.length} bytes');
-      return CheckinResultOtherError(checkInRespData);
-    }
-
-    final r2 = _checkCheckinResultText(checkInResult);
-    if (r2 != null) {
-      return r2;
-    }
-
-    talker.error('check in with other error: $checkInResult');
-    return CheckinResultOtherError(checkInResult);
+    return _postCheckin(netClient, formHash, feeling, message);
   });
+}
+
+final _formHashRe = RegExp(r'^[0-9a-f]{8}$');
+
+/// The form hash of [netClient]'s session told by the forum's app API, null when it does not tell.
+///
+/// The `checkin` answer [checkin] may carry it (plugin 1.6.0); `status` does since plugin 1.3.1. `status` answers
+/// guests too, with a guest's hash: only the hash of a logged-in session is taken.
+Future<String?> _apiFormHash(NetClientProvider netClient, Map<String, dynamic> checkin) async {
+  String? hashOf(Map<String, dynamic>? json) => switch (json?['formhash']) {
+    final String hash when _formHashRe.hasMatch(hash) => hash,
+    _ => null,
+  };
+  final own = hashOf(checkin);
+  if (own != null) {
+    return own;
+  }
+  final status = await TsdmAppApi.ask(netClient, 'status');
+  final uid = status?['uid'];
+  if (status?['ok'] != 1 || uid is! int || uid <= 0) {
+    return null;
+  }
+  return hashOf(status);
+}
+
+/// Post the checkin form with [formHash], [feeling] and [message], the same fields as the web page sends.
+Future<CheckinResult> _postCheckin(
+  NetClientProvider netClient,
+  String formHash,
+  CheckinFeeling feeling,
+  String message,
+) async {
+  final body = <String, String>{
+    'formhash': formHash,
+    'qdxq': feeling.toString(),
+    'qdmode': '1',
+    'todaysay': message,
+    'fastreply': '1',
+  };
+
+  final checkInRespEither = await netClient.postForm(_checkInRequestUrl, data: body).run();
+  if (checkInRespEither.isLeft()) {
+    return _requestFailed(checkInRespEither.unwrapErr());
+  }
+  final checkInResp = checkInRespEither.unwrap();
+  final checkInRespData = checkInResp.data as String;
+  final checkInResult = parseCheckinResponseMessage(checkInRespData);
+
+  // Return results.
+  if (checkInResult == null) {
+    talker.error('check in result in null: ${checkInRespData.length} bytes');
+    return CheckinResultOtherError(checkInRespData);
+  }
+
+  final r2 = _checkCheckinResultText(checkInResult);
+  if (r2 != null) {
+    return r2;
+  }
+
+  talker.error('check in with other error: $checkInResult');
+  return CheckinResultOtherError(checkInResult);
 }
 
 /// The result of a request that did not get a usable answer.

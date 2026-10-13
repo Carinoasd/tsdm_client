@@ -13,7 +13,6 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
-import 'package:universal_html/parsing.dart';
 
 /// One fetch of every notification kind, with the forum's clock when it was answered.
 typedef FetchedNotification = ({NotificationV2 info, DateTime? serverTime});
@@ -32,6 +31,11 @@ typedef FetchedNotification = ({NotificationV2 info, DateTime? serverTime});
 ///
 /// and converting the result into the same [NotificationV2] model so the whole notification stack (bloc, storage and
 /// widgets) keeps working.
+///
+/// The three pages are asked in the JSON mode of the forum's app API ([withTsdmAppJson], roadmap item 3): the private
+/// message pages are answered by plugin 1.3.0 and later, the notice page by 1.6.0. The forum still renders the whole
+/// page, so reading the notice page marks the notices read as before; an older plugin, or a forum without it, answers
+/// the web page, which parses the same ([tsdmAppPageDocument]).
 final class NotificationRepository with LoggerMixin {
   /// Constructor.
   ///
@@ -58,16 +62,39 @@ final class NotificationRepository with LoggerMixin {
   Stream<NotificationInfoState> get status => _controller.asBroadcastStream();
 
   /// Fetch the html document of notice detail page.
+  ///
+  /// A thread page (the `findpost` redirect of a notice, carried to the thread page by the plugin) or a private
+  /// message page (a broadcast message) is asked in JSON mode, see [jsonModeDetailUrl]; the page number still comes
+  /// from where the forum redirected to.
   AsyncEither<(uh.Document, String? page)> fetchDocument(String url) => AsyncEither(
-    () async => switch (await getIt.get<NetClientProvider>().get(url).run()) {
+    () async => switch (await getIt.get<NetClientProvider>().get(jsonModeDetailUrl(url)).run()) {
       Left(:final value) => left(value),
       Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
       Right(:final value) => right((
-        parseHtmlDocument(value.data as String),
+        tsdmAppPageDocument(value.data),
         value.realUri.tryGetQueryParameters()?['page'],
       )),
     },
   );
+
+  /// [url] of a notice or broadcast message detail, in the JSON mode of the forum's app API when the plugin answers
+  /// that page: forum thread pages and their `findpost` redirect, and the private message pages (`home.php`
+  /// `do=pm`). Any other page a notice links to is fetched as it is.
+  ///
+  /// Marked as public for testing.
+  static String jsonModeDetailUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.isForumOrRelative) {
+      return url;
+    }
+    final query = uri.queryParameters;
+    final answered = switch (uri.pathSegments.lastOrNull) {
+      'forum.php' => query['mod'] == 'viewthread' || query['mod'] == 'redirect',
+      'home.php' => query['mod'] == 'space' && query['do'] == 'pm',
+      _ => false,
+    };
+    return answered ? withTsdmAppJson(url) : url;
+  }
 
   /// Build the timestamp (in seconds) to filter notifications, same rule as the old v2 API:
   ///
@@ -84,13 +111,24 @@ final class NotificationRepository with LoggerMixin {
   /// Fetch a html page as document with the current user's client.
   AsyncEither<uh.Document> _fetchPage(String url) => _fetchPageWith(getIt.get<NetClientProvider>(), url);
 
-  /// Fetch a html page as document with [client].
+  /// Fetch a notification page as document with [client], in JSON mode (see the class document).
   static AsyncEither<uh.Document> _fetchPageWith(NetClientProvider client, String url) =>
-      client.get(url).mapHttp((v) => parseHtmlDocument(v.data as String));
+      _fetchPageWithTime(client, url).map((v) => v.$1);
 
-  /// Same as [_fetchPageWith], plus the forum's clock from the answer's `Date` header (null when absent).
-  static AsyncEither<(uh.Document, DateTime?)> _fetchPageWithTime(NetClientProvider client, String url) =>
-      client.get(url).mapHttp((v) => (parseHtmlDocument(v.data as String), serverTimeOf(v.headers)));
+  /// Same as [_fetchPageWith], plus the forum's clock from the answer's `Date` header (null when absent); a JSON
+  /// answer carries it too.
+  ///
+  /// A JSON answer without a page ([tsdmAppAnswerWithoutPage]: the plugin failed to build it, or an empty body) fails
+  /// like a bad answer, so the poll does not take it for an empty list and move its window past what it did not read.
+  static AsyncEither<(uh.Document, DateTime?)> _fetchPageWithTime(NetClientProvider client, String url) => AsyncEither(
+    () async => switch (await client.get(withTsdmAppJson(url)).run()) {
+      Left(:final value) => left(value),
+      Right(:final value) when value.statusCode != HttpStatus.ok || tsdmAppAnswerWithoutPage(value.data) => left(
+        HttpRequestFailedException(value.statusCode),
+      ),
+      Right(:final value) => right((tsdmAppPageDocument(value.data), serverTimeOf(value.headers))),
+    },
+  );
 
   /// Fetch all notices from server page.
   AsyncEither<List<Notice>> fetchNotice() => _fetchPage(
