@@ -21,20 +21,39 @@ final class ProfileRepository with LoggerMixin {
   static const _profileV2Target = '$baseUrl/home.php?mobile=yes&tsdmapp=1&mod=space';
   static const _editAvatarPage = '$baseUrl/home.php?mod=spacecp&ac=avatar';
 
+  /// Profile page of the logged user, fetched for the account [_loggedUserUid].
   uh.Document? _loggedUserDocument;
+
+  /// Uid of the account [_loggedUserDocument] belongs to.
+  ///
+  /// The repository is app wide and outlives account switches and logouts, so the cache only answers for the account
+  /// in use: after a quick account switch the profile page and its unread counts showed the previous account until
+  /// the homepage happened to reload it (GitHub #184 follow-up).
+  int? _loggedUserUid;
 
   /// Cached profile v2 for current logged user.
   UserProfileV2? _loggedProfileV2;
 
+  /// [_loggedUserDocument] when it belongs to the account in use, null otherwise.
+  uh.Document? get _currentCache {
+    final document = _loggedUserDocument;
+    if (document == null) {
+      return null;
+    }
+    final uid = getIt.get<SettingsRepository>().currentSettings.loginUid;
+    return uid != 0 && uid == _loggedUserUid ? document : null;
+  }
+
   /// Check has cached html [_loggedUserDocument] for logged user or not.
-  bool hasCache() => _loggedUserDocument != null;
+  bool hasCache() => _currentCache != null;
 
   /// Get the cached [_loggedUserDocument] for logged user.
-  uh.Document? getCache() => _loggedUserDocument;
+  uh.Document? getCache() => _currentCache;
 
   /// Clear cache as logged out.
   void logout() {
     _loggedUserDocument = null;
+    _loggedUserUid = null;
   }
 
   /// Profile page document cache;
@@ -47,13 +66,12 @@ final class ProfileRepository with LoggerMixin {
   AsyncEither<uh.Document> fetchProfile({String? username, String? uid, bool force = false}) => AsyncEither(() async {
     debug('fetch profile page');
     late final String targetUrl;
-    late final bool isLoggedUserProfile;
+    // Uid of the logged user whose profile is fetched, null for another user's profile.
+    int? loggedUid;
     if (uid != null) {
       targetUrl = '$uidProfilePage$uid';
-      isLoggedUserProfile = false;
     } else if (username != null) {
       targetUrl = '$usernameProfilePage$username';
-      isLoggedUserProfile = false;
     } else {
       // Fetching logged user profile.
       final settings = getIt.get<SettingsRepository>().currentSettings;
@@ -68,11 +86,11 @@ final class ProfileRepository with LoggerMixin {
         // Not logged in.
         return left(ProfileNeedLoginException());
       }
-      if (!force && _loggedUserDocument != null) {
-        return right(_loggedUserDocument!);
+      if (!force && _currentCache != null) {
+        return right(_currentCache!);
       }
       targetUrl = '$uidProfilePage$loginUid';
-      isLoggedUserProfile = true;
+      loggedUid = loginUid;
     }
 
     // JSON mode of the forum's app API when the forum has it (see TsdmAppApi); the web page otherwise.
@@ -81,8 +99,10 @@ final class ProfileRepository with LoggerMixin {
         return left(value);
       case Right(:final value):
         final document = tsdmAppPageDocument(value.data);
-        if (isLoggedUserProfile) {
+        // Not when the account changed while the page was on its way: it belongs to the previous one.
+        if (loggedUid != null && getIt.get<SettingsRepository>().currentSettings.loginUid == loggedUid) {
           _loggedUserDocument = document;
+          _loggedUserUid = loggedUid;
         }
         return right(document);
     }

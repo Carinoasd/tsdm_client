@@ -29,9 +29,19 @@ final class SwitchUserBloc extends Bloc<SwitchUserBaseEvent, SwitchUserBaseState
 
   final AuthenticationRepository _repo;
 
+  /// The switch of the last [SwitchUserStartRequested], done once the account in use changed or stayed; null before
+  /// the first one.
+  ///
+  /// Closing this bloc with its page does not stop [AuthenticationRepository.switchUser], it only drops the states
+  /// emitted afterwards: whoever must know when the switch itself ended waits for this (GitHub #184 follow-up).
+  Future<void>? get running => _running;
+  Future<void>? _running;
+
   Future<void> _onStart(_Emit emit, UserLoginInfo userInfo) async {
     emit(const SwitchUserLoading());
-    switch (await _repo.switchUser(userInfo).run()) {
+    final switching = _repo.switchUser(userInfo).run();
+    _running = switching;
+    switch (await switching) {
       case Left(:final value):
         handle(value);
         emit(SwitchUserFailure(value));

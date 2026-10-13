@@ -1562,7 +1562,6 @@
     "title": "Manage account",
     "switchAccount": {
       "title": "Switch account",
-      "success": "Switch success",
       "dialog": {
         "switchAccount": "Switch to this account",
         "deleteAccount": {
@@ -2411,6 +2410,10 @@
   "currentAccount": {
     "tooltip": "Current account: ${username}",
     "replyAs": "Reply as ${username}...",
-    "postingAs": "Posting as ${username}"
+    "postingAs": "Posting as ${username}",
+    "switched": "Switched to ${username}",
+    "switchBusy": "Notifications are syncing, try again in a moment",
+    "moreAccounts": "${count} more account(s)",
+    "replyBusy": "A reply is being sent, switch accounts once it is done"
   }
 }

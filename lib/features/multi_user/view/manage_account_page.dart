@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
-import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/checkin/bloc/auto_checkin_bloc.dart';
@@ -13,7 +12,6 @@ import 'package:tsdm_client/features/checkin/utils/checkin_day.dart';
 import 'package:tsdm_client/features/multi_user/bloc/manage_account_bloc.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/widgets/manage_user_dialog.dart';
-import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -56,22 +54,9 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
         ),
       ],
       child: MultiBlocListener(
+        // The switch tells its result and resumes the notification sync itself (switchAccount), not a listener here:
+        // a listener is gone with the page, and leaving the page while switching left the sync paused.
         listeners: [
-          BlocListener<SwitchUserBloc, SwitchUserBaseState>(
-            listener: (context, state) {
-              if (state case SwitchUserFailure(:final reason)) {
-                final errorText = switch (reason) {
-                  SwitchUserNotAuthedException() => context.t.loginPage.perhapsExpired,
-                  _ => context.t.general.failedToLoad,
-                };
-                showSnackBar(context: context, message: errorText);
-                context.read<AutoNotificationCubit>().resume('switch user');
-              } else if (state case SwitchUserSuccess()) {
-                showSnackBar(context: context, message: context.t.manageAccountPage.switchAccount.success);
-                context.read<AutoNotificationCubit>().resume('switch user');
-              }
-            },
-          ),
           BlocListener<ManageAccountBloc, ManageAccountState>(
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {

@@ -1562,7 +1562,6 @@
     "title": "管理账户",
     "switchAccount": {
       "title": "切换账户",
-      "success": "切换成功",
       "dialog": {
         "switchAccount": "切换到这个账户",
         "deleteAccount": {
@@ -2411,6 +2410,10 @@
   "currentAccount": {
     "tooltip": "当前账号：${username}",
     "replyAs": "以 ${username} 回复",
-    "postingAs": "以 ${username} 发表"
+    "postingAs": "以 ${username} 发表",
+    "switched": "已切换到 ${username}",
+    "switchBusy": "正在同步通知，请稍后再试",
+    "moreAccounts": "另外 ${count} 个账号",
+    "replyBusy": "正在发送回复，发送完成后再切换账号"
   }
 }

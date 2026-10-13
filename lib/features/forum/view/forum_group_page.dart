@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/widgets/account_reload_scope.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_group_bloc.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -55,35 +56,38 @@ class _ForumGroupPageState extends State<ForumGroupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ForumGroupBloc(context.repo())..add(ForumGroupLoadRequested(widget.gid)),
-      child: BlocBuilder<ForumGroupBloc, ForumGroupBaseState>(
-        builder: (context, state) {
-          final body = switch (state) {
-            ForumGroupInitial() || ForumGroupLoading() => const CenteredCircularIndicator(),
-            ForumGroupSuccess(:final forumGroup) => _buildContent(context, forumGroup),
-            ForumGroupFailure() => buildRetryButton(
-              context,
-              () => context.read<ForumGroupBloc>().add(ForumGroupLoadRequested(widget.gid)),
-            ),
-          };
+    // The boards listed are the ones the account in use may see: loaded again for another account.
+    return AccountReloadScope(
+      child: BlocProvider(
+        create: (context) => ForumGroupBloc(context.repo())..add(ForumGroupLoadRequested(widget.gid)),
+        child: BlocBuilder<ForumGroupBloc, ForumGroupBaseState>(
+          builder: (context, state) {
+            final body = switch (state) {
+              ForumGroupInitial() || ForumGroupLoading() => const CenteredCircularIndicator(),
+              ForumGroupSuccess(:final forumGroup) => _buildContent(context, forumGroup),
+              ForumGroupFailure() => buildRetryButton(
+                context,
+                () => context.read<ForumGroupBloc>().add(ForumGroupLoadRequested(widget.gid)),
+              ),
+            };
 
-          final String? title;
-          if (state case ForumGroupSuccess()) {
-            title = state.forumGroup.name;
-          } else {
-            title = null;
-          }
+            final String? title;
+            if (state case ForumGroupSuccess()) {
+              title = state.forumGroup.name;
+            } else {
+              title = null;
+            }
 
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(title ?? widget.title ?? ''),
-              // Which account browses the forums, with more than one saved account (GitHub #184).
-              actions: const [CurrentAccountAvatarButton(lastAction: true)],
-            ),
-            body: SafeArea(bottom: false, child: body),
-          );
-        },
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(title ?? widget.title ?? ''),
+                // Which account browses the forums, with more than one saved account (GitHub #184).
+                actions: const [CurrentAccountAvatarButton(lastAction: true)],
+              ),
+              body: SafeArea(bottom: false, child: body),
+            );
+          },
+        ),
       ),
     );
   }

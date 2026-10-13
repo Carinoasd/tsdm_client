@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
@@ -48,7 +49,48 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
 
   final ThreadRepository _threadRepository;
 
+  /// Number of the latest load that replaces the floors on screen: refresh, jump, only one author, all authors, order
+  /// (the reload for another account is a refresh or a jump, see ThreadPage).
+  ///
+  /// The events are handled concurrently, so such a load may begin while an earlier one is still pending; the latest
+  /// one supersedes it, and the result of a superseded load, success or failure, is dropped. Otherwise the earlier one
+  /// still reached the page after the later one cleared it: after an account switch the request of the previous
+  /// account ended (IdentityChangedException) once the reload for the new one had begun, put the old floors back with
+  /// a "failed to load" message, and the new floors were appended to them, every floor twice (GitHub #184 follow-up).
+  /// Load more appends to the floors of the load it began under, so it is dropped as well once a later one began.
+  int _pageLoad = 0;
+
+  /// Begin a load that replaces the floors on screen, superseding every load begun before it.
+  int _beginPageLoad() => ++_pageLoad;
+
+  /// Whether the result of a load begun under [load] still goes on screen.
+  bool _isCurrent(int load) {
+    if (load == _pageLoad) {
+      return true;
+    }
+    debug('drop the result of a superseded thread load');
+    return false;
+  }
+
+  /// Whether the failure [e] of a load begun under [load] is shown (and handled).
+  ///
+  /// Not when the load was superseded, nor for a request dropped because the account in use changed while it was
+  /// pending: that is no failure of the page, which reloads for the new account (ThreadPage), and saying "failed to
+  /// load" would be wrong.
+  bool _showsFailure(int load, AppException e) {
+    if (!_isCurrent(load)) {
+      return false;
+    }
+    if (e is IdentityChangedException) {
+      debug('drop the thread load of a previous account');
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _onThreadLoadMoreRequested(ThreadLoadMoreRequested event, ThreadEmitter emit) async {
+    // Appends to the floors of the current load: begins none of its own.
+    final load = _pageLoad;
     if (state.status == ThreadStatus.failure) {
       // Restoring from failure.
       emit(state.copyWith(status: ThreadStatus.loading));
@@ -62,14 +104,25 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
           reverseOrder: state.reverseOrder,
           exactOrder: state.exactOrder,
         )
-        .match((e) {
-          handle(e);
-          emit(state.copyWith(status: ThreadStatus.failure));
-        }, (v) => _parseFromDocument(v, event.pageNumber).map((v) => emit(v)).run())
+        .match(
+          (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
+            handle(e);
+            emit(state.copyWith(status: ThreadStatus.failure));
+          },
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(v, event.pageNumber).map((v) => emit(v)).run();
+            }
+          },
+        )
         .run();
   }
 
   Future<void> _onThreadRefreshRequested(ThreadRefreshRequested event, ThreadEmitter emit) async {
+    final load = _beginPageLoad();
     // Keep the posts: when the reload fails they go back on screen instead of a bare retry button.
     final previousPosts = state.postList;
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
@@ -81,14 +134,25 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
           reverseOrder: state.reverseOrder,
           exactOrder: state.exactOrder,
         )
-        .match((e) {
-          handle(e);
-          emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
-        }, (v) => _parseFromDocument(v, 1).map((v) => emit(v)).run())
+        .match(
+          (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
+            handle(e);
+            emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
+          },
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(v, 1).map((v) => emit(v)).run();
+            }
+          },
+        )
         .run();
   }
 
   Future<void> _onThreadJumpPageRequested(ThreadJumpPageRequested event, ThreadEmitter emit) async {
+    final load = _beginPageLoad();
     // Keep the posts: when the reload fails they go back on screen instead of a bare retry button.
     final previousPosts = state.postList;
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
@@ -101,11 +165,20 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
           reverseOrder: state.reverseOrder,
           exactOrder: state.exactOrder,
         )
-        .map((v) => _parseFromDocument(v, event.pageNumber).map((v) => emit(v)).run())
-        .mapLeft((e) {
-          handle(e);
-          emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
-        })
+        .match(
+          (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
+            handle(e);
+            emit(state.copyWith(status: ThreadStatus.failure, postList: previousPosts));
+          },
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(v, event.pageNumber).map((v) => emit(v)).run();
+            }
+          },
+        )
         .run();
   }
 
@@ -114,6 +187,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
   }
 
   Future<void> _onThreadOnlyViewAuthorRequested(ThreadOnlyViewAuthorRequested event, ThreadEmitter emit) async {
+    final load = _beginPageLoad();
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
     await _threadRepository
         .fetchThread(
@@ -126,6 +200,9 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
         )
         .match(
           (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
             handle(e);
             error(
               'failed to load thread page: '
@@ -134,12 +211,17 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
             emit(state.copyWith(status: ThreadStatus.failure, onlyVisibleUid: event.uid));
           },
           // Use "1" as current page number to prevent page number overflow.
-          (v) => _parseFromDocument(v, 1).map((v) => emit(v.copyWith(onlyVisibleUid: event.uid))).run(),
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(v, 1).map((v) => emit(v.copyWith(onlyVisibleUid: event.uid))).run();
+            }
+          },
         )
         .run();
   }
 
   Future<void> _onThreadViewAllAuthorsRequested(ThreadViewAllAuthorsRequested event, ThreadEmitter emit) async {
+    final load = _beginPageLoad();
     emit(state.copyWith(status: ThreadStatus.loading, postList: []));
     // Switching from "only view specified author" to "view all authors"
     // will have more posts and pages so there is no page number overflow
@@ -154,6 +236,9 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
         )
         .match(
           (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
             handle(e);
             error(
               'failed to load thread page:'
@@ -161,16 +246,21 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
             );
             emit(state.copyWith(status: ThreadStatus.failure));
           },
-          (v) => _parseFromDocument(
-            v,
-            state.currentPage,
-            clearOnlyVisibleUid: true,
-          ).map((v) => emit(v.copyWith(onlyVisibleUid: state.onlyVisibleUid))).run(),
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(
+                v,
+                state.currentPage,
+                clearOnlyVisibleUid: true,
+              ).map((v) => emit(v.copyWith(onlyVisibleUid: state.onlyVisibleUid))).run();
+            }
+          },
         )
         .run();
   }
 
   Future<void> _onThreadChangeViewOrderRequested(ThreadChangeViewOrderRequested event, ThreadEmitter emit) async {
+    final load = _beginPageLoad();
     emit(
       state.copyWith(
         status: ThreadStatus.loading,
@@ -193,16 +283,23 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
         )
         .match(
           (e) {
+            if (!_showsFailure(load, e)) {
+              return;
+            }
             error(
               'failed to load thread page: '
               'fid=${state.tid}, pageNumber=1 : $e',
             );
             emit(state.copyWith(status: ThreadStatus.failure, reverseOrder: state.reverseOrder));
           },
-          (v) => _parseFromDocument(
-            v,
-            state.currentPage,
-          ).map((v) => emit(v.copyWith(reverseOrder: state.reverseOrder))).run(),
+          (v) {
+            if (_isCurrent(load)) {
+              _parseFromDocument(
+                v,
+                state.currentPage,
+              ).map((v) => emit(v.copyWith(reverseOrder: state.reverseOrder))).run();
+            }
+          },
         )
         .run();
   }
@@ -211,7 +308,9 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
     final info = parseThreadDocument(document, pageNumber);
 
     final threadState = ThreadState(
-      tid: info.tid,
+      // A login or no-permission page names no thread: keep the one asked for, or the next reload (after logging in,
+      // or for another account, GitHub #184 follow-up) would ask for no thread at all.
+      tid: info.tid ?? state.tid,
       pid: state.pid,
       replyParameters: info.replyParameters,
       status: ThreadStatus.success,

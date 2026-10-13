@@ -12,6 +12,8 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart' show AuthStatus;
+import 'package:tsdm_client/features/authentication/utils/account_changes.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
@@ -181,6 +183,59 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   /// Account whose block list let [_shownTid] through: the list of another account starts over.
   int? _shownOwner;
+
+  /// The bloc of this page, created by the provider in [build]; kept to reload the page for another account.
+  ThreadBloc? _threadBloc;
+
+  /// The page number being read, created by the provider in [build]; the reload for another account stays on it.
+  JumpPageCubit? _jumpPageCubit;
+
+  /// Follows the account in use, see [_reloadForAccount].
+  StreamSubscription<AuthStatus>? _accountSub;
+
+  /// Whether this page is the one on top, no other page or dialog above it (see [_RouteOnTopListener]).
+  bool _onTop = true;
+
+  /// The account changed while another page or a dialog covered this one: reload once it shows again.
+  bool _reloadWhenShown = false;
+
+  /// Reload the thread once the account in use changed, for example through the quick switch of the avatar menu
+  /// (GitHub #184 follow-up).
+  ///
+  /// The page holds what the forum rendered for the account that loaded it: the reply parameters (formhash) and the
+  /// actions on one's own floors. A reply sent after a switch went out with the new account's cookie and the old
+  /// account's formhash, and the forum refused it. An unsent reply stays in the reply bar through the reload
+  /// ([ReplyBarController]).
+  ///
+  /// Only the page on top reloads at once; a thread page under another page (or under the menu the switch came from)
+  /// reloads when it shows again. Reloading every open thread page sent one request each, and each recorded a visit
+  /// of the new account to a thread it had not opened. The reload stays on the page being read rather than the first
+  /// one. A page asking to log in reloads as well: the new account may see the thread. A load still pending for the
+  /// previous account (opening, refresh, jump, load more) is superseded by the reload and dropped (see [ThreadBloc]).
+  void _reloadForAccount() {
+    final bloc = _threadBloc;
+    if (!mounted || bloc == null || bloc.isClosed) {
+      return;
+    }
+    if (!_onTop) {
+      _reloadWhenShown = true;
+      return;
+    }
+    _reloadWhenShown = false;
+    final page = _jumpPageCubit?.state.currentPage ?? 1;
+    if (page > 1 && bloc.state.tid != null) {
+      bloc.add(ThreadJumpPageRequested(page));
+    } else {
+      bloc.add(ThreadRefreshRequested());
+    }
+  }
+
+  void _onTopChanged({required bool onTop}) {
+    _onTop = onTop;
+    if (onTop && _reloadWhenShown) {
+      _reloadForAccount();
+    }
+  }
 
   bool _isUnattributable(ThreadState state) {
     final tid = state.tid ?? widget.threadID;
@@ -628,6 +683,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           backUri: GoRouterState.of(context).uri,
           needPop: true,
           popCallback: (context) {
+            // Reloads by itself after its login: the reload kept for when this page shows again would be a second.
+            _reloadWhenShown = false;
             context.read<ThreadBloc>().add(ThreadRefreshRequested());
           },
         ),
@@ -667,14 +724,29 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   }
 
   @override
+  void initState() {
+    super.initState();
+    _accountSub = listenAccountChanges(
+      context.read<AuthenticationRepository>(),
+      // Nothing to clear: the floors stay readable while logging in.
+      onLoggingIn: () {},
+      onChanged: _reloadForAccount,
+    );
+  }
+
+  @override
   void dispose() {
     _authorLookup++;
+    unawaited(_accountSub?.cancel());
     _listScrollController.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _RouteOnTopListener(onChanged: _onTopChanged, child: _buildPage(context));
+
+  /// The page, under the [_RouteOnTopListener] of [build].
+  Widget _buildPage(BuildContext context) {
     final threadReverseOrder = getIt.get<SettingsRepository>().currentSettings.threadReverseOrder;
 
     return MultiBlocProvider(
@@ -682,7 +754,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         RepositoryProvider<ThreadRepository>(create: (_) => ThreadRepository()),
         RepositoryProvider<ReplyRepository>(create: (_) => const ReplyRepository()),
         BlocProvider(
-          create: (context) => ThreadBloc(
+          create: (context) => _threadBloc = ThreadBloc(
             tid: widget.threadID,
             pid: widget.findPostID,
             onlyVisibleUid: widget.onlyVisibleUid,
@@ -698,7 +770,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             authenticationRepository: context.repo(),
           ),
         ),
-        BlocProvider(create: (context) => JumpPageCubit()),
+        BlocProvider(create: (context) => _jumpPageCubit = JumpPageCubit()),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -869,6 +941,40 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       ),
     );
   }
+}
+
+/// Tells [onChanged] whether the route of this widget is the one on top, first when built and then whenever that
+/// changes (a page or a dialog pushed above it, or gone again), without rebuilding [child].
+///
+/// The thread page depends on it through this widget rather than in its own state: that would rebuild the whole page
+/// for every page, dialog or menu opened above it.
+class _RouteOnTopListener extends StatefulWidget {
+  const _RouteOnTopListener({required this.onChanged, required this.child});
+
+  final void Function({required bool onTop}) onChanged;
+
+  final Widget child;
+
+  @override
+  State<_RouteOnTopListener> createState() => _RouteOnTopListenerState();
+}
+
+class _RouteOnTopListenerState extends State<_RouteOnTopListener> {
+  bool? _onTop;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Depends on this part of the route only.
+    final onTop = ModalRoute.isCurrentOf(context) ?? true;
+    if (onTop != _onTop) {
+      _onTop = onTop;
+      widget.onChanged(onTop: onTop);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Shown instead of a thread whose author could not be learnt while the current account blocks somebody.

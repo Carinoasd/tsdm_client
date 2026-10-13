@@ -35,12 +35,34 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
        super(const ReplyState()) {
     on<ReplyParametersUpdated>(_onReplyParametersUpdated);
     on<ReplyThreadClosed>(_onReplyThreadClosed);
-    on<ReplyToPostRequested>(_onReplyToPostRequested);
-    on<ReplyToThreadRequested>(_onReplyToThreadRequested);
+    on<ReplyToPostRequested>(_counted(_onReplyToPostRequested));
+    on<ReplyToThreadRequested>(_counted(_onReplyToThreadRequested));
     on<ReplyResetClearTextStateTriggered>(_onReplyResetClearTextStateTriggered);
-    on<ReplyChatHistoryRequested>(_onReplyChatHistoryRequested);
-    on<ReplyChatRequested>(_onReplyChatRequested);
+    on<ReplyChatHistoryRequested>(_counted(_onReplyChatHistoryRequested));
+    on<ReplyChatRequested>(_counted(_onReplyChatRequested));
   }
+
+  /// Replies and messages being sent right now, by every page together.
+  static int _sending = 0;
+
+  /// Whether a reply or a message is being sent on any page.
+  ///
+  /// An account switch waits for it (GitHub #184 follow-up): the switch drops the answer of every request still
+  /// running for the previous account, so the user would see a failure for a reply the forum stored and send it again.
+  /// Counted around the request itself, not from the states: a page closed while sending stops getting states, but
+  /// its request still goes on.
+  static bool get sendingAny => _sending > 0;
+
+  /// [handler] counted in [sendingAny] until it ends, however it ends.
+  static EventHandler<E, ReplyState> _counted<E extends ReplyEvent>(EventHandler<E, ReplyState> handler) =>
+      (event, emit) async {
+        _sending++;
+        try {
+          await handler(event, emit);
+        } finally {
+          _sending--;
+        }
+      };
 
   final ReplyRepository _replyRepository;
   final StorageProvider? _storageProvider;

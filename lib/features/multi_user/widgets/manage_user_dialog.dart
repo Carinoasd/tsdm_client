@@ -7,7 +7,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
-import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
+import 'package:tsdm_client/features/multi_user/utils/switch_account.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -51,7 +51,7 @@ Future<void> openManageUserDialog({
 }
 
 /// Dialog to manage a given user, single one.
-class _ManageUserDialog extends StatelessWidget with LoggerMixin {
+class _ManageUserDialog extends StatefulWidget {
   /// Constructor.
   const _ManageUserDialog({required this.userInfo, required this.heroTag, this.isCurrentUser = false});
 
@@ -65,106 +65,132 @@ class _ManageUserDialog extends StatelessWidget with LoggerMixin {
   final bool isCurrentUser;
 
   @override
+  State<_ManageUserDialog> createState() => _ManageUserDialogState();
+}
+
+class _ManageUserDialogState extends State<_ManageUserDialog> with LoggerMixin {
+  /// Whether switching to this account is running: the dialog stays open, cannot be dismissed and shows the progress.
+  bool _switching = false;
+
+  /// The account this dialog is about.
+  UserLoginInfo get userInfo => widget.userInfo;
+
+  /// Whether [userInfo] is the account currently logged in.
+  bool get isCurrentUser => widget.isCurrentUser;
+
+  /// Switch to this account the same way the avatar menu does (see [switchAccount]); closes the dialog on success.
+  Future<void> _switchAccount() async {
+    setState(() => _switching = true);
+    final result = await switchAccount(context, bloc: context.read<SwitchUserBloc>(), userInfo: userInfo);
+    if (!mounted) {
+      return;
+    }
+    if (result == SwitchAccountResult.switched) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _switching = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tr = context.t.manageAccountPage.switchAccount.dialog;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final enabled = !_switching;
     // Only this account's own name and uid: nothing of another account is shown here.
-    return CustomAlertDialog.sync(
-      clipBehavior: Clip.hardEdge,
-      title: Row(
-        children: [
-          HeroUserAvatar(username: userInfo.username!, avatarUrl: null, disableHero: true, minRadius: 30),
-          sizedBoxW12H12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SingleLineText(userInfo.username!, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    if (userInfo.uid != null) AppInfoPill(icon: Icons.tag, label: '${userInfo.uid}'),
-                    if (isCurrentUser) AppInfoPill(icon: Icons.circle, label: context.t.manageAccountPage.online),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      content: Column(
-        children: [
-          if (isCurrentUser) ...[_buildLogoutTile(context), _buildRemoveFromDeviceTile(context)],
-          if (!isCurrentUser) ...[
-            ListTile(
-              leading: const Icon(Icons.switch_account_outlined),
-              shape: _tileShape,
-              title: Text(tr.switchAccount),
-              onTap: () async {
-                var times = 10;
-                while (context.read<AutoNotificationCubit>().pause('switch user')) {
-                  info('switch user is waiting for auto sync lock... $times');
-                  times -= 1;
-                  await Future<void>.delayed(const Duration(milliseconds: 300));
-                  if (times <= 0 || !context.mounted) {
-                    info('auto sync lock timeout or canceled, do not switch user');
-                    return;
-                  }
-                }
-                context.read<SwitchUserBloc>().add(SwitchUserStartRequested(userInfo));
-                context.pop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.login_outlined),
-              shape: _tileShape,
-              title: Text(tr.loginAgain.title),
-              subtitle: Text(tr.loginAgain.detail),
-              onTap: () async {
-                await context.pushNamed(
-                  ScreenPaths.login,
-                  queryParameters: {if (userInfo.username != null) 'username': '${userInfo.username}'},
-                );
-                if (!context.mounted) {
-                  return;
-                }
-                context.pop();
-              },
-            ),
-            Divider(height: 9, color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
-            // Destructive, last and in the error color.
-            ListTile(
-              leading: Icon(Icons.person_remove_outlined, color: colorScheme.error),
-              shape: _tileShape,
-              textColor: colorScheme.error,
-              title: Text(tr.deleteAccount.title),
-              subtitle: Text(tr.deleteAccount.detail),
-              enabled: userInfo.uid != null,
-              onTap: () async {
-                final confirmed = await showQuestionDialog(
-                  context: context,
-                  title: tr.deleteAccount.title,
-                  message: tr.deleteAccount.confirm(username: userInfo.username ?? ''),
-                  dangerous: true,
-                );
-                if (confirmed != true || !context.mounted) {
-                  return;
-                }
-                final deleted = await getIt.get<StorageProvider>().deleteCookieByUid(userInfo.uid!);
-                if (!context.mounted) {
-                  return;
-                }
-                showSnackBar(
-                  context: context,
-                  message: context.t.manageAccountPage.selection.deleted(count: deleted ? 1 : 0),
-                );
-                context.pop();
-              },
+    // While switching, neither back nor a tap beside the dialog closes it, and every action waits.
+    return PopScope(
+      canPop: !_switching,
+      child: CustomAlertDialog.sync(
+        clipBehavior: Clip.hardEdge,
+        title: Row(
+          children: [
+            HeroUserAvatar(username: userInfo.username!, avatarUrl: null, disableHero: true, minRadius: 30),
+            sizedBoxW12H12,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SingleLineText(
+                    userInfo.username!,
+                    style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (userInfo.uid != null) AppInfoPill(icon: Icons.tag, label: '${userInfo.uid}'),
+                      if (isCurrentUser) AppInfoPill(icon: Icons.circle, label: context.t.manageAccountPage.online),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
-        ],
+        ),
+        content: Column(
+          children: [
+            if (isCurrentUser) ...[_buildLogoutTile(context), _buildRemoveFromDeviceTile(context)],
+            if (!isCurrentUser) ...[
+              ListTile(
+                leading: const Icon(Icons.switch_account_outlined),
+                shape: _tileShape,
+                title: Text(tr.switchAccount),
+                trailing: _switching ? sizedCircularProgressIndicator : null,
+                enabled: enabled,
+                onTap: _switchAccount,
+              ),
+              ListTile(
+                leading: const Icon(Icons.login_outlined),
+                shape: _tileShape,
+                enabled: enabled,
+                title: Text(tr.loginAgain.title),
+                subtitle: Text(tr.loginAgain.detail),
+                onTap: () async {
+                  await context.pushNamed(
+                    ScreenPaths.login,
+                    queryParameters: {if (userInfo.username != null) 'username': '${userInfo.username}'},
+                  );
+                  if (!context.mounted) {
+                    return;
+                  }
+                  context.pop();
+                },
+              ),
+              Divider(height: 9, color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              // Destructive, last and in the error color.
+              ListTile(
+                leading: Icon(Icons.person_remove_outlined, color: colorScheme.error),
+                shape: _tileShape,
+                textColor: colorScheme.error,
+                title: Text(tr.deleteAccount.title),
+                subtitle: Text(tr.deleteAccount.detail),
+                enabled: enabled && userInfo.uid != null,
+                onTap: () async {
+                  final confirmed = await showQuestionDialog(
+                    context: context,
+                    title: tr.deleteAccount.title,
+                    message: tr.deleteAccount.confirm(username: userInfo.username ?? ''),
+                    dangerous: true,
+                  );
+                  if (confirmed != true || !context.mounted) {
+                    return;
+                  }
+                  final deleted = await getIt.get<StorageProvider>().deleteCookieByUid(userInfo.uid!);
+                  if (!context.mounted) {
+                    return;
+                  }
+                  showSnackBar(
+                    context: context,
+                    message: context.t.manageAccountPage.selection.deleted(count: deleted ? 1 : 0),
+                  );
+                  context.pop();
+                },
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

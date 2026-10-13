@@ -177,6 +177,11 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     if (identical(widget.controller._outerTextController, controller)) {
       widget.controller._outerTextController = null;
     }
+    // The page may build a new bar with the same controller: the thread page drops the bar while it reloads, e.g.
+    // after an account switch. Keep the unsent reply for it; the text is not a reply while it is a hint instead.
+    if (_enabled) {
+      widget.controller._keptDraft = controller.text.trim().isEmpty ? null : controller.text;
+    }
     controller.dispose();
     super.dispose();
   }
@@ -204,6 +209,11 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
       onTapCallback = null;
     } else {
       onTapCallback = showEditor;
+      // The unsent reply of the bar this page showed before it reloaded.
+      if (widget.controller._keptDraft case final draft?) {
+        widget.controller._keptDraft = null;
+        controller.text = draft;
+      }
     }
     _enabled = onTapCallback != null;
 
@@ -888,6 +898,24 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     _replyFocusNode.dispose();
     unawaited(_authStatusSub.cancel());
     final text = _replyRichController.toForumBBCode();
+    if (!_canSyncBBCodeOnDispose) {
+      // Closed because its bar went away (see [_manuallyDispose]): the page is gone, or it reloaded and builds a new
+      // bar. The text written here is newer than what the old bar kept, give it to the new bar or keep it for it.
+      // [ReplyBarController._outerTextController] is null or the box of a bar still alive.
+      //
+      // After this frame, like below: the tree is locked while disposing, and the box of a new bar shown before the
+      // sheet finished closing (a quick reload) would rebuild its field now.
+      final controller = widget.controller;
+      final disposedOuter = widget.outerTextController;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final outer = controller._outerTextController;
+        if (outer != null && !identical(outer, disposedOuter)) {
+          outer.text = text;
+        } else {
+          controller._keptDraft = text.trim().isEmpty ? null : text;
+        }
+      });
+    }
     if (_canSyncBBCodeOnDispose) {
       // Only save text that intend to reply when that text is not empty.
       //
@@ -1020,6 +1048,13 @@ final class ReplyBarController with LoggerMixin {
   /// The expanded editor syncs its draft back into it when it closes; the identity check tells whether that
   /// controller is still alive.
   TextEditingController? _outerTextController;
+
+  /// Unsent reply of a bar that went away while its page stays (the thread page reloads without a bar), handed to the
+  /// next bar built with this controller.
+  ///
+  /// Not cleared with the other values in [_unbind]: it outlives the bar on purpose. The account switch of the avatar
+  /// menu reloads the thread page (GitHub #184 follow-up), and the reply written there must not be lost.
+  String? _keptDraft;
 
   /// Flag indicating currently popping up the editor or not.
   ///

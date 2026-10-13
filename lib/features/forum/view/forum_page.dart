@@ -8,6 +8,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/widgets/account_reload_scope.dart';
 import 'package:tsdm_client/features/favorite/utils/forum_favorite_action.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
@@ -81,6 +82,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
 
   /// Visibility of FAB.
   bool _fabVisible = true;
+
+  /// The bloc of this page, created by the provider in [build]. Created again for another account (see
+  /// [AccountReloadScope]); the new one keeps the filter of this one.
+  ForumBloc? _forumBloc;
 
   void _updateFabVisibilityByTabIndex() {
     if (tabController.index == _threadTabIndex) {
@@ -527,12 +532,22 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    // The threads, sub forums and actions shown are the ones the account in use may see: loaded again for another
+    // account.
+    return AccountReloadScope(child: _buildPage(context));
+  }
+
+  /// The page, under the [AccountReloadScope] of [build].
+  Widget _buildPage(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
           create: (context) {
             final FilterState? filterState;
-            if (widget.threadType != null) {
+            if (_forumBloc case final previous?) {
+              // Loaded again for another account: the threads stay filtered as chosen.
+              filterState = previous.state.filterState;
+            } else if (widget.threadType != null) {
               filterState = FilterState(
                 filter: 'typeid',
                 filterType: FilterType(
@@ -545,7 +560,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               filterState = null;
             }
 
-            return ForumBloc(
+            return _forumBloc = ForumBloc(
               fid: widget.fid,
               forumRepository: RepositoryProvider.of<ForumRepository>(context),
               filterState: filterState,
