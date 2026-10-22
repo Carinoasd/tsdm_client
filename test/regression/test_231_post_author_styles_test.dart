@@ -14,6 +14,13 @@
 /// * in a dark theme every author color was inverted, readable or not (a yellow became olive);
 /// * a link in a `<font color>` took the font's color (the web page colors every link, `.t_f a`), links had no
 ///   underline and every one of them a mark before it.
+///
+/// And from the review of the fix (group `the review`): css a post writes can be hostile or broken, every step of it
+/// is bounded and fails to no style (a chain of `var()` grew to gigabytes, a thousand rules took seconds, a number of
+/// four hundred digits threw); text on a block whose color the app did not take was the theme's dark text on a dark
+/// block; dark colors and white text were hidden in a dark theme where they should not, and white text shown where
+/// it should be hidden; shadows went over the floor above; a block with a background in a centered one lost the
+/// centering.
 library;
 
 // HTML fixtures are split into lines at tag boundaries.
@@ -29,6 +36,7 @@ import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
+import 'package:universal_html/parsing.dart';
 
 final _light = ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue));
 final _dark = ThemeData(
@@ -321,7 +329,7 @@ void main() {
   });
 
   group("the post's own <style>", () {
-    testWidgets('class, tag, id, tag with class, one ancestor', (tester) async {
+    testWidgets('class, tag, id, tag with class, ancestors', (tester) async {
       await _pump(
         tester,
         _inPost(
@@ -331,9 +339,11 @@ void main() {
           '#tsdm { color: #0000ff }\n'
           'span.big { font-size: 24px }\n'
           '.box i { color: #00aa00 }\n'
+          '.card .meta .label span { color: #d6bec8 }\n'
           '</style>'
           '<span class="Red">序章</span><b>粗体</b><span id="tsdm">编号</span><span class="big">大字</span>'
-          '<div class="box"><i>框里</i></div><i>框外</i>',
+          '<div class="box"><i>框里</i></div><i>框外</i>'
+          '<div class="card"><div class="meta"><b class="label"><span>三层祖先</span></b></div></div>',
         ),
       );
       final red = _style(tester, '序章');
@@ -348,6 +358,7 @@ void main() {
       expect(_style(tester, '大字').fontSize, 24);
       expect(_style(tester, '框里').color, const Color(0xFF00AA00));
       expect(_style(tester, '框外').color, isNot(const Color(0xFF00AA00)));
+      expect(_style(tester, '三层祖先').color, const Color(0xFFD6BEC8), reason: 'up to three ancestors');
       expect(find.textContaining('text-shadow', findRichText: true), findsNothing, reason: 'the style is not text');
     });
 
@@ -383,18 +394,19 @@ void main() {
           '@media (max-width: 600px) { .wrap span { color: #ff0000 } }'
           '@keyframes spin { from { color: red } to { color: blue } }'
           '.wrap > b, .wrap:hover b, * { color: #ff0000 }'
-          '.x .y .z { color: #ff0000 } [title] { color: #ff0000 } .wrap::before { color: #ff0000 }'
+          '.v .w .x .y .z { color: #ff0000 } [title] { color: #ff0000 } .wrap::before { color: #ff0000 }'
           '.good, .wrap >> bad { font-weight: bold }'
           '</style>'
           '<div class="wrap"><span>变量</span><u>缺变量</u><s>备用值</s><b>不支持</b>'
-          '<div class="x"><div class="y"><i class="z">三层</i></div></div><i title="t">属性</i></div>'
+          '<div class="v"><div class="w"><div class="x"><div class="y"><i class="z">五层</i></div></div></div></div>'
+          '<i title="t">属性</i></div>'
           '<em class="good">列表里认得的</em>',
         ),
       );
       expect(_style(tester, '变量').color, const Color(0xFF123456));
       expect(_style(tester, '缺变量').color, isNot(const Color(0xFFFF0000)));
       expect(_style(tester, '备用值').color, const Color(0xFF654321));
-      for (final text in ['不支持', '三层', '属性']) {
+      for (final text in ['不支持', '五层', '属性']) {
         expect(_style(tester, text).color, isNot(const Color(0xFFFF0000)), reason: text);
       }
       expect(_style(tester, '列表里认得的').fontWeight, FontWeight.w600);
@@ -599,6 +611,231 @@ void main() {
       await _pump(tester, '<a href="forum.php?mod=viewthread&amp;tid=1">通知里的链接</a>', post: false);
       expect(find.byIcon(Icons.link), findsOneWidget);
       expect(_style(tester, '通知里的链接').decoration, isNot(TextDecoration.underline));
+    });
+  });
+
+  group('the review', () {
+    String varChain(int levels) {
+      final css = StringBuffer('.a { --v0: x; }');
+      for (var i = 1; i <= levels; i++) {
+        final ref = 'var(--v${i - 1})';
+        css.write('.a { --v$i: ${List.filled(256 ~/ ref.length, ref).join()}; }');
+      }
+      return '$css span { color: var(--v$levels); } .a { color: var(--v$levels) }';
+    }
+
+    testWidgets('a chain of var() is bounded: no style, no time', (tester) async {
+      for (final levels in [5, 6, 7]) {
+        final watch = Stopwatch()..start();
+        await _pump(tester, _inPost('<style>${varChain(levels)}</style>${List.filled(100, '<span>字</span>').join()}'));
+        watch.stop();
+        expect(watch.elapsedMilliseconds, lessThan(2000), reason: '$levels levels');
+        expect(_style(tester, '字').color, isNot(const Color(0xFF000000)));
+      }
+      final declarations = parseCssDeclarations(
+        'color: var(--a); font-weight: bold',
+        variables: {
+          '--a': List.filled(32, 'var(--b)').join(),
+          '--b': List.filled(32, 'var(--c)').join(),
+          '--c': List.filled(32, 'var(--d)').join(),
+          '--d': 'xxxxxxxx',
+        },
+      );
+      expect(declarations.map((e) => e.property), ['font-weight'], reason: 'the value grew too long: left out');
+      final sheets = AuthorStyleSheets.parse(varChain(7))!;
+      final root = parseHtmlDocument('<div class="a"><span>t</span></div>').body!;
+      expect(sheets.styler(root).styleOf(root.querySelector('span')!), isNull);
+    });
+
+    testWidgets('a thousand rules with ancestors on a long, deep floor take no time', (tester) async {
+      // As many rules as are taken, the one that matches first.
+      final css = StringBuffer('<style>.hit span { color: #00ff00 } ');
+      for (var i = 0; i < 512; i++) {
+        css.write('.c$i span { color: #ff0000 } .c$i .x .y span { color: #ff0000 } ');
+      }
+      css.write('</style>');
+      for (final (count, depth) in [(3000, 20), (2000, 30)]) {
+        final body = StringBuffer(css)..write('<div class="hit">');
+        for (var i = 0; i < count ~/ depth; i++) {
+          body.write('${List.filled(depth, '<span class="x">').join()}字${List.filled(depth, '</span>').join()}');
+        }
+        body.write('</div>');
+        final watch = Stopwatch()..start();
+        await _pump(tester, _inPost(body.toString()));
+        watch.stop();
+        expect(watch.elapsedMilliseconds, lessThan(3000), reason: '$count spans, $depth deep');
+        expect(_style(tester, '字').color, const Color(0xFF00FF00));
+      }
+    });
+
+    testWidgets('comments not closed, braces, parentheses: read in one go', (tester) async {
+      final watch = Stopwatch()..start();
+      for (final css in [
+        List.filled(30000, '/*').join(),
+        List.filled(60000, '{').join(),
+        'a{${List.filled(60000, ';').join()}}',
+        'a{color:${List.filled(60000, '(').join()}}',
+        '${List.filled(30000, 'a ').join()}{color:red}',
+      ]) {
+        AuthorStyleSheets.parse(css, budget: const Duration(seconds: 1));
+      }
+      expect(watch.elapsedMilliseconds, lessThan(2000));
+    });
+
+    testWidgets('numbers too large or no numbers: no style, the text is there', (tester) async {
+      final huge = List.filled(400, '9').join();
+      for (final html in [
+        '前文<span style="color: rgb(1e400, 0, 0)">被吃掉的字</span>后文',
+        '<style>td { color: hsl(1e400, 50%, 50%) }</style>整楼文字',
+        '<style>body { color: rgb(1e999, 0, 0) }</style>整楼文字',
+        '<span style="color: rgba(0, 0, 0, NaN); font-size: ${huge}px; text-indent: ${huge}em">大数</span>',
+        '<span style="text-shadow: ${huge}px 0 0 red">影子文字</span>',
+      ]) {
+        await _pump(tester, _inPost(html));
+        expect(find.byType(ErrorWidget), findsNothing, reason: html);
+      }
+      expect(parseCssColor('rgb(1e400, 0, 0)'), isNull);
+      expect(parseCssColor('hsl(1e400, 50%, 50%)'), isNull);
+      expect(parseCssColor('rgba(0, 0, 0, 1e400)'), isNull);
+      expect(parseCssTextShadows('${huge}px 0 0 red'), isNull);
+      expect(parseCssLength('${huge}px'), isNull);
+    });
+
+    testWidgets('shadows stay by their text, the content paints around its own box', (tester) async {
+      await _pump(tester, _inPost('<span style="text-shadow: 0 -100px 0 red, 5em 0 3em blue">影子</span>'));
+      expect(_style(tester, '影子').shadows, [
+        const Shadow(color: Color(0xFFFF0000), offset: Offset(0, -14)),
+        const Shadow(color: Color(0xFF0000FF), offset: Offset(14, 0), blurRadius: 14),
+      ]);
+      final clip = tester.widget<ClipRect>(find.byWidgetPredicate((w) => w is ClipRect && w.clipper != null));
+      expect(clip.clipper!.getClip(const Size(100, 50)), const Rect.fromLTRB(-8, -8, 108, 58));
+    });
+
+    testWidgets('text on a background its color was not given on reads, in a light theme too', (tester) async {
+      await _pump(
+        tester,
+        _inPost(
+          '<div style="background: #222222"><p>深底默认字</p></div>'
+          '<font color="#333333"><div style="background-color: #000000">外面给的颜色</div></font>'
+          '<div style="background: #112233"><a href="forum.php?mod=viewthread&amp;tid=1">深底链接</a></div>'
+          '<div style="background: #222222"><font color="#444444">块里给的颜色</font></div>',
+        ),
+      );
+      for (final (text, block) in [('深底默认字', 0xFF222222), ('外面给的颜色', 0xFF000000), ('深底链接', 0xFF112233)]) {
+        expect(
+          contrastRatio(_style(tester, text).color!, Color(block)),
+          greaterThanOrEqualTo(readableContrast),
+          reason: text,
+        );
+      }
+      expect(_style(tester, '块里给的颜色').color, const Color(0xFF444444), reason: "the author's, as the web page");
+    });
+
+    testWidgets('headings, items, lists, terms, quotes and preformatted text have their background', (tester) async {
+      await _pump(
+        tester,
+        _inPost(
+          '<h2 style="background: #cc0000; color: #fff">红底标题</h2>'
+          '<ul style="background: #ffe0b3"><li>清单</li><li style="background: #333333; color: #fff">深底条目</li></ul>'
+          '<dl><dt style="background: pink">名词</dt><dd style="background: wheat">解释</dd></dl>'
+          '<blockquote style="background: #000; color: #fff">黑底引言</blockquote>'
+          '<pre style="background: #eeeeee">预排</pre>',
+        ),
+      );
+      expect(_blockBackground(tester, '红底标题'), const Color(0xFFCC0000));
+      expect(_blockBackground(tester, '深底条目'), const Color(0xFF333333));
+      expect(_blockBackground(tester, '清单'), const Color(0xFFFFE0B3));
+      expect(_blockBackground(tester, '名词'), const Color(0xFFFFC0CB));
+      expect(_blockBackground(tester, '解释'), const Color(0xFFF5DEB3));
+      expect(_blockBackground(tester, '黑底引言'), const Color(0xFF000000));
+      expect(_blockBackground(tester, '预排'), const Color(0xFFEEEEEE));
+      final mark = _spans(tester).firstWhere((e) => e.$1.text == '•  ' && (e.$2.color == const Color(0xFFFFFFFF)));
+      expect(mark.$2.color, const Color(0xFFFFFFFF), reason: "the mark in the item's color, on its background");
+    });
+
+    testWidgets('dark: colored text on a gray of its lightness is seen, a white answer hidden', (tester) async {
+      await _pump(
+        tester,
+        _inPost(
+          '<table><tr><td bgcolor="#808080"><font color="red">红字灰底</font></td><td>x</td></tr>'
+          '<tr><td bgcolor="silver"><font color="orange">橙字银底</font></td><td>y</td></tr></table>'
+          '答案是：<font color="#ffffff">白字答案</font>'
+          '<div style="background: #fff"><font color="#fefefe">白块白字</font></div>'
+          '<span style="background-color: #000; color: #000">黑底黑字</span>',
+        ),
+        theme: _dark,
+      );
+      final surface = _dark.colorScheme.surfaceContainerLow;
+      for (final text in ['红字灰底', '橙字银底']) {
+        final block = _blockBackground(tester, text)!;
+        expect(contrastRatio(_style(tester, text).color!, block), greaterThanOrEqualTo(readableContrast), reason: text);
+      }
+      expect(_style(tester, '白字答案').color, surface, reason: 'hidden on the page as on the web page');
+      expect(_style(tester, '白块白字').color, surface, reason: 'the same in a block painted white');
+      final black = _style(tester, '黑底黑字');
+      expect(contrastRatio(black.color!, black.backgroundColor!), lessThan(camouflageContrast));
+      expect(isCamouflaged(const Color(0xFFFF0000), const Color(0xFF808080)), isFalse);
+      expect(isCamouflaged(const Color(0xFF7F7F7F), const Color(0xFF808080)), isTrue);
+    });
+
+    testWidgets('light: a white answer stays as given', (tester) async {
+      await _pump(tester, _inPost('答案是：<font color="#ffffff">白字答案</font>'));
+      expect(_style(tester, '白字答案').color, const Color(0xFFFFFFFF));
+    });
+
+    testWidgets('a block with a background in a centered block is centered too', (tester) async {
+      for (final (html, text) in [
+        ('<div align="center"><div style="background-color: pink">居中粉底</div></div>', '居中粉底'),
+        ('<center><table bgcolor="wheat"><tr><td>居中麦底</td></tr></table></center>', '居中麦底'),
+        ('<table style="text-align: center"><tr><td>表格置中</td><td>二</td></tr></table>', '表格置中'),
+        ('<div align="center"><table><tr><td>块里的表格</td><td>二</td></tr></table></div>', '块里的表格'),
+      ]) {
+        await _pump(tester, _inPost(html));
+        expect(_richText(tester, text).textAlign, TextAlign.center, reason: html);
+      }
+    });
+
+    testWidgets('justified paragraphs keep their paragraph spacing; tiny text is hidden', (tester) async {
+      final long = List.filled(20, '这是一段很长的小说文字').join();
+      await _pump(tester, _inPost(List.filled(3, '<p style="text-align: justify">$long</p>').join()));
+      expect(find.byType(RichText), findsOneWidget);
+      await _pump(
+        tester,
+        _inPost(
+          '正文<span style="font-size: 0">零号字</span><span style="font-size: 1px">一像素</span><b style="font-size: 0.05em">小</b>',
+        ),
+      );
+      expect(find.textContaining('零号字', findRichText: true), findsNothing);
+      expect(find.textContaining('一像素', findRichText: true), findsNothing);
+      expect(find.textContaining('正文', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('one-cell tables: the cell over the table; nested blocks are not narrowed again and again', (
+      tester,
+    ) async {
+      await _pump(tester, _inPost('<table bgcolor="wheat"><tr><td bgcolor="pink">格子胜过表格</td></tr></table>'));
+      expect(_blockBackground(tester, '格子胜过表格'), const Color(0xFFFFC0CB));
+      await _pump(
+        tester,
+        _inPost(
+          '<div style="background: #ffe0b3"><div style="background: pink"><div style="background: wheat">三层</div></div></div>',
+        ),
+      );
+      final paddings = find
+          .byType(PostBlockBackground)
+          .evaluate()
+          .map((e) => (e.widget as PostBlockBackground).padding)
+          .toList();
+      expect(paddings, [
+        PostBlockBackground.defaultPadding,
+        PostBlockBackground.nestedPadding,
+        PostBlockBackground.nestedPadding,
+      ]);
+    });
+
+    testWidgets('a forum link without its scheme has no mark', (tester) async {
+      expect(postLinkHasMark('//www.tsdm39.com/forum.php?mod=viewthread&tid=1'), isFalse);
+      expect(postLinkHasMark('//example.com/'), isTrue);
     });
   });
 }

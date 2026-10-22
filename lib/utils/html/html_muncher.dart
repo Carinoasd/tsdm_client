@@ -63,8 +63,16 @@ const emptySpan = TextSpan(text: '\n');
 /// every link had the mark: a list of links to threads, a link in the middle of a sentence (`详见>活动总帖<`) read
 /// broken by an icon at each. Outside a post (a notice, a message), links are not underlined and keep their marks.
 bool postLinkHasMark(String url) {
-  final uri = Uri.tryParse(url.trim());
-  return uri != null && !uri.isForumOrRelative && uri.scheme.toLowerCase() != 'javascript';
+  final trimmed = url.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) {
+    return false;
+  }
+  if (!uri.hasScheme && uri.hasAuthority) {
+    // `//www.tsdm39.com/…`: on the scheme of the page.
+    return !(Uri.tryParse('https:$trimmed')?.isForumHost ?? false);
+  }
+  return !uri.isForumOrRelative && uri.scheme.toLowerCase() != 'javascript';
 }
 
 /// Called with each element before it is munched, for tests: one throwing there checks that an element the muncher
@@ -152,16 +160,42 @@ Widget munchElement(
   // Currently is 712.
   return ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    child: Text.rich(
-      style: const TextStyle(
-        // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow
-        // row spacing between text lines.
-        height: kTextHeightNone,
+    // What the content paints stays around it: a shadow of the author's text (`text-shadow: 0 -100px`) was drawn over
+    // the floor above.
+    child: ClipRect(
+      clipper: const _ContentClipper(),
+      child: Text.rich(
+        style: const TextStyle(
+          // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or
+          // narrow row spacing between text lines.
+          height: kTextHeightNone,
+        ),
+        TextSpan(children: ret),
       ),
-      TextSpan(children: ret),
     ),
   );
 }
+
+/// The area the munched content paints in: its own box and [_overflow] around it, for what a glyph, a glow or the
+/// shadow of a card in it draws past its edge. A post card has more space than that around its content: nothing the
+/// content paints reaches another floor.
+class _ContentClipper extends CustomClipper<Rect> {
+  const _ContentClipper();
+
+  static const _overflow = 8.0;
+
+  @override
+  Rect getClip(Size size) => (Offset.zero & size).inflate(_overflow);
+
+  @override
+  bool shouldReclip(_ContentClipper oldClipper) => false;
+}
+
+/// A background the text is on (`_MunchState.backgroundColorStack`, `_MunchState.blockBackgroundStack`): its `color`
+/// as the author gave it (null: a picture, which the app does not show); the length of the color stack when it was
+/// pushed (`colors`: a color pushed after it was given in its block); when it was pushed among all the backgrounds
+/// (`order`).
+typedef _Behind = ({Color? color, int colors, int order});
 
 /// The style part of [_MunchState], see [_MunchState.save].
 typedef _MunchStyle = ({
@@ -173,12 +207,13 @@ typedef _MunchStyle = ({
   TextAlign? textAlign,
   String? tapUrl,
   List<Color> colorStack,
-  List<Color> backgroundColorStack,
-  List<Color?> blockBackgroundStack,
+  List<_Behind> backgroundColorStack,
+  List<_Behind> blockBackgroundStack,
   List<List<Shadow>> shadowStack,
   List<double> fontSizeStack,
   double? textIndent,
   int? linkDepth,
+  int? linkOrder,
   Color? linkColor,
   bool linkUnderline,
   double elevation,
@@ -287,11 +322,11 @@ class _MunchState {
   /// All background colors of text currently used (`<span style="background-color: …">`), as the author gave them.
   ///
   /// Use as a stack because only the latest font works on font.
-  final backgroundColorStack = <Color>[];
+  final backgroundColorStack = <_Behind>[];
 
   /// The backgrounds of the blocks the text is in (`<div style="background-color: …">`, `<table bgcolor="…">`), as the
-  /// author gave them; null for a picture, which the app does not show. What a text color is shown on.
-  final blockBackgroundStack = <Color?>[];
+  /// author gave them; a picture, which the app does not show, has none. What a text color is shown on.
+  final blockBackgroundStack = <_Behind>[];
 
   /// The shadows of the text (`text-shadow`), empty for none.
   final shadowStack = <List<Shadow>>[];
@@ -311,6 +346,10 @@ class _MunchState {
   /// does not color it (`<font color="red"><a>…</a></font>` is a link in the link's color on the web page: the
   /// forum's style sheet colors every link, `.t_f a`); one pushed in it does.
   int? linkDepth;
+
+  /// The count of backgrounds pushed when the link the text is in started (`_Behind.order`): a background pushed by
+  /// then is around the link.
+  int? linkOrder;
 
   /// The color the author gave the link itself (`<a style="color: …">`, `.xg1 a`), the theme's when null.
   Color? linkColor;
@@ -343,6 +382,7 @@ class _MunchState {
     fontSizeStack: List.of(fontSizeStack),
     textIndent: textIndent,
     linkDepth: linkDepth,
+    linkOrder: linkOrder,
     linkColor: linkColor,
     linkUnderline: linkUnderline,
     elevation: elevation,
@@ -374,6 +414,7 @@ class _MunchState {
       ..addAll(saved.fontSizeStack);
     textIndent = saved.textIndent;
     linkDepth = saved.linkDepth;
+    linkOrder = saved.linkOrder;
     linkColor = saved.linkColor;
     linkUnderline = saved.linkUnderline;
     elevation = saved.elevation;
@@ -429,6 +470,15 @@ final class _Muncher with LoggerMixin {
   /// The style sheets of the html: the forum's and its own `<style>` ([AuthorStyleSheets.of]).
   AuthorStyleSheets _sheets = AuthorStyleSheets.empty;
 
+  /// [_sheets] matched to the elements of the html.
+  late final AuthorStyler _styler = _sheets.styler(_root ?? uh.DivElement());
+
+  /// Count of the backgrounds pushed so far, see `_Behind.order`.
+  int _behindCount = 0;
+
+  /// A background of [color] pushed now.
+  _Behind _behind(Color? color) => (color: color, colors: state.colorStack.length, order: ++_behindCount);
+
   /// The style the author gave each element munched, see [_styleOf].
   final _styles = Map<uh.Element, AuthorStyle?>.identity();
 
@@ -457,8 +507,16 @@ final class _Muncher with LoggerMixin {
 
   /// The style the author gave [element] (its `style`, the classes of the forum's style sheet, the rules of the html's
   /// `<style>`), null when none.
-  AuthorStyle? _styleOf(uh.Element element) =>
-      _styles.putIfAbsent(element, () => _sheets.styleOf(element, _root ?? element));
+  ///
+  /// A style that cannot be read (a value the parser chokes on) is no style: the element is shown as if it had none.
+  AuthorStyle? _styleOf(uh.Element element) => _styles.putIfAbsent(element, () {
+    try {
+      return _styler.styleOf(element);
+    } on Object catch (e, st) {
+      error('failed to read the style of <${element.localName}>, leaving it out', e, st);
+      return null;
+    }
+  });
 
   /// Elements laid out as blocks of their own whose first line takes the indent (`text-indent`).
   static const Set<String> _indentedElements = {
@@ -533,7 +591,13 @@ final class _Muncher with LoggerMixin {
       }
     }
     final saved = state.save();
-    _applyStyle(element, style);
+    try {
+      _applyStyle(element, style);
+    } on Object catch (e, st) {
+      // A style the app cannot apply is no style.
+      error('failed to apply the style of <${element.localName}>, leaving it out', e, st);
+      state.restore(saved);
+    }
     if (block) {
       state.pendingIndent = state.textIndent;
     }
@@ -550,6 +614,10 @@ final class _Muncher with LoggerMixin {
 
   /// Put the [style] of [element] in the state: what its text is shown with.
   void _applyStyle(uh.Element element, AuthorStyle style) {
+    // The background first: the element's own color is given on it (see [_buildTextStyle]).
+    if (style.background case final background? when !_blockBackgroundElements.contains(_nameOf(element))) {
+      state.backgroundColorStack.add(_behind(background));
+    }
     if (style.fontSize case final size?) {
       final outer = _outerFontSizes[element] ?? _fontSize;
       final px = size.em ? size.value * outer : _appFontSize(size.value);
@@ -576,9 +644,6 @@ final class _Muncher with LoggerMixin {
     }
     if (style.noDecoration && identical(element, _link)) {
       state.linkUnderline = false;
-    }
-    if (style.background case final background? when !_blockBackgroundElements.contains(_nameOf(element))) {
-      state.backgroundColorStack.add(background);
     }
     if (style.textShadows case final shadows?) {
       final size = _fontSize;
@@ -611,7 +676,23 @@ final class _Muncher with LoggerMixin {
     return WidgetSpan(child: SizedBox(width: indent));
   }
 
-  List<InlineSpan>? _munch(uh.Element rootElement) => _styled(rootElement, () => _munchContent(rootElement));
+  List<InlineSpan>? _munch(uh.Element rootElement) =>
+      _isTiny(rootElement) ? null : _styled(rootElement, () => _munchContent(rootElement));
+
+  /// Whether the author made the text of [element] too small to be seen (`font-size: 0`, `1px`): text hidden that way
+  /// on the web page (the forum's own rules hide the text of an image link so). It was shown at the smallest size.
+  bool _isTiny(uh.Element element) {
+    final size = _styleOf(element)?.fontSize;
+    if (size == null) {
+      return false;
+    }
+    final outer = _outerFontSizes[element] ?? _fontSize;
+    final px = size.em ? size.value * outer / _pixelScale : size.value;
+    return px <= _hiddenFontSize;
+  }
+
+  /// A font size of the web page this small (css pixels) hides the text.
+  static const _hiddenFontSize = 1.0;
 
   /// What [rootElement] holds, munched.
   List<InlineSpan>? _munchContent(uh.Element rootElement) {
@@ -1380,6 +1461,13 @@ final class _Muncher with LoggerMixin {
     return null;
   }
 
+  /// The alignment the style of [element] gives its lines, a justified one as one aligned left (see
+  /// [_munchStyledBlock]).
+  TextAlign? _styleAlign(uh.Element element) => switch (_styleOf(element)?.textAlign) {
+    TextAlign.justify => TextAlign.left,
+    final align => align,
+  };
+
   /// Munch the block [element] with [munch]: its lines aligned as its style or its `align` attribute say
   /// ([defaultAlign] otherwise: `<center>`), on the background its author gave it ([_blockBackgroundOf]).
   List<InlineSpan>? _munchStyledBlock(
@@ -1388,7 +1476,9 @@ final class _Muncher with LoggerMixin {
     TextAlign? defaultAlign,
   }) {
     final style = _styleOf(element);
-    final styleAlign = style?.textAlign;
+    // A justified block is laid out as a block aligned left: a block of its own would lose the paragraph spacing
+    // around it, for lines that hardly move on a phone.
+    final styleAlign = _styleAlign(element);
     final TextAlign? align;
     if (styleAlign != null) {
       // The alignment the block has already (`text-align: left` on every paragraph pasted from Word) is not a block
@@ -1420,9 +1510,11 @@ final class _Muncher with LoggerMixin {
     ({Color? color})? background,
   }) {
     final shown = background?.color == null ? null : _colors.background(background!.color!);
+    // A block with a background in another one: the outer block has the space around the text already.
+    final nested = state.blockBackgroundStack.any((e) => e.color != null && _colors.background(e.color!) != null);
     if (background != null) {
       // What the text is on: its colors are shown on it ([AuthorColors.text]).
-      state.blockBackgroundStack.add(background.color);
+      state.blockBackgroundStack.add(_behind(background.color));
     }
     final origAlign = state.textAlign;
     try {
@@ -1439,9 +1531,14 @@ final class _Muncher with LoggerMixin {
       // The line break its content ends with (`[align=center]text<br />[/align]`) ends its last line, it does not add
       // an empty line below it.
       final content = _withoutTrailingLineBreak(ret)!;
-      Widget block = Text.rich(TextSpan(children: _layOut(content)), textAlign: align);
+      // A block with a background in an aligned one is aligned too.
+      Widget block = Text.rich(TextSpan(children: _layOut(content)), textAlign: align ?? origAlign);
       if (shown != null) {
-        block = PostBlockBackground(color: shown, child: block);
+        block = PostBlockBackground(
+          color: shown,
+          padding: nested ? PostBlockBackground.nestedPadding : PostBlockBackground.defaultPadding,
+          child: block,
+        );
       }
       return [textWidgetSpan(FullWidthBlock(child: block))];
     } finally {
@@ -1475,7 +1572,7 @@ final class _Muncher with LoggerMixin {
     // and restore munch state to avoid potential issued about "styles inside
     // quoted blocks  affects outside main content".
     final style = state.save();
-    final content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munch(element));
+    final content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munchStyledBlock(element, _munch));
     state.restore(style);
     // A trailing line break inside the quote ends a line that is as tall as the line before it: when that line holds
     // a nested quote, every level doubled the height and left a blank block (#158). The website shows no such line.
@@ -1893,6 +1990,7 @@ final class _Muncher with LoggerMixin {
       ..wrapInWord = true
       // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page.
       ..linkDepth = state.colorStack.length
+      ..linkOrder = _behindCount
       ..linkColor = null
       ..linkUnderline = typography != null;
     final List<InlineSpan>? ret;
@@ -1905,6 +2003,7 @@ final class _Muncher with LoggerMixin {
         // An empty link must not turn what follows into a link.
         ..tapUrl = null
         ..linkDepth = null
+        ..linkOrder = null
         ..linkColor = null
         ..linkUnderline = false;
     }
@@ -2031,7 +2130,7 @@ final class _Muncher with LoggerMixin {
     _headingDepth += 1;
     final List<InlineSpan>? ret;
     try {
-      ret = _munch(element);
+      ret = _munchStyledBlock(element, _munch);
     } finally {
       _headingDepth -= 1;
     }
@@ -2068,7 +2167,7 @@ final class _Muncher with LoggerMixin {
     }
     return _munchBlock(element, deferBreak: false, () {
       state.listStack.add(type);
-      final ret = _munch(element);
+      final ret = _munchStyledBlock(element, _munch);
       state.listStack.removeLast();
       return ret;
     });
@@ -2082,38 +2181,43 @@ final class _Muncher with LoggerMixin {
     final breakBefore = state.pendingBreak;
     state.pendingBreak = false;
     _startLine();
-    final ret = _munch(element);
+    // The item with its mark before it, the mark in the color and size of the item's text as the web page draws it;
+    // on the item's background when it has one.
+    List<InlineSpan>? munchItem(uh.Element item) => _styled(item, () {
+      final content = _munchContent(item);
+      if (content == null) {
+        return null;
+      }
+      final leading = switch (state.listStack.lastOrNull) {
+        _ListUnordered() => '•  ',
+        final _ListOrdered list => () {
+          // Pop and push a larger number.
+          state.listStack
+            ..removeLast()
+            ..add(list.next());
+          return '${list.mark}. ';
+        }(),
+        _ListUnmarked() => '',
+        null => () {
+          error('failed to detect html list leading type: empty list stack');
+          return '•  ';
+        }(), // Unreachable but handle it.
+      };
+      return [if (leading.isNotEmpty) TextSpan(text: leading, style: _buildTextStyle()), ...content];
+    });
+
+    final ret = _munchStyledBlock(element, munchItem);
     if (ret == null) {
       _restoreLine(line);
       return null;
     }
-
-    // final String leading
-    final leading = switch (state.listStack.lastOrNull) {
-      _ListUnordered() => '•  ',
-      final _ListOrdered list => () {
-        // Pop and push a larger number.
-        state.listStack
-          ..removeLast()
-          ..add(list.next());
-        return '${list.mark}. ';
-      }(),
-      _ListUnmarked() => '',
-      null => () {
-        error('failed to detect html list leading type: empty list stack');
-        return '•  ';
-      }(), // Unreachable but handle it.
-    };
-
-    // The mark in the color and size of the item's text, as the web page draws it.
-    final mark = leading.isEmpty ? null : TextSpan(text: leading, style: _buildTextStyle());
     if (!(ret.lastOrNull?.toPlainText().endsWith('\n') ?? false)) {
       // Append a trailing <br> if not have it.
       // This is a render issue on the server side, same bbcode may produce different result, with or without trailing
       // line break.
-      return [if (breakBefore) emptySpan, ?mark, ...ret, emptySpan];
+      return [if (breakBefore) emptySpan, ...ret, emptySpan];
     } else {
-      return [if (breakBefore) emptySpan, ?mark, ...ret];
+      return [if (breakBefore) emptySpan, ...ret];
     }
   }
 
@@ -2155,7 +2259,7 @@ final class _Muncher with LoggerMixin {
   List<InlineSpan>? _buildDt(uh.Element element) {
     final definitionFollows = element.nextElementSibling?.localName == 'dd';
     return _munchBlock(element, deferBreak: false, () {
-      final ret = _munch(element);
+      final ret = _munchStyledBlock(element, _munch);
       return definitionFollows ? ret : _endingLine(ret);
     });
   }
@@ -2177,7 +2281,7 @@ final class _Muncher with LoggerMixin {
       }
       return _endingLine([TextSpan(text: ' ', style: spaceStyle), ...ret]);
     }
-    return _munchBlock(element, deferBreak: false, () => _endingLine(_munch(element)));
+    return _munchBlock(element, deferBreak: false, () => _endingLine(_munchStyledBlock(element, _munch)));
   }
 
   List<InlineSpan>? _buildB(uh.Element element) {
@@ -2223,7 +2327,7 @@ final class _Muncher with LoggerMixin {
     if (!alreadyInPre) {
       state.inPre = true;
     }
-    final ret = _munch(element);
+    final ret = _munchStyledBlock(element, _munch);
     if (!alreadyInPre) {
       state.inPre = false;
     }
@@ -2537,11 +2641,15 @@ final class _Muncher with LoggerMixin {
       // alignment of its cell.
       final tr = allTr.single;
       final cell = cellsOf(tr).firstOrNull;
-      final background =
-          _blockBackgroundOf(element, _styleOf(element)) ??
-          _blockBackgroundOf(tr, _styleOf(tr)) ??
-          (cell == null ? null : _blockBackgroundOf(cell, _styleOf(cell)));
-      final align = cell == null ? null : _styleOf(cell)?.textAlign ?? _blockAlign(cell);
+      // The innermost color is the one seen: the cell's over the row's over the table's.
+      final backgrounds = [
+        if (cell != null) _blockBackgroundOf(cell, _styleOf(cell)),
+        _blockBackgroundOf(tr, _styleOf(tr)),
+        _blockBackgroundOf(element, _styleOf(element)),
+      ].nonNulls;
+      final background = backgrounds.firstWhereOrNull((e) => e.color != null) ?? backgrounds.firstOrNull;
+      final align =
+          (cell == null ? null : _styleAlign(cell) ?? _blockAlign(cell)) ?? _styleAlign(tr) ?? _styleAlign(element);
       if (background == null && align == null) {
         final content = _munch(tr.parent!);
         return caption == null ? content : [...caption, ...?content];
@@ -2571,7 +2679,7 @@ final class _Muncher with LoggerMixin {
     final takenUntil = <int, int>{};
     state.tableDepth += 1;
     if (tableBackground != null) {
-      state.blockBackgroundStack.add(tableBackground.color);
+      state.blockBackgroundStack.add(_behind(tableBackground.color));
     }
     for (final (y, tr) in allTr.indexed) {
       final row = <Widget>[];
@@ -2583,7 +2691,7 @@ final class _Muncher with LoggerMixin {
         },
       );
       if (rowBackground != null) {
-        state.blockBackgroundStack.add(rowBackground.color);
+        state.blockBackgroundStack.add(_behind(rowBackground.color));
       }
       void skipTaken() {
         while ((takenUntil[row.length] ?? -1) >= y) {
@@ -2602,7 +2710,7 @@ final class _Muncher with LoggerMixin {
           final cellStyle = _styleOf(cell);
           final cellBackground = _blockBackgroundOf(cell, cellStyle);
           if (cellBackground != null) {
-            state.blockBackgroundStack.add(cellBackground.color);
+            state.blockBackgroundStack.add(_behind(cellBackground.color));
           }
           // Header cells (`th`) are cells too, in bold, in their place in the row. The line break a cell's content
           // ends with (a `<br>`, a block at its end) ends its last line, it does not add an empty line below it.
@@ -2621,8 +2729,15 @@ final class _Muncher with LoggerMixin {
               takenUntil[x] = y + rowspan - 1;
             }
           }
-          // Aligned as the web page aligns the cell: its style, its `align`, its row's.
-          final align = cellStyle?.textAlign ?? _blockAlign(cell) ?? _blockAlign(tr);
+          // Aligned as the web page aligns the cell: its style, its `align`, its row's, its table's, the block's
+          // around the table (`text-align` is inherited).
+          final align =
+              _styleAlign(cell) ??
+              _blockAlign(cell) ??
+              _styleAlign(tr) ??
+              _blockAlign(tr) ??
+              _styleAlign(element) ??
+              state.textAlign;
           row
             ..add(_tableCell(Text.rich(TextSpan(children: content), textAlign: align), content, cellBackground))
             ..addAll(List<Widget>.filled(colspan - 1, sizedBoxEmpty));
@@ -2803,35 +2918,41 @@ final class _Muncher with LoggerMixin {
     final linkDepth = state.linkDepth;
     final inLink = linkDepth != null;
     final ownColor = !inLink || state.colorStack.length > linkDepth ? state.colorStack.lastOrNull : null;
-    final authored = ownColor ?? (inLink ? state.linkColor : null);
-    // What the text is on: the background of the text, else of the block it is in (null there: a picture).
-    final inlineBackground = state.backgroundColorStack.lastOrNull;
-    final Color? on;
-    final bool pictureBehind;
-    if (inlineBackground != null) {
-      on = inlineBackground;
-      pictureBehind = false;
-    } else if (state.blockBackgroundStack.isNotEmpty) {
-      pictureBehind = state.blockBackgroundStack.last == null;
-      // On a picture: on the color painted under it, if any.
-      on = state.blockBackgroundStack.lastWhereOrNull((e) => e != null);
-    } else {
-      on = null;
-      pictureBehind = false;
+    // What the text is on: the nearest background, of the text or of the block it is in.
+    final inline = state.backgroundColorStack.lastOrNull;
+    final block = state.blockBackgroundStack.lastOrNull;
+    final nearest = inline == null || (block != null && block.order > inline.order) ? block : inline;
+    final pictureBehind = nearest != null && nearest.color == null;
+    // On a picture: on the color painted under it, if any.
+    final under = pictureBehind ? state.blockBackgroundStack.lastWhereOrNull((e) => e.color != null)?.color : null;
+    // A color given in the block of the background (pushed after it) was chosen for it; one given around the block,
+    // or the theme's, was not, and is made readable on it.
+    final ownInside = nearest != null && state.colorStack.length > nearest.colors;
+    final linkInside = nearest != null && (state.linkOrder ?? -1) >= nearest.order;
+    final ink = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+    Color? shown(Color? authored, {required bool inside, required Color? fallback}) {
+      if (nearest == null) {
+        return authored == null ? fallback : _colors.text(authored);
+      }
+      final background = nearest.color;
+      if (background == null) {
+        return authored == null ? fallback : _colors.text(authored, on: under, pictureBehind: true);
+      }
+      if (authored != null && inside) {
+        return _colors.text(authored, on: background);
+      }
+      return _colors.onBackground(authored ?? fallback ?? ink, background) ??
+          (authored == null ? fallback : _colors.text(authored, on: background));
     }
-    final color = authored != null
-        ? _colors.text(authored, on: on, pictureBehind: pictureBehind)
-        : (state.tapUrl != null ? theme.colorScheme.primary : null);
+
+    final primary = theme.colorScheme.primary;
+    final color = ownColor != null
+        ? shown(ownColor, inside: ownInside, fallback: null)
+        : shown(inLink ? state.linkColor : null, inside: linkInside, fallback: inLink ? primary : null);
     final linkUnderline = inLink && state.linkUnderline;
-    final Color? decorationColor;
-    if (linkUnderline && !state.underline && !state.lineThrough) {
-      final linkColor = state.linkColor;
-      decorationColor = linkColor == null
-          ? theme.colorScheme.primary
-          : _colors.text(linkColor, on: on, pictureBehind: pictureBehind);
-    } else {
-      decorationColor = color;
-    }
+    final decorationColor = linkUnderline && !state.underline && !state.lineThrough
+        ? shown(state.linkColor, inside: linkInside, fallback: primary)
+        : color;
     // Empty for `text-shadow: none`: none, not the shadows around.
     final shadows = state.shadowStack.lastOrNull;
     final style = theme.textTheme.bodyMedium?.copyWith(
@@ -2841,7 +2962,7 @@ final class _Muncher with LoggerMixin {
       letterSpacing: typography == null ? null : 0,
       fontWeight: state.bold ? FontWeight.w600 : null,
       fontSize: state.fontSizeStack.lastOrNull,
-      backgroundColor: inlineBackground == null ? null : _colors.background(inlineBackground),
+      backgroundColor: inline?.color == null ? null : _colors.background(inline!.color!),
       decorationColor: decorationColor,
       decoration: TextDecoration.combine([
         if (state.underline || linkUnderline) TextDecoration.underline,

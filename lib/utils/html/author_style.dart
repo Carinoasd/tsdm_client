@@ -78,12 +78,18 @@ final class CssShadow {
   /// Color, the text's when null.
   final Color? color;
 
-  /// The shadow where the font size is [fontSize] and the text is [textColor].
-  Shadow resolve(double fontSize, double pixelScale, Color textColor) => Shadow(
-    offset: Offset(dx.resolve(fontSize, pixelScale: pixelScale), dy.resolve(fontSize, pixelScale: pixelScale)),
-    blurRadius: blur.resolve(fontSize, pixelScale: pixelScale),
-    color: color ?? textColor,
-  );
+  /// The shadow where the font size is [fontSize] and the text is [textColor]: offset by at most the font size each
+  /// way, blurred by at most the font size. A glow or an outline is that close to its text; a shadow further away
+  /// (`0 -100px`) would be drawn over the floor above.
+  Shadow resolve(double fontSize, double pixelScale, Color textColor) {
+    double bounded(CssLength length, double min) =>
+        length.resolve(fontSize, pixelScale: pixelScale).clamp(min, fontSize);
+    return Shadow(
+      offset: Offset(bounded(dx, -fontSize), bounded(dy, -fontSize)),
+      blurRadius: bounded(blur, 0),
+      color: color ?? textColor,
+    );
+  }
 }
 
 /// The style the author gave an element, as far as the app shows it. Null fields were not given.
@@ -385,10 +391,10 @@ Color? _parseColorFunction(String name, String arguments) {
       } else {
         c = double.tryParse(a);
       }
-      if (c == null || c.isNaN) {
+      if (c == null || !c.isFinite) {
         return null;
       }
-      channels.add(c.round().clamp(0, 255));
+      channels.add(c.clamp(0, 255).round());
     }
     return Color.fromARGB((alpha * 255).round(), channels[0], channels[1], channels[2]);
   }
@@ -396,6 +402,9 @@ Color? _parseColorFunction(String name, String arguments) {
   final saturation = _parsePercent(args[1]);
   final lightness = _parsePercent(args[2]);
   if (hue == null || saturation == null || lightness == null) {
+    return null;
+  }
+  if (!hue.isFinite || !saturation.isFinite || !lightness.isFinite) {
     return null;
   }
   return HSLColor.fromAHSL(alpha, hue % 360, saturation.clamp(0, 1), lightness.clamp(0, 1)).toColor();
@@ -410,7 +419,8 @@ double? _parseFraction(String value) {
   } else {
     n = double.tryParse(value);
   }
-  return n?.clamp(0, 1);
+  // `1e400` is infinity, `NaN` no number: none of them is an alpha.
+  return n == null || !n.isFinite ? null : n.clamp(0, 1);
 }
 
 double? _parsePercent(String value) {
@@ -439,6 +449,10 @@ CssLength? parseCssLength(String value) {
     return null;
   }
   final n = double.parse(m.group(1)!);
+  if (!n.isFinite) {
+    // Hundreds of digits: infinity.
+    return null;
+  }
   return switch (m.group(2)) {
     null => n == 0 ? const CssLength.px(0) : null,
     'px' => CssLength.px(n),
@@ -556,6 +570,11 @@ const _maxDeclarationsLength = 4096;
 /// Most declarations read from a block.
 const _maxDeclarations = 64;
 
+/// Most characters of a value taken, its `var()` resolved: a longer one is left out. A custom property may hold
+/// others, each many times (`--v2: var(--v1) var(--v1)…`): resolved without a bound, a few lines of css grew to
+/// gigabytes.
+const _maxValueLength = 1024;
+
 final _importantRe = RegExp(r'!\s*important\s*$', caseSensitive: false);
 final _varRe = RegExp(r'var\(\s*(--[\w-]+)\s*(?:,([^()]*))?\)');
 
@@ -585,7 +604,7 @@ List<CssDeclaration> parseCssDeclarations(String text, {Map<String, String> vari
       }
       value = resolved;
     }
-    if (property.isEmpty || value.isEmpty) {
+    if (property.isEmpty || value.isEmpty || value.length > _maxValueLength) {
       continue;
     }
     declarations.add(CssDeclaration(property, value, important: important));
@@ -593,22 +612,29 @@ List<CssDeclaration> parseCssDeclarations(String text, {Map<String, String> vari
   return declarations;
 }
 
-/// [value] with its `var()` taken from [variables], null when one is not there and has no fallback.
+/// [value] with its `var()` taken from [variables], null when one is not there and has no fallback, or when it grows
+/// longer than [_maxValueLength].
 String? _resolveVariables(String value, Map<String, String> variables) {
   var v = value;
   for (var depth = 0; depth < 4 && v.contains('var('); depth++) {
     var missing = false;
-    v = v.replaceAllMapped(_varRe, (m) {
+    var added = 0;
+    final next = v.replaceAllMapped(_varRe, (m) {
+      if (missing || added > _maxValueLength) {
+        return '';
+      }
       final resolved = variables[m.group(1)!] ?? m.group(2)?.trim();
       if (resolved == null) {
         missing = true;
         return '';
       }
-      return resolved;
+      added += resolved.length;
+      return added > _maxValueLength ? '' : resolved;
     });
-    if (missing) {
+    if (missing || added > _maxValueLength || next.length > _maxValueLength) {
       return null;
     }
+    v = next;
   }
   return v.contains('var(') ? null : v;
 }
@@ -616,28 +642,27 @@ String? _resolveVariables(String value, Map<String, String> variables) {
 /// One part of a selector: a tag, an id, classes (`div`, `.Red`, `#tsdm`, `span.big`).
 @immutable
 final class _Compound {
-  const _Compound({this.tag, this.id, this.classes = const []});
+  _Compound({this.tag, this.id, this.classes = const []})
+    : _keys = [?tag, if (id != null) '#$id', for (final c in classes) '.$c'];
 
   final String? tag;
   final String? id;
   final List<String> classes;
 
+  /// What an element has to have to match, as [AuthorStyler] keys an element: its tag, `#` its id, `.` each class.
+  final List<String> _keys;
+
+  /// The key an element is looked up by for this compound: its id, else its first class, else its tag.
+  String get key => id != null ? '#$id' : (classes.isNotEmpty ? '.${classes.first}' : tag!);
+
   /// Specificity as css counts it: ids, classes, tags.
   int get specificity => (id == null ? 0 : 10000) + classes.length * 100 + (tag == null ? 0 : 1);
 
-  bool matches(uh.Element element) {
-    if (tag != null && element.localName != tag) {
-      return false;
-    }
-    if (id != null && element.id != id) {
-      return false;
-    }
-    if (classes.isNotEmpty) {
-      final own = element.classes;
-      for (final c in classes) {
-        if (!own.contains(c)) {
-          return false;
-        }
+  /// Whether an element with [keys] (see [AuthorStyler]) matches.
+  bool matchesKeys(uh.Element element, Set<String> keys) {
+    for (final k in _keys) {
+      if (!keys.contains(k)) {
+        return false;
       }
     }
     return true;
@@ -664,62 +689,82 @@ final class _Compound {
         classes.add(s.substring(1));
       }
     }
-    return _Compound(tag: m.group(1)?.toLowerCase(), id: id, classes: classes);
+    final tag = m.group(1)?.toLowerCase();
+    if (tag == null && id == null && classes.isEmpty) {
+      return null;
+    }
+    return _Compound(tag: tag, id: id, classes: classes);
   }
 }
 
-/// A selector the app understands: one [_Compound] ([subject]), at most one [ancestor] before it (`.box span`).
+/// A selector the app understands: [compounds] separated by white space (descendants, `.box .card span`), the last
+/// one the [subject].
 @immutable
 final class _Selector {
-  const _Selector(this.subject, this.ancestor);
+  const _Selector(this.compounds);
 
-  final _Compound subject;
-  final _Compound? ancestor;
+  /// The compounds, from the outermost ancestor to the subject.
+  final List<_Compound> compounds;
 
-  int get specificity => subject.specificity + (ancestor?.specificity ?? 0);
+  _Compound get subject => compounds.last;
 
-  /// Most ancestors looked at for the [ancestor] of the selector.
-  static const _maxDepth = 64;
+  /// The ancestor compounds, nearest first.
+  Iterable<_Compound> get ancestors => compounds.reversed.skip(1);
 
-  bool matches(uh.Element element, uh.Element root) {
-    if (!subject.matches(element)) {
-      return false;
-    }
-    final ancestor = this.ancestor;
-    if (ancestor == null) {
-      return true;
-    }
+  int get specificity => compounds.fold(0, (sum, c) => sum + c.specificity);
+
+  /// Most compounds of a selector the app takes: the subject and three ancestors.
+  static const maxCompounds = 4;
+
+  /// Most ancestors looked at to match the ancestors of a selector.
+  static const maxDepth = 64;
+
+  /// Whether [element], whose subject compound already matches, has the ancestors of the selector, nearest first,
+  /// each the nearest one above the one before (the descendant combinator matches the nearest ancestor greedily).
+  bool matchesAncestors(uh.Element element, uh.Element root, AuthorStyler styler) {
     var node = element.parent;
-    for (var depth = 0; node != null && depth < _maxDepth; depth++) {
-      if (ancestor.matches(node)) {
-        return true;
+    var depth = 0;
+    for (final compound in ancestors) {
+      var found = false;
+      while (node != null && depth < maxDepth) {
+        final current = node;
+        node = identical(current, root) ? null : current.parent;
+        depth++;
+        if (compound.matchesKeys(current, styler._keysOf(current))) {
+          found = true;
+          break;
+        }
       }
-      if (identical(node, root)) {
-        break;
+      if (!found) {
+        return false;
       }
-      node = node.parent;
     }
-    return false;
+    return true;
   }
 
   /// The selector [text], null when it is not one the app understands: a child, sibling or attribute selector, a
-  /// pseudo class, `*`, more than one ancestor.
+  /// pseudo class, `*`, more than [maxCompounds] compounds.
   static _Selector? parse(String text) {
     final t = text.trim();
-    if (t.isEmpty || t.length > 200 || t.contains(RegExp(r'[>+~:\[\]*()|\\@]'))) {
+    if (t.isEmpty || t.length > 200 || t.contains(_unsupportedRe)) {
       return null;
     }
     final parts = t.split(_spaceRe);
-    if (parts.length > 2) {
+    if (parts.length > maxCompounds) {
       return null;
     }
-    final subject = _Compound.parse(parts.last);
-    final ancestor = parts.length == 2 ? _Compound.parse(parts.first) : null;
-    if (subject == null || (parts.length == 2 && ancestor == null)) {
-      return null;
+    final compounds = <_Compound>[];
+    for (final part in parts) {
+      final compound = _Compound.parse(part);
+      if (compound == null) {
+        return null;
+      }
+      compounds.add(compound);
     }
-    return _Selector(subject, ancestor);
+    return _Selector(compounds);
   }
+
+  static final _unsupportedRe = RegExp(r'[>+~:\[\]*()|\\@]');
 }
 
 /// A rule of a style sheet: a selector and its declarations, where it is in the sheets.
@@ -771,18 +816,25 @@ em { color: #666 }
 .media_tips a { font-size: 12px !important; color: #999 !important; text-decoration: none !important }
 ''';
 
+/// Longest a piece of html's style sheets are read for; a style sheet that takes longer is left out.
+const _parseBudget = Duration(milliseconds: 100);
+
+/// Longest the rules of a piece of html's style sheets are matched for, all its elements together; past it, only the
+/// `style` of each element is read.
+const _matchBudget = Duration(milliseconds: 250);
+
 /// The style sheets a piece of html is shown with: the forum's ([_forumStyleSheet], [_postStyleSheet] for a post's
 /// content) and its own `<style>` elements, read once.
 final class AuthorStyleSheets {
   AuthorStyleSheets._(this._rules, this._variables) {
     for (final rule in _rules) {
-      final subject = rule.selector.subject;
-      if (subject.id != null) {
-        (_byId[subject.id!] ??= []).add(rule);
-      } else if (subject.classes.isNotEmpty) {
-        (_byClass[subject.classes.first] ??= []).add(rule);
-      } else if (subject.tag != null) {
-        (_byTag[subject.tag!] ??= []).add(rule);
+      final selector = rule.selector;
+      final key = selector.subject.key;
+      final nearest = selector.ancestors.firstOrNull;
+      if (nearest == null) {
+        (_plain[key] ??= []).add(rule);
+      } else {
+        ((_nested[key] ??= {})[nearest.key] ??= []).add(rule);
       }
     }
   }
@@ -791,55 +843,70 @@ final class AuthorStyleSheets {
   /// `<style>` elements in it.
   ///
   /// What cannot be read is left out, as a browser does: an at-rule (`@media`, `@keyframes`), a selector the app does
-  /// not understand, a property it does not show. The style sheets are read up to [maxStyleSheetLength] characters.
+  /// not understand, a property it does not show. The style sheets are read up to [maxStyleSheetLength] characters and
+  /// for at most [_parseBudget]; a style sheet that cannot be read in that, or at all, is left out entirely: the html
+  /// is shown with the forum's.
   factory AuthorStyleSheets.of(uh.Element root, {required bool postContent}) {
-    final styles = root.querySelectorAll('style');
-    if (styles.isEmpty) {
-      return postContent ? _forumPost : _forum;
-    }
-    final buffer = StringBuffer(_forumStyleSheet);
-    if (postContent) {
-      buffer.write(_postStyleSheet);
-    }
-    var length = 0;
-    for (final style in styles) {
-      final text = style.text ?? '';
-      if (length + text.length > maxStyleSheetLength) {
-        buffer.write(text.substring(0, maxStyleSheetLength - length));
-        break;
+    final forum = postContent ? _forumPost : _forum;
+    try {
+      final styles = root.querySelectorAll('style');
+      if (styles.isEmpty) {
+        return forum;
       }
-      buffer
-        ..write('\n')
-        ..write(text);
-      length += text.length;
+      final buffer = StringBuffer(_forumStyleSheet);
+      if (postContent) {
+        buffer.write(_postStyleSheet);
+      }
+      var length = 0;
+      for (final style in styles) {
+        final text = style.text ?? '';
+        if (length + text.length > maxStyleSheetLength) {
+          buffer.write(text.substring(0, maxStyleSheetLength - length));
+          break;
+        }
+        buffer
+          ..write('\n')
+          ..write(text);
+        length += text.length;
+      }
+      return AuthorStyleSheets.parse(buffer.toString(), budget: _parseBudget) ?? forum;
+    } on Object {
+      return forum;
     }
-    return AuthorStyleSheets.parse(buffer.toString());
   }
 
-  /// The rules of the style sheet [css].
-  factory AuthorStyleSheets.parse(String css) {
-    final blocks = _blocks(css.replaceAll(_commentRe, ' '));
+  /// The rules of the style sheet [css]; null when reading it takes longer than [budget].
+  static AuthorStyleSheets? parse(String css, {Duration? budget}) {
+    final clock = Stopwatch()..start();
+    bool late() => budget != null && clock.elapsed > budget;
+    final blocks = _blocks(_withoutComments(css));
     // Custom properties first: a value may use one declared after it. The scope of a custom property is not kept
     // (the last declaration of a name wins): posts declare theirs once, on the block around everything.
     final variables = <String, String>{};
     final parsed = <(String, List<CssDeclaration>)>[];
     for (final (_, body) in blocks) {
+      if (late()) {
+        return null;
+      }
       for (final d in parseCssDeclarations(body)) {
-        if (d.property.startsWith('--') && variables.length < _maxVariables && d.value.length <= 256) {
+        if (d.property.startsWith('--') && variables.length < _maxVariables && d.value.length <= _maxValueLength) {
           variables[d.property] = d.value;
         }
       }
     }
-    // Variables made of variables.
+    // Variables made of variables; one longer than a value can be once resolved is left out.
     for (final key in variables.keys.toList()) {
       final resolved = _resolveVariables(variables[key]!, variables);
-      if (resolved == null) {
+      if (resolved == null || resolved.length > _maxValueLength) {
         variables.remove(key);
       } else {
         variables[key] = resolved;
       }
     }
     for (final (prelude, body) in blocks) {
+      if (late()) {
+        return null;
+      }
       final declarations = parseCssDeclarations(
         body,
         variables: variables,
@@ -858,19 +925,39 @@ final class AuthorStyleSheets {
         }
       }
     }
-    return AuthorStyleSheets._(rules, variables);
+    return late() ? null : AuthorStyleSheets._(rules, variables);
   }
 
   /// No rules: the html has no style sheet of its own, and is not given the forum's.
   static final empty = AuthorStyleSheets._(const [], const {});
 
   /// The forum's style sheet, read once: html without a `<style>` of its own.
-  static final _forum = AuthorStyleSheets.parse(_forumStyleSheet);
+  static final AuthorStyleSheets _forum = AuthorStyleSheets.parse(_forumStyleSheet)!;
 
   /// The forum's style sheet for the content of a post, read once.
-  static final _forumPost = AuthorStyleSheets.parse('$_forumStyleSheet$_postStyleSheet');
+  static final AuthorStyleSheets _forumPost = AuthorStyleSheets.parse('$_forumStyleSheet$_postStyleSheet')!;
 
-  static final _commentRe = RegExp(r'/\*.*?\*/', dotAll: true);
+  /// [css] without its comments, read once from the start: a comment not closed runs to the end.
+  static String _withoutComments(String css) {
+    final buffer = StringBuffer();
+    var i = 0;
+    while (i < css.length) {
+      final open = css.indexOf('/*', i);
+      if (open < 0) {
+        buffer.write(css.substring(i));
+        break;
+      }
+      buffer
+        ..write(css.substring(i, open))
+        ..write(' ');
+      final close = css.indexOf('*/', open + 2);
+      if (close < 0) {
+        break;
+      }
+      i = close + 2;
+    }
+    return buffer.toString();
+  }
 
   /// The properties the app shows (see [AuthorStyle.declare]); the others are not kept.
   static const _shownProperties = {
@@ -906,17 +993,19 @@ final class AuthorStyleSheets {
       // The end of the block, nested blocks (of an at-rule) skipped.
       var depth = 1;
       var j = open + 1;
+      var nested = false;
       while (j < css.length && depth > 0) {
         final c = css.codeUnitAt(j);
         if (c == 0x7B) {
           depth++;
+          nested = true;
         } else if (c == 0x7D) {
           depth--;
         }
         j++;
       }
       final body = css.substring(open + 1, depth == 0 ? j - 1 : j);
-      if (!prelude.trim().startsWith('@') && !body.contains('{')) {
+      if (!nested && !prelude.trim().startsWith('@')) {
         blocks.add((prelude.trim(), body));
       }
       i = j;
@@ -926,52 +1015,114 @@ final class AuthorStyleSheets {
 
   final List<_Rule> _rules;
   final Map<String, String> _variables;
-  final _byId = <String, List<_Rule>>{};
-  final _byClass = <String, List<_Rule>>{};
-  final _byTag = <String, List<_Rule>>{};
 
-  /// The style the author gave [element] (an element under [root]), null when none: the rules matching it in the order
-  /// of the cascade (by specificity, then by place), then its own `style`; the declarations marked `!important` last,
-  /// in the same order. The presentational attributes (`<font color>`, `align`, `bgcolor`) are taken before this by
-  /// the html renderer, as a browser takes them before the style sheets.
-  AuthorStyle? styleOf(uh.Element element, uh.Element root) {
+  /// Rules of one compound, by the key of their subject ([_Compound.key]).
+  final Map<String, List<_Rule>> _plain = {};
+
+  /// Rules with ancestors, by the key of their subject, then by the key of their nearest ancestor.
+  final Map<String, Map<String, List<_Rule>>> _nested = {};
+
+  /// How the style sheets are matched to the elements under [root] in one go: with what is kept of the elements
+  /// between them, within one budget.
+  AuthorStyler styler(uh.Element root) => AuthorStyler._(this, root);
+}
+
+/// The style sheets matched to the elements of one piece of html, see [styleOf].
+///
+/// Each element's keys (its tag, `#` its id, `.` each class) are read once, so are the keys of its ancestors: a rule
+/// with ancestors is only tried where the key of its nearest ancestor is above the element, and its ancestors are
+/// only looked for then. Before, every rule with an ancestor walked up from every element, the classes read again at
+/// each level: a thousand rules on a long floor took seconds. All the matching of the html together takes at most
+/// [_matchBudget]; past it, the rules are not matched any more, only the `style` of each element is read.
+final class AuthorStyler {
+  AuthorStyler._(this._sheets, this._root);
+
+  final AuthorStyleSheets _sheets;
+  final uh.Element _root;
+  final _keys = Map<uh.Element, Set<String>>.identity();
+  final _clock = Stopwatch();
+
+  /// The keys of [element]: its tag, `#` its id, `.` each class.
+  Set<String> _keysOf(uh.Element element) => _keys.putIfAbsent(element, () {
+    final keys = <String>{element.localName};
+    final id = element.id;
+    if (id.isNotEmpty) {
+      keys.add('#$id');
+    }
+    for (final c in (element.attributes['class'] ?? '').split(_spaceRe)) {
+      if (c.isNotEmpty) {
+        keys.add('.$c');
+      }
+    }
+    return keys;
+  });
+
+  /// The keys of the ancestors of [element] up to the root, at most [_Selector.maxDepth] of them.
+  Set<String> _ancestorKeysOf(uh.Element element) {
+    final keys = <String>{};
+    var node = element.parent;
+    for (var depth = 0; node != null && depth < _Selector.maxDepth; depth++) {
+      keys.addAll(_keysOf(node));
+      node = identical(node, _root) ? null : node.parent;
+    }
+    return keys;
+  }
+
+  /// The style the author gave [element], null when none: the rules matching it in the order of the cascade (by
+  /// specificity, then by place), then its own `style`; the declarations marked `!important` last, in the same order.
+  /// The presentational attributes (`<font color>`, `align`, `bgcolor`) are taken before this by the html renderer,
+  /// as a browser takes them before the style sheets.
+  AuthorStyle? styleOf(uh.Element element) {
     final inline = element.attributes['style'];
-    List<_Rule>? matched;
-    void collect(List<_Rule>? rules) {
-      if (rules == null) {
-        return;
-      }
-      for (final rule in rules) {
-        if (rule.selector.matches(element, root)) {
-          (matched ??= []).add(rule);
+    final matched = <_Rule>[];
+    if (_sheets._rules.isNotEmpty && _clock.elapsed < _matchBudget) {
+      _clock.start();
+      try {
+        final keys = _keysOf(element);
+        Set<String>? ancestorKeys;
+        for (final key in keys) {
+          for (final rule in _sheets._plain[key] ?? const <_Rule>[]) {
+            if (rule.selector.subject.matchesKeys(element, keys)) {
+              matched.add(rule);
+            }
+          }
+          final nested = _sheets._nested[key];
+          if (nested == null) {
+            continue;
+          }
+          ancestorKeys ??= _ancestorKeysOf(element);
+          // The smaller of the two sides is walked.
+          final candidates = nested.length <= ancestorKeys.length
+              ? [
+                  for (final MapEntry(key: k, value: rules) in nested.entries)
+                    if (ancestorKeys.contains(k)) ...rules,
+                ]
+              : [for (final k in ancestorKeys) ...?nested[k]];
+          for (final rule in candidates) {
+            final selector = rule.selector;
+            if (selector.subject.matchesKeys(element, keys) &&
+                selector.ancestors.every((c) => c._keys.every(ancestorKeys!.contains)) &&
+                selector.matchesAncestors(element, _root, this)) {
+              matched.add(rule);
+            }
+          }
         }
+      } finally {
+        _clock.stop();
       }
     }
-
-    if (_rules.isNotEmpty) {
-      if (element.id.isNotEmpty) {
-        collect(_byId[element.id]);
-      }
-      final classes = element.classes;
-      if (classes.isNotEmpty) {
-        for (final c in classes) {
-          collect(_byClass[c]);
-        }
-      }
-      collect(_byTag[element.localName]);
-    }
-    if (matched == null && (inline == null || inline.trim().isEmpty)) {
+    if (matched.isEmpty && (inline == null || inline.trim().isEmpty)) {
       return null;
     }
-    // A rule is kept under one key only: it is found once.
-    final rules = (matched ?? const <_Rule>[]).sorted((a, b) {
+    // A rule is kept under one key only, and its subject has that key once: it is found once.
+    matched.sort((a, b) {
       final bySpecificity = a.selector.specificity.compareTo(b.selector.specificity);
       return bySpecificity != 0 ? bySpecificity : a.order.compareTo(b.order);
     });
-    final own = inline == null ? const <CssDeclaration>[] : parseCssDeclarations(inline, variables: _variables);
+    final own = inline == null ? const <CssDeclaration>[] : parseCssDeclarations(inline, variables: _sheets._variables);
     final style = AuthorStyle();
     for (final important in [false, true]) {
-      for (final rule in rules) {
+      for (final rule in matched) {
         for (final d in rule.declarations) {
           if (d.important == important) {
             style.declare(d.property, d.value);
@@ -1034,13 +1185,30 @@ final class AuthorColors {
       }
       return color;
     }
-    final behind = on == null ? null : opaque(on);
-    if (behind != null && dark && contrastRatio(opaque(color), behind) <= camouflageContrast) {
+    // Without a background of the author, the text is on the white of the web page: white text there is hidden on
+    // purpose (反白, an answer to select), as it is in a block the author painted white. Not on a picture, which
+    // the white text was meant to be read on.
+    final behind = opaque(on ?? _pageWhite);
+    if (!pictureBehind && isCamouflaged(opaque(color), behind)) {
       // Hidden in the color of its background: hidden in the dark one too.
       return background(color) ?? surface;
     }
-    final shownBehind = behind == null ? surface : (background(behind) ?? surface);
+    final shownBehind = on == null ? surface : (background(behind) ?? surface);
     return _inks.putIfAbsent((color.toARGB32(), shownBehind.toARGB32()), () => readableInk(color, shownBehind));
+  }
+
+  /// The color text of [color] is shown in on a background of the author [on] it was not given in (the theme's text
+  /// color, a color given around the block): readable on the background as it is painted ([readableInk]), in a light
+  /// theme too, never hidden. Null when the background is not painted (see [background]).
+  ///
+  /// Before, the background was shown and the color was not changed: the theme's dark text on a dark block of a post
+  /// whose own text color the app could not read (`.card .label { color: #d6bec8 }`) could not be seen at all.
+  Color? onBackground(Color color, Color on) {
+    final shown = background(on);
+    if (shown == null) {
+      return null;
+    }
+    return _inks.putIfAbsent((color.toARGB32(), shown.toARGB32()), () => readableInk(color, shown));
   }
 
   /// The color a background of [color] is painted in, null when it is not painted: transparent, or the white of the
@@ -1068,6 +1236,30 @@ const _unseenContrast = 1.5;
 
 /// Text and background this close are hidden text, not unreadable text: see [AuthorColors].
 const camouflageContrast = 1.15;
+
+/// The white of the web page, what text without a background of the author is on.
+const _pageWhite = Color(0xFFFFFFFF);
+
+/// Whether text in [color] on [background] is hidden on purpose: as light as its background
+/// ([camouflageContrast]) and of the same color: next to it in OKLab, or both grays. Red on a gray of its lightness,
+/// orange on silver, are as light but seen: they are made readable, not hidden.
+bool isCamouflaged(Color color, Color background) {
+  if (contrastRatio(color, background) > camouflageContrast) {
+    return false;
+  }
+  final (l1, a1, b1) = _toOklab(color);
+  final (l2, a2, b2) = _toOklab(background);
+  final distance = math.sqrt(math.pow(l1 - l2, 2) + math.pow(a1 - a2, 2) + math.pow(b1 - b2, 2));
+  final gray1 = math.sqrt(a1 * a1 + b1 * b1) < _grayChroma;
+  final gray2 = math.sqrt(a2 * a2 + b2 * b2) < _grayChroma;
+  return distance < _sameColorDistance || (gray1 && gray2);
+}
+
+/// Colors closer than this in OKLab are the same color to the eye.
+const _sameColorDistance = 0.05;
+
+/// A color of less chroma than this (OKLab) is a gray.
+const _grayChroma = 0.04;
 
 /// [color] over the white of the web page: its alpha taken out.
 Color opaque(Color color) {
@@ -1217,6 +1409,10 @@ class PostBlockBackground extends StatelessWidget {
 
   /// Space around the content of a block.
   static const defaultPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
+
+  /// Space around the content of a block in another block with a background: blocks nested several times kept
+  /// narrowing the text by 16 each.
+  static const nestedPadding = EdgeInsets.symmetric(horizontal: 3, vertical: 4);
 
   /// The background, as shown in the theme (see [AuthorColors.background]).
   final Color color;
