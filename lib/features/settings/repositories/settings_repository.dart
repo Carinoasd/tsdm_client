@@ -159,6 +159,9 @@ final class SettingsRepository with LoggerMixin {
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       textScaleFactor: s.extract(_SK.textScaleFactor),
       threadContentScale: s.extract(_SK.threadContentScale),
+      threadContentLineHeight: s.extract(_SK.threadContentLineHeight),
+      threadContentParagraphSpacing: s.extract(_SK.threadContentParagraphSpacing),
+      threadContentSplitLongParagraphs: s.extract(_SK.threadContentSplitLongParagraphs),
       highRefreshRate: s.extract(_SK.highRefreshRate),
       offlineThreads: s.extract(_SK.offlineThreads),
       offlineThreadsLimit: s.extract(_SK.offlineThreadsLimit),
@@ -218,8 +221,23 @@ final class SettingsRepository with LoggerMixin {
     _controller.add(_state);
   }
 
+  /// Save several values of the type `T` (each a key and its value) and publish the new settings once (see
+  /// [setValue]).
+  Future<void> setValues<T>(List<(SettingsKeys<T>, T)> values) async {
+    for (final (key, value) in values) {
+      await _save<T>(key, value);
+    }
+    _controller.add(_state);
+  }
+
   /// Save settings [key] with value [value].
   Future<void> setValue<T>(SettingsKeys<T> key, T value) async {
+    await _save<T>(key, value);
+    _controller.add(_state);
+  }
+
+  /// Save [value] of [key] and keep it in the settings, without publishing them.
+  Future<void> _save<T>(SettingsKeys<T> key, T value) async {
     assert(
       T == key.type,
       'Settings value type and expected extract type MUST equal\n'
@@ -255,7 +273,6 @@ final class SettingsRepository with LoggerMixin {
     }
 
     _state = _state.copyWithKey(key, value);
-    _controller.add(_state);
   }
 
   /// Build a default [Dio] instance from current settings.

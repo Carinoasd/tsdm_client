@@ -53,6 +53,9 @@ class SettingsMap with SettingsMapMappable {
     required this.threadFloorInteractionMode,
     required this.textScaleFactor,
     required this.threadContentScale,
+    this.threadContentLineHeight = PostTypography.defaultLineHeight,
+    this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
+    this.threadContentSplitLongParagraphs = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
     this.backgroundSyncAllAccounts = false,
@@ -117,6 +120,24 @@ class SettingsMap with SettingsMapMappable {
   final ThreadFloorInteractionMode threadFloorInteractionMode;
   final double textScaleFactor;
   final double threadContentScale;
+
+  /// Line height of the post content. Not required: backups from older versions lack it.
+  final double threadContentLineHeight;
+
+  /// Space between the paragraphs of the post content. Not required: backups from older versions lack it.
+  final double threadContentParagraphSpacing;
+
+  /// Whether long paragraphs of the post content are cut after the end of a sentence. Not required: backups from older
+  /// versions lack it.
+  final bool threadContentSplitLongParagraphs;
+
+  /// How the post content is laid out with these settings, in the ranges the settings offer (a value from an older
+  /// backup or written by hand is clamped).
+  PostTypography get postTypography => PostTypography(
+    lineHeight: threadContentLineHeight,
+    paragraphSpacing: threadContentParagraphSpacing,
+    splitLongParagraphs: threadContentSplitLongParagraphs,
+  ).clamped();
 
   /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
   final bool highRefreshRate;
@@ -195,6 +216,9 @@ class SettingsMap with SettingsMapMappable {
       ),
       SettingsKeys.textScaleFactor => copyWith(textScaleFactor: value as double?),
       SettingsKeys.threadContentScale => copyWith(threadContentScale: value as double?),
+      SettingsKeys.threadContentLineHeight => copyWith(threadContentLineHeight: value as double?),
+      SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
+      SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),

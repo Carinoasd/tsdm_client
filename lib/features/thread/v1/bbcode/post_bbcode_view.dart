@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -129,6 +130,7 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
   ThemeData? _theme;
   TextScaler? _textScaler;
   Locale? _locale;
+  PostTypography? _typography;
   final _recognizers = <GestureRecognizer>[];
 
   void _reset() {
@@ -145,10 +147,12 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
     final theme = Theme.of(context);
     final textScaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.maybeLocaleOf(context);
-    if (theme != _theme || textScaler != _textScaler || locale != _locale) {
+    final typography = PostTypographyScope.maybeOf(context);
+    if (theme != _theme || textScaler != _textScaler || locale != _locale || typography != _typography) {
       _theme = theme;
       _textScaler = textScaler;
       _locale = locale;
+      _typography = typography;
       _reset();
     }
   }
@@ -172,7 +176,7 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(height: kTextHeightNone),
-      TextSpan(children: _SpanBuilder(context, _recognizers).build(widget.nodes)),
+      TextSpan(children: _SpanBuilder(context, _recognizers, _typography).buildContent(widget.nodes)),
     ),
   );
 }
@@ -181,10 +185,24 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
 const _elevationStep = 0.2;
 
 final class _SpanBuilder {
-  _SpanBuilder(this.context, this.recognizers);
+  _SpanBuilder(this.context, this.recognizers, this.typography);
 
   final BuildContext context;
   final List<GestureRecognizer> recognizers;
+
+  /// Line height and paragraphs of a post's content, as the html renderer; null outside a post.
+  final PostTypography? typography;
+
+  /// Spans of lists: never cut into paragraphs ([layOutParagraphs]).
+  final _lists = Set<InlineSpan>.identity();
+
+  /// [nodes] as the content of a rich text of its own (the post, a spoiler, an aligned block): in paragraphs as the
+  /// html renderer lays out a post's content ([layOutParagraphs]).
+  List<InlineSpan> buildContent(List<BbNode> nodes) {
+    final spans = build(nodes);
+    final typography = this.typography;
+    return typography == null ? spans : layOutParagraphs(spans, typography, keepsWhole: _lists.contains);
+  }
 
   double _elevation = -_elevationStep;
 
@@ -247,7 +265,7 @@ final class _SpanBuilder {
       case BbSpoiler(:final title, :final children):
         _elevation += _elevationStep;
         final elevation = _elevation;
-        final content = build(children);
+        final content = buildContent(children);
         _elevation -= _elevationStep;
         return textWidgetSpan(
           SpoilerCard(
@@ -272,7 +290,9 @@ final class _SpanBuilder {
             spans.add(_lineBreak);
           }
         }
-        return TextSpan(children: spans);
+        final list = TextSpan(children: spans);
+        _lists.add(list);
+        return list;
       case BbAlign(:final align, :final children):
         final textAlign = switch (align) {
           'center' => TextAlign.center,
@@ -283,7 +303,7 @@ final class _SpanBuilder {
           Row(
             children: [
               Expanded(
-                child: Text.rich(TextSpan(children: build(children)), textAlign: textAlign),
+                child: Text.rich(TextSpan(children: buildContent(children)), textAlign: textAlign),
               ),
             ],
           ),
@@ -459,6 +479,8 @@ final class _SpanBuilder {
     final size = FontSize.fromString(style.size);
     return theme.textTheme.bodyMedium?.copyWith(
       color: color,
+      height: typography?.lineHeight,
+      letterSpacing: typography == null ? null : 0,
       fontWeight: style.bold ? FontWeight.w600 : null,
       fontSize: size.isValid ? size.value() : null,
       backgroundColor: colorOf(style.backgroundColor),

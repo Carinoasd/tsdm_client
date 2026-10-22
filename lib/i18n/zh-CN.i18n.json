@@ -350,6 +350,25 @@
         "title": "帖子内容缩放",
         "detail": "在文字缩放之上，额外放大帖子页面中的楼层内容",
         "dialogTitle": "帖子内容缩放系数"
+      },
+      "threadContentLineHeight": {
+        "title": "帖子行高",
+        "detail": "楼层内文每一行的高度，是字号的倍数"
+      },
+      "threadContentParagraphSpacing": {
+        "title": "帖子段落间距",
+        "detail": "楼层内文段落之间的空白"
+      },
+      "threadContentSplitLongParagraphs": {
+        "title": "长段落自动分段",
+        "detail": "很长的段落在句末断开显示，原文和复制的文字不变"
+      },
+      "threadContentLayout": {
+        "dialogTitle": "帖子排版",
+        "lineHeight": "行高",
+        "paragraphSpacing": "段落间距",
+        "preview": "预览",
+        "previewText": "这是一段示例文字，用来预览帖子内文的排版。行高越大，行与行之间越宽松；段落间距是两个段落之间的空白。<br />手机屏幕比网页窄得多，网页上几行的段落在手机上会变成十几行，适当加大行高和段距会更容易阅读。"
       }
     },
     "windowSection": {

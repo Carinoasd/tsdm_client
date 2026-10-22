@@ -23,6 +23,7 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -297,16 +298,24 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
     final interactionMode = context.read<SettingsBloc>().state.settingsMap.threadFloorInteractionMode;
     // The experimental app renderer draws the floor from its bbcode where it can (off by default: the html as before).
     final appRenderer = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.enableAppPostRenderer);
+    // Line height and paragraphs of the content as the reader set them (a taller line and a gap between paragraphs by
+    // default: posts read as a wall of text on a phone), for lines as long as they are on this screen.
+    final typography = context
+        .select<SettingsBloc, PostTypography>((e) => e.state.settingsMap.postTypography)
+        .withLineWidth(postContentLineWidth(context));
     final child = Row(
       children: [
         Expanded(
           child: Padding(
             padding: edgeInsetsL16R16,
-            child: widget.post.isSpoofed
-                ? const _ContentUnavailable()
-                : appRenderer
-                ? PostBbcodeBody(widget.post)
-                : MunchedHtml(widget.post.data),
+            child: PostTypographyScope(
+              typography: typography,
+              child: widget.post.isSpoofed
+                  ? const _ContentUnavailable()
+                  : appRenderer
+                  ? PostBbcodeBody(widget.post)
+                  : MunchedHtml(widget.post.data),
+            ),
           ),
         ),
       ],

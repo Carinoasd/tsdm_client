@@ -232,6 +232,29 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: 1,
   ),
 
+  /// Line height of the post content in thread page, a multiple of the font size (1.4 to 2.0).
+  ///
+  /// Posts written with few line breaks read as a wall of text on a phone at the line height of the body text (1.43).
+  threadContentLineHeight<double>(
+    name: 'threadContentLineHeight',
+    type: double,
+    defaultValue: PostTypography.defaultLineHeight,
+  ),
+
+  /// Space between the paragraphs of the post content in thread page, in logical pixels (0 to 16).
+  threadContentParagraphSpacing<double>(
+    name: 'threadContentParagraphSpacing',
+    type: double,
+    defaultValue: PostTypography.defaultParagraphSpacing,
+  ),
+
+  /// Cut long paragraphs of the post content after the end of a sentence (layout only, the text is not changed).
+  threadContentSplitLongParagraphs<bool>(
+    name: 'threadContentSplitLongParagraphs',
+    type: bool,
+    defaultValue: false,
+  ),
+
   /// Ask Android for the highest refresh rate the screen offers at the current resolution.
   ///
   /// Some vendor systems keep apps that do not ask at 60Hz on 90/120Hz screens (GitHub #182). Android only.

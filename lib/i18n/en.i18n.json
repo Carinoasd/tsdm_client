@@ -350,6 +350,25 @@
         "title": "Thread content scale",
         "detail": "Extra scale for post content in thread page, on top of text scale",
         "dialogTitle": "Thread content scale factor"
+      },
+      "threadContentLineHeight": {
+        "title": "Post line height",
+        "detail": "Height of each line of post content, a multiple of the font size"
+      },
+      "threadContentParagraphSpacing": {
+        "title": "Post paragraph spacing",
+        "detail": "Space between the paragraphs of post content"
+      },
+      "threadContentSplitLongParagraphs": {
+        "title": "Split long paragraphs",
+        "detail": "Show very long paragraphs broken after the end of a sentence; the text and what is copied stay unchanged"
+      },
+      "threadContentLayout": {
+        "dialogTitle": "Post layout",
+        "lineHeight": "Line height",
+        "paragraphSpacing": "Paragraph spacing",
+        "preview": "Preview",
+        "previewText": "This is sample text to preview the layout of post content. A larger line height spreads the lines further apart; paragraph spacing is the space between two paragraphs.<br />A phone screen is much narrower than the web page: a paragraph of a few lines there becomes a dozen lines here, and a little more room makes it easier to read."
       }
     },
     "windowSection": {
