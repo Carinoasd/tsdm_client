@@ -16,15 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.42.0 (2026-10-22)
+## Latest update: 1.43.0 (2026-10-22)
 
-- Post content shows as on the web: no more missing text, blank lines after dividers and empty paragraphs are kept, strikethrough, ruby annotations and list numbering display correctly; single-row tables are drawn as tables, and cards such as spoilers or quotes inside a table no longer blank out the whole table.
-- Hidden-content boxes no longer disappear; media players from other sites show as a "Media: site name" card that opens in the browser.
-- A post's own "click to expand" sections now show as collapsible cards you can open; anti-scraping junk text is hidden.
-- If one part of a post fails to parse, only that part is affected instead of the whole floor turning grey.
-- Android build number 147, installs over earlier releases and test builds.
+- Wider line and paragraph spacing in post content, so posts no longer look cramped on phones; name lists, poems and one-sentence-per-line posts stay compact.
+- Settings → Appearance lets you adjust post line height and paragraph spacing, with a live preview.
+- New optional "auto-split long paragraphs" (off by default): breaks very long paragraphs at sentence ends, changing only the layout, never the original text.
+- The experimental app renderer gets the same treatment.
+- Android build number 148, installs over earlier releases and test builds.
 
-[Download 1.42.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.42.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.43.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.43.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
