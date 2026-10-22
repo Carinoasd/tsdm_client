@@ -16,15 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.41.2 (2026-10-21)
+## Latest update: 1.42.0 (2026-10-22)
 
-- The activities page is no longer empty; forum card shortcuts no longer show blank buttons; private and external-link forums are marked as on the web.
-- The thread page's reply count matches the web; blocked avatars and hot replies show as on the web, no more "#-1" or "null 楼".
-- Spaces and line breaks in posts follow the web's rules: words after bold text or links no longer stick together, `&nbsp;` indents are kept.
-- Retrying after a failed forum page load no longer lists the same threads twice.
-- Android build number 146, installs over earlier releases and test builds.
+- Post content shows as on the web: no more missing text, blank lines after dividers and empty paragraphs are kept, strikethrough, ruby annotations and list numbering display correctly; single-row tables are drawn as tables, and cards such as spoilers or quotes inside a table no longer blank out the whole table.
+- Hidden-content boxes no longer disappear; media players from other sites show as a "Media: site name" card that opens in the browser.
+- A post's own "click to expand" sections now show as collapsible cards you can open; anti-scraping junk text is hidden.
+- If one part of a post fails to parse, only that part is affected instead of the whole floor turning grey.
+- Android build number 147, installs over earlier releases and test builds.
 
-[Download 1.41.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.41.2) · [Full changelog](./CHANGELOG.md)
+[Download 1.42.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.42.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
