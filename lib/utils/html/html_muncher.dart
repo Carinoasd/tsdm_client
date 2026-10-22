@@ -22,6 +22,8 @@ import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/html/netease_card.dart';
 // Newcomer card
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
+// Line height and paragraphs of a post's content
+import 'package:tsdm_client/utils/html/post_typography.dart';
 // Review (post comment) parser
 import 'package:tsdm_client/utils/html/review_parser.dart';
 // Table
@@ -121,28 +123,28 @@ Widget munchElement(
 
   // Undo Cloudflare's email obfuscation first, so addresses read and tap like the author wrote them.
   rewriteCloudflareEmails(rootElement);
-  final ret = muncher._munch(rootElement);
-  if (ret == null) {
+  final munched = muncher._munch(rootElement);
+  if (munched == null) {
     return const SizedBox.shrink();
   }
   // Remove trailing empty spaces.
-  while (ret.lastOrNull == emptySpan) {
-    ret.removeLast();
+  while (munched.lastOrNull == emptySpan) {
+    munched.removeLast();
   }
+  final ret = muncher._layOut(munched);
 
   // Alignment in this page requires a fixed max width that equals to website
   // page width.
   // Currently is 712.
+  // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow row
+  // spacing between text lines.
+  const style = TextStyle(height: kTextHeightNone);
   return ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    child: Text.rich(
-      style: const TextStyle(
-        // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow
-        // row spacing between text lines.
-        height: kTextHeightNone,
-      ),
-      TextSpan(children: ret),
-    ),
+    // A post's content has gaps between its paragraphs: lines of their own as tall as the gap.
+    child: muncher.typography == null
+        ? Text.rich(style: style, TextSpan(children: ret))
+        : ParagraphGapText(TextSpan(children: ret), style: style),
   );
 }
 
@@ -324,10 +326,24 @@ class _MunchState {
 /// Munch html nodes into flutter widgets.
 final class _Muncher with LoggerMixin {
   /// Constructor.
-  _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options});
+  _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options})
+    : typography = PostTypographyScope.maybeOf(context);
 
   /// Context to build widget when munching.
   final BuildContext context;
+
+  /// How a post's content is laid out (line height, paragraphs); null for html that is not a post's content (a notice,
+  /// a message, a profile), laid out as the body text.
+  final PostTypography? typography;
+
+  /// Text spans of preformatted text (`<pre>`): their lines are kept as they are ([layOutParagraphs]).
+  final _keptLines = Set<InlineSpan>.identity();
+
+  /// Text spans of list items and headings: never cut into paragraphs ([layOutParagraphs]).
+  final _keptWhole = Set<InlineSpan>.identity();
+
+  /// Number of headings the node being munched is in.
+  int _headingDepth = 0;
 
   //////// Configs ////////
   bool parseLockedWithPurchase;
@@ -716,7 +732,7 @@ final class _Muncher with LoggerMixin {
         textWidgetSpan(
           SpoilerCard(
             title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : text),
-            content: TextSpan(children: content),
+            content: TextSpan(children: _layOut(content)),
             elevation: elevation,
           ),
         ),
@@ -827,11 +843,22 @@ final class _Muncher with LoggerMixin {
           // state.wrapInWord ? text?.split('').join('\u200B') : text;
 
           // TODO: Support text-shadow.
+          final List<InlineSpan> spans;
           if (recognizer == null && options.renderUrl && text.contains('://')) {
             // Bare urls in plain text (the forum does not link them in notices, e.g. the reason of a rating).
-            return _linkifySpans(text, _buildTextStyle());
+            spans = _linkifySpans(text, _buildTextStyle());
+          } else {
+            spans = [TextSpan(text: text, recognizer: recognizer, style: _buildTextStyle())];
           }
-          return [TextSpan(text: text, recognizer: recognizer, style: _buildTextStyle())];
+          if (typography != null) {
+            if (state.inPre) {
+              _keptLines.addAll(spans);
+            }
+            if (state.listStack.isNotEmpty || _headingDepth > 0) {
+              _keptWhole.addAll(spans);
+            }
+          }
+          return spans;
         }
 
       case uh.Node.ELEMENT_NODE:
@@ -1094,7 +1121,9 @@ final class _Muncher with LoggerMixin {
         FullWidthBlock(
           // The line break its content ends with (`[align=center]text<br />[/align]`) ends its last line, it does not
           // add an empty line below it.
-          child: Text.rich(TextSpan(children: _withoutTrailingLineBreak(ret)), textAlign: align),
+          child: typography == null
+              ? Text.rich(TextSpan(children: _withoutTrailingLineBreak(ret)), textAlign: align)
+              : ParagraphGapText(TextSpan(children: _layOut(_withoutTrailingLineBreak(ret)!)), textAlign: align),
         ),
       ),
     ];
@@ -1360,7 +1389,7 @@ final class _Muncher with LoggerMixin {
     final ret = textWidgetSpan(
       SpoilerCard(
         title: TextSpan(text: title),
-        content: TextSpan(children: content),
+        content: TextSpan(children: _layOut(content)),
         elevation: elevation,
       ),
     );
@@ -1694,7 +1723,13 @@ final class _Muncher with LoggerMixin {
     final breakBefore = !state.atLineStart || state.pendingBreak;
     state.fontSizeStack.add(fontSize);
     _lineBroken();
-    final ret = _munch(element);
+    _headingDepth += 1;
+    final List<InlineSpan>? ret;
+    try {
+      ret = _munch(element);
+    } finally {
+      _headingDepth -= 1;
+    }
     state.fontSizeStack.removeLast();
     if (ret == null) {
       _restoreLine(line);
@@ -1918,7 +1953,7 @@ final class _Muncher with LoggerMixin {
     final ret = textWidgetSpan(
       SpoilerCard(
         title: TextSpan(children: summarySpan),
-        content: TextSpan(children: dataSpanList.flattened.toList()),
+        content: TextSpan(children: _layOut(dataSpanList.flattened.toList())),
         elevation: state.elevation,
       ),
     );
@@ -2367,11 +2402,24 @@ final class _Muncher with LoggerMixin {
     return fontSize.isValid;
   }
 
+  /// [spans], the content of a rich text of a post (the post, a spoiler, an aligned block), laid out in paragraphs with
+  /// [typography] ([layOutParagraphs]). Not in a table, whose cells keep their lines together, nor outside a post.
+  List<InlineSpan> _layOut(List<InlineSpan> spans) {
+    final typography = this.typography;
+    if (typography == null || state.tableDepth > 0) {
+      return spans;
+    }
+    return layOutParagraphs(spans, typography, keepsLines: _keptLines.contains, keepsWhole: _keptWhole.contains);
+  }
+
   /// Function to build text style, where you could run it everywhere and don't have to carry all style member logic.
   TextStyle? _buildTextStyle() {
     final color = state.colorStack.lastOrNull ?? (state.tapUrl != null ? Theme.of(context).colorScheme.primary : null);
     final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: color,
+      // A post's content: its line height, no letter spacing (as the web page; it spread Chinese text apart).
+      height: typography?.lineHeight,
+      letterSpacing: typography == null ? null : 0,
       fontWeight: state.bold ? FontWeight.w600 : null,
       fontSize: state.fontSizeStack.lastOrNull,
       backgroundColor: state.backgroundColorStack.lastOrNull,

@@ -41,6 +41,7 @@ import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -52,6 +53,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/co
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
@@ -230,6 +232,21 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  /// Pick the line height and the paragraph spacing of the post content ([ThreadContentLayoutDialog]) and save them.
+  Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
+    final picked = await showDialog<PostTypography>(
+      context: context,
+      builder: (_) => RootPage(
+        DialogPaths.threadContentLayoutPicker,
+        ThreadContentLayoutDialog(initial: current, contentScale: contentScale),
+      ),
+    );
+    if (!context.mounted || picked == null) return;
+    context.read<SettingsBloc>()
+      ..add(SettingsValueChanged(SettingsKeys.threadContentLineHeight, picked.lineHeight))
+      ..add(SettingsValueChanged(SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing));
+  }
+
   Widget _buildAppearanceSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.appearanceSection;
     final settingsLocale = state.settingsMap.locale;
@@ -243,6 +260,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
+    final postTypography = state.settingsMap.postTypography;
 
     return AppTileGroup(
       title: tr.title,
@@ -355,6 +373,29 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (!context.mounted || selectedScale == null) return;
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentScale, selectedScale));
           },
+        ),
+        // Line height and paragraph spacing of the post content: one dialog with both and a preview.
+        SectionListTile(
+          leading: const Icon(Icons.format_line_spacing_outlined),
+          title: Text(tr.threadContentLineHeight.title),
+          subtitle: Text(tr.threadContentLineHeight.detail),
+          trailing: _trailingValue(context, postTypography.lineHeight.toStringAsFixed(1)),
+          onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
+        ),
+        SectionListTile(
+          leading: const Icon(Icons.segment_outlined),
+          title: Text(tr.threadContentParagraphSpacing.title),
+          subtitle: Text(tr.threadContentParagraphSpacing.detail),
+          trailing: _trailingValue(context, postTypography.paragraphSpacing.toStringAsFixed(0)),
+          onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
+        ),
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.wrap_text_outlined),
+          title: Text(tr.threadContentSplitLongParagraphs.title),
+          subtitle: Text(tr.threadContentSplitLongParagraphs.detail),
+          value: postTypography.splitLongParagraphs,
+          onChanged: (v) =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentSplitLongParagraphs, v)),
         ),
         SectionListTile(
           leading: const Icon(Icons.article_outlined),

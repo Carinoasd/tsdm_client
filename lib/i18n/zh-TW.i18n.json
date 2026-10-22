@@ -350,6 +350,25 @@
         "title": "貼文內容縮放",
         "detail": "在文字縮放之上，額外放大貼文頁面中的樓層內容",
         "dialogTitle": "貼文內容縮放係數"
+      },
+      "threadContentLineHeight": {
+        "title": "貼文行高",
+        "detail": "樓層內文每一行的高度，是字級的倍數"
+      },
+      "threadContentParagraphSpacing": {
+        "title": "貼文段落間距",
+        "detail": "樓層內文段落之間的空白"
+      },
+      "threadContentSplitLongParagraphs": {
+        "title": "長段落自動分段",
+        "detail": "很長的段落在句尾斷開顯示，原文與複製的文字不變"
+      },
+      "threadContentLayout": {
+        "dialogTitle": "貼文排版",
+        "lineHeight": "行高",
+        "paragraphSpacing": "段落間距",
+        "preview": "預覽",
+        "previewText": "這是一段範例文字，用來預覽貼文內文的排版。行高越大，行與行之間越寬鬆；段落間距是兩個段落之間的空白。<br />手機螢幕比網頁窄得多，網頁上幾行的段落在手機上會變成十幾行，適度加大行高與段距會更容易閱讀。"
       }
     },
     "windowSection": {

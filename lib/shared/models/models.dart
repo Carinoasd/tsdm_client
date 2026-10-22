@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/html/css_parser.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/card/post_card/checkin.dart';
 import 'package:tsdm_client/widgets/card/post_card/pokemon.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_medal.dart';

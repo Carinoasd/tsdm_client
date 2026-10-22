@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -129,6 +130,7 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
   ThemeData? _theme;
   TextScaler? _textScaler;
   Locale? _locale;
+  PostTypography? _typography;
   final _recognizers = <GestureRecognizer>[];
 
   void _reset() {
@@ -145,10 +147,12 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
     final theme = Theme.of(context);
     final textScaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.maybeLocaleOf(context);
-    if (theme != _theme || textScaler != _textScaler || locale != _locale) {
+    final typography = PostTypographyScope.maybeOf(context);
+    if (theme != _theme || textScaler != _textScaler || locale != _locale || typography != _typography) {
       _theme = theme;
       _textScaler = textScaler;
       _locale = locale;
+      _typography = typography;
       _reset();
     }
   }
@@ -170,21 +174,35 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
   @override
   Widget build(BuildContext context) => _content ??= ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    child: Text.rich(
-      style: const TextStyle(height: kTextHeightNone),
-      TextSpan(children: _SpanBuilder(context, _recognizers).build(widget.nodes)),
-    ),
+    child: _typography == null
+        ? Text.rich(
+            style: const TextStyle(height: kTextHeightNone),
+            TextSpan(children: _SpanBuilder(context, _recognizers, _typography).build(widget.nodes)),
+          )
+        : ParagraphGapText(
+            style: const TextStyle(height: kTextHeightNone),
+            TextSpan(children: _layOut(_SpanBuilder(context, _recognizers, _typography).build(widget.nodes))),
+          ),
   );
+
+  /// The spans in paragraphs as the html renderer lays out a post's content ([layOutParagraphs]).
+  List<InlineSpan> _layOut(List<InlineSpan> spans) {
+    final typography = _typography;
+    return typography == null ? spans : layOutParagraphs(spans, typography);
+  }
 }
 
 /// Step of the card elevation per nesting level, as the html renderer.
 const _elevationStep = 0.2;
 
 final class _SpanBuilder {
-  _SpanBuilder(this.context, this.recognizers);
+  _SpanBuilder(this.context, this.recognizers, this.typography);
 
   final BuildContext context;
   final List<GestureRecognizer> recognizers;
+
+  /// Line height of a post's content, as the html renderer; null outside a post.
+  final PostTypography? typography;
 
   double _elevation = -_elevationStep;
 
@@ -459,6 +477,8 @@ final class _SpanBuilder {
     final size = FontSize.fromString(style.size);
     return theme.textTheme.bodyMedium?.copyWith(
       color: color,
+      height: typography?.lineHeight,
+      letterSpacing: typography == null ? null : 0,
       fontWeight: style.bold ? FontWeight.w600 : null,
       fontSize: size.isValid ? size.value() : null,
       backgroundColor: colorOf(style.backgroundColor),

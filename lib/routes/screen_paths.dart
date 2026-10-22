@@ -368,6 +368,9 @@ class DialogPaths {
   /// Dialog to let user pick the extra text scale of thread content.
   static const String threadContentScalePicker = '/dialog/threadContentScalePicker';
 
+  /// Dialog to let user pick the line height and the paragraph spacing of thread content.
+  static const String threadContentLayoutPicker = '/dialog/threadContentLayoutPicker';
+
   /// Dialog to let user select the duration between auto syncing notice events.
   static const String selectAutoSyncDuration = '/dialog/selectAutoSyncDuration';
 

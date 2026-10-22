@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:universal_html/parsing.dart';
 
 /// [munchElement] run once per piece of html and kept across rebuilds.
@@ -8,7 +9,8 @@ import 'package:universal_html/parsing.dart';
 /// Parsing a post and turning it into spans is the most expensive thing a card does. Done straight in `build`, it ran
 /// again on every rebuild of the page: a badge update or the keyboard coming up re-munched every floor kept alive on
 /// the thread page, which is where most of the dropped frames came from. Here the result is kept and only rebuilt when
-/// the html changes or something the spans were built from changes: the theme, the text scale or the locale.
+/// the html changes or something the spans were built from changes: the theme, the text scale, the locale or the
+/// [PostTypography] of a post's content.
 class MunchedHtml extends StatefulWidget {
   /// Constructor.
   const MunchedHtml(this.html, {this.options = const MunchOptions(), this.parseLockedWithPurchase = false, super.key});
@@ -32,6 +34,7 @@ class _MunchedHtmlState extends State<MunchedHtml> {
   ThemeData? _theme;
   TextScaler? _textScaler;
   Locale? _locale;
+  PostTypography? _typography;
 
   @override
   void didChangeDependencies() {
@@ -40,10 +43,12 @@ class _MunchedHtmlState extends State<MunchedHtml> {
     final theme = Theme.of(context);
     final textScaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.maybeLocaleOf(context);
-    if (theme != _theme || textScaler != _textScaler || locale != _locale) {
+    final typography = PostTypographyScope.maybeOf(context);
+    if (theme != _theme || textScaler != _textScaler || locale != _locale || typography != _typography) {
       _theme = theme;
       _textScaler = textScaler;
       _locale = locale;
+      _typography = typography;
       _content = null;
     }
   }
