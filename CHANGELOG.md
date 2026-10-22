@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.44.0] - 2026-10-22
+
 ### Changed
 
 - 帖子内文照网页显示作者给的样式，不再全部拉平成正文：
