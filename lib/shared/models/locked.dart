@@ -3,7 +3,7 @@ part of 'models.dart';
 sealed class _LockedInfo extends Equatable {
   const _LockedInfo._();
 
-  const factory _LockedInfo.points({required int requiredPoints, required int? points}) = _LockedWithPoints;
+  const factory _LockedInfo.points({required BigInt requiredPoints, required BigInt? points}) = _LockedWithPoints;
 
   const factory _LockedInfo.purchase({
     required int price,
@@ -18,6 +18,8 @@ sealed class _LockedInfo extends Equatable {
 
   const factory _LockedInfo.banned() = _LockedWithBlocked;
 
+  const factory _LockedInfo.unknown({required String text}) = _LockedUnknown;
+
   const factory _LockedInfo.sale({required int price, required int? salesCount, required String tid}) =
       _LockedWithSale._;
 
@@ -30,10 +32,12 @@ final class _LockedWithPoints extends _LockedInfo {
   const _LockedWithPoints({required this.requiredPoints, required this.points}) : super._();
 
   /// Points required to see this post area.
-  final int requiredPoints;
+  ///
+  /// Not an [int]: authors put any number there, `9999999999999999999` (more than 64 bits) is a common one.
+  final BigInt requiredPoints;
 
-  /// Points current user has.
-  final int? points;
+  /// Points current user has, which can be negative.
+  final BigInt? points;
 
   @override
   List<Object?> get props => [requiredPoints, points];
@@ -103,6 +107,18 @@ final class _LockedWithBlocked extends _LockedInfo {
   const _LockedWithBlocked() : super._();
 }
 
+/// A hidden section whose notice is none of the known ones: the notice is shown as the forum wrote it, the reader
+/// still sees that something is hidden there.
+final class _LockedUnknown extends _LockedInfo {
+  const _LockedUnknown({required this.text}) : super._();
+
+  /// The text of the notice.
+  final String text;
+
+  @override
+  List<Object?> get props => [text];
+}
+
 /// Describe a locked area in `Post`.
 ///
 /// Different types may be locked with different reasons:
@@ -111,6 +127,7 @@ final class _LockedWithBlocked extends _LockedInfo {
 /// * [_LockedWithReply] : Requires the view to reply.
 /// * [_LockedWithAuthor] : Only visible to the author and forum moderator.
 /// * [_LockedWithSale] : Thread contains sales action, current user provided it.
+/// * [_LockedUnknown] : None of the above, the notice as the forum wrote it.
 class Locked extends Equatable {
   /// Build a [Locked] from html node [element] where [element] is:
   /// <div class="locked">
@@ -120,6 +137,10 @@ class Locked extends Equatable {
   /// For better layout, when a section is locked with points and inside
   /// "postmessage", we should only build it inside "postmessage" too,
   /// [allowWithPoints] is the flag caller shall specify.
+  ///
+  /// With [allowUnknown], a block that is none of the known kinds (or a known kind whose numbers cannot be read) is
+  /// kept as its notice text ([lockedWithUnknown]) instead of being dropped: the reader of the post content still sees
+  /// that something is hidden there.
   Locked.fromLockDivNode(
     uh.Element element, {
     bool allowWithPoints = true,
@@ -128,6 +149,7 @@ class Locked extends Equatable {
     bool allowWithAuthor = true,
     bool allowWithBlocked = true,
     bool allowWithSales = true,
+    bool allowUnknown = false,
   }) : _info = _buildLockedFromNode(
          element,
          allowWithPoints: allowWithPoints,
@@ -136,6 +158,7 @@ class Locked extends Equatable {
          allowWithAuthor: allowWithAuthor,
          allowWithBlocked: allowWithBlocked,
          allowWithSale: allowWithSales,
+         allowUnknown: allowUnknown,
        );
 
   /// A purchase lock from the fields of a structured thread page answer of the forum's app API (`thread.pay`, plugin
@@ -167,6 +190,15 @@ class Locked extends Equatable {
 
   /// Is it locked with sale action.
   bool get lockedWithSale => _info != null && _info is _LockedWithSale;
+
+  /// Is it a hidden section of no known kind, see [unknownText].
+  bool get lockedWithUnknown => _info != null && _info is _LockedUnknown;
+
+  /// The notice of a hidden section of no known kind, as the forum wrote it.
+  String? get unknownText => switch (_info) {
+    _LockedUnknown(:final text) => text,
+    _ => null,
+  };
 
   /// Get the tid of current locked model.
   String? get tid {
@@ -228,7 +260,7 @@ class Locked extends Equatable {
   /// Get the required points to view this area.
   ///
   /// Only not null when locked with points.
-  int? get requiredPoints {
+  BigInt? get requiredPoints {
     if (_info == null) {
       return null;
     }
@@ -241,7 +273,7 @@ class Locked extends Equatable {
   /// Get the points that the current user has.
   ///
   /// Only not null when locked with points.
-  int? get points {
+  BigInt? get points {
     if (_info == null) {
       return null;
     }
@@ -260,6 +292,7 @@ class Locked extends Equatable {
     required bool allowWithAuthor,
     required bool allowWithBlocked,
     required bool allowWithSale,
+    required bool allowUnknown,
   }) {
     if (allowWithAuthor && element.childNodes.length == 1 && (element.childNodes[0].text?.contains('仅作者可见') ?? false)) {
       return const _LockedInfo.author();
@@ -335,16 +368,69 @@ class Locked extends Equatable {
       return null;
     }
 
-    /// Points type;
-    final re = RegExp(r'高于 (?<requiredPoints>\d+) 才可浏览(，您当前积分为 (?<points>\d+))?');
-    final match = re.firstMatch(element.innerText);
-    final requiredPoints = match?.namedGroup('requiredPoints')?.parseToInt();
-    final points = match?.namedGroup('points')?.parseToInt();
-    if (requiredPoints == null) {
+    // Points type. The numbers are read as big integers: an author can ask for any number of points and
+    // `9999999999999999999` does not fit an int, which dropped the whole block before. The viewer's points can be
+    // negative.
+    final match = _pointsRe.firstMatch(element.innerText);
+    final requiredPoints = BigInt.tryParse(match?.namedGroup('requiredPoints') ?? '');
+    final points = BigInt.tryParse(match?.namedGroup('points') ?? '');
+    if (requiredPoints != null) {
+      return _LockedInfo.points(requiredPoints: requiredPoints, points: points);
+    }
+
+    if (!allowUnknown) {
       return null;
     }
-    return _LockedInfo.points(requiredPoints: requiredPoints, points: points);
+    return _LockedInfo.unknown(text: _noticeText(element));
   }
+
+  /// The text of the notice in [element] as the page shows it, white space collapsed: the labels of its buttons, fields
+  /// and choices (the password box of a password post), the purchase button (`a.viewpay`, at the end of the line on the
+  /// web page), scripts and what is hidden left out.
+  static String _noticeText(uh.Element element) {
+    final buffer = StringBuffer();
+    void visit(uh.Node node) {
+      for (final child in node.nodes) {
+        if (child is uh.Element) {
+          if (_noticeControls.contains(child.localName) ||
+              child.attributes.containsKey('hidden') ||
+              child.classes.contains('viewpay') ||
+              _hiddenRe.hasMatch(child.attributes['style'] ?? '')) {
+            continue;
+          }
+          if (child.localName == 'br') {
+            buffer.write(' ');
+            continue;
+          }
+          visit(child);
+        } else if (child.nodeType == uh.Node.TEXT_NODE) {
+          buffer.write(child.text ?? '');
+        }
+      }
+    }
+
+    visit(element);
+    return buffer.toString().replaceAll(_whiteSpaceRe, ' ').trim();
+  }
+
+  /// Elements whose text is not the notice: scripts and what is not shown, the controls of a form and their labels.
+  static const _noticeControls = {
+    'script',
+    'style',
+    'noscript',
+    'template',
+    'button',
+    'input',
+    'select',
+    'option',
+    'textarea',
+    'label',
+  };
+
+  static final _hiddenRe = RegExp(r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\b', caseSensitive: false);
+
+  static final _pointsRe = RegExp(r'高于\s*(?<requiredPoints>\d+)\s*才可浏览(，您当前积分为\s*(?<points>-?\d+))?');
+  static final _whiteSpaceRe = RegExp(r'\s+');
 
   /// Check is valid locked area or not.
   bool isValid() {
@@ -361,7 +447,10 @@ class Locked extends Equatable {
     if (_info is _LockedWithSale) {
       return _info.price > 0 && tid != null;
     }
-    if (_info is _LockedWithPoints || _info is _LockedWithAuthor || _info is _LockedWithBlocked) {
+    if (_info is _LockedWithPoints ||
+        _info is _LockedWithAuthor ||
+        _info is _LockedWithBlocked ||
+        _info is _LockedUnknown) {
       return true;
     }
     return false;

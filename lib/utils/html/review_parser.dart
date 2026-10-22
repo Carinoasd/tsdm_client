@@ -2,7 +2,9 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:universal_html/html.dart' as uh;
 
 /// Fields parsed from a post comment (点评) block.
-typedef ReviewInfo = ({String? avatarUrl, String? name, String? content});
+///
+/// `time` is the line the web page prints under the comment, as it prints it (`发表于 2021-10-1 18:04`).
+typedef ReviewInfo = ({String? avatarUrl, String? name, String? content, String? time});
 
 /// Parse the post comment block [element] (`<div class="cm">`).
 ///
@@ -19,7 +21,8 @@ typedef ReviewInfo = ({String? avatarUrl, String? name, String? content});
 /// ```
 ///
 /// Preserve nested body text and line breaks, excluding the timestamp and
-/// the author link used by older layouts inside `div.psti`.
+/// the author link used by older layouts inside `div.psti`. The timestamp is
+/// kept on its own, as the page prints it.
 ReviewInfo parseReviewElement(uh.Element element) {
   final avatarUrl = element.querySelector('div.psta > a > img')?.imageUrl();
   final author = element.querySelector('div.psta > a.xi2') ?? element.querySelector('div.psti > a.xi2');
@@ -51,5 +54,10 @@ ReviewInfo parseReviewElement(uh.Element element) {
 
   body?.nodes.forEach(collect);
   final content = body == null ? null : buffer.toString().replaceAll('\u00a0', ' ').trim();
-  return (avatarUrl: avatarUrl, name: name, content: content);
+  final time = body?.children
+      .where((e) => e.localName == 'span' && e.classes.contains('xg1'))
+      .map((e) => e.innerText.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((e) => e.isNotEmpty)
+      .firstOrNull;
+  return (avatarUrl: avatarUrl, name: name, content: content, time: time);
 }

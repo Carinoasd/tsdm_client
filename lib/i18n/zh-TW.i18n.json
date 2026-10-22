@@ -1194,8 +1194,8 @@
   "lockedCard": {
     "points": {
       "title": "部分內容要求積分足夠才可見",
-      "detail": "需要 ${requiredPoints: int} 積分，但你只有 ${points: int} 積分",
-      "detailPassed": "需要 ${requiredPoints: int} 積分"
+      "detail": "需要 ${requiredPoints: String} 積分，但你只有 ${points: String} 積分",
+      "detailPassed": "需要 ${requiredPoints: String} 積分"
     },
     "purchase": {
       "title": "部分內容需要購買才可瀏覽",
@@ -1218,6 +1218,9 @@
       "title": "僅對作者可見",
       "detail(rich)": "該部分內容僅對$author可見",
       "detailAuthor": "作者"
+    },
+    "unknown": {
+      "title": "部分內容已隱藏"
     },
     "blocked": {
       "title": "內容被屏蔽",
@@ -1505,6 +1508,11 @@
     "newcomerReportCard": {
       "title": "詳細資料"
     }
+  },
+  "mediaCard": {
+    "title": "影音",
+    "titleOf": "影音：$site",
+    "open": "點擊在瀏覽器中開啟"
   },
   "musicCard": {
     "title": "音樂",

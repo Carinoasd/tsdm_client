@@ -15,6 +15,8 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/css_parser.dart';
+import 'package:tsdm_client/utils/html/full_width_block.dart';
+import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 // Netease card
 import 'package:tsdm_client/utils/html/netease_card.dart';
@@ -50,23 +52,56 @@ import 'package:universal_html/html.dart' as uh;
 /// Use the same span to append line break.
 const emptySpan = TextSpan(text: '\n');
 
+/// Called with each element before it is munched, for tests: one throwing there checks that an element the muncher
+/// fails on does not take the floor with it.
+@visibleForTesting
+void Function(uh.Element element)? debugBeforeMunchElement;
+
 /// Step when elevation changes.
 const _elevationStep = 0.2;
 
 /// List type composes `<ol>` and `<ul>`
 sealed class _ListType {}
 
-/// `<ul>` ordered list tag.
+/// `<ul>`: a disc before each item.
 final class _ListUnordered extends _ListType {}
 
-/// `<ol>` ordered list tag.
+/// `[list=1]`, `[list=a]`, `[list=A]` (`<ul class="litype_1">` and so on): a number or a letter before each item.
 final class _ListOrdered extends _ListType {
   /// Constructor.
-  _ListOrdered(this.number);
+  _ListOrdered(this.number, {this.letters = false, this.upperCase = false});
 
   /// Number in order.
   final int number;
+
+  /// Letters (a, b, c…) instead of numbers.
+  final bool letters;
+
+  /// Capital letters.
+  final bool upperCase;
+
+  /// The mark of the item [number].
+  String get mark {
+    if (!letters) {
+      return '$number';
+    }
+    // a…z, aa…az, ba… as a browser counts in letters.
+    final buffer = StringBuffer();
+    var n = number;
+    while (n > 0) {
+      n -= 1;
+      buffer.write(String.fromCharCode((upperCase ? 0x41 : 0x61) + n % 26));
+      n ~/= 26;
+    }
+    return buffer.toString().split('').reversed.join();
+  }
+
+  /// The list at the next item.
+  _ListOrdered next() => _ListOrdered(number + 1, letters: letters, upperCase: upperCase);
 }
+
+/// `<ol>`: no mark, the forum's style sheet takes it off (`ol { list-style: none }`).
+final class _ListUnmarked extends _ListType {}
 
 /// Use an empty span.
 // final null = WidgetSpan(child: Container());
@@ -81,7 +116,8 @@ Widget munchElement(
   bool parseLockedWithPurchase = false,
   MunchOptions options = const MunchOptions(),
 }) {
-  final muncher = _Muncher(context, parseLockedWithPurchase: parseLockedWithPurchase, options: options);
+  final muncher = _Muncher(context, parseLockedWithPurchase: parseLockedWithPurchase, options: options)
+    .._root = rootElement;
 
   // Undo Cloudflare's email obfuscation first, so addresses read and tap like the author wrote them.
   rewriteCloudflareEmails(rootElement);
@@ -125,6 +161,18 @@ typedef _MunchStyle = ({
   double elevation,
 });
 
+/// The whole state of [_Muncher], see [_Muncher._snapshot].
+typedef _MunchSnapshot = ({
+  _MunchStyle style,
+  ({bool atLineStart, bool pendingSpace, bool pendingBreak}) line,
+  List<_ListType> lists,
+  int tableDepth,
+  bool inPre,
+  bool inDiv,
+  bool wrapInWord,
+  bool headingBrNodePassed,
+});
+
 /// State of [_Muncher].
 class _MunchState {
   /// State of munching html document.
@@ -166,8 +214,8 @@ class _MunchState {
   bool pendingSpace = false;
 
   /// A block ended (a paragraph) without a line break of its own: the next content on this line starts a new line,
-  /// as after a block of the web page. A `<br>` right after the block, or a block starting there, takes this break
-  /// instead of adding one more.
+  /// as after a block of the web page. A block starting there takes this break instead of adding one more; a `<br>`
+  /// right after the block is a line of its own after it, a blank line as on the web page.
   bool pendingBreak = false;
 
   /// Flag indicating has already munched all heading br nodes.
@@ -290,6 +338,9 @@ final class _Muncher with LoggerMixin {
   /// Additional options control injected by caller.
   final MunchOptions options;
 
+  /// The element munched by [munchElement], where the folds a post made itself are looked for ([_folds]).
+  uh.Element? _root;
+
   /// Map to store div classes and corresponding munch functions.
   Map<String, List<InlineSpan>? Function(uh.Element)>? _divMap;
 
@@ -340,7 +391,7 @@ final class _Muncher with LoggerMixin {
 
   /// Elements laid out inline as one piece (an image, a code card, a superscript…): the space collapsed before them
   /// goes before them, as before a text.
-  static const _atomicInlineElements = {'img', 'sup', 'code', 'iframe'};
+  static const _atomicInlineElements = {'img', 'sup', 'code', 'iframe', 'embed', 'object', 'video', 'audio', 'ruby'};
 
   /// Whether [spans] end the line: their text ends with a line break.
   static bool _endsLine(List<InlineSpan> spans) => switch (spans.lastOrNull) {
@@ -356,7 +407,78 @@ final class _Muncher with LoggerMixin {
 
   /// Elements that place the line break a block before them left ([_MunchState.pendingBreak]) themselves: before
   /// what they put first, or by starting a line of their own.
-  static const _breakHandlingElements = {'p', 'div', 'center', 'dd', 'a', 'li', 'h1', 'h2', 'h3', 'h4'};
+  static const _breakHandlingElements = <String>{
+    'p',
+    'div',
+    'center',
+    'dd',
+    'a',
+    'li',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'hr',
+    'dt',
+    ..._plainBlockElements,
+  };
+
+  /// Blocks of the web page with nothing of their own to show: each starts a line of its own and ends its line, as a
+  /// `<div>` does.
+  static const _plainBlockElements = {
+    'section',
+    'article',
+    'aside',
+    'header',
+    'footer',
+    'main',
+    'nav',
+    'figure',
+    'figcaption',
+    'address',
+    'caption',
+    'fieldset',
+    'legend',
+    'hgroup',
+    'summary',
+  };
+
+  /// What the web page does not show: scripts, styles, a form (a template's form, the poll's, is shown by the app's own
+  /// card) and its fields, ruby parentheses (the ruby text is shown above its base), what is there for browsers
+  /// without plugins or frames, and other things a browser never shows as text. A button, a text box and a choice
+  /// box out of a form are shown as their text ([_buildElement]).
+  static const _invisibleElements = {
+    'script',
+    'style',
+    'noscript',
+    'noembed',
+    'noframes',
+    'template',
+    'head',
+    'title',
+    'meta',
+    'link',
+    'base',
+    'form',
+    'input',
+    'option',
+    'optgroup',
+    'datalist',
+    'rp',
+    'param',
+    'source',
+    'track',
+    'colgroup',
+    'col',
+    'map',
+    'area',
+    'canvas',
+    'svg',
+    'math',
+    'dialog',
+  };
 
   /// The text of a text node [raw] as the web page shows it at the current place of the line, null when it shows
   /// nothing there.
@@ -436,7 +558,223 @@ final class _Muncher with LoggerMixin {
       _startLine();
       state.pendingBreak = true;
     }
-    return breakBefore && !_startsLine(ret) ? [emptySpan, ...ret] : ret;
+    // A line break at its start is a line of the block, not the break before it: `<p><br /></p>` after a line is a
+    // blank line on the web page (the empty paragraph between the paragraphs of a novel), it was taken for the break
+    // before the paragraph and the blank line was lost.
+    return breakBefore && (!_startsLine(ret) || (_firstIsLineBreak(element) ?? false)) ? [emptySpan, ...ret] : ret;
+  }
+
+  /// [spans], ending their line: a line break after them unless they end with one. Null or empty stays so.
+  static List<InlineSpan>? _endingLine(List<InlineSpan>? spans) =>
+      spans == null || spans.isEmpty || _endsLine(spans) ? spans : [...spans, emptySpan];
+
+  /// Inline elements whose content [_firstIsLineBreak] looks into.
+  static const _inlineElements = {
+    'span',
+    'font',
+    'strong',
+    'b',
+    'i',
+    'u',
+    'em',
+    'a',
+    's',
+    'strike',
+    'del',
+    'ins',
+    'small',
+    'big',
+    'sub',
+    'sup',
+    'label',
+    'cite',
+  };
+
+  /// The name of [element] to munch it by: its local name, the whole name of an element with a prefix. The parser
+  /// gives `<o:p>` of a document pasted from Word the local name `p`, which is no paragraph on the web page.
+  static String _nameOf(uh.Element element) {
+    final tagName = element.tagName;
+    return tagName.contains(':') ? tagName.toLowerCase() : element.localName;
+  }
+
+  /// Whether [element] is not shown on the web page: hidden by its style (`display: none`, also written without the
+  /// space: the jammer text some posts hide in `<span style="display:none">` was shown; `visibility: hidden`), by the
+  /// `hidden` attribute, or the forum's jammer text (`<font class="jammer">`, which the style sheet paints white in a
+  /// small size on the white page).
+  static bool _isHidden(uh.Element element) =>
+      element.attributes.containsKey('hidden') ||
+      element.classes.contains('jammer') ||
+      _hiddenStyleRe.hasMatch(element.attributes['style'] ?? '');
+
+  static final _hiddenStyleRe = RegExp(
+    r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\b',
+    caseSensitive: false,
+  );
+
+  /// The state of the muncher, to put back with [_restore] when munching an element failed half way.
+  _MunchSnapshot _snapshot() => (
+    style: state.save(),
+    line: _lineState(),
+    lists: List.of(state.listStack),
+    tableDepth: state.tableDepth,
+    inPre: state.inPre,
+    inDiv: state.inDiv,
+    wrapInWord: state.wrapInWord,
+    headingBrNodePassed: state.headingBrNodePassed,
+  );
+
+  void _restore(_MunchSnapshot snapshot) {
+    state
+      ..restore(snapshot.style)
+      ..listStack.clear()
+      ..listStack.addAll(snapshot.lists)
+      ..tableDepth = snapshot.tableDepth
+      ..inPre = snapshot.inPre
+      ..inDiv = snapshot.inDiv
+      ..wrapInWord = snapshot.wrapInWord
+      ..headingBrNodePassed = snapshot.headingBrNodePassed;
+    _restoreLine(snapshot.line);
+  }
+
+  /// The folds the post made itself, by the id of the hidden element: the element whose click shows it, its title.
+  ///
+  /// Posts written in html make folds of their own: an element with an id hidden by its style, shown by a click on
+  /// another element (`<div onclick="document.getElementById('c1').style.display=…">▼ 展开</div>`, `$('c1')` too).
+  /// Hidden like any hidden element, what they held could not be seen at all. The forum's popups (`.tip`, `*_menu`)
+  /// and elements without an id (the jammer text) stay hidden.
+  late final Map<String, ({uh.Element target, uh.Element title})> _folds = () {
+    final root = _root;
+    final folds = <String, ({uh.Element target, uh.Element title})>{};
+    if (root == null) {
+      return folds;
+    }
+    final hidden = <String, uh.Element>{};
+    for (final e in root.querySelectorAll('[id]')) {
+      if (_isHidden(e) && _canFold(e)) {
+        hidden.putIfAbsent(e.id, () => e);
+      }
+    }
+    if (hidden.isEmpty) {
+      return folds;
+    }
+    for (final title in root.querySelectorAll('[onclick], a[href]')) {
+      final code = '${title.attributes['onclick'] ?? ''} ${title.attributes['href'] ?? ''}';
+      for (final match in _foldTargetRe.allMatches(code)) {
+        final id = match.namedGroup('id')!;
+        final target = hidden[id];
+        // A title holding its fold is shown, it shows the fold too.
+        if (target != null && !folds.containsKey(id) && !_holds(title, target)) {
+          folds[id] = (target: target, title: title);
+        }
+      }
+    }
+    return folds;
+  }();
+
+  /// The titles of [_folds].
+  late final Set<uh.Element> _foldTitles = {for (final fold in _folds.values) fold.title};
+
+  static final _foldTargetRe = RegExp(r'''(?:getElementById|\$)\(\s*['"](?<id>[^'"]+)['"]\s*\)''');
+
+  /// Whether the hidden [element] can be a fold of the post: it is none of the forum's popups.
+  static bool _canFold(uh.Element element) =>
+      element.id.isNotEmpty && !element.id.endsWith('_menu') && !element.classes.contains('tip');
+
+  static bool _holds(uh.Element ancestor, uh.Element element) {
+    for (uh.Node? node = element; node != null; node = node.parentNode) {
+      if (identical(node, ancestor)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isFoldTitle(uh.Element element) => element.attributes.isNotEmpty && _foldTitles.contains(element);
+
+  /// A fold the post made itself ([_folds]), as a spoiler whose title is the text of the element that showed it; null
+  /// for a hidden element that is no fold.
+  List<InlineSpan>? _buildFold(uh.Element element) {
+    final fold = element.id.isEmpty ? null : _folds[element.id];
+    if (fold == null || !identical(fold.target, element)) {
+      return null;
+    }
+    final title = fold.title;
+    return _munchBlock(element, deferBreak: false, () {
+      state.elevation += _elevationStep;
+      final elevation = state.elevation;
+      final content = _munchOwnBlock(() => _munch(element));
+      state.elevation -= _elevationStep;
+      if (content == null) {
+        return null;
+      }
+      while (content.lastOrNull == emptySpan) {
+        content.removeLast();
+      }
+      state.headingBrNodePassed = true;
+      final text = _visibleText(title);
+      return [
+        textWidgetSpan(
+          SpoilerCard(
+            title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : text),
+            content: TextSpan(children: content),
+            elevation: elevation,
+          ),
+        ),
+        emptySpan,
+      ];
+    });
+  }
+
+  /// The text [element] shows, white space collapsed: what is hidden in it left out.
+  static String _visibleText(uh.Element element) {
+    final buffer = StringBuffer();
+    void visit(uh.Node node) {
+      for (final child in node.nodes) {
+        if (child is uh.Element) {
+          if (_isHidden(child) || _invisibleElements.contains(_nameOf(child))) {
+            continue;
+          }
+          if (child.localName == 'br') {
+            buffer.write(' ');
+            continue;
+          }
+          visit(child);
+        } else if (child.nodeType == uh.Node.TEXT_NODE) {
+          buffer.write(child.text ?? '');
+        }
+      }
+    }
+
+    visit(element);
+    return buffer.toString().replaceAll(_htmlWhiteSpaceRe, ' ').trim();
+  }
+
+  /// Whether the first thing [node] shows is a line break (`<br>`, also inside inline elements): true; something else:
+  /// false; nothing: null.
+  static bool? _firstIsLineBreak(uh.Node node) {
+    for (final child in node.nodes) {
+      if (child is uh.Element) {
+        final name = _nameOf(child);
+        if (name == 'br') {
+          return true;
+        }
+        if (_invisibleElements.contains(name) || _isHidden(child)) {
+          continue;
+        }
+        if (!_inlineElements.contains(name)) {
+          return false;
+        }
+        final first = _firstIsLineBreak(child);
+        if (first != null) {
+          return first;
+        }
+      } else if (child.nodeType == uh.Node.TEXT_NODE) {
+        if ((child.text ?? '').replaceAll(_htmlWhiteSpaceRe, '').isNotEmpty) {
+          return false;
+        }
+      }
+    }
+    return null;
   }
 
   bool _isInlineImage(uh.Node node) =>
@@ -499,10 +837,14 @@ final class _Muncher with LoggerMixin {
       case uh.Node.ELEMENT_NODE:
         {
           final element = node as uh.Element;
-          final localName = element.localName;
+          final localName = _nameOf(element);
 
-          // Skip invisible nodes.
-          if (element.attributes['style']?.contains('display: none') ?? false) {
+          // Skip invisible nodes, but a fold the post made itself (shown by a click on another element) and the
+          // element shown as its title.
+          if (_isHidden(element)) {
+            return _buildFold(element);
+          }
+          if (_isFoldTitle(element)) {
             return null;
           }
 
@@ -511,53 +853,25 @@ final class _Muncher with LoggerMixin {
           final spaceStyle = spaceBefore ? _buildTextStyle() : null;
           final breakBefore = state.pendingBreak && !_breakHandlingElements.contains(localName);
 
-          // TODO: Handle <ul> and <li> marker
-          // Parse according to element types.
-          final span = switch (localName) {
-            'img' => _buildImg(node),
-            'br' => state.headingBrNodePassed ? [emptySpan] : null,
-            'font' => _buildFont(node),
-            'strong' => _buildStrong(node),
-            'u' => _buildUnderline(node),
-            'strike' => _buildLineThrough(node),
-            'p' => _buildP(node),
-            'span' => _buildSpan(node),
-            'blockquote' => _buildBlockQuote(node),
-            'div' => _munchDiv(node),
-            'a' => _buildA(node),
-            'tr' => _buildTr(node),
-            'td' => _buildTd(node),
-            'h1' => _buildH1(node),
-            'h2' => _buildH2(node),
-            'h3' => _buildH3(node),
-            'h4' => _buildH4(node),
-            // Ordered list in web page uses ul tag and has class "litype_1".
-            'ul' when !node.classes.contains('litype_1') => _buildUl(node),
-            'ol' || 'ul' when node.classes.contains('litype_1') => _buildOl(node),
-            'li' => _buildLi(node),
-            'code' => _buildCode(node),
-            'dl' => _buildDl(node),
-            'b' => _buildB(node),
-            'i' => _buildI(node),
-            'hr' => _buildHr(node),
-            'pre' => _buildPre(node),
-            'details' => _buildDetails(node),
-            'iframe' => _buildIframe(node),
-            'table' when node.classes.contains('cgtl') => _buildNewcomerReport(node),
-            'table' => _buildTable(node),
-            'sup' => _buildSup(node),
-            'dd' => _buildDd(node),
-            'ignore_js_op' ||
-            'table' ||
-            'tbody' ||
-            'marquee' ||
-            'nav' ||
-            'section' ||
-            'fieldset' ||
-            'pre' => _munch(node),
-            'center' => _munchBlock(node, () => _munchAligned(node, TextAlign.center, _munch), deferBreak: false),
-            String() => null,
-          };
+          // Parse according to element types. A piece of html the muncher cannot make sense of must not take the whole
+          // floor with it (the error would leave a grey block in place of all of the floor's content): what it held is
+          // munched as it is instead, the state of the muncher put back as it was before the element.
+          final snapshot = _snapshot();
+          List<InlineSpan>? span;
+          try {
+            debugBeforeMunchElement?.call(node);
+            span = _buildElement(node, localName);
+          } on Object catch (e, st) {
+            error('failed to munch <$localName>, munching what it holds instead', e, st);
+            _restore(snapshot);
+            try {
+              span = _munch(node);
+            } on Object catch (e, st) {
+              error('failed to munch what <$localName> holds, leaving it out', e, st);
+              _restore(snapshot);
+              span = null;
+            }
+          }
           if (span == null || span.isEmpty) {
             return span;
           }
@@ -571,8 +885,9 @@ final class _Muncher with LoggerMixin {
               ..pendingSpace = false;
           }
           if (breakBefore && state.pendingBreak) {
-            // Nothing in it took the break a paragraph before it left (a card, an image, a line break of its own).
-            if (!_startsLine(ret)) {
+            // Nothing in it took the break a paragraph before it left (a card, an image). A line break right after
+            // the paragraph is a line of its own: the break goes before it, a blank line as on the web page.
+            if (!_startsLine(ret) || localName == 'br') {
               ret = [emptySpan, ...ret];
             }
             state.pendingBreak = false;
@@ -585,6 +900,66 @@ final class _Muncher with LoggerMixin {
     }
     return null;
   }
+
+  /// [node], an element named [localName] ([_nameOf]), by its kind.
+  List<InlineSpan>? _buildElement(uh.Element node, String localName) => switch (localName) {
+    'img' => _buildImg(node),
+    'br' => state.headingBrNodePassed ? [emptySpan] : null,
+    'font' => _buildFont(node),
+    'strong' => _buildStrong(node),
+    'u' || 'ins' => _buildUnderline(node),
+    'strike' || 's' || 'del' => _buildLineThrough(node),
+    'p' => _buildP(node),
+    'span' => _buildSpan(node),
+    'blockquote' => _buildBlockQuote(node),
+    'div' => _munchDiv(node),
+    'a' => _buildA(node),
+    'tr' => _buildTr(node),
+    'td' => _buildTd(node),
+    'th' => _buildTh(node),
+    'h1' => _buildH1(node),
+    'h2' => _buildH2(node),
+    'h3' => _buildH3(node),
+    'h4' => _buildH4(node),
+    'h5' => _munchHeading(node, FontSize.size2.value()),
+    'h6' => _munchHeading(node, FontSize.size1.value()),
+    'ul' || 'ol' => _buildList(node),
+    'li' => _buildLi(node),
+    'code' => _buildCode(node),
+    'dl' => _buildDl(node),
+    'b' => _buildB(node),
+    'i' => _buildI(node),
+    'hr' => _buildHr(node),
+    'pre' => _buildPre(node),
+    'details' => _buildDetails(node),
+    'iframe' => _buildIframe(node),
+    'embed' || 'object' || 'video' || 'audio' => _buildMedia(node),
+    'script' => _buildScriptPlayer(node),
+    // The text a button, a text box (as written, its lines kept) and a choice box (the option chosen) show on the
+    // web page; nothing to press or type in here.
+    'button' => _munch(node),
+    'textarea' => _buildPre(node),
+    'select' => _buildSelect(node),
+    'table' when node.classes.contains('cgtl') => _buildNewcomerReport(node),
+    'table' => _buildTable(node),
+    'sup' => _buildSup(node),
+    'dt' => _buildDt(node),
+    'dd' => _buildDd(node),
+    'small' => _munchScaled(node, _smallerFontScale),
+    'big' => _munchScaled(node, _largerFontScale),
+    'ruby' => _buildRuby(node),
+    'center' => _munchBlock(node, () => _munchAligned(node, TextAlign.center, _munch), deferBreak: true),
+    String() when _plainBlockElements.contains(localName) => _munchBlock(
+      node,
+      deferBreak: false,
+      () => _endingLine(_munch(node)),
+    ),
+    String() when _invisibleElements.contains(localName) => null,
+    // Anything else (`<em>`, `<cite>`, `<label>`, `<abbr>`, `<o:p>` of a pasted Word document, `<marquee>`,
+    // the forum's `<ignore_js_op>`, an element the muncher does not know yet) shows its content as the web
+    // page does. Before, an element the muncher did not know was dropped with all its text.
+    String() => _munch(node),
+  };
 
   List<InlineSpan>? _buildImg(uh.Element element) {
     // Discuz X5 lazy loads some images with `data-src` and attachment images only have the `file` attribute, the
@@ -712,29 +1087,28 @@ final class _Muncher with LoggerMixin {
     if (ret == null) {
       return null;
     }
-    // The row takes the whole width: what follows starts a line.
+    // The block takes the whole width: what follows starts a line.
     _startLine();
     return [
       textWidgetSpan(
-        Row(
-          children: [
-            Expanded(
-              child: Text.rich(TextSpan(children: ret), textAlign: align),
-            ),
-          ],
+        FullWidthBlock(
+          // The line break its content ends with (`[align=center]text<br />[/align]`) ends its last line, it does not
+          // add an empty line below it.
+          child: Text.rich(TextSpan(children: _withoutTrailingLineBreak(ret)), textAlign: align),
         ),
       ),
     ];
   }
 
-  /// `<p>`, a block of the web page ([_munchBlock]): a line of its own, and what follows starts a new line (the
-  /// break taken by a `<br>` right after it, so `</p><br />` leaves no blank line more than before).
+  /// `<p>`, a block of the web page ([_munchBlock]): a line of its own, and what follows starts a new line. A `<br>`
+  /// right after it is a blank line, as on the web page (`[p]…[/p]` then a line break). Before, that `<br>` only took
+  /// the paragraph's break, and an aligned paragraph's: the blank line was lost.
   List<InlineSpan>? _buildP(uh.Element element) {
     final align = _blockAlign(element);
     if (align == null) {
       return _munchBlock(element, () => _munch(element), deferBreak: true);
     }
-    return _munchBlock(element, () => _munchAligned(element, align, _munch), deferBreak: false);
+    return _munchBlock(element, () => _munchAligned(element, align, _munch), deferBreak: true);
   }
 
   List<InlineSpan>? _buildSpan(uh.Element element) {
@@ -747,12 +1121,10 @@ final class _Muncher with LoggerMixin {
         .whereType<(String, String)>()
         .map((e) => MapEntry(e.$1, e.$2))
         .toList();
+    // A `<span>` is inline: what follows goes on in the same line. Before, a line break was put after every span,
+    // which broke sentences in two (`<span>` around a word, the pasted text of another page).
     if (styleEntries == null) {
-      final ret = _munch(element);
-      if (ret == null) {
-        return null;
-      }
-      return [...ret, emptySpan];
+      return _munch(element);
     }
 
     final styleMap = Map.fromEntries(styleEntries);
@@ -773,11 +1145,7 @@ final class _Muncher with LoggerMixin {
     if (hasBackgroundColor) {
       state.backgroundColorStack.removeLast();
     }
-    if (ret == null) {
-      return null;
-    }
-
-    return [...ret, emptySpan];
+    return ret;
   }
 
   List<InlineSpan> _buildBlockQuote(uh.Element element) {
@@ -823,6 +1191,10 @@ final class _Muncher with LoggerMixin {
       'bd-card': _buildNewcomerReportDiv,
     };
 
+    if (element.classes.contains('media_container')) {
+      return _buildMediaContainer(element);
+    }
+
     // The popup markup of the forum's red packet plugin (envelope animation, password box, buttons) only works with
     // its javascript; it must not leak into the post as text.
     if (element.id == 'hb_mask') {
@@ -852,8 +1224,8 @@ final class _Muncher with LoggerMixin {
       return null;
     }
     final theme = Theme.of(context);
+    // A block ([_munchDiv]): the line break before it goes there only when the line before it holds something.
     return [
-      emptySpan,
       textWidgetSpan(
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -915,7 +1287,8 @@ final class _Muncher with LoggerMixin {
   }
 
   List<InlineSpan>? _buildLockedArea(uh.Element element) {
-    final lockedArea = Locked.fromLockDivNode(element, allowWithPurchase: parseLockedWithPurchase);
+    // A block of no known kind still shows the forum's notice: the reader sees something is hidden there.
+    final lockedArea = Locked.fromLockDivNode(element, allowWithPurchase: parseLockedWithPurchase, allowUnknown: true);
     if (lockedArea.isNotValid()) {
       return null;
     }
@@ -935,12 +1308,12 @@ final class _Muncher with LoggerMixin {
     }
     final spans = <InlineSpan>[];
     for (final row in rows) {
-      final (:avatarUrl, :name, :content) = parseReviewElement(row);
+      final (:avatarUrl, :name, :content, :time) = parseReviewElement(row);
       if ((name == null || name.isEmpty) && (content == null || content.isEmpty)) {
         continue;
       }
       spans
-        ..add(textWidgetSpan(ReviewCard(name: name ?? '', content: content ?? '', avatarUrl: avatarUrl)))
+        ..add(textWidgetSpan(ReviewCard(name: name ?? '', content: content ?? '', avatarUrl: avatarUrl, time: time)))
         ..add(emptySpan);
     }
     return spans.isEmpty ? null : spans;
@@ -1275,22 +1648,17 @@ final class _Muncher with LoggerMixin {
     return ret;
   }
 
-  /// A table cell. Its content starts a line and the white space at its end is dropped, as in a block of the web page;
-  /// what follows a cell starts a line too (the white space between cells is dropped). Before, every text in a cell
-  /// was trimmed on both ends, which also dropped the space between two words of the cell where one of them is in an
-  /// element (`<strong>A</strong> B`, `<a>here</a> to`); a post's content is the cell of a one-row table.
-  List<InlineSpan>? _buildTd(uh.Element element) {
-    _startLine();
-    final ret = _munch(element);
-    _startLine();
-    if (ret == null) {
-      return null;
-    }
-
-    // Removed trailing '\n' here to fix white space found in tables.
-    // Add it back or think in another way if caused other issues.
-    return ret;
-  }
+  /// A table cell, a block of the web page ([_munchBlock]): its content starts a line and ends its line, the white
+  /// space at its start and end is dropped. Before, every text in a cell was trimmed on both ends, which also dropped
+  /// the space between two words of the cell where one of them is in an element (`<strong>A</strong> B`, `<a>here</a>
+  /// to`); a post's content is the cell of a one-row table.
+  ///
+  /// A cell of a table drawn as one is laid out on its own and the line break it ends with is dropped there
+  /// ([_withoutTrailingLineBreak]). The cell of a table that only wraps something (the post's content) is in the line
+  /// of what is around it: what follows it (the attachments, the notice of hidden attachments) starts a line. Before,
+  /// the line was only taken to start there, and what followed went on in the cell's last line.
+  List<InlineSpan>? _buildTd(uh.Element element) =>
+      _munchBlock(element, deferBreak: false, () => _endingLine(_munch(element)));
 
   /// A header cell in a table: a cell in bold.
   List<InlineSpan>? _buildTh(uh.Element element) {
@@ -1318,10 +1686,12 @@ final class _Muncher with LoggerMixin {
     return _munchHeading(element, FontSize.size4.value());
   }
 
-  /// A heading in [fontSize]: a line of its own, between two line breaks (the first takes the break a paragraph before
-  /// it left).
+  /// A heading in [fontSize]: a line of its own, ended by a line break, after one when the line before it holds
+  /// something or a paragraph before it left its break. Before, a line break always went before it: at the start of
+  /// a line (after a `<br>`, after another heading) that was a blank line the web page does not show.
   List<InlineSpan>? _munchHeading(uh.Element element, double fontSize) {
     final line = _lineState();
+    final breakBefore = !state.atLineStart || state.pendingBreak;
     state.fontSizeStack.add(fontSize);
     _lineBroken();
     final ret = _munch(element);
@@ -1330,25 +1700,38 @@ final class _Muncher with LoggerMixin {
       _restoreLine(line);
       return null;
     }
-    return [emptySpan, ...ret, emptySpan];
+    return [if (breakBefore) emptySpan, ...ret, emptySpan];
   }
 
   List<InlineSpan>? _buildH4(uh.Element element) => _munchHeading(element, FontSize.size3.value());
 
-  /// Build `<ul>` tag.
-  List<InlineSpan>? _buildUl(uh.Element element) {
-    state.listStack.add(_ListUnordered());
-    final ret = _munch(element);
-    state.listStack.removeLast();
-    return ret;
-  }
-
-  /// Build `<ol>` tag.
-  List<InlineSpan>? _buildOl(uh.Element element) {
-    state.listStack.add(_ListOrdered(1));
-    final ret = _munch(element);
-    state.listStack.removeLast();
-    return ret;
+  /// `<ul>` and `<ol>`, a block of the web page ([_munchBlock]) whose items each start a line.
+  ///
+  /// The marks are the web page's. The forum's style sheet takes the marks off every list (`ol, ul { list-style:
+  /// none }`) and puts a disc back before the items of an `<ul>` in a post (`.t_f ul li`), numbers before those of
+  /// `[list=1]` (`ul.litype_1`) and letters before those of `[list=a]` and `[list=A]` (`ul.litype_2`, `ul.litype_3`):
+  /// an `<ol>` (written in the html of a post) has no mark. Before, an `<ol>` without the class of `[list=1]` was
+  /// dropped with all its items, and the letters were discs.
+  List<InlineSpan>? _buildList(uh.Element element) {
+    final classes = element.classes;
+    final _ListType type;
+    if (element.localName == 'ol') {
+      type = _ListUnmarked();
+    } else if (classes.contains('litype_1')) {
+      type = _ListOrdered(1);
+    } else if (classes.contains('litype_2')) {
+      type = _ListOrdered(1, letters: true);
+    } else if (classes.contains('litype_3')) {
+      type = _ListOrdered(1, letters: true, upperCase: true);
+    } else {
+      type = _ListUnordered();
+    }
+    return _munchBlock(element, deferBreak: false, () {
+      state.listStack.add(type);
+      final ret = _munch(element);
+      state.listStack.removeLast();
+      return ret;
+    });
   }
 
   /// Build `<li>` tag.
@@ -1368,12 +1751,14 @@ final class _Muncher with LoggerMixin {
     // final String leading
     final leading = switch (state.listStack.lastOrNull) {
       _ListUnordered() => '•  ',
-      _ListOrdered(:final number) => () {
+      final _ListOrdered list => () {
         // Pop and push a larger number.
-        state.listStack.removeLast();
-        state.listStack.add(_ListOrdered(number + 1));
-        return '$number. ';
+        state.listStack
+          ..removeLast()
+          ..add(list.next());
+        return '${list.mark}. ';
       }(),
+      _ListUnmarked() => '',
       null => () {
         error('failed to detect html list leading type: empty list stack');
         return '•  ';
@@ -1384,9 +1769,9 @@ final class _Muncher with LoggerMixin {
       // Append a trailing <br> if not have it.
       // This is a render issue on the server side, same bbcode may produce different result, with or without trailing
       // line break.
-      return [if (breakBefore) emptySpan, TextSpan(text: leading), ...ret, emptySpan];
+      return [if (breakBefore) emptySpan, if (leading.isNotEmpty) TextSpan(text: leading), ...ret, emptySpan];
     } else {
-      return [if (breakBefore) emptySpan, TextSpan(text: leading), ...ret];
+      return [if (breakBefore) emptySpan, if (leading.isNotEmpty) TextSpan(text: leading), ...ret];
     }
   }
 
@@ -1422,16 +1807,36 @@ final class _Muncher with LoggerMixin {
     return _munch(element);
   }
 
+  /// `<dt>`, the term of a definition list (the field names of an activity's details, of goods): a line of its own,
+  /// its definition (`<dd>`) beside it in the same line, as the forum's style sheet floats the term to its left
+  /// (`活动类型: 测试活动`). Before, the term was dropped: the values were left without their names.
+  List<InlineSpan>? _buildDt(uh.Element element) {
+    final definitionFollows = element.nextElementSibling?.localName == 'dd';
+    return _munchBlock(element, deferBreak: false, () {
+      final ret = _munch(element);
+      return definitionFollows ? ret : _endingLine(ret);
+    });
+  }
+
   /// `<dd>`, a block of its own on the web page (the fields of an activity or goods block, an attachment's name and
-  /// size): a line of its own ([_munchBlock]). Before, the line ended only when its text ended with the template's line break, kept as
-  /// text, which the web page collapses.
-  List<InlineSpan>? _buildDd(uh.Element element) => _munchBlock(element, deferBreak: false, () {
-    final ret = _munch(element);
-    if (ret == null || _endsLine(ret)) {
-      return ret;
+  /// size): a line of its own ([_munchBlock]), or the rest of the line of its term ([_buildDt]). Before, the line ended
+  /// only when its text ended with the template's line break, kept as text, which the web page collapses.
+  List<InlineSpan>? _buildDd(uh.Element element) {
+    if (element.previousElementSibling?.localName == 'dt' && !state.atLineStart) {
+      // Beside its term, after a space: its first line, a paragraph too (an attachment's name beside its icon), is
+      // the rest of the term's line.
+      final spaceStyle = _buildTextStyle();
+      _startLine();
+      final ret = _munch(element);
+      if (ret == null || ret.isEmpty) {
+        // Nothing to put beside the term: its line ends.
+        _lineBroken();
+        return [emptySpan];
+      }
+      return _endingLine([TextSpan(text: ' ', style: spaceStyle), ...ret]);
     }
-    return [...ret, emptySpan];
-  });
+    return _munchBlock(element, deferBreak: false, () => _endingLine(_munch(element)));
+  }
 
   List<InlineSpan>? _buildB(uh.Element element) {
     final origBold = state.bold;
@@ -1460,10 +1865,14 @@ final class _Muncher with LoggerMixin {
     return ret;
   }
 
+  /// `<hr>`, a block of the web page: a line of its own, which it ends. A `<br>` right after it is a blank line, as on
+  /// the web page (`[hr]` then a line break, the usual way to separate the parts of a post). Before, the rule's line
+  /// only ended when something followed it, and that `<br>` ended it instead of leaving a blank line.
   List<InlineSpan> _buildHr(uh.Element element) {
-    // The rule takes the whole width: what follows starts a line.
-    _startLine();
-    return [const WidgetSpan(child: Divider())];
+    final breakBefore = !state.atLineStart || state.pendingBreak;
+    _lineBroken();
+    state.headingBrNodePassed = true;
+    return [if (breakBefore) emptySpan, const WidgetSpan(child: Divider()), emptySpan];
   }
 
   List<InlineSpan>? _buildPre(uh.Element element) {
@@ -1524,7 +1933,144 @@ final class _Muncher with LoggerMixin {
       // Recognized netease player iframe.
       return [textWidgetSpan(NeteaseCard(neteasePlayerId))];
     }
-    return null;
+    return _buildMedia(element);
+  }
+
+  /// An embedded player (`<iframe>` other than netease music's, `<embed>`, `<object>`, `<video>`, `<audio>`): a card
+  /// naming the site, opening the player in the browser ([PostMediaCard]). Before, the player was left out and the
+  /// reader did not know there was anything there. What a player holds (`<source>`, the text for browsers without
+  /// players) is not shown.
+  List<InlineSpan> _buildMedia(uh.Element element) {
+    state.headingBrNodePassed = true;
+    return [textWidgetSpan(PostMediaCard(PostMedia.of(element)))];
+  }
+
+  /// A script, which is not shown, unless it is the one the forum's `[media]` and `[flash]` make their player with on
+  /// the web page ([PostMedia.ofScript]): the card of that player.
+  List<InlineSpan>? _buildScriptPlayer(uh.Element element) {
+    final code = element.text ?? '';
+    final target = PostMedia.scriptPlayerTarget(code);
+    final previous = element.previousElementSibling;
+    if (target != null && previous?.id == target && previous?.querySelector('div.media_container') != null) {
+      // Shown where the web page puts the player, see [_buildMediaContainer].
+      return null;
+    }
+    final media = PostMedia.ofScript(code);
+    if (media == null) {
+      return null;
+    }
+    state.headingBrNodePassed = true;
+    return [textWidgetSpan(PostMediaCard(media))];
+  }
+
+  /// The place of the player of `[media]` (`div.media_container`, filled by the script after its `div.media` on the
+  /// web page, above the link to open it in a new window): the card of the player there, a line of its own.
+  List<InlineSpan>? _buildMediaContainer(uh.Element element) {
+    final holder = element.parent;
+    final script = holder?.nextElementSibling;
+    if (holder == null || script == null || script.localName != 'script') {
+      return null;
+    }
+    final code = script.text ?? '';
+    if (PostMedia.scriptPlayerTarget(code) != holder.id) {
+      return null;
+    }
+    final media = PostMedia.ofScript(code);
+    if (media == null) {
+      return null;
+    }
+    state.headingBrNodePassed = true;
+    return _munchBlock(element, deferBreak: false, () => [textWidgetSpan(PostMediaCard(media)), emptySpan]);
+  }
+
+  /// A choice box: the option it shows (the one chosen, or the first one) as text.
+  List<InlineSpan>? _buildSelect(uh.Element element) {
+    final options = element.querySelectorAll('option');
+    final chosen = options.firstWhereOrNull((e) => e.attributes.containsKey('selected')) ?? options.firstOrNull;
+    final text = chosen == null ? null : _collapseText(chosen.text ?? '');
+    if (text == null) {
+      return null;
+    }
+    state.headingBrNodePassed = true;
+    return [TextSpan(text: text, style: _buildTextStyle())];
+  }
+
+  /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.
+  List<InlineSpan>? _munchScaled(uh.Element element, double scale) {
+    final size = state.fontSizeStack.lastOrNull ?? Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
+    state.fontSizeStack.add(size * scale);
+    final ret = _munch(element);
+    state.fontSizeStack.removeLast();
+    return ret;
+  }
+
+  /// Size of the text in `<small>` to the text around it: a browser's `font-size: smaller`.
+  static const double _smallerFontScale = 5 / 6;
+
+  /// Size of the text in `<big>` to the text around it: a browser's `font-size: larger`.
+  static const _largerFontScale = 1.2;
+
+  /// Size of a ruby text (`<rt>`) to its base: a browser's.
+  static const _rubyTextScale = 0.5;
+
+  /// [nodes] munched one after the other.
+  List<InlineSpan> _munchNodes(Iterable<uh.Node> nodes) => [for (final node in nodes) ...?munchNode(node)];
+
+  /// `<ruby>`: each base with its ruby text (`<rt>`) above it in a small size, as the web page shows it; the
+  /// parentheses for browsers without ruby (`<rp>`) are not shown. The base and its ruby text are one piece in the
+  /// line, the base on the line's baseline. Before, the whole ruby was dropped, its base too.
+  List<InlineSpan>? _buildRuby(uh.Element element) {
+    final spans = <InlineSpan>[];
+    var base = <uh.Node>[];
+    void put(String annotation) {
+      final baseSpans = _munchOwnBlock(() => _munchNodes(base));
+      base = [];
+      if (annotation.isEmpty) {
+        spans.addAll(baseSpans);
+        return;
+      }
+      final style = _buildTextStyle();
+      final size = (style?.fontSize ?? 14) * _rubyTextScale;
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: TextWidgetSpanChild(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              // The base first (the reading order), laid out at the bottom: the ruby text is above it.
+              verticalDirection: VerticalDirection.up,
+              children: [
+                Text.rich(TextSpan(children: baseSpans)),
+                Text(annotation, style: style?.copyWith(fontSize: size)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final node in element.nodes) {
+      if (node is uh.Element) {
+        switch (node.localName) {
+          case 'rt' || 'rtc':
+            put(node.innerText.replaceAll(_htmlWhiteSpaceRe, ' ').trim());
+          case 'rp':
+            break;
+          case 'rb':
+            base.addAll(node.nodes);
+          default:
+            base.add(node);
+        }
+      } else {
+        base.add(node);
+      }
+    }
+    if (base.isNotEmpty) {
+      spans.addAll(_munchNodes(base));
+    }
+    state.headingBrNodePassed = true;
+    return spans.isEmpty ? null : spans;
   }
 
   List<InlineSpan>? _buildNewcomerReport(uh.Element element) {
@@ -1589,7 +2135,9 @@ final class _Muncher with LoggerMixin {
         NewcomerReportInfo(
           title: _plainCellText(th),
           data: _plainCellText(td),
-          richData: td.querySelector('img') == null ? null : _munchOwnBlock(() => _buildTd(td)),
+          richData: td.querySelector('img') == null
+              ? null
+              : _withoutTrailingLineBreak(_munchOwnBlock(() => _buildTd(td))),
         ),
   ];
 
@@ -1625,62 +2173,137 @@ final class _Muncher with LoggerMixin {
         .where((e) => const {'thead', 'tbody', 'tfoot'}.contains(e.localName))
         .expand((e) => e.children.where((tr) => tr.localName == 'tr'))
         .toList();
+    // The caption, a line of its own above the table.
+    final captionElement = element.children.firstWhereOrNull((e) => e.localName == 'caption');
+    final caption = captionElement == null
+        ? null
+        : _munchBlock(captionElement, deferBreak: false, () => _endingLine(_munch(captionElement)));
+    if (caption != null && _endsLine(caption)) {
+      _lineBroken();
+    }
     if (allTr.isEmpty) {
-      // Impossible
-      return null;
+      return caption;
     }
-    if (allTr.length == 1) {
-      // Not a regular table, only something wrapped.
-      return _munch(allTr.single.parent!);
+    List<uh.Element> cellsOf(uh.Element tr) =>
+        tr.children.where((e) => e.localName == 'td' || e.localName == 'th').toList();
+    if (allTr.length == 1 && cellsOf(allTr.single).length <= 1) {
+      // Not a regular table, only something wrapped: the content of a post, the body of a spoiler.
+      final content = _munch(allTr.single.parent!);
+      return caption == null ? content : [...caption, ...?content];
     }
-    final tableRows = <TableRow>[];
-    final allTableRowContent = <List<Widget>>[];
-    var columnMaxCount = 0;
+    // A table of one row with cells side by side (`[table]` with one `[tr]`, a row of headers or of links) is a
+    // table on the web page, drawn as one. Before, it was taken for a wrapper like the one around a post and its cells
+    // ran together in one line.
+
+    // The cells by row and column. A cell spanning columns (`colspan`) or rows (`rowspan`) takes its first place, the
+    // other places it spans are left empty, so the cells after it stay in their columns. The cell is not drawn across
+    // them: a [Table] has no spanning cells.
+    final grid = <List<Widget>>[];
+    // The last row each column is taken until by a cell spanning rows above.
+    final takenUntil = <int, int>{};
     state.tableDepth += 1;
-    for (final tr in allTr) {
-      final tableRowContent = <Widget>[];
-      // Header cells (`th`) are cells too, in bold, in their place in the row.
-      final cells = tr.children.where((e) => e.localName == 'td' || e.localName == 'th').toList();
-      for (final cell in cells) {
-        tableRowContent.add(
-          Text.rich(TextSpan(children: _munchOwnBlock(() => cell.localName == 'th' ? _buildTh(cell) : _buildTd(cell)))),
+    for (final (y, tr) in allTr.indexed) {
+      final row = <Widget>[];
+      void skipTaken() {
+        while ((takenUntil[row.length] ?? -1) >= y) {
+          row.add(sizedBoxEmpty);
+        }
+      }
+
+      for (final cell in cellsOf(tr)) {
+        skipTaken();
+        final colspan = (cell.attributes['colspan']?.trim().parseToInt() ?? 1).clamp(1, _maxTableSpan);
+        final rowspanAttr = cell.attributes['rowspan']?.trim().parseToInt() ?? 1;
+        // `rowspan="0"`: to the last row.
+        final rowspan = (rowspanAttr == 0 ? allTr.length - y : rowspanAttr).clamp(1, allTr.length - y);
+        // Header cells (`th`) are cells too, in bold, in their place in the row. The line break a cell's content
+        // ends with (a `<br>`, a block at its end) ends its last line, it does not add an empty line below it.
+        final content = _withoutTrailingLineBreak(
+          _munchOwnBlock(() => cell.localName == 'th' ? _buildTh(cell) : _buildTd(cell)),
         );
+        for (var x = row.length; x < row.length + colspan; x++) {
+          if (rowspan > 1) {
+            takenUntil[x] = y + rowspan - 1;
+          }
+        }
+        row
+          ..add(Text.rich(TextSpan(children: content)))
+          ..addAll(List<Widget>.filled(colspan - 1, sizedBoxEmpty));
       }
-      if (cells.length > columnMaxCount) {
-        columnMaxCount = cells.length;
+      // Places at the end of the row taken by cells above.
+      final lastTaken = takenUntil.entries.where((e) => e.value >= y).map((e) => e.key).maxOrNull;
+      while (lastTaken != null && row.length <= lastTaken) {
+        row.add(sizedBoxEmpty);
       }
-      allTableRowContent.add(tableRowContent);
+      grid.add(row);
     }
     state.tableDepth -= 1;
     // The table takes its own lines: what follows starts a line.
     _startLine();
 
-    for (final row in allTableRowContent) {
+    // Some tables do not have the same column width on each row.
+    // Fill them.
+    final columnMaxCount = grid.map((e) => e.length).max;
+    if (columnMaxCount == 0) {
+      return caption;
+    }
+    for (final row in grid) {
       if (row.length < columnMaxCount) {
         row.addAll(List<Widget>.generate(columnMaxCount - row.length, (_) => sizedBoxEmpty));
       }
     }
 
-    // Some tables do not have the same column width on each row.
-    // Fill them.
-    //
-    // Only a workaround on unbalanced tables.
-    //
-    // FIXME: Support rowspan and colspan attr.
-    tableRows.addAll(allTableRowContent.map((e) => TableRow(children: e)).toList());
-
     // Fits the width of the post when it can, its long cells wrapping; scrolls sideways only when it cannot.
     return [
+      ...?caption,
       textWidgetSpan(
         PostTableScrollView(
           child: Table(
             defaultColumnWidth: const PostTableColumnWidth(),
             defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: tableRows,
-            border: TableBorder.all(color: Theme.of(context).colorScheme.surfaceContainer),
+            children: grid.map((e) => TableRow(children: e)).toList(),
+            // Lines that can be seen between the cells, as on the web page: the cells of a row ran together in the
+            // color of the background (a row of headers read as one word).
+            border: TableBorder.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
         ),
       ),
+    ];
+  }
+
+  /// Most columns or rows a cell of a table is taken to span: a typo in the html (`colspan="200"`) does not make a
+  /// table of hundreds of empty columns.
+  static const _maxTableSpan = 32;
+
+  /// [spans] without the line break they end with, if they do: the end of a cell, of a block laid out on its own, is
+  /// the end of its last line, a line break there does not add an empty line below it as it does in a rich text.
+  static List<InlineSpan>? _withoutTrailingLineBreak(List<InlineSpan>? spans) {
+    if (spans == null || spans.isEmpty) {
+      return spans;
+    }
+    final last = spans.last;
+    if (last is! TextSpan) {
+      return spans;
+    }
+    final children = last.children;
+    if (children != null && children.isNotEmpty) {
+      final trimmed = _withoutTrailingLineBreak(children);
+      if (identical(trimmed, children)) {
+        return spans;
+      }
+      return [
+        ...spans.take(spans.length - 1),
+        TextSpan(text: last.text, children: trimmed, style: last.style, recognizer: last.recognizer),
+      ];
+    }
+    final text = last.text;
+    if (text == null || !text.endsWith('\n')) {
+      return spans;
+    }
+    final rest = text.substring(0, text.length - 1);
+    return [
+      ...spans.take(spans.length - 1),
+      if (rest.isNotEmpty) TextSpan(text: rest, style: last.style, recognizer: last.recognizer),
     ];
   }
 
