@@ -676,7 +676,10 @@ final class _Builder {
   /// the url in bytes (`strlen`, `substr`): the escapes count, the cut can fall in the middle of one, which the web
   /// page then shows as text (`rum.php ... amp;fromuid=1`), and a character cut in its bytes shows as `\uFFFD`.
   String _bareUrlTag(String text) {
-    final m = _urlInTextRe.firstMatch(_escapeHtml(text).trim());
+    // PHP's `trim()`: ASCII white space and NUL only, not U+3000 nor a no-break space.
+    final m = _urlInTextRe.firstMatch(
+      _escapeHtml(text).replaceAll(RegExp('^[ \t\n\r\x00\x0B]+|[ \t\n\r\x00\x0B]+\$'), ''),
+    );
     if (m == null) {
       _fail('url-without-url');
     }
@@ -688,7 +691,9 @@ final class _Builder {
       String part(List<int> b) => _unescapeHtml(utf8.decode(b, allowMalformed: true));
       shown = '${part(bytes.sublist(0, 32))} ... ${part(bytes.sublist(bytes.length - 19))}';
     }
-    final href = url.toLowerCase().startsWith('www.') ? 'http://$url' : url;
+    // A `"` the forum keeps in the link (`&quot;` in its href) goes as `%22`, as a browser sends it; the `[url=]` it is
+    // put back in takes no quote.
+    final href = (url.toLowerCase().startsWith('www.') ? 'http://$url' : url).replaceAll('"', '%22');
     if (href.contains(']') || shown.contains('[') || shown.contains(']')) {
       _fail('url-text');
     }
@@ -1007,10 +1012,24 @@ final class _Context {
 /// [nodes], the content of a block (`[align]`, `[spoiler]`), without the line break it ends with: the web page does
 /// not show the `<br>` ending the last line of a block, where the app's rich text would show one more empty line. The
 /// others stay, as on the web page: the empty lines at its start and before its end.
+///
+/// Line breaks on lines of their own are kept: after a block in it (`[quote]q[/quote]\r\n[/align]`, the forum's quote
+/// takes the `\r` only), or all the block holds (`[spoiler=t]\r\n[/spoiler]`). The web page shows each as an empty
+/// line, and so does the view (`_SpanBuilder.build`).
 List<BbNode> _blockContent(List<BbNode> nodes) {
   final last = nodes.lastOrNull;
   if (last is! BbText || !last.text.endsWith('\n')) {
     return nodes;
+  }
+  // The line breaks it ends with, in one text or several (the parser cuts the text at the tags it drops).
+  final breaks = RegExp(r'^\n+$');
+  var start = nodes.length;
+  while (start > 0 && nodes[start - 1] is BbText && breaks.hasMatch((nodes[start - 1] as BbText).text)) {
+    start--;
+  }
+  if (start < nodes.length && (start == 0 || nodes[start - 1].isBlock)) {
+    final count = nodes.skip(start).fold(0, (n, e) => n + (e as BbText).text.length);
+    return [...nodes.take(start), BbText('\n' * count, last.style)];
   }
   final text = last.text.substring(0, last.text.length - 1);
   return [...nodes.take(nodes.length - 1), if (text.isNotEmpty) BbText(text, last.style)];

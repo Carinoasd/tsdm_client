@@ -59,6 +59,18 @@ void main() {
       expect((shown.href, _plain(shown.children)), (short, short));
     });
 
+    test('trimmed as PHP trims: a trailing U+3000 or no-break space stays; a quote goes as %22', () {
+      final long = 'https://example.com/${'k' * 60}';
+      for (final space in ['\u3000', '\u00a0']) {
+        final link = _nodes('[url]$long$space[/url]').single as BbLink;
+        expect(link.href, '$long$space');
+        expect(_plain(link.children), endsWith('${'k' * (19 - utf8.encode(space).length)}$space'));
+      }
+      final quoted = _nodes('[url]https://example.com/"q"[/url]').single as BbLink;
+      expect(quoted.href, 'https://example.com/%22q%22');
+      expect(_plain(quoted.children), 'https://example.com/"q"');
+    });
+
     test('cut in bytes: a character cut in its bytes is the replacement character', () {
       final url = 'https://example.com/${'中' * 30}';
       final link = _nodes('[url]$url[/url]').single as BbLink;
@@ -78,7 +90,89 @@ void main() {
 
     test('an aligned block drops the line break it ends with; one with only that is an empty line', () {
       final nodes = _nodes('[align=center]a\r\n[/align][align=center]\r\n[/align][align=left]\r\nb\r\n\r\n[/align]');
-      expect(nodes.whereType<BbAlign>().map((e) => _plain(e.children)), ['a', '', '\nb\n']);
+      expect(nodes.whereType<BbAlign>().map((e) => _plain(e.children)), ['a', '\n', '\nb\n']);
+    });
+
+    test('a line break after a block in a block, or all a block holds, is kept: one empty line on the web page', () {
+      String shape(BbNode node) => switch (node) {
+        BbText(:final text) => jsonEncode(text),
+        BbAlign(:final children) ||
+        BbSpoiler(:final children) ||
+        BbQuote(:final children) => '${node.runtimeType}[${children.map(shape).join(',')}]',
+        _ => '${node.runtimeType}',
+      };
+      for (final (bbcode, expected) in [
+        // The forum's quote takes the `\r` after it only: `</div><br /></div>`.
+        ('[align=center][quote]q[/quote]\r\n[/align]', r'BbAlign[BbQuote["q"],"\n"]'),
+        // Two: two empty lines.
+        ('[align=center][quote]q[/quote]\r\n\r\n[/align]', r'BbAlign[BbQuote["q"],"\n\n"]'),
+        ('[align=center]a[hr]\r\n[/align]', r'BbAlign["a",BbDivider,"\n"]'),
+        ('[spoiler=t][code]x[/code]\r\n[/spoiler]', r'BbSpoiler[BbCodeBlock,"\n"]'),
+        ('[align=center][align=right]a\r\n[/align]\r\n[/align]', r'BbAlign[BbAlign["a"],"\n"]'),
+        ('[spoiler=t]\r\n[/spoiler]', r'BbSpoiler["\n"]'),
+        ('[spoiler=t]\r\n\r\n[/spoiler]', r'BbSpoiler["\n\n"]'),
+      ]) {
+        expect(_nodes(bbcode).map(shape).join(','), expected, reason: bbcode);
+      }
+    });
+
+    testWidgets('drawn as on the web page: one empty line for it, not two', (tester) async {
+      Future<double> height(List<BbNode> nodes) async {
+        await tester.pumpWidget(
+          TranslationProvider(
+            child: MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: PostTypographyScope(typography: const PostTypography(), child: PostBbcodeView(nodes)),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        return tester.getSize(find.byType(PostBbcodeView)).height;
+      }
+
+      const quote = BbQuote([BbText('q')]);
+      final line = await height(const [BbText('x\ny')]) - await height(const [BbText('x')]);
+      expect(line, greaterThan(0));
+      final quoteOnly = await height(const [
+        BbAlign('center', [quote]),
+      ]);
+      expect(
+        await height(const [
+          BbAlign('center', [quote, BbText('\n')]),
+        ]),
+        quoteOnly + line,
+      );
+      expect(
+        await height(const [
+          BbAlign('center', [quote, BbText('\n\n')]),
+        ]),
+        quoteOnly + 2 * line,
+        reason: 'two line breaks after a block: two empty lines',
+      );
+      expect(
+        await height(const [
+          BbAlign('center', [BbText('\n')]),
+        ]),
+        await height(const [
+          BbAlign('center', [BbText('x')]),
+        ]),
+        reason: 'a block of a line break only: one line',
+      );
+      expect(
+        await height(const [
+          BbAlign('center', [BbText('\n\n')]),
+        ]),
+        await height(const [
+          BbAlign('center', [BbText('x\ny')]),
+        ]),
+        reason: 'a block of two line breaks only: two lines',
+      );
+      final spoiler = _nodes('[spoiler=t]\r\n[/spoiler]').single as BbSpoiler;
+      expect(_plain(spoiler.children), '\n', reason: 'one empty line in the spoiler, as the web page');
     });
 
     test('quotes and free blocks still lose their line breaks at both ends, as the forum takes them', () {
