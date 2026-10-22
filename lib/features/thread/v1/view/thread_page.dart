@@ -41,6 +41,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -644,27 +645,31 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             data: MediaQuery.of(context).copyWith(textScaler: _threadContentScaler(context)),
             child: SafeArea(
               bottom: false,
-              child: PostList(
-                threadID: state.tid ?? widget.threadID,
-                title: state.title ?? widget.title,
-                pageNumber: context.read<JumpPageCubit>().state.currentPage,
-                initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
-                scrollController: _listScrollController,
-                // Posts of locally blocked users become placeholders in place, the floors keep their positions.
-                widgetBuilder: (context, post) => BlockAwarePost(
-                  post: post,
-                  postList: state.postList,
-                  builder: (context, post) => PostCard(
-                    post,
-                    replyCallback: replyPostCallback,
-                    onEdited: () => _scrollToPidOnReload = post.postID,
-                    onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+              // One line width for all the floors, measured in the width they have (the safe area left out), taken
+              // once the width settles.
+              child: PostLineWidth(
+                child: PostList(
+                  threadID: state.tid ?? widget.threadID,
+                  title: state.title ?? widget.title,
+                  pageNumber: context.read<JumpPageCubit>().state.currentPage,
+                  initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
+                  scrollController: _listScrollController,
+                  // Posts of locally blocked users become placeholders in place, the floors keep their positions.
+                  widgetBuilder: (context, post) => BlockAwarePost(
+                    post: post,
+                    postList: state.postList,
+                    builder: (context, post) => PostCard(
+                      post,
+                      replyCallback: replyPostCallback,
+                      onEdited: () => _scrollToPidOnReload = post.postID,
+                      onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                    ),
                   ),
+                  useDivider: true,
+                  postList: state.postList,
+                  canLoadMore: state.canLoadMore,
+                  latestModAct: state.latestModAct,
                 ),
-                useDivider: true,
-                postList: state.postList,
-                canLoadMore: state.canLoadMore,
-                latestModAct: state.latestModAct,
               ),
             ),
           ),

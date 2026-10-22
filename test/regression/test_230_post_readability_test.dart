@@ -217,6 +217,11 @@ void main() {
       // A quote, a code block, a rule are blocks with room of their own.
       expect(await gaps('$_long1<div class="quote"><blockquote>$_long2</blockquote></div>$_long3'), 0);
       expect(await gaps('$_long1<br /><hr class="l" />$_long3'), 0);
+      // A table after a line break, the text right after it on its line: no gap above the table.
+      expect(
+        await gaps('$_long1<br /><table><tr><td>一</td><td>二</td></tr><tr><td>三</td><td>四</td></tr></table>$_long3'),
+        0,
+      );
       // Preformatted text keeps its lines; so do the cells of a table.
       expect(await gaps('<pre>$_long1\n$_long2</pre>'), 0);
       expect(
@@ -286,9 +291,7 @@ void main() {
   });
 
   group('the length of a line where the content is shown', () {
-    testWidgets('a line holds the content width over the size of the text, in halves of a character', (
-      tester,
-    ) async {
+    testWidgets('a line holds the content width over the size of the text', (tester) async {
       Future<double> lineWidth(Size size, double scale) async {
         tester.view
           ..devicePixelRatio = 1
@@ -313,17 +316,85 @@ void main() {
         return width;
       }
 
-      // A phone 390 wide: 390 − 2 × 6 (the floor's margins) − 2 × 16 (its padding) = 346, over 14, in halves.
-      expect(await lineWidth(const Size(390, 844), 1), 24.5);
-      expect(await lineWidth(const Size(360, 780), 1), 22.5);
-      expect(await lineWidth(const Size(390, 844), 0.85), 29);
-      expect(await lineWidth(const Size(390, 844), 1.3), 19);
-      expect(await lineWidth(const Size(390, 844), 1.5), 16);
+      // A phone 390 wide: 390 − 2 × 6 (the floor's margins) − 2 × 16 (its padding) = 346, over 14.
+      expect(await lineWidth(const Size(390, 844), 1), closeTo(346 / 14, 1e-9));
+      expect(await lineWidth(const Size(360, 780), 1), closeTo(316 / 14, 1e-9));
+      expect(await lineWidth(const Size(390, 844), 0.85), closeTo(346 / 14 / 0.85, 1e-9));
+      expect(await lineWidth(const Size(390, 844), 1.5), closeTo(346 / 21, 1e-9));
       // A tablet or a desktop window: the content is at most 712 wide.
-      expect(await lineWidth(const Size(1280, 800), 1), 50.5);
-      expect(await lineWidth(const Size(1280, 800), 1.5), 33.5);
-      // A pixel more or less does not change it.
-      expect(await lineWidth(const Size(391, 844), 1), 24.5);
+      expect(await lineWidth(const Size(1280, 800), 1), closeTo(712 / 14, 1e-9));
+      expect(await lineWidth(const Size(1280, 800), 1.5), closeTo(712 / 21, 1e-9));
+    });
+
+    /// [PostLineWidth] in a view of [size] with [padding], under a safe area as on the thread page; the line width its
+    /// floors get is read with `read`.
+    Future<void> pumpMeasured(
+      WidgetTester tester,
+      Size size, {
+      FakeViewPadding padding = FakeViewPadding.zero,
+      double scale = 1,
+    }) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = size
+        ..padding = padding
+        ..viewPadding = padding;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+              child: SafeArea(
+                bottom: false,
+                child: PostLineWidth(
+                  child: Builder(
+                    builder: (context) => Text('${postContentLineWidth(context)}', key: const ValueKey('line-width')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    double read(WidgetTester tester) =>
+        double.parse(tester.widget<Text>(find.byKey(const ValueKey('line-width'))).data!);
+
+    testWidgets('the thread page measures it once for the floors, the safe area left out', (tester) async {
+      addTearDown(tester.view.reset);
+      // A phone in landscape with a cutout on the left: 732 − 32, the floor's margins (16) and padding.
+      await pumpMeasured(tester, const Size(732, 412), padding: const FakeViewPadding(left: 32));
+      expect(read(tester), closeTo((732 - 32 - 32 - 32) / 14, 1e-9));
+      await pumpMeasured(tester, const Size(390, 844), padding: const FakeViewPadding(top: 47, bottom: 34));
+      expect(read(tester), closeTo(346 / 14, 1e-9), reason: 'a rotation is taken at once');
+    });
+
+    testWidgets('while a window is resized the floors keep their line width, until the width settles', (tester) async {
+      addTearDown(tester.view.reset);
+      await pumpMeasured(tester, const Size(900, 900));
+      final first = read(tester);
+      expect(first, closeTo(712 / 14, 1e-9));
+      // Dragged narrower, a frame at a time: nothing changes meanwhile.
+      for (var w = 898.0; w >= 600; w -= 2) {
+        await pumpMeasured(tester, Size(w, 900));
+        expect(read(tester), first);
+      }
+      // Still for a moment less than the delay: still the old one.
+      await tester.pump(PostLineWidth.settleDelay - const Duration(milliseconds: 50));
+      expect(read(tester), first);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump();
+      expect(read(tester), closeTo((600 - 32 - 32) / 14, 1e-9));
+
+      // A few pixels that do not make half a character are never taken.
+      await pumpMeasured(tester, const Size(602, 900));
+      await tester.pump(const Duration(seconds: 1));
+      expect(read(tester), closeTo((600 - 32 - 32) / 14, 1e-9));
+
+      // A new text scale is taken at once.
+      await pumpMeasured(tester, const Size(602, 900), scale: 1.5);
+      expect(read(tester), closeTo((602 - 32 - 32) / 21, 1e-9));
     });
 
     testWidgets('a short line and a long paragraph depend on it', (tester) async {
