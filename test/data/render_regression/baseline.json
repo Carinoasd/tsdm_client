@@ -1,0 +1,90 @@
+{
+ "c001": {
+  "breaks.blank_less": 4,
+  "breaks.blank_more": 7
+ },
+ "c002": {
+  "dark.unreadable": 41
+ },
+ "c003": {
+  "breaks.blank_less": 1,
+  "breaks.blank_more": 6
+ },
+ "c004": {
+  "style.size:bigger": 337
+ },
+ "c005": {
+  "blocks.quote": 1,
+  "breaks.blank_more": 2,
+  "breaks.missing": 21,
+  "style.b:extra": 21
+ },
+ "c006": {
+  "breaks.missing": 24,
+  "spaces.lost": 2,
+  "style.b:lost": 9,
+  "style.block-bg:lost": 394,
+  "style.size:flattened": 4
+ },
+ "c007": {
+  "breaks.blank_more": 2
+ },
+ "c008": {
+  "style.u:lost": 51
+ },
+ "c010": {
+  "breaks.missing": 7,
+  "style.block-bg:lost": 230,
+  "style.color:diff": 2,
+  "style.size:flattened": 20,
+  "style.size:smaller": 14
+ },
+ "c012": {
+  "breaks.extra": 1
+ },
+ "c018": {
+  "breaks.missing": 15,
+  "style.block-bg:lost": 245,
+  "style.color:diff": 2,
+  "style.size:smaller": 13
+ },
+ "c025": {
+  "breaks.blank_more": 4
+ },
+ "c026": {
+  "breaks.blank_more": 2,
+  "spaces.lost": 1
+ },
+ "c028": {
+  "breaks.blank_more": 1
+ },
+ "c030": {
+  "breaks.blank_more": 1
+ },
+ "c031": {
+  "breaks.blank_less": 1,
+  "style.color:diff": 86
+ },
+ "c041": {
+  "style.color:diff": 30
+ },
+ "c047": {
+  "breaks.blank_more": 1
+ },
+ "h02-hidden-text": {
+  "style.color:extra": 6
+ },
+ "h03-dark-colors": {
+  "breaks.blank_more": 1
+ },
+ "h05-blocks": {
+  "breaks.blank_more": 1,
+  "breaks.missing": 1,
+  "style.b:lost": 3,
+  "style.color:extra": 2,
+  "style.size:flattened": 4
+ },
+ "h06-tables": {
+  "breaks.blank_more": 5
+ }
+}

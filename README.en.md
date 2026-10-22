@@ -16,15 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.43.0 (2026-10-22)
+## Latest update: 1.44.1 (2026-10-22)
 
-- Wider line and paragraph spacing in post content, so posts no longer look cramped on phones; name lists, poems and one-sentence-per-line posts stay compact.
-- Settings → Appearance lets you adjust post line height and paragraph spacing, with a live preview.
-- New optional "auto-split long paragraphs" (off by default): breaks very long paragraphs at sentence ends, changing only the layout, never the original text.
-- The experimental app renderer gets the same treatment.
-- Android build number 148, installs over earlier releases and test builds.
+- The experimental app renderer (the "render posts with the app renderer" setting, off by default) now matches the website in a few more places: long URLs are shortened the way the forum does it; blank lines in collapsed sections and alignment blocks match the website; links wrapped in colored text use the link color as on the website.
+- 1.44.0: posts follow the author's styling (colors, backgrounds, font sizes, shadows, alignment and the post's own style sheet), dark mode keeps them readable, and links are underlined as on the website.
+- Android build number 150, installs over earlier releases and test builds.
 
-[Download 1.43.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.43.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.44.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.44.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:flutter/foundation.dart';
@@ -78,6 +80,16 @@ final class BbStyle {
 
   /// `[size=]`, `1` to `7`.
   final String? size;
+
+  /// The style without [color]: a link's text, which is in the link's own color.
+  BbStyle withoutColor() => BbStyle(
+    bold: bold,
+    italic: italic,
+    underline: underline,
+    strike: strike,
+    backgroundColor: backgroundColor,
+    size: size,
+  );
 
   /// Copy with the given values.
   BbStyle copyWith({
@@ -659,17 +671,29 @@ final class _Builder {
   }
 
   /// `[url]X[/url]` as the forum links it: the url found in X, shortened when long.
+  ///
+  /// The forum reads the message it has escaped for html (`&` as `&amp;`, `"` `<` `>` as theirs) and counts and cuts
+  /// the url in bytes (`strlen`, `substr`): the escapes count, the cut can fall in the middle of one, which the web
+  /// page then shows as text (`rum.php ... amp;fromuid=1`), and a character cut in its bytes shows as `\uFFFD`.
   String _bareUrlTag(String text) {
-    final m = _urlInTextRe.firstMatch(text.trim());
+    // PHP's `trim()`: ASCII white space and NUL only, not U+3000 nor a no-break space.
+    final m = _urlInTextRe.firstMatch(
+      _escapeHtml(text).replaceAll(RegExp('^[ \t\n\r\x00\x0B]+|[ \t\n\r\x00\x0B]+\$'), ''),
+    );
     if (m == null) {
       _fail('url-without-url');
     }
-    final url = m.group(0)!;
+    final escaped = m.group(0)!;
+    final url = _unescapeHtml(escaped);
     var shown = text;
-    if (url.length > 65) {
-      shown = '${url.substring(0, 32)} ... ${url.substring(url.length - 19)}';
+    final bytes = utf8.encode(escaped);
+    if (bytes.length > 65) {
+      String part(List<int> b) => _unescapeHtml(utf8.decode(b, allowMalformed: true));
+      shown = '${part(bytes.sublist(0, 32))} ... ${part(bytes.sublist(bytes.length - 19))}';
     }
-    final href = url.toLowerCase().startsWith('www.') ? 'http://$url' : url;
+    // A `"` the forum keeps in the link (`&quot;` in its href) goes as `%22`, as a browser sends it; the `[url=]` it is
+    // put back in takes no quote.
+    final href = (url.toLowerCase().startsWith('www.') ? 'http://$url' : url).replaceAll('"', '%22');
     if (href.contains(']') || shown.contains('[') || shown.contains(']')) {
       _fail('url-text');
     }
@@ -724,8 +748,12 @@ final class _Builder {
           if (ctx.inSpoiler || ctx.inLink) {
             _fail('$name-nested');
           }
-          final content = _trimNewlines(_convert(inner, source, ctx.copyWith(inSpoiler: true)));
-          out.add(name == 'spoiler' ? BbSpoiler(attr ?? '', content) : BbQuote(content));
+          final content = _convert(inner, source, ctx.copyWith(inSpoiler: true));
+          // The forum's spoiler keeps the line breaks of its content (the one after its head is an empty first line
+          // of the folded part); the free block takes them, as a quote.
+          out.add(
+            name == 'spoiler' ? BbSpoiler(attr ?? '', _blockContent(content)) : BbQuote(_trimNewlines(content)),
+          );
           i = end + 1;
           continue;
         case 'b':
@@ -746,7 +774,9 @@ final class _Builder {
           if (ctx.inLink) {
             _fail('url-nested');
           }
-          final content = _convert(children, source, ctx.copyWith(inLink: true));
+          // The link in its own color, as on the web page (`.t_f a`): a `[color]` around it does not color it, one in it
+          // does.
+          final content = _convert(children, source, ctx.copyWith(inLink: true, style: ctx.style.withoutColor()));
           if (content.any((e) => e.isBlock)) {
             _fail('block-in-url');
           }
@@ -768,7 +798,7 @@ final class _Builder {
           if (ctx.inLink) {
             _fail('block-in-url');
           }
-          out.add(BbAlign(attr ?? 'left', _convert(children, source, ctx)));
+          out.add(BbAlign(attr ?? 'left', _blockContent(_convert(children, source, ctx))));
         case 'hr':
           if (ctx.inLink) {
             _fail('block-in-url');
@@ -946,6 +976,17 @@ final class _Builder {
 
   static String _newlines(String s) => s.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
+  /// [s] as the forum escapes a message for html (`dhtmlspecialchars`: `&`, `"`, `<`, `>`; not `'`).
+  static String _escapeHtml(String s) =>
+      s.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+  /// The text a web page shows for [s], a piece of what [_escapeHtml] made: its escapes read back, also one cut before
+  /// its `;` (`&amp` is `&` in html text); what is left of one cut after its `&` (`amp;`) is text.
+  static String _unescapeHtml(String s) => s.replaceAllMapped(
+    RegExp('&(amp|quot|lt|gt);?'),
+    (m) => const {'amp': '&', 'quot': '"', 'lt': '<', 'gt': '>'}[m.group(1)]!,
+  );
+
   static String _text(String s) => s.replaceAll('\t', _tab);
 }
 
@@ -966,6 +1007,32 @@ final class _Context {
     inQuote: inQuote ?? this.inQuote,
     inSpoiler: inSpoiler ?? this.inSpoiler,
   );
+}
+
+/// [nodes], the content of a block (`[align]`, `[spoiler]`), without the line break it ends with: the web page does
+/// not show the `<br>` ending the last line of a block, where the app's rich text would show one more empty line. The
+/// others stay, as on the web page: the empty lines at its start and before its end.
+///
+/// Line breaks on lines of their own are kept: after a block in it (`[quote]q[/quote]\r\n[/align]`, the forum's quote
+/// takes the `\r` only), or all the block holds (`[spoiler=t]\r\n[/spoiler]`). The web page shows each as an empty
+/// line, and so does the view (`_SpanBuilder.build`).
+List<BbNode> _blockContent(List<BbNode> nodes) {
+  final last = nodes.lastOrNull;
+  if (last is! BbText || !last.text.endsWith('\n')) {
+    return nodes;
+  }
+  // The line breaks it ends with, in one text or several (the parser cuts the text at the tags it drops).
+  final breaks = RegExp(r'^\n+$');
+  var start = nodes.length;
+  while (start > 0 && nodes[start - 1] is BbText && breaks.hasMatch((nodes[start - 1] as BbText).text)) {
+    start--;
+  }
+  if (start < nodes.length && (start == 0 || nodes[start - 1].isBlock)) {
+    final count = nodes.skip(start).fold(0, (n, e) => n + (e as BbText).text.length);
+    return [...nodes.take(start), BbText('\n' * count, last.style)];
+  }
+  final text = last.text.substring(0, last.text.length - 1);
+  return [...nodes.take(nodes.length - 1), if (text.isNotEmpty) BbText(text, last.style)];
 }
 
 /// [nodes] without the line breaks at the start and the end of the content.

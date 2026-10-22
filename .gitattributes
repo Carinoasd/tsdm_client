@@ -1,0 +1,2 @@
+# The render regression corpus is compared byte for byte with what it was made from: no line ending changes.
+test/data/render_regression/** -text
