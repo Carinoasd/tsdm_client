@@ -1,4 +1,3 @@
-import 'package:dart_bbcode_web_colors/dart_bbcode_web_colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/constants.dart';
@@ -11,7 +10,8 @@ import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/utils/html/adaptive_color.dart';
+import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -352,7 +352,8 @@ final class _SpanBuilder {
               style: TextStyle(color: colorScheme.primary),
               textScaler: TextScaler.noScaling,
             );
-    } else {
+    } else if (typography == null || postLinkHasMark(href)) {
+      // Only a link out of the forum is marked in a post, as the html renderer marks them.
       mark = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -360,6 +361,8 @@ final class _SpanBuilder {
           const SizedBox(width: 2),
         ],
       );
+    } else {
+      mark = null;
     }
     return [
       TextSpan(
@@ -464,35 +467,40 @@ final class _SpanBuilder {
   }
 
   /// The text style of [style], as the html renderer builds it for the same `<font>`, `<strong>`…
+  ///
+  /// The colors are shown in the theme as the html renderer shows them ([AuthorColors]): as given in a light theme,
+  /// readable in a dark one; a link in a post is underlined, its underline in the theme's link color.
   TextStyle? _style(BbStyle style, {String? link}) {
     final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    Color? colorOf(String? value) {
-      final color = value.toColor();
-      if (color == null) {
-        return null;
-      }
-      return dark ? Color(color).adaptiveDark() : Color(color);
-    }
-
-    final color = colorOf(style.color) ?? (link != null ? theme.colorScheme.primary : null);
+    final colors = _colors ??= AuthorColors(theme);
+    // `[backcolor]` is a background in css on the web page, `[color]` the color attribute of a `<font>`.
+    final background = style.backgroundColor == null ? null : parseCssColor(style.backgroundColor!);
+    final authored = parseLegacyColor(style.color);
+    final color = authored != null
+        ? colors.text(authored, on: background)
+        : (link != null ? theme.colorScheme.primary : null);
     final size = FontSize.fromString(style.size);
+    final bodySize = theme.textTheme.bodyMedium?.fontSize ?? webPostFontSize;
+    final linkUnderline = link != null && typography != null;
     return theme.textTheme.bodyMedium?.copyWith(
       color: color,
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
       fontWeight: style.bold ? FontWeight.w600 : null,
-      fontSize: size.isValid ? size.value() : null,
-      backgroundColor: colorOf(style.backgroundColor),
-      decorationColor: color,
+      fontSize: size.isValid ? size.value() * bodySize / webPostFontSize : null,
+      backgroundColor: background == null ? null : colors.background(background),
+      decorationColor: linkUnderline && !style.underline && !style.strike ? theme.colorScheme.primary : color,
       decoration: TextDecoration.combine([
-        if (style.underline) TextDecoration.underline,
+        if (style.underline || linkUnderline) TextDecoration.underline,
         if (style.strike) TextDecoration.lineThrough,
       ]),
       fontStyle: style.italic ? FontStyle.italic : null,
-      decorationThickness: 1.5,
+      decorationThickness: style.underline || style.strike || !linkUnderline ? 1.5 : 1,
     );
   }
+
+  /// How the author's colors are shown in the theme, see [_style].
+  AuthorColors? _colors;
 
   /// Open [url] as a link of the html renderer does: a tap on desktop, the end of a press on mobile, its info on a
   /// long press or a secondary tap.

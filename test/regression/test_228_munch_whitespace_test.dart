@@ -41,6 +41,10 @@ const _goldenPath = 'test/data/munch_whitespace_x5.json';
 /// text recorded here, and `after`, the text the muncher gives now.
 const _laterGoldenPath = 'test/data/munch_render_content_x5.json';
 
+/// The texts the style the author gave a post changed after that (`test_231_post_author_styles_test.dart`): `before`,
+/// the text the fixes above give, and `after`, the text the muncher gives now.
+const _styleGoldenPath = 'test/data/munch_author_styles_x5.json';
+
 /// Every real piece of html the app munches that the repository holds, by a name telling where it is from; the same
 /// html once.
 Map<String, String> _samples() {
@@ -90,7 +94,10 @@ Map<String, String> _samples() {
       } on FormatException {
         continue;
       }
-      if (json is! Map<String, dynamic> || path == _goldenPath || path == _laterGoldenPath) {
+      if (json is! Map<String, dynamic> ||
+          path == _goldenPath ||
+          path == _laterGoldenPath ||
+          path == _styleGoldenPath) {
         continue;
       }
       if (json['posts'] case final List<dynamic> posts) {
@@ -325,19 +332,28 @@ void main() {
     final later =
         (jsonDecode(File(_laterGoldenPath).readAsStringSync()) as Map<String, dynamic>)['samples']
             as Map<String, dynamic>;
+    final styled =
+        (jsonDecode(File(_styleGoldenPath).readAsStringSync()) as Map<String, dynamic>)['samples']
+            as Map<String, dynamic>;
     expect(samples.keys.toSet(), golden.keys.toSet(), reason: 'a sample added or gone: record the texts again');
     expect(samples.length, greaterThanOrEqualTo(250));
     var changed = 0;
     for (final MapEntry(key: id, value: html) in samples.entries) {
       final text = await _transcript(tester, id, _withoutImages(html));
-      // The text a later fix changed: it starts from the text recorded here.
+      // The text a later fix changed: it starts from the text recorded here; the style of the author, from that.
       final laterFix = later[id] as Map<String, dynamic>?;
+      final styleFix = styled[id] as Map<String, dynamic>?;
       String now(String recorded) {
-        if (laterFix == null) {
-          return recorded;
+        var text = recorded;
+        if (laterFix != null) {
+          expect(laterFix['before'], text, reason: '$id: the later fix starts from the text recorded here');
+          text = laterFix['after'] as String;
         }
-        expect(laterFix['before'], recorded, reason: '$id: the later fix starts from the text recorded here');
-        return laterFix['after'] as String;
+        if (styleFix != null) {
+          expect(styleFix['before'], text, reason: '$id: the style of the author starts from the text of the fixes');
+          text = styleFix['after'] as String;
+        }
+        return text;
       }
 
       switch (golden[id]) {

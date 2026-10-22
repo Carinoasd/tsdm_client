@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
@@ -62,10 +63,13 @@ class _MunchedHtmlState extends State<MunchedHtml> {
   }
 
   @override
-  Widget build(BuildContext context) => _content ??= munchElement(
-    context,
-    parseHtmlDocument(widget.html).body!,
-    options: widget.options,
-    parseLockedWithPurchase: widget.parseLockedWithPurchase,
+  Widget build(BuildContext context) => _content ??= ClipRect(
+    clipper: const PostContentClipper(),
+    child: munchElement(
+      context,
+      parseHtmlDocument(widget.html).body!,
+      options: widget.options,
+      parseLockedWithPurchase: widget.parseLockedWithPurchase,
+    ),
   );
 }
