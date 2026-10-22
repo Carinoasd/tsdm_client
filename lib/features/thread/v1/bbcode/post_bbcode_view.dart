@@ -1,4 +1,3 @@
-import 'package:dart_bbcode_web_colors/dart_bbcode_web_colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/constants.dart';
@@ -6,13 +5,13 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/utils/html/adaptive_color.dart';
+import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -185,24 +184,6 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
 /// Step of the card elevation per nesting level, as the html renderer.
 const _elevationStep = 0.2;
 
-/// Whether a link to [url] in a post has a mark before it (`Icons.link`, `Icons.email_outlined`): only a link out of
-/// the forum, which the app does not open itself (a browser, the mail app does), and an email address. The web page
-/// marks no link, it underlines them (`.t_f a`).
-///
-/// The same rule as the html renderer's `postLinkHasMark` (PR #218); to be shared with it once that is in.
-bool _postLinkHasMark(String url) {
-  final trimmed = url.trim();
-  final uri = Uri.tryParse(trimmed);
-  if (uri == null) {
-    return false;
-  }
-  if (!uri.hasScheme && uri.hasAuthority) {
-    // `//www.tsdm39.com/…`: on the scheme of the page.
-    return !(Uri.tryParse('https:$trimmed')?.isForumHost ?? false);
-  }
-  return !uri.isForumOrRelative && uri.scheme.toLowerCase() != 'javascript';
-}
-
 final class _SpanBuilder {
   _SpanBuilder(this.context, this.recognizers, this.typography);
 
@@ -371,7 +352,7 @@ final class _SpanBuilder {
               style: TextStyle(color: colorScheme.primary),
               textScaler: TextScaler.noScaling,
             );
-    } else if (typography == null || _postLinkHasMark(href)) {
+    } else if (typography == null || postLinkHasMark(href)) {
       // Only a link out of the forum is marked in a post, as the html renderer marks them.
       mark = Row(
         mainAxisSize: MainAxisSize.min,
@@ -487,28 +468,27 @@ final class _SpanBuilder {
 
   /// The text style of [style], as the html renderer builds it for the same `<font>`, `<strong>`…
   ///
-  /// A link in a post is underlined as on the web page (`.t_f a`), its underline in the theme's link color.
+  /// The colors are shown in the theme as the html renderer shows them ([AuthorColors]): as given in a light theme,
+  /// readable in a dark one; a link in a post is underlined, its underline in the theme's link color.
   TextStyle? _style(BbStyle style, {String? link}) {
     final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    Color? colorOf(String? value) {
-      final color = value.toColor();
-      if (color == null) {
-        return null;
-      }
-      return dark ? Color(color).adaptiveDark() : Color(color);
-    }
-
-    final color = colorOf(style.color) ?? (link != null ? theme.colorScheme.primary : null);
+    final colors = _colors ??= AuthorColors(theme);
+    // `[backcolor]` is a background in css on the web page, `[color]` the color attribute of a `<font>`.
+    final background = style.backgroundColor == null ? null : parseCssColor(style.backgroundColor!);
+    final authored = parseLegacyColor(style.color);
+    final color = authored != null
+        ? colors.text(authored, on: background)
+        : (link != null ? theme.colorScheme.primary : null);
     final size = FontSize.fromString(style.size);
+    final bodySize = theme.textTheme.bodyMedium?.fontSize ?? webPostFontSize;
     final linkUnderline = link != null && typography != null;
     return theme.textTheme.bodyMedium?.copyWith(
       color: color,
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
       fontWeight: style.bold ? FontWeight.w600 : null,
-      fontSize: size.isValid ? size.value() : null,
-      backgroundColor: colorOf(style.backgroundColor),
+      fontSize: size.isValid ? size.value() * bodySize / webPostFontSize : null,
+      backgroundColor: background == null ? null : colors.background(background),
       decorationColor: linkUnderline && !style.underline && !style.strike ? theme.colorScheme.primary : color,
       decoration: TextDecoration.combine([
         if (style.underline || linkUnderline) TextDecoration.underline,
@@ -518,6 +498,9 @@ final class _SpanBuilder {
       decorationThickness: style.underline || style.strike || !linkUnderline ? 1.5 : 1,
     );
   }
+
+  /// How the author's colors are shown in the theme, see [_style].
+  AuthorColors? _colors;
 
   /// Open [url] as a link of the html renderer does: a tap on desktop, the end of a press on mobile, its info on a
   /// long press or a secondary tap.
