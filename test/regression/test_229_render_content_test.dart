@@ -17,7 +17,13 @@
 /// * players other than netease music's (`<iframe>`, `<embed>`, `<audio>`, `<video>`) were dropped;
 /// * a line break was put after every `<span>`, which broke sentences in two;
 /// * the time of a comment (点评) was not shown, and its text was cut after three lines;
-/// * `<span style="display:none">` (no space) was shown.
+/// * `<span style="display:none">` (no space) was shown, and so was the forum's jammer text (`<font class="jammer">`,
+///   white on the web page).
+///
+/// And from the review of the fix: an element the muncher fails on must not take the floor with it (a flash player's
+/// flashvars written with javascript's `escape()`, `%u4E2D`, threw and the whole floor was a grey block); the folds a
+/// post written in html makes itself (a hidden element shown by a click on another) are spoilers, not left hidden; a
+/// button, a text box and a choice box show their text as on the web page.
 library;
 
 // HTML fixtures are split into lines at tag boundaries.
@@ -32,11 +38,13 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/review_parser.dart';
 import 'package:tsdm_client/utils/html/table_width.dart';
 import 'package:tsdm_client/widgets/card/lock_card/locked_card.dart';
 import 'package:tsdm_client/widgets/card/review_card.dart';
+import 'package:tsdm_client/widgets/card/spoiler_card.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -177,11 +185,59 @@ void main() {
       expect(
         await _text(
           tester,
-          '<style>.a { color: red; }</style>正文<script>var a = 1;</script><button>按钮</button>'
-          '<form><input type="hidden" value="v" />表单</form><span style="display:none">干扰码</span>结尾',
+          '<style>.a { color: red; }</style>正文<script>var a = 1;</script><noembed>无插件</noembed>'
+          '<noframes>无框架</noframes><form><input type="hidden" value="v" /><button>表单按钮</button>表单</form>'
+          '<span style="display:none">干扰码</span><font class="jammer">: `+ d! q)</font>'
+          '<em style="visibility:hidden">看不见</em><div hidden>隐藏</div>结尾',
         ),
         '正文结尾',
       );
+    });
+
+    testWidgets('a button, a text box and a choice box show their text, as on the web page', (tester) async {
+      expect(
+        await _text(
+          tester,
+          '按<button type="button"><b>提交</b></button>，写<textarea>第一行\n第二行</textarea>，'
+          '选<select><option>甲</option><option selected>乙</option></select>，再选<select><option>丙</option></select>',
+        ),
+        '按提交，写第一行\n第二行，选乙，再选丙',
+      );
+      expect(find.byType(InkWell), findsNothing);
+    });
+
+    testWidgets('a fold the post makes itself is a spoiler titled by what shows it', (tester) async {
+      // A hidden element shown by a click on another (`getElementById`, `$`), as posts written in html make them.
+      await _pump(
+        tester,
+        '<div onclick="obj=document.getElementById(\'game\').style; obj.display=(obj.display==\'none\')?\'block\':\'none\';">'
+        '<a style="cursor:pointer;"><font size="+2">▼ 开始游戏</font></a></div>'
+        '<div id="game" class="game" style="display:none;clear:both;">游戏内容<br />第二行</div>'
+        '<div onclick="javascript:document.getElementById(\'c310\').style.display=\'\'"><button type="submit">'
+        '<b>优秀合集曲包</b></button><span>（点击展开/合上）</span></div><div id="c310" style="display: none; ">曲包内容</div>'
+        '<a href="javascript:;" onclick="\$(\'c311\').style.display=\'\'">第三个</a><div id="c311" style="display:none">'
+        '第三个内容</div>后文',
+      );
+      expect(tester.takeException(), isNull);
+      final cards = tester.widgetList<SpoilerCard>(find.byType(SpoilerCard)).toList();
+      expect(cards.map((e) => e.title.toPlainText()), ['▼ 开始游戏', '优秀合集曲包（点击展开/合上）', '第三个']);
+      expect(cards.first.content.toPlainText(), '游戏内容\n第二行');
+      // The elements that showed them are their titles now, not shown again; the folds are closed.
+      expect(find.textContaining('开始游戏', findRichText: true), findsOneWidget);
+      expect(find.textContaining('游戏内容', findRichText: true), findsNothing);
+      expect(find.textContaining('后文', findRichText: true), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.expand_more_outlined).first);
+      await tester.pump();
+      expect(find.textContaining('游戏内容', findRichText: true), findsOneWidget);
+
+      // Hidden and no fold: no id (the jammer text), the forum's popups, nothing shows it.
+      await _pump(
+        tester,
+        '前<span style="display:none">干扰</span><div class="tip tip_4" id="aimg_1_menu" style="display: none">提示</div>'
+        '<span onclick="\$(\'aimg_1_menu\')">图</span><div id="lonely" style="display:none">没人显示</div>后',
+      );
+      expect(find.byType(SpoilerCard), findsNothing);
+      expect((find.byType(RichText).evaluate().first.widget as RichText).text.toPlainText(), '前图后');
     });
 
     testWidgets('strike-through, small text', (tester) async {
@@ -235,6 +291,56 @@ void main() {
     });
   });
 
+  group('an element the muncher fails on', () {
+    tearDown(() => debugBeforeMunchElement = null);
+
+    testWidgets('shows what it holds; the rest of the floor is there', (tester) async {
+      for (final failing in ['strong', 'table', 'li', 'div']) {
+        debugBeforeMunchElement = (e) {
+          if (e.localName == failing) {
+            throw ArgumentError('failing on <$failing>');
+          }
+        };
+        await _pump(
+          tester,
+          '<p>开头</p><strong>粗体<i>斜体</i></strong><ul><li>项目</li></ul>'
+          '<div class="quote"><blockquote>引用</blockquote></div><table><tr><td>格一</td><td>格二</td></tr></table>结尾',
+        );
+        expect(tester.takeException(), isNull, reason: failing);
+        expect(find.byType(ErrorWidget), findsNothing, reason: failing);
+        final all = find.byType(RichText).evaluate().map((e) => (e.widget as RichText).text.toPlainText()).join('|');
+        for (final text in ['开头', '粗体', '斜体', '项目', '引用', '格一', '格二', '结尾']) {
+          expect(all, contains(text), reason: '<$failing>: $text');
+        }
+      }
+    });
+
+    testWidgets("a flash player's flashvars that cannot be decoded", (tester) async {
+      // Javascript's `escape()` (`%u4E2D`), a percent sign of its own (`50%off`), a broken escape (`%zz`): url
+      // decoding threw, in the muncher, and the whole floor was a grey block.
+      const post =
+          '<div class="t_fsz"><table cellspacing="0" cellpadding="0"><tr><td class="t_f" id="postmessage_1">'
+          '第一段<br /><embed src="http://a.example.com/dewplayer.swf" width="200" height="20" '
+          'flashvars="son=http://a.example.com/%u4E2D%u6587.mp3&autostart=1" type="application/x-shockwave-flash">'
+          '<br />最后一段</td></tr></table></div>';
+      expect(await _text(tester, post), '第一段\n$_obj\n最后一段');
+      PostMedia of(String html) => PostMedia.of(parseHtmlDocument(html).body!.children.first);
+      expect(
+        of('<embed src="http://a.example.com/p.swf" flashvars="son=http://a.example.com/%u4E2D%u6587.mp3">').url,
+        Uri.parse('http://a.example.com/%E4%B8%AD%E6%96%87.mp3'),
+      );
+      expect(
+        of('<object><param name="flashvars" value="file=http://a.example.com/50%off.mp3"></object>').url,
+        Uri.parse('http://a.example.com/50%25off.mp3'),
+      );
+      // Not an address of its own: the player's.
+      expect(
+        of('<embed src="https://a.example.com/p.swf" flashvars="son=%zz">').url,
+        Uri.parse('https://a.example.com/p.swf'),
+      );
+    });
+  });
+
   group('hidden sections', () {
     testWidgets('more points than an int holds', (tester) async {
       const html = '<div class="locked">游客，本帖隐藏的内容需要积分高于 9999999999999999999 才可浏览，您当前积分为 0</div>后文';
@@ -266,6 +372,24 @@ void main() {
       final element = parseHtmlDocument(html).querySelector('div.locked')!;
       expect(Locked.fromLockDivNode(element).isValid(), isFalse);
       expect(Locked.fromLockDivNode(element, allowUnknown: true).isValid(), isTrue);
+
+      // What is not the notice: what is hidden, the controls of a form and their labels, the purchase button.
+      String notice(String html) =>
+          Locked.fromLockDivNode(parseHtmlDocument(html).querySelector('div.locked')!, allowUnknown: true).unknownText!;
+      expect(
+        notice(
+          '<div class="locked">提示<noscript>NS</noscript><template>TPL</template><label>记住</label>'
+          '<span style="visibility:hidden">隐</span><span hidden>藏</span><select><option>项</option></select>文字</div>',
+        ),
+        '提示文字',
+      );
+      expect(
+        notice(
+          '<div class="locked"><a href="forum.php?mod=misc&amp;action=pay&amp;tid=1" class="viewpay">购买</a>'
+          '本帖隐藏的内容需要支付 <strong>5 天使币</strong> 才可浏览</div>',
+        ),
+        '本帖隐藏的内容需要支付 5 天使币 才可浏览',
+      );
     });
   });
 
@@ -291,6 +415,7 @@ void main() {
         ['甲', '乙'],
       ]);
       expect(await _text(tester, '<table><caption>标题</caption><tr><td>甲</td><td>乙</td></tr></table>后'), '标题\n$_obj后');
+      expect(await _text(tester, '<table><caption>标题</caption><tr><td>只一格</td></tr></table>后'), '标题\n只一格\n后');
     });
 
     testWidgets('a cell spanning columns or rows leaves the others in their columns', (tester) async {
@@ -389,6 +514,18 @@ void main() {
       expect(flash.url.toString(), 'https://media.example.org/song.mp3');
       expect(flash.kind, PostMediaKind.audio);
 
+      // A frame loaded later; a path on the forum; what a browser reads as `javascript:`.
+      expect(
+        mediaOf('<iframe src="about:blank" data-src="https://www.youtube.com/embed/x"></iframe>').url,
+        Uri.parse('https://www.youtube.com/embed/x'),
+      );
+      expect(
+        mediaOf('<iframe src="/plugin.php?id=x"></iframe>').url,
+        Uri.parse('https://www.tsdm39.com/plugin.php?id=x'),
+      );
+      expect(mediaOf('<iframe src="java\tscript:alert(1)"></iframe>').url, isNull);
+      expect(mediaOf('<iframe src="\u0001 javascript:alert(1)"></iframe>').url, isNull);
+
       final unsafe = mediaOf('<iframe src="javascript:alert(1)"></iframe>');
       expect(unsafe.url, isNull);
       expect(unsafe.site, isNull);
@@ -415,6 +552,11 @@ void main() {
       expect(video.site, 'Youku');
 
       expect(PostMedia.ofScript("replyreload += ',' + 1;"), isNull);
+      // A script of the post's own that only mentions the forum's function.
+      expect(PostMedia.ofScript('var detectHtml5Support = 1; x("src", "https://evil.example.com/");'), isNull);
+      // A player script whose address cannot be read: a player without one.
+      expect(PostMedia.ofScript("document.write(AC_FL_RunContent('width', '550'));")?.url, isNull);
+      expect(PostMedia.ofScript("document.write(AC_FL_RunContent('width', '550'));"), isNotNull);
       expect(PostMedia.ofScript('(function(){})();'), isNull);
     });
 
@@ -531,7 +673,12 @@ void main() {
 
     // What the web page hides (`<span style="display:none">`, written without the space), which was shown.
     const hidden = {
-      'test/data/tsdmapp/thread_v14_jammer.json#4997': ['+ u% a% T& h" M* P', '; Q; Q" z9 h/ m\' @2 J9 g, i'],
+      'test/data/tsdmapp/thread_v14_jammer.json#4990': ['4 D" e* B9 w\$ ~\u00a0\u00a0e0 @4 T2 n'],
+      'test/data/tsdmapp/thread_v14_jammer.json#4997': [
+        '+ u% a% T& h" M* P',
+        ': `+ d! q) S( ^6 @( ]2 B',
+        '; Q; Q" z9 h/ m\' @2 J9 g, i',
+      ],
     };
     for (final MapEntry(key: id, value: record) in samples.entries) {
       final {'before': String before, 'after': String after} = record as Map<String, dynamic>;
@@ -543,6 +690,6 @@ void main() {
       }
       expect(inOrder(letters(expected), letters(after)), isTrue, reason: '$id: text lost');
     }
-    expect(samples.length, 43);
+    expect(samples.length, 45);
   });
 }

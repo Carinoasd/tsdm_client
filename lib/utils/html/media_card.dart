@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:url_launcher/url_launcher.dart';
@@ -26,7 +26,17 @@ final class PostMedia {
   /// The url is the player's address (`src`, `data`, the first `<source>`), or, for a flash player of a sound file
   /// (`dewplayer.swf` with `flashvars="son=…mp3"`), the file it plays: the flash player itself opens nowhere any more.
   /// A url of the page's own site is made absolute, one starting with `//` takes https. Only an http(s) url is kept.
+  ///
+  /// Whatever the html holds, this gives a player: one without an address when the address cannot be read.
   factory PostMedia.of(uh.Element element) {
+    try {
+      return PostMedia._of(element);
+    } on Object {
+      return const PostMedia(kind: PostMediaKind.video);
+    }
+  }
+
+  factory PostMedia._of(uh.Element element) {
     final tag = element.localName;
     String? raw;
     String? param(String name) => element
@@ -47,11 +57,32 @@ final class PostMedia {
             element.querySelector('embed')?.attributes['src'],
       'video' ||
       'audio' => _nonEmpty(element.attributes['src']) ?? element.querySelector('source[src]')?.attributes['src'],
-      _ => _nonEmpty(element.attributes['src']) ?? element.attributes['data-src'],
+      // A frame loaded later puts `about:blank` in `src` and the address in `data-src`.
+      _ => switch (_nonEmpty(element.attributes['src'])) {
+        final String src when !src.trim().toLowerCase().startsWith('about:') => src,
+        final src => _nonEmpty(element.attributes['data-src']) ?? src,
+      },
     };
     final url = _httpUrl(raw);
     final audio = tag == 'audio' || (url != null && _audioFileRe.hasMatch(url.path));
     return PostMedia(kind: audio ? PostMediaKind.audio : PostMediaKind.video, url: url);
+  }
+
+  factory PostMedia._ofScript(String script) {
+    if (_detectPlayerRe.firstMatch(script) case final match?) {
+      final url = _httpUrl(match.namedGroup('url'));
+      final audio =
+          _audioPlayerTypes.contains(match.namedGroup('type')?.toLowerCase()) ||
+          (url != null && _audioFileRe.hasMatch(url.path));
+      return PostMedia(kind: audio ? PostMediaKind.audio : PostMediaKind.video, url: url);
+    }
+    final url = _httpUrl(
+      _scriptIframeRe.firstMatch(script)?.namedGroup('url') ?? _flashSourceRe.firstMatch(script)?.namedGroup('url'),
+    );
+    return PostMedia(
+      kind: url != null && _audioFileRe.hasMatch(url.path) ? PostMediaKind.audio : PostMediaKind.video,
+      url: url,
+    );
   }
 
   /// The player the forum's `[media]` and `[flash]` put in a post with a script ([script], its code), which the web page
@@ -62,27 +93,18 @@ final class PostMedia {
   /// <script type="text/javascript" reload="1">document.getElementById('flv_NHr').innerHTML=(detectHtml5Support() ?
   ///   "<iframe src='https://player.example.com/embed/X' ...></iframe>" : AC_FL_RunContent(..., 'src', 'https://...', ...));</script>
   /// ```
+  ///
+  /// A player script whose address cannot be read gives a player without an address.
   static PostMedia? ofScript(String script) {
-    if (_detectPlayerRe.firstMatch(script) case final match?) {
-      final url = _httpUrl(match.namedGroup('url'));
-      final audio =
-          _audioPlayerTypes.contains(match.namedGroup('type')?.toLowerCase()) ||
-          (url != null && _audioFileRe.hasMatch(url.path));
-      return PostMedia(kind: audio ? PostMediaKind.audio : PostMediaKind.video, url: url);
-    }
-    if (!script.contains('detectHtml5Support') && !script.contains('AC_FL_RunContent')) {
+    final player = _detectPlayerRe.hasMatch(script) || _flashScriptRe.hasMatch(script);
+    if (!player) {
       return null;
     }
-    final raw =
-        _scriptIframeRe.firstMatch(script)?.namedGroup('url') ?? _flashSourceRe.firstMatch(script)?.namedGroup('url');
-    if (raw == null) {
-      return null;
+    try {
+      return PostMedia._ofScript(script);
+    } on Object {
+      return const PostMedia(kind: PostMediaKind.video);
     }
-    final url = _httpUrl(raw);
-    return PostMedia(
-      kind: url != null && _audioFileRe.hasMatch(url.path) ? PostMediaKind.audio : PostMediaKind.video,
-      url: url,
-    );
   }
 
   /// The id of the `div.media` the player of a `[media]` script ([ofScript]) is put in on the web page (into its
@@ -95,6 +117,10 @@ final class PostMedia {
   static final _detectPlayerRe = RegExp(
     r'''detectPlayer\(\s*["'](?<id>[^"']*)["']\s*,\s*["'](?<type>[^"']*)["']\s*,\s*["'](?<url>[^"']+)["']''',
   );
+
+  /// The forum's script of a flash or html5 player: `AC_FL_RunContent(…)`, `detectHtml5Support() ? … : …`.
+  static final _flashScriptRe = RegExp(r'AC_FL_RunContent\s*\(|detectHtml5Support\s*\(\s*\)\s*\?');
+
   static final _scriptIframeRe = RegExp(r'''<iframe[^>]*\ssrc=\\?["'](?<url>[^"'\\]+)''', caseSensitive: false);
   static final _flashSourceRe = RegExp(r'''['"]src['"]\s*,\s*['"](?<url>[^'"]+)['"]''');
 
@@ -154,37 +180,62 @@ final class PostMedia {
       if (!const {'son', 'mp3', 'file', 'url', 'src', 'sound'}.contains(key)) {
         continue;
       }
-      final value = Uri.decodeComponent(part.substring(i + 1).trim());
-      if (_httpUrl(value) != null) {
+      // Only an address of its own, the player is opened when a path is all that is there.
+      final value = _decodeFlashvar(part.substring(i + 1).trim());
+      if ((value.startsWith('//') || _schemeRe.hasMatch(value)) && _httpUrl(value) != null) {
         return value;
       }
     }
     return null;
   }
 
+  /// A value of flashvars, url encoded as written by the forum's editor (`%E4%B8%AD`), by javascript's `escape()`
+  /// (`%u4E2D`, common with old flash players), or not at all (`50%off`): as text, each escape that can be read read,
+  /// the rest left as it is. [Uri.decodeComponent] throws on the last two, which took the whole floor with it.
+  static String _decodeFlashvar(String value) {
+    final unicode = value.replaceAllMapped(
+      _jsUnicodeEscapeRe,
+      (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)),
+    );
+    try {
+      return Uri.decodeComponent(unicode);
+    } on Object {
+      return unicode;
+    }
+  }
+
+  static final _jsUnicodeEscapeRe = RegExp('%u([0-9a-fA-F]{4})');
+
   static String? _nonEmpty(String? s) => (s == null || s.trim().isEmpty) ? null : s;
 
   /// [raw] as an absolute http(s) url, null when it is not one.
+  ///
+  /// Read as a browser reads it: tabs and line breaks anywhere and control characters and spaces around it are left
+  /// out (`java\tscript:` is `javascript:`); a path is on the forum (`/x` is `https://www.tsdm39.com/x`).
   static Uri? _httpUrl(String? raw) {
-    final s = raw?.trim();
+    final s = raw?.replaceAll(_urlTabOrNewlineRe, '').replaceAll(_urlEdgeRe, '');
     if (s == null || s.isEmpty) {
       return null;
     }
-    final String absolute;
+    final Uri? uri;
     if (s.startsWith('//')) {
-      absolute = 'https:$s';
-    } else if (RegExp('^[a-zA-Z][a-zA-Z0-9+.-]*:').hasMatch(s)) {
-      absolute = s;
+      uri = Uri.tryParse('https:$s');
+    } else if (_schemeRe.hasMatch(s)) {
+      uri = Uri.tryParse(s);
     } else {
       // A path on the forum.
-      absolute = s.prependHost();
+      final reference = Uri.tryParse(s);
+      uri = reference == null ? null : Uri.parse('$baseUrl/').resolveUri(reference);
     }
-    final uri = Uri.tryParse(absolute);
     if (uri == null || !(uri.isScheme('http') || uri.isScheme('https')) || uri.host.isEmpty) {
       return null;
     }
     return uri;
   }
+
+  static final _urlTabOrNewlineRe = RegExp('[\t\n\r]');
+  static final _urlEdgeRe = RegExp('^[\u0000-\u0020]+|[\u0000-\u0020]+\$');
+  static final _schemeRe = RegExp('^[a-zA-Z][a-zA-Z0-9+.-]*:');
 }
 
 /// An embedded player of a post ([PostMedia]), which the app does not play: a small inline card naming the site,

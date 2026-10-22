@@ -384,14 +384,17 @@ class Locked extends Equatable {
     return _LockedInfo.unknown(text: _noticeText(element));
   }
 
-  /// The text of the notice in [element] as the page shows it: the labels of its buttons and fields (the password box
-  /// of a password post) and scripts left out, white space collapsed.
+  /// The text of the notice in [element] as the page shows it, white space collapsed: the labels of its buttons, fields
+  /// and choices (the password box of a password post), the purchase button (`a.viewpay`, at the end of the line on the
+  /// web page), scripts and what is hidden left out.
   static String _noticeText(uh.Element element) {
     final buffer = StringBuffer();
     void visit(uh.Node node) {
       for (final child in node.nodes) {
         if (child is uh.Element) {
-          if (const {'script', 'style', 'button', 'input', 'select', 'textarea'}.contains(child.localName) ||
+          if (_noticeControls.contains(child.localName) ||
+              child.attributes.containsKey('hidden') ||
+              child.classes.contains('viewpay') ||
               _hiddenRe.hasMatch(child.attributes['style'] ?? '')) {
             continue;
           }
@@ -410,7 +413,21 @@ class Locked extends Equatable {
     return buffer.toString().replaceAll(_whiteSpaceRe, ' ').trim();
   }
 
-  static final _hiddenRe = RegExp(r'(^|;)\s*display\s*:\s*none\b', caseSensitive: false);
+  /// Elements whose text is not the notice: scripts and what is not shown, the controls of a form and their labels.
+  static const _noticeControls = {
+    'script',
+    'style',
+    'noscript',
+    'template',
+    'button',
+    'input',
+    'select',
+    'option',
+    'textarea',
+    'label',
+  };
+
+  static final _hiddenRe = RegExp(r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\b', caseSensitive: false);
 
   static final _pointsRe = RegExp(r'高于\s*(?<requiredPoints>\d+)\s*才可浏览(，您当前积分为\s*(?<points>-?\d+))?');
   static final _whiteSpaceRe = RegExp(r'\s+');
