@@ -26,6 +26,7 @@ import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_pr
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
+import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
 import 'package:universal_html/parsing.dart';
@@ -353,7 +354,7 @@ void main() {
     List<TextSpan> cellSpans(WidgetTester tester) {
       final out = <TextSpan>[];
       for (final rich in tester.widgetList<RichText>(
-        find.descendant(of: find.byType(Table), matching: find.byType(RichText)),
+        find.descendant(of: find.byType(PostTable), matching: find.byType(RichText)),
       )) {
         rich.text.visitChildren((span) {
           if (span is TextSpan && (span.text?.trim().isNotEmpty ?? false)) {

@@ -40,8 +40,8 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/media_card.dart';
+import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/utils/html/review_parser.dart';
-import 'package:tsdm_client/utils/html/table_width.dart';
 import 'package:tsdm_client/widgets/card/lock_card/locked_card.dart';
 import 'package:tsdm_client/widgets/card/review_card.dart';
 import 'package:tsdm_client/widgets/card/spoiler_card.dart';
@@ -92,19 +92,22 @@ TextStyle? _styleOf(WidgetTester tester, String text) {
   return _spans(root).firstWhere((e) => e.text?.contains(text) ?? false).style;
 }
 
-/// The text of every cell of the table, by row.
+/// The text of every cell of the table, by row and column: a place a cell spans beyond its first is empty.
 List<List<String>> _cells(WidgetTester tester) {
-  final table = tester.widget<Table>(find.byType(Table));
-  return [
-    for (final row in table.children)
-      [
-        for (final cell in row.children)
-          switch (cell) {
-            final Text text => text.textSpan?.toPlainText() ?? text.data ?? '',
-            _ => '',
-          },
-      ],
-  ];
+  final table = tester.widget<PostTable>(find.byType(PostTable));
+  final cells = table.children.cast<PostTableCell>();
+  final columns = cells.fold(
+    0,
+    (count, cell) => count > cell.column + cell.columnSpan ? count : cell.column + cell.columnSpan,
+  );
+  final grid = [for (var y = 0; y < table.rowCount; y++) List.filled(columns, '')];
+  for (final cell in cells) {
+    grid[cell.row][cell.column] = switch (cell.child) {
+      final Text text => text.textSpan?.toPlainText() ?? text.data ?? '',
+      _ => '',
+    };
+  }
+  return grid;
 }
 
 void main() {
@@ -408,7 +411,7 @@ void main() {
         await _text(tester, '<table cellspacing="0" cellpadding="0"><tr><td class="t_f">正文</td></tr></table>'),
         '正文',
       );
-      expect(find.byType(Table), findsNothing);
+      expect(find.byType(PostTable), findsNothing);
       // A caption is a line above its table.
       await _pump(tester, '<table><caption>标题</caption><tr><td>甲</td><td>乙</td></tr></table>');
       expect(_cells(tester), [
@@ -473,7 +476,7 @@ void main() {
         expect(find.byType(PostTableScrollView), findsOneWidget);
         expect(find.textContaining('结尾', findRichText: true), findsWidgets);
         expect(find.textContaining('第二格', findRichText: true), findsWidgets);
-        expect(tester.getSize(find.byType(Table)).height, greaterThan(100));
+        expect(tester.getSize(find.byType(PostTable)).height, greaterThan(100));
       });
     }
 

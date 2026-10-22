@@ -1,0 +1,37 @@
+{
+ "_about": "The texts the third phase of the post display work changed (test_233_post_tables_test.dart): `before`, the text the munch_author_styles_x5.json record ends with (or the records before it), and `after`, the text the muncher gives now. The forum's buttons in the blocks of a special thread, read from the web page (voting in a debate, ending it, answering a bounty, joining an activity), run the page's scripts: they are left out again, their labels were text that could not be pressed.",
+ "samples": {
+  "test/data/tsdmapp/special_v15_activity_open_guest.json#5824": {
+   "before": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n我要参加\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_ended_result.json#6301": {
+   "before": "«正方获胜 评判时间: 2026-10-21 09:41\n裁判观点: 正方勝 UMPIRE_925316\n最佳辩手: ag_low\n辯論 D2_BODY_925316 辯論說明\n结束时间: 2026-10-21 09:41 裁判: ag_mod\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«支持\n辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:0 ( ￼加入 )\n支持»\n",
+   "after": "«正方获胜 评判时间: 2026-10-21 09:41\n裁判观点: 正方勝 UMPIRE_925316\n最佳辩手: ag_low\n辯論 D2_BODY_925316 辯論說明\n结束时间: 2026-10-21 09:41 裁判: ag_mod\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:0 ( ￼加入 )»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_no_endtime.json#6303": {
+   "before": "«辯論 D3_BODY_925316 辯論說明\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«支持\n辩手:0 ( ￼加入 )»\n« »\n«辩手:0 ( ￼加入 )\n支持»\n",
+   "after": "«辯論 D3_BODY_925316 辯論說明\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:0 ( ￼加入 )»\n« »\n«辩手:0 ( ￼加入 )»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_open_guest.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«支持\n辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n支持\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_open_member.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«支持\n辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n支持\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_umpire_voted.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n结束此次辩论\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«支持\n辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n支持\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_voted.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (2)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (1)\n反方觀點 NEG_925316»\n«支持\n辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n支持\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (2)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (1)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_reward_open_author.json#5800": {
+   "before": "«￼\n\n\nREWARD_R1_Q_222088 問題\n我来回答»\n«Bounty»\n«PROCESSING»\n«2 coins»\n",
+   "after": "«￼\n\n\nREWARD_R1_Q_222088 問題»\n«Bounty»\n«PROCESSING»\n«2 coins»\n"
+  }
+ }
+}
