@@ -118,7 +118,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
       pathParameters: <String, String>{
         'username': widget.post.author.name,
         'pid': widget.post.postID,
-        // 0 when the floor is not known (a hot reply whose floor the forum does not tell): the page says no floor.
+        // 0 when the floor is not known (a hot reply whose floor cannot be worked out): the page says no floor.
         'floor': '${widget.post.shownFloor ?? 0}',
         'rateAction': widget.post.rateAction!,
       },
@@ -669,8 +669,9 @@ class _BlockedAvatar extends StatelessWidget {
 
 /// The floor number at the end of a floor's header, "#N" ([postFloorLabel]); a hot reply ([Post.hot]) says "推荐"
 /// there as the page does, with the floor it really is when known ([Post.hotFloor]), and then goes to that floor when
-/// tapped (its share link, the forum's `findpost`). The production forum does not tell that floor (its threads keep
-/// no floor positions): "推荐" alone, nothing to tap.
+/// tapped (its share link, the forum's `findpost`). When that floor is not known (plugin 2.8.4 works it out even for
+/// threads that count floors one by one, but gives 0 when it cannot: posted in the same second, floors the viewer
+/// cannot see, reply counts that do not add up; the web page never tells it): "推荐" alone, nothing to tap.
 class _FloorBadge extends StatelessWidget {
   const _FloorBadge(this.post);
 
