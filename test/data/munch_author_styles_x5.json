@@ -1,0 +1,9 @@
+{
+ "_about": "The texts the style the author gave a post changed (test_231_post_author_styles_test.dart): `before`, the text the munch_render_content_x5.json record ends with (or munch_whitespace_x5.json where it has none), and `after`, the text the muncher gives now. The forum's own `<style>` in the guest thumbnail (`.guestviewthumb { text-align: center }`) centers the thumbnail and its login link as on the web page: a block of its own, the same text.",
+ "samples": {
+  "test/data/tsdmapp/thread_v14_guestthumb.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n￼\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n￼\n\n￼\n\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«[img]\n                               \n￼登录/注册后可看大图»\n«￼ Media: example.com  Tap to open in browser»\n«[img]\n￼登录/注册后可看大图»\n«[img]\n￼登录/注册后可看大图»\n"
+  }
+ }
+}
