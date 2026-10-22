@@ -197,9 +197,10 @@ final class _SpanBuilder {
   final _lists = Set<InlineSpan>.identity();
 
   /// [nodes] as the content of a rich text of its own (the post, a spoiler, an aligned block): in paragraphs as the
-  /// html renderer lays out a post's content ([layOutParagraphs]).
-  List<InlineSpan> buildContent(List<BbNode> nodes) {
-    final spans = build(nodes);
+  /// html renderer lays out a post's content ([layOutParagraphs]). [block]: the content of a spoiler or an aligned
+  /// block, see [build].
+  List<InlineSpan> buildContent(List<BbNode> nodes, {bool block = false}) {
+    final spans = build(nodes, block: block);
     final typography = this.typography;
     return typography == null ? spans : layOutParagraphs(spans, typography, keepsWhole: _lists.contains);
   }
@@ -208,10 +209,26 @@ final class _SpanBuilder {
 
   static const _lineBreak = TextSpan(text: '\n');
 
-  List<InlineSpan> build(List<BbNode> nodes, {String? link}) {
+  /// [nodes] as spans, each block on lines of its own.
+  ///
+  /// [block]: the content of a spoiler or an aligned block, which ends with line breaks only when they are on lines
+  /// of their own (after a block in it, or all it holds; see the builder's `_blockContent`). On the web page each is an
+  /// empty line (`<br>` after a `</div>`, or alone in its `<div>`): the line break the block puts after itself (kept,
+  /// as it is no longer the last), then those empty lines.
+  List<InlineSpan> build(List<BbNode> nodes, {String? link, bool block = false}) {
     final out = <InlineSpan>[];
     var atLineStart = true;
-    for (final node in nodes) {
+    for (final (index, node) in nodes.indexed) {
+      if (block &&
+          index == nodes.length - 1 &&
+          node is BbText &&
+          RegExp(r'^\n+$').hasMatch(node.text) &&
+          (index == 0 || nodes[index - 1].isBlock)) {
+        // An empty line of the text's style for each, a zero width space on it: a rich text ending with a line break
+        // would show one line more, and that last empty line would take the height of the line before it (a block's).
+        out.add(TextSpan(text: List.filled(node.text.length, '\u200b').join('\n'), style: _style(node.style)));
+        break;
+      }
       if (node.isBlock) {
         if (!atLineStart) {
           out.add(_lineBreak);
@@ -265,7 +282,7 @@ final class _SpanBuilder {
       case BbSpoiler(:final title, :final children):
         _elevation += _elevationStep;
         final elevation = _elevation;
-        final content = buildContent(children);
+        final content = buildContent(children, block: true);
         _elevation -= _elevationStep;
         return textWidgetSpan(
           SpoilerCard(
@@ -303,7 +320,7 @@ final class _SpanBuilder {
           Row(
             children: [
               Expanded(
-                child: Text.rich(TextSpan(children: buildContent(children)), textAlign: textAlign),
+                child: Text.rich(TextSpan(children: buildContent(children, block: true)), textAlign: textAlign),
               ),
             ],
           ),
