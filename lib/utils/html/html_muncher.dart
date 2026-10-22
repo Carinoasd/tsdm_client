@@ -2709,15 +2709,10 @@ final class _Muncher with LoggerMixin {
               takenUntil[x] = y + rowspan - 1;
             }
           }
-          // Aligned as the web page aligns the cell: its style, its `align`, its row's, its table's, the block's
-          // around the table (`text-align` is inherited).
+          // Aligned as the web page aligns the cell: its style, its `align`, its row's, its table's. Not as the block
+          // around the table (`[align=center]`): the web page leaves the cells of a centered table aligned left.
           final align =
-              _styleAlign(cell) ??
-              _blockAlign(cell) ??
-              _styleAlign(tr) ??
-              _blockAlign(tr) ??
-              _styleAlign(element) ??
-              state.textAlign;
+              _styleAlign(cell) ?? _blockAlign(cell) ?? _styleAlign(tr) ?? _blockAlign(tr) ?? _styleAlign(element);
           row
             ..add(_tableCell(Text.rich(TextSpan(children: content), textAlign: align), content, cellBackground))
             ..addAll(List<Widget>.filled(colspan - 1, sizedBoxEmpty));
@@ -2906,9 +2901,11 @@ final class _Muncher with LoggerMixin {
     // On a picture: on the color painted under it, if any.
     final under = pictureBehind ? state.blockBackgroundStack.lastWhereOrNull((e) => e.color != null)?.color : null;
     // A color given in the block of the background (pushed after it) was chosen for it; one given around the block,
-    // or the theme's, was not, and is made readable on it.
-    final ownInside = nearest != null && state.colorStack.length > nearest.colors;
-    final linkInside = nearest != null && (state.linkOrder ?? -1) >= nearest.order;
+    // or the theme's, was not, and is made readable on it. The background of a piece of text is the author's for
+    // whatever color the text has: `[color=white][backcolor=orange]` nests either way round.
+    final onText = nearest != null && identical(nearest, inline);
+    final ownInside = nearest != null && (onText || state.colorStack.length > nearest.colors);
+    final linkInside = nearest != null && (onText || (state.linkOrder ?? -1) >= nearest.order);
     final ink = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
     Color? shown(Color? authored, {required bool inside, required Color? fallback}) {
       if (nearest == null) {

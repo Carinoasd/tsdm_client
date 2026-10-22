@@ -729,6 +729,16 @@ void main() {
         );
       }
       expect(_style(tester, '块里给的颜色').color, const Color(0xFF444444), reason: "the author's, as the web page");
+      // The background of a piece of text goes with its color, whichever is around the other.
+      await _pump(
+        tester,
+        _inPost(
+          '<font color="white"><font style="background-color: orange">橙底白字</font></font>'
+          '<span style="background-color: #000"><font color="#000">黑底黑字</font></span>',
+        ),
+      );
+      expect(_style(tester, '橙底白字').color, const Color(0xFFFFFFFF));
+      expect(_style(tester, '黑底黑字').color, const Color(0xFF000000));
     });
 
     testWidgets('headings, items, lists, terms, quotes and preformatted text have their background', (tester) async {
@@ -788,11 +798,13 @@ void main() {
         ('<div align="center"><div style="background-color: pink">居中粉底</div></div>', '居中粉底'),
         ('<center><table bgcolor="wheat"><tr><td>居中麦底</td></tr></table></center>', '居中麦底'),
         ('<table style="text-align: center"><tr><td>表格置中</td><td>二</td></tr></table>', '表格置中'),
-        ('<div align="center"><table><tr><td>块里的表格</td><td>二</td></tr></table></div>', '块里的表格'),
       ]) {
         await _pump(tester, _inPost(html));
         expect(_richText(tester, text).textAlign, TextAlign.center, reason: html);
       }
+      // The cells of a table in a centered block stay aligned left, as on the web page.
+      await _pump(tester, _inPost('<div align="center"><table><tr><td>块里的表格</td><td>二</td></tr></table></div>'));
+      expect(_richText(tester, '块里的表格').textAlign, isNot(TextAlign.center));
     });
 
     testWidgets('justified paragraphs keep their paragraph spacing; tiny text is hidden', (tester) async {
