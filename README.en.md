@@ -16,15 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.44.0 (2026-10-22)
+## Latest update: 1.44.1 (2026-10-22)
 
-- Post content now follows the author's styling: text color, background color, font size, weight, shadow, alignment, first-line indent, and the post's own style sheet (event posts, custom-layout posts).
-- In dark mode the author's text and background colors are adjusted to stay readable, while deliberately hidden text (same-color text, white-on-white answers) stays hidden.
-- Links in posts are underlined as on the website; only links to sites outside the forum keep the link icon.
-- The experimental app renderer gets the same treatment.
-- Android build number 149, installs over earlier releases and test builds.
+- The experimental app renderer (the "render posts with the app renderer" setting, off by default) now matches the website in a few more places: long URLs are shortened the way the forum does it; blank lines in collapsed sections and alignment blocks match the website; links wrapped in colored text use the link color as on the website.
+- 1.44.0: posts follow the author's styling (colors, backgrounds, font sizes, shadows, alignment and the post's own style sheet), dark mode keeps them readable, and links are underlined as on the website.
+- Android build number 150, installs over earlier releases and test builds.
 
-[Download 1.44.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.44.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.44.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.44.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
