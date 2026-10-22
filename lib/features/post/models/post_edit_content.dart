@@ -98,7 +98,70 @@ final class PostEditContent with PostEditContentMappable {
     required this.maxPrice,
     this.tags = '',
     this.canSaveDraft = false,
+    this.postForm,
   });
+
+  /// Build the content from the post form [form] of the forum's app API (plugin 2.9.0, [PostForm]): the same fields
+  /// the web page parser reads ([fromDocument]), from the answer instead of the html. The type selector, the read
+  /// permission and the options are the controls of the form (their choices and served values); the title limit is
+  /// the forum's own ([PostForm.subjectLimit], counted as the forum counts it, [titleLength]); the answer is kept
+  /// ([postForm]) to post the form back with the member's edits over every served value ([PostForm.bodyWith]).
+  ///
+  /// Null when the form lacks what the editor needs: the form hash, the post (another editor), and the thread fields
+  /// of an edit. Whether the editor may take the form at all is [PostForm.editorSupport].
+  static PostEditContent? fromPostForm(PostForm form) {
+    final fields = form.submitFields;
+    final formHash = fields['formhash'];
+    final data = form.message;
+    final isEdit = form.action == 'edit';
+    if (formHash == null ||
+        formHash.isEmpty ||
+        data == null ||
+        (isEdit && ['delattachop', 'fid', 'tid', 'pid', 'page'].any((e) => fields[e] == null))) {
+      talker.error('invalid post form answer');
+      return null;
+    }
+    final types = form.typeInput;
+    final typeList = types?.choices.map((e) => PostEditThreadType(name: e.label, typeID: e.value)).toList();
+    final perm = form.readPerm;
+    final price = form.priceInput;
+    return PostEditContent(
+      threadType: typeList?.where((e) => e.typeID == types!.value).lastOrNull,
+      threadTypeList: typeList,
+      threadTitle: form.subject,
+      threadTitleMaxLength: form.subjectLimit,
+      formHash: formHash,
+      postTime: fields['posttime'] ?? '',
+      delattachop: fields['delattachop'],
+      wysiwyg: fields['wysiwyg'] ?? '0',
+      fid: fields['fid'],
+      tid: fields['tid'],
+      pid: fields['pid'],
+      page: fields['page'],
+      data: data,
+      options: [
+        for (final option in form.options.where((e) => e.isCheckbox))
+          PostEditContentOption(
+            name: option.name,
+            value: option.value ?? 'on',
+            disabled: option.disabled,
+            checked: option.checked,
+            readableName: option.label.isEmpty ? option.name : option.label,
+          ),
+      ],
+      permList: perm == null
+          ? null
+          : [
+              for (final choice in perm.choices)
+                ThreadPerm(groupName: choice.label, perm: choice.value, selected: choice.value == perm.value),
+            ],
+      price: price == null ? null : int.tryParse(price.value?.trim() ?? '') ?? 0,
+      maxPrice: price == null ? null : form.priceMax,
+      tags: form.tagsInput?.value ?? '',
+      canSaveDraft: form.canSaveDraft,
+      postForm: form.json,
+    );
+  }
 
   /// Build a instance of [PostEditContent] from [document].
   ///
@@ -406,4 +469,56 @@ final class PostEditContent with PostEditContentMappable {
 
   /// Maximum allowed price parsed from thread page.
   final int? maxPrice;
+
+  /// The post form answer of the forum's app API this content was built from ([fromPostForm], plugin 2.9.0), posted
+  /// back with the member's edits ([PostForm.bodyWith]); null for content parsed from the web page, which is posted
+  /// as it always was.
+  final Map<String, dynamic>? postForm;
+
+  /// The post form of [postForm], null for content parsed from the web page.
+  PostForm? get form => switch (postForm) {
+    final Map<String, dynamic> json => PostForm.fromJson(json),
+    null => null,
+  };
+
+  /// Whether the forum marks new posts of this form as awaiting moderation (plugin 2.9.0, [PostForm.moderated]):
+  /// false when it does not, or does not tell (the edit page, the web page).
+  bool get moderated => form?.moderated ?? false;
+
+  /// Length of the thread [title] as [threadTitleMaxLength] counts it: as the forum does for a post form of its app
+  /// API (the trimmed title escaped, then `dstrlen`: [discuzSubjectLength]), the UTF-8 bytes of the title for the
+  /// web page (as the editor always counted the page's limit).
+  int titleLength(String title) => postForm != null ? discuzSubjectLength(title) : title.parseUtf8Length;
+
+  /// Whether the thread [title] is longer than the forum takes, with [fallbackMax] when the page tells no limit: the
+  /// forum refuses a title beyond its limit (plugin 2.9.0), the editor always refused one reaching the page's.
+  bool titleTooLong(String title, int fallbackMax) {
+    final max = threadTitleMaxLength ?? fallbackMax;
+    return postForm != null ? titleLength(title) > max : titleLength(title) >= max;
+  }
+
+  /// Whether the thread [title], given, is shorter than the forum's minimum ([PostForm.subjectMin]); never for the
+  /// web page, which tells none.
+  bool titleTooShort(String title) {
+    final min = form?.subjectMin;
+    final length = titleLength(title);
+    return min != null && length > 0 && length < min;
+  }
+
+  /// Whether the post [message] (as written, before the mentions are converted) is shorter than the forum takes
+  /// ([PostForm.messageMin], without the quoted part); never for the web page, which tells no limit.
+  bool messageTooShort(String message) {
+    final form = this.form;
+    final min = form?.messageMin;
+    if (form == null || min == null) return false;
+    final text = toOfficialMentions(message);
+    return form.messageMinExcludesQuote ? discuzMessageTooShort(text, min) : discuzMessageBytes(text) < min;
+  }
+
+  /// Whether the post [message] is longer than the forum takes ([PostForm.messageMax], UTF-8 bytes); never for the web
+  /// page.
+  bool messageTooLong(String message) {
+    final max = form?.messageMax;
+    return max != null && discuzMessageBytes(toOfficialMentions(message)) > max;
+  }
 }

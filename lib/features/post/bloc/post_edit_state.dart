@@ -18,6 +18,10 @@ enum PostEditStatus {
   /// Structured editor data requires the website editor.
   unsupported,
 
+  /// The forum asks this account for a captcha or a security question to post here, which only the website shows:
+  /// continue there, nothing is posted from the app.
+  verificationRequired,
+
   /// Waiting for user to edit.
   editing,
 
@@ -58,7 +62,8 @@ final class PostEditState with PostEditStateMappable {
 
   /// Error text html element.
   ///
-  /// Use this to show the error message.
+  /// Use this to show the error message: the forum's reason a post was refused ([PostEditStatus.failedToUpload]), or
+  /// the forum's message shown instead of the form ([PostEditStatus.failedToLoad], plugin 2.9.0).
   final String? errorText;
 
   /// Information used in publishing thread.

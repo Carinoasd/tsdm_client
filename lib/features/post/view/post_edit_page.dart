@@ -322,10 +322,43 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return disabledFeatures;
   }
 
+  /// Why the forum would refuse the type, the title or the post of a post form of its app API as they are (plugin
+  /// 2.9.0), checked before anything is confirmed or sent: a type the forum requires, the title (escaped then
+  /// `dstrlen`: an ASCII character 1, any other 2, `&` 5) against its limits, the post in UTF-8 bytes (the minimum
+  /// without quotes). Null when nothing is wrong, and always for the web page, which tells none of this (the forum keeps
+  /// the last word).
+  String? _formIssue(BuildContext context, PostEditContent content) {
+    final form = content.form;
+    if (form == null) return null;
+    final tr = context.t.postEditPage;
+    final title = threadTitleController.text;
+    final message = bbcodeController.toForumBBCode();
+    final opening = form.action == 'newthread' || form.first;
+    // The forum requires a type of an ordinary thread when the forum says so (a new thread, its first post edited).
+    if (opening && form.typeInput != null && form.typeRequired && (int.tryParse(threadType?.typeID ?? '') ?? 0) <= 0) {
+      return tr.threadTypeShouldNotBeEmpty;
+    }
+    if (form.subject != null) {
+      if (opening && title.trim().isEmpty) return tr.titleShouldNotBeEmpty;
+      if (content.titleTooLong(title, _defaultThreadTitleMaxlength)) {
+        return tr.titleTooLongLimit(limit: form.subjectLimit);
+      }
+      if (content.titleTooShort(title)) return tr.titleTooShortLimit(limit: form.subjectMin ?? 0);
+    }
+    if (content.messageTooShort(message)) return tr.threadBodyTooShortLimit(limit: form.messageMin ?? 0);
+    if (content.messageTooLong(message)) return tr.threadBodyTooLongLimit(limit: form.messageMax ?? 0);
+    return null;
+  }
+
   Future<void> _onFinish(BuildContext context, PostEditState state, {bool saveDraft = false}) async {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
+    final issue = _formIssue(context, state.content!);
+    if (issue != null) {
+      showSnackBar(context: context, message: issue);
+      return;
+    }
     setState(() => _confirming = true);
     try {
       if (widget.editType.isEditingDraft) {
@@ -355,6 +388,16 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                   ),
                 ),
         );
+        if (ret != true) {
+          return;
+        }
+      }
+      // The forum sends new posts of this forum to its moderators first (plugin 2.9.0, the form's `moderated`): say so
+      // before anything is sent. A draft stays private and is not reviewed.
+      if (!saveDraft && state.content!.moderated) {
+        if (!context.mounted) return;
+        final tr = context.t.postEditPage.moderated;
+        final ret = await showQuestionDialog(context: context, title: tr.title, message: tr.message);
         if (ret != true) {
           return;
         }
@@ -576,7 +619,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       onChanged: (value) {
         setState(() {
           threadTitleRestLength =
-              (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) - value.parseUtf8Length;
+              (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) -
+              (state.content?.titleLength(value) ?? value.parseUtf8Length);
         });
       },
       validator: (v) {
@@ -587,11 +631,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         if (v == null) {
           return tr.titleShouldNotBeEmpty;
         }
-        final titleLength = v.parseUtf8Length;
+        final titleLength = state.content?.titleLength(v) ?? v.parseUtf8Length;
         if (titleLength <= 0) {
           return tr.titleShouldNotBeEmpty;
         }
-        if (titleLength >= (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength)) {
+        if (state.content?.titleTooLong(v, _defaultThreadTitleMaxlength) ??
+            titleLength >= _defaultThreadTitleMaxlength) {
           return tr.titleTooLong;
         }
         return null;
@@ -723,10 +768,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (state.status == PostEditStatus.identityChanged) {
       return AppStateView(icon: Icons.manage_accounts_outlined, message: context.t.draftBox.accountChanged);
     }
-    if (state.status == PostEditStatus.unsupported) {
+    if (state.status == PostEditStatus.unsupported || state.status == PostEditStatus.verificationRequired) {
       return AppStateView(
-        icon: Icons.web_outlined,
-        message: context.t.draftBox.unsupported,
+        icon: state.status == PostEditStatus.verificationRequired ? Icons.verified_user_outlined : Icons.web_outlined,
+        message: state.status == PostEditStatus.verificationRequired
+            ? context.t.postEditPage.verificationRequired
+            : context.t.draftBox.unsupported,
         action: TextButton.icon(
           icon: const Icon(Icons.open_in_browser_outlined),
           onPressed: () async {
@@ -747,6 +794,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return const CenteredCircularIndicator();
     }
     if (state.status == PostEditStatus.failedToLoad) {
+      // The forum's message shown instead of the form, when it told one (plugin 2.9.0: no permission, a password
+      // forum, an edit time limit…).
       return buildRetryButton(context, () {
         switch (widget.editType) {
           case PostEditType.editPost || PostEditType.editDraft:
@@ -764,7 +813,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           case PostEditType.newThread:
             context.read<PostEditBloc>().add(ThreadPubFetchInfoRequested(fid: widget.fid));
         }
-      });
+      }, message: state.errorText);
     }
 
     if (!initialized) {
@@ -900,7 +949,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       // Bytes of chars for title in utf-8 encoding.
       threadTitleRestLength =
           (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) -
-          threadTitleController.text.parseUtf8Length;
+          (state.content?.titleLength(threadTitleController.text) ?? threadTitleController.text.parseUtf8Length);
       if (state.content?.options != null) {
         additionalOptionsMap = Map.fromEntries(state.content!.options!.map((e) => MapEntry(e.name, e)));
       }

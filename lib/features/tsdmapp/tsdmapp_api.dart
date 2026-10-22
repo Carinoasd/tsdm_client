@@ -77,6 +77,25 @@ abstract final class TsdmAppApi {
   static void reset() {
     _unavailableUntil = null;
     pluginInfo.value = null;
+    _postFormSeen = false;
+  }
+
+  static bool _postFormSeen = false;
+
+  /// Note that a post form came back as structured fields (plugin 2.9.0, `type: post`, `schema` 16) in this run.
+  static void notePostForm() => _postFormSeen = true;
+
+  /// Whether the forum's plugin is known to answer the post forms as structured fields (plugin 2.9.0): it named
+  /// [tsdmAppPostFormVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
+  /// soon after the app starts), or such a form came back in this run ([notePostForm]).
+  ///
+  /// Only a hint for the reply window: the forum's own window is an AJAX fragment (`inajax=1`), while the structured
+  /// form is asked without `inajax`, which an older plugin answers as a write result instead. The window is asked
+  /// the new way only on this hint, and what is read is still decided by the answer: a window that does not come
+  /// back as a post form is asked again the way it always was.
+  static bool get knowsPostForm {
+    final info = pluginInfo.value;
+    return _postFormSeen || (info != null && compareTsdmAppVersions(info.version, tsdmAppPostFormVersion) >= 0);
   }
 
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
@@ -237,7 +256,11 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '2.8.2';
+const expectedTsdmAppVersion = '2.9.0';
+
+/// The first version of the forum's plugin that answers the post forms (a new thread, a reply, an edit, the reply
+/// window) as structured fields (`type: post`, `schema` 16): see [TsdmAppApi.knowsPostForm].
+const tsdmAppPostFormVersion = '2.9.0';
 
 /// What the forum's plugin tells about itself in the answer of an action: `status` and `notify` name their `version`
 /// since plugin 1.0.0 (1.9.0 for `notify`), and 2.3.0 adds `nodoc: 1` to `status` when it takes [tsdmAppNodocQuery].

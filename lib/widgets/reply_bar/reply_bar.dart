@@ -26,6 +26,7 @@ import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
+import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -35,6 +36,25 @@ import 'package:tsdm_client/widgets/reply_bar/debate_stand_selector.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 
 enum _BottomPanelType { none, keyboard, toolbar }
+
+/// The snack bar action of a failed reply that needs the website ([ReplyState.browserUrl]: the forum asks for a captcha
+/// or a security question, or the reply form has fields the app cannot fill): open the page to reply on in the browser.
+/// Null for any other failure.
+SnackBarAction? replyInBrowserAction(BuildContext context, String? url) {
+  if (url == null) {
+    return null;
+  }
+  return SnackBarAction(
+    label: context.t.threadPage.replyInBrowser,
+    onPressed: () async {
+      try {
+        await openInExternalBrowser(Uri.parse(url));
+      } on Object catch (e) {
+        talker.error('failed to open the reply page in the browser: $e');
+      }
+    },
+  );
+}
 
 /// Widget provide reply functionality.
 ///

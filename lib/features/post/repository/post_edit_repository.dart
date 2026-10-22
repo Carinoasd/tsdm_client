@@ -5,6 +5,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/features/post/utils/submission_result.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
@@ -13,6 +14,38 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
+
+/// A post form page as [PostEditRepository.fetchForm] got it.
+sealed class PostEditFormAnswer {
+  const PostEditFormAnswer();
+}
+
+/// The web page, parsed as it always was: a forum without the plugin, or with one older than 2.9.0.
+final class PostEditFormPage extends PostEditFormAnswer {
+  /// Constructor.
+  const PostEditFormPage(this.document);
+
+  /// The page.
+  final uh.Document document;
+}
+
+/// The post form of the forum's app API (plugin 2.9.0, `type: post`, `schema` 16).
+final class PostEditFormApi extends PostEditFormAnswer {
+  /// Constructor.
+  const PostEditFormApi(this.form);
+
+  /// The form.
+  final PostForm form;
+}
+
+/// The forum's message shown instead of the form (plugin 2.9.0): no permission, a password forum, an edit time limit…
+final class PostEditFormRefused extends PostEditFormAnswer {
+  /// Constructor.
+  const PostEditFormRefused(this.message);
+
+  /// The message, plain text.
+  final String message;
+}
 
 /// Repository for editing posts.
 final class PostEditRepository with LoggerMixin {
@@ -78,6 +111,74 @@ final class PostEditRepository with LoggerMixin {
 
   static String _buildThreadPostUrl(String fid) =>
       '$homePage?mod=post&action=newthread&fid=$fid&extra=&topicsubmit=yes';
+
+  /// Fetch the post form page [url] (a new thread or an edit) in the JSON mode of the forum's app API
+  /// ([withTsdmAppJson], `nodoc=1`).
+  ///
+  /// Plugin 2.9.0 answers the form as structured fields (`type: post`, `schema` 16, [PostEditFormApi]) or the forum's
+  /// message instead of it ([PostEditFormRefused]); an older plugin, or none, leaves the page alone and it is parsed as
+  /// it always was ([PostEditFormPage]). An answer the plugin could not tell the form of (`unknown`) is not read: the
+  /// page is asked again without the parameters and parsed as the web page.
+  ///
+  /// The answer must be served to the account of this session: one served to another account, or to a guest, is
+  /// [IdentityChangedException] (the `uid` of the answer, the `discuz_uid` of the page).
+  AsyncEither<PostEditFormAnswer> fetchForm(String url) => AsyncEither(() async {
+    if (!isCurrent) return left(IdentityChangedException());
+    final result = await _get(withTsdmAppJson(url));
+    if (!isCurrent) return left(IdentityChangedException());
+    final Response<dynamic> response;
+    switch (result) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value):
+        response = value;
+    }
+    if (response.statusCode != 200) return left(HttpRequestFailedException(response.statusCode));
+    if (postFormAnswerOf(response.data) case final json?) {
+      if (tsdmAppInt(json['uid']) != _ownerUid) return left(IdentityChangedException());
+      final form = PostForm.fromJson(json);
+      if (form == null) return right(PostEditFormRefused(tsdmAppText(json['message'])));
+      TsdmAppApi.notePostForm();
+      return right(PostEditFormApi(form));
+    }
+    if (tsdmAppAnswerJson(response.data) == null) {
+      // The web page: a forum without the plugin, or with one older than 2.9.0. Read as it always was.
+      if (response.data is! String) return left(HttpRequestFailedException(response.statusCode));
+      final document = parseHtmlDocument(response.data as String);
+      if (parseLoggedUidFromDocument(document) != _ownerUid) return left(IdentityChangedException());
+      return right(PostEditFormPage(document));
+    }
+    // Another JSON answer (`unknown`: the plugin could not tell the form): the web page itself, as without the plugin.
+    return (await fetchData(url).run()).map(PostEditFormPage.new);
+  });
+
+  /// [fetchForm] of the form of a new thread in forum [fid].
+  AsyncEither<PostEditFormAnswer> prepareForm(String fid) => fetchForm(_buildThreadInfoUrl(fid));
+
+  /// Post the post form [form] (plugin 2.9.0) once, with the member's [edits] over every served value
+  /// ([PostForm.bodyWith]), to the url the forum gave (`submit.url`); the result is read as for the web page's form
+  /// ([parseSubmissionResult]): the url of the thread, [expectedTid] for an edit.
+  AsyncEither<String> submitForm(PostForm form, PostFormEdits edits, {String? expectedTid}) => AsyncEither(() async {
+    final url = form.submitUrl;
+    final body = form
+        .bodyWith(
+          PostFormEdits(
+            message: toOfficialMentions(edits.message),
+            subject: edits.subject,
+            typeId: edits.typeId,
+            perm: edits.perm,
+            price: edits.price,
+            options: edits.options,
+            save: edits.save,
+          ),
+        )
+        .toMap();
+    if (url == null || body == null) {
+      // Never offered for editing (PostForm.editorSupport): nothing is sent.
+      return left(ThreadPublishLocationNotFoundException());
+    }
+    return _submit(url, body, expectedTid: expectedTid).run();
+  });
 
   /// Fetch edit data from given [url].
   AsyncEither<uh.Document> fetchData(String url) => AsyncEither(() async {

@@ -338,7 +338,26 @@ final class ProfileStatusNotFoundException extends AppException with ProfileStat
 /// Failed to fetch parameters used in replying to a post.
 @MappableClass()
 class ReplyToPostFetchParameterFailedException extends AppException
-    with ReplyToPostFetchParameterFailedExceptionMappable {}
+    with ReplyToPostFetchParameterFailedExceptionMappable {
+  /// Constructor, [message] is the forum's message shown instead of the reply window, if any.
+  ReplyToPostFetchParameterFailedException([String? message]) : super(message: message);
+}
+
+/// Replying here needs the website, nothing was sent: the forum asks for a captcha or a security question
+/// ([verification]), or the reply window has fields the app cannot fill (another plugin's, another editor). [url] is
+/// the page to reply on.
+@MappableClass()
+final class ReplyNeedsBrowserException extends AppException with ReplyNeedsBrowserExceptionMappable {
+  /// Constructor.
+  ReplyNeedsBrowserException({required this.url, required this.verification})
+    : super(message: verification ? 'reply needs a captcha or a security question' : 'reply needs the website');
+
+  /// The page to reply on in the browser.
+  final String url;
+
+  /// The forum asks for a captcha or a security question.
+  final bool verification;
+}
 
 /// Reply to a post, but no successful result found in response.
 @MappableClass()

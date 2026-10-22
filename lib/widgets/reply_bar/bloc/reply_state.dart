@@ -29,6 +29,7 @@ class ReplyState with ReplyStateMappable {
     this.networkFailure = false,
     this.postedPid = '',
     this.postedPage = 0,
+    this.browserUrl,
   });
 
   /// Current usage of reply.
@@ -63,6 +64,10 @@ class ReplyState with ReplyStateMappable {
 
   /// Page (in the server's default order) the last successful reply landed on, 0 when unknown.
   final int postedPage;
+
+  /// The page to reply on in the browser when the last reply needs the website (the forum asks for a captcha or a
+  /// security question, or the reply form has fields the app cannot fill): nothing was sent. Null otherwise.
+  final String? browserUrl;
 
   /// Copy with, but make the `replyParameters` to null.
   ReplyState copyWithNullReplyParameters() {

@@ -834,6 +834,9 @@
     "replySuccess": "回复成功",
     "replyFailed": "回复失败：$err",
     "replyFailedNetwork": "回复失败：网络不可用，请检查网络后重试",
+    "replyNeedsVerification": "这个版块回复需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中回复。",
+    "replyNeedsBrowser": "这个回复表单有 App 暂不支持的栏位，请在浏览器中回复。",
+    "replyInBrowser": "在浏览器中回复",
     "draft": "草稿",
     "operationLog": {
       "title": "操作记录"
@@ -1119,6 +1122,15 @@
     "titleShouldNotBeEmpty": "标题不能为空",
     "titleTooLong": "标题太长",
     "threadBodyTooShort": "正文太短",
+    "titleTooLongLimit": "标题过长，上限为 ${limit: int}（英文数字计 1，其他字符计 2；& \" < > 会转义而占用更多）",
+    "titleTooShortLimit": "标题太短，至少 ${limit: int}（英文数字计 1，其他字符计 2）",
+    "threadBodyTooShortLimit": "正文太短，至少 ${limit: int} 字节，引用不计（英文字母 1 字节，汉字 3 字节）",
+    "threadBodyTooLongLimit": "正文太长，上限为 ${limit: int} 字节（英文字母 1 字节，汉字 3 字节）",
+    "verificationRequired": "这个版块发帖需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中继续。",
+    "moderated": {
+      "title": "需要审核",
+      "message": "这个版块的新帖要先经版主审核，通过后才会公开显示。要发布吗？"
+    },
     "editSuccess": "编辑成功",
     "saveAsDraft": "保存草稿",
     "threadPublish": {

@@ -432,7 +432,7 @@ void main() {
 
   group('I. the plugin version', () {
     test('expected version, and the order of versions', () {
-      expect(expectedTsdmAppVersion, '2.8.2');
+      expect(expectedTsdmAppVersion, '2.9.0');
       expect(compareTsdmAppVersions('2.2.0', '2.3.0'), lessThan(0));
       expect(compareTsdmAppVersions('2.3.0', '2.3.0'), 0);
       expect(compareTsdmAppVersions('2.3', '2.3.0'), 0);
@@ -445,8 +445,8 @@ void main() {
     });
 
     test('TsdmAppPluginInfo.fromAnswer: version, api, nodoc; nothing without a version', () {
-      final info = TsdmAppPluginInfo.fromAnswer(_status('2.8.2', nodoc: true))!;
-      expect(info.version, '2.8.2');
+      final info = TsdmAppPluginInfo.fromAnswer(_status('2.9.0', nodoc: true))!;
+      expect(info.version, '2.9.0');
       expect(info.api, 1);
       expect(info.nodoc, isTrue);
       expect(info.olderThanExpected, isFalse);
@@ -483,11 +483,16 @@ void main() {
         isTrue,
         reason: 'the favorite forums panel, but not the description html of the forums (the activities page)',
       );
+      expect(
+        TsdmAppPluginInfo.fromAnswer(_status('2.8.4', nodoc: true))!.olderThanExpected,
+        isTrue,
+        reason: 'the description html of the forums, but not the post forms',
+      );
       expect(TsdmAppPluginInfo.fromAnswer(_notify(null)), isNull);
       expect(TsdmAppPluginInfo.fromAnswer({'ok': 0, 'error': 'login'}), isNull);
       expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': ''}), isNull);
       expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': 7}), isNull);
-      expect(info, TsdmAppPluginInfo.fromAnswer(_status('2.8.2', nodoc: true)));
+      expect(info, TsdmAppPluginInfo.fromAnswer(_status('2.9.0', nodoc: true)));
       expect(info, isNot(older));
     });
 
@@ -535,23 +540,23 @@ void main() {
         expect(seen, hasLength(1));
 
         // Upgraded: notify names the new version; status says it takes nodoc.
-        answers['notify'] = _notify('2.8.2');
+        answers['notify'] = _notify('2.9.0');
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: false));
-        answers['status'] = _status('2.8.2', nodoc: true);
+        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: false));
+        answers['status'] = _status('2.9.0', nodoc: true);
         expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: true));
+        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true));
         expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isFalse);
 
         // notify never names nodoc: what status said of the same version holds, and the listeners hear nothing.
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: true));
+        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true));
         expect(seen, hasLength(3));
 
         // The session expired: the message names no version, what was known stays.
         answers['notify'] = {'ok': 0, 'error': 'login'};
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: true));
+        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true));
 
         // The one action that writes names it as well; another version, so nodoc is not carried over.
         answers['seen'] = {'ok': 1, 'api': 1, 'version': '2.3.1', 'time': 1792000000, 'uid': 35};
@@ -638,12 +643,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isTrue);
 
       // The expected plugin: no note.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '2.8.2', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '2.9.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );
@@ -651,12 +656,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isFalse);
 
       // A newer plugin: no note either.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.10.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '2.9.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '2.10.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );

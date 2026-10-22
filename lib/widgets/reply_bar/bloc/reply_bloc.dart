@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -141,25 +142,38 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     needClearText: true,
     postedPid: posted.pid ?? '',
     postedPage: posted.page ?? 0,
+    browserUrl: null,
   );
 
   /// Failure state for [e]: the server's own words when it gave any, the HTTP status when a broken answer came
   /// back, or the network flag when nothing came back at all (offline, DNS failure, timeout).
+  ///
+  /// A reply that needs the website ([ReplyNeedsBrowserException]: a captcha or a security question, fields the app
+  /// cannot fill) says so and names the page to reply on ([ReplyState.browserUrl]); nothing was sent.
   ReplyState _failed(AppException e) => switch (e) {
     HttpHandshakeFailedException(statusCode: null) || HttpRequestFailedException(statusCode: null) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: '',
       networkFailure: true,
+      browserUrl: null,
     ),
     HttpHandshakeFailedException(:final statusCode) || HttpRequestFailedException(:final statusCode) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: 'HTTP $statusCode',
       networkFailure: false,
+      browserUrl: null,
+    ),
+    ReplyNeedsBrowserException(:final url, :final verification) => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: verification ? t.threadPage.replyNeedsVerification : t.threadPage.replyNeedsBrowser,
+      networkFailure: false,
+      browserUrl: url,
     ),
     _ => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: e.message ?? e.runtimeType.toString(),
       networkFailure: false,
+      browserUrl: null,
     ),
   };
 

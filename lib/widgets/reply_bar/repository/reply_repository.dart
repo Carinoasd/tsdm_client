@@ -1,5 +1,6 @@
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
+import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -7,6 +8,8 @@ import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/notification/utils/personal_message_sent.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -18,6 +21,10 @@ import 'package:universal_html/parsing.dart';
 /// Where a stored reply landed: the id of the new post and the page it is on (server default order), when the
 /// server told them in the success hook.
 typedef PostedReply = ({String? pid, int? page});
+
+/// The reply window asked as the post form of the forum's app API (plugin 2.9.0): the forum's own window
+/// ([replyPostWindowSuffix]) without `inajax` and its target, which give the AJAX fragment instead.
+const _replyFormWindowSuffix = '&infloat=yes&handlekey=reply';
 
 /// Repository of reply.
 final class ReplyRepository with LoggerMixin {
@@ -108,6 +115,13 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// [stand] is the side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative), sent as the reply
   /// window's `stand` select; none for any other thread.
+  ///
+  /// When the forum's plugin is known to answer the post forms (plugin 2.9.0, [TsdmAppApi.knowsPostForm]) the reply
+  /// window is asked as its post form first ([_replyToPostWithForm]); a window that does not come back as one, and
+  /// every window of a forum not known to, is asked and read the way it always was.
+  ///
+  /// A window asking for a captcha or a security question is never posted: [ReplyNeedsBrowserException], with the
+  /// reply page to continue on in the browser.
   AsyncEither<PostedReply> replyToPost({
     required ReplyParameters replyParameters,
     required String replyAction,
@@ -115,6 +129,18 @@ final class ReplyRepository with LoggerMixin {
     int? stand,
   }) => AsyncEither(() async {
     final netClient = getIt.get<NetClientProvider>();
+    if (TsdmAppApi.knowsPostForm) {
+      final structured = await _replyToPostWithForm(
+        netClient,
+        replyParameters: replyParameters,
+        replyAction: replyAction,
+        replyMessage: replyMessage,
+        stand: stand,
+      );
+      if (structured != null) {
+        return structured;
+      }
+    }
     final replyWindowUrl = withTsdmAppJsonWrite('${replyAction.prependHost()}$replyPostWindowSuffix');
     final respEither = await netClient.get(replyWindowUrl).run();
     if (respEither.isLeft()) {
@@ -153,6 +179,11 @@ final class ReplyRepository with LoggerMixin {
       }
     }
     final replyWindowDoc = windowResult?.document ?? parseHtmlDocument(htmlData ?? rawData);
+    if (documentAsksVerification(replyWindowDoc)) {
+      // The forum asks for a captcha or a security question: only the website shows them, never post without.
+      error('reply window asks for a captcha or a security question');
+      return left(ReplyNeedsBrowserException(url: replyAction.prependHost(), verification: true));
+    }
     String? inputValue(String name) => replyWindowDoc.querySelector('input[name="$name"]')?.attributes['value'];
     final formHash = inputValue('formhash');
     final handleKey = inputValue('handlekey');
@@ -200,12 +231,17 @@ final class ReplyRepository with LoggerMixin {
     final respEither2 = await netClient
         .postForm(formatReplyPostUrl(replyParameters.fid, replyParameters.tid), data: formData)
         .run();
+    return _postedReplyOf(respEither2);
+  });
 
-    if (respEither2.isLeft()) {
-      return left(respEither2.unwrapErr());
+  /// Where the reply posted from the reply window landed, from the answer [respEither] of the post: the result of the
+  /// forum's app API ([_replyResultOf]) or the forum's own answer, the forum's reason when it refused.
+  Either<AppException, PostedReply> _postedReplyOf(Either<AppException, Response<dynamic>> respEither) {
+    if (respEither.isLeft()) {
+      return left(respEither.unwrapErr());
     }
 
-    final resp2 = respEither2.unwrap();
+    final resp2 = respEither.unwrap();
     if (_replyResultOf(resp2.data) case final result?) {
       if (!result.stored) {
         error('reply to post rejected by server: ${result.reason}');
@@ -223,7 +259,84 @@ final class ReplyRepository with LoggerMixin {
     info('reply to post stored: ${_storedMessage(data2)?.length ?? 0} chars');
 
     return right(postedReplyOf(data2));
-  });
+  }
+
+  /// Reply to a floor through the reply window asked as the post form of the forum's app API (plugin 2.9.0,
+  /// `type: post`, `schema` 16; asked without `inajax`, which gives the forum's own fragment): the form's hidden fields
+  /// as served (`submit.fields`: the form hash, the encrypted `noticeauthor`, the quote in `noticetrimstr`, which the
+  /// forum puts in front of the message, the window's `handlekey`…) and every other control, with the message and the
+  /// debate side, posted once to the url the form names (`submit.url`) with `inajax=1`, as the website posts the window.
+  /// The window is asked for every reply: its values hold for one request only.
+  ///
+  /// Null when the window did not come back as such a form (a forum without the plugin, an older one): the caller asks
+  /// the window the way it always did. A window served to another account than the one replying (the account the
+  /// thread page was served to, [ReplyParameters.viewerUid], and the one of the global cookie) or to a guest, and the
+  /// forum's message instead of the window, are [ReplyToPostFetchParameterFailedException] (with the message); a window
+  /// asking for a captcha or a security question ([PostForm.asksVerification]), or with fields the app cannot fill
+  /// (another plugin's, another editor: [PostForm.editorSupport]), [ReplyNeedsBrowserException]: nothing is sent.
+  Future<Either<AppException, PostedReply>?> _replyToPostWithForm(
+    NetClientProvider netClient, {
+    required ReplyParameters replyParameters,
+    required String replyAction,
+    required String replyMessage,
+    int? stand,
+  }) async {
+    final respEither = await netClient
+        .get(withTsdmAppJson('${replyAction.prependHost()}$_replyFormWindowSuffix'))
+        .run();
+    final Response<dynamic> resp;
+    switch (respEither) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value):
+        resp = value;
+    }
+    if (resp.statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(resp.statusCode));
+    }
+    final json = postFormAnswerOf(resp.data);
+    if (json == null) {
+      info("reply window is no post form, asking the forum's window");
+      return null;
+    }
+    // The account replying: the one the thread page was served to, and the one of the global cookie the request
+    // carried. A window served to another account (or to a guest) is not posted.
+    final owner = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>().userLoginInfo.uid : null;
+    final served = tsdmAppInt(json['uid']);
+    final form = PostForm.fromJson(json);
+    if (served <= 0 ||
+        (owner != null && owner != served) ||
+        (replyParameters.viewerUid != null && replyParameters.viewerUid != served) ||
+        form == null) {
+      final message = tsdmAppText(json['message']);
+      final who = served <= 0 ? 'a guest' : (form == null ? 'the forum message' : 'another account');
+      error('reply window refused ($who): $message');
+      return left(ReplyToPostFetchParameterFailedException(message.isEmpty ? null : message));
+    }
+    TsdmAppApi.notePostForm();
+    final browserUrl = replyAction.prependHost();
+    switch (form.editorSupport('reply')) {
+      case PostFormSupport.verification:
+        error('reply window asks for a captcha or a security question');
+        return left(ReplyNeedsBrowserException(url: browserUrl, verification: true));
+      case PostFormSupport.unsupported:
+        error('reply window not supported: ${form.unsupported} ${form.hookFields}');
+        return left(ReplyNeedsBrowserException(url: browserUrl, verification: false));
+      case PostFormSupport.supported:
+        break;
+    }
+    final body = form.bodyWith(PostFormEdits(message: toOfficialMentions(replyMessage)));
+    if (stand != null) {
+      body.set('stand', '$stand');
+    }
+    final data = body.toMap();
+    final url = form.submitUrl;
+    if (data == null || url == null) {
+      return left(ReplyNeedsBrowserException(url: browserUrl, verification: false));
+    }
+    final respEither2 = await netClient.postForm('$url&inajax=1', data: data).run();
+    return _postedReplyOf(respEither2);
+  }
 
   /// Post reply to thread tid/fid.
   /// This will add a post in thread, as reply to that thread.

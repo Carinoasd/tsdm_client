@@ -834,6 +834,9 @@
     "replySuccess": "Reply success",
     "replyFailed": "Failed to reply: $err",
     "replyFailedNetwork": "Failed to reply: the network is unreachable, check the connection and retry",
+    "replyNeedsVerification": "This forum asks for a captcha or a security question to reply, which the app cannot show yet. Reply in your browser.",
+    "replyNeedsBrowser": "This reply form has fields the app cannot fill yet. Reply in your browser.",
+    "replyInBrowser": "Reply in browser",
     "draft": "Draft",
     "operationLog": {
       "title": "Operation Log"
@@ -1119,6 +1122,15 @@
     "titleShouldNotBeEmpty": "Title should not be empty",
     "titleTooLong": "Title too long",
     "threadBodyTooShort": "Thread body too short",
+    "titleTooLongLimit": "Title too long: up to ${limit: int} (letters and digits count 1, other characters 2; & \" < > take more once escaped)",
+    "titleTooShortLimit": "Title too short: at least ${limit: int} (letters and digits count 1, other characters 2)",
+    "threadBodyTooShortLimit": "Post too short: at least ${limit: int} bytes, quotes not counted (an English letter is 1 byte, a Chinese character 3)",
+    "threadBodyTooLongLimit": "Post too long: up to ${limit: int} bytes (an English letter is 1 byte, a Chinese character 3)",
+    "verificationRequired": "This forum asks for a captcha or a security question to post here, which the app cannot show yet. Continue in your browser.",
+    "moderated": {
+      "title": "Awaiting moderation",
+      "message": "New threads in this forum are reviewed by the moderators first: it will be shown after approval. Post it?"
+    },
     "editSuccess": "Edit success",
     "saveAsDraft": "Save Draft",
     "threadPublish": {

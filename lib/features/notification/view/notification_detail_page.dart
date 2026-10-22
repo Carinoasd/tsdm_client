@@ -140,6 +140,7 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
             showSnackBar(
               context: context,
               message: state.networkFailure ? tr.replyFailedNetwork : tr.replyFailed(err: state.failedReason ?? ''),
+              action: replyInBrowserAction(context, state.browserUrl),
             );
           }
         },
