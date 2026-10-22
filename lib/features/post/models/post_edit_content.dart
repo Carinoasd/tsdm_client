@@ -158,7 +158,7 @@ final class PostEditContent with PostEditContentMappable {
 
     // Current thread type.
     PostEditThreadType? threadType;
-    final threadTypeNode = postBoxNode?.querySelector('div select > option[selected="selected"]');
+    final threadTypeNode = postBoxNode?.querySelector('div select#typeid > option[selected="selected"]');
     if (threadTypeNode != null) {
       threadType = PostEditThreadType(
         name: threadTypeNode.innerText.trim(),

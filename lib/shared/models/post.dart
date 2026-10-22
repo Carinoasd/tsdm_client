@@ -107,7 +107,7 @@ class Post with PostMappable {
   ///   answer's `timeoffset`) as the page prints it ("发表于 2026-10-1 05:30:15"), whatever the device's zone;
   /// * `position` as the floor number (the forum's -1 of a hot reply gives none), `share_url` as the share link;
   ///   `hot` (plugin 2.8.2) marks a hot reply, which the page prints "推荐" for, with the floor it really is
-  ///   (`hot_position`, 0 when the forum does not know it); `avatar_blocked` (plugin 2.8.2) is the "头像被屏蔽" the
+  ///   (`hot_position`, 0 when it cannot be worked out); `avatar_blocked` (plugin 2.8.2) is the "头像被屏蔽" the
   ///   page prints in place of the avatar, which the answer then gives empty;
   /// * `lastedit` as the last edit (the name and the time text the page prints; none when either is empty);
   /// * the purchase lock of the first floor of a paid thread not yet bought ([pay], `thread.pay`, `need_pay` 1), the
@@ -453,8 +453,9 @@ class Post with PostMappable {
   final bool hot;
 
   /// The floor a [hot] reply really is (plugin 2.8.2, `hot_position`), where it is printed on its own page; null when
-  /// not known (the forum gives 0 when the thread keeps no floor positions, as the production forum's threads; the
-  /// web page) and for any other floor.
+  /// not known and for any other floor. Since plugin 2.8.4 the plugin also works it out when the thread counts floors
+  /// one by one (keeps no floor positions); it gives 0 when it cannot (posted in the same second as another floor,
+  /// floors the viewer cannot see, reply counts that do not add up), as does the web page, which never tells it.
   final int? hotFloor;
 
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).

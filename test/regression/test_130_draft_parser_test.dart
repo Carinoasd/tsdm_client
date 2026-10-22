@@ -110,6 +110,17 @@ void main() {
     expect(content?.data, 'Synthetic private body');
     expect(content?.canSaveDraft, isTrue);
   });
+  test('no thread types: the read permission select does not become the current type', () {
+    final html = draftEditForm().replaceFirst(
+      '<div id="postbox">',
+      '<div id="postbox"><div class="pbt"><select name="readperm" id="readperm"><option value="">不限</option>'
+          ' <option value="10" selected="selected">10</option></select></div>',
+    );
+    final content = PostEditContent.fromDocument(parseHtmlDocument(html));
+    expect(content, isNotNull);
+    expect(content!.threadType, isNull);
+    expect(content.threadTypeList ?? const <PostEditThreadType>[], isEmpty);
+  });
   test('a category named draft cannot classify a published thread as private', () {
     final document = parseHtmlDocument(
       draftThread(draft: false).replaceFirst(

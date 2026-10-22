@@ -278,7 +278,10 @@ void main() {
       final p = _profile('other_admin');
       expect(p.username, 'ag_admin');
       expect(p.uid, '32');
-      expect(p.online, isFalse);
+      // Whether the member is online changes from one capture to the next: follow the sample's 0/1, not a fixed value.
+      final online = (_json('profile_v4_other_admin.json')['user'] as Map<String, dynamic>)['online'];
+      expect(online, anyOf(0, 1));
+      expect(p.online, online == 1);
       const link = '<a href="https://www.tsdm39.com/forum.php?mod=viewthread&amp;tid=9" target="_blank">簽名裡的舊網域連結</a>';
       expect(
         p.signature,
