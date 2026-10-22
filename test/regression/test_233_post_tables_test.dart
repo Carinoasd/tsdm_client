@@ -383,6 +383,141 @@ void main() {
       }
     });
 
+    // Narrowed to fit, its long columns in three characters a line, the rows would be twice as tall: the table scrolls
+    // at its comfortable widths instead. Narrowed a little, it fits.
+    testWidgets('a table narrowed to fit until its rows are much taller scrolls at its comfortable widths', (
+      tester,
+    ) async {
+      String table(String word) {
+        final cell = '<td>${List.filled(10, word).join(' ')}</td>';
+        return '<table><tr>${List.filled(6, cell).join()}</tr><tr>${List.filled(6, '<td>短</td>').join()}</tr></table>';
+      }
+
+      // Words of four letters do not fit a tight column, they would break: twice as many lines.
+      await _pump(tester, table('abcd'));
+      expect(tester.takeException(), isNull);
+      final table4 = _table(tester);
+      expect(table4.getMinIntrinsicWidth(double.infinity), lessThan(_post), reason: 'it would fit');
+      expect(_scroll(tester).maxScrollExtent, greaterThan(0));
+      for (final (x, width) in table4.debugColumnWidths.indexed) {
+        expect(width, closeTo(table4.debugColumns[x].min, 0.01));
+      }
+      // Words of two letters fit one a line all the same: it is narrowed and fits.
+      await _pump(tester, table('ab'));
+      expect(_scroll(tester).maxScrollExtent, 0);
+      expect(_table(tester).size.width, closeTo(_post, 0.01));
+    });
+
+    testWidgets('a cell spanning more columns than the other rows have spans no empty column', (tester) async {
+      await _pump(tester, '<table><tr><td>甲</td><td>乙</td><td>丙</td></tr><tr><td colspan="5">跨五栏的一格</td></tr></table>');
+      expect(tester.takeException(), isNull);
+      final table = _table(tester);
+      expect(table.debugColumnWidths, hasLength(3));
+      expect(table.debugColumnWidths, everyElement(greaterThan(0)));
+      // The table is a rectangle: the cell under the row ends where the row ends.
+      expect(_cellRect(tester, '跨五栏').right, closeTo(_cellRect(tester, '丙').right, 0.01));
+    });
+
+    testWidgets('the lines of a row or a column of cells are one line each', (tester) async {
+      final rows = [
+        for (var y = 0; y < 100; y++) '<tr>${[for (var x = 0; x < 5; x++) '<td>$y-$x</td>'].join()}</tr>',
+      ];
+      await _pump(tester, '<table>${rows.join()}</table>');
+      // 101 lines between and around the rows, 6 between and around the columns.
+      expect(_table(tester).debugBorders!.computeMetrics().length, 101 + 6);
+    });
+
+    testWidgets('a table in a card in a cell: the card is as wide as the table, which does not scroll in it', (
+      tester,
+    ) async {
+      const inner =
+          '<table class="t_table" style="width:98%"><tr><th>名称</th><th>说明</th><th>大小</th></tr>'
+          '<tr><td>第一项</td><td>一段说明文字，在手机上要换行。</td><td>1.2GB</td></tr><tr><td colspan="2">合计</td>'
+          '<td>2.4GB</td></tr></table>';
+      await _pump(
+        tester,
+        '<table><tr><td>$_long</td><td><div class="spoiler"><div class="spoilerheader"><input type="button" '
+        'class="spoilerbutton" value="打开" /></div><div class="spoilerbody" style="display: none;">$inner</div></div>'
+        '</td></tr></table>',
+      );
+      await tester.tap(find.byType(OutlinedButton));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      for (final position in tester.stateList<ScrollableState>(find.byType(Scrollable)).map((e) => e.position)) {
+        if (position.axis == Axis.horizontal) {
+          expect(position.maxScrollExtent, 0);
+        }
+      }
+      expect(_globalRect(_paragraph(tester, '2.4GB')).right, lessThanOrEqualTo(16 + _post));
+    });
+
+    testWidgets('a table scrolls with its own physics, not the bounce of a page around it', (tester) async {
+      final row = [for (var i = 1; i <= 9; i++) '<td>第$i列</td>'].join();
+      tester.view.physicalSize = const Size(_screen, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final body = parseHtmlDocument('<html><body><table><tr>$row</tr></table></body></html>').body!;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            home: ScrollConfiguration(
+              behavior: const ScrollBehavior().copyWith(physics: const BouncingScrollPhysics()),
+              child: Scaffold(
+                body: SingleChildScrollView(child: Builder(builder: (context) => munchElement(context, body))),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final physics = _scroll(tester).physics;
+      expect(physics, isA<ClampingScrollPhysics>());
+      expect(physics.parent, isNot(isA<BouncingScrollPhysics>()));
+    });
+
+    testWidgets('in pages, a table that fits leaves a sideways drag to the pages, one that scrolls takes it', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(_screen, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = PageController();
+      addTearDown(controller.dispose);
+      Widget pages(String table) {
+        Widget page(String html) {
+          final body = parseHtmlDocument('<html><body>$html</body></html>').body!;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Builder(builder: (context) => munchElement(context, body)),
+          );
+        }
+
+        return TranslationProvider(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PageView(controller: controller, children: [page(table), page('<p>第二页</p>')]),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(pages('<table><tr><td>甲甲甲</td><td>乙乙乙</td></tr><tr><td>丙</td><td>丁</td></tr></table>'));
+      await tester.pumpAndSettle();
+      await tester.dragFrom(tester.getCenter(find.byType(PostTable)), const Offset(-250, 0));
+      await tester.pumpAndSettle();
+      expect(controller.page, 1);
+
+      controller.jumpToPage(0);
+      await tester.pumpAndSettle();
+      final row = [for (var i = 1; i <= 9; i++) '<td>第$i列</td>'].join();
+      await tester.pumpWidget(pages('<table><tr>$row</tr></table>'));
+      await tester.pumpAndSettle();
+      await tester.dragFrom(tester.getCenter(find.byType(PostTable)), const Offset(-150, 0));
+      await tester.pumpAndSettle();
+      expect(controller.page, 0);
+      expect(_scroll(tester).pixels, greaterThan(0));
+    });
+
     testWidgets('a big table, tables in tables, lay out', (tester) async {
       final rows = [
         for (var y = 0; y < 300; y++)
@@ -439,7 +574,10 @@ void main() {
         'id="negabutton" onclick="ajaxmenu(this);doane(event);" class="pn"><span>支持</span></button><h5>辩手:0</h5>'
         '</td></tr></table></div><p class="pns mtw"><button name="answer" value="ture" class="pn" '
         'onclick="showWindow(\'reply\', \'forum.php?mod=post&action=reply&fid=2&tid=1\')"><span>我来回答</span>'
-        '</button></p>按<button type="button">按钮</button>',
+        '</button></p>按<button type="button">按钮</button>'
+        // The post's own buttons, doing something of the page's own or nothing: their text, as on the web page.
+        '<p><a href="https://pan.baidu.com/s/abc"><button type="button" onclick="return true;">百度网盘下载</button></a></p>'
+        '<h3><button onclick="void(0)">当标题用的按钮</button></h3>',
       );
       expect(tester.takeException(), isNull);
       final all = find.byType(RichText).evaluate().map((e) => (e.widget as RichText).text.toPlainText()).join('|');
@@ -449,6 +587,31 @@ void main() {
       expect(all, contains('辩手:1'));
       // A button doing nothing of its own still shows its text, as on the web page.
       expect(all, contains('按按钮'));
+      expect(all, contains('百度网盘下载'));
+      expect(all, contains('当标题用的按钮'));
+    });
+
+    testWidgets('a fold of the post holding only a spoiler, or only another fold, is a fold', (tester) async {
+      await _pump(
+        tester,
+        '<div onclick="document.getElementById(\'f1\').style.display=\'\'"><b>点击展开</b></div>'
+        '<div id="f1" style="display:none"><div class="spoiler"><div class="spoilerheader">'
+        '<input type="button" class="spoilerbutton" value="内层折叠" /></div><div class="spoilerbody" '
+        'style="display: none;">内层折叠里的正文</div></div></div>'
+        '<div onclick="\$(\'a\').style.display=\'\'">第一层</div>'
+        '<div id="a" style="display:none"><div id="b" style="display:none">最里面的内容</div></div>'
+        '<div onclick="\$(\'b\').style.display=\'\'">第二层</div>后文',
+      );
+      expect(tester.takeException(), isNull);
+      final titles = tester.widgetList<SpoilerCard>(find.byType(SpoilerCard)).map((e) => e.title.toPlainText());
+      expect(titles, containsAll(['点击展开', '第一层']));
+      // The title of each fold is its title, not text of the post as well.
+      final post = (find.byType(RichText).evaluate().first.widget as RichText).text.toPlainText();
+      expect(post, isNot(contains('点击展开')));
+      expect(post, contains('后文'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '点击展开'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(OutlinedButton, '内层折叠'), findsOneWidget);
     });
 
     testWidgets('an empty spoiler keeps its title, a button that opens nothing', (tester) async {

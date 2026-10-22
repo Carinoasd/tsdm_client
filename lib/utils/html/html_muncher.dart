@@ -1012,11 +1012,46 @@ final class _Muncher with LoggerMixin {
   static bool _canFold(uh.Element element) =>
       element.id.isNotEmpty && !element.id.endsWith('_menu') && !element.classes.contains('tip');
 
-  /// Whether the hidden [element] shows nothing when it is shown: no text, no picture, no player. It is no fold: what
-  /// shows it stays as it is, as on the web page (before, the fold and its title were both left out); a form for a
-  /// dialog (the forum's `activityjoincancel`) is no empty fold either.
-  static bool _showsNothing(uh.Element element) =>
-      _visibleText(element).isEmpty && element.querySelector('img, iframe, embed, object, video, audio') == null;
+  /// Whether the hidden [element] shows nothing when it is shown: no text, not even in what is hidden in it (another
+  /// fold), no picture, no player, no control (a spoiler's title is the value of its button). It is no fold: what
+  /// shows it stays as it is, as on the web page (before, the fold and its title were both left out). A form, as for
+  /// a dialog (the forum's `activityjoincancel`), a script and a style show nothing.
+  static bool _showsNothing(uh.Element element) {
+    bool holdsSomething(uh.Node node) {
+      for (final child in node.nodes) {
+        if (child is uh.Element) {
+          switch (child.localName) {
+            case 'form' || 'script' || 'style':
+              continue;
+            case 'img' || 'iframe' || 'embed' || 'object' || 'video' || 'audio' || 'details' || 'textarea' || 'select':
+              return true;
+            case 'input':
+              if (child.attributes['type']?.trim().toLowerCase() != 'hidden' &&
+                  (child.attributes['value']?.trim().isNotEmpty ?? false)) {
+                return true;
+              }
+            default:
+              if (child.classes.contains('spoiler') || holdsSomething(child)) {
+                return true;
+              }
+          }
+        } else if (child.nodeType == uh.Node.TEXT_NODE &&
+            (child.text ?? '').replaceAll(_htmlWhiteSpaceRe, '').isNotEmpty) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return !holdsSomething(element);
+  }
+
+  /// Whether the button [element] is one of the forum's: of its buttons' class `.pn`, or opening the forum's windows,
+  /// dialogs and menus.
+  static bool _isForumButton(uh.Element element) =>
+      element.classes.contains('pn') || _forumActionRe.hasMatch(element.attributes['onclick'] ?? '');
+
+  static final _forumActionRe = RegExp(r'\b(?:showWindow|ajaxmenu|showDialog|ajaxget|ajaxpost)\s*\(');
 
   static bool _holds(uh.Element ancestor, uh.Element element) {
     for (uh.Node? node = element; node != null; node = node.parentNode) {
@@ -1315,11 +1350,12 @@ final class _Muncher with LoggerMixin {
     'iframe' => _buildIframe(node),
     'embed' || 'object' || 'video' || 'audio' => _buildMedia(node),
     'script' => _buildScriptPlayer(node),
-    // A button that does something on the web page (its own `onclick`: voting, answering a bounty, ending a debate in
-    // the forum's blocks of a special thread, which the page shows when the thread is read from the web page) is left
-    // out, as before: its label would be text that cannot be pressed, the app does those in its own cards.
-    'button' when node.attributes.containsKey('onclick') => null,
-    // The text a button only labelling something (the title of a fold), a text box (as written, its lines kept) and a
+    // A button of the forum (`.pn`, or one opening the forum's windows and menus: voting, answering a bounty, ending a
+    // debate, joining an activity in the blocks of a special thread, which the page shows when the thread is read
+    // from the web page) is left out, as before: its label would be text that cannot be pressed, the app does those
+    // in its own cards.
+    'button' when _isForumButton(node) => null,
+    // The text a button of the post (a title, a link to a download), a text box (as written, its lines kept) and a
     // choice box (the option chosen) show on the web page; nothing to press or type in here.
     'button' => _munch(node),
     'textarea' => _buildPre(node),

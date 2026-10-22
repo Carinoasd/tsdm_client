@@ -92,6 +92,10 @@ class PostTableParentData extends ContainerBoxParentData<RenderBox> {
   /// The box of the cell in the table, its padding in it, the lines around it outside it. Set by the layout.
   Rect rect = Rect.zero;
 
+  /// The first and the last column of the table the cell is laid out in (see [RenderPostTable]). Set by the layout.
+  int _first = 0;
+  int _last = 0;
+
   @override
   String toString() => '${super.toString()}; row=$row column=$column span=${rowSpan}x$columnSpan';
 }
@@ -250,9 +254,13 @@ class PostTable extends MultiChildRenderObjectWidget {
   /// Tight width of an image in a cell, unless it is narrower: a smaller thumbnail.
   static const double tightImageWidth = 80;
 
-  /// Widest a column is counted as short: a column of names, numbers or dates keeps its line until the table has to
-  /// be narrowed to its tight widths.
+  /// Widest a column is counted as short: a column of names, numbers or dates keeps its line, it is never narrowed.
   static const double maxShortWidth = 2 * minColumnWidth;
+
+  /// How many times as tall the rows of a table may grow when it is narrowed below its comfortable widths to fit:
+  /// taller, it scrolls at its comfortable widths instead. A table narrowed a little fits; one that would only fit in
+  /// columns of three characters a line (a long title at a large text scale) scrolls, as it does when it is larger.
+  static const double maxTightGrowth = 1.8;
 
   @override
   RenderPostTable createRenderObject(BuildContext context) => RenderPostTable(
@@ -518,6 +526,7 @@ class RenderPostTable extends RenderBox
   @override
   void markNeedsLayout() {
     _columns = null;
+    _scrollDecisions.clear();
     super.markNeedsLayout();
   }
 
@@ -538,10 +547,37 @@ class RenderPostTable extends RenderBox
 
   static PostTableParentData _dataOf(RenderBox cell) => cell.parentData! as PostTableParentData;
 
-  int get _columnCount => _cells.fold(0, (count, cell) {
-    final data = _dataOf(cell);
-    return math.max(count, data.column + data.columnSpan);
-  });
+  /// Places the cells in the columns of the table, and returns how many there are.
+  ///
+  /// A column is a column some cell starts in. A place no cell starts in (a `colspan` past the last cell of every
+  /// other row, a place every row spans) has nothing to measure it by: as a column of its own it was 0 wide, the cell
+  /// spanning it ended past the lines of the others and the corner of the table was missing. It belongs to the column
+  /// before it.
+  int _placeColumns() {
+    final starts = {for (final cell in _cells) _dataOf(cell).column}.toList()..sort();
+    // The column of the place [x]: the last column starting at or before it.
+    int columnOf(int x) {
+      var low = 0;
+      var high = starts.length;
+      while (low < high) {
+        final middle = (low + high) ~/ 2;
+        if (starts[middle] <= x) {
+          low = middle + 1;
+        } else {
+          high = middle;
+        }
+      }
+      return math.max(0, low - 1);
+    }
+
+    for (final cell in _cells) {
+      final data = _dataOf(cell);
+      data
+        .._first = columnOf(data.column)
+        .._last = math.max(data._first, columnOf(data.column + data.columnSpan - 1));
+    }
+    return starts.length;
+  }
 
   /// What [box], a cell or a widget in the text of a cell, is: text (the paragraph, maybe in an aligned block), a
   /// table (in its scroll view), an image, or another widget (a card) when all are null and false.
@@ -582,10 +618,40 @@ class RenderPostTable extends RenderBox
       return (tight: table.getMinIntrinsicWidth(double.infinity), comfortable: table._scrollWidth);
     }
     final min = box.getMinIntrinsicWidth(double.infinity);
+    // A card holding a table (an open spoiler, a quote): as wide as the table in it and the card's margins, else the
+    // table could only scroll in the narrow card.
+    final tables = _tablesIn(box);
+    if (tables.isNotEmpty) {
+      var tight = 0.0;
+      var comfortable = 0.0;
+      for (final table in tables) {
+        final tableTight = table.getMinIntrinsicWidth(double.infinity);
+        final margins = (min - tableTight).clamp(0.0, PostTable.minColumnWidth);
+        tight = math.max(tight, tableTight + margins);
+        comfortable = math.max(comfortable, table._scrollWidth + margins);
+      }
+      final capped = math.min(min, PostTable.minWidgetWidth);
+      return (tight: math.max(tight, capped), comfortable: math.max(comfortable, capped));
+    }
     return (
       tight: math.min(min, kind.image ? PostTable.tightImageWidth : PostTable.minWidgetWidth),
       comfortable: math.min(min, PostTable.minWidgetWidth),
     );
+  }
+
+  /// The tables in [box], not those in them.
+  static List<RenderPostTable> _tablesIn(RenderObject box) {
+    final tables = <RenderPostTable>[];
+    void visit(RenderObject child) {
+      if (child is RenderPostTable) {
+        tables.add(child);
+      } else {
+        child.visitChildren(visit);
+      }
+    }
+
+    box.visitChildren(visit);
+    return tables;
   }
 
   /// The widths of [cell], its padding included: its tight width, its comfortable width as in a column of long text,
@@ -601,9 +667,12 @@ class RenderPostTable extends RenderBox
     return (tight: tight + 2 * _padding, long: long + 2 * _padding, max: max + 2 * _padding);
   }
 
-  /// The comfortable width of a column or a cell spanning columns with [widths]: on one line when it is short.
-  static double _comfortable(_CellWidths widths) =>
-      widths.max - 2 * _padding > PostTable.maxShortWidth ? widths.long : widths.max;
+  /// The tight and comfortable widths of a column or a cell spanning columns with [widths]: on one line when it is
+  /// short, a name, a number, a date is never broken.
+  static ({double tight, double min}) _narrowest(_CellWidths widths) =>
+      widths.max - 2 * _padding > PostTable.maxShortWidth
+      ? (tight: widths.tight, min: widths.long)
+      : (tight: widths.max, min: widths.max);
 
   /// The columns of the table: from the cells in one column, then the cells spanning several, the narrower spans
   /// first, each giving the columns it spans what they lack in proportion to their preferred widths.
@@ -612,7 +681,7 @@ class RenderPostTable extends RenderBox
     if (cached != null) {
       return cached;
     }
-    final count = _columnCount;
+    final count = _placeColumns();
     final tights = List<double>.filled(count, 0);
     final longs = List<double>.filled(count, 0);
     final maxes = List<double>.filled(count, 0);
@@ -622,11 +691,11 @@ class RenderPostTable extends RenderBox
     for (final cell in _cells) {
       final data = _dataOf(cell);
       final widths = _cellWidths(cell);
-      if (data.columnSpan > 1) {
+      if (data._last > data._first) {
         spanning.add((data, widths));
         continue;
       }
-      final x = data.column;
+      final x = data._first;
       tights[x] = math.max(tights[x], widths.tight);
       longs[x] = math.max(longs[x], widths.long);
       maxes[x] = math.max(maxes[x], widths.max);
@@ -639,7 +708,11 @@ class RenderPostTable extends RenderBox
           break;
       }
     }
-    final mins = [for (var x = 0; x < count; x++) _comfortable((tight: tights[x], long: longs[x], max: maxes[x]))];
+    final narrowest = [for (var x = 0; x < count; x++) _narrowest((tight: tights[x], long: longs[x], max: maxes[x]))];
+    final mins = [for (final widths in narrowest) widths.min];
+    for (var x = 0; x < count; x++) {
+      tights[x] = narrowest[x].tight;
+    }
     // A width in pixels is the preferred width of its column, whatever the content (a browser wraps the text at
     // that width), never narrower than the comfortable width.
     for (var x = 0; x < count; x++) {
@@ -647,17 +720,17 @@ class RenderPostTable extends RenderBox
         maxes[x] = math.max(mins[x], width);
       }
     }
-    spanning.sort((a, b) => a.$1.columnSpan.compareTo(b.$1.columnSpan));
+    spanning.sort((a, b) => (a.$1._last - a.$1._first).compareTo(b.$1._last - b.$1._first));
     for (final (data, widths) in spanning) {
-      final span = [for (var x = data.column; x < data.column + data.columnSpan; x++) x];
+      final span = [for (var x = data._first; x <= data._last; x++) x];
       final gaps = _border * (span.length - 1);
-      final min = _comfortable(widths);
+      final (:tight, :min) = _narrowest(widths);
       final preferred = switch (data.width) {
         PostTableLength(percent: false, :final value) => math.max(min, value),
         _ => widths.max,
       };
       final weights = [for (final x in span) maxes[x]];
-      for (final (values, needed) in [(tights, widths.tight), (mins, min), (maxes, preferred)]) {
+      for (final (values, needed) in [(tights, tight), (mins, min), (maxes, preferred)]) {
         final spanned = [for (final x in span) values[x]];
         _spread(spanned, gaps, needed, weights);
         for (final (i, x) in span.indexed) {
@@ -681,9 +754,34 @@ class RenderPostTable extends RenderBox
   @visibleForTesting
   List<PostTableColumn> get debugColumns => _measureColumns();
 
+  /// The lines around the cells in the last layout, for tests.
+  @visibleForTesting
+  Path? get debugBorders => _borders;
+
   /// The width of each column in the last layout, for tests.
   @visibleForTesting
   List<double> get debugColumnWidths => List.unmodifiable(_geometry?.columnWidths ?? const <double>[]);
+
+  /// Whether the table scrolls at its comfortable widths in a view of [maxWidth], though it fits at narrower ones:
+  /// narrowed to [maxWidth], its rows would be more than [PostTable.maxTightGrowth] times as tall.
+  bool _scrollsAt(double maxWidth) {
+    final columns = _measureColumns();
+    if (columns.isEmpty || !maxWidth.isFinite) {
+      return false;
+    }
+    final constraints = BoxConstraints(maxWidth: maxWidth);
+    if (_contentWidth(columns, constraints) >= _sum(columns.map((e) => e.min)) - precisionErrorTolerance) {
+      return false;
+    }
+    return _scrollDecisions[maxWidth] ??= () {
+      final narrowed = _layout(constraints, ChildLayoutHelper.dryLayoutChild).size.height;
+      final comfortable = _layout(BoxConstraints.tightFor(width: _scrollWidth), ChildLayoutHelper.dryLayoutChild);
+      return narrowed > comfortable.size.height * PostTable.maxTightGrowth;
+    }();
+  }
+
+  /// [_scrollsAt] by width, until something in the table changes.
+  final _scrollDecisions = <double, bool>{};
 
   /// The width the table is laid out at when it does not fit and scrolls: its comfortable widths.
   double get _scrollWidth {
@@ -768,12 +866,13 @@ class RenderPostTable extends RenderBox
         continue;
       }
       final rect = data.rect;
+      // Each piece reaches over the lines it meets: the pieces of the cells along a line overlap and make one.
       final across = (rect.left - _border, rect.right + _border);
-      final down = (rect.top, rect.bottom);
+      final down = (rect.top - _border, rect.bottom + _border);
       (horizontal[data.row] ??= []).add(across);
       (horizontal[math.min<int>(data.row + data.rowSpan, rows)] ??= []).add(across);
-      (vertical[data.column] ??= []).add(down);
-      (vertical[math.min<int>(data.column + data.columnSpan, columns)] ??= []).add(down);
+      (vertical[data._first] ??= []).add(down);
+      (vertical[data._last + 1] ??= []).add(down);
     }
     // Where a line is: the space before row or column [index], after the last one for the last index.
     double lineAt(int index, List<double> starts, List<double> sizes) =>
@@ -807,12 +906,12 @@ class RenderPostTable extends RenderBox
   }
 
   /// Whether the cell with [data] is in the table of [rowCount] rows and [columns] columns.
-  bool _isPlaced(PostTableParentData data, int columns) => data.row < rowCount && data.column < columns;
+  bool _isPlaced(PostTableParentData data, int columns) => data.row < rowCount && data._last < columns;
 
   static Rect _rectOf(_Geometry geometry, PostTableParentData data) {
-    final lastColumn = math.min(data.column + data.columnSpan, geometry.columnWidths.length) - 1;
+    final lastColumn = data._last;
     final lastRow = math.min(data.row + data.rowSpan, geometry.rowHeights.length) - 1;
-    final left = geometry.columnX[data.column];
+    final left = geometry.columnX[data._first];
     final top = geometry.rowY[math.min(data.row, geometry.rowY.length - 1)];
     return Rect.fromLTRB(
       left,
@@ -866,8 +965,7 @@ class RenderPostTable extends RenderBox
       if (!_isPlaced(data, columnWidths.length)) {
         continue;
       }
-      final lastColumn = math.min(data.column + data.columnSpan, columnWidths.length);
-      final width = columnX[lastColumn - 1] + columnWidths[lastColumn - 1] - columnX[data.column] - 2 * _padding;
+      final width = columnX[data._last] + columnWidths[data._last] - columnX[data._first] - 2 * _padding;
       final height = layoutChild(cell, BoxConstraints.tightFor(width: math.max(0, width))).height + 2 * _padding;
       final rowSpan = math.min(data.rowSpan, rowCount - data.row);
       if (rowSpan > 1) {
@@ -974,10 +1072,15 @@ class PostTableScrollView extends StatelessWidget {
   /// The table.
   final Widget child;
 
+  // Its own physics, not those of the page around it (a pull to refresh): it only scrolls sideways, to its ends.
   @override
-  Widget build(BuildContext context) => Scrollable(
-    axisDirection: AxisDirection.right,
-    viewportBuilder: (context, offset) => _TableViewport(offset: offset, child: child),
+  Widget build(BuildContext context) => ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(physics: const ClampingScrollPhysics(), overscroll: false),
+    child: Scrollable(
+      axisDirection: AxisDirection.right,
+      physics: const ClampingScrollPhysics(),
+      viewportBuilder: (context, offset) => _TableViewport(offset: offset, child: child),
+    ),
   );
 }
 
@@ -1054,14 +1157,15 @@ class _RenderTableViewport extends RenderBox
   double get _maxScrollExtent => child == null ? 0 : math.max(0, child!.size.width - size.width);
 
   /// The constraints of [child] in [constraints]: at most the width of the view; when it is narrower than the table
-  /// can be, exactly as wide as the table scrolls (see [PostTable]).
+  /// can be or than it is readable at, exactly as wide as the table scrolls (see [PostTable]).
   static BoxConstraints _childConstraints(RenderBox child, BoxConstraints constraints) {
     final heights = constraints.heightConstraints();
     if (!constraints.hasBoundedWidth) {
       return heights;
     }
     final minimum = child.getMinIntrinsicWidth(double.infinity);
-    if (minimum <= constraints.maxWidth + precisionErrorTolerance) {
+    if (minimum <= constraints.maxWidth + precisionErrorTolerance &&
+        !(child is RenderPostTable && child._scrollsAt(constraints.maxWidth))) {
       return heights.copyWith(maxWidth: constraints.maxWidth);
     }
     final width = math.max(minimum, child is RenderPostTable ? child._scrollWidth : minimum);

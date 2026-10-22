@@ -727,7 +727,7 @@ void main() {
         final widths = _columnWidths(tester);
         // The title, the longest, is not squeezed to leave the room to the shorter note on the download.
         expect(widths[0], greaterThanOrEqualTo(widths.reduce(math.max) - 0.01));
-        expect(_lines(_paragraphOf(tester, '第01-12话')), lessThanOrEqualTo(8));
+        expect(_lines(_paragraphOf(tester, '第01-12话')), lessThanOrEqualTo(9));
         final shorts = _cellsOf(tester, shortCells).toList();
         expect(shorts, hasLength(11));
         for (final paragraph in shorts) {
@@ -735,26 +735,34 @@ void main() {
         }
       });
 
-      // At text scale 1.3 it does not fit at its comfortable widths; it used to scroll, the title as wide as the
-      // screen. Narrowed further, as a browser narrows it, every column of it is on the screen.
-      testWidgets('a resource table at text scale 1.3 is narrowed to the screen rather than scrolling', (tester) async {
-        await pump(tester, resourceTable, textScale: 1.3);
-        expect(tester.takeException(), isNull);
-        expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
-        for (final paragraph in _paragraphs(tester)) {
-          expect(_globalRect(paragraph).right, lessThan(360 - 15), reason: paragraph.text.toPlainText());
-        }
-        final widths = _columnWidths(tester);
-        final columns = tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumns;
-        for (final (x, width) in widths.indexed) {
-          expect(width, greaterThanOrEqualTo(columns[x].tight - 0.01));
-          expect(columns[x].tight, greaterThanOrEqualTo(math.min(columns[x].max, PostTable.tightColumnWidth)));
-        }
-        // The cells narrower than a tight column keep their line.
-        for (final paragraph in _cellsOf(tester, const {'12', '名称', '集数', '格式', '下载'})) {
-          expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
-        }
-      });
+      // At text scale 1.3 it does not fit at its comfortable widths, and the short columns are never narrowed: it
+      // scrolls, at its comfortable widths. It used to scroll with the title as wide as the screen; narrowed further to
+      // fit, the title was 45 px wide in 13 lines and the name of the group was broken (at text scale 2 it was easier
+      // to read than at 1.3).
+      for (final scale in const [1.3, 1.5, 2.0]) {
+        testWidgets('a resource table at text scale $scale scrolls at its comfortable widths', (tester) async {
+          await pump(tester, resourceTable, textScale: scale);
+          expect(tester.takeException(), isNull);
+          final scroll = _horizontalScrolls(tester).single;
+          expect(scroll.maxScrollExtent, greaterThan(0));
+          // By what does not fit, not by screens.
+          expect(scroll.maxScrollExtent, lessThan(room(scale)));
+          final widths = _columnWidths(tester);
+          final columns = tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumns;
+          for (final (x, width) in widths.indexed) {
+            expect(width, closeTo(columns[x].min, 0.01));
+          }
+          // The title is no narrower than a long column is comfortable at: at most a few lines more than at text
+          // scale 1, where it fits the screen.
+          expect(widths[0], greaterThanOrEqualTo(PostTable.minColumnWidth + 2 * PostTable.cellPadding - 0.01));
+          expect(_lines(_paragraphOf(tester, '第01-12话')), lessThanOrEqualTo(12));
+          final shorts = _cellsOf(tester, shortCells).toList();
+          expect(shorts, hasLength(11));
+          for (final paragraph in shorts) {
+            expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
+          }
+        });
+      }
 
       // Too many columns to fit even at their tight widths: it scrolls, at its comfortable widths. It used to scroll
       // with each long column as wide as the screen, three screens wide; a browser lays it out at its narrowest. It is
@@ -846,13 +854,18 @@ void main() {
         final scroll = _horizontalScrolls(tester).single;
         expect(scroll.maxScrollExtent, greaterThan(0));
         final scrolling = _columnWidths(tester);
-        // Narrowed to the width it fits at its tight widths.
-        width.value = 200;
+        // Narrowed to a width between its tight and its comfortable widths: it fits.
+        final columns = tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumns;
+        final between =
+            (columns.fold<double>(0, (sum, e) => sum + e.tight) + columns.fold<double>(0, (sum, e) => sum + e.min)) /
+                2 +
+            4 * PostTable.borderWidth;
+        width.value = between;
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(scroll.maxScrollExtent, 0);
         final tight = _columnWidths(tester);
-        expect(tight.reduce((a, b) => a + b) + 4 * PostTable.borderWidth, closeTo(200, 0.01));
+        expect(tight.reduce((a, b) => a + b) + 4 * PostTable.borderWidth, closeTo(between, 0.01));
         // Wide enough for its comfortable widths: the long columns keep the same share of their natural width.
         width.value = 500;
         await tester.pumpAndSettle();
@@ -862,7 +875,7 @@ void main() {
         expect(narrowed[0] / natural[0], closeTo(narrowed[1] / natural[1], 0.001));
         expect(narrowed.reduce((a, b) => a + b) + 4 * PostTable.borderWidth, closeTo(500, 0.01));
         // Back at each width, the same widths again.
-        for (final (postWidth, widths) in [(120.0, scrolling), (200.0, tight)]) {
+        for (final (postWidth, widths) in [(120.0, scrolling), (between, tight)]) {
           width.value = postWidth;
           await tester.pumpAndSettle();
           expect(
