@@ -4,9 +4,11 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/utils/new_thread_status.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
@@ -169,9 +171,17 @@ final class PollCreateRepository with LoggerMixin {
   static String formUrl(String fid) => '$baseUrl/forum.php?mod=post&action=newthread&fid=$fid&special=1';
 
   /// Fetch and validate the poll form of [fid].
+  ///
+  /// The form is asked in the JSON mode of the forum's app API ([withTsdmAppJson]). Plugin 2.9.0 answers it as a post
+  /// form (`type: post`, `schema` 16), validated from its fields ([PollCreateForm.fromPostForm]; the choice limit is
+  /// `poll.max_options`), or the forum's message instead of it; an older plugin, or none, leaves the page alone and it
+  /// is parsed as it always was ([PollCreateForm.parse]). A post form with fields of another plugin
+  /// ([PostForm.hookFields]: their values are not given), and an answer the plugin could not tell the form of
+  /// (`unknown`), are read from the web page itself, asked again without the parameters: its parser knows the neutral
+  /// fields of the site's poll plugin and leaves anything else to the browser.
   Future<PollFormLoad> fetchForm(String fid) async {
     if (!isCurrent) return const PollFormLoad(PollFormLoadKind.identityChanged);
-    final result = await _get(formUrl(fid));
+    final result = await _get(withTsdmAppJson(formUrl(fid)));
     if (!isCurrent) return const PollFormLoad(PollFormLoadKind.identityChanged);
     final Response<dynamic> response;
     switch (result) {
@@ -180,18 +190,43 @@ final class PollCreateRepository with LoggerMixin {
       case Right(:final value):
         response = value;
     }
-    if (response.statusCode != 200 || response.data is! String) return const PollFormLoad(PollFormLoadKind.failed);
+    if (response.statusCode != 200) return const PollFormLoad(PollFormLoadKind.failed);
+    if (postFormAnswerOf(response.data) case final json?) {
+      final served = tsdmAppInt(json['uid']);
+      if (served <= 0) return const PollFormLoad(PollFormLoadKind.loginRequired);
+      if (served != _ownerUid) return const PollFormLoad(PollFormLoadKind.identityChanged);
+      final form = PostForm.fromJson(json);
+      if (form == null) return PollFormLoad(PollFormLoadKind.denied, message: tsdmAppText(json['message']));
+      TsdmAppApi.notePostForm();
+      if (form.hookFields.isEmpty) return _loadOf(PollCreateForm.fromPostForm(form, fid: fid, uid: served));
+    } else if (tsdmAppAnswerJson(response.data) == null) {
+      return _webForm(response, fid);
+    }
+    // Another plugin's fields, or the plugin could not tell the form: the web page itself.
+    final page = await _get(formUrl(fid));
+    if (!isCurrent) return const PollFormLoad(PollFormLoadKind.identityChanged);
+    return switch (page) {
+      Left() => const PollFormLoad(PollFormLoadKind.failed),
+      Right(:final value) =>
+        value.statusCode != 200 ? const PollFormLoad(PollFormLoadKind.failed) : _webForm(value, fid),
+    };
+  }
+
+  /// The poll form of [fid] in the web page [response], parsed as it always was ([PollCreateForm.parse]).
+  PollFormLoad _webForm(Response<dynamic> response, String fid) {
+    if (response.data is! String) return const PollFormLoad(PollFormLoadKind.failed);
     final document = parseHtmlDocument(response.data as String);
     final served = parseLoggedUidFromDocument(document);
     if (served == null) return const PollFormLoad(PollFormLoadKind.loginRequired);
     if (served != _ownerUid) return const PollFormLoad(PollFormLoadKind.identityChanged);
-    final parsed = PollCreateForm.parse(document, fid: fid, uid: served);
-    return switch (parsed.kind) {
-      PollFormParseKind.ready => PollFormLoad(PollFormLoadKind.ready, form: parsed.form),
-      PollFormParseKind.denied => PollFormLoad(PollFormLoadKind.denied, message: parsed.message),
-      PollFormParseKind.unsupported => const PollFormLoad(PollFormLoadKind.unsupported),
-    };
+    return _loadOf(PollCreateForm.parse(document, fid: fid, uid: served));
   }
+
+  static PollFormLoad _loadOf(PollFormParse parsed) => switch (parsed.kind) {
+    PollFormParseKind.ready => PollFormLoad(PollFormLoadKind.ready, form: parsed.form),
+    PollFormParseKind.denied => PollFormLoad(PollFormLoadKind.denied, message: parsed.message),
+    PollFormParseKind.unsupported => const PollFormLoad(PollFormLoadKind.unsupported),
+  };
 
   /// GET a fresh form of the same forum and account and check that [submission] is still posted unchanged.
   ///
@@ -244,6 +279,10 @@ final class PollCreateRepository with LoggerMixin {
     // The write result of the forum's app API (plugin 2.6.0): the redirect the forum would have answered is verified
     // by its target, a message or a page is read as the forum's page.
     final apiResult = response.statusCode == 200 ? tsdmAppWriteResultOf(response.data) : null;
+    if (apiResult != null && apiResult.asksVerification) {
+      // The forum asked for a captcha or a security question when the poll was posted: nothing was created.
+      return PollCreateResult(PollCreateOutcome.rejected, message: t.postEditPage.verificationRequired);
+    }
     if (apiResult != null && apiResult.kind == TsdmAppWriteKind.redirect) {
       return _verify(apiResult.login ? null : threadTidOf(apiResult.url));
     }

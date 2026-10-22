@@ -2,11 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/repository/poll_create_repository.dart';
 import 'package:tsdm_client/features/post/utils/new_thread_status.dart';
 import 'package:tsdm_client/features/post/utils/submission_result.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -77,10 +79,10 @@ void main() {
       expect(load.kind, PollFormLoadKind.denied);
       expect(load.message, 'Synthetic refusal');
     });
-    test('requests the special=1 form of the forum', () async {
+    test("requests the special=1 form of the forum, in the JSON mode of the forum's app API (plugin 2.9.0)", () async {
       final harness = _Harness(post: () => throw StateError('no post'));
       await harness.repo.fetchForm('4');
-      expect(harness.gets.single, endsWith('forum.php?mod=post&action=newthread&fid=4&special=1'));
+      expect(harness.gets.single, withTsdmAppJson('$baseUrl/forum.php?mod=post&action=newthread&fid=4&special=1'));
     });
   });
 

@@ -16,6 +16,7 @@ class ReplyParameters with ReplyParametersMappable {
     this.debate = false,
     this.debateStand,
     this.viewerUid,
+    this.verification = false,
   });
 
   /// Forum id.
@@ -45,4 +46,10 @@ class ReplyParameters with ReplyParametersMappable {
   /// The account the page was served to (the answer's `uid`), null for a guest or a page that does not say: the side
   /// of a debate belongs to it ([debateStand]).
   final int? viewerUid;
+
+  /// The forum asks this account for a captcha or a security question to reply here, which only the website shows:
+  /// the thread page said so (`reply.seccheck`, plugin 2.9.1; the placeholders of the quick reply form of the web
+  /// page). The quick reply is then not sent from the app. False when the page does not tell, which does not mean the
+  /// forum will not ask when the reply is posted (a site asking by the number of posts or their interval decides then).
+  final bool verification;
 }

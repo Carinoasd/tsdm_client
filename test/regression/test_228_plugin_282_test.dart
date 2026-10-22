@@ -14,7 +14,7 @@
 /// * F. a hot reply (`hot`) says "推荐" in place of its floor number, with the floor it really is (`hot_position`);
 /// * G. the forum page shows and goes on from the page the forum answered (`page`, its first page when asked past
 ///   the site's limit of pages), the last page being `pages`;
-/// * I. the app expects plugin 2.8.2.
+/// * I. the app expects plugin 2.8.2 or later.
 ///
 /// Test data: `tsdmapp/*_282_*.json` are answers of the plugin's 2.8.2 acceptance run (`evidence/audit282.json` of
 /// the plugin), scrubbed with the plugin's fixture tool as the other fixtures (see `test/data/tsdmapp/README.md`);
@@ -949,9 +949,9 @@ void main() {
     }
   });
 
-  test('I. the app expects plugin 2.8.2', () {
-    expect(expectedTsdmAppVersion, '2.8.2');
+  test('I. the app expects plugin 2.8.2 or later', () {
+    expect(compareTsdmAppVersions(expectedTsdmAppVersion, '2.8.2'), greaterThanOrEqualTo(0));
     expect(const TsdmAppPluginInfo(version: '2.8.1', api: 1, nodoc: true).olderThanExpected, isTrue);
-    expect(const TsdmAppPluginInfo(version: '2.8.2', api: 1, nodoc: true).olderThanExpected, isFalse);
+    expect(const TsdmAppPluginInfo(version: expectedTsdmAppVersion, api: 1, nodoc: true).olderThanExpected, isFalse);
   });
 }

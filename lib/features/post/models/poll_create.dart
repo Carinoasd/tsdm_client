@@ -2,22 +2,19 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:universal_html/html.dart' as uh;
 
+export 'package:tsdm_client/features/post/utils/discuz_text.dart' show discuzEscape, discuzStrLen;
+
 /// Subject limit enforced by the upstream post handler (`dstrlen($subject) > 255`).
-const pollSubjectServerLimit = 255;
+const int pollSubjectServerLimit = discuzSubjectServerLimit;
 
 /// Conservative client guard for one poll choice, NOT an observed form limit.
 ///
 /// Upstream stores each escaped choice in a `varchar(80)` column; the live database schema is not verified.
 const pollOptionStorageGuard = 80;
-
-/// Discuz `dstrlen` on UTF-8: an ASCII character counts 1, any other Unicode scalar (CJK, emoji) counts 2.
-int discuzStrLen(String value) => value.runes.fold(0, (sum, rune) => sum + (rune <= 0x7F ? 1 : 2));
-
-/// Upstream `dhtmlspecialchars` with default flags: only `&`, `"`, `<` and `>` are escaped, entities included.
-String discuzEscape(String value) =>
-    value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 /// Characters one choice occupies once the server escaped it for storage.
 int pollOptionStorageLength(String option) => discuzEscape(option).runes.length;
@@ -204,6 +201,7 @@ final class PollCreateForm {
     required this.subjectLimit,
     required this.content,
     required this.forumName,
+    this.postForm,
   });
 
   /// Forum id bound to this form.
@@ -253,6 +251,10 @@ final class PollCreateForm {
 
   /// Forum name in the breadcrumb, if any.
   final String? forumName;
+
+  /// The post form of the forum's app API this form was built from ([fromPostForm], plugin 2.9.0), posted back with
+  /// the poll over every served value ([PollSubmission.toPayload]); null for a form parsed from the web page.
+  final PostForm? postForm;
 
   /// Poll-section field names this client understands.
   static const _knownPollFields = {
@@ -481,6 +483,116 @@ final class PollCreateForm {
         subjectLimit: served != null && served > 0 && served < pollSubjectServerLimit ? served : pollSubjectServerLimit,
         content: content,
         forumName: document.querySelectorAll('div#pt > div.z > a[href*="fid="]').lastOrNull?.text?.trim(),
+      ),
+    );
+  }
+
+  /// Poll inputs of the post form of the forum's app API this client understands; [_knownPollFields] of the page.
+  static const _knownPollInputs = {
+    'polls',
+    'fid',
+    'tpolloption',
+    'polloptions',
+    'maxchoices',
+    'expiration',
+    'visibilitypoll',
+    'overt',
+  };
+
+  /// Validate the post form [form] of the forum's app API (plugin 2.9.0) as the special=1 form of [fid] served to
+  /// [uid], as [parse] validates the web page: a new poll ([PostForm.special] 1, `poll` block), posted to a new thread
+  /// url of [fid], with the bulk choice field (`tpolloption` and the `polloptions` text area: one choice per line, the
+  /// repeated `polloption[]` fields cannot be posted) and the editable poll fields neither read-only nor unknown; the
+  /// result flags only as plain checkboxes posting `1`; no captcha, no field of another plugin, no scheduled
+  /// publication ([PostForm.schedulesPublication]), nothing the plugin says to leave to the website
+  /// ([PostForm.unsupported]), a body the transport can carry ([PostFormBody.toMap]).
+  /// The choice limit is the forum's (`poll.max_options`), not read from the page script.
+  ///
+  /// A form with fields other plugins printed ([PostForm.hookFields]) is not taken here: the caller reads the web
+  /// page instead, whose parser knows the neutral fields of the site's poll plugin ([neutralPluginFields]).
+  static PollFormParse fromPostForm(PostForm form, {required String fid, required int uid}) {
+    if (form.uid != uid ||
+        form.action != 'newthread' ||
+        form.special != 1 ||
+        form.asksVerification ||
+        form.unsupported.isNotEmpty ||
+        form.hookFields.isNotEmpty ||
+        form.schedulesPublication ||
+        form.message == null) {
+      return const PollFormParse.unsupported();
+    }
+    final action = draftForumUri(form.submitUrl);
+    final query = action?.queryParameters ?? const <String, String>{};
+    if (action == null ||
+        query['action'] != 'newthread' ||
+        query['fid'] != fid ||
+        (query.containsKey('special') && query['special'] != '1')) {
+      return const PollFormParse.unsupported();
+    }
+    final fields = form.submitFields;
+    final formHash = fields['formhash'];
+    final postTime = fields['posttime'];
+    final wysiwyg = fields['wysiwyg'];
+    if (formHash == null || formHash.isEmpty || postTime == null || wysiwyg == null) {
+      return const PollFormParse.unsupported();
+    }
+    if ((fields['special'] ?? '1') != '1' || (fields['save'] ?? '').isNotEmpty) {
+      return const PollFormParse.unsupported();
+    }
+    final inputs = form.blockInputs('poll');
+    PostFormInput? input(String name) => inputs.where((e) => e.name == name).firstOrNull;
+    if (inputs.any((e) => !_knownPollInputs.contains(e.name)) ||
+        input('polls')?.value != 'yes' ||
+        input('tpolloption') == null ||
+        input('polloptions')?.type != 'textarea' ||
+        input('fid')?.value != fid) {
+      return const PollFormParse.unsupported();
+    }
+    final maxChoices = input('maxchoices');
+    final expiration = input('expiration');
+    if (maxChoices == null ||
+        expiration == null ||
+        [maxChoices, expiration, input('polloptions')!].any((e) => e.readonly || e.disabled)) {
+      return const PollFormParse.unsupported();
+    }
+    PollFlagField? flag(String name) {
+      final node = input(name);
+      if (node == null) return null;
+      if (!node.isCheckbox || node.value != '1' || node.disabled) throw const FormatException('Unsupported poll flag');
+      return PollFlagField(name: name, value: '1', initiallyChecked: node.checked);
+    }
+
+    final PollFlagField? visibility;
+    final PollFlagField? overt;
+    try {
+      visibility = flag('visibilitypoll');
+      overt = flag('overt');
+    } on FormatException {
+      return const PollFormParse.unsupported();
+    }
+    final maxOptions = form.pollMaxOptions;
+    if (maxOptions == null || maxOptions < 2) return const PollFormParse.unsupported();
+    final content = PostEditContent.fromPostForm(form);
+    if (content == null || form.body().toMap() == null) return const PollFormParse.unsupported();
+    return PollFormParse.ready(
+      PollCreateForm(
+        fid: fid,
+        uid: uid,
+        actionUrl: form.submitUrl!,
+        formHash: formHash,
+        postTime: postTime,
+        wysiwyg: wysiwyg,
+        maxOptions: maxOptions,
+        initialMaxChoices: int.tryParse(maxChoices.value?.trim() ?? '') ?? 1,
+        initialExpiration: expiration.value ?? '',
+        visibility: visibility,
+        overt: overt,
+        neutralPluginFields: const {},
+        passthroughFields: const {},
+        subjectLimit: form.subjectLimit,
+        content: content,
+        forumName: form.forumName,
+        postForm: form,
       ),
     );
   }
@@ -797,7 +909,14 @@ final class PollSubmission {
   String get expirationValue => expiryDays == 0 ? '' : '$expiryDays';
 
   /// URL-encoded fields for [form], one value per key.
+  ///
+  /// A form of the forum's app API ([PollCreateForm.postForm], plugin 2.9.0) posts every served field as the website
+  /// would ([PostForm.body]) with the poll over it: the title, the body, the choices one per line (`tpolloption` 2,
+  /// `polloptions`), the limits, the result flags, the type and the checked additional options.
   Map<String, String> toPayload(PollCreateForm form) {
+    if (form.postForm case final PostForm postForm) {
+      return _postFormPayload(form, postForm);
+    }
     final body = <String, String>{
       ...form.passthroughFields,
       'formhash': form.formHash,
@@ -828,6 +947,32 @@ final class PollSubmission {
       body[option.name] = option.value;
     }
     return body;
+  }
+
+  Map<String, String> _postFormPayload(PollCreateForm form, PostForm postForm) {
+    final checked = {for (final option in extraOptions) option.name};
+    final body =
+        postForm.bodyWith(
+            PostFormEdits(
+              message: toOfficialMentions(message),
+              subject: subject,
+              typeId: threadType?.typeID,
+              options: {
+                for (final option in form.extraOptions.where((e) => !e.disabled))
+                  option.name: checked.contains(option.name),
+              },
+            ),
+          )
+          // One choice per line: the repeated `polloption[]` fields of the website's rows cannot be posted.
+          ..removeWhere((name) => name == 'polloption[]' || name == 'pollimage[]')
+          ..set('tpolloption', '2')
+          ..set('polloptions', options.join('\n'))
+          ..set('maxchoices', '$maxChoices')
+          ..set('expiration', expirationValue);
+    if (form.visibility case final flag?) body.set(flag.name, visibleAfterVote ? flag.value : null);
+    if (form.overt case final flag?) body.set(flag.name, publicVoters ? flag.value : null);
+    // The confirmed form was checked to carry the body as a map (PollCreateForm.fromPostForm).
+    return body.toMap() ?? const {};
   }
 }
 

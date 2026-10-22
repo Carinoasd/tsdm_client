@@ -84,3 +84,18 @@ the site's limit of pages (`threadmaxpages` 3), and its last page under that lim
 the acceptance fixture with the avatars of banned authors hidden, with two hot replies, and with one author's floors)
 are answers of the plugin's 2.8.2 acceptance run (`evidence/audit282.json`), scrubbed with the tool's own functions
 (`scrub`, `normalize`, `normalize_thread`, the index group's pins), as the fixtures of the special threads were.
+
+`post_v16_*.json` (the forms of a new thread, a reply and an edit asked in the JSON mode, `type: post`, `schema: 16`,
+plugin 2.9.0: a new thread in a forum without types, with required types (the moderators' type left out), moderated,
+of a thread sort, of a poll, and in a forum where another plugin prints fields of its own (`hook_fields`); a reply, a
+quoting reply, a reply to an anonymous thread and the reply window (`infloat=yes`, without `inajax`); the edits of a
+first post, a reply, a post with an image and a file attachment, a draft, a poll and a jsonEditor post; the messages
+of a guest, of an edit of another member's post and of a password forum) are fetched from the test forum by the
+plugin's contract tool (`tools/fixtures.py --group post`) with its fixture script (`postfix290.php`: every id of the
+threads, posts, attachments and poll options it made is pinned to a constant, 9600001…, 9700001…, 9800001…, 1001…, and
+the suffix of its marker strings to `000000`) and scrubbed the same way; `submit.fields.posttime` → `1700000000`,
+`noticeauthor` (the forum's encrypted note, new on every request) → `NOTICEAUTHOR`, `formhash` → `f1f2f3f4`, the upload
+hash → 32 zeros, the key of an attachment's thumbnail url → `00000000`, the time of a quoted post → `2023-11-15 06:13`.
+The forms of forum 2 that open a thread (the new threads of forum 2, the edits of its first posts) list the test
+forum's form plugin in `hook_fields`; the tests take them as a forum without such a plugin serves them by clearing it.
+`post_v16_newthread.json` carries a deliberate garbage `document`: the structured path never reads it.

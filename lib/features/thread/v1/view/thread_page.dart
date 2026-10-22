@@ -865,6 +865,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   // The editor and the keyboard stay open on failure and this page does not resize for the keyboard
                   // (`resizeToAvoidBottomInset: false`), so lift the hint above it.
                   bottomInset: MediaQuery.viewInsetsOf(context).bottom,
+                  action: replyInBrowserAction(context, state.browserUrl),
                 );
               }
             },

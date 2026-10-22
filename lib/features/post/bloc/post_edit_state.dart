@@ -18,6 +18,10 @@ enum PostEditStatus {
   /// Structured editor data requires the website editor.
   unsupported,
 
+  /// The forum asks this account for a captcha or a security question to post here, which only the website shows:
+  /// continue there, nothing is posted from the app.
+  verificationRequired,
+
   /// Waiting for user to edit.
   editing,
 
@@ -29,6 +33,10 @@ enum PostEditStatus {
 
   /// Post edit result success.
   success,
+
+  /// The forum took the edits of a draft the member asked to publish, but keeps the thread a draft (a scheduled
+  /// publication, a plugin): it was not published (plugin 2.9.0, the thread checked after posting).
+  stillDraft,
 
   /// Server accepted the content, but it could not be confirmed as a private draft.
   draftUnconfirmed,
@@ -45,6 +53,7 @@ final class PostEditState with PostEditStateMappable {
     this.errorText,
     this.threadPublishInfo,
     this.redirectTid,
+    this.needsBrowser = false,
   });
 
   /// Status.
@@ -58,7 +67,8 @@ final class PostEditState with PostEditStateMappable {
 
   /// Error text html element.
   ///
-  /// Use this to show the error message.
+  /// Use this to show the error message: the forum's reason a post was refused ([PostEditStatus.failedToUpload]), or
+  /// the forum's message shown instead of the form ([PostEditStatus.failedToLoad], plugin 2.9.0).
   final String? errorText;
 
   /// Information used in publishing thread.
@@ -68,4 +78,8 @@ final class PostEditState with PostEditStateMappable {
   ///
   /// Redirect to this page.
   final String? redirectTid;
+
+  /// The forum refused the post because it asks for a captcha or a security question the app cannot show
+  /// ([PostEditStatus.failedToUpload]): nothing was posted, the content stays to continue on the website.
+  final bool needsBrowser;
 }

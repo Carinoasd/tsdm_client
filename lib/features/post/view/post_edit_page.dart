@@ -4,6 +4,7 @@ import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,7 @@ import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -236,6 +238,18 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
   }
 
+  /// Continue this new thread or this edit on the website.
+  Future<void> _openBrowser(BuildContext context) async {
+    final url = widget.editType == PostEditType.newThread
+        ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
+        : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
+    try {
+      await openInExternalBrowser(Uri.parse(url));
+    } on Object {
+      if (context.mounted) showSnackBar(context: context, message: context.t.general.failedToLoad);
+    }
+  }
+
   EditorDocumentMetadata collectThreadMetata() {
     final metadata = EditorDocumentMetadata.empty().copyWith(
       title: threadTitleController.text,
@@ -322,10 +336,43 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return disabledFeatures;
   }
 
+  /// Why the forum would refuse the type, the title or the post of a post form of its app API as they are (plugin
+  /// 2.9.0), checked before anything is confirmed or sent: a type the forum requires, the title (escaped then
+  /// `dstrlen`: an ASCII character 1, any other 2, `&` 5) against its limits, the post in UTF-8 bytes (the minimum
+  /// without quotes). Null when nothing is wrong, and always for the web page, which tells none of this (the forum keeps
+  /// the last word).
+  String? _formIssue(BuildContext context, PostEditContent content) {
+    final form = content.form;
+    if (form == null) return null;
+    final tr = context.t.postEditPage;
+    final title = threadTitleController.text;
+    final message = bbcodeController.toForumBBCode();
+    final opening = form.action == 'newthread' || form.first;
+    // The forum requires a type of an ordinary thread when the forum says so (a new thread, its first post edited).
+    if (opening && form.typeInput != null && form.typeRequired && (int.tryParse(threadType?.typeID ?? '') ?? 0) <= 0) {
+      return tr.threadTypeShouldNotBeEmpty;
+    }
+    if (form.subject != null) {
+      if (opening && discuzTrim(title).isEmpty) return tr.titleShouldNotBeEmpty;
+      if (content.titleTooLong(title, _defaultThreadTitleMaxlength)) {
+        return tr.titleTooLongLimit(limit: form.subjectLimit);
+      }
+      if (content.titleTooShort(title)) return tr.titleTooShortLimit(limit: form.subjectMin ?? 0);
+    }
+    if (content.messageTooShort(message)) return tr.threadBodyTooShortLimit(limit: form.messageMin ?? 0);
+    if (content.messageTooLong(message)) return tr.threadBodyTooLongLimit(limit: form.messageMax ?? 0);
+    return null;
+  }
+
   Future<void> _onFinish(BuildContext context, PostEditState state, {bool saveDraft = false}) async {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
+    final issue = _formIssue(context, state.content!);
+    if (issue != null) {
+      showSnackBar(context: context, message: issue);
+      return;
+    }
     setState(() => _confirming = true);
     try {
       if (widget.editType.isEditingDraft) {
@@ -355,6 +402,16 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                   ),
                 ),
         );
+        if (ret != true) {
+          return;
+        }
+      }
+      // The forum sends new posts of this forum to its moderators first (plugin 2.9.0, the form's `moderated`): say so
+      // before anything is sent. A draft stays private and is not reviewed.
+      if (!saveDraft && state.content!.moderated) {
+        if (!context.mounted) return;
+        final tr = context.t.postEditPage.moderated;
+        final ret = await showQuestionDialog(context: context, title: tr.title, message: tr.message);
         if (ret != true) {
           return;
         }
@@ -576,7 +633,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       onChanged: (value) {
         setState(() {
           threadTitleRestLength =
-              (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) - value.parseUtf8Length;
+              (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) -
+              (state.content?.titleLength(value) ?? value.parseUtf8Length);
         });
       },
       validator: (v) {
@@ -587,11 +645,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         if (v == null) {
           return tr.titleShouldNotBeEmpty;
         }
-        final titleLength = v.parseUtf8Length;
+        final titleLength = state.content?.titleLength(v) ?? v.parseUtf8Length;
         if (titleLength <= 0) {
           return tr.titleShouldNotBeEmpty;
         }
-        if (titleLength >= (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength)) {
+        if (state.content?.titleTooLong(v, _defaultThreadTitleMaxlength) ??
+            titleLength >= _defaultThreadTitleMaxlength) {
           return tr.titleTooLong;
         }
         return null;
@@ -723,23 +782,33 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (state.status == PostEditStatus.identityChanged) {
       return AppStateView(icon: Icons.manage_accounts_outlined, message: context.t.draftBox.accountChanged);
     }
-    if (state.status == PostEditStatus.unsupported) {
-      return AppStateView(
-        icon: Icons.web_outlined,
-        message: context.t.draftBox.unsupported,
+    if (state.status == PostEditStatus.unsupported || state.status == PostEditStatus.verificationRequired) {
+      // Switched in from the poll editor: what the member typed there stays to read and copy for the website.
+      final transfer = _transfer;
+      final transferred = transfer != null && (transfer.subject.trim().isNotEmpty || transfer.body.trim().isNotEmpty);
+      final view = AppStateView(
+        icon: state.status == PostEditStatus.verificationRequired ? Icons.verified_user_outlined : Icons.web_outlined,
+        message: state.status == PostEditStatus.verificationRequired
+            ? context.t.postEditPage.verificationRequired
+            : context.t.draftBox.unsupported,
         action: TextButton.icon(
           icon: const Icon(Icons.open_in_browser_outlined),
-          onPressed: () async {
-            final url = widget.editType == PostEditType.newThread
-                ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
-                : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
-            try {
-              await openInExternalBrowser(Uri.parse(url));
-            } on Object {
-              if (context.mounted) showSnackBar(context: context, message: context.t.general.failedToLoad);
-            }
-          },
+          onPressed: () async => _openBrowser(context),
           label: Text(context.t.draftBox.openBrowser),
+        ),
+        scrollable: !transferred,
+      );
+      if (!transferred) {
+        return view;
+      }
+      return SingleChildScrollView(
+        padding: edgeInsetsL16R16B12,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            view,
+            _TransferredContent(transfer: transfer),
+          ],
         ),
       );
     }
@@ -747,6 +816,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return const CenteredCircularIndicator();
     }
     if (state.status == PostEditStatus.failedToLoad) {
+      // The forum's message shown instead of the form, when it told one (plugin 2.9.0: no permission, a password
+      // forum, an edit time limit…).
       return buildRetryButton(context, () {
         switch (widget.editType) {
           case PostEditType.editPost || PostEditType.editDraft:
@@ -764,7 +835,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           case PostEditType.newThread:
             context.read<PostEditBloc>().add(ThreadPubFetchInfoRequested(fid: widget.fid));
         }
-      });
+      }, message: state.errorText);
     }
 
     if (!initialized) {
@@ -834,9 +905,17 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (state.status == PostEditStatus.failedToUpload) {
       showSnackBar(
         context: context,
-        message:
-            state.errorText ??
-            (widget.editType.isEditingPost ? context.t.draftBox.editUnconfirmed : context.t.draftBox.submitUnconfirmed),
+        // The forum asked for a captcha or a security question when the post was sent: nothing was posted, the
+        // content stays to continue on the website.
+        message: state.needsBrowser
+            ? context.t.postEditPage.verificationRequired
+            : state.errorText ??
+                  (widget.editType.isEditingPost
+                      ? context.t.draftBox.editUnconfirmed
+                      : context.t.draftBox.submitUnconfirmed),
+        action: state.needsBrowser
+            ? SnackBarAction(label: context.t.draftBox.openBrowser, onPressed: () async => _openBrowser(context))
+            : null,
       );
       if (isMobile) {
         WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
@@ -846,6 +925,14 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         context: context,
         title: context.t.draftBox.title,
         message: context.t.draftBox.acceptedUnconfirmed,
+      );
+      if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
+    } else if (state.status == PostEditStatus.stillDraft) {
+      // Published from the app, but the forum keeps it a draft (a scheduled publication): no "go to the new thread".
+      await showMessageSingleButtonDialog(
+        context: context,
+        title: context.t.draftBox.title,
+        message: context.t.draftBox.stillDraft,
       );
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.success) {
@@ -900,7 +987,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       // Bytes of chars for title in utf-8 encoding.
       threadTitleRestLength =
           (state.content?.threadTitleMaxLength ?? _defaultThreadTitleMaxlength) -
-          threadTitleController.text.parseUtf8Length;
+          (state.content?.titleLength(threadTitleController.text) ?? threadTitleController.text.parseUtf8Length);
       if (state.content?.options != null) {
         additionalOptionsMap = Map.fromEntries(state.content!.options!.map((e) => MapEntry(e.name, e)));
       }
@@ -1068,6 +1155,49 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               body: SafeArea(bottom: false, child: _buildBody(context, state)),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// The title and the post the member typed in the poll editor before switching here, shown when this editor cannot
+/// take the form (the website instead): selectable, with a button copying both.
+class _TransferredContent extends StatelessWidget {
+  const _TransferredContent({required this.transfer});
+
+  final ThreadModeTransfer transfer;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.postEditPage;
+    final text = [transfer.subject, transfer.body].where((e) => e.trim().isNotEmpty).join('\n\n');
+    return Card(
+      margin: edgeInsetsT12,
+      child: Padding(
+        padding: edgeInsetsL16T16R16B16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr.transferredContent, style: Theme.of(context).textTheme.titleSmall),
+            sizedBoxW8H8,
+            if (transfer.subject.trim().isNotEmpty)
+              SelectableText(transfer.subject, style: Theme.of(context).textTheme.titleMedium),
+            if (transfer.subject.trim().isNotEmpty && transfer.body.trim().isNotEmpty) sizedBoxW8H8,
+            if (transfer.body.trim().isNotEmpty) SelectableText(transfer.body),
+            sizedBoxW8H8,
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.copy_outlined),
+                label: Text(tr.copyTransferred),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: text));
+                  if (context.mounted) showSnackBar(context: context, message: context.t.general.copiedToClipboard);
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
