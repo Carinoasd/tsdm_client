@@ -198,9 +198,14 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     }
     final threadUrl = '$baseUrl/forum.php?mod=viewthread&tid=${event.tid}';
     final confirmed = event.save != '1' || await _repo.confirmsDraft(threadUrl);
-    // A draft published from a post form of the app API: the forum may keep it a draft (a scheduled publication, a
-    // plugin) although it took the edits; the thread tells.
-    final stillDraft = event.save != '1' && (form?.isDraftThread ?? false) && await _repo.confirmsDraft(threadUrl);
+    // A draft published from a post form of the app API (its first post: the thread itself): the forum may keep it a
+    // draft (a scheduled publication, a plugin) although it took the edits; the thread tells. A reply edited in one's
+    // own draft thread publishes nothing.
+    final stillDraft =
+        event.save != '1' &&
+        (form?.first ?? false) &&
+        (form?.isDraftThread ?? false) &&
+        await _repo.confirmsDraft(threadUrl);
     _submitting = false;
     if (_active(emit)) {
       emit(

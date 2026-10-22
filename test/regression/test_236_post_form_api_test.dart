@@ -1457,6 +1457,52 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       }
     });
 
+    test('a reply edited in a draft thread: no reread, no "still a draft"', () async {
+      final json = jsonDecode(File('$_dir/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>;
+      final draftThread = {
+        ...json,
+        'uid': 31,
+        'thread': {...json['thread'] as Map<String, dynamic>, 'draft': 1},
+      };
+      // The reply form of the draft fixture: not the first post, the thread a draft.
+      final reply = _with('edit_reply', {
+        'thread': {...(_json('edit_draft')['thread'] as Map<String, dynamic>)},
+      });
+      expect(PostForm.fromJson(reply)!.isDraftThread, isTrue);
+      expect(PostForm.fromJson(reply)!.first, isFalse);
+      final harness = _Harness(
+        page: (url) => url.contains('viewthread') ? draftThread : reply,
+        post: (_, _) => _redirectTo(9600005),
+      );
+      final bloc = await _load(
+        harness,
+        const PostEditLoadDataRequested('$baseUrl/forum.php?mod=post&action=edit&fid=2&tid=9600005&pid=9700003'),
+      );
+      final content = bloc.state.content!;
+      final done = bloc.stream.firstWhere((s) => s.status != PostEditStatus.uploading);
+      bloc.add(
+        PostEditCompleteEditRequested(
+          formHash: content.formHash,
+          postTime: content.postTime,
+          delattachop: '0',
+          wysiwyg: content.wysiwyg,
+          fid: '2',
+          tid: '9600005',
+          pid: '9700003',
+          page: '1',
+          threadType: null,
+          threadTitle: content.threadTitle,
+          data: content.data,
+          options: content.options!,
+          save: '',
+          perm: null,
+          price: null,
+        ),
+      );
+      expect((await done.timeout(const Duration(seconds: 3))).status, PostEditStatus.success);
+      expect(harness.gets.where((u) => u.contains('viewthread')), isEmpty, reason: 'no reread');
+    });
+
     test("the title trimmed as PHP's trim() does: other spaces count", () {
       // Against a PHP copy of the forum's rules (module/post.php trim + dhtmlspecialchars, dstrlen).
       for (final (subject, length) in [
