@@ -16,13 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.44.1 (2026-10-22)
+## Latest update: 1.45.0 (2026-10-22)
 
-- The experimental app renderer (the "render posts with the app renderer" setting, off by default) now matches the website in a few more places: long URLs are shortened the way the forum does it; blank lines in collapsed sections and alignment blocks match the website; links wrapped in colored text use the link color as on the website.
-- 1.44.0: posts follow the author's styling (colors, backgrounds, font sizes, shadows, alignment and the post's own style sheet), dark mode keeps them readable, and links are underlined as on the website.
-- Android build number 150, installs over earlier releases and test builds.
+- Tables in posts are laid out like on the website: merged cells spanning columns and rows display correctly; column widths follow the content, short fields such as names, numbers and dates stay on one line while long text wraps; tables scroll sideways only when they really don't fit; images in tables scale to the cell width instead of stretching the table.
+- Buttons placed by the post author show their text as on the website; empty collapsed sections still show their title; broken script, style and iframe content no longer prints its source code.
+- Recent releases: post content displayed as on the website (no more missing text), wider line and paragraph spacing, and the author's styling shown and kept readable in dark mode.
+- Android build number 151, installs over earlier releases and test builds.
 
-[Download 1.44.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.44.1) · [Full changelog](./CHANGELOG.md)
+[Download 1.45.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.45.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
