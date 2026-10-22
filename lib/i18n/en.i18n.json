@@ -981,7 +981,8 @@
   "memberThreadPage": {
     "title": "${name}'s posts",
     "titleUnknown": "Member's posts",
-    "blocked": "You blocked this user (this device), their threads and replies are not shown."
+    "blocked": "You blocked this user (this device), their threads and replies are not shown.",
+    "notList": "The forum did not show this member's posts."
   },
   "favoritePage": {
     "title": "Favorites",

@@ -23,18 +23,65 @@ String memberThreadUrl(MemberThreadTab tab, {String? uid, String? username}) {
   return '$baseUrl/home.php?mod=space&$who&do=thread&view=me&type=${tab.name}';
 }
 
+/// [value] as PHP's `intval` reads a query parameter (the forum's `intval($_GET['uid'])`): its leading digits after
+/// optional blanks and sign, 0 when there are none (`abc`, empty, missing).
+int forumIntval(String? value) {
+  final match = RegExp(r'^\s*([+-]?\d+)').firstMatch(value ?? '');
+  return match == null ? 0 : int.tryParse(match.group(1)!) ?? 0;
+}
+
+/// The tab of the account's own "my threads" page a list link ([queryParameters] of
+/// `home.php?mod=space&do=thread&view=me…`) names: `reply` for the replies (`type=reply`), `drafts` for the draft
+/// box (`type=thread&filter=save`, also when the type is left out), null for the threads.
+String? myThreadTabOf(Map<String, String> queryParameters) {
+  final type = queryParameters['type'];
+  if (type == 'reply') {
+    return 'reply';
+  }
+  final threads = type == null || type.isEmpty || type == 'thread';
+  return threads && queryParameters['filter'] == 'save' ? 'drafts' : null;
+}
+
+/// A member's name as the forum compares it: the forum looks a name up in its member table, whose collation
+/// (`utf8mb4_unicode_ci`) ignores the case, the trailing blanks and the full-width forms of the ASCII letters
+/// (`AG_LOW`, `ag_low `, `ａｇ_low` all find `ag_low` on the test forum).
+String forumUsernameKey(String name) {
+  final buffer = StringBuffer();
+  for (final rune in name.trimRight().runes) {
+    // Full-width ASCII (U+FF01 to U+FF5E) and the ideographic space.
+    buffer.writeCharCode(
+      rune >= 0xFF01 && rune <= 0xFF5E
+          ? rune - 0xFEE0
+          : rune == 0x3000
+          ? 0x20
+          : rune,
+    );
+  }
+  return buffer.toString().trimRight().toLowerCase();
+}
+
 /// Where the route of a member's list (`ScreenPaths.memberThread` with [queryParameters]) goes instead when the member
-/// is the account in use ([currentUid], [currentUsername]): the account's own "my threads" page, with its drafts and
-/// the forum's filters. Null when it is another member, or when no account is in use.
+/// is the account in use ([currentUid], [currentUsername]): the account's own "my threads" page on the tab the link
+/// named ([myThreadTabOf]: `tab=reply` of the route, its `filter=save`), with its drafts and the forum's filters. Null
+/// when it is another member, or when no account is in use.
 ///
-/// The member is told as the forum tells it: by the name when the route has one, by the uid otherwise.
+/// The member is told as the forum tells it: by the name when the route has one ([forumUsernameKey]), by the uid
+/// otherwise ([forumIntval]).
 String? memberThreadRedirect(Map<String, String> queryParameters, {int? currentUid, String? currentUsername}) {
   final username = queryParameters['username'];
+  final bool self;
   if (username != null && username.isNotEmpty) {
-    return currentUsername != null && currentUsername.isNotEmpty && username == currentUsername
-        ? ScreenPaths.myThread
-        : null;
+    self =
+        currentUsername != null &&
+        currentUsername.isNotEmpty &&
+        forumUsernameKey(username) == forumUsernameKey(currentUsername);
+  } else {
+    final uid = forumIntval(queryParameters['uid']);
+    self = uid > 0 && uid == currentUid;
   }
-  final uid = int.tryParse(queryParameters['uid'] ?? '');
-  return uid != null && uid > 0 && uid == currentUid ? ScreenPaths.myThread : null;
+  if (!self) {
+    return null;
+  }
+  final tab = queryParameters['tab'] == 'reply' ? 'reply' : (queryParameters['filter'] == 'save' ? 'drafts' : null);
+  return Uri(path: ScreenPaths.myThread, queryParameters: tab == null ? null : {'tab': tab}).toString();
 }

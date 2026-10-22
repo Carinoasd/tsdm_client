@@ -65,18 +65,27 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
     );
     _cubit =
         widget.cubit ?? MemberThreadCubit(repository: MyThreadRepository(), uid: widget.uid, username: widget.username);
-    // What the forum shows of the member depends on who asks: another account coming into use reloads both lists.
+    // What the forum shows of the member depends on who asks: another account coming into use reloads both lists,
+    // and so does a login of the account in use again while a list was refused (the forum may have dropped its
+    // session, issue #25, and answered as to a guest). The status replayed to a new listener ended before: no login.
     final auth = context.readOrNull<AuthenticationRepository>();
     if (auth != null) {
+      final replayed = auth.latestStatus;
       _authSubscription = auth.status.listen((status) {
-        // The status replayed to a new listener names the account the lists are being asked as.
-        if (status is AuthStatusLoading || _cubit.askedUid == auth.effectiveCurrentUid) {
+        if (identical(status, replayed) || status is AuthStatusLoading) {
           return;
         }
-        if (MemberThreadTab.values.every((e) => _cubit.state.of(e).status == MemberThreadStatus.initial)) {
+        final lists = MemberThreadTab.values.map(_cubit.state.of);
+        if (lists.every((e) => e.status == MemberThreadStatus.initial)) {
           return;
         }
-        unawaited(_cubit.reloadAll());
+        final changed = _cubit.askedUid != auth.effectiveCurrentUid;
+        final refused = lists.any(
+          (e) => e.status == MemberThreadStatus.needLogin || e.status == MemberThreadStatus.failed,
+        );
+        if (changed || (status is AuthStatusAuthed && refused)) {
+          unawaited(_cubit.reloadAll());
+        }
       });
     }
     for (final tab in MemberThreadTab.values) {
@@ -110,8 +119,12 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
           popCallback: (_) async => _cubit.reloadAll(),
         );
       case MemberThreadStatus.notice:
-        // The forum's own explanation (no such member, the forum closed).
-        return AppStateView(icon: Icons.info_outline, message: list.message ?? '');
+        // The forum's own explanation (no such member, the forum closed), or another page than the list.
+        final message = list.message;
+        return AppStateView(
+          icon: Icons.info_outline,
+          message: message == null || message.isEmpty ? context.t.memberThreadPage.notList : message,
+        );
       case MemberThreadStatus.failed:
         return buildRetryButton(context, () => _cubit.load(tab));
       case MemberThreadStatus.success:
@@ -152,10 +165,19 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
     );
   }
 
-  /// The lists, or what replaces them for a member blocked on this device.
+  /// The lists, or what replaces them for a member blocked on this device: by uid, or by name while the uid is not
+  /// known (a link by name answered by the web page, which names no uid on a single page), held back until the block
+  /// list is known.
   Widget _buildBody(BuildContext context, MemberThreadState state) {
     final blockList = currentBlockList(context);
-    if (blockList.hides(state.ownerUid)) {
+    final name = state.ownerName ?? widget.username;
+    final hidden = switch (state.ownerUid) {
+      final int uid => blockList.hides(uid),
+      null when name != null && name.isNotEmpty =>
+        !blockList.isKnown || blockList.users.any((e) => forumUsernameKey(e.username) == forumUsernameKey(name)),
+      null => false,
+    };
+    if (hidden) {
       final tr = context.t.userBlock;
       if (!blockList.isKnown) {
         return AppStateView(
@@ -187,9 +209,16 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
         child: BlocBuilder<MemberThreadCubit, MemberThreadState>(
           builder: (context, state) {
             final name = state.ownerName ?? widget.username;
+            // A link naming the account in use in a way the route could not tell (`uid=00`, a name spelt otherwise):
+            // the forum answered the own list.
+            final own = state.ownerUid != null && state.ownerUid == state.viewerUid;
             return Scaffold(
               appBar: AppBar(
-                title: Text(name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
+                title: Text(
+                  own
+                      ? context.t.myThreadPage.title
+                      : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
+                ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.person_outline),

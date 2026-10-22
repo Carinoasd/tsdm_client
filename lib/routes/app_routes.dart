@@ -242,7 +242,10 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.notificationSyncAll, builder: (_) => const NotificationSyncAllPage()),
   AppRoute(
     path: ScreenPaths.myThread,
-    builder: (state) => MyThreadPage(showDrafts: state.uri.queryParameters['tab'] == 'drafts'),
+    builder: (state) => MyThreadPage(
+      showDrafts: state.uri.queryParameters['tab'] == 'drafts',
+      showReplies: state.uri.queryParameters['tab'] == 'reply',
+    ),
   ),
   AppRoute(
     path: ScreenPaths.memberThread,

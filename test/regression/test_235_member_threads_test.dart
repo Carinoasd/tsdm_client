@@ -155,15 +155,16 @@ String _webRow(int tid, {String? reply}) =>
 </tr>${reply == null ? '' : '''
 <tr><td colspan="5" class="xg1"><a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=$tid&amp;pid=${tid}0" target="_blank">$reply</a></td></tr>'''}''';
 
-/// The web page of member 1103's list [type] (no `from=space`: the layout the app asks).
-String _webPage(String type) =>
+/// The web page of member 1103's list [type] (no `from=space`: the layout the app asks) served to [viewer]; [paged]
+/// for the pagination, whose links name the member's uid (one page has none).
+String _webPage(String type, {int viewer = 35, bool paged = true}) =>
     '''
-<html><head><script>var discuz_uid = '1000';</script></head><body><div id="wp" class="wp"><div id="ct" class="ct2_a wp cl"><div class="mn pbw">
+<html><head><script>var discuz_uid = '$viewer';</script></head><body><div id="wp" class="wp"><div id="ct" class="ct2_a wp cl"><div class="mn pbw">
 <div class="tl"><form method="post" autocomplete="off" name="delform" id="delform" action="home.php?mod=space&amp;do=thread&amp;view=all&amp;order=dateline"><table cellspacing="0" cellpadding="0">
 <tr class="th"><td class="icn">&nbsp;</td><th>主题</th><td class="frm">版块</td><td class="num">回复</td><td class="by"><cite>最后发表</cite></td></tr>
 ${type == 'thread' ? _webRow(123) + _webRow(124) : _webRow(125, reply: 'Synthetic reply')}
 </table></form></div>
-<div class="pgs cl mtm"><div class="pg"><strong>1</strong><a href="home.php?mod=space&amp;uid=1103&amp;do=thread&amp;view=me&amp;type=$type&amp;page=2" class="nxt">下一页</a></div></div>
+${paged ? '<div class="pgs cl mtm"><div class="pg"><strong>1</strong><a href="home.php?mod=space&amp;uid=1103&amp;do=thread&amp;view=me&amp;type=$type&amp;page=2" class="nxt">下一页</a></div></div>' : ''}
 </div></div></div></body></html>''';
 
 String _bodyOf(String html) => RegExp('<body>(.*)</body>', dotAll: true).firstMatch(html)?.group(1) ?? html;
@@ -178,15 +179,24 @@ final class _Auth extends Fake implements AuthenticationRepository {
   final _controller = StreamController<AuthStatus>.broadcast(sync: true);
 
   @override
+  AuthStatus? latestStatus;
+
+  @override
   Stream<AuthStatus> get status => _controller.stream;
 
   @override
   int? get effectiveCurrentUid => currentUser?.uid;
 
+  /// A login of [user] that ends now.
   void switchTo(UserLoginInfo user) {
     currentUser = user;
-    _controller.add(AuthStatusAuthed(user));
+    final status = AuthStatusAuthed(user);
+    latestStatus = status;
+    _controller.add(status);
   }
+
+  /// The latest status, as the repository replays it to a new listener (the same instance).
+  void replay() => _controller.add(latestStatus!);
 
   Future<void> close() => _controller.close();
 }
@@ -261,7 +271,18 @@ void main() {
     test('the own list: by uid or by name, the "my threads" page; nobody named: as before; comments: the web', () {
       // The route's redirect.
       expect(memberThreadRedirect({'uid': '35'}, currentUid: 35, currentUsername: 'me'), ScreenPaths.myThread);
-      expect(memberThreadRedirect({'uid': '35', 'tab': 'reply'}, currentUid: 35), ScreenPaths.myThread);
+      // The tab the link named: the replies, the draft box.
+      expect(memberThreadRedirect({'uid': '35', 'tab': 'reply'}, currentUid: 35), '${ScreenPaths.myThread}?tab=reply');
+      expect(
+        memberThreadRedirect({'uid': '35', 'filter': 'save'}, currentUid: 35),
+        '${ScreenPaths.myThread}?tab=drafts',
+      );
+      // The name as the forum's collation compares it (case, trailing blanks, full-width letters); the uid as intval.
+      for (final name in ['ME', 'me ', 'ｍｅ', 'Ｍe　']) {
+        expect(memberThreadRedirect({'username': name}, currentUsername: 'me'), ScreenPaths.myThread, reason: name);
+      }
+      expect(memberThreadRedirect({'username': 'mee'}, currentUsername: 'me'), isNull);
+      expect(memberThreadRedirect({'uid': '035'}, currentUid: 35), ScreenPaths.myThread);
       expect(memberThreadRedirect({'username': 'me'}, currentUid: 35, currentUsername: 'me'), ScreenPaths.myThread);
       expect(memberThreadRedirect({'uid': '31'}, currentUid: 35, currentUsername: 'me'), isNull);
       expect(memberThreadRedirect({'username': 'other'}, currentUid: 35, currentUsername: 'me'), isNull);
@@ -275,6 +296,26 @@ void main() {
       expect(myThreadReplyUrl.parseUrlToRoute()!.screenPath, ScreenPaths.myThread);
       expect('home.php?mod=space&uid=0&do=thread&view=me'.parseUrlToRoute()!.screenPath, ScreenPaths.myThread);
       expect('home.php?mod=space&uid=1103&do=thread&view=me&type=postcomment'.parseUrlToRoute(), isNull);
+
+      // The own list opens on the tab the link names.
+      final ownReply = myThreadReplyUrl.parseUrlToRoute()!;
+      expect(ownReply.queryParameters, {'tab': 'reply'});
+      final drafts = 'home.php?mod=space&do=thread&view=me&type=thread&filter=save'.parseUrlToRoute()!;
+      expect(drafts.screenPath, ScreenPaths.myThread);
+      expect(drafts.queryParameters, {'tab': 'drafts'});
+      // A uid the forum reads as 0 (`intval`) names nobody: the own list.
+      for (final uid in ['abc', '00', '-5', '']) {
+        final route = 'home.php?mod=space&uid=$uid&do=thread&view=me'.parseUrlToRoute()!;
+        expect(route.screenPath, ScreenPaths.myThread, reason: uid);
+      }
+      // `035` is uid 35 to the forum; a type it does not know is the threads; the draft filter is kept for the
+      // redirect to the own list.
+      final padded = 'home.php?mod=space&uid=035&do=thread&view=me&type=Reply&filter=save'.parseUrlToRoute()!;
+      expect(padded.screenPath, ScreenPaths.memberThread);
+      expect(padded.queryParameters, {'uid': '35'});
+      final saved = 'home.php?mod=space&uid=35&do=thread&view=me&filter=save'.parseUrlToRoute()!;
+      expect(saved.queryParameters, {'uid': '35', 'filter': 'save'});
+      expect(memberThreadRedirect(saved.queryParameters, currentUid: 35), '${ScreenPaths.myThread}?tab=drafts');
     });
   });
 
@@ -382,8 +423,58 @@ void main() {
           '$baseUrl/home.php?mod=space&uid=1103&do=thread&view=me&type=thread&page=2',
           reason: label,
         );
-        expect(state.ownerUid, 1103, reason: '$label: the route named it');
+        expect(state.ownerUid, 1103, reason: label);
         expect(state.ownerName, isNull, reason: '$label: the page does not name the member');
+      }
+    });
+
+    test('by name: the uid read from the links of the page to the list; none on a single page', () async {
+      _use(_Forum((o) => _html(_webPage(o.uri.queryParameters['type']!))));
+      var cubit = _cubit(uid: null, username: 'someone');
+      var state = await _loadBoth(cubit);
+      await cubit.close();
+      expect(state.thread.status, MemberThreadStatus.success);
+      expect(state.ownerUid, 1103);
+
+      _use(_Forum((o) => _html(_webPage(o.uri.queryParameters['type']!, paged: false))));
+      cubit = _cubit(uid: null, username: 'someone');
+      state = await _loadBoth(cubit);
+      await cubit.close();
+      expect(state.thread.items, hasLength(2));
+      expect(state.ownerUid, isNull);
+    });
+
+    test('a web page served to another account than the one asking is a failure, as a structured one', () async {
+      _use(_Forum((o) => _html(_webPage(o.uri.queryParameters['type']!, viewer: 1000))));
+      final cubit = _cubit(uid: '1103');
+      final state = await _loadBoth(cubit);
+      await cubit.close();
+      expect(state.thread.status, MemberThreadStatus.failed);
+      expect(state.reply.status, MemberThreadStatus.failed);
+    });
+
+    test('another page than the list (the profile of a banned member): a notice, not an empty list', () async {
+      for (final (label, answer) in [
+        (
+          'the web page',
+          _html(
+            "<html><head><script>var discuz_uid = '35';</script></head><body><div id=\"wp\"><div id=\"ct\"> "
+            '<div class="bm"><h2>Profile</h2></div></div></div></body></html>',
+          ),
+        ),
+        // Plugin 2.5.0 answers it as the profile page (`type profile`, `schema 4`), lean: no document.
+        (
+          'the profile answer',
+          _api({'ok': 1, 'api': 1, 'uid': 35, 'type': 'profile', 'schema': 4, 'profile': <String, Object?>{}}),
+        ),
+      ]) {
+        _use(_Forum((_) => answer));
+        final cubit = _cubit(uid: '76');
+        final state = await _loadBoth(cubit);
+        await cubit.close();
+        expect(state.thread.status, MemberThreadStatus.notice, reason: label);
+        expect(state.thread.message, isNull, reason: label);
+        expect(state.reply.status, MemberThreadStatus.notice, reason: label);
       }
     });
 
@@ -456,6 +547,20 @@ void main() {
       expect(state.thread.pageNumber, 1);
     });
 
+    test('a next page asked after the account changed without a status: the first page again, not mixed', () async {
+      final forum = _Forum(_member31);
+      _use(forum);
+      final cubit = _cubit();
+      await _loadBoth(cubit);
+      _session = (uid: 35, generation: 9);
+      await cubit.loadMore(MemberThreadTab.thread);
+      final state = await _settledTab(cubit, MemberThreadTab.thread);
+      await cubit.close();
+      expect(forum.requests.last.uri.queryParameters.containsKey('page'), isFalse);
+      expect(state.thread.items, hasLength(20));
+      expect(state.thread.pageNumber, 1);
+    });
+
     test('a page served to another account than the one asking is a failure', () async {
       _use(_Forum(_member31));
       _session = (uid: 36, generation: 1);
@@ -486,6 +591,8 @@ void main() {
       settingsBloc = SettingsBloc(settingsRepository: settings, fragmentsRepository: FragmentsRepository());
       blocks = UserBlockRepository(storage);
       auth = _Auth(const UserLoginInfo(username: 'viewer', uid: 35));
+      // The status the repository replays to a new listener: the account was logged in before the page opened.
+      auth.latestStatus = AuthStatusAuthed(auth.currentUser!);
     });
     tearDown(() async {
       await settingsBloc.close();
@@ -495,8 +602,13 @@ void main() {
       await db.close();
     });
 
-    Future<MemberThreadCubit> pump(WidgetTester tester, {MemberThreadTab tab = MemberThreadTab.thread}) async {
-      final cubit = _cubit();
+    Future<MemberThreadCubit> pump(
+      WidgetTester tester, {
+      MemberThreadTab tab = MemberThreadTab.thread,
+      String? uid = '31',
+      String? username,
+    }) async {
+      final cubit = _cubit(uid: uid, username: username);
       final block = UserBlockCubit(
         repository: blocks,
         currentUid: () => auth.currentUser?.uid,
@@ -506,7 +618,7 @@ void main() {
         routes: [
           GoRoute(
             path: '/',
-            builder: (_, _) => MemberThreadPage(uid: '31', initialTab: tab, cubit: cubit),
+            builder: (_, _) => MemberThreadPage(uid: uid, username: username, initialTab: tab, cubit: cubit),
           ),
         ],
       );
@@ -557,7 +669,11 @@ void main() {
       final cubit = await pump(tester);
       expect(forum.requests, hasLength(2));
       expect(cubit.state.viewerUid, 35);
-      // The status of the account the lists were asked as (the one replayed to a new listener): nothing asked again.
+      // The status replayed to a new listener: nothing asked again.
+      auth.replay();
+      await _pumpSettled(tester);
+      expect(forum.requests, hasLength(2));
+      // A login of the same account again with every list shown: nothing to ask again either.
       auth.switchTo(const UserLoginInfo(username: 'viewer', uid: 35));
       await _pumpSettled(tester);
       expect(forum.requests, hasLength(2));
@@ -567,6 +683,56 @@ void main() {
       expect(forum.requests, hasLength(4));
       // The fixture is served to uid 35: the lists of uid 36 are not taken from it.
       expect(cubit.state.thread.status, MemberThreadStatus.failed);
+    });
+
+    testWidgets('a login of the same account again while the forum asked to log in: both lists asked again', (
+      tester,
+    ) async {
+      var guest = true;
+      final forum = _Forum((o) => guest ? _api(_raw('mythread_v9_guest.json')) : _member31(o));
+      _use(forum);
+      final cubit = await pump(tester);
+      expect(cubit.state.thread.status, MemberThreadStatus.needLogin);
+      // The replayed status is not that login.
+      auth.replay();
+      await _pumpSettled(tester);
+      expect(forum.requests, hasLength(2));
+      guest = false;
+      _session = (uid: 35, generation: 7);
+      auth.switchTo(const UserLoginInfo(username: 'viewer', uid: 35));
+      await _pumpSettled(tester);
+      expect(forum.requests, hasLength(4));
+      expect(cubit.state.thread.status, MemberThreadStatus.success);
+      expect(find.text(_tr.memberThreadPage.title(name: 'ag_low')), findsOneWidget);
+    });
+
+    testWidgets('the forum answered the own list (a link naming the account otherwise): titled "my threads"', (
+      tester,
+    ) async {
+      _use(
+        _Forum((o) {
+          final json = _json('mythread_v9_other.json')
+            ..['owner'] = {'uid': 35, 'username': 'viewer'}
+            ..['self'] = 1;
+          return _api(json);
+        }),
+      );
+      await pump(tester);
+      expect(find.text(_tr.myThreadPage.title), findsOneWidget);
+    });
+
+    testWidgets('a member blocked by name, answered by a single web page naming no uid: hidden', (tester) async {
+      _use(_Forum((o) => _html(_webPage(o.uri.queryParameters['type']!, paged: false))));
+      await tester.runAsync(() => blocks.block(ownerUid: 35, uid: 1103, username: 'Someone'));
+      await pump(tester, uid: null, username: 'someone ');
+      expect(find.text(_tr.memberThreadPage.blocked), findsOneWidget);
+      expect(find.byType(MyThreadCard), findsNothing);
+    });
+
+    testWidgets('another page than the list: the notice, not "no data"', (tester) async {
+      _use(_Forum((_) => _api({'ok': 1, 'api': 1, 'uid': 35, 'type': 'profile', 'schema': 4})));
+      await pump(tester);
+      expect(find.text(_tr.memberThreadPage.notList), findsOneWidget);
     });
   });
 }

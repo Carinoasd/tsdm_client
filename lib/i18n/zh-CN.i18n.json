@@ -981,7 +981,8 @@
   "memberThreadPage": {
     "title": "${name} 的帖子",
     "titleUnknown": "TA的帖子",
-    "blocked": "你已屏蔽此用户（本机），其主题与回复不显示。"
+    "blocked": "你已屏蔽此用户（本机），其主题与回复不显示。",
+    "notList": "论坛没有显示此会员的帖子列表。"
   },
   "favoritePage": {
     "title": "收藏",

@@ -195,6 +195,9 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
   int? get askedUid => _askedUid;
   int? _askedUid;
 
+  /// The session the rows of each list were asked with: a next page is only appended to rows of the same session.
+  final List<MemberThreadSession?> _loadedSessions = List.filled(MemberThreadTab.values.length, null);
+
   /// Load the first page of the list [tab]: the first time, on a pull to refresh, to retry.
   Future<void> load(MemberThreadTab tab) async {
     if (isClosed) {
@@ -249,13 +252,19 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
       );
       return;
     }
-    if (answer case TsdmAppStructuredPage(:final json)) {
-      final viewer = myThreadApiViewerUid(json);
-      if (session.uid != null && session.uid! > 0 && viewer != session.uid) {
-        error('member thread: the $tab list was served to uid $viewer, asked as ${session.uid}');
-        emit(state._with(tab, state.of(tab).copyWith(status: _failedStatus(tab), refreshing: false)));
-        return;
-      }
+    if (_servedToAnother(answer, session)) {
+      error('member thread: the $tab list was served to another account than ${session.uid}');
+      emit(state._with(tab, state.of(tab).copyWith(status: _failedStatus(tab), refreshing: false)));
+      return;
+    }
+    // Not the list either: the forum printed another page instead (the profile of a banned member, see the plugin
+    // README), which has nothing of the list. Told as such, not as an empty list.
+    if (answer case TsdmAppWebPage(:final document) when document.querySelector('form#delform') == null) {
+      warning('member thread: the forum answered the $tab list with another page');
+      emit(
+        state._with(tab, const MemberThreadListState(status: MemberThreadStatus.notice), viewerUid: () => session.uid),
+      );
+      return;
     }
     final (items, nextPageUrl) = myThreadPageOf(answer, url, reply: tab == MemberThreadTab.reply);
     final owner = switch (answer) {
@@ -263,11 +272,15 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
       TsdmAppWebPage() => const <String, dynamic>{},
     };
     final ownerName = tsdmAppText(owner['username']);
+    _loadedSessions[tab.index] = session;
     emit(
       state._with(
         tab,
         MemberThreadListState(status: MemberThreadStatus.success, items: items, nextPageUrl: nextPageUrl),
-        ownerUid: answer is TsdmAppStructuredPage ? myThreadApiOwnerUid(answer.json) : null,
+        ownerUid: switch (answer) {
+          TsdmAppStructuredPage(:final json) => myThreadApiOwnerUid(json),
+          TsdmAppWebPage(:final document) => _webOwnerUid(document),
+        },
         ownerName: ownerName.isEmpty ? null : ownerName,
         viewerUid: () => session.uid,
       ),
@@ -281,8 +294,14 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
     if (isClosed || url == null || list.loadingMore || list.refreshing || list.status != MemberThreadStatus.success) {
       return;
     }
-    final generation = ++_generations[tab.index];
     final session = _session();
+    if (session != _loadedSessions[tab.index]) {
+      // The rows shown were asked as another account or session: start over rather than mix the two.
+      warning('member thread: the account changed since the $tab list was loaded, ask it again');
+      await load(tab);
+      return;
+    }
+    final generation = ++_generations[tab.index];
     emit(state._with(tab, list.copyWith(loadingMore: true)));
     final result = await _repository.fetchPage(url).run();
     if (!_isCurrent(tab, generation)) {
@@ -305,10 +324,9 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
           emit(state._with(tab, failed));
           return;
         }
-        if (value case TsdmAppStructuredPage(
-          :final json,
-        ) when session.uid != null && session.uid! > 0 && myThreadApiViewerUid(json) != session.uid) {
-          error('member thread: a next page of the $tab list was served to another account');
+        if (_servedToAnother(value, session) ||
+            (value is TsdmAppWebPage && value.document.querySelector('form#delform') == null)) {
+          error('member thread: a next page of the $tab list was served to another account, or is no list');
           emit(state._with(tab, failed));
           return;
         }
@@ -340,6 +358,47 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
   /// A failed first page keeps the rows shown by a failed refresh.
   MemberThreadStatus _failedStatus(MemberThreadTab tab) =>
       state.of(tab).status == MemberThreadStatus.success ? MemberThreadStatus.success : MemberThreadStatus.failed;
+}
+
+/// Whether a list page [answer] asked with [session] was served to another account: the viewer of the structured
+/// answer (its `uid`), or of the web page (its `discuz_uid`, when the page names it), is not the account asked as.
+/// Not checked without an account (a guest gets the login prompt) or when the page names none.
+bool _servedToAnother(TsdmAppPageAnswer answer, MemberThreadSession session) {
+  final asked = session.uid;
+  if (asked == null || asked <= 0) {
+    return false;
+  }
+  return switch (answer) {
+    TsdmAppStructuredPage(:final json) => myThreadApiViewerUid(json) != asked,
+    TsdmAppWebPage(:final document) => switch (_webViewerUid(document)) {
+      final int served => served != asked,
+      null => false,
+    },
+  };
+}
+
+final _discuzUidRe = RegExp(r"discuz_uid\s*=\s*'(\d+)'");
+
+/// The account the web page [document] was served to (its `discuz_uid`, 0 for a guest), null when it names none (an
+/// older plugin's answer without its head).
+int? _webViewerUid(uh.Document document) {
+  for (final script in document.querySelectorAll('script')) {
+    final match = _discuzUidRe.firstMatch(script.text ?? '');
+    if (match != null) {
+      return int.tryParse(match.group(1)!);
+    }
+  }
+  return null;
+}
+
+final _webOwnerRe = RegExp(r'mod=space&(?:amp;)?uid=(\d+)&(?:amp;)?do=thread');
+
+/// The member whose list the web page [document] is: the uid its own links to the list carry (the pagination, the
+/// forum filter's script: `home.php?mod=space&uid=N&do=thread`), null when it has none (one page, no filter).
+int? _webOwnerUid(uh.Document document) {
+  final match = _webOwnerRe.firstMatch(document.documentElement?.outerHtml ?? '');
+  final uid = match == null ? null : int.tryParse(match.group(1)!);
+  return uid != null && uid > 0 ? uid : null;
 }
 
 /// The forum's message in a list page [answer] instead of the list, null for a list: the structured answer of the
