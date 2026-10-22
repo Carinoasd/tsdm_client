@@ -24,12 +24,12 @@ import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/html/netease_card.dart';
 // Newcomer card
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
+// Table
+import 'package:tsdm_client/utils/html/post_table.dart';
 // Line height and paragraphs of a post's content
 import 'package:tsdm_client/utils/html/post_typography.dart';
 // Review (post comment) parser
 import 'package:tsdm_client/utils/html/review_parser.dart';
-// Table
-import 'package:tsdm_client/utils/html/table_width.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -771,6 +771,10 @@ final class _Muncher with LoggerMixin {
     'summary',
   };
 
+  /// Elements whose content is source the web page does not show as text (a script, a style sheet, the html of a
+  /// frame): an element of these the muncher fails on is left out, its source is never shown in its place.
+  static const _sourceElements = {'script', 'style', 'iframe', 'noscript', 'template', 'noembed', 'noframes'};
+
   /// What the web page does not show: scripts, styles, a form (a template's form, the poll's, is shown by the app's own
   /// card) and its fields, ruby parentheses (the ruby text is shown above its base), what is there for browsers
   /// without plugins or frames, and other things a browser never shows as text. A button, a text box and a choice
@@ -978,7 +982,7 @@ final class _Muncher with LoggerMixin {
     }
     final hidden = <String, uh.Element>{};
     for (final e in root.querySelectorAll('[id]')) {
-      if (_isHidden(e) && _canFold(e)) {
+      if (_isHidden(e) && _canFold(e) && !_showsNothing(e)) {
         hidden.putIfAbsent(e.id, () => e);
       }
     }
@@ -1008,6 +1012,12 @@ final class _Muncher with LoggerMixin {
   static bool _canFold(uh.Element element) =>
       element.id.isNotEmpty && !element.id.endsWith('_menu') && !element.classes.contains('tip');
 
+  /// Whether the hidden [element] shows nothing when it is shown: no text, no picture, no player. It is no fold: what
+  /// shows it stays as it is, as on the web page (before, the fold and its title were both left out); a form for a
+  /// dialog (the forum's `activityjoincancel`) is no empty fold either.
+  static bool _showsNothing(uh.Element element) =>
+      _visibleText(element).isEmpty && element.querySelector('img, iframe, embed, object, video, audio') == null;
+
   static bool _holds(uh.Element ancestor, uh.Element element) {
     for (uh.Node? node = element; node != null; node = node.parentNode) {
       if (identical(node, ancestor)) {
@@ -1030,11 +1040,9 @@ final class _Muncher with LoggerMixin {
     return _munchBlock(element, deferBreak: false, () {
       state.elevation += _elevationStep;
       final elevation = state.elevation;
-      final content = _munchOwnBlock(() => _munch(element));
+      // A fold whose content munches to nothing is still its title (the element showing it is left out of the text).
+      final content = _munchOwnBlock(() => _munch(element)) ?? <InlineSpan>[];
       state.elevation -= _elevationStep;
-      if (content == null) {
-        return null;
-      }
       while (content.lastOrNull == emptySpan) {
         content.removeLast();
       }
@@ -1217,14 +1225,20 @@ final class _Muncher with LoggerMixin {
             debugBeforeMunchElement?.call(node);
             span = _buildElement(node, localName);
           } on Object catch (e, st) {
-            error('failed to munch <$localName>, munching what it holds instead', e, st);
             _restore(snapshot);
-            try {
-              span = _munch(node);
-            } on Object catch (e, st) {
-              error('failed to munch what <$localName> holds, leaving it out', e, st);
-              _restore(snapshot);
+            if (_sourceElements.contains(localName)) {
+              // What it holds is code or a page (a player's script, a frame's fallback), not text of the post.
+              error('failed to munch <$localName>, leaving it out', e, st);
               span = null;
+            } else {
+              error('failed to munch <$localName>, munching what it holds instead', e, st);
+              try {
+                span = _munch(node);
+              } on Object catch (e, st) {
+                error('failed to munch what <$localName> holds, leaving it out', e, st);
+                _restore(snapshot);
+                span = null;
+              }
             }
           }
           if (localName == 'br') {
@@ -1301,8 +1315,12 @@ final class _Muncher with LoggerMixin {
     'iframe' => _buildIframe(node),
     'embed' || 'object' || 'video' || 'audio' => _buildMedia(node),
     'script' => _buildScriptPlayer(node),
-    // The text a button, a text box (as written, its lines kept) and a choice box (the option chosen) show on the
-    // web page; nothing to press or type in here.
+    // A button that does something on the web page (its own `onclick`: voting, answering a bounty, ending a debate in
+    // the forum's blocks of a special thread, which the page shows when the thread is read from the web page) is left
+    // out, as before: its label would be text that cannot be pressed, the app does those in its own cards.
+    'button' when node.attributes.containsKey('onclick') => null,
+    // The text a button only labelling something (the title of a fold), a text box (as written, its lines kept) and a
+    // choice box (the option chosen) show on the web page; nothing to press or type in here.
     'button' => _munch(node),
     'textarea' => _buildPre(node),
     'select' => _buildSelect(node),
@@ -1741,11 +1759,9 @@ final class _Muncher with LoggerMixin {
     final contentNode = _unwrapSpoilerBody(body);
     state.elevation += _elevationStep;
     final elevation = state.elevation;
-    final content = _munchOwnBlock(() => _munch(contentNode));
+    // An empty spoiler is still its title, a button that opens nothing, as on the web page.
+    final content = _munchOwnBlock(() => _munch(contentNode)) ?? <InlineSpan>[];
     state.elevation -= _elevationStep;
-    if (content == null) {
-      return null;
-    }
     while (content.lastOrNull == emptySpan) {
       content.removeLast();
     }
@@ -2324,7 +2340,8 @@ final class _Muncher with LoggerMixin {
       () => element.children.skip(1).map(_munch).whereType<List<InlineSpan>>().toList(),
     );
     state.elevation -= _elevationStep;
-    if (summary == null || dataSpanList.isEmpty) {
+    // Without anything in it the summary is still there, a title that opens nothing, as on the web page.
+    if (summary == null) {
       return null;
     }
 
@@ -2650,11 +2667,10 @@ final class _Muncher with LoggerMixin {
     // table on the web page, drawn as one. Before, it was taken for a wrapper like the one around a post and its cells
     // ran together in one line.
 
-    // The cells by row and column. A cell spanning columns (`colspan`) or rows (`rowspan`) takes its first place, the
-    // other places it spans are left empty, so the cells after it stay in their columns. The cell is not drawn across
-    // them: a [Table] has no spanning cells.
-    final grid = <List<Widget>>[];
-    // The background of each row: its own, else the table's (`[table=98%,pink]`), which shows around the cells.
+    // The cells in their places. A cell spanning columns (`colspan`) or rows (`rowspan`) takes the places it spans, a
+    // cell after it goes to the next place not taken, as on the web page.
+    final cells = <PostTableCell>[];
+    // The background of each row (its own: the table's is under the whole table, `[table=98%,pink]`).
     final rowBackgrounds = <Color?>[];
     final tableBackground = _blockBackgroundOf(element, _styleOf(element));
     // The last row each column is taken until by a cell spanning rows above.
@@ -2664,10 +2680,10 @@ final class _Muncher with LoggerMixin {
       state.blockBackgroundStack.add(_behind(tableBackground.color));
     }
     for (final (y, tr) in allTr.indexed) {
-      final row = <Widget>[];
+      var x = 0;
       final rowBackground = _blockBackgroundOf(tr, _styleOf(tr));
       rowBackgrounds.add(
-        switch (rowBackground ?? tableBackground) {
+        switch (rowBackground) {
           (color: final Color color) => _colors.background(color),
           _ => null,
         },
@@ -2676,8 +2692,8 @@ final class _Muncher with LoggerMixin {
         state.blockBackgroundStack.add(_behind(rowBackground.color));
       }
       void skipTaken() {
-        while ((takenUntil[row.length] ?? -1) >= y) {
-          row.add(sizedBoxEmpty);
+        while ((takenUntil[x] ?? -1) >= y) {
+          x++;
         }
       }
 
@@ -2706,29 +2722,36 @@ final class _Muncher with LoggerMixin {
               state.blockBackgroundStack.removeLast();
             }
           }
-          for (var x = row.length; x < row.length + colspan; x++) {
-            if (rowspan > 1) {
-              takenUntil[x] = y + rowspan - 1;
+          if (rowspan > 1) {
+            for (var spanned = x; spanned < x + colspan; spanned++) {
+              takenUntil[spanned] = y + rowspan - 1;
             }
           }
           // Aligned as the web page aligns the cell: its style, its `align`, its row's, its table's. Not as the block
           // around the table (`[align=center]`): the web page leaves the cells of a centered table aligned left.
           final align =
               _styleAlign(cell) ?? _blockAlign(cell) ?? _styleAlign(tr) ?? _blockAlign(tr) ?? _styleAlign(element);
-          row
-            ..add(_tableCell(Text.rich(TextSpan(children: content), textAlign: align), content, cellBackground))
-            ..addAll(List<Widget>.filled(colspan - 1, sizedBoxEmpty));
+          cells.add(
+            PostTableCell(
+              row: y,
+              column: x,
+              rowSpan: rowspan,
+              columnSpan: colspan,
+              background: switch (cellBackground) {
+                (color: final Color color) => _colors.background(color),
+                _ => null,
+              },
+              width: _tableLength(cell),
+              verticalAlign: _cellAlign(cell) ?? _cellAlign(tr) ?? PostTableCellAlign.middle,
+              child: Text.rich(TextSpan(children: content), textAlign: align),
+            ),
+          );
+          x += colspan;
         }
       });
       if (rowBackground != null) {
         state.blockBackgroundStack.removeLast();
       }
-      // Places at the end of the row taken by cells above.
-      final lastTaken = takenUntil.entries.where((e) => e.value >= y).map((e) => e.key).maxOrNull;
-      while (lastTaken != null && row.length <= lastTaken) {
-        row.add(sizedBoxEmpty);
-      }
-      grid.add(row);
     }
     if (tableBackground != null) {
       state.blockBackgroundStack.removeLast();
@@ -2736,17 +2759,8 @@ final class _Muncher with LoggerMixin {
     state.tableDepth -= 1;
     // The table takes its own lines: what follows starts a line.
     _startLine();
-
-    // Some tables do not have the same column width on each row.
-    // Fill them.
-    final columnMaxCount = grid.map((e) => e.length).max;
-    if (columnMaxCount == 0) {
+    if (cells.isEmpty) {
       return caption;
-    }
-    for (final row in grid) {
-      if (row.length < columnMaxCount) {
-        row.addAll(List<Widget>.generate(columnMaxCount - row.length, (_) => sizedBoxEmpty));
-      }
     }
 
     // Fits the width of the post when it can, its long cells wrapping; scrolls sideways only when it cannot.
@@ -2754,57 +2768,50 @@ final class _Muncher with LoggerMixin {
       ...?caption,
       textWidgetSpan(
         PostTableScrollView(
-          child: Table(
-            defaultColumnWidth: const PostTableColumnWidth(),
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: [
-              for (final (y, row) in grid.indexed)
-                TableRow(
-                  decoration: rowBackgrounds[y] == null ? null : BoxDecoration(color: rowBackgrounds[y]),
-                  children: row,
-                ),
-            ],
+          child: PostTable(
+            cells: cells,
+            rowCount: allTr.length,
+            rowBackgrounds: rowBackgrounds,
+            background: switch (tableBackground) {
+              (color: final Color color) => _colors.background(color),
+              _ => null,
+            },
             // Lines that can be seen between the cells, as on the web page: the cells of a row ran together in the
             // color of the background (a row of headers read as one word).
-            border: TableBorder.all(color: Theme.of(context).colorScheme.outlineVariant),
+            borderColor: Theme.of(context).colorScheme.outlineVariant,
+            width: _tableLength(element),
           ),
         ),
       ),
     ];
   }
 
-  /// [text], the content of a cell made of [spans], on the cell's [background] when it has one shown: as tall as its
-  /// row when it is only text (a widget in it might not tell its height before it is laid out), behind its text
-  /// otherwise.
-  Widget _tableCell(Widget text, List<InlineSpan>? spans, ({Color? color})? background) {
-    final color = background?.color;
-    final shown = color == null ? null : _colors.background(color);
-    if (shown == null) {
-      return text;
-    }
-    final onlyText = !(spans ?? const <InlineSpan>[]).any(_holdsWidget);
-    return TableCell(
-      verticalAlignment: onlyText ? TableCellVerticalAlignment.intrinsicHeight : TableCellVerticalAlignment.middle,
-      child: PostBlockBackground(
-        color: shown,
-        padding: const EdgeInsets.all(4),
-        child: onlyText
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [text],
-              )
-            : text,
-      ),
-    );
-  }
+  /// The width the author gave a table or a cell [element]: its style's `width`, else its `width` attribute.
+  static PostTableLength? _tableLength(uh.Element element) =>
+      PostTableLength.tryParse(_inlineDeclaration(element, 'width')) ??
+      PostTableLength.tryParse(element.attributes['width']);
 
-  /// Whether [span] holds a widget.
-  static bool _holdsWidget(InlineSpan span) => switch (span) {
-    PlaceholderSpan() => true,
-    TextSpan(:final children?) => children.any(_holdsWidget),
-    _ => false,
-  };
+  /// Where the content of the cells of [element], a cell or a row, lies in their height: its style's
+  /// `vertical-align`, else its `valign` attribute.
+  static PostTableCellAlign? _cellAlign(uh.Element element) =>
+      PostTableCellAlign.tryParse(_inlineDeclaration(element, 'vertical-align')) ??
+      PostTableCellAlign.tryParse(element.attributes['valign']);
+
+  /// The value of the last declaration of [property] in the `style` attribute of [element], `!important` left out.
+  static String? _inlineDeclaration(uh.Element element, String property) {
+    final style = element.attributes['style'];
+    if (style == null || !style.toLowerCase().contains(property)) {
+      return null;
+    }
+    String? value;
+    for (final declaration in style.split(';')) {
+      final colon = declaration.indexOf(':');
+      if (colon > 0 && declaration.substring(0, colon).trim().toLowerCase() == property) {
+        value = declaration.substring(colon + 1).replaceFirst(RegExp(r'!\s*important', caseSensitive: false), '');
+      }
+    }
+    return value?.trim();
+  }
 
   /// Most columns or rows a cell of a table is taken to span: a typo in the html (`colspan="200"`) does not make a
   /// table of hundreds of empty columns.

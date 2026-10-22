@@ -37,7 +37,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/netease_card.dart';
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
-import 'package:tsdm_client/utils/html/table_width.dart';
+import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/bounty_answer_card.dart';
 import 'package:tsdm_client/widgets/card/bounty_card.dart';
@@ -116,7 +116,7 @@ final _cards = <_Card>[
   _Card(
     'table',
     '<table><tr><th>名称</th><td>值</td></tr><tr><th>说明</th><td>表格里比较长的一段说明文字，在窄的屏幕上要换行</td></tr></table>',
-    () => find.byType(Table),
+    () => find.byType(PostTable),
   ),
   _Card(
     'music',
@@ -223,7 +223,7 @@ Future<void> _seedAvatars(WidgetTester tester) async {
 
 /// The horizontal scroll positions of the tables on the screen.
 List<ScrollPosition> _horizontalScrolls(WidgetTester tester) => tester
-    .stateList<ScrollableState>(find.ancestor(of: find.byType(Table), matching: find.byType(Scrollable)))
+    .stateList<ScrollableState>(find.ancestor(of: find.byType(PostTable), matching: find.byType(Scrollable)))
     .map((e) => e.position)
     .where((e) => e.axis == Axis.horizontal)
     .toList();
@@ -243,23 +243,17 @@ RenderParagraph _paragraphOf(WidgetTester tester, String text) => tester.renderO
 
 /// The text in the table on the screen that is exactly one of [texts].
 Iterable<RenderParagraph> _cellsOf(WidgetTester tester, Set<String> texts) => tester
-    .renderObjectList<RenderParagraph>(find.descendant(of: find.byType(Table), matching: find.byType(RichText)))
+    .renderObjectList<RenderParagraph>(find.descendant(of: find.byType(PostTable), matching: find.byType(RichText)))
     .where((e) => texts.contains(e.text.toPlainText()));
 
-/// The width each column of the table on the screen is laid out at, in the table.
-List<double> _columnWidths(WidgetTester tester) {
-  final table = tester.renderObject<RenderTable>(find.byType(Table));
-  return [for (var x = 0; x < table.columns; x++) table.column(x).first.size.width];
-}
+/// The width each column of the table on the screen is laid out at, in the table, its padding included.
+List<double> _columnWidths(WidgetTester tester) =>
+    tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumnWidths;
 
-/// The width each column of the table on the screen has as wide as its cells.
-List<double> _naturalWidths(WidgetTester tester) {
-  final table = tester.renderObject<RenderTable>(find.byType(Table));
-  return [
-    for (var x = 0; x < table.columns; x++)
-      (table.columnWidths?[x] ?? table.defaultColumnWidth).maxIntrinsicWidth(table.column(x), double.infinity),
-  ];
-}
+/// The width each column of the table on the screen has as wide as its cells, its padding included.
+List<double> _naturalWidths(WidgetTester tester) => [
+  for (final column in tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumns) column.max,
+];
 
 /// Checks that nothing overflows and that [card] and every piece of text lie inside the post on a screen of [width].
 void _expectFits(WidgetTester tester, Finder card, double width) {
@@ -513,7 +507,7 @@ void main() {
         expect(tester.takeException(), isNull);
         final scrolls = _horizontalScrolls(tester);
         expect(scrolls, everyElement(predicate<ScrollPosition>((e) => e.maxScrollExtent == 0)), reason: 'no scrolling');
-        final table = tester.getRect(find.byType(Table));
+        final table = tester.getRect(find.byType(PostTable));
         expect(table.right, lessThan(360 - 15));
 
         final long = tester.renderObject<RenderParagraph>(
@@ -535,7 +529,7 @@ void main() {
 
     testWidgets('a table that fits keeps its own width', (tester) async {
       await pump(tester, '<table><tr><td>甲</td><td>乙</td></tr><tr><td>丙</td><td>丁</td></tr></table>');
-      expect(tester.getRect(find.byType(Table)).width, lessThan(100), reason: 'not stretched to the screen');
+      expect(tester.getRect(find.byType(PostTable)).width, lessThan(100), reason: 'not stretched to the screen');
       expect(_horizontalScrolls(tester), everyElement(predicate<ScrollPosition>((e) => e.maxScrollExtent == 0)));
     });
 
@@ -547,18 +541,21 @@ void main() {
       expect(scroll.maxScrollExtent, greaterThan(0));
       // Every cell keeps its text on one line instead of being squeezed.
       for (final paragraph in tester.renderObjectList<RenderParagraph>(
-        find.descendant(of: find.byType(Table), matching: find.byType(RichText)),
+        find.descendant(of: find.byType(PostTable), matching: find.byType(RichText)),
       )) {
         expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
       }
       // And it can be dragged through the scaled card.
-      await tester.dragFrom(tester.getTopLeft(find.byType(Table)) + const Offset(40, 10), const Offset(-200, 0));
+      await tester.dragFrom(tester.getTopLeft(find.byType(PostTable)) + const Offset(40, 10), const Offset(-200, 0));
       await tester.pumpAndSettle();
       expect(scroll.pixels, greaterThan(0));
     });
 
-    testWidgets('a table that has to scroll still wraps a long cell about at the width of the screen', (tester) async {
-      // A word that cannot break is wider than a 320 px screen at text scale 2 leaves for the table.
+    // At its comfortable widths (long text in four characters a line, the short cells and the word on one line) this
+    // table is wider than a 320 px screen at text scale 2 leaves for it. A browser narrows a table further before it
+    // lets it overflow: it is laid out at its tight widths and fits. It used to scroll, the long cell as wide as the
+    // screen, the other columns past it.
+    testWidgets('a table too wide at its comfortable widths is narrowed further before it scrolls', (tester) async {
       await pump(
         tester,
         '<table><tr><th>名称</th><td>$longText</td><td>unbreakable</td></tr>'
@@ -567,15 +564,12 @@ void main() {
         textScale: 2,
       );
       expect(tester.takeException(), isNull);
-      expect(_horizontalScrolls(tester).single.maxScrollExtent, greaterThan(0));
-      final long = find.descendant(of: find.textContaining('很长的说明文字'), matching: find.byType(RichText));
-      expect(_globalRect(tester.renderObject<RenderParagraph>(long)).width, lessThanOrEqualTo(320 - 2 * 16));
-      for (final text in ['名称', 'unbreakable']) {
-        final paragraph = tester.renderObject<RenderParagraph>(
-          find.descendant(of: find.text(text), matching: find.byType(RichText)),
-        );
-        expect(_oneLine(paragraph), isTrue, reason: text);
+      expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
+      for (final paragraph in _paragraphs(tester)) {
+        expect(_globalRect(paragraph).right, lessThan(320 - 15), reason: paragraph.text.toPlainText());
       }
+      expect(_lines(_paragraphOf(tester, '很长的说明文字')), greaterThan(1));
+      expect(_oneLine(_paragraphOf(tester, '名称')), isTrue);
     });
 
     testWidgets('a table of images and text still shows the images', (tester) async {
@@ -591,7 +585,7 @@ void main() {
       // The image keeps its size, scaled with the text of the post.
       expect(image.width, closeTo(48 * 1.3, 0.5));
       expect(image.height, closeTo(32 * 1.3, 0.5));
-      expect(tester.getRect(find.byType(Table)).right, lessThan(360 - 15));
+      expect(tester.getRect(find.byType(PostTable)).right, lessThan(360 - 15));
       expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
     });
 
@@ -611,7 +605,10 @@ void main() {
       expect(_globalRect(tester.renderObject<RenderParagraph>(long)).right, lessThan(360 - 15));
     });
 
-    testWidgets('a table of wide images scrolls instead of shrinking them to nothing', (tester) async {
+    // On the web page three images of 300 px side by side fit the desktop page; on a phone they used to make the table
+    // scroll by twice the screen. They are thumbnails now, in the width of their cells, as the browser narrows an image
+    // to its cell.
+    testWidgets('wide images side by side are narrowed to thumbnails, their aspect ratio kept', (tester) async {
       final urls = [for (var i = 1; i <= 3; i++) 'https://example.com/data/attachment/forum/wide$i.png'];
       for (final url in urls) {
         await _seedPostImage(tester, url, 360, width: 300, height: 100);
@@ -620,10 +617,31 @@ void main() {
       await pump(tester, '<table><tr>$images</tr><tr><td>左</td><td>中</td><td>右</td></tr></table>');
       expect(tester.takeException(), isNull);
       expect(find.byType(NetworkIndicatorImage), findsNWidgets(3));
+      expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
       for (final image in tester.widgetList<NetworkIndicatorImage>(find.byType(NetworkIndicatorImage))) {
-        expect(tester.getRect(find.byWidget(image)).width, closeTo(300, 0.5), reason: image.src);
+        final rect = tester.getRect(find.byWidget(image));
+        expect(rect.width, inInclusiveRange(PostTable.tightImageWidth, PostTableImage.minWidth), reason: image.src);
+        expect(rect.height, closeTo(rect.width / 3, 0.5), reason: 'keeps its aspect ratio');
+        expect(rect.right, lessThan(360 - 15));
       }
+    });
+
+    testWidgets('a table of more wide images than fit as thumbnails scrolls, each a thumbnail, not nothing', (
+      tester,
+    ) async {
+      final urls = [for (var i = 1; i <= 6; i++) 'https://example.com/data/attachment/forum/wide$i.png'];
+      for (final url in urls) {
+        await _seedPostImage(tester, url, 360, width: 300, height: 100);
+      }
+      final images = urls.map((e) => '<td><img src="$e"></td>').join();
+      await pump(tester, '<table><tr>$images</tr></table>');
+      expect(tester.takeException(), isNull);
       expect(_horizontalScrolls(tester).single.maxScrollExtent, greaterThan(0));
+      for (final image in tester.widgetList<NetworkIndicatorImage>(find.byType(NetworkIndicatorImage))) {
+        final rect = tester.getRect(find.byWidget(image));
+        expect(rect.width, closeTo(PostTableImage.minWidth, 0.5), reason: image.src);
+        expect(rect.height, closeTo(rect.width / 3, 0.5));
+      }
     });
 
     testWidgets('a table inside a table fits too', (tester) async {
@@ -634,7 +652,7 @@ void main() {
         textScale: 1.3,
       );
       expect(tester.takeException(), isNull);
-      expect(find.byType(Table), findsNWidgets(2));
+      expect(find.byType(PostTable), findsNWidgets(2));
       final long = find.descendant(of: find.textContaining('很长的说明文字'), matching: find.byType(RichText));
       expect(_globalRect(tester.renderObject<RenderParagraph>(long)).right, lessThan(360 - 15));
       for (final paragraph in _paragraphs(tester)) {
@@ -657,12 +675,14 @@ void main() {
         expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
         final widths = _columnWidths(tester);
         expect(widths[0], closeTo(widths[1], 0.5));
-        expect(widths[0] + widths[1], closeTo(room(1), 0.5));
+        // The lines between and around the cells take their own width.
+        expect(widths[0] + widths[1] + 3 * PostTable.borderWidth, closeTo(room(1), 0.5));
         expect(_lines(_paragraphOf(tester, '这是表格里')), _lines(_paragraphOf(tester, '那是表格里')));
       });
 
       testWidgets('long columns keep the same share of their natural width, in either order', (tester) async {
-        const medium = '中等长度的说明文字二十个字左右的样子';
+        // Long enough not to reach its comfortable width beside the longer one.
+        const medium = '中等长度的说明文字，大约二十五个字左右的样子而已';
         final layouts = <List<double>>[];
         for (final cells in const [
           [longText, medium],
@@ -696,60 +716,76 @@ void main() {
           '<td>MP4</td><td>磁力链接 见楼下 失效请回复</td></tr></table>';
       const shortCells = {'名称', '集数', '字幕组', '格式', '下载', '12', '某某字幕组', 'MKV', 'MP4'};
 
-      for (final scale in const [1.0, 1.3]) {
-        testWidgets('the long title of a resource table stays readable at text scale $scale', (tester) async {
-          await pump(tester, resourceTable, textScale: scale);
-          expect(tester.takeException(), isNull);
-          final widths = _columnWidths(tester);
-          final scroll = _horizontalScrolls(tester).single;
-          if (scale == 1.0) {
-            // Its columns fit at their minimum widths: it fits the screen.
-            expect(scroll.maxScrollExtent, 0);
-          } else {
-            // They do not: it scrolls, the title wraps at the width of the screen.
-            expect(scroll.maxScrollExtent, greaterThan(0));
-            expect(widths[0], closeTo(room(scale), 0.01));
-          }
-          // A line is never wider than the screen, it is read without scrolling sideways.
-          for (final width in widths) {
-            expect(width, lessThanOrEqualTo(room(scale) + 0.01));
-          }
-          // The title, the longest, is not squeezed to leave the room to the shorter note on the download.
-          expect(widths[0], greaterThanOrEqualTo(widths.reduce(math.max) - 0.01));
-          expect(_lines(_paragraphOf(tester, '第01-12话')), lessThanOrEqualTo(5));
-          final shorts = _cellsOf(tester, shortCells).toList();
-          expect(shorts, hasLength(11));
-          for (final paragraph in shorts) {
-            expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
-          }
-        });
-      }
+      // At text scale 1 it fits at its comfortable widths: the short cells keep their line, the long title and the
+      // note give up the room, the title the most it can keep. Each cell has 4 px around its text as on the web page
+      // (`.t_table td`), which the five columns and their lines take from the 328 px of the post: the title has two
+      // or three lines more than it had without them.
+      testWidgets('the long title of a resource table stays readable at text scale 1.0', (tester) async {
+        await pump(tester, resourceTable);
+        expect(tester.takeException(), isNull);
+        expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
+        final widths = _columnWidths(tester);
+        // The title, the longest, is not squeezed to leave the room to the shorter note on the download.
+        expect(widths[0], greaterThanOrEqualTo(widths.reduce(math.max) - 0.01));
+        expect(_lines(_paragraphOf(tester, '第01-12话')), lessThanOrEqualTo(8));
+        final shorts = _cellsOf(tester, shortCells).toList();
+        expect(shorts, hasLength(11));
+        for (final paragraph in shorts) {
+          expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
+        }
+      });
 
-      testWidgets('a table that scrolls wraps each long column at the width of the screen', (tester) async {
+      // At text scale 1.3 it does not fit at its comfortable widths; it used to scroll, the title as wide as the
+      // screen. Narrowed further, as a browser narrows it, every column of it is on the screen.
+      testWidgets('a resource table at text scale 1.3 is narrowed to the screen rather than scrolling', (tester) async {
+        await pump(tester, resourceTable, textScale: 1.3);
+        expect(tester.takeException(), isNull);
+        expect(_horizontalScrolls(tester).single.maxScrollExtent, 0);
+        for (final paragraph in _paragraphs(tester)) {
+          expect(_globalRect(paragraph).right, lessThan(360 - 15), reason: paragraph.text.toPlainText());
+        }
+        final widths = _columnWidths(tester);
+        final columns = tester.renderObject<RenderPostTable>(find.byType(PostTable)).debugColumns;
+        for (final (x, width) in widths.indexed) {
+          expect(width, greaterThanOrEqualTo(columns[x].tight - 0.01));
+          expect(columns[x].tight, greaterThanOrEqualTo(math.min(columns[x].max, PostTable.tightColumnWidth)));
+        }
+        // The cells narrower than a tight column keep their line.
+        for (final paragraph in _cellsOf(tester, const {'12', '名称', '集数', '格式', '下载'})) {
+          expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
+        }
+      });
+
+      // Too many columns to fit even at their tight widths: it scrolls, at its comfortable widths. It used to scroll
+      // with each long column as wide as the screen, three screens wide; a browser lays it out at its narrowest. It is
+      // as narrow as it is comfortable to read: each long column in four characters a line, the short cells on
+      // one line. Squeezed more it would scroll all the same, only taller.
+      testWidgets('a table that scrolls is laid out at its comfortable widths', (tester) async {
         const second = '另一段同样很长的说明文字，在手机的屏幕上一行同样放不下，以前整个表格只能左右滑动，现在要在屏幕里面自动换行。';
         const third = '第三段也是很长的说明文字，在手机的屏幕上一行还是放不下，以前整个表格只能左右滑动，现在要在屏幕里面自动换行。';
-        final shorts = [for (var i = 1; i <= 4; i++) '<td>短栏$i</td>'].join();
+        final shorts = [for (var i = 1; i <= 6; i++) '<td>短栏$i</td>'].join();
         await pump(
           tester,
           '<table><tr><td>$longText</td><td>$second</td><td>$third</td>$shorts</tr>'
           '<tr><td>甲</td><td>乙</td><td>丙</td>$shorts</tr></table>',
         );
         expect(tester.takeException(), isNull);
-        expect(_horizontalScrolls(tester).single.maxScrollExtent, greaterThan(0));
+        final scroll = _horizontalScrolls(tester).single;
+        expect(scroll.maxScrollExtent, greaterThan(0));
         final widths = _columnWidths(tester);
-        for (final width in widths) {
-          expect(width, lessThanOrEqualTo(room(1) + 0.01));
+        for (final width in widths.take(3)) {
+          expect(width, closeTo(PostTable.minColumnWidth + 2 * PostTable.cellPadding, 0.01));
         }
         for (final text in ['这是表格里', '另一段', '第三段']) {
-          final paragraph = _paragraphOf(tester, text);
-          expect(_globalRect(paragraph).width, closeTo(360 - 32, 0.01), reason: text);
-          expect(_lines(paragraph), greaterThan(1), reason: text);
+          expect(_lines(_paragraphOf(tester, text)), greaterThan(1), reason: text);
         }
-        final shortCells = _cellsOf(tester, {for (var i = 1; i <= 4; i++) '短栏$i'}).toList();
-        expect(shortCells, hasLength(8));
+        final shortCells = _cellsOf(tester, {for (var i = 1; i <= 6; i++) '短栏$i'}).toList();
+        expect(shortCells, hasLength(12));
         for (final paragraph in shortCells) {
           expect(_oneLine(paragraph), isTrue, reason: paragraph.text.toPlainText());
         }
+        // It scrolls by what does not fit, not by screens.
+        expect(scroll.maxScrollExtent, lessThan(room(1)));
       });
 
       testWidgets('a wide image left or right of a long text gets the same width', (tester) async {
@@ -781,17 +817,17 @@ void main() {
       });
 
       // The screen is turned: the post is laid out in another width, the table is not built again. A table whose cells
-      // did not change is only laid out again at other constraints, even when it is narrowed to the width it had when
-      // it scrolled.
+      // did not change is only laid out again at other constraints: it takes the widths of each width, wherever it was
+      // laid out before.
       testWidgets('a table laid out in another width, its cells unchanged, takes the widths of that width', (
         tester,
       ) async {
-        const medium = '中等长度的说明文字二十个字左右的样子';
+        const medium = '中等长度的说明文字，大约二十五个字左右的样子而已';
         final body = parseHtmlDocument(
           '<html><body><table><tr><td>$longText</td><td>$medium</td><td>unbroken</td></tr>'
           '<tr><td>甲</td><td>乙</td><td>丙</td></tr></table></body></html>',
         ).body!;
-        final width = ValueNotifier<double>(200);
+        final width = ValueNotifier<double>(120);
         addTearDown(width.dispose);
         await pumpWidget(
           tester,
@@ -806,72 +842,99 @@ void main() {
           width: 800,
           textScale: 1,
         );
-        // Too narrow for the minimum widths: it scrolls, the long columns as wide as the post.
+        // Too narrow even for the tight widths: it scrolls at its comfortable widths.
         final scroll = _horizontalScrolls(tester).single;
         expect(scroll.maxScrollExtent, greaterThan(0));
         final scrolling = _columnWidths(tester);
-        expect(scrolling.take(2), everyElement(closeTo(200, 0.01)));
-        // As wide as it was when it scrolled: narrowed to the width, the long columns keep the same share of their
-        // natural width.
-        final tableWidth = tester.getSize(find.byType(Table)).width;
-        width.value = tableWidth;
+        // Narrowed to the width it fits at its tight widths.
+        width.value = 200;
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        expect(scroll.maxScrollExtent, 0);
+        final tight = _columnWidths(tester);
+        expect(tight.reduce((a, b) => a + b) + 4 * PostTable.borderWidth, closeTo(200, 0.01));
+        // Wide enough for its comfortable widths: the long columns keep the same share of their natural width.
+        width.value = 500;
+        await tester.pumpAndSettle();
         expect(scroll.maxScrollExtent, 0);
         final narrowed = _columnWidths(tester);
         final natural = _naturalWidths(tester);
         expect(narrowed[0] / natural[0], closeTo(narrowed[1] / natural[1], 0.001));
-        expect(narrowed.reduce((a, b) => a + b), closeTo(tableWidth, 0.01));
-        width.value = 200;
-        await tester.pumpAndSettle();
-        expect(
-          _columnWidths(tester),
-          pairwiseCompare<double, double>(scrolling, (a, b) => (a - b).abs() < 0.01, 'same'),
-        );
+        expect(narrowed.reduce((a, b) => a + b) + 4 * PostTable.borderWidth, closeTo(500, 0.01));
+        // Back at each width, the same widths again.
+        for (final (postWidth, widths) in [(120.0, scrolling), (200.0, tight)]) {
+          width.value = postWidth;
+          await tester.pumpAndSettle();
+          expect(
+            _columnWidths(tester),
+            pairwiseCompare<double, double>(widths, (a, b) => (a - b).abs() < 0.01, 'same'),
+            reason: '$postWidth',
+          );
+        }
       });
     });
 
     testWidgets('a table with a single row is only what it wraps', (tester) async {
       await pump(tester, '<table><tr><td>只是包着的文字</td></tr></table>');
-      expect(find.byType(Table), findsNothing);
+      expect(find.byType(PostTable), findsNothing);
       expect(find.textContaining('只是包着的文字', findRichText: true), findsOneWidget);
     });
   });
   // An empty column (natural and minimum width 0) next to columns at a width equal to the sum of the minimum widths:
   // rounding made the room look a hair larger than the deficit and left only the empty column to share it, a division
   // by zero that gave a NaN width (found by fuzzing the narrowing with arbitrary doubles).
-  group('column narrowing never gives an invalid width', () {
-    test('an empty column at exactly the minimum widths', () {
-      final widths = debugNarrowedColumnWidths(const [
-        (natural: 0, min: 0, long: false),
-        (natural: 68.69369669260027, min: 64, long: false),
-        (natural: 68.3283919057836, min: 64, long: false),
-        (natural: 100.79388212963129, min: 64, long: false),
+  group('column widths never come out invalid', () {
+    test('an empty column at exactly the comfortable widths', () {
+      final widths = debugPostTableColumnWidths(const [
+        (tight: 0, min: 0, max: 0, percent: null, fixed: null),
+        (tight: 50, min: 64, max: 68.69369669260027, percent: null, fixed: null),
+        (tight: 50, min: 64, max: 68.3283919057836, percent: null, fixed: null),
+        (tight: 50, min: 64, max: 100.79388212963129, percent: null, fixed: null),
       ], 192);
       expect(widths.any((e) => e.isNaN || e.isInfinite), isFalse, reason: '$widths');
       expect(widths, [0, 64, 64, 64]);
     });
 
-    test('arbitrary columns at or just above their minimum widths', () {
+    test('arbitrary columns at any width', () {
       final random = math.Random(207);
       for (var i = 0; i < 20000; i++) {
         final columns = [
-          for (var c = 0; c < 2 + random.nextInt(6); c++)
+          for (var c = 0; c < 1 + random.nextInt(7); c++)
             if (random.nextInt(5) == 0)
-              (natural: 0.0, min: 0.0, long: false)
+              (tight: 0.0, min: 0.0, max: 0.0, percent: null, fixed: null)
             else
               () {
-                final natural = 64 + random.nextDouble() * 700;
-                return (natural: natural, min: 64.0, long: natural > 128);
+                final tight = 20 + random.nextDouble() * 100;
+                final min = tight + random.nextDouble() * 60;
+                final max = min + random.nextDouble() * 700;
+                return (
+                  tight: tight,
+                  min: min,
+                  max: max,
+                  percent: random.nextInt(4) == 0 ? random.nextDouble() * 0.8 : null,
+                  fixed: random.nextInt(4) == 0 ? max : null,
+                );
               }(),
         ];
-        final minimum = columns.fold<double>(0, (sum, e) => sum + e.min);
-        final natural = columns.fold<double>(0, (sum, e) => sum + e.natural);
-        final width = random.nextBool() ? minimum : minimum + random.nextDouble() * (natural - minimum);
-        final widths = debugNarrowedColumnWidths(columns, width);
-        expect(widths.any((e) => e.isNaN || e.isInfinite), isFalse, reason: '$columns @ $width -> $widths');
-        for (var x = 0; x < columns.length; x++) {
-          expect(widths[x], greaterThanOrEqualTo(columns[x].min - 1e-6), reason: '$columns @ $width -> $widths');
+        double sum(double Function(PostTableColumn e) of) => columns.fold<double>(0, (sum, e) => sum + of(e));
+        final tight = sum((e) => e.tight);
+        final width = switch (random.nextInt(4)) {
+          0 => tight,
+          1 => sum((e) => e.min),
+          2 => random.nextDouble() * sum((e) => e.max) * 1.5,
+          _ => tight + random.nextDouble() * (sum((e) => e.max) - tight),
+        };
+        final widths = debugPostTableColumnWidths(columns, width);
+        final reason = '$columns @ $width -> $widths';
+        expect(widths.any((e) => e.isNaN || e.isInfinite || e < 0), isFalse, reason: reason);
+        // The table is as wide as it was given, no wider: what it lays out is what the screen has.
+        if (columns.any((e) => e.max > 0)) {
+          expect(widths.fold<double>(0, (sum, e) => sum + e), closeTo(width, 1e-6), reason: reason);
+        }
+        if (width >= tight) {
+          for (var x = 0; x < columns.length; x++) {
+            expect(widths[x], greaterThanOrEqualTo(columns[x].tight - 1e-6), reason: reason);
+          }
         }
       }
     });

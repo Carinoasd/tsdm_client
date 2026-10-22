@@ -33,6 +33,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
+import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
@@ -95,13 +96,23 @@ RichText _richText(WidgetTester tester, String text) => find
     .map((e) => e.widget as RichText)
     .lastWhere((e) => e.text.toPlainText(includeSemanticsLabels: false).contains(text));
 
-/// The background of the block holding [text], null when it is in none.
+/// The background of the block holding [text], null when it is in none: a block with a background, or the cell of a
+/// table with one.
 Color? _blockBackground(WidgetTester tester, String text) {
-  for (final e in find.byType(PostBlockBackground).evaluate().toList().reversed) {
-    final block = e.widget as PostBlockBackground;
-    final inside = find.descendant(of: find.byWidget(block), matching: find.byType(RichText)).evaluate();
-    if (inside.any((r) => (r.widget as RichText).text.toPlainText().contains(text))) {
-      return block.color;
+  bool holds(Widget widget) => find
+      .descendant(of: find.byWidget(widget), matching: find.byType(RichText))
+      .evaluate()
+      .any((r) => (r.widget as RichText).text.toPlainText().contains(text));
+  final blocks = [
+    ...find.byType(PostBlockBackground).evaluate().map((e) => e.widget as PostBlockBackground),
+    ...find.byType(PostTableCell).evaluate().map((e) => e.widget as PostTableCell),
+  ];
+  for (final block in blocks.reversed) {
+    switch (block) {
+      case PostBlockBackground(:final color) when holds(block):
+        return color;
+      case PostTableCell(:final background?) when holds(block):
+        return background;
     }
   }
   return null;
@@ -233,16 +244,18 @@ void main() {
         '<table class="t_table" bgcolor=" Wheat"><tr><td>甲</td><td>乙</td></tr>'
         '<tr bgcolor="#99CCFF"><td>丙</td><td bgcolor="pink">丁</td></tr></table>',
       );
-      final table = tester.widget<Table>(find.byType(Table));
-      expect((table.children[0].decoration! as BoxDecoration).color, const Color(0xFFF5DEB3));
-      expect((table.children[1].decoration! as BoxDecoration).color, const Color(0xFF99CCFF));
+      // The table's under the whole table, the row's under its cells, the cell's under its text.
+      final table = tester.widget<PostTable>(find.byType(PostTable));
+      expect(table.background, const Color(0xFFF5DEB3));
+      expect(table.rowBackgrounds, [null, const Color(0xFF99CCFF)]);
       expect(_blockBackground(tester, '丁'), const Color(0xFFFFC0CB));
+      expect(_blockBackground(tester, '丙'), isNull);
     });
 
     testWidgets('of a table that only wraps something', (tester) async {
       await _pump(tester, '前<table bgcolor="#ffe0b3"><tr><td>包起来的内容</td></tr></table>后');
       expect(_blockBackground(tester, '包起来的内容'), const Color(0xFFFFE0B3));
-      expect(find.byType(Table), findsNothing);
+      expect(find.byType(PostTable), findsNothing);
       expect(_richText(tester, '后').text.toPlainText(), contains('后'));
     });
   });

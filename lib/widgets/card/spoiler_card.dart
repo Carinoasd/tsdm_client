@@ -50,7 +50,8 @@ class _SpoilerCardState extends State<SpoilerCard> {
               });
             },
           ),
-          if (_visible) ...[sizedBoxW8H8, Text.rich(widget.content)],
+          // An empty spoiler (the forum's, a fold of the post) opens nothing, as on the web page.
+          if (_visible && widget.content.toPlainText().isNotEmpty) ...[sizedBoxW8H8, Text.rich(widget.content)],
         ].insertBetween(sizedBoxW4H4),
       ),
     );
