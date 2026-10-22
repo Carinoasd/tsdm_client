@@ -131,12 +131,13 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool threadContentSplitLongParagraphs;
 
-  /// How the post content is laid out with these settings.
+  /// How the post content is laid out with these settings, in the ranges the settings offer (a value from an older
+  /// backup or written by hand is clamped).
   PostTypography get postTypography => PostTypography(
     lineHeight: threadContentLineHeight,
     paragraphSpacing: threadContentParagraphSpacing,
     splitLongParagraphs: threadContentSplitLongParagraphs,
-  );
+  ).clamped();
 
   /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
   final bool highRefreshRate;

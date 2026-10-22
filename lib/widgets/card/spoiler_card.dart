@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// SpoilerCard is an area munched from html document.
@@ -51,14 +50,7 @@ class _SpoilerCardState extends State<SpoilerCard> {
               });
             },
           ),
-          if (_visible) ...[
-            sizedBoxW8H8,
-            // In a post's content, the gaps between its paragraphs are as tall as they are set.
-            if (PostTypographyScope.maybeOf(context) == null)
-              Text.rich(widget.content)
-            else
-              ParagraphGapText(widget.content),
-          ],
+          if (_visible) ...[sizedBoxW8H8, Text.rich(widget.content)],
         ].insertBetween(sizedBoxW4H4),
       ),
     );

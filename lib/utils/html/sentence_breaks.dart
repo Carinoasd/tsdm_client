@@ -8,15 +8,18 @@
 /// Pure Dart (no Flutter), so the rules can be run over a corpus of posts outside the app.
 library;
 
-/// A paragraph wider than this (in [textWidth] units, about one Chinese character each) is cut: about five lines of
-/// a phone 390 wide.
-const longParagraphWidth = 120.0;
+/// A paragraph wider than this many lines (of [textWidth] units, about one Chinese character each, a line holding as
+/// many as it does on the screen) is cut: five lines.
+const longParagraphLines = 5;
 
-/// A piece cut off a long paragraph is at least this wide: about two lines of a phone.
-const minPieceWidth = 50.0;
+/// A piece cut off a long paragraph is at least this many lines.
+const minPieceLines = 2;
 
-/// What is left after a cut is at least this wide: a cut never leaves a line or so hanging on its own.
-const minTailWidth = 30.0;
+/// What is left after a cut is at least this many lines: a cut never leaves a line or so hanging on its own.
+const minTailLines = 1.25;
+
+/// A line of a phone 390 wide at a text scale of 1: 24.5 characters (346 / 14, in halves).
+const phoneLineWidth = 24.5;
 
 /// The placeholder of a widget (an image, a smiley) in the text of a paragraph.
 const objectReplacementChar = '￼';
@@ -103,12 +106,43 @@ bool _isUpperAscii(String c) {
 
 bool _isEndMark(String c) => _sentenceEnds.contains(c) || _ellipses.contains(c) || c == '.';
 
-/// How wide one UTF-16 code unit [c] is: a wide character (Chinese, Japanese, Korean, full width) or a widget (a
-/// smiley) is 1, anything else half (a surrogate pair is two halves).
-double _unitWidth(String c) => c == objectReplacementChar || _isWide(c) ? 1 : 0.5;
+/// Narrow ASCII characters (about 0.3 of a Chinese character in the common Chinese fonts).
+const _narrow = " !',.:;`|ijlI";
 
-/// How wide [text] is, roughly in Chinese characters: a wide character or a widget is 1, anything else half. Line
-/// breaks do not count.
+/// ASCII characters about 0.4 of a Chinese character.
+const _slim = r'"()[]{}-/\_*?frtJs';
+
+/// ASCII characters about as wide as a Chinese character.
+const _broad = 'MWm@%&';
+
+/// ASCII characters about 0.65 of a Chinese character (digits, capitals, symbols); the other ones (small letters,
+/// Latin letters beyond ASCII) are 0.55.
+const _capital = r'0123456789ABCDEFGHJKLNOPQRSTUVXYZw#$+<=>^~';
+
+/// How wide one UTF-16 code unit [c] is, in Chinese characters: a wide character (Chinese, Japanese, Korean, full
+/// width) or a widget (a smiley) is 1, ASCII by its shape (measured in Microsoft YaHei; a space is 0.3, `m` is 0.95),
+/// anything else 0.55 (a surrogate pair is two halves).
+double _unitWidth(String c) {
+  if (c == objectReplacementChar || _isWide(c)) {
+    return 1;
+  }
+  if (_narrow.contains(c)) {
+    return 0.3;
+  }
+  if (_slim.contains(c)) {
+    return 0.4;
+  }
+  if (_broad.contains(c)) {
+    return 0.95;
+  }
+  if (_capital.contains(c)) {
+    return 0.65;
+  }
+  return 0.55;
+}
+
+/// How wide [text] is, roughly in Chinese characters: a wide character or a widget is 1, other characters by their
+/// shape ([_unitWidth]). Line breaks do not count.
 double textWidth(String text) {
   var width = 0.0;
   for (var i = 0; i < text.length; i++) {
@@ -152,7 +186,7 @@ final class _Quotes {
 }
 
 /// Offsets in [paragraph] (one paragraph, no line breaks in it) where a cut goes when it is wide enough to be cut
-/// ([longParagraphWidth]): each one the offset of the first character of the next piece.
+/// ([longParagraphLines] of [lineWidth] characters): each one the offset of the first character of the next piece.
 ///
 /// A cut goes after the end of a sentence (`。！？`, `!?` before white space or a wide character, an ellipsis that
 /// ends the sentence, a `.` before white space and a capital letter), after the closing quotes or brackets that go
@@ -165,16 +199,18 @@ final class _Quotes {
 /// * after the point of a number (`3.5`, `v1.0`), in a URL or a file name (`a.php?x=1`), after an abbreviation
 ///   (`Mr.`, `e.g.`) or an initial (`J. K.`);
 /// * before two spaces or more, which separate the items of a list written on one line;
-/// * where the piece before would be narrower than [minPieceWidth] or the rest narrower than [minTailWidth], or the
+/// * where the piece before would be shorter than [minPieceLines] or the rest shorter than [minTailLines], or the
 ///   next piece would start with a mark that does not start a line.
-List<int> sentenceBreaks(String paragraph) {
+List<int> sentenceBreaks(String paragraph, {double lineWidth = phoneLineWidth}) {
+  final minPieceWidth = minPieceLines * lineWidth;
+  final minTailWidth = minTailLines * lineWidth;
   final n = paragraph.length;
   final widths = List<double>.filled(n + 1, 0);
   for (var i = 0; i < n; i++) {
     widths[i + 1] = widths[i] + _unitWidth(paragraph[i]);
   }
   final total = widths[n];
-  if (total <= longParagraphWidth) {
+  if (total <= longParagraphLines * lineWidth) {
     return const [];
   }
   var wide = 0;

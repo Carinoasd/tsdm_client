@@ -136,15 +136,16 @@ Widget munchElement(
   // Alignment in this page requires a fixed max width that equals to website
   // page width.
   // Currently is 712.
-  // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow row
-  // spacing between text lines.
-  const style = TextStyle(height: kTextHeightNone);
   return ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    // A post's content has gaps between its paragraphs: lines of their own as tall as the gap.
-    child: muncher.typography == null
-        ? Text.rich(style: style, TextSpan(children: ret))
-        : ParagraphGapText(TextSpan(children: ret), style: style),
+    child: Text.rich(
+      style: const TextStyle(
+        // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow
+        // row spacing between text lines.
+        height: kTextHeightNone,
+      ),
+      TextSpan(children: ret),
+    ),
   );
 }
 
@@ -1121,9 +1122,7 @@ final class _Muncher with LoggerMixin {
         FullWidthBlock(
           // The line break its content ends with (`[align=center]text<br />[/align]`) ends its last line, it does not
           // add an empty line below it.
-          child: typography == null
-              ? Text.rich(TextSpan(children: _withoutTrailingLineBreak(ret)), textAlign: align)
-              : ParagraphGapText(TextSpan(children: _layOut(_withoutTrailingLineBreak(ret)!)), textAlign: align),
+          child: Text.rich(TextSpan(children: _layOut(_withoutTrailingLineBreak(ret)!)), textAlign: align),
         ),
       ),
     ];

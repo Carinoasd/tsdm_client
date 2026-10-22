@@ -174,22 +174,11 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
   @override
   Widget build(BuildContext context) => _content ??= ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    child: _typography == null
-        ? Text.rich(
-            style: const TextStyle(height: kTextHeightNone),
-            TextSpan(children: _SpanBuilder(context, _recognizers, _typography).build(widget.nodes)),
-          )
-        : ParagraphGapText(
-            style: const TextStyle(height: kTextHeightNone),
-            TextSpan(children: _layOut(_SpanBuilder(context, _recognizers, _typography).build(widget.nodes))),
-          ),
+    child: Text.rich(
+      style: const TextStyle(height: kTextHeightNone),
+      TextSpan(children: _SpanBuilder(context, _recognizers, _typography).buildContent(widget.nodes)),
+    ),
   );
-
-  /// The spans in paragraphs as the html renderer lays out a post's content ([layOutParagraphs]).
-  List<InlineSpan> _layOut(List<InlineSpan> spans) {
-    final typography = _typography;
-    return typography == null ? spans : layOutParagraphs(spans, typography);
-  }
 }
 
 /// Step of the card elevation per nesting level, as the html renderer.
@@ -201,8 +190,19 @@ final class _SpanBuilder {
   final BuildContext context;
   final List<GestureRecognizer> recognizers;
 
-  /// Line height of a post's content, as the html renderer; null outside a post.
+  /// Line height and paragraphs of a post's content, as the html renderer; null outside a post.
   final PostTypography? typography;
+
+  /// Spans of lists: never cut into paragraphs ([layOutParagraphs]).
+  final _lists = Set<InlineSpan>.identity();
+
+  /// [nodes] as the content of a rich text of its own (the post, a spoiler, an aligned block): in paragraphs as the
+  /// html renderer lays out a post's content ([layOutParagraphs]).
+  List<InlineSpan> buildContent(List<BbNode> nodes) {
+    final spans = build(nodes);
+    final typography = this.typography;
+    return typography == null ? spans : layOutParagraphs(spans, typography, keepsWhole: _lists.contains);
+  }
 
   double _elevation = -_elevationStep;
 
@@ -265,7 +265,7 @@ final class _SpanBuilder {
       case BbSpoiler(:final title, :final children):
         _elevation += _elevationStep;
         final elevation = _elevation;
-        final content = build(children);
+        final content = buildContent(children);
         _elevation -= _elevationStep;
         return textWidgetSpan(
           SpoilerCard(
@@ -290,7 +290,9 @@ final class _SpanBuilder {
             spans.add(_lineBreak);
           }
         }
-        return TextSpan(children: spans);
+        final list = TextSpan(children: spans);
+        _lists.add(list);
+        return list;
       case BbAlign(:final align, :final children):
         final textAlign = switch (align) {
           'center' => TextAlign.center,
@@ -301,7 +303,7 @@ final class _SpanBuilder {
           Row(
             children: [
               Expanded(
-                child: Text.rich(TextSpan(children: build(children)), textAlign: textAlign),
+                child: Text.rich(TextSpan(children: buildContent(children)), textAlign: textAlign),
               ),
             ],
           ),

@@ -6,13 +6,14 @@
 ///
 /// * the content of a post is laid out at a line height of 1.7, without letter spacing, with a gap of 8 between its
 ///   paragraphs; the html of anything else (a notice, a message) keeps the body text;
-/// * a gap goes at a single line break between two paragraphs when one of them is longer than a line of a phone, not
-///   at a blank line, between short lines (a poem, a list), next to an image row or a block, in a table or in
-///   preformatted text; an image row does not move;
+/// * a gap goes at a single line break between two paragraphs when one of them does not fit on a line where it is
+///   shown (a phone, a tablet, the text scale), not at a blank line, between short lines (a poem, a list), next to an
+///   image row or a block, in a table or in preformatted text; an image row does not move;
 /// * the line height and the spacing are settings, saved and applied to the floors at once;
 /// * long paragraphs can be cut after the end of a sentence (off by default), never inside quotes, after a decimal
 ///   point, an ellipsis that goes on, an abbreviation, a title, nor in a list, a heading, a quote, a table or code;
-/// * the gaps are placeholders: the text that is selected and copied is the same, without a line break more.
+/// * a gap is a line break as tall as the spacing: the text of the floor without the gaps is the text as before (the
+///   floor's "copy text" reads the html, not the layout).
 library;
 
 // HTML fixtures are split into lines at tag boundaries.
@@ -26,7 +27,6 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -43,6 +43,8 @@ import 'package:tsdm_client/features/notification/repository/notification_info_r
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
+import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode.dart';
+import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -60,9 +62,6 @@ import 'package:tsdm_client/utils/html/sentence_breaks.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
-
-/// A widget in the text (an image, a gap).
-const _obj = '￼';
 
 /// Paragraphs longer than a line of a phone, each different.
 const _long1 = '第一段的文字比较长，一行放不下，写帖子的人很少按回车，于是在手机上就变成了一大块。';
@@ -132,27 +131,29 @@ Iterable<TextSpan> _spans(InlineSpan span) sync* {
 TextStyle? _styleOf(WidgetTester tester, String text) =>
     _spans(_paragraph(tester).text).firstWhere((e) => e.text?.contains(text) ?? false).style;
 
-/// The text a select all and copy puts on the clipboard.
-Future<String?> _copyAll(WidgetTester tester, Widget content) async {
-  String? copied;
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-    if (call.method == 'Clipboard.setData') {
-      copied = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+/// The gaps between paragraphs in every rich text on screen.
+int _gapCount(WidgetTester tester) => [
+  for (final e in find.byType(RichText).evaluate())
+    ..._spans((e.widget as RichText).text).whereType<ParagraphGapSpan>(),
+].length;
+
+/// The text of [span] without the gaps between paragraphs.
+String _withoutGaps(InlineSpan span) {
+  final buffer = StringBuffer();
+  void visit(InlineSpan span) {
+    switch (span) {
+      case ParagraphGapSpan():
+        return;
+      case TextSpan(:final text, :final children):
+        buffer.write(text ?? '');
+        children?.forEach(visit);
+      default:
+        buffer.write(span.toPlainText(includeSemanticsLabels: false));
     }
-    return null;
-  });
-  addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
-  final focus = FocusNode();
-  addTearDown(focus.dispose);
-  await tester.pumpWidget(_app(SelectionArea(focusNode: focus, child: content)));
-  focus.requestFocus();
-  await tester.pump();
-  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
-  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-  await tester.pump();
-  return copied;
+  }
+
+  visit(span);
+  return buffer.toString();
 }
 
 void main() {
@@ -171,15 +172,15 @@ void main() {
       final body = Theme.of(tester.element(find.byType(MunchedHtml))).textTheme.bodyMedium!;
       expect(_styleOf(tester, '第一段')?.height, body.height);
       expect(_styleOf(tester, '第一段')?.letterSpacing, body.letterSpacing);
-      expect(find.byType(ParagraphGap), findsNothing);
+      expect(_gapCount(tester), 0);
     });
 
     testWidgets('a gap of 8 between two paragraphs, a line of its own as tall as the gap', (tester) async {
       const html = '$_long1<br />\r\n$_long2';
       await _pump(tester, html);
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
       final text = _plain(tester);
-      expect(text, '$_long1\n$_obj$_long2');
+      expect(text, '$_long1\n\n$_long2');
       final lastOfFirst = text.indexOf('。');
       final firstOfSecond = text.indexOf('第二段');
       // One line (14 × 1.7) and the gap.
@@ -203,12 +204,12 @@ void main() {
     testWidgets('no gap at a blank line, between short lines, next to an image row or a block', (tester) async {
       Future<int> gaps(String html) async {
         await _pump(tester, html);
-        return find.byType(ParagraphGap).evaluate().length;
+        return _gapCount(tester);
       }
 
       // A blank line already parts the paragraphs: it is as it was.
       expect(await gaps('$_long1<br />\r\n<br />\r\n$_long3'), 0);
-      expect(_plain(tester), '$_long1\n\n$_long3');
+      expect(_plain(tester), '$_long1\n\n$_long3', reason: 'as before');
       // Short lines (a poem, a list of names, a post breaking its lines at every clause) stay together.
       expect(await gaps('她的身子柔若无骨<br />像所有飘忽美好的事物<br />蝉翼、棉花糖与金鱼尾巴'), 0);
       // A short line next to a long one: the long one is a paragraph.
@@ -233,7 +234,7 @@ void main() {
       );
       await tester.tap(find.byIcon(Icons.expand_more_outlined));
       await tester.pump();
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
       expect(await gaps('<div align="center">$_long1<br />$_long2</div>'), 1);
     });
 
@@ -246,7 +247,7 @@ void main() {
 
       await _pump(tester, html, typography: const PostTypography(paragraphSpacing: 0));
       text = _plain(tester);
-      expect(find.byType(ParagraphGap), findsNothing);
+      expect(_gapCount(tester), 0);
       expect(text, '$_long1\n$_long2');
       expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo(14 * 1.7, 0.5));
     });
@@ -277,16 +278,77 @@ void main() {
 
     testWidgets('dark mode: the same layout, the colors of the dark theme', (tester) async {
       await _pump(tester, '$_long1<br />$_long2', theme: ThemeData(brightness: Brightness.dark));
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
       final style = _styleOf(tester, '第一段');
       expect(style?.height, 1.7);
       expect(style?.color, ThemeData(brightness: Brightness.dark).textTheme.bodyMedium?.color);
     });
   });
 
+  group('the length of a line where the content is shown', () {
+    testWidgets('a line holds the content width over the size of the text, in halves of a character', (
+      tester,
+    ) async {
+      Future<double> lineWidth(Size size, double scale) async {
+        tester.view
+          ..devicePixelRatio = 1
+          ..physicalSize = size;
+        addTearDown(tester.view.reset);
+        late double width;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+                child: Builder(
+                  builder: (context) {
+                    width = postContentLineWidth(context);
+                    return const SizedBox();
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        return width;
+      }
+
+      // A phone 390 wide: 390 − 2 × 6 (the floor's margins) − 2 × 16 (its padding) = 346, over 14, in halves.
+      expect(await lineWidth(const Size(390, 844), 1), 24.5);
+      expect(await lineWidth(const Size(360, 780), 1), 22.5);
+      expect(await lineWidth(const Size(390, 844), 0.85), 29);
+      expect(await lineWidth(const Size(390, 844), 1.3), 19);
+      expect(await lineWidth(const Size(390, 844), 1.5), 16);
+      // A tablet or a desktop window: the content is at most 712 wide.
+      expect(await lineWidth(const Size(1280, 800), 1), 50.5);
+      expect(await lineWidth(const Size(1280, 800), 1.5), 33.5);
+      // A pixel more or less does not change it.
+      expect(await lineWidth(const Size(391, 844), 1), 24.5);
+    });
+
+    testWidgets('a short line and a long paragraph depend on it', (tester) async {
+      // About 30 wide each: two lines on a phone, one on a tablet.
+      const a = '这一行在手机上放不下，在平板上就能放得下了，所以是短行吗？';
+      const b = '第二行也差不多一样长，手机上两行，平板上一行，看在哪里显示。';
+      await _pump(tester, '$a<br />$b');
+      expect(_gapCount(tester), 1, reason: 'a phone');
+      await _pump(tester, '$a<br />$b', typography: const PostTypography().withLineWidth(50));
+      expect(_gapCount(tester), 0, reason: 'a tablet: a list of names stays together');
+
+      const s = '月底完成了客户的案子以后，经理邀请我到他珍爱的料亭小酌一番，说是要好好犒劳大家。';
+      const long = '$s$s$s$s';
+      expect(sentenceBreaks(long), isNotEmpty);
+      expect(sentenceBreaks(long, lineWidth: 50), isEmpty, reason: 'four lines on a tablet');
+      expect(sentenceBreaks('$long$long', lineWidth: 50), isNotEmpty);
+    });
+  });
+
   group('image rows', () {
     late ImageCacheProvider cache;
     const urls = ['https://example.com/a.png', 'https://example.com/b.png', 'https://example.com/c.png'];
+
+    /// A small image, the size of a smiley.
+    const small = 'https://example.com/small.png';
 
     setUp(() {
       cache = ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio(), cookie: CookieProvider.buildEmpty()));
@@ -305,11 +367,12 @@ void main() {
         ..devicePixelRatio = 1
         ..physicalSize = const Size(390, 2000);
       addTearDown(tester.view.reset);
-      for (final url in urls) {
+      for (final url in [...urls, small]) {
+        final (w, h) = url == small ? (20, 20) : (300, 120);
         final recorder = ui.PictureRecorder();
-        Canvas(recorder).drawRect(const Rect.fromLTWH(0, 0, 300, 120), Paint()..color = Colors.blue);
+        Canvas(recorder).drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = Colors.blue);
         final picture = recorder.endRecording();
-        final image = await tester.runAsync(() => picture.toImage(300, 120));
+        final image = await tester.runAsync(() => picture.toImage(w, h));
         picture.dispose();
         final provider = ResizeImage.resizeIfNeeded(390, null, CachedImageProvider(url));
         final key = await provider.obtainKey(ImageConfiguration.empty);
@@ -336,7 +399,7 @@ void main() {
         expect(tester.takeException(), isNull);
         rects.addAll(urls.map((url) => rect(tester, url)));
       }
-      expect(find.byType(ParagraphGap), findsNothing, reason: 'no paragraph next to another one');
+      expect(_gapCount(tester), 0, reason: 'no paragraph next to another one');
       // The image rows stay put and keep their size: no gap, no taller row.
       expect(after[0], before[0]);
       expect(after[1], before[1]);
@@ -348,22 +411,50 @@ void main() {
       expect(lines, greaterThan(0));
       expect(text, contains('第一段'));
     });
+
+    testWidgets('a line holding only a small image keeps its height', (tester) async {
+      await seed(tester);
+      // A smiley on the last line of the post, and one on a line of its own between two paragraphs.
+      for (final html in [
+        '$_long1<br />\r\n<img src="$small" />',
+        '$_long1<br />\r\n<img src="$small" /><br />\r\n$_long2',
+      ]) {
+        final heights = <double>[];
+        for (final typography in [null, const PostTypography()]) {
+          await tester.pumpWidget(_app(_post(html, typography)));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final image = tester.getRect(find.byWidgetPredicate((w) => w is NetworkIndicatorImage && w.src == small));
+          final text = tester.getRect(find.byType(RichText).first);
+          // From the image to the end of the post (the image's line, and what follows).
+          heights.add(text.bottom - image.top);
+          expect(_gapCount(tester), 0, reason: html);
+        }
+        // Below the image only the text after it may be taller (1.7 instead of 1.43 a line).
+        expect(heights[1], greaterThanOrEqualTo(heights[0]), reason: html);
+        if (!html.endsWith(_long2)) {
+          expect(heights[1], heights[0], reason: 'the last line, a small image alone');
+        }
+      }
+    });
   });
 
-  group('copying', () {
-    testWidgets('the gaps add nothing to the text that is copied', (tester) async {
+  group('the text', () {
+    testWidgets('without the gaps, the text is the text as before', (tester) async {
       const html = '$_long1<br />\r\n$_long2<br />\r\n<br />\r\n$_long3';
-      final before = await _copyAll(tester, _post(html, null));
+      await _pump(tester, html, typography: null);
+      final before = _plain(tester);
       expect(before, '$_long1\n$_long2\n\n$_long3');
-      final after = await _copyAll(tester, _post(html, const PostTypography(splitLongParagraphs: true)));
-      expect(find.byType(ParagraphGap), findsOneWidget);
-      expect(after, before);
+      await _pump(tester, html, typography: const PostTypography(splitLongParagraphs: true));
+      expect(_gapCount(tester), 1);
+      expect(_plain(tester), '$_long1\n\n$_long2\n\n$_long3', reason: 'the gap is a line break');
+      expect(_withoutGaps(_paragraph(tester).text), before);
 
-      // A paragraph cut after the end of its sentences copies as one paragraph.
+      // A paragraph cut after the end of its sentences is one paragraph without the gaps.
       final long = List.generate(4, (i) => '这是第$i句话，用来把一段文字写得很长很长，长到手机上要好几行才放得下。').join();
-      final cut = await _copyAll(tester, _post(long, const PostTypography(splitLongParagraphs: true)));
-      expect(find.byType(ParagraphGap), findsWidgets);
-      expect(cut, long);
+      await _pump(tester, long, typography: const PostTypography(splitLongParagraphs: true));
+      expect(_gapCount(tester), greaterThan(0));
+      expect(_withoutGaps(_paragraph(tester).text), long);
     });
   });
 
@@ -379,10 +470,10 @@ void main() {
     String pieceAt(String p, int cut) => p.substring(cut, cut + 6);
 
     test('a long paragraph is cut after the ends of sentences, a short one is not', () {
-      expect(textWidth(s1 + s2), lessThan(longParagraphWidth));
+      expect(textWidth(s1 + s2), lessThan(longParagraphLines * phoneLineWidth));
       expect(sentenceBreaks(s1 + s2), isEmpty);
       const p = s1 + s2 + s3 + s4;
-      expect(textWidth(p), greaterThan(longParagraphWidth));
+      expect(textWidth(p), greaterThan(longParagraphLines * phoneLineWidth));
       final cuts = sentenceBreaks(p);
       // The first piece is two sentences (one is not wide enough), the rest is long enough to stand alone.
       expect(cuts, [(s1 + s2).length]);
@@ -433,32 +524,33 @@ void main() {
     testWidgets('in a post: off by default, on with the setting', (tester) async {
       const p = s1 + s2 + s3 + s4;
       await _pump(tester, p);
-      expect(find.byType(ParagraphGap), findsNothing);
+      expect(_gapCount(tester), 0);
       expect(_plain(tester), p);
 
       await _pump(tester, p, typography: const PostTypography(splitLongParagraphs: true));
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
       final text = _plain(tester);
-      expect(text, '$s1$s2$_obj$s3$s4');
+      expect(text, '$s1$s2\n\n$s3$s4');
       // The piece after the cut starts a line of its own, the gap above it.
-      final end = text.indexOf(_obj) - 1;
-      expect(_top(tester, end + 2) - _top(tester, end), closeTo(14 * 1.7 + 8, 0.5));
+      final end = text.indexOf('\n') - 1;
+      expect(_top(tester, end + 3) - _top(tester, end), closeTo(14 * 1.7 + 8, 0.5));
       expect(
-        _paragraph(tester).getBoxesForSelection(TextSelection(baseOffset: end + 2, extentOffset: end + 3)).first.left,
+        _paragraph(tester).getBoxesForSelection(TextSelection(baseOffset: end + 3, extentOffset: end + 4)).first.left,
         closeTo(0, 0.01),
       );
 
       // Without paragraph spacing the pieces still start a line of their own, nothing between them.
       await _pump(tester, p, typography: const PostTypography(paragraphSpacing: 0, splitLongParagraphs: true));
-      expect(find.byType(ParagraphGap), findsOneWidget);
-      final noSpace = _plain(tester).indexOf(_obj) - 1;
-      expect(_top(tester, noSpace + 2) - _top(tester, noSpace), closeTo(14 * 1.7, 1.5));
+      expect(_gapCount(tester), 1);
+      expect(_plain(tester), '$s1$s2\n$s3$s4');
+      final noSpace = _plain(tester).indexOf('\n') - 1;
+      expect(_top(tester, noSpace + 2) - _top(tester, noSpace), closeTo(14 * 1.7, 0.5));
     });
 
     testWidgets('a link cut in two still opens', (tester) async {
       const p = '<a href="https://www.example.com/a">$s1$s2$s3$s4</a>';
       await _pump(tester, p, typography: const PostTypography(splitLongParagraphs: true));
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
       final pieces = _spans(_paragraph(tester).text).where((e) => e.text != null && e.text!.contains('。')).toList();
       expect(pieces.length, greaterThanOrEqualTo(2));
       expect(pieces.map((e) => e.recognizer), everyElement(isNotNull));
@@ -476,11 +568,76 @@ void main() {
         '<div class="blockcode"><div id="code_1"><ol><li>$p</li></ol></div></div>',
       ]) {
         await _pump(tester, html, typography: split);
-        expect(find.byType(ParagraphGap), findsNothing, reason: html);
+        expect(_gapCount(tester), 0, reason: html);
       }
       // A paragraph after the list is cut as usual (and parted from the list).
       await _pump(tester, '<ul><li>一项</li></ul>$p', typography: split);
-      expect(_plain(tester), '•  一项\n$_obj$s1$s2$_obj$s3$s4');
+      expect(_plain(tester), '•  一项\n\n$s1$s2\n\n$s3$s4');
+    });
+  });
+
+  group('the experimental bbcode renderer', () {
+    Future<void> pumpNodes(WidgetTester tester, List<BbNode> nodes, PostTypography typography) async {
+      await tester.pumpWidget(
+        _app(PostTypographyScope(typography: typography, child: PostBbcodeView(nodes))),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgets('the same line height and gaps, in an aligned block and a spoiler too', (tester) async {
+      const text = BbText('$_long1\n$_long2');
+      await pumpNodes(tester, const [text], const PostTypography());
+      expect(_gapCount(tester), 1);
+      final root = tester.widget<RichText>(find.byType(RichText).first).text;
+      // The style of the text, merged down from the spans around it (a span cut by a gap gives it to its pieces).
+      TextStyle? styleOf(InlineSpan span, TextStyle? parent) {
+        if (span is! TextSpan) {
+          return null;
+        }
+        final style = parent?.merge(span.style) ?? span.style;
+        if (span.text?.contains('第一段') ?? false) {
+          return style;
+        }
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          final found = styleOf(child, style);
+          if (found != null) {
+            return found;
+          }
+        }
+        return null;
+      }
+
+      expect(styleOf(root, null)?.height, 1.7);
+
+      await pumpNodes(tester, const [
+        BbAlign('center', [text]),
+      ], const PostTypography());
+      expect(_gapCount(tester), 1);
+
+      await pumpNodes(tester, const [
+        BbSpoiler('展开', [text]),
+      ], const PostTypography());
+      await tester.tap(find.byIcon(Icons.expand_more_outlined));
+      await tester.pump();
+      expect(_gapCount(tester), 1);
+    });
+
+    testWidgets('long paragraphs are cut, not in a list', (tester) async {
+      const p =
+          '月底完成了客户的案子以后，经理邀请我到他珍爱的料亭小酌一番，说是要好好犒劳大家。'
+          '我本身并不善饮，但是领导的好意着实令人盛情难却，只好硬着头皮跟着一起去了那里。'
+          '为了少喝些酒，在聊完公司里的大小事以后，我多少有些为之语塞，只能低头吃菜。'
+          '我并非擅于闲聊攀谈之人，也不想拿他人的家务事作为聊天的话题，只好一直听他说。';
+      const split = PostTypography(splitLongParagraphs: true);
+      await pumpNodes(tester, const [BbText(p)], split);
+      expect(_gapCount(tester), 1);
+      await pumpNodes(tester, const [
+        BbList('', [
+          [BbText(p)],
+        ]),
+      ], split);
+      expect(_gapCount(tester), 0);
     });
   });
 
@@ -548,10 +705,13 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      PostTypography preview() =>
-          tester.widget<PostTypographyScope>(find.byKey(const ValueKey('thread-content-layout-preview'))).typography;
+      // The line of the preview is as long as the dialog is wide: not compared here.
+      PostTypography preview() => tester
+          .widget<PostTypographyScope>(find.byKey(const ValueKey('thread-content-layout-preview')))
+          .typography
+          .withLineWidth(PostTypography.defaultLineWidth);
       expect(preview(), const PostTypography(splitLongParagraphs: true));
-      expect(find.byType(ParagraphGap), findsOneWidget, reason: 'the preview has two paragraphs');
+      expect(_gapCount(tester), 1, reason: 'the preview has two paragraphs');
 
       final sliders = find.byType(Slider);
       tester.widget<Slider>(sliders.at(0)).onChanged!(2);
@@ -615,7 +775,12 @@ void main() {
       await db.close();
     });
 
+    /// The thread page on a phone 390 wide: a line of a floor holds 24.5 characters.
     Future<void> pump(WidgetTester tester) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
       final info = NotificationInfoRepository();
       final counts = NotificationStateCubit(info);
       final cubit = UserBlockCubit(repository: blocks, currentUid: () => _alice.uid, authStatus: auth.status);
@@ -673,7 +838,7 @@ void main() {
       await pump(tester);
       expect(floor(), findsWidgets);
       expect(typographyOfFloor(tester), const PostTypography());
-      expect(find.byType(ParagraphGap), findsOneWidget);
+      expect(_gapCount(tester), 1);
 
       await tester.runAsync(() => settings.setValue<double>(SettingsKeys.threadContentLineHeight, 2));
       await tester.runAsync(() => settings.setValue(SettingsKeys.threadContentSplitLongParagraphs, true));
@@ -685,7 +850,7 @@ void main() {
 
       await tester.runAsync(() => settings.setValue<double>(SettingsKeys.threadContentParagraphSpacing, 0));
       await _settle(tester);
-      expect(find.byType(ParagraphGap), findsNothing);
+      expect(_gapCount(tester), 0);
     });
   });
 }

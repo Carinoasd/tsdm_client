@@ -242,9 +242,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       ),
     );
     if (!context.mounted || picked == null) return;
-    context.read<SettingsBloc>()
-      ..add(SettingsValueChanged(SettingsKeys.threadContentLineHeight, picked.lineHeight))
-      ..add(SettingsValueChanged(SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing));
+    // Both at once: the floors kept alive are laid out again once, not twice.
+    await getIt.get<SettingsRepository>().setValues<double>([
+      (SettingsKeys.threadContentLineHeight, picked.lineHeight),
+      (SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing),
+    ]);
   }
 
   Widget _buildAppearanceSection(BuildContext context, SettingsState state) {

@@ -54,6 +54,11 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final scale = math.min(MediaQuery.textScalerOf(context).scale(1) * widget.contentScale, threadContentMaxTextScale);
+    // The preview is as wide as the content of the dialog (at most 70% of the screen, 400) less its block's padding:
+    // what a short line is there.
+    final previewWidth = math.min(MediaQuery.sizeOf(context).width * 0.7, 400) - 24;
+    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
+    final lineWidth = math.max<double>(1, (2 * previewWidth / (fontSize * scale)).floor() / 2);
 
     Widget slider({
       required String label,
@@ -120,7 +125,7 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
               data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
               child: PostTypographyScope(
                 key: const ValueKey('thread-content-layout-preview'),
-                typography: _typography,
+                typography: _typography.withLineWidth(lineWidth),
                 child: MunchedHtml(tr.previewText),
               ),
             ),

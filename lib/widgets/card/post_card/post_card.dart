@@ -299,8 +299,10 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
     // The experimental app renderer draws the floor from its bbcode where it can (off by default: the html as before).
     final appRenderer = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.enableAppPostRenderer);
     // Line height and paragraphs of the content as the reader set them (a taller line and a gap between paragraphs by
-    // default: posts read as a wall of text on a phone).
-    final typography = context.select<SettingsBloc, PostTypography>((e) => e.state.settingsMap.postTypography);
+    // default: posts read as a wall of text on a phone), for lines as long as they are on this screen.
+    final typography = context
+        .select<SettingsBloc, PostTypography>((e) => e.state.settingsMap.postTypography)
+        .withLineWidth(postContentLineWidth(context));
     final child = Row(
       children: [
         Expanded(

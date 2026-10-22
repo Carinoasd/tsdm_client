@@ -1,5 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/utils/html/sentence_breaks.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// How the content of a post is laid out for reading: line height, spacing between paragraphs, long paragraphs cut
 /// after the end of a sentence.
@@ -18,6 +23,7 @@ final class PostTypography {
     this.lineHeight = defaultLineHeight,
     this.paragraphSpacing = defaultParagraphSpacing,
     this.splitLongParagraphs = false,
+    this.lineWidth = defaultLineWidth,
   });
 
   /// Default [lineHeight].
@@ -38,6 +44,9 @@ final class PostTypography {
   /// Highest [paragraphSpacing] offered in the settings.
   static const maxParagraphSpacing = 16.0;
 
+  /// Default [lineWidth]: a phone 390 wide at a text scale of 1 (346 / 14).
+  static const double defaultLineWidth = phoneLineWidth;
+
   /// Height of a line of text, a multiple of its font size.
   final double lineHeight;
 
@@ -47,20 +56,59 @@ final class PostTypography {
   /// Cut a long paragraph into shorter ones after the end of a sentence (see [sentenceBreaks]).
   final bool splitLongParagraphs;
 
+  /// How many Chinese characters a line of the content holds where it is shown ([postContentLineWidth], in halves):
+  /// what is a short line and what is a long paragraph depends on it.
+  final double lineWidth;
+
+  /// This layout with its values in the ranges offered in the settings.
+  PostTypography clamped() => PostTypography(
+    lineHeight: lineHeight.clamp(minLineHeight, maxLineHeight),
+    paragraphSpacing: paragraphSpacing.clamp(minParagraphSpacing, maxParagraphSpacing),
+    splitLongParagraphs: splitLongParagraphs,
+    lineWidth: math.max<double>(1, lineWidth),
+  );
+
+  /// This layout for lines holding [lineWidth] characters.
+  PostTypography withLineWidth(double lineWidth) => PostTypography(
+    lineHeight: lineHeight,
+    paragraphSpacing: paragraphSpacing,
+    splitLongParagraphs: splitLongParagraphs,
+    lineWidth: lineWidth,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is PostTypography &&
       other.lineHeight == lineHeight &&
       other.paragraphSpacing == paragraphSpacing &&
-      other.splitLongParagraphs == splitLongParagraphs;
+      other.splitLongParagraphs == splitLongParagraphs &&
+      other.lineWidth == lineWidth;
 
   @override
-  int get hashCode => Object.hash(lineHeight, paragraphSpacing, splitLongParagraphs);
+  int get hashCode => Object.hash(lineHeight, paragraphSpacing, splitLongParagraphs, lineWidth);
 
   @override
   String toString() =>
       'PostTypography(lineHeight: $lineHeight, paragraphSpacing: $paragraphSpacing, '
-      'splitLongParagraphs: $splitLongParagraphs)';
+      'splitLongParagraphs: $splitLongParagraphs, lineWidth: $lineWidth)';
+}
+
+/// How many Chinese characters (body text) a line of a floor's content holds under [context]: the width of the content
+/// (the screen less the safe area, the floor's margins and padding, at most [appReadingMaxWidth] for the floor and
+/// [htmlContentMaxWidth] for its content) over the size of the body text at the text scale there.
+///
+/// In halves of a character, rounded down: resizing a window only lays the content out again when a line holds half a
+/// character more or less, not at every pixel.
+double postContentLineWidth(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  final safeArea = MediaQuery.paddingOf(context).horizontal;
+  // The floor's margins (6 on a phone, 16 wider) and its padding (16 on each side).
+  final margin = size.width < 600 ? 6.0 : 16.0;
+  final floor = math.min(size.width - safeArea - 2 * margin, appReadingMaxWidth);
+  final width = math.min(floor - 32, htmlContentMaxWidth);
+  final fontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
+  final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
+  return math.max<double>(1, (2 * width / scaled).floor() / 2);
 }
 
 /// The [PostTypography] of the post content below it.
@@ -81,117 +129,37 @@ class PostTypographyScope extends InheritedWidget {
   bool updateShouldNotify(PostTypographyScope oldWidget) => typography != oldWidget.typography;
 }
 
-/// The space between two paragraphs in a rich text: an empty line [height] tall.
+/// The space between two paragraphs in a rich text: a line break whose empty line is as tall as the spacing (a font
+/// of that size at a line height of 1), put right after the line break ending the paragraph before.
 ///
-/// It takes the whole width of the line it is in, so it is a line of its own: the text after it starts the next
-/// line. A placeholder adds nothing to the text that is selected and copied, so a gap does not add a line break to
-/// it either.
-class ParagraphGap extends LeafRenderObjectWidget {
-  /// Constructor.
-  const ParagraphGap(this.height, {super.key});
-
-  /// Height of the gap, before the text scale (the paragraph scales its placeholders).
-  final double height;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) => RenderParagraphGap(height);
-
-  @override
-  void updateRenderObject(BuildContext context, RenderParagraphGap renderObject) => renderObject.height = height;
-}
-
-/// The render object of a [ParagraphGap].
-class RenderParagraphGap extends RenderBox {
-  /// Constructor.
-  RenderParagraphGap(this._height);
-
-  /// Height of the gap.
-  double get height => _height;
-  double _height;
-
-  set height(double value) {
-    if (value == _height) {
-      return;
-    }
-    _height = value;
-    markNeedsLayout();
-  }
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) =>
-      constraints.constrain(Size(constraints.hasBoundedWidth ? constraints.maxWidth : 0, _height));
-
-  @override
-  void performLayout() => size = computeDryLayout(constraints);
-
-  @override
-  double computeMinIntrinsicWidth(double height) => 0;
-
-  @override
-  double computeMaxIntrinsicWidth(double height) => 0;
-
-  @override
-  double computeMinIntrinsicHeight(double width) => _height;
-
-  @override
-  double computeMaxIntrinsicHeight(double width) => _height;
-}
-
-/// A rich text of [span], laid out as [Text.rich] would lay it out with [style], where a line holding only a
-/// [ParagraphGap] is as tall as the gap.
+/// A line break in a span costs nothing more to lay out; a widget for each gap made a floor of many paragraphs four to
+/// five times slower to build. The line follows the text scale like the text. The text the rich text holds has the
+/// line break more: what the floor's "copy text" offers comes from the html, it is not changed.
 ///
-/// A line is never shorter than the font of the paragraph itself (the style of the rich text): a line with nothing
-/// but a gap of 8 was as tall as an empty line of text (about 19 on a phone). Here the paragraph's own font is tiny,
-/// and the text gets its style back from a span around it: the text, the empty lines (two line breaks) and the image
-/// rows are laid out as before.
-class ParagraphGapText extends StatelessWidget {
+/// Where a long paragraph is cut (`breaksLine`), it is two line breaks: the first ends the line of the sentence (its
+/// small font leaves that line as it is), the second is the gap; without spacing, only the first.
+final class ParagraphGapSpan extends TextSpan {
   /// Constructor.
-  const ParagraphGapText(this.span, {this.style, this.textAlign, super.key});
-
-  /// The text.
-  final InlineSpan span;
-
-  /// The style of the text, merged with the [DefaultTextStyle] as [Text.rich] does.
-  final TextStyle? style;
-
-  /// How the lines are aligned.
-  final TextAlign? textAlign;
-
-  /// The font of the paragraph: what a line holding nothing but placeholders is at least as tall as.
-  static const _paragraphStyle = TextStyle(fontSize: 1, height: 1);
-
-  @override
-  Widget build(BuildContext context) {
-    final defaultStyle = DefaultTextStyle.of(context).style;
-    final textStyle = style == null || style!.inherit ? defaultStyle.merge(style) : style;
-    return Text.rich(
-      TextSpan(style: textStyle, children: [span]),
-      style: _paragraphStyle,
-      textAlign: textAlign,
-    );
-  }
+  ParagraphGapSpan(double spacing, {bool breaksLine = false})
+    : super(
+        text: breaksLine && spacing > 0 ? '\n\n' : '\n',
+        style: spacing > 0 ? TextStyle(fontSize: spacing, height: 1) : null,
+      );
 }
 
 bool _never(InlineSpan span) => false;
 
-/// A paragraph wider than this ([textWidth]: about a line of a phone 390 wide) is long: a single line break next to
-/// one is the end of a paragraph, and gets the paragraph spacing. A single line break between two short lines (a
-/// poem, a list of names, a post that breaks its lines at every clause) keeps them together.
-@visibleForTesting
-const shortLineWidth = 24.0;
-
-/// [spans] (the content of a rich text) laid out as paragraphs with [typography]: a [ParagraphGap] of its paragraph
-/// spacing between paragraphs and, when it splits long paragraphs, after the ends of sentences chosen by
-/// [sentenceBreaks]. The text itself is not changed: the gaps are placeholders, which add nothing to the text that is
-/// copied.
+/// [spans] (the content of a rich text) laid out as paragraphs with [typography]: a [ParagraphGapSpan] of its
+/// paragraph spacing between paragraphs and, when it splits long paragraphs, after the ends of sentences chosen by
+/// [sentenceBreaks].
 ///
 /// A paragraph is a line of the html (between two line breaks) with text in it. A gap goes at a single line break
-/// between two paragraphs when one of them is long ([shortLineWidth]). Not between a paragraph and an image, a card,
-/// a quote or another block (they are not paragraphs, and an image row must not move), nor at a blank line (two line
-/// breaks): that line already parts the paragraphs.
+/// between two paragraphs when one of them does not fit on a line ([PostTypography.lineWidth]). Not between a
+/// paragraph and an image, a card, a quote or another block (they are not paragraphs, and an image row must not move),
+/// nor at a blank line (two line breaks): that line already parts the paragraphs.
 ///
 /// Text in a span [keepsLines] says yes to (preformatted text) is laid out as it is: no gap next to its lines, no cut.
-/// Text in a span [keepsWhole] says yes to (a list item, a heading) is never cut.
+/// Text in a span [keepsWhole] says yes to (a list, a heading) is never cut.
 List<InlineSpan> layOutParagraphs(
   List<InlineSpan> spans,
   PostTypography typography, {
@@ -203,7 +171,7 @@ List<InlineSpan> layOutParagraphs(
     return spans;
   }
   final text = _ParagraphText.of(spans, keepsLines: keepsLines, keepsWhole: keepsWhole);
-  final gaps = text.gaps(spacing: spacing, splitLong: typography.splitLongParagraphs);
+  final gaps = text.gaps(spacing: spacing, splitLong: typography.splitLongParagraphs, lineWidth: typography.lineWidth);
   if (gaps.isEmpty) {
     return spans;
   }
@@ -213,7 +181,9 @@ List<InlineSpan> layOutParagraphs(
 /// The text of the spans laid out by [layOutParagraphs], one character per UTF-16 code unit as in
 /// [InlineSpan.toPlainText], a placeholder for each widget.
 final class _ParagraphText {
-  _ParagraphText._(this.text, this.keptLines, this.keptWhole);
+  _ParagraphText._(this.text, List<(int, int)> keptLines, List<(int, int)> keptWhole)
+    : _keptLines = _Coverage(keptLines, text.length),
+      _keptWhole = _Coverage(keptWhole, text.length);
 
   factory _ParagraphText.of(
     List<InlineSpan> spans, {
@@ -221,32 +191,36 @@ final class _ParagraphText {
     required bool Function(InlineSpan span) keepsWhole,
   }) {
     final buffer = StringBuffer();
-    final keptLines = <bool>[];
-    final keptWhole = <bool>[];
-    void add(String s, {required bool lines, required bool whole}) {
-      buffer.write(s);
-      for (var i = 0; i < s.length; i++) {
-        keptLines.add(lines);
-        keptWhole.add(whole);
-      }
-    }
+    // Ranges [start, end) of the text in preformatted text, and in lists and headings.
+    final keptLines = <(int, int)>[];
+    final keptWhole = <(int, int)>[];
 
     void visit(InlineSpan span, {required bool lines, required bool whole}) {
-      final spanLines = lines || keepsLines(span);
-      final spanWhole = whole || keepsWhole(span);
+      final start = buffer.length;
+      final ownLines = !lines && keepsLines(span);
+      final ownWhole = !whole && keepsWhole(span);
       switch (span) {
         case TextSpan(:final text, :final children):
           if (text != null) {
-            add(text, lines: spanLines, whole: spanWhole);
+            buffer.write(text);
           }
           for (final child in children ?? const <InlineSpan>[]) {
-            visit(child, lines: spanLines, whole: spanWhole);
+            visit(child, lines: lines || ownLines, whole: whole || ownWhole);
           }
         case PlaceholderSpan():
-          add(objectReplacementChar, lines: spanLines, whole: spanWhole);
+          buffer.write(objectReplacementChar);
         default:
           // Not built by the html renderer: its text counts, it is not cut.
-          add(span.toPlainText(includeSemanticsLabels: false), lines: spanLines, whole: true);
+          buffer.write(span.toPlainText(includeSemanticsLabels: false));
+          if (!whole && !ownWhole) {
+            keptWhole.add((start, buffer.length));
+          }
+      }
+      if (ownLines) {
+        keptLines.add((start, buffer.length));
+      }
+      if (ownWhole) {
+        keptWhole.add((start, buffer.length));
       }
     }
 
@@ -258,80 +232,106 @@ final class _ParagraphText {
 
   final String text;
 
-  /// Each character is in preformatted text.
-  final List<bool> keptLines;
+  /// The text in preformatted text.
+  final _Coverage _keptLines;
 
-  /// Each character is in a list item or a heading.
-  final List<bool> keptWhole;
+  /// The text in lists and headings.
+  final _Coverage _keptWhole;
 
-  static final _visible = RegExp(r'[^\s￼]');
+  static final _visible = RegExp('[^\\s$objectReplacementChar]');
 
-  /// Offsets of the characters a gap goes before: at the line breaks between paragraphs when there is [spacing], after
-  /// the ends of sentences of long paragraphs when [splitLong] (without spacing, the gap is only a line break).
-  Set<int> gaps({required bool spacing, required bool splitLong}) {
+  /// Offsets of the characters a gap goes before, and whether it also breaks the line there (a cut in a paragraph):
+  /// at the line breaks between paragraphs when there is [spacing], after the ends of sentences of long paragraphs
+  /// when [splitLong]. A line holds [lineWidth] characters.
+  Map<int, bool> gaps({required bool spacing, required bool splitLong, required double lineWidth}) {
     // Lines of the text: [start, end) between line breaks.
     final lines = <(int, int)>[];
     var start = 0;
-    for (var i = 0; i <= text.length; i++) {
-      if (i == text.length || text[i] == '\n') {
-        lines.add((start, i));
-        start = i + 1;
+    while (true) {
+      final end = text.indexOf('\n', start);
+      if (end < 0) {
+        lines.add((start, text.length));
+        break;
       }
-    }
-    bool any(List<bool> flags, (int, int) line) {
-      for (var i = line.$1; i < line.$2; i++) {
-        if (flags[i]) {
-          return true;
-        }
-      }
-      return false;
+      lines.add((start, end));
+      start = end + 1;
     }
 
+    final contents = [for (final line in lines) text.substring(line.$1, line.$2)];
     final isParagraph = [
-      for (final line in lines)
-        _visible.hasMatch(text.substring(line.$1, line.$2)) && !any(keptLines, line) && !_hasNewlineInKept(line),
+      for (final (i, line) in lines.indexed)
+        _visible.hasMatch(contents[i]) &&
+            // Not a line of preformatted text, nor the line its line break ends.
+            !_keptLines.meets(line.$1, line.$2 + 1),
     ];
-    final widths = [for (final line in lines) textWidth(text.substring(line.$1, line.$2))];
-    final gaps = <int>{};
+    final widths = [for (final content in contents) textWidth(content)];
+    final gaps = <int, bool>{};
     for (var i = 1; spacing && i < lines.length; i++) {
-      if (isParagraph[i - 1] && isParagraph[i] && (widths[i - 1] > shortLineWidth || widths[i] > shortLineWidth)) {
-        // Before the first character of the paragraph after the line break.
-        gaps.add(lines[i].$1);
+      if (isParagraph[i - 1] && isParagraph[i] && (widths[i - 1] > lineWidth || widths[i] > lineWidth)) {
+        // Right after the line break, before the first character of the paragraph after it.
+        gaps[lines[i].$1] = false;
       }
     }
     if (splitLong) {
       for (final (i, line) in lines.indexed) {
-        if (!isParagraph[i] || widths[i] <= longParagraphWidth || any(keptWhole, line)) {
+        if (!isParagraph[i] || widths[i] <= longParagraphLines * lineWidth || _keptWhole.meets(line.$1, line.$2)) {
           continue;
         }
-        for (final cut in sentenceBreaks(text.substring(line.$1, line.$2))) {
-          gaps.add(line.$1 + cut);
+        for (final cut in sentenceBreaks(contents[i], lineWidth: lineWidth)) {
+          gaps[line.$1 + cut] = true;
         }
       }
     }
     return gaps;
   }
-
-  /// The line break ending [line] is preformatted text: the line is part of a `<pre>`.
-  bool _hasNewlineInKept((int, int) line) => line.$2 < text.length && keptLines[line.$2];
 }
 
-/// Puts a [ParagraphGap] before each of [gaps] (offsets in the text of the spans) into the spans.
-final class _GapInserter {
-  _GapInserter(this.gaps, this.height);
+/// Which characters of a text some ranges cover, to ask about a range of the text at once.
+final class _Coverage {
+  _Coverage(List<(int, int)> ranges, int length) : _covered = ranges.isEmpty ? null : Int32List(length + 1) {
+    final covered = _covered;
+    if (covered == null) {
+      return;
+    }
+    // Ranges nest (a span in a span): how many cover each character is counted, then turned into how many of the
+    // characters before each offset are covered.
+    final depth = Int32List(length + 1);
+    for (final (start, end) in ranges) {
+      depth[start] += 1;
+      depth[end] -= 1;
+    }
+    var open = 0;
+    for (var i = 0; i < length; i++) {
+      open += depth[i];
+      covered[i + 1] = covered[i] + (open > 0 ? 1 : 0);
+    }
+  }
 
-  final Set<int> gaps;
-  final double height;
+  /// Covered characters before each offset; null when nothing is covered.
+  final Int32List? _covered;
+
+  /// Whether a character of [start, end) is covered (an end past the text is the end of the text).
+  bool meets(int start, int end) {
+    final covered = _covered;
+    if (covered == null) {
+      return false;
+    }
+    return covered[math.min(end, covered.length - 1)] - covered[start] > 0;
+  }
+}
+
+/// Puts a [ParagraphGapSpan] before each of [gaps] (offsets in the text of the spans) into the spans.
+final class _GapInserter {
+  _GapInserter(this.gaps, this.spacing);
+
+  /// The offsets, and whether the gap breaks the line there.
+  final Map<int, bool> gaps;
+  final double spacing;
 
   /// Offset of the next character in the text of the spans.
   int _offset = 0;
 
   List<InlineSpan> insert(List<InlineSpan> spans) => [for (final span in spans) _insert(span)];
-
-  /// The font of the gap's line is tiny: the line is as tall as the gap, not as a line of text with nothing in it.
-  WidgetSpan _gap() => WidgetSpan(style: _gapStyle, child: ParagraphGap(height));
-
-  static const _gapStyle = TextStyle(fontSize: 1, height: 1);
 
   InlineSpan _insert(InlineSpan span) {
     switch (span) {
@@ -343,7 +343,7 @@ final class _GapInserter {
           // A gap goes after the character before it: in the span whose text holds that character.
           final cuts = [
             for (var i = start + 1; i <= _offset; i++)
-              if (gaps.contains(i)) i - start,
+              if (gaps.containsKey(i)) i - start,
           ];
           if (cuts.isNotEmpty && span.semanticsLabel == null) {
             pieces = [];
@@ -351,7 +351,7 @@ final class _GapInserter {
             for (final cut in cuts) {
               pieces
                 ..add(_piece(span, text.substring(from, cut)))
-                ..add(_gap());
+                ..add(ParagraphGapSpan(spacing, breaksLine: gaps[start + cut]!));
               from = cut;
             }
             if (from < text.length) {
@@ -403,7 +403,3 @@ final class _GapInserter {
     spellOut: span.spellOut,
   );
 }
-
-/// Whether [span] is a gap [layOutParagraphs] put in.
-@visibleForTesting
-bool isParagraphGap(InlineSpan span) => span is WidgetSpan && span.child is ParagraphGap;
