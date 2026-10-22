@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:html/parser.dart' as h;
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -95,28 +96,33 @@ extension ParseUrl on String {
     }
 
     if (mod == 'space' && queryParameters['do'] == 'thread' && queryParameters['view'] == 'me') {
-      // A member's own list names nobody ("我的帖子"). One that names a member ("TA的主题" of a profile or a floor,
-      // also the account's own) is that member's list, which the app has no page for:
-      //
-      // * by name (`username`): their threads are the search by that name, as the profile's "搜索此人的帖子";
-      // * by uid only: their profile, whose "搜索此人的帖子" searches by their name. The forum's search by a bare uid
-      //   (`srchuid` alone) found nothing for testers (see `SearchRepository.searchWithParameters`);
-      // * their replies (`type=reply`) and comments open as an unsupported forum link (the web page).
-      final uid = queryParameters['uid'];
+      // A member's own list names nobody ("我的帖子"). One that names a member ("TA的主题" of a profile or a floor) is
+      // that member's threads (`type=thread`, the default, also for a type the forum does not know) or replies
+      // (`type=reply`), by uid and/or by name as the forum takes them (the name first; the uid as PHP's `intval`, 0
+      // naming nobody): the member's page, which opens the account's own list when the member is the current user
+      // (see `memberThreadRedirect`). Their comments (`type=postcomment`) are always the viewer's own on the forum,
+      // and open as an unsupported forum link (the web page). The own list opens on the tab the link names.
+      final uid = forumIntval(queryParameters['uid']);
       final username = queryParameters['username'];
-      final hasUid = uid != null && uid.isNotEmpty && uid != '0';
+      final hasUid = uid > 0;
       final hasUsername = username != null && username.isNotEmpty;
-      if (!hasUid && !hasUsername) {
-        return const RecognizedRoute(ScreenPaths.myThread);
-      }
       final type = queryParameters['type'];
-      if (type != null && type.isNotEmpty && type != 'thread') {
+      final tab = myThreadTabOf(queryParameters);
+      if (!hasUid && !hasUsername) {
+        return RecognizedRoute(ScreenPaths.myThread, queryParameters: {'tab': ?tab});
+      }
+      if (type == 'postcomment') {
         return null;
       }
-      if (hasUsername) {
-        return RecognizedRoute(ScreenPaths.search, queryParameters: {'authorName': username});
-      }
-      return RecognizedRoute(ScreenPaths.profile, queryParameters: {'uid': uid!});
+      return RecognizedRoute(
+        ScreenPaths.memberThread,
+        queryParameters: {
+          if (hasUid) 'uid': '$uid',
+          if (hasUsername) 'username': username,
+          if (type == 'reply') 'tab': 'reply',
+          if (tab == 'drafts') 'filter': 'save',
+        },
+      );
     }
 
     // Favorites list, with or without uid: home.php?mod=space[&uid=xxx]&do=favorite[&view=me][&type=thread|forum]

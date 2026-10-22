@@ -775,6 +775,7 @@
     "online": "Online",
     "offline": "Offline",
     "searchAsThreadAuthor": "Search this member's posts",
+    "memberThreads": "Their posts",
     "medals": "Medals",
     "mangedForum": "Managed subreddits",
     "onlineTime": "Online time",
@@ -976,6 +977,12 @@
       "title": "ReplyThread"
     },
     "forum": "Forum"
+  },
+  "memberThreadPage": {
+    "title": "${name}'s posts",
+    "titleUnknown": "Member's posts",
+    "blocked": "You blocked this user (this device), their threads and replies are not shown.",
+    "notList": "The forum did not show this member's posts."
   },
   "favoritePage": {
     "title": "Favorites",

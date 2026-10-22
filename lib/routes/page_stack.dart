@@ -25,6 +25,7 @@ const quietlyClosablePages = <String>{
   ScreenPaths.packetDetail,
   ScreenPaths.latestThread,
   ScreenPaths.myThread,
+  ScreenPaths.memberThread,
   ScreenPaths.favorite,
   ScreenPaths.threadVisitHistory,
 };

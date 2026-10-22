@@ -13,10 +13,13 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// Page to show the threads and replies published by current logged user.
 class MyThreadPage extends StatefulWidget {
   /// Constructor.
-  const MyThreadPage({super.key, this.showDrafts = false});
+  const MyThreadPage({super.key, this.showDrafts = false, this.showReplies = false});
 
-  /// Enter the draft tab after saving from the editor.
+  /// Enter the draft tab after saving from the editor, or from a link to the draft box (`filter=save`).
   final bool showDrafts;
+
+  /// Enter the reply tab, from a link to the replies (`type=reply`).
+  final bool showReplies;
 
   @override
   State<MyThreadPage> createState() => _MyThreadPageState();
@@ -112,7 +115,11 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, initialIndex: widget.showDrafts ? 2 : 0, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      initialIndex: widget.showDrafts ? 2 : (widget.showReplies ? 1 : 0),
+      vsync: this,
+    );
     _threadRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
     _replyRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
   }

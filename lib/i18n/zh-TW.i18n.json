@@ -775,6 +775,7 @@
     "online": "線上",
     "offline": "離線",
     "searchAsThreadAuthor": "搜尋此人的帖子",
+    "memberThreads": "此人的貼文",
     "medals": "勳章",
     "mangedForum": "管理的版塊",
     "onlineTime": "線上時間",
@@ -976,6 +977,12 @@
       "title": "回覆"
     },
     "forum": "分區"
+  },
+  "memberThreadPage": {
+    "title": "${name} 的貼文",
+    "titleUnknown": "此會員的貼文",
+    "blocked": "你已屏蔽此用戶（本機），其主題與回覆不顯示。",
+    "notList": "論壇沒有顯示此會員的貼文列表。"
   },
   "favoritePage": {
     "title": "收藏",
