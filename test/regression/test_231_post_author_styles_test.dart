@@ -845,6 +845,64 @@ void main() {
       ]);
     });
 
+    testWidgets('font-size 0 hides the text of the element, not what has a size of its own, nor images', (
+      tester,
+    ) async {
+      String text() => find.byType(RichText).evaluate().map((e) => (e.widget as RichText).text.toPlainText()).join('|');
+      // Inline blocks without the white space between them: the parent at 0, the children sized.
+      await _pump(
+        tester,
+        _inPost(
+          '前<div style="font-size:0"><span style="font-size:14px">子一</span> '
+          '<span style="font-size:14px">子二</span></div>后',
+        ),
+      );
+      expect(text(), allOf(contains('子一'), contains('子二'), isNot(contains('子一 子二'))));
+      expect(_style(tester, '子一').fontSize, 14);
+      // The same with class rules.
+      await _pump(
+        tester,
+        _inPost(
+          '<style>.row{font-size:0}.row .cell{font-size:16px}</style>'
+          '前<div class="row"><span class="cell">格一</span><span class="cell">格二</span></div>后',
+        ),
+      );
+      expect(text(), allOf(contains('格一'), contains('格二')));
+      expect(_style(tester, '格一').fontSize, 16);
+      // An image link whose text is hidden: the image shows (the spans are read without building the image, which
+      // needs the image cache).
+      Future<int> images(String html) async {
+        var count = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PostTypographyScope(
+              typography: const PostTypography(),
+              child: Builder(
+                builder: (context) {
+                  final rendered = munchElement(context, parseHtmlDocument(_inPost(html)).body!);
+                  ((rendered as ConstrainedBox).child! as Text).textSpan!.visitChildren((span) {
+                    if (span is WidgetSpan && span.child is GestureDetector) {
+                      count++;
+                    }
+                    return true;
+                  });
+                  return const SizedBox();
+                },
+              ),
+            ),
+          ),
+        );
+        return count;
+      }
+
+      const image = '<img src="https://example.com/a.png" width="10" height="10">';
+      expect(await images('前<a href="forum.php?mod=viewthread&amp;tid=1" style="font-size:0">$image</a>后'), 1);
+      expect(await images('前<a href="forum.php?mod=viewthread&amp;tid=1">$image</a>后'), 1);
+      // Text of its own at 0, and what is relative to it: hidden.
+      await _pump(tester, _inPost('前<span style="font-size:0">干扰码<b style="font-size:2em">相对</b></span>后'));
+      expect(text(), allOf(contains('前'), contains('后'), isNot(contains('干扰码')), isNot(contains('相对'))));
+    });
+
     testWidgets('a forum link without its scheme has no mark', (tester) async {
       expect(postLinkHasMark('//www.tsdm39.com/forum.php?mod=viewthread&tid=1'), isFalse);
       expect(postLinkHasMark('//example.com/'), isTrue);

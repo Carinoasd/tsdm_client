@@ -192,6 +192,7 @@ typedef _MunchStyle = ({
   List<List<Shadow>> shadowStack,
   List<double> fontSizeStack,
   double? textIndent,
+  bool tinyText,
   int? linkDepth,
   int? linkOrder,
   Color? linkColor,
@@ -319,6 +320,11 @@ class _MunchState {
   /// The indent of the first line of the blocks (`text-indent`, inherited as css does), in pixels.
   double? textIndent;
 
+  /// The author made the text too small to be seen (`font-size: 0`, `1px`): its text is hidden, as on the web page,
+  /// where a size of 0 also takes the white space between inline blocks away. What is in it with a size of its own
+  /// shows, so do its images and cards. Before, such text was shown at the smallest size.
+  bool tinyText = false;
+
   /// The indent the next thing put starts with: the first line of a block is still to come ([textIndent]).
   double? pendingIndent;
 
@@ -361,6 +367,7 @@ class _MunchState {
     shadowStack: List.of(shadowStack),
     fontSizeStack: List.of(fontSizeStack),
     textIndent: textIndent,
+    tinyText: tinyText,
     linkDepth: linkDepth,
     linkOrder: linkOrder,
     linkColor: linkColor,
@@ -393,6 +400,7 @@ class _MunchState {
       ..clear()
       ..addAll(saved.fontSizeStack);
     textIndent = saved.textIndent;
+    tinyText = saved.tinyText;
     linkDepth = saved.linkDepth;
     linkOrder = saved.linkOrder;
     linkColor = saved.linkColor;
@@ -599,9 +607,12 @@ final class _Muncher with LoggerMixin {
       state.backgroundColorStack.add(_behind(background));
     }
     if (style.fontSize case final size?) {
-      final outer = _outerFontSizes[element] ?? _fontSize;
+      // A size relative to a hidden one is hidden too: it is taken from the size the text really has.
+      final outer = state.tinyText ? 0.0 : _outerFontSizes[element] ?? _fontSize;
       final px = size.em ? size.value * outer : _appFontSize(size.value);
-      state.fontSizeStack.add(px.clamp(_appFontSize(minWebFontSize), _appFontSize(maxWebFontSize)));
+      state
+        ..tinyText = px <= _appFontSize(_hiddenFontSize)
+        ..fontSizeStack.add(px.clamp(_appFontSize(minWebFontSize), _appFontSize(maxWebFontSize)));
     }
     if (style.color case final color?) {
       if (identical(element, _link)) {
@@ -656,22 +667,9 @@ final class _Muncher with LoggerMixin {
     return WidgetSpan(child: SizedBox(width: indent));
   }
 
-  List<InlineSpan>? _munch(uh.Element rootElement) =>
-      _isTiny(rootElement) ? null : _styled(rootElement, () => _munchContent(rootElement));
+  List<InlineSpan>? _munch(uh.Element rootElement) => _styled(rootElement, () => _munchContent(rootElement));
 
-  /// Whether the author made the text of [element] too small to be seen (`font-size: 0`, `1px`): text hidden that way
-  /// on the web page (the forum's own rules hide the text of an image link so). It was shown at the smallest size.
-  bool _isTiny(uh.Element element) {
-    final size = _styleOf(element)?.fontSize;
-    if (size == null) {
-      return false;
-    }
-    final outer = _outerFontSizes[element] ?? _fontSize;
-    final px = size.em ? size.value * outer / _pixelScale : size.value;
-    return px <= _hiddenFontSize;
-  }
-
-  /// A font size of the web page this small (css pixels) hides the text.
+  /// A font size of the web page this small (css pixels) hides the text, see [_MunchState.tinyText].
   static const _hiddenFontSize = 1.0;
 
   /// What [rootElement] holds, munched.
@@ -1122,6 +1120,10 @@ final class _Muncher with LoggerMixin {
       // Text node does not have children.
       case uh.Node.TEXT_NODE:
         {
+          if (state.tinyText) {
+            // Too small to be seen: neither the text nor its white space.
+            return null;
+          }
           // Mark already munched text, all heading br nodes were passed.
 
           String? text;
