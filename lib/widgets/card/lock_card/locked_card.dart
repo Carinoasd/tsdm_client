@@ -206,8 +206,8 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
       widgets.addAll([
         Text(
           widget.locked.points != null
-              ? tr.points.detail(requiredPoints: widget.locked.requiredPoints!, points: widget.locked.points!)
-              : tr.points.detailPassed(requiredPoints: widget.locked.requiredPoints!),
+              ? tr.points.detail(requiredPoints: '${widget.locked.requiredPoints!}', points: '${widget.locked.points!}')
+              : tr.points.detailPassed(requiredPoints: '${widget.locked.requiredPoints!}'),
           style: secondaryStyle,
         ),
       ]);
@@ -330,6 +330,10 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
           ),
         ),
       ]);
+    } else if (widget.locked.lockedWithUnknown) {
+      // A notice of no known kind: what the forum wrote, in the box of a hidden section.
+      final text = widget.locked.unknownText ?? '';
+      title = text.isEmpty ? tr.unknown.title : text;
     } else {
       throw UnimplementedError('Widget for card type of locked card not implemented');
     }
@@ -338,11 +342,13 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
       icon: widget.locked.lockedWithSale ? Icons.sell_outlined : Icons.lock_outlined,
       title: title,
       color: appEmbedColor(context, widget.elevation),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: widgets.insertBetween(sizedBoxW8H8),
-      ),
+      child: widgets.isEmpty
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: widgets.insertBetween(sizedBoxW8H8),
+            ),
     );
   }
 }

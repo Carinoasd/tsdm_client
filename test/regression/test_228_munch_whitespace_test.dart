@@ -10,9 +10,10 @@
 /// HTML's rules (`white-space: normal`) are applied to the lines the muncher lays out: a run of spaces, tabs and line
 /// breaks is one space, across elements; none at the start of a line (of the content, of a quote, a cell, a heading,
 /// after a line break) nor at its end. `<pre>` is left as it is. A `<div>`, a `<p>` and a `<dd>`, blocks of the web
-/// page, start a line of their own, and a paragraph's line ends with it (a `<br>` right after it takes that break, so
-/// `</p><br />` gives no blank line more than before): the line breaks the source's own line breaks gave by chance
-/// before (a text then a block, the fields of an activity block) are now where the web page breaks the line.
+/// page, start a line of their own, and a paragraph's line ends with it (a `<br>` right after it took that break, so
+/// `</p><br />` gave no blank line more than before; it is a blank line since, as on the web page, see test 229): the
+/// line breaks the source's own line breaks gave by chance before (a text then a block, the fields of an activity
+/// block) are now where the web page breaks the line.
 ///
 /// Every real sample the repository holds (the post bodies, signatures and forum rules of the plugin's answers, the
 /// post bodies, notices and private messages of the web pages under `test/data`) is rendered, and its text compared
@@ -35,6 +36,10 @@ import 'package:universal_html/parsing.dart';
 
 /// The recorded texts: `before` and `after` of a sample that changed, the one text of a sample that did not.
 const _goldenPath = 'test/data/munch_whitespace_x5.json';
+
+/// The texts a later fix changed (the content the web page shows, `test_229_render_content_test.dart`): `before`, the
+/// text recorded here, and `after`, the text the muncher gives now.
+const _laterGoldenPath = 'test/data/munch_render_content_x5.json';
 
 /// Every real piece of html the app munches that the repository holds, by a name telling where it is from; the same
 /// html once.
@@ -85,7 +90,7 @@ Map<String, String> _samples() {
       } on FormatException {
         continue;
       }
-      if (json is! Map<String, dynamic> || path == _goldenPath) {
+      if (json is! Map<String, dynamic> || path == _goldenPath || path == _laterGoldenPath) {
         continue;
       }
       if (json['posts'] case final List<dynamic> posts) {
@@ -251,7 +256,7 @@ void main() {
       expect(find.text('centered', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('a block starts a line of its own; a paragraph ends its line, a <br> after it adds none', (
+    testWidgets('a block starts a line of its own; a paragraph ends its line', (
       tester,
     ) async {
       // The line break of the source before a block, or at the end of a paragraph, was a line break before: the
@@ -260,8 +265,9 @@ void main() {
       expect(await _text(tester, '<p>one\r\n</p><p>two\r\n</p>three'), 'one\ntwo\nthree');
       expect(await _text(tester, '<p>one</p>\r\n<p>two</p>'), 'one\ntwo');
       expect(await _text(tester, '<table><tr><td>abc\r\n<div>block</div>tail</td></tr></table>'), 'abc\nblock\ntail');
-      // `[p]` then a line: no blank line more than before.
-      expect(await _text(tester, '<p>one</p><br />\r\n<br />\r\ntwo'), 'one\n\ntwo');
+      // `[p]` then a line: no blank line more than before then. The `<br>` right after the paragraph is a blank line
+      // since, as on the web page (test 229).
+      expect(await _text(tester, '<p>one</p><br />\r\n<br />\r\ntwo'), 'one\n\n\ntwo');
       expect(await _text(tester, 'x<br />\r\n<div>block</div><br />\r\ny'), 'x\nblock\n\ny');
       // After a paragraph: a link (its mark), a list item (its mark) on a new line.
       expect(await _text(tester, '<p>one</p><a href="https://example.com/">link</a>'), 'one\n\uFFFClink');
@@ -293,9 +299,10 @@ void main() {
     });
 
     testWidgets('<dd> ends its line', (tester) async {
+      // The terms (`<dt>`) were dropped then; they are shown since, each before its definition (test 229).
       expect(
         await _text(tester, '<dl>\r\n<dt>类型:</dt>\r\n<dd>活动</dd>\r\n<dt>地点:</dt>\r\n<dd>\r\n某地\r\n</dd>\r\n</dl>'),
-        '活动\n某地',
+        '类型: 活动\n地点: 某地',
       );
     });
   });
@@ -315,17 +322,30 @@ void main() {
 
     final golden =
         (jsonDecode(File(_goldenPath).readAsStringSync()) as Map<String, dynamic>)['samples'] as Map<String, dynamic>;
+    final later =
+        (jsonDecode(File(_laterGoldenPath).readAsStringSync()) as Map<String, dynamic>)['samples']
+            as Map<String, dynamic>;
     expect(samples.keys.toSet(), golden.keys.toSet(), reason: 'a sample added or gone: record the texts again');
     expect(samples.length, greaterThanOrEqualTo(250));
     var changed = 0;
     for (final MapEntry(key: id, value: html) in samples.entries) {
       final text = await _transcript(tester, id, _withoutImages(html));
+      // The text a later fix changed: it starts from the text recorded here.
+      final laterFix = later[id] as Map<String, dynamic>?;
+      String now(String recorded) {
+        if (laterFix == null) {
+          return recorded;
+        }
+        expect(laterFix['before'], recorded, reason: '$id: the later fix starts from the text recorded here');
+        return laterFix['after'] as String;
+      }
+
       switch (golden[id]) {
         case final String same:
-          expect(text, same, reason: '$id: did not change with the fix');
+          expect(text, now(same), reason: '$id: did not change with the fix');
         case {'before': final String before, 'after': final String after}:
           changed++;
-          expect(text, after, reason: id);
+          expect(text, now(after), reason: id);
           expect(before, isNot(after), reason: id);
           expect(after.replaceAll(_anyWhiteSpace, ''), before.replaceAll(_anyWhiteSpace, ''), reason: '$id: text');
           expect(_blankLines(after), lessThanOrEqualTo(_blankLines(before)), reason: '$id: a blank line added');

@@ -1,4 +1,6 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:tsdm_client/constants/constants.dart';
 
 /// A [WidgetSpan] of [child], a widget with text in it (a card, a quote, a table...), placed in a paragraph that
 /// follows the text scale.
@@ -10,9 +12,18 @@ import 'package:flutter/widgets.dart';
 ///
 /// A widget without text (an image, a divider) does not need it, it is scaled once already. A button in [child] whose
 /// tooltip shows text outside the span gets the text scale back with [OverlayTextScale].
+///
+/// [child] is never laid out in an unbounded width, see [TextWidgetSpanChild].
 WidgetSpan textWidgetSpan(Widget child) => WidgetSpan(child: TextWidgetSpanChild(child));
 
 /// The child of a [textWidgetSpan]: [child] built without a text scale of its own.
+///
+/// Where it is asked how it lays out in an unbounded width, it is laid out in [htmlContentMaxWidth], the widest a
+/// post's content is. A paragraph lays out the widgets in it in its width, which is always bounded on the screen, but
+/// it is asked how tall it is in an unbounded width when what it is in works out its own width from its content: the
+/// cell of a table working out its columns, and in it a spoiler, whose header is a row. A card that fills its width
+/// with a row and an expanded child (a quote, a spoiler, a hidden section, a code block, a review in a spoiler in a
+/// cell) cannot lay out in an unbounded width: it threw, and the whole table was left blank.
 class TextWidgetSpanChild extends StatelessWidget {
   /// Constructor.
   const TextWidgetSpanChild(this.child, {super.key});
@@ -27,9 +38,52 @@ class TextWidgetSpanChild extends StatelessWidget {
     textScaler: _SpanTextScale.maybeOf(context) ?? MediaQuery.textScalerOf(context),
     child: MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-      child: child,
+      child: _BoundedWidth(child: child),
     ),
   );
+}
+
+/// [child] laid out in [htmlContentMaxWidth] instead of an unbounded width, see [TextWidgetSpanChild].
+class _BoundedWidth extends SingleChildRenderObjectWidget {
+  const _BoundedWidth({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderBoundedWidth();
+}
+
+class _RenderBoundedWidth extends RenderProxyBox {
+  static BoxConstraints _bounded(BoxConstraints constraints) => constraints.hasBoundedWidth
+      ? constraints
+      : constraints.copyWith(
+          maxWidth: htmlContentMaxWidth,
+          minWidth: constraints.minWidth.clamp(0, htmlContentMaxWidth),
+        );
+
+  static double _boundedWidth(double width) => width.isFinite ? width : htmlContentMaxWidth;
+
+  @override
+  double computeMinIntrinsicHeight(double width) => super.computeMinIntrinsicHeight(_boundedWidth(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => super.computeMaxIntrinsicHeight(_boundedWidth(width));
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => super.computeDryLayout(_bounded(constraints));
+
+  @override
+  double? computeDryBaseline(BoxConstraints constraints, TextBaseline baseline) =>
+      super.computeDryBaseline(_bounded(constraints), baseline);
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(_bounded(constraints), parentUsesSize: true);
+    size = constraints.constrain(child.size);
+  }
 }
 
 /// [child] with the text scale of the paragraph when it is in a [textWidgetSpan], for a button whose tooltip shows

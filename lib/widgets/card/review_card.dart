@@ -8,7 +8,7 @@ import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 /// Widget to show a review for a post.
 class ReviewCard extends StatelessWidget {
   /// Constructor.
-  const ReviewCard({required this.name, required this.content, this.avatarUrl, super.key});
+  const ReviewCard({required this.name, required this.content, this.avatarUrl, this.time, super.key});
 
   /// Reviewer avatar url.
   final String? avatarUrl;
@@ -18,6 +18,9 @@ class ReviewCard extends StatelessWidget {
 
   /// Review content.
   final String content;
+
+  /// When the review was posted, as the web page prints it (`发表于 2021-10-1 18:04`).
+  final String? time;
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +47,9 @@ class ReviewCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                Text(
-                  content,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
+                // All of it, as the web page shows it: it was cut after three lines.
+                Text(content, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                if (time != null) Text(time!, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
               ],
             ),
           ),

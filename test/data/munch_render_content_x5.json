@@ -1,0 +1,177 @@
+{
+ "_about": "The text the html muncher renders each real sample of test/data to (as test_228_munch_whitespace_test.dart records it), for the samples the fix of the content the web page shows changed (see test_229_render_content_test.dart): before, the text recorded in munch_whitespace_x5.json, and after, the text now. Recorded by running test_228 with MUNCH_WHITESPACE_DUMP set, with the muncher before the fix and after it.",
+ "samples": {
+  "test/data/chat_history_bare_url_x5.html#pm0": {
+   "before": "«您\n \n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n",
+   "after": "«您  \n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n"
+  },
+  "test/data/email_protection_post_x5.html#body": {
+   "before": "«[tsdm_client X5 修復版 自動測試] 電子郵件連結樣本，可忽略。￼寫信給我 另一種寫法 ￼<email>\n純文字 ￼<email>»\n",
+   "after": "«[tsdm_client X5 修復版 自動測試] 電子郵件連結樣本，可忽略。￼寫信給我 另一種寫法 ￼<email> 純文字 ￼<email>»\n"
+  },
+  "test/data/pm_list_bare_url_x5.html#pm0": {
+   "before": "«￼Alice 对 您\n说 :\n分享帖子: 链接测试 https://www.tsdm39.com/forum.php?mod=viewthreadtid=1264975  \n2 秒前\n\n  共 2 条\n￼菜单 | ￼回复»\n«@»\n",
+   "after": "«￼Alice 对 您 说 :\n分享帖子: 链接测试 https://www.tsdm39.com/forum.php?mod=viewthreadtid=1264975  \n2 秒前   共 2 条 ￼菜单 | ￼回复»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_applied.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人\n4 人\n2026-10-22 08:50\n您的加入申请已发出，请等待发起者审批\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (4 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_low2»\n«@»\n«@»\n«»\n«自付»\n«刚刚\n»\n«￼[img] ￼ag_low»\n«@»\n«@»\n«»\n«自付»\n«刚刚\n»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 5 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n您的加入申请已发出，请等待发起者审批\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (4 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_low2»\n«@»\n«@»\n«»\n«自付»\n«刚刚»\n«￼[img] ￼ag_low»\n«@»\n«@»\n«»\n«自付»\n«刚刚»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_author_sees_pending.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人 |\n￼邀请\n ￼管理   ￼导出\n4 人\n2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (4 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_low2»\n«@»\n«@»\n«APPLY_JSON_222088»\n«自付»\n«刚刚\n»\n«￼[img] ￼ag_low»\n«@»\n«@»\n«APPLY_WEB_222088»\n«自付»\n«刚刚\n»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«COMPLETE_MSG_222088»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«PENDING_MSG_222088»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 5 人 | ￼邀请  ￼管理   ￼导出\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (4 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_low2»\n«@»\n«@»\n«APPLY_JSON_222088»\n«自付»\n«刚刚»\n«￼[img] ￼ag_low»\n«@»\n«@»\n«APPLY_WEB_222088»\n«自付»\n«刚刚»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«COMPLETE_MSG_222088»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«PENDING_MSG_222088»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_closed.json#5825": {
+   "before": "«測試活動\n前天 08:50\nPLACE_222088\n不限\n人\n2026-10-21 07:50\n活動 A2_BODY_222088 活動說明»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 前天 08:50\n活动地点: PLACE_222088\n性别: 不限\n已报名人数: 0 人\n报名截止: 2026-10-21 07:50\n活動 A2_BODY_222088 活動說明»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_complete_data.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人\n4 人\n2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_credit_no_lowerlimit.json#5826": {
+   "before": "«測試活動\n2026-10-23 08:50\nPLACE_222088\n不限\n人\n1 人\n活動 A3_BODY_222088 活動說明\n暂未通过 (1 人)\n￼»\n« »\n«留言»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50\n活动地点: PLACE_222088\n性别: 不限\n已报名人数: 1 人\n剩余名额: 1 人\n活動 A3_BODY_222088 活動說明\n暂未通过 (1 人)\n￼»\n« »\n«留言»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_credit_not_enough.json#5826": {
+   "before": "«測試活動\n2026-10-23 08:50\nPLACE_222088\n不限\n人\n1 人\n活動 A3_BODY_222088 活動說明\n暂未通过 (1 人)\n￼»\n« »\n«留言»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50\n活动地点: PLACE_222088\n性别: 不限\n已报名人数: 1 人\n剩余名额: 1 人\n活動 A3_BODY_222088 活動說明\n暂未通过 (1 人)\n￼»\n« »\n«留言»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_open_guest.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人\n4 人\n2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_open_member.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人\n4 人\n2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_activity_verified.json#5824": {
+   "before": "«測試活動\n2026-10-23 08:50 至 2026-10-24 08:50 商定\nPLACE_222088\n不限\n10 元\n人\n4 人\n2026-10-22 08:50\n您已经参加了此活动\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前\n»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前\n»\n",
+   "after": "«活动类型: 測試活動\n开始时间: 2026-10-23 08:50 至 2026-10-24 08:50 商定\n活动地点: PLACE_222088\n性别: 不限\n每人花销: 10 元\n已报名人数: 3 人\n剩余名额: 4 人\n报名截止: 2026-10-22 08:50\n您已经参加了此活动\n活動 A1_BODY_222088 活動說明\n已通过 (1 人)\n￼\n暂未通过 (2 人)\n￼»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mod»\n«@»\n«@»\n«我會到 VERIFIED_MSG_222088»\n«10 元»\n«1 小时前»\n« »\n«留言»\n«每人花销»\n«申请时间»\n«￼[img] ￼ag_mid»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n«￼[img] ￼ag_t01»\n«@»\n«@»\n«»\n«自付»\n«1 小时前»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_ended_result.json#6301": {
+   "before": "«裁判观点: 正方勝 UMPIRE_925316\n最佳辩手: ag_low\n辯論 D2_BODY_925316 辯論說明结束时间: 2026-10-21 09:41 裁判: ag_mod\n正方观点 (0)\n正方觀點 AFF_925316\n反方观点 (0)\n反方觀點 NEG_925316\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n",
+   "after": "«正方获胜 评判时间: 2026-10-21 09:41\n裁判观点: 正方勝 UMPIRE_925316\n最佳辩手: ag_low\n辯論 D2_BODY_925316 辯論說明\n结束时间: 2026-10-21 09:41 裁判: ag_mod\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:0 ( ￼加入 )»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_no_endtime.json#6303": {
+   "before": "«辯論 D3_BODY_925316 辯論說明正方观点 (0)\n正方觀點 AFF_925316\n反方观点 (0)\n反方觀點 NEG_925316»\n",
+   "after": "«辯論 D3_BODY_925316 辯論說明\n￼\n￼»\n«正方观点 (0)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:0 ( ￼加入 )»\n« »\n«辩手:0 ( ￼加入 )»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_open_guest.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明结束时间: 2026-10-23 09:51 裁判: ag_mod\n正方观点 (1)\n正方觀點 AFF_925316\n反方观点 (0)\n反方觀點 NEG_925316\n•  ￼[img]\n￼ag_low\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_open_member.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明结束时间: 2026-10-23 09:51 裁判: ag_mod\n正方观点 (1)\n正方觀點 AFF_925316\n反方观点 (0)\n反方觀點 NEG_925316\n•  ￼[img]\n￼ag_low\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_umpire_voted.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明结束时间: 2026-10-23 09:51 裁判: ag_mod\n正方观点 (1)\n正方觀點 AFF_925316\n反方观点 (0)\n反方觀點 NEG_925316\n•  ￼[img]\n￼ag_low\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (1)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (0)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_debate_voted.json#6297": {
+   "before": "«辯論 D1_BODY_925316 辯論說明结束时间: 2026-10-23 09:51 裁判: ag_mod\n正方观点 (2)\n正方觀點 AFF_925316\n反方观点 (1)\n反方觀點 NEG_925316\n•  ￼[img]\n￼ag_low\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n«@»\n«@»\n",
+   "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (2)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (1)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
+  },
+  "test/data/tsdmapp/special_v15_reward_best_banned.json#5819": {
+   "before": "",
+   "after": "«￼»\n«提示: 作者被禁止或删除 内容自动屏蔽»\n"
+  },
+  "test/data/tsdmapp/special_v15_reward_best_banned_mod.json#5819": {
+   "before": "«BANNED_BEST_TEXT_222088 禁止組作者的最佳答案»\n",
+   "after": "«￼\nBANNED_BEST_TEXT_222088 禁止組作者的最佳答案»\n«提示: 作者被禁止或删除 内容自动屏蔽，只有管理员或有管理权限的成员可见»\n"
+  },
+  "test/data/tsdmapp/special_v15_reward_best_password.json#5816": {
+   "before": "",
+   "after": "«￼»\n«本帖为密码帖 ，请输入密码»\n"
+  },
+  "test/data/tsdmapp/special_v15_trade_author.json#5795": {
+   "before": "«TRADE_T1_INTRO_222088 櫃台說明￼柜台商品管理 |\n￼交易记录\n[img]\n￼展开\n\n￼商品一 222088\n全新商品\n3天5小时\n10.00 元   附加 5 天使币\n此商品已被删除\n￼展开\n\n￼商品三 222088\n二手商品\n3 天使币»\n",
+   "after": "«TRADE_T1_INTRO_222088 櫃台說明\n商品数: 3 ￼柜台商品管理 | ￼交易记录\n推荐商品[img]\n￼展开\n￼商品一 222088\n商品类型: 全新商品\n剩余时间: 3天5小时\n10.00 元   附加 5 天使币\n20.50 元 附加 8 天使币\n此商品已被删除\n￼展开\n￼商品三 222088\n商品类型: 二手商品\n剩余时间: 成交结束\n3 天使币»\n"
+  },
+  "test/data/tsdmapp/special_v15_trade_authorid_filter.json#5795": {
+   "before": "«TRADE_T1_INTRO_222088 櫃台說明￼柜台商品管理 |\n￼交易记录»\n",
+   "after": "«TRADE_T1_INTRO_222088 櫃台說明\n商品数: ￼柜台商品管理 | ￼交易记录\n￼»\n«本柜台无商品»\n"
+  },
+  "test/data/tsdmapp/special_v15_trade_guest.json#5795": {
+   "before": "«TRADE_T1_INTRO_222088 櫃台說明[img]\n￼展开\n\n￼商品一 222088\n全新商品\n3天5小时\n10.00 元   附加 5 天使币\n此商品已被删除\n￼展开\n\n￼商品三 222088\n二手商品\n3 天使币»\n",
+   "after": "«TRADE_T1_INTRO_222088 櫃台說明\n商品数: 3\n推荐商品[img]\n￼展开\n￼商品一 222088\n商品类型: 全新商品\n剩余时间: 3天5小时\n10.00 元   附加 5 天使币\n20.50 元 附加 8 天使币\n此商品已被删除\n￼展开\n￼商品三 222088\n商品类型: 二手商品\n剩余时间: 成交结束\n3 天使币»\n"
+  },
+  "test/data/tsdmapp/thread_v14_access_noimage.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png\n\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png (38.57 KB, 下载次数: 3)\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_access_noimage.json#4995": {
+   "before": "«密碼樓的內文 282713 [img]»\n",
+   "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
+  },
+  "test/data/tsdmapp/thread_v14_attachments.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_attachments.json#4995": {
+   "before": "«密碼樓的內文 282713 [img]»\n",
+   "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
+  },
+  "test/data/tsdmapp/thread_v14_banned_digest.json#5010": {
+   "before": "«BANNED_DIGEST_282713 精華主題裡禁止組作者的回覆»\n",
+   "after": "«BANNED_DIGEST_282713 精華主題裡禁止組作者的回覆 (, 下载次数: 0)»\n"
+  },
+  "test/data/tsdmapp/thread_v14_guestthumb.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_guestthumb.json#4995": {
+   "before": "",
+   "after": "«￼»\n«本帖为密码帖 ，请输入密码»\n"
+  },
+  "test/data/tsdmapp/thread_v14_hide_replied.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_hide_replied.json#4995": {
+   "before": "«密碼樓的內文 282713 [img]»\n",
+   "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
+  },
+  "test/data/tsdmapp/thread_v14_hide_viewer_not_replied.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_jammer.json#4989": {
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+  },
+  "test/data/tsdmapp/thread_v14_jammer.json#4995": {
+   "before": "«密碼樓的內文 282713 [img]»\n",
+   "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
+  },
+  "test/data/tsdmapp/thread_v14_jammer.json#4997": {
+   "before": "«純文字\n+ u% a% T& h\" M* P\n第二行 282713: `+ d! q) S( ^6 @( ]2 B\n\n; Q; Q\" z9 h/ m' @2 J9 g, i\n日本語とemoji 😀 結尾»\n",
+   "after": "«純文字\n第二行 282713: `+ d! q) S( ^6 @( ]2 B\n\n日本語とemoji 😀 結尾»\n"
+  },
+  "test/data/tsdmapp/thread_v14_plain.json#4546": {
+   "before": "«原生发帖页。\n￼»\n«￼本主题由 管理团队 于 前天 13:29\n解除置顶»\n",
+   "after": "«原生发帖页。\n￼»\n«￼本主题由 管理团队 于 前天 13:29 解除置顶»\n"
+  },
+  "test/data/tsdmapp/thread_v14_singleban_mod.json#5013": {
+   "before": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆»\n«Blocked content»\n«This post has been blocked by administrator or moderator»\n",
+   "after": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆 (, 下载次数: 0)»\n«Blocked content»\n«This post has been blocked by administrator or moderator»\n"
+  },
+  "test/data/tsdmapp/thread_v14_singleban_mod.json#5014": {
+   "before": "«BANNED_PLAIN_282713 非精華主題裡禁止組作者的回覆»\n",
+   "after": "«￼\nBANNED_PLAIN_282713 非精華主題裡禁止組作者的回覆»\n«提示: 作者被禁止或删除 内容自动屏蔽，只有管理员或有管理权限的成员可见»\n"
+  },
+  "test/data/tsdmapp/thread_v3_closed.json#3755": {
+   "before": "«￼\n￼\n我今天最想说:「管理员今天也来签到了」.\n￼»\n«本贴是论坛每日签到系统在每天的第一位签到者签到时所自动生成的,如果您还未签到,￼请点此进行签到的操作.»\n«我在 2026-09-25 01:06 完成签到,是今天第一个签到的用户,获得随机奖励 天使币 18,另外我还额外获得了 天使币 10.»\n«￼本主题由 管理团队 于 昨天 20:34\n下沉»\n",
+   "after": "«￼\n￼\n我今天最想说:「管理员今天也来签到了」.\n￼»\n«本贴是论坛每日签到系统在每天的第一位签到者签到时所自动生成的,如果您还未签到,￼请点此进行签到的操作.»\n«我在 2026-09-25 01:06 完成签到,是今天第一个签到的用户,获得随机奖励 天使币 18,另外我还额外获得了 天使币 10.»\n«￼本主题由 管理团队 于 昨天 20:34 下沉»\n"
+  },
+  "test/data/tsdmapp/thread_v3_edited.json#4436": {
+   "before": "«￼\n网盘链接 Link：https://pan.baidu.com/s/acc160c2a9822\n提取码 Code：cc2a»\n«购买原地址 Original Site：￼https://mora.jp/package/43000011/4538182931059/\n[img]\n￼\nアルバム情報\nタイトル：THE BOOK\nアーティスト：YOASOBI\n発売日：2021.01.06\nレーベル：YOASOBI\nフォーマット：AAC｜320kbps\n曲数：9\n収録時間：29:59\n容量：70.3MB\n[spoiler=収録曲]\n\n•  1. Epilogue\n•  2. アンコール\n•  3. ハルジオン\n•  4. あの夢をなぞって\n•  5. たぶん\n•  6. 群青\n•  7. ハルカ\n•  8. 夜に駆ける\n•  9. Prologue\n\n[/spoiler]\n￼\n网盘 Cloud：百度网盘\n购买商店 Store：mora\n文件格式 Format：AAC 320kbps\n文件大小 Size：70.3MB\n是否自购 Self-purchased：否»\n",
+   "after": "«￼\n网盘链接 Link：https://pan.baidu.com/s/acc160c2a9822\n提取码 Code：cc2a»\n«购买原地址 Original Site：￼https://mora.jp/package/43000011/4538182931059/\n[img]\n￼\n\nアルバム情報\nタイトル：THE BOOK\nアーティスト：YOASOBI\n発売日：2021.01.06\nレーベル：YOASOBI\nフォーマット：AAC｜320kbps\n曲数：9\n収録時間：29:59\n容量：70.3MB\n[spoiler=収録曲]\n\n•  1. Epilogue\n•  2. アンコール\n•  3. ハルジオン\n•  4. あの夢をなぞって\n•  5. たぶん\n•  6. 群青\n•  7. ハルカ\n•  8. 夜に駆ける\n•  9. Prologue\n\n[/spoiler]\n￼\n\n网盘 Cloud：百度网盘\n购买商店 Store：mora\n文件格式 Format：AAC 320kbps\n文件大小 Size：70.3MB\n是否自购 Self-purchased：否»\n"
+  },
+  "test/data/tsdmapp/thread_v3_moderated.json#4663": {
+   "before": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«￼本主题由 管理团队 于 昨天 09:55\n打开»\n",
+   "after": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«￼本主题由 管理团队 于 昨天 09:55 打开»\n"
+  }
+ }
+}

@@ -1194,8 +1194,8 @@
   "lockedCard": {
     "points": {
       "title": "Some content requires enough points to be visible",
-      "detail": "${requiredPoints: int} points are required, but you only have ${points: int} points",
-      "detailPassed": "${requiredPoints: int} points are required"
+      "detail": "${requiredPoints: String} points are required, but you only have ${points: String} points",
+      "detailPassed": "${requiredPoints: String} points are required"
     },
     "purchase": {
       "title": "Some content requires purchase",
@@ -1218,6 +1218,9 @@
       "title": "Only visible to the thread author",
       "detail(rich)": "This content only visible to $author",
       "detailAuthor": "author"
+    },
+    "unknown": {
+      "title": "Some content is hidden"
     },
     "blocked": {
       "title": "Blocked content",
@@ -1505,6 +1508,11 @@
     "newcomerReportCard": {
       "title": "Detail Info"
     }
+  },
+  "mediaCard": {
+    "title": "Media",
+    "titleOf": "Media: $site",
+    "open": "Tap to open in browser"
   },
   "musicCard": {
     "title": "Music",
