@@ -61,6 +61,10 @@ Map<String, String> _samples() {
     ..sort((a, b) => a.path.compareTo(b.path));
   for (final file in files) {
     final path = file.path.replaceAll(r'\', '/');
+    // The synthetic floors of test 234 are compared with the web page there, against a baseline of their own.
+    if (path.startsWith('test/data/render_regression/')) {
+      continue;
+    }
     if (path.endsWith('.html')) {
       final raw = file.readAsStringSync();
       final document = parseHtmlDocument(raw);

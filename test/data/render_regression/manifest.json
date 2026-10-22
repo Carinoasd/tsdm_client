@@ -1,0 +1,1344 @@
+[
+ {
+  "id": "c001",
+  "features": [
+   "D:block:spoiler",
+   "D:br:blank_more",
+   "D:extra",
+   "D:img",
+   "D:lost",
+   "D:space",
+   "D:st:color",
+   "D:st:size",
+   "D:st:u",
+   "D:tables",
+   "authclass",
+   "bgcolor",
+   "br_run",
+   "center",
+   "code",
+   "displaynone",
+   "em",
+   "embed",
+   "font_color",
+   "font_size",
+   "iframe",
+   "img",
+   "indent",
+   "link",
+   "list",
+   "nested_table",
+   "pstatus",
+   "strike",
+   "style_attr",
+   "style_tag",
+   "table"
+  ]
+ },
+ {
+  "id": "c002",
+  "features": [
+   "D:st:font-face",
+   "align",
+   "audio",
+   "authclass",
+   "bgcolor",
+   "code",
+   "customfold",
+   "displaynone",
+   "em",
+   "font_color",
+   "font_face",
+   "font_size",
+   "hr",
+   "iframe",
+   "img",
+   "link",
+   "list",
+   "nested_table",
+   "pstatus",
+   "quote",
+   "spoiler",
+   "strike",
+   "style_attr",
+   "style_tag",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c003",
+  "features": [
+   "D:br:blank_less",
+   "D:br:blank_more",
+   "align",
+   "authclass",
+   "bgcolor",
+   "br_run",
+   "code",
+   "customfold",
+   "displaynone",
+   "em",
+   "embed",
+   "empty_p",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "list",
+   "nested_table",
+   "p",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c004",
+  "features": [
+   "D:br:blank_less",
+   "D:st:font-face",
+   "D:st:size",
+   "align",
+   "bgcolor",
+   "br_run",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "font_face",
+   "font_size",
+   "iframe",
+   "img",
+   "link",
+   "nested_table",
+   "p",
+   "pre",
+   "pstatus",
+   "spoiler",
+   "strike",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c005",
+  "features": [
+   "D:block:quote",
+   "D:br:blank_more",
+   "D:br:missing",
+   "D:st:b",
+   "align",
+   "authclass",
+   "bgcolor",
+   "code",
+   "colspan",
+   "empty_p",
+   "font_color",
+   "font_face",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "nested_table",
+   "p",
+   "pstatus",
+   "rowspan",
+   "style_attr",
+   "table",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c006",
+  "features": [
+   "D:br:missing",
+   "D:space",
+   "D:st:b",
+   "D:st:block-bg",
+   "D:st:color",
+   "D:st:size",
+   "align",
+   "authclass",
+   "bgcolor",
+   "displaynone",
+   "heading",
+   "img",
+   "indent",
+   "p",
+   "small",
+   "style_attr",
+   "style_tag"
+  ]
+ },
+ {
+  "id": "c007",
+  "features": [
+   "D:br:blank_more",
+   "align",
+   "bgcolor",
+   "colspan",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "img",
+   "link",
+   "nested_table",
+   "rowspan",
+   "ruby",
+   "smiley",
+   "spoiler",
+   "strike",
+   "style_attr",
+   "table",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c008",
+  "features": [
+   "D:block:spoiler",
+   "D:extra",
+   "D:lost",
+   "D:st:color",
+   "D:st:link",
+   "D:st:u",
+   "authclass",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c009",
+  "features": [
+   "align",
+   "bgcolor",
+   "code",
+   "customfold",
+   "displaynone",
+   "em",
+   "font_color",
+   "font_size",
+   "iframe",
+   "img",
+   "link",
+   "list",
+   "locked",
+   "nested_table",
+   "pre",
+   "pstatus",
+   "quote",
+   "spoiler",
+   "style_attr",
+   "style_tag",
+   "table",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c010",
+  "features": [
+   "D:br:missing",
+   "D:st:b",
+   "D:st:block-bg",
+   "D:st:color",
+   "D:st:size",
+   "align",
+   "authclass",
+   "bgcolor",
+   "heading",
+   "img",
+   "indent",
+   "small",
+   "style_tag"
+  ]
+ },
+ {
+  "id": "c011",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "long_para",
+   "pstatus",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c012",
+  "features": [
+   "D:br:extra",
+   "authclass",
+   "bgcolor",
+   "code",
+   "em",
+   "font_color",
+   "font_face",
+   "font_size",
+   "hr",
+   "iframe",
+   "link",
+   "list",
+   "locked",
+   "pre",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c013",
+  "features": [
+   "img",
+   "smiley",
+   "tiny"
+  ]
+ },
+ {
+  "id": "c014",
+  "features": [
+   "locked",
+   "pstatus",
+   "tiny"
+  ]
+ },
+ {
+  "id": "c015",
+  "features": [
+   "D:st:link",
+   "D:st:u",
+   "link",
+   "long_para"
+  ]
+ },
+ {
+  "id": "c016",
+  "features": [
+   "align",
+   "embed",
+   "img",
+   "nested_table",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_wide",
+   "tiny",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c017",
+  "features": [
+   "align",
+   "bgcolor",
+   "empty_p",
+   "font_color",
+   "font_size",
+   "indent",
+   "link",
+   "long_para",
+   "p",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c018",
+  "features": [
+   "D:br:missing",
+   "D:st:block-bg",
+   "D:st:color",
+   "D:st:size",
+   "align",
+   "authclass",
+   "bgcolor",
+   "displaynone",
+   "heading",
+   "img",
+   "small",
+   "style_tag"
+  ]
+ },
+ {
+  "id": "c019",
+  "features": [
+   "align",
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "long_para",
+   "nested_table",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_onerow",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c020",
+  "features": [
+   "tiny"
+  ]
+ },
+ {
+  "id": "c021",
+  "features": [
+   "tiny"
+  ]
+ },
+ {
+  "id": "c022",
+  "features": [
+   "tiny"
+  ]
+ },
+ {
+  "id": "c023",
+  "features": [
+   "long_para"
+  ]
+ },
+ {
+  "id": "c024",
+  "features": [
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_face",
+   "img",
+   "list",
+   "nested_table",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_onerow",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c025",
+  "features": [
+   "D:br:blank_more",
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "img",
+   "list",
+   "nested_table",
+   "p",
+   "pstatus",
+   "rowspan",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c026",
+  "features": [
+   "D:br:blank_more",
+   "D:space",
+   "D:st:font-face",
+   "align",
+   "font_color",
+   "font_face",
+   "font_size",
+   "img",
+   "link",
+   "locked",
+   "nested_table",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_onerow",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c027",
+  "features": [
+   "align",
+   "authclass",
+   "bgcolor",
+   "code",
+   "displaynone",
+   "em",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "list",
+   "pre",
+   "quote",
+   "style_attr",
+   "style_tag"
+  ]
+ },
+ {
+  "id": "c028",
+  "features": [
+   "D:br:blank_more",
+   "align",
+   "authclass",
+   "bgcolor",
+   "code",
+   "displaynone",
+   "em",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "list",
+   "p",
+   "pre",
+   "pstatus",
+   "style_tag"
+  ]
+ },
+ {
+  "id": "c029",
+  "features": [
+   "D:st:link",
+   "D:st:u",
+   "authclass",
+   "customfold",
+   "displaynone",
+   "hr",
+   "locked",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c030",
+  "features": [
+   "D:br:blank_more",
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "img",
+   "list",
+   "nested_table",
+   "p",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c031",
+  "features": [
+   "D:br:blank_less",
+   "D:st:color",
+   "D:st:font-face",
+   "align",
+   "bgcolor",
+   "br_run",
+   "embed",
+   "font_color",
+   "font_face",
+   "font_size",
+   "img",
+   "link",
+   "pstatus",
+   "quote",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c032",
+  "features": [
+   "align",
+   "br_run",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "link",
+   "locked",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c033",
+  "features": [
+   "authclass",
+   "customfold",
+   "displaynone",
+   "hr",
+   "locked",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c034",
+  "features": [
+   "authclass",
+   "br_run",
+   "customfold",
+   "displaynone",
+   "hr",
+   "nested_table",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c035",
+  "features": [
+   "authclass",
+   "customfold",
+   "displaynone",
+   "hr",
+   "link",
+   "locked",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c036",
+  "features": [
+   "authclass",
+   "customfold",
+   "displaynone",
+   "hr",
+   "link",
+   "locked",
+   "nested_table",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c037",
+  "features": [
+   "authclass",
+   "br_run",
+   "customfold",
+   "displaynone",
+   "hr",
+   "link",
+   "nested_table",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c038",
+  "features": [
+   "authclass",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "hr",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c039",
+  "features": [
+   "authclass",
+   "customfold",
+   "displaynone",
+   "font_color",
+   "hr",
+   "nested_table",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c040",
+  "features": [
+   "customfold",
+   "displaynone",
+   "img",
+   "nested_table",
+   "smiley",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide",
+   "tiny"
+  ]
+ },
+ {
+  "id": "c041",
+  "features": [
+   "D:st:color",
+   "align",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "nested_table",
+   "p",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c042",
+  "features": [
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "list",
+   "pstatus",
+   "quote",
+   "strike",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c043",
+  "features": [
+   "align",
+   "customfold",
+   "displaynone",
+   "img",
+   "link",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c044",
+  "features": [
+   "align",
+   "br_run",
+   "font_color",
+   "img",
+   "nested_table",
+   "pstatus",
+   "style_attr",
+   "table",
+   "table_wide",
+   "ttable"
+  ]
+ },
+ {
+  "id": "c045",
+  "features": [
+   "authclass",
+   "bgcolor",
+   "br_run",
+   "font_color",
+   "font_face",
+   "font_size",
+   "hr",
+   "link",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c046",
+  "features": [
+   "align",
+   "bgcolor",
+   "empty_p",
+   "font_color",
+   "font_size",
+   "indent",
+   "link",
+   "p",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c047",
+  "features": [
+   "D:br:blank_more",
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "list",
+   "quote"
+  ]
+ },
+ {
+  "id": "c048",
+  "features": [
+   "authclass",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "list",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c049",
+  "features": [
+   "customfold",
+   "displaynone",
+   "img",
+   "link",
+   "nested_table",
+   "pstatus",
+   "spoiler",
+   "style_attr",
+   "table",
+   "table_wide"
+  ]
+ },
+ {
+  "id": "c050",
+  "features": [
+   "align",
+   "authclass",
+   "br_run",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "pstatus",
+   "strike"
+  ]
+ },
+ {
+  "id": "c051",
+  "features": [
+   "authclass",
+   "br_run",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c052",
+  "features": [
+   "align",
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "img",
+   "link",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c053",
+  "features": [
+   "D:st:font-face",
+   "bgcolor",
+   "font_color",
+   "font_face",
+   "font_size",
+   "img",
+   "link",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c054",
+  "features": [
+   "align",
+   "code",
+   "em",
+   "font_color",
+   "font_size",
+   "img",
+   "list",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c055",
+  "features": [
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c056",
+  "features": [
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c057",
+  "features": [
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c058",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley",
+   "strike"
+  ]
+ },
+ {
+  "id": "c059",
+  "features": [
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c060",
+  "features": [
+   "authclass",
+   "font_color",
+   "font_size",
+   "hr",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c061",
+  "features": [
+   "D:st:font-face",
+   "align",
+   "font_color",
+   "font_face",
+   "font_size",
+   "link",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c062",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c063",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "smiley",
+   "tiny"
+  ]
+ },
+ {
+  "id": "c064",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "strike"
+  ]
+ },
+ {
+  "id": "c065",
+  "features": [
+   "D:st:font-face",
+   "align",
+   "font_face",
+   "font_size",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c066",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c067",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c068",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c069",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c070",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c071",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c072",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c073",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c074",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c075",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c076",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c077",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c078",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c079",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c080",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "strike"
+  ]
+ },
+ {
+  "id": "c081",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c082",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c083",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c084",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "pstatus",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c085",
+  "features": [
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote"
+  ]
+ },
+ {
+  "id": "c086",
+  "features": [
+   "align",
+   "br_run",
+   "font_color",
+   "font_size",
+   "img",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c087",
+  "features": [
+   "font_color",
+   "font_size",
+   "img",
+   "link",
+   "quote",
+   "smiley"
+  ]
+ },
+ {
+  "id": "c088",
+  "features": [
+   "D:st:font-face",
+   "align",
+   "font_face",
+   "font_size"
+  ]
+ },
+ {
+  "id": "c089",
+  "features": [
+   "align",
+   "br_run",
+   "font_color",
+   "font_size",
+   "link",
+   "pstatus"
+  ]
+ },
+ {
+  "id": "c090",
+  "features": [
+   "code",
+   "em",
+   "img",
+   "list",
+   "locked"
+  ]
+ },
+ {
+  "id": "c091",
+  "features": [
+   "D:st:font-face",
+   "font_face",
+   "iframe",
+   "pstatus",
+   "style_attr"
+  ]
+ },
+ {
+  "id": "c092",
+  "features": [
+   "br_run",
+   "font_color",
+   "img",
+   "link",
+   "pstatus",
+   "strike",
+   "style_attr"
+  ]
+ }
+]
