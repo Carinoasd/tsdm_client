@@ -1401,6 +1401,24 @@ double _gamutChroma(double level, double hue) {
   return low;
 }
 
+/// The area html munched from a post paints in ([ClipRect.clipper]): its own box and [overflow] around it, for what a
+/// glyph, a glow or the shadow of a card in it draws past its edge. A post card has more space than that around its
+/// content: nothing the content paints reaches another floor. Before, a shadow of the author's text (`text-shadow: 0
+/// -100px`) was drawn over the floor above.
+class PostContentClipper extends CustomClipper<Rect> {
+  /// Constructor.
+  const PostContentClipper();
+
+  /// How far past its box the content paints.
+  static const overflow = 8.0;
+
+  @override
+  Rect getClip(Size size) => (Offset.zero & size).inflate(overflow);
+
+  @override
+  bool shouldReclip(PostContentClipper oldClipper) => false;
+}
+
 /// A block of a post with the background its author gave it (`<div style="background-color: pink">`,
 /// `<table bgcolor="wheat">`): [child] on [color], [padding] around it as the web page's block has.
 class PostBlockBackground extends StatelessWidget {

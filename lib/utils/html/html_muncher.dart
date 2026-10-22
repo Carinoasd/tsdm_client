@@ -160,35 +160,15 @@ Widget munchElement(
   // Currently is 712.
   return ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
-    // What the content paints stays around it: a shadow of the author's text (`text-shadow: 0 -100px`) was drawn over
-    // the floor above.
-    child: ClipRect(
-      clipper: const _ContentClipper(),
-      child: Text.rich(
-        style: const TextStyle(
-          // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or
-          // narrow row spacing between text lines.
-          height: kTextHeightNone,
-        ),
-        TextSpan(children: ret),
+    child: Text.rich(
+      style: const TextStyle(
+        // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow
+        // row spacing between text lines.
+        height: kTextHeightNone,
       ),
+      TextSpan(children: ret),
     ),
   );
-}
-
-/// The area the munched content paints in: its own box and [_overflow] around it, for what a glyph, a glow or the
-/// shadow of a card in it draws past its edge. A post card has more space than that around its content: nothing the
-/// content paints reaches another floor.
-class _ContentClipper extends CustomClipper<Rect> {
-  const _ContentClipper();
-
-  static const _overflow = 8.0;
-
-  @override
-  Rect getClip(Size size) => (Offset.zero & size).inflate(_overflow);
-
-  @override
-  bool shouldReclip(_ContentClipper oldClipper) => false;
 }
 
 /// A background the text is on (`_MunchState.backgroundColorStack`, `_MunchState.blockBackgroundStack`): its `color`
