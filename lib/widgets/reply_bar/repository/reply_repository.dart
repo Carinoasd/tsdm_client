@@ -75,11 +75,16 @@ final class ReplyRepository with LoggerMixin {
   /// went on to the thread (`redirect`, a form the forum did not take as AJAX) or printed the success page
   /// (`message` with `alert_right`), as [_isReplyStored] tells from the forum's own answer; anything else (the
   /// error hook, a refusal page, the login prompt, a page) is rejected with the forum's message, or the text of the
-  /// page when the result carries no message.
-  static ({bool stored, String? reason, String url})? _replyResultOf(Object? data) {
+  /// page when the result carries no message. A refusal for a missing captcha or security question
+  /// ([TsdmAppWriteResult.asksVerification]) is told apart (`verification`): the reply needs the website.
+  static ({bool stored, String? reason, String url, bool verification})? _replyResultOf(Object? data) {
     final result = tsdmAppWriteResultOf(data);
     if (result == null) {
       return null;
+    }
+    if (result.asksVerification) {
+      // A site asking for a captcha by the number of posts or their interval decides it when the reply is posted.
+      return (stored: false, reason: result.reason, url: result.url, verification: true);
     }
     final stored = switch (result.kind) {
       TsdmAppWriteKind.handle || TsdmAppWriteKind.redirect => result.succeeded,
@@ -89,7 +94,7 @@ final class ReplyRepository with LoggerMixin {
       TsdmAppWriteKind.page => false,
     };
     final reason = result.reason.isNotEmpty ? result.reason : _serverMessage(result.html);
-    return (stored: stored, reason: stored ? null : reason, url: result.url);
+    return (stored: stored, reason: stored ? null : reason, url: result.url, verification: false);
   }
 
   /// Human readable reason from a Discuz! inajax `showmessage()` response, if any.
@@ -231,18 +236,26 @@ final class ReplyRepository with LoggerMixin {
     final respEither2 = await netClient
         .postForm(formatReplyPostUrl(replyParameters.fid, replyParameters.tid), data: formData)
         .run();
-    return _postedReplyOf(respEither2);
+    return _postedReplyOf(respEither2, browserUrl: replyAction.prependHost());
   });
 
   /// Where the reply posted from the reply window landed, from the answer [respEither] of the post: the result of the
-  /// forum's app API ([_replyResultOf]) or the forum's own answer, the forum's reason when it refused.
-  Either<AppException, PostedReply> _postedReplyOf(Either<AppException, Response<dynamic>> respEither) {
+  /// forum's app API ([_replyResultOf]) or the forum's own answer, the forum's reason when it refused; a refusal for a
+  /// missing captcha or security question is [ReplyNeedsBrowserException] with [browserUrl].
+  Either<AppException, PostedReply> _postedReplyOf(
+    Either<AppException, Response<dynamic>> respEither, {
+    required String browserUrl,
+  }) {
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }
 
     final resp2 = respEither.unwrap();
     if (_replyResultOf(resp2.data) case final result?) {
+      if (result.verification) {
+        error('reply to post asks for a captcha or a security question');
+        return left(ReplyNeedsBrowserException(url: browserUrl, verification: true));
+      }
       if (!result.stored) {
         error('reply to post rejected by server: ${result.reason}');
         return left(ReplyToPostResultFailedException(result.reason));
@@ -334,8 +347,9 @@ final class ReplyRepository with LoggerMixin {
     if (data == null || url == null) {
       return left(ReplyNeedsBrowserException(url: browserUrl, verification: false));
     }
-    final respEither2 = await netClient.postForm('$url&inajax=1', data: data).run();
-    return _postedReplyOf(respEither2);
+    // Posted once: a transport retry would post the reply twice.
+    final respEither2 = await netClient.postForm('$url&inajax=1', data: data, singleAttempt: true).run();
+    return _postedReplyOf(respEither2, browserUrl: browserUrl);
   }
 
   /// Post reply to thread tid/fid.
@@ -346,6 +360,8 @@ final class ReplyRepository with LoggerMixin {
   /// * **HttpRequestFailedException** when http request failed.
   /// * **ReplyToThreadResultFailedException** when reply finished but no
   /// successful result found in response, carrying the server's reason.
+  /// * **ReplyNeedsBrowserException** when the forum asks for a captcha or a security question: the thread page said
+  /// so ([ReplyParameters.verification], nothing is sent), or the forum refused the reply for it.
   ///
   /// [stand] is the side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative), sent as the fast reply
   /// form's `stand` select (the page's "加入正方／反方" opens the reply with it); none for any other thread. The forum
@@ -355,6 +371,12 @@ final class ReplyRepository with LoggerMixin {
     required String replyMessage,
     int? stand,
   }) => AsyncEither(() async {
+    final browserUrl = '$homePage?mod=post&action=reply&fid=${replyParameters.fid}&tid=${replyParameters.tid}';
+    if (replyParameters.verification) {
+      // The thread page said the forum asks for a captcha or a security question: never post without.
+      error('quick reply asks for a captcha or a security question');
+      return left(ReplyNeedsBrowserException(url: browserUrl, verification: true));
+    }
     final formData = <String, String>{
       'message': toOfficialMentions(replyMessage),
       'usesig': '1',
@@ -379,6 +401,10 @@ final class ReplyRepository with LoggerMixin {
       return left(HttpRequestFailedException(resp.statusCode));
     }
     if (_replyResultOf(resp.data) case final result?) {
+      if (result.verification) {
+        error('quick reply asks for a captcha or a security question');
+        return left(ReplyNeedsBrowserException(url: browserUrl, verification: true));
+      }
       if (!result.stored) {
         error('reply to thread rejected by server: ${result.reason}');
         return left(ReplyToThreadResultFailedException(result.reason));

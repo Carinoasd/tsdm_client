@@ -188,6 +188,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
           debate: _int(thread['special']) == 5,
           debateStand: _int(thread['special']) == 5 ? _debateStandOf(reply, special) : null,
           viewerUid: uid > 0 ? uid : null,
+          // Plugin 2.9.1: the quick reply asks for a captcha or a security question (`reply.seccheck`).
+          verification: reply['seccheck'] is Map,
         )
       : null;
 

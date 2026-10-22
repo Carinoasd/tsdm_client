@@ -11,9 +11,11 @@ final _updateRe = RegExp(r'\bupdate(seccode|secqaa)\s*\(');
 /// does not check one there).
 bool documentAsksVerification(uh.Document document) {
   final scope = document.querySelector('form#postform') ?? document.querySelector('#ct') ?? document.documentElement;
-  if (scope == null) {
-    return false;
-  }
+  return scope != null && elementAsksVerification(scope);
+}
+
+/// [documentAsksVerification] inside [scope] only (the quick reply form of a thread page, `form#fastpostform`).
+bool elementAsksVerification(uh.Element scope) {
   if (scope.querySelector(
         '[id^="seccode_"], [id^="secqaa_"], [name^="seccode"], [name^="secqaa"], [name="secanswer"]',
       ) !=

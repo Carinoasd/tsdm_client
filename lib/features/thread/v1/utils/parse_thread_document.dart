@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
+import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/features/post_report/utils/report_page_context.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/instance.dart';
@@ -274,12 +275,15 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
       'failed to get reply form hash: tid=$tid fid=$fid hasFormHash=${formHash != null} hasSubject=${subject != null}',
     );
   } else {
+    final fastPost = document.querySelector('form#fastpostform');
     replyParameters = ReplyParameters(
       fid: '$fid',
       tid: tid,
       postTime: postTime,
       formHash: formHash,
       subject: subject,
+      // The quick reply form asks for a captcha or a security question (its `seccheck_fastpost` placeholders).
+      verification: fastPost != null && elementAsksVerification(fastPost),
     );
   }
 

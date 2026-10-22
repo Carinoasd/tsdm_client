@@ -209,6 +209,11 @@ final class PostEditRepository with LoggerMixin {
       case Right(:final value):
         response = value;
     }
+    // The forum asked for a captcha or a security question when the form was posted (plugin 2.6.0 result: a site
+    // asking by the number of posts or their interval decides it then): nothing was posted.
+    if (tsdmAppWriteResultOf(response.data)?.asksVerification ?? false) {
+      return left(PostVerificationRequiredException());
+    }
     final target = parseSubmissionResult(response, expectedTid: expectedTid);
     if (target != null) return right(target);
     // The forum's refusal: its 提示信息 page, or the write result of the forum's app API (plugin 2.6.0,

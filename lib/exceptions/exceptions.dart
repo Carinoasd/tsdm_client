@@ -243,6 +243,14 @@ final class PostEditFailedToUploadResult extends AppException with PostEditFaile
   final String errorText;
 }
 
+/// The forum refused a post form because it asks for a captcha or a security question the app cannot show
+/// (`submit_seccode_invalid`, `submit_secqaa_invalid`): nothing was posted, continue on the website.
+@MappableClass()
+final class PostVerificationRequiredException extends AppException with PostVerificationRequiredExceptionMappable {
+  /// Constructor.
+  PostVerificationRequiredException() : super(message: 'post needs a captcha or a security question');
+}
+
 /// Failed to parse purchase info because the parameter in
 /// confirm info is incorrect.
 @MappableClass()

@@ -2,6 +2,7 @@
   "draftBox": {
     "editUnconfirmed": "无法确认修改结果。请先查看原帖或网页，确认内容是否已更新或等待审核，再决定是否重新发送。",
     "acceptedUnconfirmed": "论坛已接受内容，但尚未确认为草稿，可能正在等待审核。请到“我的帖子”或网页确认，避免重复发送。",
+    "stillDraft": "论坛已收下修改，但这篇仍是草稿（可能设了定时发布），没有公开发表。请到网页确认发布时间。",
     "title": "草稿箱",
     "empty": "目前没有论坛草稿。发帖时选择“保存草稿”后，就能在这里继续编辑。",
     "loginRequired": "请先登录，再查看这个账号的草稿。",
@@ -1127,6 +1128,8 @@
     "threadBodyTooShortLimit": "正文太短，至少 ${limit: int} 字节，引用不计（英文字母 1 字节，汉字 3 字节）",
     "threadBodyTooLongLimit": "正文太长，上限为 ${limit: int} 字节（英文字母 1 字节，汉字 3 字节）",
     "verificationRequired": "这个版块发帖需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中继续。",
+    "transferredContent": "在投票编辑器写的标题与正文（可复制后到网页贴上）：",
+    "copyTransferred": "复制标题与正文",
     "moderated": {
       "title": "需要审核",
       "message": "这个版块的新帖要先经版主审核，通过后才会公开显示。要发布吗？"

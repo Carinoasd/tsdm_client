@@ -23,14 +23,17 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -40,12 +43,17 @@ import 'package:tsdm_client/features/post/repository/poll_create_repository.dart
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
+import 'package:tsdm_client/features/post/view/post_edit_page.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
+import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart'
+    show singleAttemptHttpRequestKey;
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
@@ -153,7 +161,7 @@ const _editUrl = '$baseUrl/forum.php?mod=post&action=edit&fid=2&tid=9600001&pid=
 
 typedef _Answer = ({String body, int status, Map<String, List<String>> headers});
 
-typedef _Request = ({String method, Uri uri, Map<String, dynamic> headers, String body});
+typedef _Request = ({String method, Uri uri, Map<String, dynamic> headers, String body, bool singleAttempt});
 
 _Answer _api(Map<String, dynamic> json) => (
   body: jsonEncode(json),
@@ -188,7 +196,13 @@ final class _Forum implements HttpClientAdapter {
     if (requestStream != null) {
       body = utf8.decode(await requestStream.fold<List<int>>([], (a, b) => a..addAll(b)), allowMalformed: true);
     }
-    final request = (method: options.method, uri: options.uri, headers: options.headers, body: body);
+    final request = (
+      method: options.method,
+      uri: options.uri,
+      headers: options.headers,
+      body: body,
+      singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
+    );
     requests.add(request);
     final a = answer(request);
     return ResponseBody.fromString(a.body, a.status, headers: a.headers);
@@ -1355,6 +1369,376 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(state.browserUrl, '$baseUrl/$_replyAction');
       expect(state.failedReason, t.threadPage.replyNeedsVerification);
       expect(state.networkFailure, isFalse);
+    });
+  });
+
+  group('H. review fixes', () {
+    /// The draft fixture as a forum without the form plugin serves it, scheduled ([checked]) or not.
+    Map<String, dynamic> scheduled({bool checked = true}) => _with('edit_draft', {
+      'hook_fields': <Object?>[],
+      'cronpublish': {
+        'inputs': [
+          {
+            'name': 'cronpublish',
+            'type': 'checkbox',
+            'value': 'true',
+            'checked': checked ? 1 : 0,
+            'disabled': 0,
+            'label': '定时发布',
+          },
+          {'name': 'cronpublishdate', 'type': 'text', 'value': '2026-10-30 12:00'},
+        ],
+      },
+    });
+
+    test('a scheduled draft goes to the website, as the web page parser does; an unscheduled one is taken', () {
+      expect(PostForm.fromJson(scheduled())!.schedulesPublication, isTrue);
+      expect(PostForm.fromJson(scheduled())!.editorSupport('edit'), PostFormSupport.unsupported);
+      expect(PostForm.fromJson(scheduled(checked: false))!.schedulesPublication, isFalse);
+      expect(PostForm.fromJson(scheduled(checked: false))!.editorSupport('edit'), PostFormSupport.supported);
+      final page = parseHtmlDocument(
+        '<div id="ct"><form id="postform"><input type="checkbox" name="cronpublish" value="true" checked="checked"> '
+        '<input name="cronpublishdate" value="2026-10-30 12:00"></form></div>',
+      );
+      expect(PostEditContent.supportsDocument(page), isFalse);
+      // The poll creator too.
+      final poll = PostForm.fromJson(
+        _with('newthread_poll', {
+          'hook_fields': <Object?>[],
+          'cronpublish': scheduled()['cronpublish'],
+        }),
+      )!;
+      expect(PollCreateForm.fromPostForm(poll, fid: '2', uid: 31).kind, PollFormParseKind.unsupported);
+    });
+
+    test('a draft published but kept a draft by the forum: said so, not "go to the new thread"', () async {
+      Map<String, dynamic> thread({required int draft}) {
+        final json = jsonDecode(File('$_dir/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>;
+        return {
+          ...json,
+          'uid': 31,
+          'thread': {...json['thread'] as Map<String, dynamic>, 'draft': draft},
+        };
+      }
+
+      for (final (draft, status) in [(1, PostEditStatus.stillDraft), (0, PostEditStatus.success)]) {
+        final harness = _Harness(
+          page: (url) => url.contains('viewthread') ? thread(draft: draft) : _unhooked('edit_draft'),
+          post: (_, _) => _redirectTo(9600005),
+        );
+        final bloc = await _load(
+          harness,
+          const PostEditLoadDataRequested('$baseUrl/forum.php?mod=post&action=edit&fid=2&tid=9600005&pid=9700007'),
+        );
+        final content = bloc.state.content!;
+        expect(PostForm.fromJson(content.postForm!)!.isDraftThread, isTrue);
+        final done = bloc.stream.firstWhere((s) => s.status != PostEditStatus.uploading);
+        bloc.add(
+          PostEditCompleteEditRequested(
+            formHash: content.formHash,
+            postTime: content.postTime,
+            delattachop: '0',
+            wysiwyg: content.wysiwyg,
+            fid: '2',
+            tid: '9600005',
+            pid: '9700007',
+            page: '1',
+            threadType: null,
+            threadTitle: content.threadTitle,
+            data: content.data,
+            options: content.options!,
+            save: '',
+            perm: null,
+            price: null,
+          ),
+        );
+        expect((await done.timeout(const Duration(seconds: 3))).status, status, reason: 'draft $draft');
+        expect(harness.gets.last, withTsdmAppJson('$baseUrl/forum.php?mod=viewthread&tid=9600005'));
+      }
+    });
+
+    test("the title trimmed as PHP's trim() does: other spaces count", () {
+      // Against a PHP copy of the forum's rules (module/post.php trim + dhtmlspecialchars, dstrlen).
+      for (final (subject, length) in [
+        ('abc', 3),
+        ('  spaced  ', 6),
+        ('　全形空白　', 12),
+        (' nbsp ', 8),
+        ('﻿BOM', 5),
+        ('\u0085NEL', 5),
+        (' \r\n title \n', 5),
+        ('\u000bvt\u000b', 2),
+        ('ab\u0000', 2),
+        ('tab\there', 8),
+        ('日本語テキスト&<>"\'', 34),
+      ]) {
+        expect(discuzSubjectLength(subject), length, reason: jsonEncode(subject));
+      }
+      expect(discuzTrim('　x　'), '　x　');
+      expect(discuzTrim(' \t\n\r\u0000\u000bx \t'), 'x');
+    });
+
+    test('the reply window posts once (no transport retry)', () async {
+      TsdmAppApi.notePostForm();
+      final stored = jsonDecode(File('$_dir/write_v13_reply_ok.json').readAsStringSync()) as Map<String, dynamic>;
+      final forum = _Forum((r) => r.method == 'GET' ? _api(_json('reply_float')) : _api(stored));
+      _use(forum);
+      _right(await _replyToPost());
+      expect(forum.requests.map((r) => (r.method, r.singleAttempt)), [('GET', false), ('POST', true)]);
+    });
+
+    testWidgets('switched in from the poll editor to a form the editor cannot take: the content to copy', (
+      tester,
+    ) async {
+      await LocaleSettings.setLocale(AppLocale.en);
+      _use(_Forum((r) => _api(_json('newthread_sort'))));
+      final auth = AuthenticationRepository(user: const UserLoginInfo(uid: 31, username: 'ag_low'));
+      addTearDown(auth.dispose);
+      Object? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'];
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      await tester.pumpWidget(
+        RepositoryProvider<AuthenticationRepository>.value(
+          value: auth,
+          child: TranslationProvider(
+            child: MaterialApp(
+              scaffoldMessengerKey: snackbarKey,
+              home: const PostEditPage(
+                editType: PostEditType.newThread,
+                fid: '25',
+                tid: null,
+                pid: null,
+                transfer: ThreadModeTransfer(uid: 31, fid: '25', subject: '投票標題', body: '投票內文 [b]x[/b]'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pumpAndSettle();
+      expect(find.text(t.draftBox.unsupported), findsOneWidget);
+      expect(find.text(t.postEditPage.transferredContent), findsOneWidget);
+      expect(find.text('投票標題'), findsOneWidget);
+      expect(find.text('投票內文 [b]x[/b]'), findsOneWidget);
+      expect(find.text(t.draftBox.openBrowser), findsOneWidget);
+      await tester.tap(find.text(t.postEditPage.copyTransferred));
+      await tester.pumpAndSettle();
+      expect(copied, '投票標題\n\n投票內文 [b]x[/b]');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
+  group('I. a captcha or a security question for the quick reply and when posting', () {
+    const seccheck = {
+      'seccode': 1,
+      'secqaa': 0,
+      'seccode_hash': 'cSA0000',
+      'secqaa_hash': null,
+      'modid': 'forum::viewthread',
+    };
+
+    /// The plugin 2.6.0 result of a form the forum refused for a missing captcha (the plugin's acceptance, rule 2).
+    Map<String, dynamic> refused({String key = 'submit_seccode_invalid', String handlekey = 'fastpost'}) => {
+      'ok': 0,
+      'api': 1,
+      'time': 1792708700,
+      'uid': 31,
+      'formhash': 'f1f2f3f4',
+      'type': 'result',
+      'schema': 13,
+      'kind': 'handle',
+      'message': '抱歉，验证码填写错误',
+      'message_key': key,
+      'url': '',
+      'handlekey': handlekey,
+      'values': <String, Object?>{},
+      'login': 0,
+      'alert': 'error',
+    };
+
+    Map<String, dynamic> threadPage({Object? check = seccheck}) {
+      final json = jsonDecode(File('$_dir/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>;
+      return {
+        ...json,
+        'reply': {...json['reply'] as Map<String, dynamic>, 'seccheck': check},
+      };
+    }
+
+    test("the thread page tells it (reply.seccheck, plugin 2.9.1; the web page's quick reply form)", () {
+      expect(threadPageFromApi(threadPage(), 1).replyParameters!.verification, isTrue);
+      expect(threadPageFromApi(threadPage(check: null), 1).replyParameters!.verification, isFalse);
+      final older = jsonDecode(File('$_dir/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>;
+      expect((older['reply'] as Map<String, dynamic>).containsKey('seccheck'), isFalse, reason: 'an older plugin');
+      expect(threadPageFromApi(older, 1).replyParameters!.verification, isFalse);
+      final html = File('$_dir/thread_plain.html').readAsStringSync();
+      expect(parseThreadDocument(parseHtmlDocument(html), 1).replyParameters!.verification, isFalse);
+      final asked = html.replaceFirst(
+        '<div id="seccheck_fastpost">',
+        '<div id="seccheck_fastpost"><span id="seccode_cSA0000"></span>',
+      );
+      expect(parseThreadDocument(parseHtmlDocument(asked), 1).replyParameters!.verification, isTrue);
+    });
+
+    test('the quick reply is not sent; the reply page in the browser instead', () async {
+      final forum = _Forum((r) => throw StateError('nothing may be sent'));
+      _use(forum);
+      final parameters = threadPageFromApi(threadPage(), 1).replyParameters!;
+      final failure = _left(
+        await const ReplyRepository().replyToThread(replyParameters: parameters, replyMessage: 'hi').run(),
+      );
+      expect(
+        failure,
+        isA<ReplyNeedsBrowserException>()
+            .having((e) => e.verification, 'verification', isTrue)
+            .having((e) => e.url, 'url', '$homePage?mod=post&action=reply&fid=${parameters.fid}&tid=${parameters.tid}'),
+      );
+      expect(forum.requests, isEmpty);
+    });
+
+    test('asked only when posted (a site asking by the number of posts or their interval): the same', () async {
+      for (final key in ['submit_seccode_invalid', 'submit_secqaa_invalid']) {
+        final forum = _Forum((r) => _api(refused(key: key)));
+        _use(forum);
+        final parameters = threadPageFromApi(threadPage(check: null), 1).replyParameters!;
+        final failure = _left(
+          await const ReplyRepository().replyToThread(replyParameters: parameters, replyMessage: 'hi').run(),
+        );
+        expect(failure, isA<ReplyNeedsBrowserException>().having((e) => e.verification, 'v', isTrue), reason: key);
+        expect(forum.requests.map((r) => r.method), ['POST']);
+        await getIt.unregister<NetClientProvider>();
+      }
+      // Any other refusal is the forum's reason, as before.
+      _use(_Forum((r) => _api(refused(key: 'post_flood_ctrl'))));
+      expect(
+        _left(
+          await const ReplyRepository()
+              .replyToThread(
+                replyParameters: threadPageFromApi(threadPage(check: null), 1).replyParameters!,
+                replyMessage: 'hi',
+              )
+              .run(),
+        ),
+        isA<ReplyToThreadResultFailedException>(),
+      );
+    });
+
+    test('the reply to a floor, the new way and the old: the same', () async {
+      final window = File('test/data/reply_window_x5.xml').readAsStringSync();
+      for (final known in [true, false]) {
+        TsdmAppApi.reset();
+        if (known) TsdmAppApi.notePostForm();
+        final forum = _Forum(
+          (r) => r.method == 'POST'
+              ? _api(refused(handlekey: 'reply'))
+              : (known ? _api(_json('reply_float')) : _xml(window)),
+        );
+        _use(forum);
+        expect(
+          _left(await _replyToPost()),
+          isA<ReplyNeedsBrowserException>()
+              .having((e) => e.verification, 'v', isTrue)
+              .having((e) => e.url, 'url', '$baseUrl/$_replyAction'),
+          reason: 'known $known',
+        );
+        expect(forum.requests.map((r) => r.method), ['GET', 'POST']);
+        await getIt.unregister<NetClientProvider>();
+      }
+    });
+
+    test('a new thread refused for it: the content stays, the website offered', () async {
+      final harness = _Harness(
+        page: (_) => _json('newthread'),
+        post: (_, _) => refused(handlekey: ''),
+      );
+      final bloc = await _load(harness, const ThreadPubFetchInfoRequested(fid: '7'));
+      final content = bloc.state.content!;
+      final failed = bloc.stream.firstWhere((s) => s.status == PostEditStatus.failedToUpload);
+      bloc.add(
+        ThreadPubPostThread(
+          ThreadPublishInfo(
+            formHash: content.formHash,
+            postTime: content.postTime,
+            delAttachOp: '0',
+            wysiwyg: content.wysiwyg,
+            fid: '7',
+            threadType: null,
+            checkbox: '0',
+            subject: '標題',
+            message: '內文內文內文內文',
+            price: null,
+            perm: null,
+            save: '',
+            options: content.options!,
+          ),
+        ),
+      );
+      final state = await failed.timeout(const Duration(seconds: 3));
+      expect(state.needsBrowser, isTrue);
+      expect(state.content, same(content));
+      expect(bloc.canSubmit, isTrue);
+      // Any other refusal: no browser offered.
+      final other = _Harness(
+        page: (_) => _json('newthread'),
+        post: (_, _) => {
+          ...refused(handlekey: ''),
+          'message_key': 'post_subject_toolong',
+          'message': '抱歉，您的标题超过 80 个字符',
+        },
+      );
+      final otherBloc = await _load(other, const ThreadPubFetchInfoRequested(fid: '7'));
+      final otherFailed = otherBloc.stream.firstWhere((s) => s.status == PostEditStatus.failedToUpload);
+      otherBloc.add(
+        ThreadPubPostThread(
+          ThreadPublishInfo(
+            formHash: content.formHash,
+            postTime: content.postTime,
+            delAttachOp: '0',
+            wysiwyg: content.wysiwyg,
+            fid: '7',
+            threadType: null,
+            checkbox: '0',
+            subject: '標題',
+            message: '內文內文內文內文',
+            price: null,
+            perm: null,
+            save: '',
+            options: content.options!,
+          ),
+        ),
+      );
+      final otherState = await otherFailed.timeout(const Duration(seconds: 3));
+      expect(otherState.needsBrowser, isFalse);
+      expect(otherState.errorText, '抱歉，您的标题超过 80 个字符');
+    });
+
+    test('a poll refused for it: rejected, saying so (the poll page offers the browser)', () async {
+      final repo = PollCreateRepository.withTransport(
+        currentUid: () => 31,
+        getPage: (_) async => right(_response(_unhooked('newthread_poll'))),
+        sendForm: (_, _) async => right(_response(refused(handlekey: ''))),
+      );
+      final form = (await repo.fetchForm('2')).form!;
+      final submission = validatePollDraft(
+        const PollDraft(
+          subject: '投票',
+          message: '',
+          options: ['甲', '乙'],
+          maxChoices: '1',
+          expiry: '',
+          visibleAfterVote: false,
+          publicVoters: false,
+          threadType: null,
+          extraOptions: [],
+        ),
+        form,
+      ).submission!;
+      final result = await repo.submit(form, submission);
+      expect(result.outcome, PollCreateOutcome.rejected);
+      expect(result.message, t.postEditPage.verificationRequired);
     });
   });
 }

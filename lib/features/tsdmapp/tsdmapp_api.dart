@@ -936,6 +936,12 @@ final class TsdmAppWriteResult {
   /// The message was shown as a refusal.
   bool get isError => alert == 'error';
 
+  /// The forum refused the form because it asks for a captcha (`submit_seccode_invalid`) or a security question
+  /// (`submit_secqaa_invalid`) the form did not carry: only the website shows them. A site asking by the number of
+  /// posts or their interval only decides this when the form is posted (plugin 2.9.1 notes), so a form served without
+  /// any can still be refused this way. Nothing was posted.
+  bool get asksVerification => messageKey == 'submit_seccode_invalid' || messageKey == 'submit_secqaa_invalid';
+
   /// The page or fragment of a [TsdmAppWriteKind.page] as the plugin cut it, empty for the other kinds (a `document`
   /// of another kind, which the plugin never gives, is never read).
   String get documentHtml => kind == TsdmAppWriteKind.page ? tsdmAppText(json['document']) : '';

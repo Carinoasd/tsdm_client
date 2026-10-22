@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/utils/new_thread_status.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
@@ -278,6 +279,10 @@ final class PollCreateRepository with LoggerMixin {
     // The write result of the forum's app API (plugin 2.6.0): the redirect the forum would have answered is verified
     // by its target, a message or a page is read as the forum's page.
     final apiResult = response.statusCode == 200 ? tsdmAppWriteResultOf(response.data) : null;
+    if (apiResult != null && apiResult.asksVerification) {
+      // The forum asked for a captcha or a security question when the poll was posted: nothing was created.
+      return PollCreateResult(PollCreateOutcome.rejected, message: t.postEditPage.verificationRequired);
+    }
     if (apiResult != null && apiResult.kind == TsdmAppWriteKind.redirect) {
       return _verify(apiResult.login ? null : threadTidOf(apiResult.url));
     }

@@ -34,6 +34,10 @@ enum PostEditStatus {
   /// Post edit result success.
   success,
 
+  /// The forum took the edits of a draft the member asked to publish, but keeps the thread a draft (a scheduled
+  /// publication, a plugin): it was not published (plugin 2.9.0, the thread checked after posting).
+  stillDraft,
+
   /// Server accepted the content, but it could not be confirmed as a private draft.
   draftUnconfirmed,
 }
@@ -49,6 +53,7 @@ final class PostEditState with PostEditStateMappable {
     this.errorText,
     this.threadPublishInfo,
     this.redirectTid,
+    this.needsBrowser = false,
   });
 
   /// Status.
@@ -73,4 +78,8 @@ final class PostEditState with PostEditStateMappable {
   ///
   /// Redirect to this page.
   final String? redirectTid;
+
+  /// The forum refused the post because it asks for a captcha or a security question the app cannot show
+  /// ([PostEditStatus.failedToUpload]): nothing was posted, the content stays to continue on the website.
+  final bool needsBrowser;
 }

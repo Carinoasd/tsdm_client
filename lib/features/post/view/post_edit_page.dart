@@ -4,6 +4,7 @@ import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,7 @@ import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -236,6 +238,18 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
   }
 
+  /// Continue this new thread or this edit on the website.
+  Future<void> _openBrowser(BuildContext context) async {
+    final url = widget.editType == PostEditType.newThread
+        ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
+        : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
+    try {
+      await openInExternalBrowser(Uri.parse(url));
+    } on Object {
+      if (context.mounted) showSnackBar(context: context, message: context.t.general.failedToLoad);
+    }
+  }
+
   EditorDocumentMetadata collectThreadMetata() {
     final metadata = EditorDocumentMetadata.empty().copyWith(
       title: threadTitleController.text,
@@ -339,7 +353,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return tr.threadTypeShouldNotBeEmpty;
     }
     if (form.subject != null) {
-      if (opening && title.trim().isEmpty) return tr.titleShouldNotBeEmpty;
+      if (opening && discuzTrim(title).isEmpty) return tr.titleShouldNotBeEmpty;
       if (content.titleTooLong(title, _defaultThreadTitleMaxlength)) {
         return tr.titleTooLongLimit(limit: form.subjectLimit);
       }
@@ -769,24 +783,32 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return AppStateView(icon: Icons.manage_accounts_outlined, message: context.t.draftBox.accountChanged);
     }
     if (state.status == PostEditStatus.unsupported || state.status == PostEditStatus.verificationRequired) {
-      return AppStateView(
+      // Switched in from the poll editor: what the member typed there stays to read and copy for the website.
+      final transfer = _transfer;
+      final transferred = transfer != null && (transfer.subject.trim().isNotEmpty || transfer.body.trim().isNotEmpty);
+      final view = AppStateView(
         icon: state.status == PostEditStatus.verificationRequired ? Icons.verified_user_outlined : Icons.web_outlined,
         message: state.status == PostEditStatus.verificationRequired
             ? context.t.postEditPage.verificationRequired
             : context.t.draftBox.unsupported,
         action: TextButton.icon(
           icon: const Icon(Icons.open_in_browser_outlined),
-          onPressed: () async {
-            final url = widget.editType == PostEditType.newThread
-                ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
-                : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
-            try {
-              await openInExternalBrowser(Uri.parse(url));
-            } on Object {
-              if (context.mounted) showSnackBar(context: context, message: context.t.general.failedToLoad);
-            }
-          },
+          onPressed: () async => _openBrowser(context),
           label: Text(context.t.draftBox.openBrowser),
+        ),
+        scrollable: !transferred,
+      );
+      if (!transferred) {
+        return view;
+      }
+      return SingleChildScrollView(
+        padding: edgeInsetsL16R16B12,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            view,
+            _TransferredContent(transfer: transfer),
+          ],
         ),
       );
     }
@@ -883,9 +905,17 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (state.status == PostEditStatus.failedToUpload) {
       showSnackBar(
         context: context,
-        message:
-            state.errorText ??
-            (widget.editType.isEditingPost ? context.t.draftBox.editUnconfirmed : context.t.draftBox.submitUnconfirmed),
+        // The forum asked for a captcha or a security question when the post was sent: nothing was posted, the
+        // content stays to continue on the website.
+        message: state.needsBrowser
+            ? context.t.postEditPage.verificationRequired
+            : state.errorText ??
+                  (widget.editType.isEditingPost
+                      ? context.t.draftBox.editUnconfirmed
+                      : context.t.draftBox.submitUnconfirmed),
+        action: state.needsBrowser
+            ? SnackBarAction(label: context.t.draftBox.openBrowser, onPressed: () async => _openBrowser(context))
+            : null,
       );
       if (isMobile) {
         WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
@@ -895,6 +925,14 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         context: context,
         title: context.t.draftBox.title,
         message: context.t.draftBox.acceptedUnconfirmed,
+      );
+      if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
+    } else if (state.status == PostEditStatus.stillDraft) {
+      // Published from the app, but the forum keeps it a draft (a scheduled publication): no "go to the new thread".
+      await showMessageSingleButtonDialog(
+        context: context,
+        title: context.t.draftBox.title,
+        message: context.t.draftBox.stillDraft,
       );
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.success) {
@@ -1117,6 +1155,49 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               body: SafeArea(bottom: false, child: _buildBody(context, state)),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// The title and the post the member typed in the poll editor before switching here, shown when this editor cannot
+/// take the form (the website instead): selectable, with a button copying both.
+class _TransferredContent extends StatelessWidget {
+  const _TransferredContent({required this.transfer});
+
+  final ThreadModeTransfer transfer;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.postEditPage;
+    final text = [transfer.subject, transfer.body].where((e) => e.trim().isNotEmpty).join('\n\n');
+    return Card(
+      margin: edgeInsetsT12,
+      child: Padding(
+        padding: edgeInsetsL16T16R16B16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr.transferredContent, style: Theme.of(context).textTheme.titleSmall),
+            sizedBoxW8H8,
+            if (transfer.subject.trim().isNotEmpty)
+              SelectableText(transfer.subject, style: Theme.of(context).textTheme.titleMedium),
+            if (transfer.subject.trim().isNotEmpty && transfer.body.trim().isNotEmpty) sizedBoxW8H8,
+            if (transfer.body.trim().isNotEmpty) SelectableText(transfer.body),
+            sizedBoxW8H8,
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.copy_outlined),
+                label: Text(tr.copyTransferred),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: text));
+                  if (context.mounted) showSnackBar(context: context, message: context.t.general.copiedToClipboard);
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

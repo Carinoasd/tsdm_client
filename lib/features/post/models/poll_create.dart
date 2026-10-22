@@ -503,8 +503,9 @@ final class PollCreateForm {
   /// [uid], as [parse] validates the web page: a new poll ([PostForm.special] 1, `poll` block), posted to a new thread
   /// url of [fid], with the bulk choice field (`tpolloption` and the `polloptions` text area: one choice per line, the
   /// repeated `polloption[]` fields cannot be posted) and the editable poll fields neither read-only nor unknown; the
-  /// result flags only as plain checkboxes posting `1`; no captcha, no field of another plugin, nothing the plugin
-  /// says to leave to the website ([PostForm.unsupported]), a body the transport can carry ([PostFormBody.toMap]).
+  /// result flags only as plain checkboxes posting `1`; no captcha, no field of another plugin, no scheduled
+  /// publication ([PostForm.schedulesPublication]), nothing the plugin says to leave to the website
+  /// ([PostForm.unsupported]), a body the transport can carry ([PostFormBody.toMap]).
   /// The choice limit is the forum's (`poll.max_options`), not read from the page script.
   ///
   /// A form with fields other plugins printed ([PostForm.hookFields]) is not taken here: the caller reads the web
@@ -516,6 +517,7 @@ final class PollCreateForm {
         form.asksVerification ||
         form.unsupported.isNotEmpty ||
         form.hookFields.isNotEmpty ||
+        form.schedulesPublication ||
         form.message == null) {
       return const PollFormParse.unsupported();
     }

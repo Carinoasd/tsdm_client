@@ -412,6 +412,15 @@ final class PostForm {
   /// Whether the member may save the post as a draft (`draft.can_save`).
   bool get canSaveDraft => _block('draft')?['can_save'] == 1;
 
+  /// Whether the thread of the form is a draft (`thread.draft`).
+  bool get isDraftThread => tsdmAppMap(json['thread'])['draft'] == 1;
+
+  /// Whether the post is set to be published later (the `cronpublish` checkbox checked: a scheduled draft). The forum
+  /// keeps such a post a draft whenever it is posted back with its date (`save` forced to 1), so a "publish" from the
+  /// app would not publish it: the form is left to the website, as the web page parser leaves it.
+  bool get schedulesPublication =>
+      blockInputs('cronpublish').any((e) => e.name == 'cronpublish' && e.isCheckbox && e.checked);
+
   /// The highest number of choices of a poll (`poll.max_options`, the site's `maxpolloptions`), null without a poll.
   int? get pollMaxOptions {
     final max = _block('poll')?['max_options'];
@@ -516,8 +525,8 @@ final class PostForm {
   /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question;
   /// [PostFormSupport.unsupported] for a form the plugin says to leave to the website ([unsupported]: another editor,
   /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields]),
-  /// one posted elsewhere than a same-site post url ([submitUrl]), one whose body a map cannot carry
-  /// ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
+  /// a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
+  /// whose body a map cannot carry ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
   /// allowing special threads only), the first post of a special thread, a post of a trade thread (its goods), as
   /// the web page parser decides.
   PostFormSupport editorSupport(String expectedAction) {
@@ -534,6 +543,7 @@ final class PostForm {
         action != expectedAction ||
         unsupported.isNotEmpty ||
         hookFields.isNotEmpty ||
+        schedulesPublication ||
         message == null ||
         submitUrl == null ||
         body().toMap() == null) {

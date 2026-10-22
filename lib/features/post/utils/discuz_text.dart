@@ -11,9 +11,26 @@ int discuzStrLen(String value) => value.runes.fold(0, (sum, rune) => sum + (rune
 String discuzEscape(String value) =>
     value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-/// Length of a thread [subject] as the forum checks it when the form is submitted: the subject is trimmed and escaped
-/// (`dhtmlspecialchars`, `&` takes 5) before `dstrlen` counts it ([discuzStrLen]).
-int discuzSubjectLength(String subject) => discuzStrLen(discuzEscape(subject.trim()));
+/// Characters PHP's `trim()` strips by default: space, tab, line feed, carriage return, NUL and vertical tab (unlike
+/// [String.trim], no other Unicode space: a full-width space or a no-break space stays).
+const _phpTrimCharacters = ' \t\n\r\u0000\u000B';
+
+/// [value] trimmed as PHP's `trim()` does by default ([_phpTrimCharacters]), as the forum trims a subject.
+String discuzTrim(String value) {
+  var start = 0;
+  var end = value.length;
+  while (start < end && _phpTrimCharacters.contains(value[start])) {
+    start++;
+  }
+  while (end > start && _phpTrimCharacters.contains(value[end - 1])) {
+    end--;
+  }
+  return value.substring(start, end);
+}
+
+/// Length of a thread [subject] as the forum checks it when the form is submitted: the subject is trimmed
+/// ([discuzTrim]) and escaped (`dhtmlspecialchars`, `&` takes 5) before `dstrlen` counts it ([discuzStrLen]).
+int discuzSubjectLength(String subject) => discuzStrLen(discuzEscape(discuzTrim(subject)));
 
 /// Bytes of a post [message] the forum checks against its maximum post size (`strlen`, UTF-8 bytes).
 int discuzMessageBytes(String message) => utf8.encode(message).length;

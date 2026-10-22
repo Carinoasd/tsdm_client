@@ -191,18 +191,25 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
         state.copyWith(
           status: PostEditStatus.failedToUpload,
           errorText: error is PostEditFailedToUploadResult ? error.errorText : null,
+          needsBrowser: error is PostVerificationRequiredException,
         ),
       );
       return;
     }
-    final confirmed =
-        event.save != '1' || await _repo.confirmsDraft('$baseUrl/forum.php?mod=viewthread&tid=${event.tid}');
+    final threadUrl = '$baseUrl/forum.php?mod=viewthread&tid=${event.tid}';
+    final confirmed = event.save != '1' || await _repo.confirmsDraft(threadUrl);
+    // A draft published from a post form of the app API: the forum may keep it a draft (a scheduled publication, a
+    // plugin) although it took the edits; the thread tells.
+    final stillDraft = event.save != '1' && (form?.isDraftThread ?? false) && await _repo.confirmsDraft(threadUrl);
     _submitting = false;
     if (_active(emit)) {
       emit(
         state.copyWith(
-          status: confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed,
+          status: stillDraft
+              ? PostEditStatus.stillDraft
+              : (confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed),
           redirectTid: event.tid,
+          needsBrowser: false,
         ),
       );
     }
@@ -250,6 +257,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
         state.copyWith(
           status: PostEditStatus.failedToUpload,
           errorText: err is PostEditFailedToUploadResult ? err.errorText : null,
+          needsBrowser: err is PostVerificationRequiredException,
         ),
       );
       return;
@@ -259,7 +267,11 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     _submitting = false;
     if (_active(emit)) {
       emit(
-        state.copyWith(status: confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed, redirectTid: tid),
+        state.copyWith(
+          status: confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed,
+          redirectTid: tid,
+          needsBrowser: false,
+        ),
       );
     }
   }
