@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/card/code_card.dart';
@@ -151,6 +152,9 @@ final class FloorDumper {
       case Table():
         _table(e, w, link);
         return;
+      case PostTable():
+        _postTable(e, w, link);
+        return;
       case Divider():
         _add({'k': 'hr'});
         return;
@@ -235,6 +239,52 @@ final class FloorDumper {
     _add({'k': 'close', 'kind': 'table'});
   }
 
+  /// A table of a post laid out by [PostTable]: its rows, and its columns as the web page counts them (the most cells
+  /// a row has, a cell spanning columns one cell); the backgrounds it paints under its cells (the table's, then each
+  /// cell's own or its row's).
+  void _postTable(Element e, PostTable w, bool link) {
+    kinds['table'] = (kinds['table'] ?? 0) + 1;
+    final cells = w.children.cast<PostTableCell>();
+    final perRow = <int, int>{};
+    for (final cell in cells) {
+      perRow[cell.row] = (perRow[cell.row] ?? 0) + 1;
+    }
+    final box = e.findRenderObject() as RenderBox?;
+    _add({
+      'k': 'open',
+      'kind': 'table',
+      'rows': w.rowCount,
+      'cols': perRow.values.fold<int>(0, math.max),
+      'w': box?.size.width.round(),
+    });
+    final tableColor = w.background;
+    if (tableColor != null) {
+      _blockBackgrounds.add(hexColor(tableColor));
+      _paint(tableColor);
+    }
+    var i = 0;
+    e.visitChildren((c) {
+      final cell = cells[math.min(i++, cells.length - 1)];
+      final color = cell.background ?? (cell.row < w.rowBackgrounds.length ? w.rowBackgrounds[cell.row] : null);
+      if (color != null) {
+        _blockBackgrounds.add(hexColor(color));
+        _paint(color);
+      }
+      _add({'k': 'sb'});
+      element(c, link: link);
+      _add({'k': 'sb'});
+      if (color != null) {
+        _blockBackgrounds.removeLast();
+        _surfaces.removeLast();
+      }
+    });
+    if (tableColor != null) {
+      _blockBackgrounds.removeLast();
+      _surfaces.removeLast();
+    }
+    _add({'k': 'close', 'kind': 'table'});
+  }
+
   void _block(Element e, String kind, bool link) {
     kinds[kind] = (kinds[kind] ?? 0) + 1;
     _add({'k': 'open', 'kind': kind});
@@ -262,7 +312,7 @@ final class FloorDumper {
           found = 'locked';
         case ReviewCard():
           found = 'comment';
-        case Table():
+        case Table() || PostTable():
           found = 'table';
         case Divider():
           found = 'hr';
