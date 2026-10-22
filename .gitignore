@@ -72,3 +72,7 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+# Playwright installed for tools/render_regression (local only)
+/tools/render_regression/node_modules/
+/tools/render_regression/package.json
+/tools/render_regression/package-lock.json
