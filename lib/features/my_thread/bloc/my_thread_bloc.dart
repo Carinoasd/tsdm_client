@@ -1,16 +1,12 @@
 import 'package:bloc/bloc.dart';
-import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
-import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
-import 'package:tsdm_client/features/my_thread/utils/my_thread_page_api.dart';
+import 'package:tsdm_client/features/my_thread/utils/my_thread_page_parser.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:universal_html/html.dart' as uh;
 
 part 'my_thread_bloc.mapper.dart';
 
@@ -184,57 +180,11 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         .run();
   }
 
-  /// The thread list and the next page url of the thread page [answer] fetched from [url]: the structured answer of
-  /// the forum's app API built from its fields (`myThreadsFromApi`), the web page parsed as before
-  /// ([_parseThreadList]).
-  (List<MyThread>, String? nextPageUrl) _parseThreadPage(TsdmAppPageAnswer answer, String url) => switch (answer) {
-    TsdmAppWebPage(:final document) => _parseThreadList(document),
-    TsdmAppStructuredPage(:final json) => myThreadsFromApi(json, url),
-  };
+  /// The thread list and the next page url of the thread page [answer] fetched from [url] ([myThreadPageOf]).
+  (List<MyThread>, String? nextPageUrl) _parseThreadPage(TsdmAppPageAnswer answer, String url) =>
+      myThreadPageOf(answer, url, reply: false);
 
-  /// The reply list and the next page url of the reply page [answer] fetched from [url]: the structured answer
-  /// lists one row per reply already (`myThreadsFromApi`), the web page is parsed as before ([_parseReplyList]).
-  (List<MyThread>, String? nextPageUrl) _parseReplyPage(TsdmAppPageAnswer answer, String url) => switch (answer) {
-    TsdmAppWebPage(:final document) => _parseReplyList(document),
-    TsdmAppStructuredPage(:final json) => myThreadsFromApi(json, url),
-  };
-
-  /// Parse thread list and next page url.
-  ///
-  /// X5: `<div class="tl"><form id="delform"><table><tr class="th">header</tr><tr>thread</tr>...</table></form></div>`
-  /// followed by `<div class="pgs cl mtm"><div class="pg"><a class="nxt">下一页</a></div></div>`.
-  (List<MyThread>, String? nextPageurl) _parseThreadList(uh.Document document) {
-    final data = _threadRows(document)
-        // Skip the header row.
-        .where((e) => !e.classes.contains('th'))
-        .map(MyThread.fromTr)
-        .whereType<MyThread>()
-        .toList();
-
-    return (data, _nextPageUrl(document));
-  }
-
-  /// Parse reply list and next page url.
-  ///
-  /// Each `<tr class="bw0_all">` thread row is followed by one or more reply rows, every reply becomes an item.
-  (List<MyThread>, String? nextPageUrl) _parseReplyList(uh.Document document) {
-    final data = _threadRows(
-      document,
-    ).where((e) => e.classes.contains('bw0_all')).map(MyThread.buildReplyListFromTr).flattened.toList();
-    return (data, _nextPageUrl(document));
-  }
-
-  static List<uh.Element> _threadRows(uh.Document document) {
-    var rows = document.querySelectorAll('div.bm.bw0 > div.tl > form > table > tbody > tr');
-    if (rows.isEmpty) {
-      // X5.
-      rows = document.querySelectorAll('div.tl > form#delform > table > tbody > tr');
-    }
-    return rows.toList();
-  }
-
-  static String? _nextPageUrl(uh.Document document) =>
-      (document.querySelector('div.pgs.cl.mtm > div.pg > a.nxt') ?? document.querySelector('div.pgs > div.pg > a.nxt'))
-          ?.firstHref()
-          ?.prependHost();
+  /// The reply list and the next page url of the reply page [answer] fetched from [url] ([myThreadPageOf]).
+  (List<MyThread>, String? nextPageUrl) _parseReplyPage(TsdmAppPageAnswer answer, String url) =>
+      myThreadPageOf(answer, url, reply: true);
 }

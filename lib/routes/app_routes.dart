@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/bank/view/bank_page.dart';
 import 'package:tsdm_client/features/blocking/view/user_block_page.dart';
@@ -27,6 +29,8 @@ import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dar
 import 'package:tsdm_client/features/medal_title_tools/view/my_medals_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/title_exchange_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
+import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
+import 'package:tsdm_client/features/member_thread/view/member_thread_page.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
 import 'package:tsdm_client/features/my_thread/view/my_thread_page.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -239,6 +243,25 @@ final List<RouteBase> _appRoutes = [
   AppRoute(
     path: ScreenPaths.myThread,
     builder: (state) => MyThreadPage(showDrafts: state.uri.queryParameters['tab'] == 'drafts'),
+  ),
+  AppRoute(
+    path: ScreenPaths.memberThread,
+    // The current user's own list is the "my threads" page, with its drafts and filters.
+    redirect: (context, state) {
+      final auth = context.readOrNull<AuthenticationRepository>();
+      return memberThreadRedirect(
+        state.uri.queryParameters,
+        currentUid: auth?.effectiveCurrentUid,
+        currentUsername: auth?.effectiveCurrentUser?.username,
+      );
+    },
+    builder: (state) => MemberThreadPage(
+      uid: state.uri.queryParameters['uid'],
+      username: state.uri.queryParameters['username'],
+      initialTab: state.uri.queryParameters['tab'] == MemberThreadTab.reply.name
+          ? MemberThreadTab.reply
+          : MemberThreadTab.thread,
+    ),
   ),
   AppRoute(
     path: ScreenPaths.favorite,

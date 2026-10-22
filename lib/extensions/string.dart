@@ -95,13 +95,11 @@ extension ParseUrl on String {
     }
 
     if (mod == 'space' && queryParameters['do'] == 'thread' && queryParameters['view'] == 'me') {
-      // A member's own list names nobody ("我的帖子"). One that names a member ("TA的主题" of a profile or a floor,
-      // also the account's own) is that member's list, which the app has no page for:
-      //
-      // * by name (`username`): their threads are the search by that name, as the profile's "搜索此人的帖子";
-      // * by uid only: their profile, whose "搜索此人的帖子" searches by their name. The forum's search by a bare uid
-      //   (`srchuid` alone) found nothing for testers (see `SearchRepository.searchWithParameters`);
-      // * their replies (`type=reply`) and comments open as an unsupported forum link (the web page).
+      // A member's own list names nobody ("我的帖子"). One that names a member ("TA的主题" of a profile or a floor) is
+      // that member's threads (`type=thread`, the default) or replies (`type=reply`), by uid and/or by name as the
+      // forum takes them (the name first): the member's page, which opens the account's own list when the member is
+      // the current user (see `memberThreadRedirect`). Their comments (`type=postcomment`) are always the viewer's
+      // own on the forum, and open as an unsupported forum link (the web page).
       final uid = queryParameters['uid'];
       final username = queryParameters['username'];
       final hasUid = uid != null && uid.isNotEmpty && uid != '0';
@@ -110,13 +108,17 @@ extension ParseUrl on String {
         return const RecognizedRoute(ScreenPaths.myThread);
       }
       final type = queryParameters['type'];
-      if (type != null && type.isNotEmpty && type != 'thread') {
+      if (type != null && type.isNotEmpty && type != 'thread' && type != 'reply') {
         return null;
       }
-      if (hasUsername) {
-        return RecognizedRoute(ScreenPaths.search, queryParameters: {'authorName': username});
-      }
-      return RecognizedRoute(ScreenPaths.profile, queryParameters: {'uid': uid!});
+      return RecognizedRoute(
+        ScreenPaths.memberThread,
+        queryParameters: {
+          if (hasUid) 'uid': uid,
+          if (hasUsername) 'username': username,
+          if (type == 'reply') 'tab': 'reply',
+        },
+      );
     }
 
     // Favorites list, with or without uid: home.php?mod=space[&uid=xxx]&do=favorite[&view=me][&type=thread|forum]

@@ -218,10 +218,16 @@ class ScreenPaths {
   /// Page to show "My thread" on web side.
   ///
   /// https://tsdm39.com/home.php?mod=space&do=thread&view=me
-  /// Even when redirect to this route, query parameters contain uid, only the
-  /// page of current user is visible.
-  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=thread&view=me
+  /// The list of a member named by uid or name opens [memberThread], unless the member is the current user.
   static const String myThread = '/myThread';
+
+  /// The threads and the replies of another member ("TA的主题").
+  ///
+  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=thread&view=me[&type=reply]
+  ///
+  /// Query parameters: `uid` and/or `username` (the member, as the link named them), `tab` (`reply` to show the
+  /// replies first). The current user's own list redirects to [myThread].
+  static const String memberThread = '/memberThread';
 
   /// Page to show the favorites (收藏) of the current user.
   ///

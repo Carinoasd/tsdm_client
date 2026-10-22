@@ -312,6 +312,19 @@ class _ProfilePageState extends State<ProfilePage> {
     } else {
       // Other user's profile page.
       actions = [
+        // Their threads and replies in the app ("TA的主题"); the search by their name stays next to it.
+        if ((widget.uid ?? userProfile.uid) != null || (userProfile.username ?? widget.username) != null)
+          IconButton(
+            icon: const Icon(Icons.article_outlined),
+            tooltip: tr.memberThreads,
+            onPressed: () async => context.pushNamed(
+              ScreenPaths.memberThread,
+              queryParameters: {
+                'uid': ?(widget.uid ?? userProfile.uid),
+                if ((widget.uid ?? userProfile.uid) == null) 'username': ?(userProfile.username ?? widget.username),
+              },
+            ),
+          ),
         IconButton(
           icon: const Icon(Icons.person_search_outlined),
           tooltip: tr.searchAsThreadAuthor,

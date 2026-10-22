@@ -775,6 +775,7 @@
     "online": "在线",
     "offline": "离线",
     "searchAsThreadAuthor": "搜索此人的帖子",
+    "memberThreads": "TA的帖子",
     "medals": "勋章",
     "mangedForum": "管理的版块",
     "onlineTime": "在线时间",
@@ -976,6 +977,11 @@
       "title": "回复"
     },
     "forum": "分区"
+  },
+  "memberThreadPage": {
+    "title": "${name} 的帖子",
+    "titleUnknown": "TA的帖子",
+    "blocked": "你已屏蔽此用户（本机），其主题与回复不显示。"
   },
   "favoritePage": {
     "title": "收藏",

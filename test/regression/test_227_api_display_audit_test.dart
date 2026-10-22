@@ -992,31 +992,26 @@ void main() {
   });
 
   group("8. a member's thread list", () {
-    test("of another member: by name their search, by uid only their profile; of nobody: the account's own list", () {
-      // By uid only: the profile, whose "搜索此人的帖子" searches by the name (a bare `srchuid` found nothing).
+    test("of another member: their page (test_235); of nobody: the account's own list", () {
+      // Superseded by the member's page (test_235): by uid and/or by name, their threads or their replies.
       final other = 'home.php?mod=space&uid=1103&do=thread&view=me&from=space'.parseUrlToRoute()!;
-      expect(other.screenPath, ScreenPaths.profile);
+      expect(other.screenPath, ScreenPaths.memberThread);
       expect(other.queryParameters, {'uid': '1103'});
       final escaped = '$baseUrl/home.php?mod=space&amp;uid=1103&amp;do=thread&amp;type=thread&amp;view=me'
           .unescapeHtml()!
           .parseUrlToRoute()!;
-      expect(escaped.screenPath, ScreenPaths.profile);
+      expect(escaped.screenPath, ScreenPaths.memberThread);
       expect(escaped.queryParameters, {'uid': '1103'});
-      // By name (with or without the uid): the search by that name.
       final byName = 'home.php?mod=space&username=fixture&do=thread&view=me'.parseUrlToRoute()!;
-      expect(byName.screenPath, ScreenPaths.search);
-      expect(byName.queryParameters, {'authorName': 'fixture'});
-      final both = 'home.php?mod=space&uid=1103&username=fixture&do=thread&view=me'.parseUrlToRoute()!;
-      expect(both.screenPath, ScreenPaths.search);
-      expect(both.queryParameters, {'authorName': 'fixture'});
+      expect(byName.screenPath, ScreenPaths.memberThread);
+      expect(byName.queryParameters, {'username': 'fixture'});
 
       expect('home.php?mod=space&do=thread&view=me'.parseUrlToRoute()!.screenPath, ScreenPaths.myThread);
       expect(myThreadReplyUrl.parseUrlToRoute()!.screenPath, ScreenPaths.myThread);
       expect('home.php?mod=space&uid=0&do=thread&view=me'.parseUrlToRoute()!.screenPath, ScreenPaths.myThread);
     });
 
-    test('their replies have no page in the app: an unsupported forum link (the web page)', () {
-      expect('home.php?mod=space&uid=1103&do=thread&view=me&type=reply'.parseUrlToRoute(), isNull);
+    test('their comments have no page in the app: an unsupported forum link (the web page)', () {
       expect('home.php?mod=space&uid=1103&do=thread&view=me&type=postcomment'.parseUrlToRoute(), isNull);
       // Their profile is still their profile.
       final profile = 'home.php?mod=space&uid=1103'.parseUrlToRoute()!;
@@ -1051,18 +1046,13 @@ void main() {
         await db.close();
       });
 
-      /// The search the route of [url] opens: the query of the request it sends.
-      Future<Map<String, String>> searchOf(WidgetTester tester, String url) async {
-        final route = url.parseUrlToRoute()!;
-        expect(route.screenPath, ScreenPaths.search);
+      /// The search the profile's "搜索此人的帖子" opens with [query]: the query of the request it sends.
+      Future<Map<String, String>> searchOf(WidgetTester tester, Map<String, String> query) async {
         final router = GoRouter(
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, _) => SearchPage(
-                authorUid: route.queryParameters['authorUid'],
-                authorName: route.queryParameters['authorName'],
-              ),
+              builder: (_, _) => SearchPage(authorUid: query['authorUid'], authorName: query['authorName']),
             ),
           ],
         );
@@ -1073,13 +1063,13 @@ void main() {
       }
 
       testWidgets('a member named by digits only is searched by name, not as a uid', (tester) async {
-        final query = await searchOf(tester, 'home.php?mod=space&username=12345&do=thread&view=me');
+        final query = await searchOf(tester, {'authorName': '12345'});
         expect(query['srchuname'], '12345');
         expect(query.containsKey('srchuid'), isFalse);
       });
 
       testWidgets('a member named by name and uid is searched by the name alone', (tester) async {
-        final query = await searchOf(tester, 'home.php?mod=space&uid=1103&username=fixture&do=thread&view=me');
+        final query = await searchOf(tester, {'authorUid': '1103', 'authorName': 'fixture'});
         expect(query['srchuname'], 'fixture');
         expect(query.containsKey('srchuid'), isFalse);
       });
