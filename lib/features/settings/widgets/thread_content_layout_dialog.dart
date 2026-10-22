@@ -58,7 +58,7 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
     // what a short line is there.
     final previewWidth = math.min(MediaQuery.sizeOf(context).width * 0.7, 400) - 24;
     final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
-    final lineWidth = math.max<double>(1, (2 * previewWidth / (fontSize * scale)).floor() / 2);
+    final lineWidth = math.max<double>(1, previewWidth / (fontSize * scale));
 
     Widget slider({
       required String label,

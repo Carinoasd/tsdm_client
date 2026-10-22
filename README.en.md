@@ -16,15 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.41.2 (2026-10-21)
+## Latest update: 1.43.0 (2026-10-22)
 
-- The activities page is no longer empty; forum card shortcuts no longer show blank buttons; private and external-link forums are marked as on the web.
-- The thread page's reply count matches the web; blocked avatars and hot replies show as on the web, no more "#-1" or "null 楼".
-- Spaces and line breaks in posts follow the web's rules: words after bold text or links no longer stick together, `&nbsp;` indents are kept.
-- Retrying after a failed forum page load no longer lists the same threads twice.
-- Android build number 146, installs over earlier releases and test builds.
+- Wider line and paragraph spacing in post content, so posts no longer look cramped on phones; name lists, poems and one-sentence-per-line posts stay compact.
+- Settings → Appearance lets you adjust post line height and paragraph spacing, with a live preview.
+- New optional "auto-split long paragraphs" (off by default): breaks very long paragraphs at sentence ends, changing only the layout, never the original text.
+- The experimental app renderer gets the same treatment.
+- Android build number 148, installs over earlier releases and test builds.
 
-[Download 1.41.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.41.2) · [Full changelog](./CHANGELOG.md)
+[Download 1.43.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.43.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

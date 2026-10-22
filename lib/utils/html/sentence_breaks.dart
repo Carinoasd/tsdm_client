@@ -18,8 +18,8 @@ const minPieceLines = 2;
 /// What is left after a cut is at least this many lines: a cut never leaves a line or so hanging on its own.
 const minTailLines = 1.25;
 
-/// A line of a phone 390 wide at a text scale of 1: 24.5 characters (346 / 14, in halves).
-const phoneLineWidth = 24.5;
+/// A line of a phone 390 wide at a text scale of 1: about 24.7 characters (346 / 14).
+const double phoneLineWidth = 346 / 14;
 
 /// The placeholder of a widget (an image, a smiley) in the text of a paragraph.
 const objectReplacementChar = '￼';
@@ -106,7 +106,7 @@ bool _isUpperAscii(String c) {
 
 bool _isEndMark(String c) => _sentenceEnds.contains(c) || _ellipses.contains(c) || c == '.';
 
-/// Narrow ASCII characters (about 0.3 of a Chinese character in the common Chinese fonts).
+/// Narrow ASCII characters (about 0.27 of a Chinese character in the common Chinese fonts).
 const _narrow = " !',.:;`|ijlI";
 
 /// ASCII characters about 0.4 of a Chinese character.
@@ -115,19 +115,25 @@ const _slim = r'"()[]{}-/\_*?frtJs';
 /// ASCII characters about as wide as a Chinese character.
 const _broad = 'MWm@%&';
 
-/// ASCII characters about 0.65 of a Chinese character (digits, capitals, symbols); the other ones (small letters,
-/// Latin letters beyond ASCII) are 0.55.
-const _capital = r'0123456789ABCDEFGHJKLNOPQRSTUVXYZw#$+<=>^~';
+/// Digits: 0.6 of a Chinese character.
+const _digits = '0123456789';
+
+/// ASCII characters about 0.65 of a Chinese character (capitals, symbols); the other ones (small letters, Latin
+/// letters beyond ASCII) are 0.55.
+const _capital = r'ABCDEFGHJKLNOPQRSTUVXYZw#$+<=>^~';
 
 /// How wide one UTF-16 code unit [c] is, in Chinese characters: a wide character (Chinese, Japanese, Korean, full
-/// width) or a widget (a smiley) is 1, ASCII by its shape (measured in Microsoft YaHei; a space is 0.3, `m` is 0.95),
+/// width) or a widget (a smiley) is 1, ASCII by its shape (measured in Microsoft YaHei; a space is 0.27, `m` is 0.95),
 /// anything else 0.55 (a surrogate pair is two halves).
 double _unitWidth(String c) {
   if (c == objectReplacementChar || _isWide(c)) {
     return 1;
   }
   if (_narrow.contains(c)) {
-    return 0.3;
+    return 0.27;
+  }
+  if (_digits.contains(c)) {
+    return 0.6;
   }
   if (_slim.contains(c)) {
     return 0.4;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/utils/html/sentence_breaks.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/text_widget_span.dart';
 
 /// How the content of a post is laid out for reading: line height, spacing between paragraphs, long paragraphs cut
 /// after the end of a sentence.
@@ -56,8 +58,8 @@ final class PostTypography {
   /// Cut a long paragraph into shorter ones after the end of a sentence (see [sentenceBreaks]).
   final bool splitLongParagraphs;
 
-  /// How many Chinese characters a line of the content holds where it is shown ([postContentLineWidth], in halves):
-  /// what is a short line and what is a long paragraph depends on it.
+  /// How many Chinese characters a line of the content holds where it is shown ([postContentLineWidth]): what is a
+  /// short line and what is a long paragraph depends on it.
   final double lineWidth;
 
   /// This layout with its values in the ranges offered in the settings.
@@ -93,22 +95,119 @@ final class PostTypography {
       'splitLongParagraphs: $splitLongParagraphs, lineWidth: $lineWidth)';
 }
 
-/// How many Chinese characters (body text) a line of a floor's content holds under [context]: the width of the content
-/// (the screen less the safe area, the floor's margins and padding, at most [appReadingMaxWidth] for the floor and
-/// [htmlContentMaxWidth] for its content) over the size of the body text at the text scale there.
-///
-/// In halves of a character, rounded down: resizing a window only lays the content out again when a line holds half a
-/// character more or less, not at every pixel.
-double postContentLineWidth(BuildContext context) {
-  final size = MediaQuery.sizeOf(context);
-  final safeArea = MediaQuery.paddingOf(context).horizontal;
-  // The floor's margins (6 on a phone, 16 wider) and its padding (16 on each side).
-  final margin = size.width < 600 ? 6.0 : 16.0;
-  final floor = math.min(size.width - safeArea - 2 * margin, appReadingMaxWidth);
-  final width = math.min(floor - 32, htmlContentMaxWidth);
+/// How many Chinese characters (body text) a line of a floor's content holds when the floors are [width] wide (the
+/// width the thread page gives its list, the safe area left out): the content width (the floor's margins and padding
+/// off, at most [appReadingMaxWidth] for the floor and [htmlContentMaxWidth] for its content) over the size of the body
+/// text at the text scale of [context]. Not rounded.
+double postContentLineWidthIn(BuildContext context, double width) {
+  // The floor's margins (6 on a phone, 16 wider: the screen decides, as for the floor) and its padding (16 a side).
+  final margin = MediaQuery.sizeOf(context).width < 600 ? 6.0 : 16.0;
+  final floor = math.min(width - 2 * margin, appReadingMaxWidth);
+  final content = math.min(floor - 32, htmlContentMaxWidth);
   final fontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
   final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
-  return math.max<double>(1, (2 * width / scaled).floor() / 2);
+  return math.max<double>(1, content / scaled);
+}
+
+/// How many Chinese characters a line of a floor's content holds under [context]: the one [PostLineWidth] above
+/// measured (the thread page), or worked out from the screen less its safe area where there is none (the post of a
+/// notice).
+double postContentLineWidth(BuildContext context) =>
+    PostLineWidth.maybeOf(context) ??
+    postContentLineWidthIn(context, MediaQuery.sizeOf(context).width - MediaQuery.paddingOf(context).horizontal);
+
+/// Measures how many characters a line of the floors below holds ([postContentLineWidthIn]) in the width it is given,
+/// for every floor at once.
+///
+/// While a window is dragged or the screen is split, the width changes at every frame: laying every floor kept alive
+/// out again whenever a line holds half a character more or less made the frames of the drag several times slower. A
+/// new line width is only taken when it differs by half a character or more, and only once the width has stayed the
+/// same for [settleDelay]: the floors keep the line width they have meanwhile. A rotation or a new text scale is taken
+/// at once.
+class PostLineWidth extends StatefulWidget {
+  /// Constructor.
+  const PostLineWidth({required this.child, super.key});
+
+  /// The floors.
+  final Widget child;
+
+  /// How long the width stays the same before a new line width is taken.
+  static const settleDelay = Duration(milliseconds: 300);
+
+  /// The line width of the floors under [context]; null without a [PostLineWidth] above.
+  static double? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_PostLineWidthScope>()?.lineWidth;
+
+  @override
+  State<PostLineWidth> createState() => _PostLineWidthState();
+}
+
+class _PostLineWidthState extends State<PostLineWidth> {
+  double? _applied;
+  double? _pending;
+  Orientation? _orientation;
+  TextScaler? _textScaler;
+  Timer? _timer;
+
+  /// Line widths within half a character of each other lay the content out alike.
+  static int _step(double lineWidth) => (2 * lineWidth).floor();
+
+  void _offer(double measured, Orientation orientation, TextScaler textScaler) {
+    final applied = _applied;
+    if (applied == null || orientation != _orientation || textScaler != _textScaler) {
+      _timer?.cancel();
+      _applied = measured;
+      _orientation = orientation;
+      _textScaler = textScaler;
+      return;
+    }
+    if (_step(measured) == _step(applied)) {
+      // Back where it was (or never left): nothing to take.
+      _timer?.cancel();
+      _pending = null;
+      return;
+    }
+    _pending = measured;
+    _timer?.cancel();
+    _timer = Timer(PostLineWidth.settleDelay, () {
+      final pending = _pending;
+      if (!mounted || pending == null) {
+        return;
+      }
+      setState(() {
+        _applied = pending;
+        _pending = null;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.hasBoundedWidth ? constraints.maxWidth : MediaQuery.sizeOf(context).width;
+      _offer(
+        postContentLineWidthIn(context, width),
+        MediaQuery.orientationOf(context),
+        MediaQuery.textScalerOf(context),
+      );
+      return _PostLineWidthScope(lineWidth: _applied!, child: widget.child);
+    },
+  );
+}
+
+class _PostLineWidthScope extends InheritedWidget {
+  const _PostLineWidthScope({required this.lineWidth, required super.child});
+
+  final double lineWidth;
+
+  @override
+  bool updateShouldNotify(_PostLineWidthScope oldWidget) => lineWidth != oldWidget.lineWidth;
 }
 
 /// The [PostTypography] of the post content below it.
@@ -181,9 +280,10 @@ List<InlineSpan> layOutParagraphs(
 /// The text of the spans laid out by [layOutParagraphs], one character per UTF-16 code unit as in
 /// [InlineSpan.toPlainText], a placeholder for each widget.
 final class _ParagraphText {
-  _ParagraphText._(this.text, List<(int, int)> keptLines, List<(int, int)> keptWhole)
+  _ParagraphText._(this.text, List<(int, int)> keptLines, List<(int, int)> keptWhole, List<(int, int)> blocks)
     : _keptLines = _Coverage(keptLines, text.length),
-      _keptWhole = _Coverage(keptWhole, text.length);
+      _keptWhole = _Coverage(keptWhole, text.length),
+      _blocks = _Coverage(blocks, text.length);
 
   factory _ParagraphText.of(
     List<InlineSpan> spans, {
@@ -194,6 +294,8 @@ final class _ParagraphText {
     // Ranges [start, end) of the text in preformatted text, and in lists and headings.
     final keptLines = <(int, int)>[];
     final keptWhole = <(int, int)>[];
+    // The placeholders of blocks (a table, a card, a quote, a rule).
+    final blocks = <(int, int)>[];
 
     void visit(InlineSpan span, {required bool lines, required bool whole}) {
       final start = buffer.length;
@@ -208,6 +310,9 @@ final class _ParagraphText {
             visit(child, lines: lines || ownLines, whole: whole || ownWhole);
           }
         case PlaceholderSpan():
+          if (_isBlock(span)) {
+            blocks.add((start, start + 1));
+          }
           buffer.write(objectReplacementChar);
         default:
           // Not built by the html renderer: its text counts, it is not cut.
@@ -227,8 +332,15 @@ final class _ParagraphText {
     for (final span in spans) {
       visit(span, lines: false, whole: false);
     }
-    return _ParagraphText._(buffer.toString(), keptLines, keptWhole);
+    return _ParagraphText._(buffer.toString(), keptLines, keptWhole, blocks);
   }
+
+  /// Whether [span] is a block laid out on a line of its own (a table, a card, a quote, a rule): a widget with text in
+  /// it ([textWidgetSpan]) or a divider. Not an image, a smiley, a link's icon, nor a ruby (on the baseline).
+  static bool _isBlock(PlaceholderSpan span) =>
+      span is WidgetSpan &&
+      span.alignment != PlaceholderAlignment.baseline &&
+      (span.child is TextWidgetSpanChild || span.child is Divider);
 
   final String text;
 
@@ -237,6 +349,9 @@ final class _ParagraphText {
 
   /// The text in lists and headings.
   final _Coverage _keptWhole;
+
+  /// The placeholders of blocks.
+  final _Coverage _blocks;
 
   static final _visible = RegExp('[^\\s$objectReplacementChar]');
 
@@ -262,7 +377,10 @@ final class _ParagraphText {
       for (final (i, line) in lines.indexed)
         _visible.hasMatch(contents[i]) &&
             // Not a line of preformatted text, nor the line its line break ends.
-            !_keptLines.meets(line.$1, line.$2 + 1),
+            !_keptLines.meets(line.$1, line.$2 + 1) &&
+            // Not a line holding a block: a table is not always followed by a line break of its own
+            // (`text<br><table>…</table>text`), the text after it is on its line.
+            !_blocks.meets(line.$1, line.$2),
     ];
     final widths = [for (final content in contents) textWidth(content)];
     final gaps = <int, bool>{};
