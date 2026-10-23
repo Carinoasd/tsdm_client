@@ -53,8 +53,11 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
   /// Get the image url.
   String get url => imageUrl;
 
-  /// Avatars loaded as the placeholder (not available then): the image cache holds the placeholder for them.
+  /// Avatars loaded as the placeholder (not available then): the image cache holds the placeholder for them. Oldest
+  /// first, at most [_maxPlaceholders].
   static final _placeholders = <CachedImageProvider>{};
+
+  static const _maxPlaceholders = 512;
 
   /// Whether this avatar was loaded as the placeholder last time: once it is cached, the image cache must let it go
   /// for it to show (see `HeroUserAvatar`).
@@ -86,6 +89,10 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
         // The image cache holds the placeholder for this avatar from now on, until it is evicted and loaded again.
         if (result.placeholder) {
           _placeholders.add(key);
+          // A long run offline would remember every avatar it met: the oldest go (at worst decoded once more).
+          if (_placeholders.length > _maxPlaceholders) {
+            _placeholders.remove(_placeholders.first);
+          }
         } else {
           _placeholders.remove(key);
         }
