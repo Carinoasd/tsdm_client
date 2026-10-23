@@ -576,7 +576,7 @@ void main() {
               ),
             ),
             routes: [
-              for (final path in [ScreenPaths.homepage, ScreenPaths.topic, '/settings'])
+              for (final path in [ScreenPaths.homepage, ScreenPaths.topic, ScreenPaths.notice, ScreenPaths.me])
                 GoRoute(
                   path: path,
                   name: path,
@@ -584,15 +584,7 @@ void main() {
                 ),
             ],
           ),
-          for (final path in [
-            ScreenPaths.activities,
-            ScreenPaths.notice,
-            ScreenPaths.loggedUserProfile,
-            ScreenPaths.titleShop,
-            ScreenPaths.medalCenter,
-            ScreenPaths.bank,
-            ScreenPaths.login,
-          ])
+          for (final path in [ScreenPaths.login])
             GoRoute(
               path: path,
               name: path,
@@ -613,17 +605,8 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    List<String> labels() => [
-      tr.navigation.homepage,
-      tr.navigation.topics,
-      tr.navigation.activities,
-      tr.navigation.notice,
-      tr.navigation.profile,
-      tr.navigation.titleShop,
-      tr.navigation.medalCenter,
-      tr.navigation.bank,
-      tr.navigation.settings,
-    ];
+    // The four tabs since the navigation rework of 2026-10-23 (nine entries before).
+    List<String> labels() => [tr.navigation.homepage, tr.navigation.topics, tr.navigation.notice, tr.navigation.me];
 
     for (final scale in [1.0, 2.0]) {
       testWidgets('scrolled to the end at ${scale}x text: nothing under the status bar, every entry reachable', (
@@ -641,12 +624,14 @@ void main() {
         // Drag the rail as far as it goes, the way the tester did.
         await tester.drag(scroll, const Offset(0, -2000));
         await tester.pumpAndSettle();
-        final settings = tester.getRect(find.text(tr.navigation.settings));
+        final last = tester.getRect(find.text(tr.navigation.me));
         // The scroll ends with the last entry fully shown at the bottom: no empty room after it, no half clipped entry
-        // at the top edge (the height is measured, not estimated).
-        expect(settings.top, greaterThanOrEqualTo(24), reason: 'the last entry is not clipped by the top edge');
-        expect(settings.bottom, lessThanOrEqualTo(_landscape.height));
-        expect(settings.bottom, greaterThan(viewport.bottom - 48), reason: 'the scroll ends at the last entry');
+        // at the top edge (the height is measured, not estimated). Four entries may fit without scrolling.
+        expect(last.top, greaterThanOrEqualTo(24), reason: 'the last entry is not clipped by the top edge');
+        expect(last.bottom, lessThanOrEqualTo(_landscape.height));
+        if (Scrollable.of(tester.element(find.text(tr.navigation.me))).position.maxScrollExtent > 0) {
+          expect(last.bottom, greaterThan(viewport.bottom - 48), reason: 'the scroll ends at the last entry');
+        }
         // The status bar strip is the rail's own band, not a destination scrolled under it.
         final railX = tester.getRect(find.byType(NavigationRail)).center.dx;
         await tester.tapAt(Offset(railX, 12));
@@ -664,12 +649,12 @@ void main() {
         expect(tester.getRect(find.text(tr.navigation.homepage)).top, greaterThanOrEqualTo(24));
 
         // And they still work.
-        final bank = find.byIcon(Icons.account_balance_outlined);
-        await tester.dragUntilVisible(bank, scroll, const Offset(0, -60));
+        final me = find.byIcon(Icons.person_outline);
+        await tester.dragUntilVisible(me, scroll, const Offset(0, -60));
         await tester.pumpAndSettle();
-        await tester.tap(bank);
+        await tester.tap(me);
         await tester.pumpAndSettle();
-        expect(routerTopLocation(router), ScreenPaths.bank);
+        expect(routerTopLocation(router), ScreenPaths.me);
         expect(tester.takeException(), isNull);
       });
     }

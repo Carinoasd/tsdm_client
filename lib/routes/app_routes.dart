@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_detail_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
+import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
@@ -99,12 +100,11 @@ final router = GoRouter(
 
 /// All named routes in app.
 final List<RouteBase> _appRoutes = [
+  // The four tabs of the bottom navigation bar (phones) and of the side navigation (tablets and desktop), in the order
+  // of [HomeTab]: homepage, forums, notifications and "me". Every other page is opened above the shell.
   StatefulShellRoute(
-    builder: (context, router, navigator) {
-      final hideNavigationBarPages = [ScreenPaths.settingsThreadAppearance.fullPath];
-      // Partial global singleton page here.
-      return HomePage(showNavigationBar: !hideNavigationBarPages.contains(router.fullPath), child: navigator);
-    },
+    // Partial global singleton page here.
+    builder: (context, router, navigator) => HomePage(showNavigationBar: true, child: navigator),
     // Slide horizontally between the shell branches instead of switching instantly.
     navigatorContainerBuilder: (context, navigationShell, children) =>
         AnimatedBranchPageView(navigationShell: navigationShell, children: children),
@@ -116,22 +116,24 @@ final List<RouteBase> _appRoutes = [
         routes: [AppRoute(path: ScreenPaths.topic, builder: (_) => const TopicsPage())],
       ),
       StatefulShellBranch(
-        routes: [
-          AppRoute(
-            path: ScreenPaths.settings.path,
-            builder: (_) => const SettingsPage(),
-            routes: [
-              AppRoute(
-                path: ScreenPaths.settingsThreadAppearance.path,
-                builder: (_) => const SettingsThreadCardAppearancePage(),
-              ),
-            ],
-          ),
-        ],
+        routes: [AppRoute(path: ScreenPaths.notice, builder: (_) => const NotificationPage(asTab: true))],
+      ),
+      StatefulShellBranch(
+        routes: [AppRoute(path: ScreenPaths.me, builder: (_) => const MePage())],
       ),
     ],
   ),
-  AppRoute(path: ScreenPaths.rootSettings, builder: (_) => const SettingsPage()),
+  // The settings were the third tab; the "me" tab opens them now, as do the menus of the list pages.
+  AppRoute(
+    path: ScreenPaths.settings.path,
+    builder: (_) => const SettingsPage(),
+    routes: [
+      AppRoute(
+        path: ScreenPaths.settingsThreadAppearance.path,
+        builder: (_) => const SettingsThreadCardAppearancePage(),
+      ),
+    ],
+  ),
   AppRoute(
     path: ScreenPaths.loggedUserProfile,
     builder: (state) {
@@ -216,7 +218,7 @@ final List<RouteBase> _appRoutes = [
       return SearchPage(keyword: keyword, authorUid: authorUid, authorName: authorName, fid: fid, page: page);
     },
   ),
-  AppRoute(path: ScreenPaths.notice, builder: (_) => const NotificationPage()),
+  AppRoute(path: ScreenPaths.rootNotice, builder: (_) => const NotificationPage()),
   AppRoute(
     path: ScreenPaths.reply,
     builder: (state) {

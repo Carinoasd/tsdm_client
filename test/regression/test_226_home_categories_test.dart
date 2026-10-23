@@ -673,6 +673,7 @@ void main() {
       ('360dp', const Size(360, 780), 1.0),
       ('360dp, large text', const Size(360, 780), 1.3),
       ('320dp', const Size(320, 640), 1.0),
+      ('300dp, large text', const Size(300, 640), 1.3),
     ]) {
       testWidgets('$name: the app bar overflows nothing and keeps every entry reachable', (tester) async {
         await openHomepage(tester, size: size, scale: scale);
@@ -690,8 +691,10 @@ void main() {
         expect(inAppBar(find.byType(HeroUserAvatar)), findsOneWidget);
 
         final more = inAppBar(find.byKey(const ValueKey('homepage-app-bar-more')));
-        if (name == '360dp') {
-          expect(more, findsNothing, reason: 'five buttons fit a 360dp phone');
+        // The notifications are a tab of the navigation since 2026-10-23, the bar lost their button: four buttons fit
+        // down to a 320dp phone, and a 360dp one with large text.
+        if (name != '300dp, large text') {
+          expect(more, findsNothing, reason: 'four buttons fit');
           expect(inAppBar(find.byIcon(Icons.favorite_border)), findsOneWidget);
           expect(inAppBar(find.byIcon(Icons.catching_pokemon)), findsOneWidget);
           return;

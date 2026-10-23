@@ -16,11 +16,11 @@ import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
+import 'package:tsdm_client/features/homepage/widgets/guest_home.dart';
 import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
 import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart';
 import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
-import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
@@ -34,7 +34,6 @@ import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
-import 'package:tsdm_client/widgets/notice_button.dart';
 
 const _showFabOffset = 100;
 
@@ -132,7 +131,9 @@ class _HomepagePageState extends State<HomepagePage> {
   }
 
   Widget? _buildFloatingActionButton(BuildContext context, HomepageState state) {
-    if (state.status != HomepageStatus.success || !_fabVisible) {
+    // The page of a guest scrolls as well.
+    final scrolls = state.status == HomepageStatus.success || state.status == HomepageStatus.needLogin;
+    if (!scrolls || !_fabVisible) {
       return null;
     }
     return FloatingActionButton(
@@ -256,9 +257,64 @@ class _HomepagePageState extends State<HomepagePage> {
     );
   }
 
+  /// The homepage without an account: what a login adds (with the login), the support entry, the forums and the guide,
+  /// all of them public; arranged for [width] like the page of an account ([homeLayoutFor]).
+  Widget _buildGuestDashboard(BuildContext context, double width) {
+    final layout = homeLayoutFor(width, Theme.of(context).platform);
+    final login = HomeGuestCard(compact: layout == HomeLayout.compact);
+    const support = HomeSupportCard();
+    const forums = HomeForumEntriesCard();
+    const guide = GuideSection(key: ValueKey('homepage-guest-guide'));
+    final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
+    List<Widget> spaced(List<Widget> children) => [
+      for (final (i, child) in children.indexed) ...[if (i > 0) SizedBox(height: gap), child],
+    ];
+    if (layout != HomeLayout.wide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: spaced([login, support, forums, guide]),
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([login, forums, guide])),
+        ),
+        const SizedBox(width: 24),
+        const SizedBox(width: _railWidth, child: support),
+      ],
+    );
+  }
+
+  /// [_buildGuestDashboard] in the scroll view of the page, with its pull to refresh.
+  Widget _buildGuest(BuildContext context) => EasyRefresh.builder(
+    key: const ValueKey('guest'),
+    scrollController: _scrollController,
+    controller: _refreshController,
+    header: const MaterialHeader(),
+    onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
+    childBuilder: (context, physics) => LayoutBuilder(
+      builder: (context, constraints) => ListView(
+        physics: physics,
+        controller: _scrollController,
+        padding: edgeInsetsL12T12R12.add(context.safePadding()),
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+              child: _buildGuestDashboard(context, math.min(constraints.maxWidth - 24, _maxContentWidth)),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   /// Actions of the homepage app bar, [width] wide.
   ///
-  /// Search, the check-in of a failed load, the notice button and the account always stay in the bar. The pokemon
+  /// Search, the check-in of a failed load and the account always stay in the bar; the notifications are a tab of the
+  /// navigation, with their unread count, and have no button here any more. The pokemon
   /// centre, the activities of a failed load and the support entry go into a "more" menu, in this order, when the bar
   /// would leave its title too little room (a 320dp phone, large text); a 360dp phone keeps them all in the bar. The
   /// menu takes the place of at least two of them, otherwise it saves nothing.
@@ -289,7 +345,7 @@ class _HomepagePageState extends State<HomepagePage> {
     );
 
     final foldable = [if (username != null) pokemon, if (showDailyActionsInBar) activities, support];
-    final fixedCount = 1 + (username == null ? 0 : (showDailyActionsInBar ? 3 : 2));
+    final fixedCount = 1 + (username == null ? 0 : (showDailyActionsInBar ? 2 : 1));
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final slots = ((width - _appBarTitleRoom * textScale - _appBarEndGap) / _appBarActionWidth).floor();
     final missing = fixedCount + foldable.length - slots;
@@ -309,7 +365,6 @@ class _HomepagePageState extends State<HomepagePage> {
       ?button(support),
       if (username != null) ...[
         if (showDailyActionsInBar) const CheckinButton(enableSnackBar: true),
-        const NoticeButton(),
         ?button(pokemon),
         IconButton(
           icon: SizedBox(
@@ -432,11 +487,8 @@ class _HomepagePageState extends State<HomepagePage> {
                 onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
                 child: const CenteredCircularIndicator(),
               ),
-              HomepageStatus.needLogin => NeedLoginPage(
-                backUri: GoRouterState.of(context).uri,
-                needPop: true,
-                popCallback: (context) => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
-              ),
+              // What the forum shows to everyone instead of a login wall.
+              HomepageStatus.needLogin => _buildGuest(context),
               HomepageStatus.failure => buildRetryButton(
                 context,
                 () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),

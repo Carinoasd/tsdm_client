@@ -33,12 +33,19 @@ final class ForumPageData {
     required this.filterOrderList,
     required this.filterDatelineList,
     this.pollOfferUid,
+    this.postAllowed,
   });
 
   /// Account the page offered its own poll creation link to, null when not offered.
   ///
   /// Only a hint for the entry: the poll page validates the form and permission again.
   final int? pollOfferUid;
+
+  /// Whether the account the page was served to may post a thread in the forum, null when the page does not tell (the
+  /// web page shows its post button to everyone, a guest's answer says no for want of an account).
+  ///
+  /// Only a hint for the post button: the editor asks the forum for its form again.
+  final bool? postAllowed;
 
   /// Forum title.
   final String? title;

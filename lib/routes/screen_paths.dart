@@ -126,13 +126,13 @@ class ScreenPaths {
   static const String editUserProfile = '/editUserProfile';
 
   /// App settings page.
+  ///
+  /// A page opened above the home shell (from the "me" tab and the menus of the list pages); it was a tab of the shell
+  /// before the "me" tab took its place.
   static const settings = NestedPath._('/settings');
 
-  /// App settings page with root navigator key.
-  ///
-  /// Due to https://github.com/flutter/flutter/issues/140586 it's impossible to navigate to another page outside the
-  /// shell route, copy a root route level page as workaround.
-  static const rootSettings = '/rootSettings';
+  /// The "me" tab of the home shell: the account in use, its pages, the settings and about the app.
+  static const String me = '/me';
 
   /// Settings page for thread card appearance.
   static const settingsThreadAppearance = NestedPath._('threadAppearance', settings);
@@ -160,10 +160,17 @@ class ScreenPaths {
   /// is usually specified by the original source (in url).
   static const String threadV1 = '/thread/v1';
 
-  /// Notice page.
+  /// Notice page, the notifications tab of the home shell.
   ///
   /// Show all notice and private messages on current user.
   static const String notice = '/notice';
+
+  /// The notice page opened above a page on top of the home shell (a thread being read, a form): a notification tap or
+  /// the bell there pushes it, and back returns to that page. With the shell alone the [notice] tab is shown instead.
+  ///
+  /// A page of the home shell cannot be pushed (https://github.com/flutter/flutter/issues/140586): this is a copy of
+  /// the tab at the root level, the same page without the navigation bar.
+  static const String rootNotice = '/rootNotice';
 
   /// Search notice.
   static const String noticeSearch = '/noticeSearch';
