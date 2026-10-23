@@ -77,17 +77,17 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
       warning('ignore local notification with unknown payload: $payload');
       return;
     }
-    unawaited(_openNoticeOf(open.uid));
+    unawaited(_openNoticeOf(open.uid, target: LocalNoticeKeys.parseTarget(payload)));
   }
 
   /// Open the notice page as the account [uid] of the tapped notification, switching to it first when another one is
-  /// in use ([openNoticePageOfAccount]).
+  /// in use ([openNoticePageOfAccount]); the page of its [target] instead when it names one.
   ///
   /// Asks the router which page is really on top instead of the location stack, which drifted and refused taps on the
   /// homepage as "already in the notice page" (#14). Both answers stay in the log for the next report. A notice page
   /// already open under the pages on top is shown again instead of pushing another one (#117).
-  Future<void> _openNoticeOf(int? uid) async {
-    final (:step, :top, :action) = await openNoticePageOfAccount(context, uid: uid);
+  Future<void> _openNoticeOf(int? uid, {LocalNoticeTarget? target}) async {
+    final (:step, :top, :action) = await openNoticePageOfAccount(context, uid: uid, target: target);
     if (!mounted) {
       return;
     }

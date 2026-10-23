@@ -169,6 +169,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// cookie and poll, its notifications naming the account. Off: the current account only, as before.
   backgroundSyncAllAccounts<bool>(name: 'backgroundSyncAllAccounts', type: bool, defaultValue: false),
 
+  /// Keep the content out of the system notifications of the auto sync: only the counts, as before the notification
+  /// center showed who did what, and no expanded list of items.
+  notificationHideContent<bool>(name: 'notificationHideContent', type: bool, defaultValue: false),
+
   /// Enable operations for debugging.
   enableDebugOperations<bool>(name: 'enableDebugOperations', type: bool, defaultValue: false),
 

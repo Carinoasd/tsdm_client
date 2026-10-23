@@ -37,6 +37,28 @@ class Notice extends Table {
   /// Added in v14.
   IntColumn get authorId => integer().nullable()();
 
+  /// Name of the user who triggered the notice: the `author` of the forum's app API, or the name of the author's link
+  /// in the body on the notice page.
+  ///
+  /// Null when unknown, for system notices, or the notice was saved before v16.
+  ///
+  /// Added in v16.
+  TextColumn get author => text().nullable()();
+
+  /// The `from_id` of the forum's app API (a thread id for most post notices, the post id of a quote).
+  ///
+  /// Null when the notice was read from the notice page, which does not print it, or saved before v16.
+  ///
+  /// Added in v16.
+  IntColumn get fromId => integer().nullable()();
+
+  /// The `from_idtype` of the forum's app API (`post`, `quote`, `at`, `moderate_*`, `friendrequest`...).
+  ///
+  /// Null when the notice was read from the notice page, which does not print it, or saved before v16.
+  ///
+  /// Added in v16.
+  TextColumn get fromIdType => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {uid, nid};
 }

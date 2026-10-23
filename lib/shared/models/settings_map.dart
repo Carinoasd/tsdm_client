@@ -60,6 +60,7 @@ class SettingsMap with SettingsMapMappable {
     this.enableBackgroundMessageService = false,
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
+    this.notificationHideContent = false,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
     this.offlineThreads = false,
@@ -109,6 +110,10 @@ class SettingsMap with SettingsMapMappable {
 
   /// Whether the auto sync polls every saved account. Not required: backups from older versions lack it.
   final bool backgroundSyncAllAccounts;
+
+  /// Whether the system notifications only show the counts, no content. Not required: backups from older versions
+  /// lack it.
+  final bool notificationHideContent;
   final bool enableDebugOperations;
   final String fontFamily;
   final bool enableEditorBBCodeParser;
@@ -204,6 +209,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.autoSyncNoticeSeconds => copyWith(autoSyncNoticeSeconds: value as int?),
       SettingsKeys.enableBackgroundMessageService => copyWith(enableBackgroundMessageService: value as bool?),
       SettingsKeys.backgroundSyncAllAccounts => copyWith(backgroundSyncAllAccounts: value as bool?),
+      SettingsKeys.notificationHideContent => copyWith(notificationHideContent: value as bool?),
       SettingsKeys.enableDebugOperations => copyWith(enableDebugOperations: value as bool?),
       SettingsKeys.fontFamily => copyWith(fontFamily: value as String?),
       SettingsKeys.enableEditorBBCodeParser => copyWith(enableEditorBBCodeParser: value as bool?),
