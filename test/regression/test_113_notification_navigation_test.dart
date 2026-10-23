@@ -340,20 +340,33 @@ void main() {
       expect(routerTopLocation(router), ScreenPaths.homepage);
     });
 
-    testWidgets('the button stops on a page with an unsent reply under the notice page and says why', (tester) async {
+    testWidgets('the button asks before leaving a page with an unsent reply under the notice page (#235)', (
+      tester,
+    ) async {
       await pumpApp(tester);
       await push(tester, ScreenPaths.threadV1, tid: '5');
       _DraftPageState.drafts['thread 5'] = true;
       await tapNotification(tester);
       expect(stack().sublist(1), [ScreenPaths.threadV1, ScreenPaths.rootNotice]);
 
-      // The button's own page is closed on the way.
+      // Asked first; cancelled, nothing is closed.
       await tester.tap(find.byTooltip(tr.noticePage.appBar.backToHome));
       await tester.pumpAndSettle();
+      expect(find.text(tr.noticePage.appBar.backToHomeDraftTitle), findsOneWidget);
+      await tester.tap(find.text(tr.general.cancel));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(stack().sublist(1), [ScreenPaths.threadV1]);
-      expect(find.text('thread 5'), findsOneWidget);
-      expect(find.text(tr.noticePage.appBar.backToHomeStopped), findsOneWidget);
+      expect(stack().sublist(1), [ScreenPaths.threadV1, ScreenPaths.rootNotice]);
+
+      // Agreed: the page with the reply (kept as a local draft by its reply bar) is closed too, home shows.
+      await tester.tap(find.byTooltip(tr.noticePage.appBar.backToHome));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tr.general.ok));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(stack(), hasLength(1));
+      expect(routerTopLocation(router), ScreenPaths.homepage);
+      expect(find.text(tr.noticePage.appBar.backToHomeStopped), findsNothing);
     });
 
     testWidgets('the button on a page refusing to pop stays and shows the hint', (tester) async {

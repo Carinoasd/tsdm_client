@@ -260,7 +260,7 @@ class PostListState extends State<PostList> with LoggerMixin {
   /// estimates, so the post we just revealed drifts away (up to the top of the page once the offset gets clamped).
   /// The list's own `animateToItem` also aims at the item's raw offset, which lies past the end for the last post.
   ///
-  /// So: approach the post with the list's estimate, then for about two seconds re-align its card with the exact,
+  /// So: jump to the post with the list's offset of it, then for about two seconds re-align its card with the exact,
   /// range-clamped offset from the viewport every 100 ms. The hold ends as soon as the user touches the list.
   Future<void> _scrollToTarget() async {
     final key = _targetKey;
@@ -281,13 +281,10 @@ class PostListState extends State<PostList> with LoggerMixin {
     } else {
       return;
     }
-    controller.animateToItem(
-      index: index,
-      scrollController: _listScrollController,
-      alignment: 0,
-      duration: (_) => duration200,
-      curve: (_) => Curves.ease,
-    );
+    // A jump, not the list's `animateToItem`: its animation is nobody's to stop and kept ticking on a list already
+    // gone (the page left right after opening at a floor), throwing on every frame (GitHub #235). The hold below
+    // keeps the floor in place from here.
+    controller.jumpToItem(index: index, scrollController: _listScrollController, alignment: 0);
     _holdCorrections = 0;
     _holdTimer?.cancel();
     var ticks = 0;

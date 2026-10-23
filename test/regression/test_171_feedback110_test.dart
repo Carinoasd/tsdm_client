@@ -827,8 +827,9 @@ void main() {
       expect(isThreadClosedForReply(parseHtmlDocument(_threadPage)), isFalse);
     });
 
-    // The three hosts of the bar, with what they show above it. Chat and thread keep their height when the keyboard
-    // shows (`resizeToAvoidBottomInset: false`, the editor panel handles it); the notice detail resizes.
+    // The three hosts of the bar, with what they show above it. They keep their height when the keyboard shows
+    // (`resizeToAvoidBottomInset: false`, the editor panel handles it); the notice detail resized too until GitHub
+    // #235, which lifted its editor twice the keyboard's height.
     final hosts = <(String, Widget Function(), Finder Function(), bool)>[
       ('chat', () => const ChatPage(username: 'Bob', uid: '1000'), () => find.byType(ChatMessageCard), false),
       (
@@ -850,7 +851,7 @@ void main() {
           noticeType: NoticeType.reply,
         ),
         () => find.byType(PostCard),
-        true,
+        false,
       ),
     ];
 
@@ -932,7 +933,7 @@ void main() {
           await pumpPage(tester, page());
           final bar = tester.getRect(background());
           expect((bar.left, bar.right), (0, size.width));
-          // The notice detail stands the bar on the keyboard; chat and thread leave the room to the editor panel.
+          // No host stands the bar on the keyboard: they leave the room to the editor panel.
           expect(bar.bottom, resizes ? size.height - keyboard : size.height);
           final box = tester.getRect(field());
           // The keyboard covers the gesture bar: under the field only the bar's own 8 and the minimum 4 are left.

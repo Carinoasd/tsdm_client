@@ -161,12 +161,26 @@ abstract final class TsdmAppApi {
     Map<String, String> query = const {},
   ]) => _ask(client, action, query, waitBusy: true, tries: 3);
 
+  /// [ask], and an answer "too soon" of at most [maxWait] seconds is waited for and asked once more; a longer wait or
+  /// a second "too soon" gives null, as [ask] does.
+  ///
+  /// For the notification poll (GitHub #235): the background service and the page poll the same account at the same
+  /// moment (app start, an account switch), the second one was answered 429 and read the three notification pages
+  /// instead, three requests heavier than waiting a second for the plugin.
+  static Future<Map<String, dynamic>?> askWaitingBriefly(
+    NetClientProvider client,
+    String action, [
+    Map<String, String> query = const {},
+    int maxWait = 2,
+  ]) => _ask(client, action, query, waitBusy: true, tries: 2, maxWait: maxWait);
+
   static Future<Map<String, dynamic>?> _ask(
     NetClientProvider client,
     String action,
     Map<String, String> query, {
     required bool waitBusy,
     required int tries,
+    int maxWait = 10,
   }) async {
     if (knownUnavailable) {
       return null;
@@ -187,13 +201,14 @@ abstract final class TsdmAppApi {
           json = null;
         }
         final wait = json is Map ? (json['retry_after'] as num?)?.toInt() ?? 3 : 3;
-        if (wait > 10) {
+        if (wait > maxWait) {
+          talker.debug('tsdmapp api $action busy for ${wait}s, not waited');
           return null;
         }
         await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
         // Another page or poller of the account may take the action again meanwhile: a few more waits, never the web
         // page of a plugin the parsers may not know any more.
-        return _ask(client, action, query, waitBusy: tries > 2, tries: tries - 1);
+        return _ask(client, action, query, waitBusy: tries > 2, tries: tries - 1, maxWait: maxWait);
       }
     }
     switch (result) {

@@ -5,6 +5,7 @@ import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/utils/draft_text.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -148,6 +149,11 @@ final class LocalDraftStore with LoggerMixin {
           for (final MapEntry(:key, :value) in (saved['drafts'] as Map<String, dynamic>).entries) {
             final draftKey = LocalDraftKey.parse(key);
             final draft = draftKey == null ? null : LocalDraft.fromJson(draftKey, value);
+            if (draft != null && isReplyBoxHint(draft.body)) {
+              // The hint of a closed thread written as a draft by 1.47.0 (GitHub #235): no draft.
+              debug('local drafts: dropped the reply box hint kept as the draft ${draftKey!.value}');
+              continue;
+            }
             if (draft != null) {
               drafts[key] = draft;
             }
@@ -210,7 +216,8 @@ final class LocalDraftStore with LoggerMixin {
 
   /// Keep [draft] as the draft of [uid] for its key, replacing the one there.
   void save(int uid, LocalDraft draft) {
-    if (!_writable(uid)) {
+    // The hint the reply box shows instead of a reply is never a draft (GitHub #235).
+    if (!_writable(uid) || isReplyBoxHint(draft.body)) {
       return;
     }
     unawaited(
