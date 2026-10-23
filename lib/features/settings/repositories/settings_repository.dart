@@ -168,6 +168,7 @@ final class SettingsRepository with LoggerMixin {
       enableAppPostRenderer: s.extract(_SK.enableAppPostRenderer),
       homepagePinnedGroup: s.extract(_SK.homepagePinnedGroup),
       notificationPermissionPrompted: s.extract(_SK.notificationPermissionPrompted),
+      postImageAutoLoad: s.extract(_SK.postImageAutoLoad),
     );
   }
 

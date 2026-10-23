@@ -21,7 +21,7 @@ import 'package:tsdm_client/features/friend/view/friend_page.dart';
 import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
-import 'package:tsdm_client/features/image/view/image_detail_page.dart';
+import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -437,13 +437,7 @@ final List<RouteBase> _appRoutes = [
       return ChatHistoryPage(uid: uid);
     },
   ),
-  AppRoute(
-    path: ScreenPaths.imageDetail,
-    builder: (state) {
-      final imageUrl = state.pathParameters['imageUrl']!;
-      return ImageDetailPage(imageUrl);
-    },
-  ),
+  ImageGalleryRoute(),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),
   AppRoute(path: ScreenPaths.autoCheckinDetail, builder: (_) => const AutoCheckinPage()),
   AppRoute(path: ScreenPaths.debugLog, builder: (_) => const DebugLogPage()),

@@ -10,6 +10,8 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/image/models/gallery_image.dart';
+import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -461,6 +463,9 @@ final class _Muncher with LoggerMixin {
 
   /// Number of headings the node being munched is in.
   int _headingDepth = 0;
+
+  /// Pictures of the post munched so far: the place of the next one in the floor's gallery ([PostImage.order]).
+  int _imageOrder = 0;
 
   //////// Configs ////////
   bool parseLockedWithPurchase;
@@ -1481,15 +1486,56 @@ final class _Muncher with LoggerMixin {
       ];
     }
 
-    final Widget image = GestureDetector(
-      onTap: () async => showImageActionBottomSheet(context: context, imageUrl: url, hrefUrl: hrefUrl),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: imgWidth ?? double.infinity, maxHeight: imgHeight ?? double.infinity),
-        child: NetworkIndicatorImage(url),
-      ),
-    );
+    final Widget image;
+    if (element.attributes.containsKey('smilieid') ||
+        isForumStaticImage(url) ||
+        isSmallImage(width: imgWidth, height: imgHeight)) {
+      // A smiley or an icon: not a picture of the post, the image sheet as before (save it as a sticker).
+      image = GestureDetector(
+        onTap: () async => showImageActionBottomSheet(context: context, imageUrl: url, hrefUrl: hrefUrl),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: imgWidth ?? double.infinity, maxHeight: imgHeight ?? double.infinity),
+          child: NetworkIndicatorImage(url),
+        ),
+      );
+    } else {
+      image = PostImage(
+        _galleryImageOf(element, url, hrefUrl),
+        order: _imageOrder++,
+        declaredWidth: imgWidth,
+        declaredHeight: imgHeight,
+      );
+    }
     // A table narrowed to the screen keeps it at least a thumbnail (see [PostTableImage]).
     return [WidgetSpan(child: state.tableDepth > 0 ? PostTableImage(child: image) : image)];
+  }
+
+  /// The picture [element] shows ([url]), in a link to [hrefUrl]: an attachment of the floor ([PostImageScope], by its
+  /// `aid`) with its size, and the thumbnail the forum made of it, which the floor shows (the gallery shows [url]).
+  GalleryImage _galleryImageOf(uh.Element element, String url, String? hrefUrl) {
+    final aid = element.attributes['aid']?.parseToInt();
+    final attachment = aid == null ? null : PostImageScope.find(context)?.images.attachmentOf(aid);
+    String? thumbnail;
+    if (attachment != null && attachment.thumb.isNotEmpty) {
+      thumbnail = attachment.thumb;
+    } else {
+      // The page has `file` at the thumbnail and `zoomfile` at the attachment itself when the forum made one.
+      final file = element.attributes['file']?.trim();
+      if (file != null && file.contains('.thumb.') && element.attributes.containsKey('zoomfile')) {
+        thumbnail = file.prependHost();
+      }
+    }
+    final width = attachment?.width ?? 0;
+    final height = attachment?.height ?? 0;
+    final fileSize = attachment?.filesize ?? 0;
+    return GalleryImage(
+      url,
+      floorUrl: thumbnail == url ? null : thumbnail,
+      width: width > 0 ? width : null,
+      height: height > 0 ? height : null,
+      fileSize: fileSize > 0 ? fileSize : null,
+      linkUrl: hrefUrl,
+    );
   }
 
   /// `<font>`: the color, the font and the size of its attributes; its `style` ([_styled]) over them. Of its `face`,

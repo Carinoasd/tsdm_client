@@ -171,6 +171,9 @@ final class ImageCacheProvider with LoggerMixin {
   /// Use this list to avoid duplicate requests.
   final List<String> _loadingImages = [];
 
+  /// Who is told the progress of the images downloading now, by url (`onProgress` of [getOrMakeCache]).
+  final _progressListeners = <String, Set<ImageLoadProgress>>{};
+
   /// Dispose the repository.
   Future<void> dispose() async {
     await _controller.close();
@@ -209,7 +212,16 @@ final class ImageCacheProvider with LoggerMixin {
   /// Get the cache image data related to [req].
   ///
   /// Only return the image data.
-  Future<Option<Uint8List>> getOrMakeCache(ImageCacheRequest req, {bool force = false}) async {
+  ///
+  /// [cacheOnly]: only what is cached already, nothing is fetched (a picture of a post loaded when tapped, to save
+  /// data). [onProgress] is told how much of the image arrived while it downloads, also when it waits for another
+  /// request downloading the same image.
+  Future<Option<Uint8List>> getOrMakeCache(
+    ImageCacheRequest req, {
+    bool force = false,
+    bool cacheOnly = false,
+    ImageLoadProgress? onProgress,
+  }) async {
     final respType = switch (req) {
       ImageCacheGeneralRequest() => ImageCacheResponseType.general,
       ImageCacheUserAvatarRequest() => ImageCacheResponseType.userAvatar,
@@ -257,6 +269,9 @@ final class ImageCacheProvider with LoggerMixin {
         }
       }
     }
+    if (cacheOnly) {
+      return const Option.none();
+    }
     if (imageUrl.isEmpty) {
       return const Option.none();
     }
@@ -277,22 +292,41 @@ final class ImageCacheProvider with LoggerMixin {
 
     if (_loadingImages.contains(imageUrl)) {
       // If already loading, do nothing.
-      final x = await response.firstWhere(
-        (e) => e.imageId == imageUrl && (e is ImageCacheSuccessResponse || e is ImageCacheFailedResponse),
-      );
-      return switch (x) {
-        ImageCacheSuccessResponse(:final imageData) => Option.of(imageData),
-        ImageCacheFailedResponse() => const Option.none(),
-        final _ => const Option.none(),
-      };
+      if (onProgress != null) {
+        (_progressListeners[imageUrl] ??= {}).add(onProgress);
+      }
+      try {
+        final x = await response.firstWhere(
+          (e) => e.imageId == imageUrl && (e is ImageCacheSuccessResponse || e is ImageCacheFailedResponse),
+        );
+        return switch (x) {
+          ImageCacheSuccessResponse(:final imageData) => Option.of(imageData),
+          ImageCacheFailedResponse() => const Option.none(),
+          final _ => const Option.none(),
+        };
+      } finally {
+        _progressListeners[imageUrl]?.remove(onProgress);
+      }
     }
 
     // Enter loading state.
     _loadingImages.add(imageUrl);
+    if (onProgress != null) {
+      (_progressListeners[imageUrl] ??= {}).add(onProgress);
+    }
     _controller.add(ImageCacheLoadingResponse(imageId, respType));
 
     try {
-      final respEither = await _netClientProvider.getImage(imageUrl).run();
+      final respEither = await _netClientProvider
+          .getImage(
+            imageUrl,
+            onReceiveProgress: (received, total) {
+              for (final listener in [...?_progressListeners[imageUrl]]) {
+                listener(received, total > 0 ? total : null);
+              }
+            },
+          )
+          .run();
       if (respEither.isLeft()) {
         final err = respEither.unwrapErr();
         if (err is ImageResponseNotImageException) {
@@ -379,6 +413,7 @@ final class ImageCacheProvider with LoggerMixin {
     } finally {
       // Leave loading state.
       _loadingImages.remove(imageUrl);
+      _progressListeners.remove(imageUrl);
     }
   }
 

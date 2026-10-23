@@ -214,26 +214,33 @@ final class NetClientProvider with LoggerMixin {
       AsyncEither.tryCatch(() async => _dio.getUri<dynamic>(uri), mapException);
 
   /// Make a GET request to [path], with options set to image types.
-  AsyncEither<Response<dynamic>> getImage(String path, {Map<String, dynamic>? queryParameters}) =>
-      AsyncEither.tryCatch(() async {
-        final resp = await _dio.get<dynamic>(
-          path,
-          queryParameters: queryParameters,
-          options: Options(
-            responseType: ResponseType.bytes,
-            headers: {
-              HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
-              HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
-            },
-          ),
-        );
+  ///
+  /// [onReceiveProgress] is told the bytes received so far and the size of the answer (-1 when unknown) while it
+  /// downloads, for the progress of an image being loaded.
+  AsyncEither<Response<dynamic>> getImage(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    ProgressCallback? onReceiveProgress,
+  }) => AsyncEither.tryCatch(() async {
+    final resp = await _dio.get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      onReceiveProgress: onReceiveProgress,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {
+          HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
+          HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
+        },
+      ),
+    );
 
-        if (resp.statusCode != HttpStatus.ok) {
-          throw HttpRequestFailedException(resp.statusCode);
-        }
-        _ensureImageBody(resp);
-        return resp;
-      }, mapException);
+    if (resp.statusCode != HttpStatus.ok) {
+      throw HttpRequestFailedException(resp.statusCode);
+    }
+    _ensureImageBody(resp);
+    return resp;
+  }, mapException);
 
   /// Get a image from the given [uri].
   AsyncEither<Response<dynamic>> getImageFromUri(Uri uri) => AsyncEither.tryCatch(() async {

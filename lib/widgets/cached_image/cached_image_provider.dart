@@ -30,6 +30,7 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
     this.maxHeight,
     this.fallbackImageUrl,
     this.usage = const ImageUsageInfoOther(),
+    this.cacheOnly = false,
   });
 
   /// Url of image.
@@ -50,6 +51,10 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
   /// Usage of the image.
   final ImageUsageInfo usage;
 
+  /// Only show the image when it is cached already, never fetch it (a picture of a post loaded when tapped): fails
+  /// otherwise.
+  final bool cacheOnly;
+
   /// Get the image url.
   String get url => imageUrl;
 
@@ -59,7 +64,7 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
       ImageUsageInfoUserAvatar(:final username) => ImageCacheUserAvatarRequest(username: username, imageUrl: imageUrl),
     };
 
-    return getIt.get<ImageCacheProvider>().getOrMakeCache(req);
+    return getIt.get<ImageCacheProvider>().getOrMakeCache(req, cacheOnly: cacheOnly);
   }
 
   @override
@@ -98,7 +103,16 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
         return await ui.instantiateImageCodecFromBuffer(await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath));
       }
       final f = switch (usage) {
-        ImageUsageInfoOther() => getIt.get<ImageCacheProvider>().getOrMakeCache(ImageCacheGeneralRequest(imageUrl)),
+        ImageUsageInfoOther() => getIt.get<ImageCacheProvider>().getOrMakeCache(
+          ImageCacheGeneralRequest(imageUrl),
+          cacheOnly: cacheOnly,
+          // How much arrived, for the progress the image shows while it downloads.
+          onProgress: (received, total) {
+            if (!chunkEvents.isClosed) {
+              chunkEvents.add(ImageChunkEvent(cumulativeBytesLoaded: received, expectedTotalBytes: total));
+            }
+          },
+        ),
         ImageUsageInfoUserAvatar(:final username) => getIt.get<ImageCacheProvider>().getUserAvatarCache(
           username: username,
           imageUrl: imageUrl,
@@ -116,7 +130,9 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
               await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath),
             );
           } else {
-            return Future.error('failed to load image for $imageUrl');
+            // Thrown, not returned: a future returned before the `finally` below ran had no listener yet, and its
+            // error went to the zone as uncaught.
+            throw StateError('failed to load image for $imageUrl');
           }
       }
     } catch (e) {
@@ -128,7 +144,7 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
       // });
       // FIXME: Handle all exceptions.
       // error('CachedImageProvider caught error: $e');
-      return Future.error('failed to render image: $e');
+      throw StateError('failed to render image: $e');
     } finally {
       await chunkEvents.close();
     }
@@ -139,14 +155,18 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is CachedImageProvider && other.imageUrl == imageUrl && other.usage == usage && other.scale == scale;
+    return other is CachedImageProvider &&
+        other.imageUrl == imageUrl &&
+        other.usage == usage &&
+        other.scale == scale &&
+        other.cacheOnly == cacheOnly;
   }
 
   @override
-  int get hashCode => Object.hash(imageUrl, usage, scale);
+  int get hashCode => Object.hash(imageUrl, usage, scale, cacheOnly);
 
   @override
   String toString() =>
       '${objectRuntimeType(this, 'CachedImageProvider')}'
-      '("$url", scale: $scale, usage: $usage)';
+      '("$url", scale: $scale, usage: $usage${cacheOnly ? ', cache only' : ''})';
 }

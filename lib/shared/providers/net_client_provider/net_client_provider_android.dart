@@ -46,17 +46,64 @@ abstract class _AndroidHttpMethodChannel {
   static const _methodPostMultipart = 'postMultipart';
   static const _methodPostJson = 'postJson';
 
+  /// Called from Kotlin while a GET that carried a `progressId` downloads: `id`, `received` and `total` (-1 when the
+  /// server did not tell the size).
+  static const _methodProgress = 'progress';
+
+  /// Who is told the progress of the GETs downloading now, by the id sent with them.
+  static final _progressListeners = <int, ProgressCallback>{};
+
+  static int _nextProgressId = 0;
+
+  static bool _progressHandlerSet = false;
+
+  /// Take the progress Kotlin reports ([_methodProgress]) from now on.
+  static void _ensureProgressHandler() {
+    if (_progressHandlerSet) {
+      return;
+    }
+    _progressHandlerSet = true;
+    _httpChannel.setMethodCallHandler((call) async => _handleProgressCall(call));
+  }
+
+  /// Hand a progress report of Kotlin ([call]) to the listener of its request; a report of a request already done is
+  /// dropped.
+  static void _handleProgressCall(MethodCall call) {
+    if (call.method != _methodProgress || call.arguments is! Map<Object?, Object?>) {
+      return;
+    }
+    final args = call.arguments as Map<Object?, Object?>;
+    final id = args['id'];
+    final received = args['received'];
+    final total = args['total'];
+    if (id is! int || received is! int) {
+      return;
+    }
+    _progressListeners[id]?.call(received, total is int ? total : -1);
+  }
+
   /// Make a GET request.
+  ///
+  /// [onProgress] is told how much of the body arrived while it downloads (an image showing its progress); Kotlin then
+  /// reads the body in pieces.
   static Future<_KotlinHttpResponse?> _get({
     required String url,
     required Map<String, String> headers,
     bool singleAttempt = false,
+    ProgressCallback? onProgress,
   }) async {
+    int? progressId;
+    if (onProgress != null) {
+      _ensureProgressHandler();
+      progressId = _nextProgressId++;
+      _progressListeners[progressId] = onProgress;
+    }
     try {
       final resp = await _httpChannel.invokeMethod<Map<Object?, Object?>>(_methodGet, {
         'url': url,
         'headers': headers,
         'singleAttempt': singleAttempt,
+        'progressId': ?progressId,
       });
       if (resp == null) {
         return null;
@@ -71,6 +118,10 @@ abstract class _AndroidHttpMethodChannel {
         throw unreachable;
       }
       return null;
+    } finally {
+      if (progressId != null) {
+        _progressListeners.remove(progressId);
+      }
     }
   }
 
@@ -209,7 +260,12 @@ final class KotlinHttpClient {
 
   final bool _android;
 
-  Future<_KotlinHttpResponse> _get(Uri url, {Map<String, String>? headers, bool singleAttempt = false}) async {
+  Future<_KotlinHttpResponse> _get(
+    Uri url, {
+    Map<String, String>? headers,
+    bool singleAttempt = false,
+    ProgressCallback? onProgress,
+  }) async {
     if (!_android) {
       throw http.ClientException('Only available on Android');
     }
@@ -217,6 +273,7 @@ final class KotlinHttpClient {
       url: url.toString(),
       headers: headers ?? {},
       singleAttempt: singleAttempt,
+      onProgress: onProgress,
     );
     if (rawResp == null) {
       throw http.ClientException('null raw response');
@@ -295,6 +352,8 @@ class KotlinHttpClientAdapter implements HttpClientAdapter {
         headers: Map.from(options.headers.filter((v) => v is String))
           ..removeWhere((k, v) => k.toLowerCase() == HttpHeaders.acceptEncodingHeader),
         singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
+        // The body arrives here at once, dio would only tell its progress at the end: Kotlin tells it while it loads.
+        onProgress: options.onReceiveProgress,
       ),
       'POST' => _client._post(
         options.uri,

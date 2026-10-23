@@ -111,7 +111,8 @@ void main() {
     await pump(tester, html, 320);
     final links = parseHtmlDocument(html).querySelectorAll('a').map((e) => e.attributes['href']!).toList();
     for (var i = 0; i < 3; i++) {
-      await tester.tapAt(rect(tester, i).center);
+      // A tap opens the slice's link (a picture in a link to a page), a long press its image sheet with both.
+      await tester.longPressAt(rect(tester, i).center);
       await tester.pumpAndSettle();
       expect(find.text(urls[i]), findsOneWidget);
       expect(find.text(links[i]), findsOneWidget);
