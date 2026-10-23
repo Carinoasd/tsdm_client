@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -203,6 +204,9 @@ class _SummarySurface extends StatelessWidget {
 enum _AccountState { running, waiting, done, failed }
 
 /// One account in the sync: avatar letter, name and uid, state icon and the message of its state or result.
+///
+/// A tap opens the notice page as that account, switching to it first when another one is in use, the same way as a
+/// tap on the system notification of that account ([openNoticePageOfAccount]).
 class _AccountSurface extends StatelessWidget {
   const _AccountSurface(this.userInfo, this.message, {required this.state});
 
@@ -224,8 +228,11 @@ class _AccountSurface extends StatelessWidget {
       _AccountState.done => Icon(Icons.check_circle_outline, size: 20, color: colorScheme.primary),
       _AccountState.failed => Icon(Icons.error_outline, size: 20, color: colorScheme.error),
     };
+    final uid = userInfo.uid;
     return AppSurface(
+      key: ValueKey('sync-all-account-$uid'),
       color: failed ? colorScheme.errorContainer : null,
+      onTap: uid == null || uid <= 0 ? null : () async => openNoticePageOfAccount(context, uid: uid),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -255,6 +262,14 @@ class _AccountSurface extends StatelessWidget {
               ),
               sizedBoxW8H8,
               stateIcon,
+              if (uid != null && uid > 0)
+                Tooltip(
+                  message: context.t.noticePage.syncAllPage.user.open,
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: failed ? colorScheme.onErrorContainer : colorScheme.outline,
+                  ),
+                ),
             ],
           ),
           sizedBoxW8H8,
