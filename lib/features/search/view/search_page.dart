@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +15,9 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
 
 /// Page of search, including a form to fill search parameters and search
 /// results.
@@ -471,8 +472,9 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
           // A failure is no empty result: say why, and how long the forum wants to wait when it limits searches.
           resultSliver = SliverFillRemaining(
             hasScrollBody: false,
-            child: SearchFailureView(
-              state: state,
+            child: FailureView(
+              failure: state.failure,
+              scrollable: false,
               onRetry: () => context.read<SearchBloc>().add(const SearchRetryRequested()),
             ),
           );
@@ -487,20 +489,38 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             ),
           );
         } else if (results == null || results.isEmpty) {
+          // Nothing found, and what to try: other words, or the search without its author or forum limit.
+          final limited = state.uid != '0' || state.authorName.isNotEmpty || state.fid != '0';
           resultSliver = SliverFillRemaining(
             hasScrollBody: false,
             child: AppStateView(
               icon: Icons.search_off_outlined,
               message: context.t.searchPage.result.noData,
+              detail: limited ? context.t.searchPage.result.noDataFiltered : context.t.searchPage.result.noDataHint,
               scrollable: false,
             ),
           );
         } else {
+          final result = state.searchResult!;
+          final bloc = context.read<SearchBloc>();
           resultSliver = SliverPadding(
             padding: side.copyWith(bottom: 12).add(context.safePadding()),
+            // The end of the results is their last item: built when it comes near, it appends the next page.
             sliver: SliverList.separated(
-              itemCount: results.length,
-              itemBuilder: (context, index) => SearchedThreadCard(results[index]),
+              itemCount: results.length + 1,
+              itemBuilder: (context, index) => index < results.length
+                  ? SearchedThreadCard(results[index])
+                  : ListFooter(
+                      status: listFooterStatus(
+                        hasMore: result.currentPage < result.totalPages,
+                        loading: state.loadingMore,
+                        failed: state.loadMoreFailed,
+                      ),
+                      itemCount: results.length,
+                      failure: state.failure,
+                      onLoadMore: () => bloc.add(const SearchLoadMoreRequested()),
+                      onRetry: () => bloc.add(const SearchLoadMoreRequested()),
+                    ),
               separatorBuilder: (context, index) => appListSeparator,
             ),
           );
@@ -563,99 +583,6 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             body: SafeArea(bottom: false, child: _buildBody(context, state)),
           );
         },
-      ),
-    );
-  }
-}
-
-/// The failure of the last search ([SearchStatus.failed]): the forum's reason, or the network; when the forum allows
-/// one search in so many seconds ([SearchState.retryAfterSeconds]), that limit and a countdown before the retry.
-class SearchFailureView extends StatefulWidget {
-  /// Constructor.
-  const SearchFailureView({required this.state, required this.onRetry, super.key});
-
-  /// The failed search.
-  final SearchState state;
-
-  /// Ask the search again.
-  final VoidCallback onRetry;
-
-  @override
-  State<SearchFailureView> createState() => _SearchFailureViewState();
-}
-
-class _SearchFailureViewState extends State<SearchFailureView> {
-  Timer? _timer;
-
-  /// Seconds left before the forum takes a search again, 0 when it does (or sets no limit). Counted down once a
-  /// second from the time the search failed.
-  int _remaining = 0;
-
-  void _startCountdown() {
-    _timer?.cancel();
-    final wait = widget.state.retryAfterSeconds;
-    final failedAt = widget.state.failedAt;
-    _remaining = wait == null || failedAt == null
-        ? 0
-        : math.max(0, wait - DateTime.now().difference(failedAt).inSeconds);
-    if (_remaining <= 0) {
-      return;
-    }
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() => _remaining = math.max(0, _remaining - 1));
-      if (_remaining <= 0) {
-        timer.cancel();
-      }
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _startCountdown();
-  }
-
-  @override
-  void didUpdateWidget(SearchFailureView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.state.failedAt != widget.state.failedAt) {
-      _startCountdown();
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = context.t.searchPage.result;
-    final wait = widget.state.retryAfterSeconds;
-    final reason = widget.state.failedMessage;
-    final remaining = _remaining;
-    final String message;
-    if (wait != null) {
-      message = tr.rateLimited(seconds: wait);
-    } else if (reason != null && reason.isNotEmpty) {
-      message = tr.failed(message: reason);
-    } else {
-      message = context.t.general.failedToLoad;
-    }
-    return AppStateView(
-      icon: wait != null ? Icons.hourglass_top_outlined : Icons.error_outline,
-      error: wait == null,
-      message: message,
-      scrollable: false,
-      action: FilledButton.tonal(
-        key: const ValueKey('search-retry'),
-        onPressed: remaining > 0 ? null : widget.onRetry,
-        child: Text(remaining > 0 ? tr.retryIn(seconds: remaining) : tr.retry),
       ),
     );
   }

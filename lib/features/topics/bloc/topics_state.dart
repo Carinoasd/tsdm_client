@@ -32,7 +32,13 @@ enum TopicsStatus {
 @MappableClass()
 final class TopicsState with TopicsStateMappable {
   /// Constructor.
-  const TopicsState({this.status = TopicsStatus.initial, this.topicsTab = 0, this.forumGroupList = const []});
+  const TopicsState({
+    this.status = TopicsStatus.initial,
+    this.topicsTab = 0,
+    this.forumGroupList = const [],
+    this.refreshing = false,
+    this.failure,
+  });
 
   /// Status.
   final TopicsStatus status;
@@ -42,4 +48,11 @@ final class TopicsState with TopicsStateMappable {
 
   /// All forums to show.
   final List<ForumGroup> forumGroupList;
+
+  /// A refresh the user asked for is on its way while the groups loaded stay on screen; they stay when it fails.
+  final bool refreshing;
+
+  /// Why the last load failed ([TopicsStatus.failed]), or the refresh that kept the groups shown; null once a load
+  /// succeeded.
+  final LoadFailure? failure;
 }

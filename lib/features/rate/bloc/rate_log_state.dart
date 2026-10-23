@@ -23,10 +23,14 @@ final class RateLogState with RateLogStateMappable {
     this.status = RateLogStatus.initial,
     this.accumulatedLogItems = const [],
     this.logItems = const [],
+    this.failure,
   });
 
   /// Current status.
   final RateLogStatus status;
+
+  /// Why the log failed to load ([RateLogStatus.failure]).
+  final LoadFailure? failure;
 
   /// All fetched rate log.
   final List<RateLogItem> logItems;

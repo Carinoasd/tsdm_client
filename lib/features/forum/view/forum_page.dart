@@ -22,17 +22,16 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
-import 'package:tsdm_client/widgets/card/error_card.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/list_app_bar/list_app_bar.dart';
-import 'package:tsdm_client/widgets/load_more_failed_footer.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
+import 'package:tsdm_client/widgets/list_skeleton.dart';
 import 'package:tsdm_client/widgets/post_layout_html.dart';
 
 const _tabsCount = 3;
@@ -78,7 +77,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   final _threadScrollController = ScrollController();
 
   /// Controller of the [EasyRefresh] in thread tab.
-  final _threadRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
+  ///
+  /// The next page is asked by the end of the list ([ListFooter]), the controller only finishes the pull to refresh.
+  final _threadRefreshController = EasyRefreshController(controlFinishRefresh: true);
 
   /// Controller of current tab: thread, subreddit.
   late TabController tabController;
@@ -290,14 +291,44 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 
   Widget _buildNormalThreadTab(BuildContext context, List<NormalThread> normalThreadList, ForumState state) {
+    Future<void> refresh() async {
+      if (!mounted) {
+        return;
+      }
+      context.read<ForumBloc>().add(ForumRefreshRequested());
+    }
+
     // Use _haveNoThread to ensure we parsed the web page and there really
     // no thread in the forum.
     if (normalThreadList.isEmpty) {
-      final emptyContentHint = AppStateView(
-        icon: Icons.forum_outlined,
-        message: context.t.forumPage.threadTab.noThread,
+      final filtering = state.filterState.isFiltering();
+      final tr = context.t.forumPage.threadTab;
+      // "Nothing here" and "nothing left by the filters" are told apart: the latter offers to clear the filters.
+      final emptyContentHint = EasyRefresh.builder(
+        scrollBehaviorBuilder: (physics) => ERScrollBehavior(physics).copyWith(physics: physics, scrollbars: false),
+        header: const MaterialHeader(),
+        controller: _threadRefreshController,
+        onRefresh: refresh,
+        childBuilder: (context, physics) => AppScrollableStateView(
+          physics: physics,
+          child: AppStateView(
+            key: ValueKey(filtering ? 'forum-empty-filtered' : 'forum-empty'),
+            icon: filtering ? Icons.filter_alt_off_outlined : Icons.forum_outlined,
+            message: filtering ? tr.noFilteredThread : tr.noThread,
+            scrollable: false,
+            action: filtering
+                ? FilledButton.tonalIcon(
+                    icon: const Icon(Icons.filter_alt_off_outlined),
+                    label: Text(tr.clearFilter),
+                    onPressed: () => context.read<ForumBloc>().add(
+                      const ForumChangeThreadFilterStateRequested(FilterState()),
+                    ),
+                  )
+                : null,
+          ),
+        ),
       );
-      if (state.filterState.isFiltering()) {
+      if (filtering) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -309,34 +340,13 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return emptyContentHint;
     }
 
-    _threadRefreshController.finishLoad();
-
+    final bloc = context.read<ForumBloc>();
     return EasyRefresh.builder(
       scrollBehaviorBuilder: (physics) => ERScrollBehavior(physics).copyWith(physics: physics, scrollbars: false),
       header: const MaterialHeader(),
-      footer: const MaterialFooter(),
       controller: _threadRefreshController,
       scrollController: _threadScrollController,
-      onRefresh: () async {
-        if (!mounted) {
-          return;
-        }
-        context.read<ForumBloc>().add(ForumRefreshRequested());
-      },
-      onLoad: () async {
-        if (!mounted) {
-          return;
-        }
-        if (state.currentPage >= state.totalPages) {
-          info('already in last page');
-          _threadRefreshController.finishLoad(IndicatorResult.noMore);
-          showNoMoreSnackBar(context);
-          return;
-        }
-        // Load the next page.
-        context.read<ForumBloc>().add(ForumLoadMoreRequested(state.currentPage + 1));
-        // _refreshController.finishLoad();
-      },
+      onRefresh: refresh,
       childBuilder: (context, physics) => AppCenteredList(
         builder: (context, side, _) => CustomScrollView(
           controller: _threadScrollController,
@@ -344,15 +354,24 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           slivers: [
             PinnedHeaderSliver(child: _buildNormalThreadFilterRow(context, state)),
             const SliverPadding(padding: edgeInsetsT8),
+            // The end of the list is its last item: built when it comes near, it asks the next page.
             SliverList.separated(
-              itemCount: normalThreadList.length,
-              itemBuilder: (context, index) => Padding(padding: side, child: NormalThreadCard(normalThreadList[index])),
+              itemCount: normalThreadList.length + 1,
+              itemBuilder: (context, index) => index < normalThreadList.length
+                  ? Padding(padding: side, child: NormalThreadCard(normalThreadList[index]))
+                  : ListFooter(
+                      status: listFooterStatus(
+                        hasMore: state.canLoadMore && state.currentPage < state.totalPages,
+                        loading: state.loadingMore || state.refreshing,
+                        failed: state.loadMoreFailed,
+                      ),
+                      itemCount: normalThreadList.length,
+                      failure: state.failure,
+                      onLoadMore: () => bloc.add(ForumLoadMoreRequested(state.currentPage + 1)),
+                      onRetry: () => bloc.add(const ForumRetryRequested()),
+                    ),
               separatorBuilder: (context, index) => appListSeparator,
             ),
-            if (state.loadMoreFailed)
-              SliverToBoxAdapter(
-                child: LoadMoreFailedFooter(onRetry: () => context.read<ForumBloc>().add(const ForumRetryRequested())),
-              ),
             SliverPadding(padding: context.safePadding()),
           ],
         ),
@@ -370,11 +389,12 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         },
       );
     } else if (!state.havePermission) {
-      if (state.permissionDeniedMessage != null) {
-        return ErrorCard(child: munchElement(context, state.permissionDeniedMessage!));
-      } else {
-        return AppStateView(icon: Icons.lock_outline, message: context.t.general.noPermission);
-      }
+      // The forum's own words, as it wrote them, under the sentence telling what they are about.
+      return FailureView(
+        failure: LoadFailure(LoadFailureKind.noPermission),
+        message: state.permissionDeniedMessage == null ? null : munchElement(context, state.permissionDeniedMessage!),
+        onRetry: () => context.read<ForumBloc>().add(ForumRefreshRequested()),
+      );
     } else {
       return TabBarView(
         controller: tabController,
@@ -388,17 +408,25 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 
   Widget _buildBody(BuildContext context, ForumState state) {
+    if (!state.refreshing) {
+      // A refresh keeps the tabs on screen: their pulls end when it does.
+      _pinnedRefreshController.finishRefresh();
+      _threadRefreshController.finishRefresh();
+      _subredditRefreshController.finishRefresh();
+    }
     return switch (state.status) {
+      // The shape of the threads to come instead of a spinner over the whole page.
       ForumStatus.initial || ForumStatus.loading => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (state.filterState.isFiltering()) _buildNormalThreadFilterRow(context, state),
-          const Expanded(child: CenteredCircularIndicator()),
+          const Expanded(child: ThreadListSkeleton()),
         ],
       ),
-      ForumStatus.failure => buildRetryButton(context, () {
-        context.read<ForumBloc>().add(const ForumRetryRequested());
-      }),
+      ForumStatus.failure => FailureView(
+        failure: state.failure,
+        onRetry: () => context.read<ForumBloc>().add(const ForumRetryRequested()),
+      ),
       ForumStatus.success => _buildSuccessContent(context, state),
     };
   }
@@ -590,20 +618,41 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         ),
         BlocProvider(create: (context) => JumpPageCubit()),
       ],
-      // A forum without threads opens its sub forums tab. Switched from a listener, once per loaded state: switching
-      // in the builder notified the tab listener (setState) during the build, and forced the tab back on every rebuild.
-      child: BlocListener<ForumBloc, ForumState>(
-        listenWhen: (_, state) =>
-            state.status == ForumStatus.success &&
-            state.normalThreadList.isEmpty &&
-            // Do not switch tab if filtering but filtering non result left.
-            !state.filterState.isFiltering(),
-        listener: (context, state) {
-          if (!mounted || tabController.index == _subredditTabIndex) {
-            return;
-          }
-          tabController.animateTo(_subredditTabIndex, duration: const Duration(milliseconds: 500));
-        },
+      child: MultiBlocListener(
+        listeners: [
+          // A forum without threads opens its sub forums tab. Switched from a listener, once per loaded state:
+          // switching in the builder notified the tab listener (setState) during the build, and forced the tab back on
+          // every rebuild.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (_, state) =>
+                state.status == ForumStatus.success &&
+                state.normalThreadList.isEmpty &&
+                // Do not switch tab if filtering but filtering non result left.
+                !state.filterState.isFiltering(),
+            listener: (context, state) {
+              if (!mounted || tabController.index == _subredditTabIndex) {
+                return;
+              }
+              tabController.animateTo(_subredditTabIndex, duration: const Duration(milliseconds: 500));
+            },
+          ),
+          // A refresh that failed keeps the threads on screen and says so.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
+            listener: (context, state) {
+              final bloc = context.read<ForumBloc>();
+              showRefreshFailedSnackBar(
+                context,
+                state.failure,
+                onRetry: () {
+                  if (!bloc.isClosed) {
+                    bloc.add(ForumRefreshRequested());
+                  }
+                },
+              );
+            },
+          ),
+        ],
         child: BlocBuilder<ForumBloc, ForumState>(
           builder: (context, state) {
             // Update jump page state.

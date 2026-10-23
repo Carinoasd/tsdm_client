@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:tsdm_client/extensions/color.dart';
 
 /// Widget to show a shimmer as data loading state.
+///
+/// The blocks of [child] (opaque shapes, see `SkeletonBlock`) are painted in the theme's quiet surface tones with a
+/// light sweeping across them; the sweep stands still when the system asks for less motion ("remove animations").
 class LoadingShimmer extends StatelessWidget {
   /// Constructor.
   const LoadingShimmer({required this.child, super.key});
@@ -12,9 +14,12 @@ class LoadingShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Shimmer.fromColors(
-      baseColor: Theme.of(context).colorScheme.primary.withOpacityA(0.3),
-      highlightColor: Theme.of(context).colorScheme.primary.withOpacityA(0.2),
+      baseColor: colorScheme.surfaceContainerHighest,
+      highlightColor: colorScheme.surfaceContainerLow,
+      enabled: !reduceMotion,
       child: child,
     );
   }

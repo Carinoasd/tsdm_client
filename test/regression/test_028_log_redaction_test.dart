@@ -61,7 +61,8 @@ void main() {
         redactSensitive('message=secret+text&pmsubmit=true&description=my+note'),
         'message=<redacted>&pmsubmit=true&description=<redacted>',
       );
-      expect(redactSensitive('"message":"private","touid":"1000"'), '"message":<redacted>,"touid":"1000"');
+      // The account a message goes to is left out too (test_244).
+      expect(redactSensitive('"message":"private","touid":"1000"'), '"message":<redacted>,"touid":<redacted>');
       expect(redactSensitive('answer=42&questionid=3'), 'answer=<redacted>&questionid=<redacted>');
     });
 

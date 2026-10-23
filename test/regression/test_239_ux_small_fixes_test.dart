@@ -98,7 +98,9 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/utils/app_text_scale.dart';
 import 'package:tsdm_client/utils/image_file_name.dart';
-import 'package:tsdm_client/widgets/load_more_failed_footer.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
@@ -769,11 +771,18 @@ void main() {
       await tester.pumpWidget(
         app(
           MaterialApp(
-            home: Scaffold(body: LoadMoreFailedFooter(onRetry: () => retried++)),
+            home: Scaffold(
+              body: ListFooter(
+                status: ListFooterStatus.failed,
+                failure: LoadFailure(LoadFailureKind.noNetwork),
+                onRetry: () => retried++,
+              ),
+            ),
           ),
         ),
       );
-      expect(find.text(t.general.loadMoreFailed), findsOneWidget);
+      // The shared end of the lists (test_244): the failure with its reason, and the retry.
+      expect(find.text(t.loadState.footer.failed(reason: t.loadState.failure.noNetwork.title)), findsOneWidget);
       await tester.tap(find.text(t.general.retry));
       expect(retried, 1);
     });
@@ -811,18 +820,23 @@ void main() {
       await tester.tap(find.byIcon(Icons.search_outlined));
       await _settle(tester);
       expect(searches, 1);
-      expect(find.text(t.searchPage.result.rateLimited(seconds: 20)), findsOneWidget);
-      final retry = find.byKey(const ValueKey('search-retry'));
+      // The shared failure view (test_244): the limit in words, the forum's own message, a countdown on the retry.
+      expect(find.text(t.loadState.failure.rateLimited.title), findsOneWidget);
+      expect(find.text(t.loadState.failure.rateLimited.hintSeconds(seconds: 20)), findsOneWidget);
+      expect(find.text('抱歉，您在 20 秒内只能进行一次搜索'), findsOneWidget);
+      final retry = find.byKey(failureRetryKey);
       expect(tester.widget<FilledButton>(retry).onPressed, isNull, reason: 'not before the forum takes it');
-      expect(find.text(t.searchPage.result.retryIn(seconds: 20)), findsOneWidget);
+      expect(find.text(t.loadState.retryIn(seconds: 20)), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
-      expect(find.text(t.searchPage.result.retryIn(seconds: 15)), findsOneWidget);
+      expect(find.text(t.loadState.retryIn(seconds: 15)), findsOneWidget);
       await tester.pump(const Duration(seconds: 16));
       expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
       forum.answer = (r) {
         searches++;
         return _html('<div id="messagetext"><p>没有找到匹配结果</p></div>');
       };
+      await tester.ensureVisible(retry);
+      await tester.pump();
       await tester.tap(retry);
       await _settle(tester);
       expect(searches, 2, reason: 'the retry asks the same search again');
@@ -846,11 +860,13 @@ void main() {
       await tester.pumpWidget(app(const MaterialApp(home: MyThreadPage())));
       await tester.pumpAndSettle();
       expect(find.text(t.general.retry), findsOneWidget);
-      expect(find.text(t.general.noData), findsNothing);
+      expect(find.text(t.myThreadPage.threadTab.empty), findsNothing);
+      // What failed, in words (test_244).
+      expect(find.text(t.loadState.failure.noNetwork.title), findsOneWidget);
       failing = false;
       await tester.tap(find.text(t.general.retry));
       await tester.pumpAndSettle();
-      expect(find.text(t.general.noData), findsOneWidget, reason: 'an empty list once it loaded');
+      expect(find.text(t.myThreadPage.threadTab.empty), findsOneWidget, reason: 'an empty list once it loaded');
     });
   });
 
@@ -1585,7 +1601,12 @@ void main() {
       for (var i = 0; i < 2; i++) {
         bloc.add(MyThreadRefreshThreadRequested());
         await _settle(tester);
-        expect(find.text(t.general.failedToLoad), findsOneWidget, reason: 'refresh ${i + 1}');
+        // The reason with the failure (test_244).
+        expect(
+          find.text(t.loadState.refreshFailed(reason: t.loadState.failure.noNetwork.title)),
+          findsOneWidget,
+          reason: 'refresh ${i + 1}',
+        );
         ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).removeCurrentSnackBar();
         await tester.pumpAndSettle();
       }

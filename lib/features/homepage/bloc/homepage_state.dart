@@ -52,9 +52,13 @@ final class HomepageState with HomepageStateMappable {
     this.dailyRedPacket,
     this.formHash,
     this.checkingDailyRedPacket = false,
+    this.failure,
     this.savedAt,
     this.refreshFailed = false,
   });
+
+  /// Why the homepage failed to load ([HomepageStatus.failure]).
+  final LoadFailure? failure;
 
   /// Loading status.
   final HomepageStatus status;

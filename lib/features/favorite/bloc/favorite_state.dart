@@ -33,6 +33,8 @@ final class FavoriteState with FavoriteStateMappable {
     this.removedCount = 0,
     this.failureCount = 0,
     this.lastFailure,
+    this.loadMoreFailed = false,
+    this.failure,
   });
 
   /// Status.
@@ -59,9 +61,16 @@ final class FavoriteState with FavoriteStateMappable {
   /// Counts successful removals, so the page can react to each one.
   final int removedCount;
 
-  /// Counts failed actions (load more, remove), so the page can react to each one.
+  /// Counts failed removals, so the page can react to each one.
   final int failureCount;
 
-  /// Reason of the last failed action, if the server told any.
+  /// Reason of the last failed removal, if the server told any.
   final String? lastFailure;
+
+  /// The next page failed: the records loaded before stay, the end of the list retries.
+  final bool loadMoreFailed;
+
+  /// Why the last load failed: the first page ([FavoriteStatus.failure]), the next page ([loadMoreFailed]), or a
+  /// refresh that kept the records shown. Null once a load succeeded.
+  final LoadFailure? failure;
 }

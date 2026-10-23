@@ -119,8 +119,14 @@ final class ImageResponseNotImageException extends AppException with ImageRespon
 @MappableClass()
 final class HttpHandshakeFailedException extends AppException with HttpHandshakeFailedExceptionMappable {
   /// Constructor.
-  HttpHandshakeFailedException(String message, {this.statusCode, this.headers, this.connectionFailed = false})
-    : super(message: message);
+  HttpHandshakeFailedException(
+    String message, {
+    this.statusCode,
+    this.headers,
+    this.connectionFailed = false,
+    this.timedOut = false,
+    this.connectionLost = false,
+  }) : super(message: message);
 
   /// Optional status code.
   final int? statusCode;
@@ -133,6 +139,14 @@ final class HttpHandshakeFailedException extends AppException with HttpHandshake
   /// with an error status, a timeout while the answer was coming, a socket failing after the connect, or a failed TLS
   /// handshake.
   final bool connectionFailed;
+
+  /// The forum was reached but its answer did not come in time: dio's send and receive timeouts, the Android channel's
+  /// read or write timeout (`RequestTimedOutException`). A connect that timed out is a [connectionFailed] instead.
+  final bool timedOut;
+
+  /// The connection to the forum failed after it was made, with no answer: reset, closed, a failed TLS handshake
+  /// (an `IOException` of the socket, the Android channel's `RequestDroppedException`).
+  final bool connectionLost;
 }
 
 /// Whether [e] means the forum could not be reached at all ([HttpHandshakeFailedException.connectionFailed]): not an

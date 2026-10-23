@@ -33,7 +33,16 @@ final class ChatHistoryState with ChatHistoryStateMappable {
     this.previousPage,
     this.messages = const [],
     this.sendTarget,
+    this.loadMoreFailed = false,
+    this.failure,
   });
+
+  /// An earlier page failed: the messages shown stay, the end of the list (its top) retries.
+  final bool loadMoreFailed;
+
+  /// Why the last load failed: the latest page ([ChatHistoryStatus.failure], or a reload that kept the messages
+  /// shown), an earlier page ([loadMoreFailed]). Null once a load succeeded.
+  final LoadFailure? failure;
 
   /// Status.
   final ChatHistoryStatus status;

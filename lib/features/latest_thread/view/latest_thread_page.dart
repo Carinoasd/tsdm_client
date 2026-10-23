@@ -5,10 +5,11 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/latest_thread/bloc/latest_thread_bloc.dart';
 import 'package:tsdm_client/features/latest_thread/repository/latest_thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
+import 'package:tsdm_client/widgets/list_skeleton.dart';
 
 /// Page to show info about latest thread page.
 class LatestThreadPage extends StatefulWidget {
@@ -32,34 +33,46 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
   late final EasyRefreshController _refreshController;
 
   Widget _buildBody(BuildContext context, LatestThreadState state) {
-    _refreshController
-      ..finishRefresh()
-      ..finishLoad();
+    if (!state.refreshing) {
+      _refreshController.finishRefresh();
+    }
+    final bloc = context.read<LatestThreadBloc>();
 
-    return EasyRefresh(
+    return EasyRefresh.builder(
       controller: _refreshController,
       header: const MaterialHeader(),
-      footer: const MaterialFooter(),
       onRefresh: () async {
-        context.read<LatestThreadBloc>().add(LatestThreadRefreshRequested(widget.url));
+        bloc.add(LatestThreadRefreshRequested(widget.url));
       },
-      onLoad: () async {
-        if (state.nextPageUrl == null) {
-          _refreshController.finishLoad(IndicatorResult.noMore);
-          return;
-        }
-        context.read<LatestThreadBloc>().add(LatestThreadLoadMoreRequested());
-      },
-      child: state.threadList.isEmpty
+      childBuilder: (context, physics) => state.threadList.isEmpty
           // The guide page can be empty (最新精华 has no threads); say so instead of showing a blank list.
-          ? AppStateView(icon: Icons.article_outlined, message: context.t.latestThreadPage.empty)
+          ? AppScrollableStateView(
+              physics: physics,
+              child: AppStateView(
+                icon: Icons.article_outlined,
+                message: context.t.latestThreadPage.empty,
+                scrollable: false,
+              ),
+            )
           : AppCenteredList(
               builder: (context, side, _) => ListView.separated(
+                physics: physics,
                 padding: side.copyWith(top: 8).add(context.safePadding()),
-                itemCount: state.threadList.length,
-                itemBuilder: (context, index) {
-                  return LatestThreadCard(state.threadList[index]);
-                },
+                // The end of the list is its last item: built when it comes near, it asks the next page.
+                itemCount: state.threadList.length + 1,
+                itemBuilder: (context, index) => index < state.threadList.length
+                    ? LatestThreadCard(state.threadList[index])
+                    : ListFooter(
+                        status: listFooterStatus(
+                          hasMore: state.nextPageUrl != null,
+                          loading: state.loadingMore || state.refreshing,
+                          failed: state.loadMoreFailed,
+                        ),
+                        itemCount: state.threadList.length,
+                        failure: state.failure,
+                        onLoadMore: () => bloc.add(LatestThreadLoadMoreRequested()),
+                        onRetry: () => bloc.add(LatestThreadLoadMoreRequested()),
+                      ),
                 separatorBuilder: (context, index) => appListSeparator,
               ),
             ),
@@ -69,7 +82,7 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
   @override
   void initState() {
     super.initState();
-    _refreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
+    _refreshController = EasyRefreshController(controlFinishRefresh: true);
   }
 
   @override
@@ -88,13 +101,29 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
               LatestThreadBloc(latestThreadRepository: context.repo())..add(LatestThreadRefreshRequested(widget.url)),
         ),
       ],
-      child: BlocBuilder<LatestThreadBloc, LatestThreadState>(
+      child: BlocConsumer<LatestThreadBloc, LatestThreadState>(
+        // A refresh that failed keeps the threads on screen and says so.
+        listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
+        listener: (context, state) {
+          final bloc = context.read<LatestThreadBloc>();
+          showRefreshFailedSnackBar(
+            context,
+            state.failure,
+            onRetry: () {
+              if (!bloc.isClosed) {
+                bloc.add(LatestThreadRefreshRequested(widget.url));
+              }
+            },
+          );
+        },
         builder: (context, state) {
           final body = switch (state.status) {
-            LatestThreadStatus.initial || LatestThreadStatus.loading => const CenteredCircularIndicator(),
-            LatestThreadStatus.failed => buildRetryButton(context, () {
-              context.read<LatestThreadBloc>().add(LatestThreadRefreshRequested(widget.url));
-            }),
+            // The shape of the threads to come instead of a spinner over the whole page.
+            LatestThreadStatus.initial || LatestThreadStatus.loading => const ThreadListSkeleton(),
+            LatestThreadStatus.failed => FailureView(
+              failure: state.failure,
+              onRetry: () => context.read<LatestThreadBloc>().add(LatestThreadRefreshRequested(widget.url)),
+            ),
             LatestThreadStatus.success => _buildBody(context, state),
           };
 

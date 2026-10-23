@@ -162,8 +162,70 @@
     "now": "Now",
     "settings": "Settings",
     "openInBrowser": "Open in browser",
-    "close": "Close",
-    "loadMoreFailed": "Failed to load more"
+    "close": "Close"
+  },
+  "loadState": {
+    "loading": "Loading…",
+    "failure": {
+      "noNetwork": {
+        "title": "Can't reach the forum",
+        "hint": "Check the network connection and try again."
+      },
+      "connectionLost": {
+        "title": "The connection dropped",
+        "hint": "The network may be unstable, try again."
+      },
+      "timeout": {
+        "title": "The forum took too long to answer",
+        "hint": "The forum or the network is slow right now, try again in a moment."
+      },
+      "rateLimited": {
+        "title": "Too many requests, the forum is holding off",
+        "hint": "Wait a moment, then try again.",
+        "hintSeconds": "Try again in ${seconds: int} seconds."
+      },
+      "server": {
+        "title": "The forum's server ran into a problem",
+        "hint": "It usually recovers soon, try again later."
+      },
+      "badStatus": {
+        "title": "The forum answered with an error",
+        "hint": "Try again later; if it keeps failing, the details below help to report it."
+      },
+      "challenge": {
+        "title": "The site asked for a browser check",
+        "hint": "Try again later, or open the forum in the browser."
+      },
+      "closed": {
+        "title": "The forum is closed or under maintenance",
+        "hint": "Come back later."
+      },
+      "needLogin": {
+        "title": "Log in to see this",
+        "hint": "The forum shows this to logged in members only."
+      },
+      "noPermission": {
+        "title": "No permission to see this",
+        "hint": "The account in use may not see this, another account might."
+      },
+      "accountChanged": {
+        "title": "The account changed meanwhile",
+        "hint": "Load the page again for the account in use."
+      },
+      "unknown": {
+        "title": "Failed to load",
+        "hint": "Try again; if it keeps failing, the details below help to report it."
+      }
+    },
+    "details": "Details",
+    "hideDetails": "Hide details",
+    "copyDetails": "Copy details",
+    "retryIn": "Retry in ${seconds: int} s",
+    "refreshFailed": "Refresh failed: ${reason}",
+    "footer": {
+      "loading": "Loading more…",
+      "failed": "Failed to load more: ${reason}"
+    }
   },
   "navigation": {
     "homepage": "Home",
@@ -867,13 +929,15 @@
     },
     "threadTab": {
       "title": "Thread",
-      "noThread": "No Thread",
+      "noThread": "This forum has no threads yet",
       "threadType": "Types",
       "threadSpecialType": "Special type",
       "threadDateline": "Active time",
       "threadOrder": "Order",
       "threadDigested": "Digested",
-      "threadRecommended": "Recommended"
+      "threadRecommended": "Recommended",
+      "noFilteredThread": "No thread matches the filters",
+      "clearFilter": "Clear filters"
     },
     "subredditTab": {
       "title": "Subreddit",
@@ -1133,21 +1197,21 @@
       "title": "Search Result",
       "totalThreadCount": "$count results",
       "pageInfo": "$total pages",
-      "noData": "No Data",
+      "noData": "No thread found",
       "hint": "Enter a keyword, an author or a forum id to search",
-      "failed": "Search failed: $message",
-      "rateLimited": "The forum allows one search every $seconds seconds",
-      "retryIn": "Retry in $seconds s",
-      "retry": "Retry"
+      "noDataHint": "Try other keywords.",
+      "noDataFiltered": "The author or the forum limits the search, try without them."
     }
   },
   "myThreadPage": {
     "title": "My Thread",
     "threadTab": {
-      "title": "Thread"
+      "title": "Thread",
+      "empty": "You have not posted a thread yet"
     },
     "replyTab": {
-      "title": "ReplyThread"
+      "title": "ReplyThread",
+      "empty": "You have not replied to a thread yet"
     },
     "forum": "Forum"
   },
@@ -1155,7 +1219,9 @@
     "title": "${name}'s posts",
     "titleUnknown": "Member's posts",
     "blocked": "You blocked this user (this device), their threads and replies are not shown.",
-    "notList": "The forum did not show this member's posts."
+    "notList": "The forum did not show this member's posts.",
+    "emptyThread": "No threads from this member yet",
+    "emptyReply": "No replies from this member yet"
   },
   "favoritePage": {
     "title": "Favorites",
@@ -1163,6 +1229,8 @@
     "forumTab": "Forums",
     "empty": "No favorites yet",
     "emptyForum": "No favorite forums yet",
+    "emptyHint": "Threads you add to favorites (\"Add to favorites\" in the menu of a thread) are listed here.",
+    "emptyForumHint": "Forums you add to favorites (\"Add forum to favorites\" in the menu of a forum) are listed here.",
     "remove": "Remove from favorites",
     "removeConfirm": "Remove \"${title}\" from favorites?",
     "removed": "Removed from favorites",
@@ -1174,6 +1242,8 @@
     "subtitle": "${name} · ${count: int} friends",
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",
+    "emptyHint": "Send a friend request with \"Add friend\" on the profile page of a member.",
+    "emptyOther": "This member's friend list is empty",
     "credits": "Credits ${count}",
     "sendMessage": "Send message",
     "addFriend": {
@@ -1267,7 +1337,8 @@
     "title": "Points Statistics",
     "statisticsTab": {
       "title": "My Points",
-      "recentChangelog": "Recent Changelog"
+      "recentChangelog": "Recent Changelog",
+      "emptyRecent": "No recent changes"
     },
     "changelogTab": {
       "title": "Points Changelog",
@@ -1277,7 +1348,9 @@
       "dateRange": "Date Range",
       "query": "Query",
       "showFilterTip": "Show filter",
-      "hideFilterTip": "Hide filter"
+      "hideFilterTip": "Hide filter",
+      "empty": "No points records yet",
+      "emptyFiltered": "No record matches the query"
     }
   },
   "postEditPage": {
@@ -1362,7 +1435,10 @@
     "title": "Chat History",
     "info": "With $user ($count messages)",
     "success": "Sent successfully",
-    "failed": "Sent failed: $message"
+    "failed": "Sent failed: $message",
+    "empty": "No messages with this member yet",
+    "loadingOlder": "Loading earlier messages…",
+    "noOlder": "No earlier messages"
   },
   "chatPage": {
     "title": "Chat",
@@ -1375,7 +1451,8 @@
     "viewChatHistoryTip": "ViewChatHistory",
     "failedNetwork": "Failed to send: the network is unreachable, check the connection and retry",
     "maybeSent": "The message may have been sent: refresh to check before sending it again",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "empty": "No messages yet, send the first one below."
   },
   "imageDetailPage": {
     "title": "Image detail",
@@ -1755,6 +1832,8 @@
     "accountWithUid": "$username (UID $uid)",
     "empty": "No browsing history yet",
     "emptyForAccount": "No browsing history for this account",
+    "emptyHint": "The threads you open are recorded here, on this device only.",
+    "showAllAccounts": "Show all accounts",
     "entryTooltip": "Thread browsing history",
     "title": "Thread browsing history",
     "localOnlyTip": "Only local browsing history was recorded, may be different on web side or other machines",
@@ -2083,7 +2162,8 @@
       "original": "Original"
     },
     "total": "Total rates",
-    "showTotalRatePointsTip": "Show total rate points"
+    "showTotalRatePointsTip": "Show total rate points",
+    "empty": "Nobody rated this floor yet"
   },
   "replyBar": {
     "notReplyToFloorTip": "Not reply to this floor",

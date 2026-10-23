@@ -19,8 +19,11 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
+import 'package:tsdm_client/widgets/list_skeleton.dart';
+import 'package:tsdm_client/widgets/loading_shimmer.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 
 part 'homepage_placeholder.dart';

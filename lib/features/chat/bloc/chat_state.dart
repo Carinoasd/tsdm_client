@@ -32,7 +32,12 @@ final class ChatState with ChatStateMappable {
     this.chatSendTarget,
     this.refreshMessageUrl,
     this.messageList = const [],
+    this.failure,
   });
+
+  /// Why the last fetch of the dialog failed: the page could not be shown ([ChatStatus.failure]), or a reload kept the
+  /// messages shown. Null once a fetch succeeded.
+  final LoadFailure? failure;
 
   /// Status.
   final ChatStatus status;

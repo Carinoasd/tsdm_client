@@ -253,6 +253,7 @@ class AppStateView extends StatelessWidget {
   /// Constructor.
   const AppStateView({
     required this.message,
+    this.detail,
     this.icon = Icons.inbox_outlined,
     this.action,
     this.error = false,
@@ -262,6 +263,9 @@ class AppStateView extends StatelessWidget {
 
   /// Message to show.
   final String message;
+
+  /// Optional second line under [message]: why the page is empty, how something gets in it.
+  final String? detail;
 
   /// Leading illustration icon.
   final IconData icon;
@@ -303,6 +307,14 @@ class AppStateView extends StatelessWidget {
             textAlign: TextAlign.center,
             style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
+          if (detail != null) ...[
+            sizedBoxW8H8,
+            Text(
+              detail!,
+              textAlign: TextAlign.center,
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
           if (action != null) ...[sizedBoxW16H16, action!],
         ],
       ),

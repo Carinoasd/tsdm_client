@@ -56,6 +56,13 @@ final class SearchGotoNextPageRequested extends SearchEvent with SearchGotoNextP
 @MappableClass()
 final class SearchGotoPreviousPageRequested extends SearchEvent with SearchGotoPreviousPageRequestedMappable {}
 
+/// Append the next page of the results to the ones shown: the end of the result list came near.
+@MappableClass()
+final class SearchLoadMoreRequested extends SearchEvent with SearchLoadMoreRequestedMappable {
+  /// Constructor.
+  const SearchLoadMoreRequested() : super();
+}
+
 /// Ask the last search (or page of it) again, after it failed.
 @MappableClass()
 final class SearchRetryRequested extends SearchEvent with SearchRetryRequestedMappable {

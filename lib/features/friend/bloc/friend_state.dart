@@ -35,7 +35,8 @@ final class FriendState with FriendStateMappable {
     this.pageNumber = 1,
     this.refreshing = false,
     this.loadingMore = false,
-    this.failureCount = 0,
+    this.loadMoreFailed = false,
+    this.failure,
   });
 
   /// Status.
@@ -65,6 +66,10 @@ final class FriendState with FriendStateMappable {
   /// Loading the next page.
   final bool loadingMore;
 
-  /// Counts failed "load more" attempts so the page can react to each one.
-  final int failureCount;
+  /// The next page failed: the friends loaded before stay, the end of the list retries.
+  final bool loadMoreFailed;
+
+  /// Why the last load failed: the first page ([FriendStatus.failure]), the next page ([loadMoreFailed]), or a refresh
+  /// that kept the friends shown. Null once a load succeeded.
+  final LoadFailure? failure;
 }

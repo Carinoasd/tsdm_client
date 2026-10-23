@@ -12,9 +12,9 @@ import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
 import 'package:tsdm_client/features/rate/widgets/fast_rate_template_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/quoted_text.dart';
@@ -107,7 +107,7 @@ class _RateLogPageState extends State<RateLogPage> with SingleTickerProviderStat
 
   Widget _buildList(int count, IndexedWidgetBuilder builder) {
     if (count == 0) {
-      return AppStateView(message: context.t.general.noData);
+      return AppStateView(icon: Icons.thumbs_up_down_outlined, message: context.t.rateLogPage.empty);
     }
     return AppCenteredList(
       builder: (context, horizontal, width) => ListView.separated(
@@ -150,9 +150,9 @@ class _RateLogPageState extends State<RateLogPage> with SingleTickerProviderStat
         builder: (context, state) {
           final body = switch (state.status) {
             RateLogStatus.initial || RateLogStatus.loading => const CenteredCircularIndicator(),
-            RateLogStatus.failure => buildRetryButton(
-              context,
-              () => context.read<RateLogCubit>().fetchLog(tid: widget.tid, pid: widget.pid),
+            RateLogStatus.failure => FailureView(
+              failure: state.failure,
+              onRetry: () => context.read<RateLogCubit>().fetchLog(tid: widget.tid, pid: widget.pid),
             ),
             RateLogStatus.success => TabBarView(
               controller: tabController,
