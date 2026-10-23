@@ -42,10 +42,41 @@ class _NeteaseCardState extends State<NeteaseCard> with LoggerMixin {
     return '$artist - $title';
   }
 
+  /// Song infos told, by id: a card built again (a floor scrolled back to) asks no more.
+  static final _infoById = <String, String>{};
+
+  /// The song info, asked once per card.
+  late final Future<String> _info;
+
+  Future<String> _loadInfo() async {
+    if (_infoById[widget.id] case final info?) {
+      return info;
+    }
+    final result = await getIt
+        .get<NetClientProvider>(instanceName: ServiceKeys.noCookie)
+        .get('$urlPrefix${widget.id}')
+        .run();
+    switch (result) {
+      case fp.Left():
+        return fallbackInfo;
+      case fp.Right(:final value):
+        final info = _parseMusicInfo(value.data as String);
+        if (info != fallbackInfo) {
+          _infoById.remove(widget.id);
+          _infoById[widget.id] = info;
+          while (_infoById.length > 64) {
+            _infoById.remove(_infoById.keys.first);
+          }
+        }
+        return info;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     fallbackInfo = 'id: ${widget.id}';
+    _info = _loadInfo();
   }
 
   @override
@@ -71,16 +102,11 @@ class _NeteaseCardState extends State<NeteaseCard> with LoggerMixin {
             ),
             sizedBoxW12H12,
             FutureBuilder(
-              future: getIt
-                  .get<NetClientProvider>(instanceName: ServiceKeys.noCookie)
-                  .get('$urlPrefix${widget.id}')
-                  .run(),
+              future: _info,
+              initialData: _infoById[widget.id],
               builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return switch (snapshot.data!) {
-                    fp.Left() => Text(fallbackInfo, style: infoStyle),
-                    fp.Right(:final value) => Text(_parseMusicInfo(value.data as String), style: infoStyle),
-                  };
+                if (snapshot.data case final info?) {
+                  return Text(info, style: infoStyle);
                 }
                 return sizedCircularProgressIndicator;
               },

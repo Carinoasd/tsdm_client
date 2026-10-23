@@ -226,6 +226,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// scrolling up: more room for the floors.
   collapseAppBarWhenScroll<bool>(name: 'collapseAppBarWhenScroll', type: bool, defaultValue: true),
 
+  /// Where a thread read past its first screen opens from a list: its start, its start with a "continue" banner (the
+  /// default), or where the reading stopped. The index of a `ThreadOpenPosition`.
+  threadOpenPosition<int>(name: 'threadOpenPosition', type: int, defaultValue: 1),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',

@@ -808,6 +808,27 @@ class StorageProvider with LoggerMixin {
     ),
   );
 
+  /// The threads user [uid] visited (by tid) with where the reading stopped, again whenever it changes.
+  Stream<Map<int, ({int? page, int? pid, int? floor, int? seenReplies})>> watchThreadVisitProgress(int uid) =>
+      ThreadVisitHistoryDao(_db).watchProgressByUid(uid);
+
+  /// Keep where user [uid] stopped reading thread [tid] on its visit record; nothing when the visit is not recorded.
+  Future<void> updateThreadVisitProgress({
+    required int uid,
+    required int tid,
+    required int? page,
+    required int? pid,
+    required int? floor,
+    required int? seenReplies,
+  }) async => ThreadVisitHistoryDao(_db).updateProgress(
+    uid: uid,
+    tid: tid,
+    page: page,
+    pid: pid,
+    floor: floor,
+    seenReplies: seenReplies,
+  );
+
   /// Delete thread visit history with [uid] and [tid].
   Future<void> deleteThreadVisitHistory({int? uid, int? tid}) async =>
       ThreadVisitHistoryDao(_db).deleteByUidOrTid(uid: uid, tid: tid);

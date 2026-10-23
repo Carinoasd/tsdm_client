@@ -297,16 +297,18 @@ void main() {
       expect(line.right, lessThanOrEqualTo(visibleRect.right));
     }
     final controller = tester.widget<PostList>(list).scrollController;
-    expect(controller.offset, closeTo(0, 0.01));
+    // At the start of the list: its zero offset is at the first floor, the title above it (reading progress round).
+    final start = controller.position.minScrollExtent;
+    expect(controller.offset, closeTo(start, 0.01));
     // A large multi-line title may legitimately exceed a short landscape viewport. Its last line must be
     // reachable by scrolling, not clipped by a fixed-height title container.
     if (titleRect.bottom > visibleRect.bottom) {
-      controller.jumpTo(titleRect.bottom - visibleRect.bottom);
+      controller.jumpTo(start + titleRect.bottom - visibleRect.bottom);
       await settle(tester);
       final lastLine = boxes.last.toRect().shift(paragraph.localToGlobal(Offset.zero));
       expect(lastLine.top, greaterThanOrEqualTo(visibleRect.top));
       expect(lastLine.bottom, lessThanOrEqualTo(visibleRect.bottom + 0.01));
-      controller.jumpTo(0);
+      controller.jumpTo(start);
       await settle(tester);
     }
     expect(tester.takeException(), isNull);

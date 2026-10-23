@@ -70,6 +70,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
     this.homepagePinnedGroup = '',
+    this.threadOpenPosition = 1,
   });
 
   final String netClientAccept;
@@ -142,6 +143,12 @@ class SettingsMap with SettingsMapMappable {
   final bool collapseAppBarWhenScroll;
   final bool notificationPermissionPrompted;
   final ThreadFloorInteractionMode threadFloorInteractionMode;
+
+  /// Index of a [ThreadOpenPosition]. Not required: backups from older versions lack it.
+  final int threadOpenPosition;
+
+  /// Where a thread read before opens from a list.
+  ThreadOpenPosition get openPosition => ThreadOpenPosition.fromIndex(threadOpenPosition);
   final double textScaleFactor;
   final double threadContentScale;
 
@@ -239,6 +246,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableAutoClearImageCache => copyWith(enableAutoClearImageCache: value as bool?),
       SettingsKeys.autoClearImageCacheDuration => copyWith(autoClearImageCacheDuration: value as int?),
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
+      SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadFloorInteractionMode => copyWith(
         threadFloorInteractionMode: value as ThreadFloorInteractionMode?,
       ),

@@ -22,6 +22,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 
 /// Ordinary poll embedded in the first post, shared by both thread readers.
 ///
@@ -87,6 +88,12 @@ class _PollCardState extends State<PollCard> {
   /// Login pages opened from the card ([_login]) and not closed yet.
   int _loginPages = 0;
 
+  /// The thread page's memory of its floors: the choices made and not sent yet stay when the card is built again
+  /// (floors are not kept alive).
+  MunchCache? _memory;
+  String get _memoryKey => 'poll:${widget.pid}';
+  StreamSubscription<PollState>? _restoreSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +121,28 @@ class _PollCardState extends State<PollCard> {
         : page != null && _cubit.adopt(page.form, servedUid: page.viewerUid);
     if (!adopted) {
       unawaited(_cubit.load());
+    }
+    _memory = MunchCacheScope.find(context);
+    if (_memory?.recall(_memoryKey) case final Set<String> choices) {
+      void restore() {
+        for (final id in choices) {
+          _cubit.select(id, selected: true);
+        }
+      }
+
+      if (_cubit.state.poll != null) {
+        restore();
+      } else {
+        _restoreSubscription = _cubit.stream.listen((state) {
+          if (state.poll != null || state.failed) {
+            unawaited(_restoreSubscription?.cancel());
+            _restoreSubscription = null;
+            if (state.poll != null) {
+              restore();
+            }
+          }
+        });
+      }
     }
     final thread = context.readOrNull<ThreadBloc>();
     if (thread == null) {
@@ -237,6 +266,11 @@ class _PollCardState extends State<PollCard> {
 
   @override
   void dispose() {
+    unawaited(_restoreSubscription?.cancel());
+    if (widget.controller == null) {
+      final choices = _cubit.state.choices;
+      _memory?.remember(_memoryKey, choices.isEmpty ? null : choices);
+    }
     _stop();
     if (widget.controller == null) unawaited(_cubit.close());
     super.dispose();

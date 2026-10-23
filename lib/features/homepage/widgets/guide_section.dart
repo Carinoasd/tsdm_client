@@ -11,9 +11,11 @@ import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_index_repository.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Opens the full guide list page ([ScreenPaths.latestThread]) for [url], titled [title].
@@ -239,10 +241,15 @@ class _GuideItemTile extends StatelessWidget {
               item.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyLarge?.copyWith(
-                color: item.highlighted ? colorScheme.error : null,
-                fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
-                height: 1.45,
+              // A thread read before is dimmed, as in the thread lists.
+              style: visitedTitleStyle(
+                context,
+                textTheme.bodyLarge?.copyWith(
+                  color: item.highlighted ? colorScheme.error : null,
+                  fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
+                  height: 1.45,
+                ),
+                visited: readingProgressOf(context, item.tid) != null,
               ),
             ),
             sizedBoxW4H4,
