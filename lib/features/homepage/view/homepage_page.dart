@@ -29,10 +29,9 @@ import 'package:tsdm_client/features/settings/widgets/support_development_dialog
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/notice_button.dart';
 
 const _showFabOffset = 100;
@@ -423,16 +422,18 @@ class _HomepagePageState extends State<HomepagePage> {
                 controller: _refreshController,
                 header: const MaterialHeader(),
                 onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
-                child: const CenteredCircularIndicator(),
+                // The shape of the homepage to come instead of a spinner over the whole page.
+                child: const HomepagePlaceholder(),
               ),
               HomepageStatus.needLogin => NeedLoginPage(
                 backUri: GoRouterState.of(context).uri,
                 needPop: true,
                 popCallback: (context) => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
               ),
-              HomepageStatus.failure => buildRetryButton(
-                context,
-                () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
+              // What went wrong (the failed request of the homepage) and what to do, the details folded away.
+              HomepageStatus.failure => FailureView(
+                key: const ValueKey('failure'),
+                onRetry: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
               ),
               HomepageStatus.success => EasyRefresh.builder(
                 key: const ValueKey('success'),

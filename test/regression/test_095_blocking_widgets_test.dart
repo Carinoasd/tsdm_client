@@ -636,18 +636,13 @@ void main() {
       for (final title in threads.map((e) => e.title!)) {
         expect(find.text(title), findsNothing, reason: 'topic of a blocked author: $title');
       }
-      // Not turned into the empty page: the list keeps its rows (built as nothing) and its load-more.
+      // Not turned into the empty page: the list keeps its rows (built as nothing) and its load-more. With every row
+      // built as nothing the end of the list is in view, and it asks the next page by itself (no pull needed).
       expect(find.text(tr.latestThreadPage.empty), findsNothing);
       expect(find.byType(LatestThreadCard), findsWidgets);
-      expect(page().threadList, hasLength(threads.length));
-
-      // Pulling up past the end still loads the next page.
-      expect(repository.urls, hasLength(1));
-      await tester.drag(find.byType(ListView), const Offset(0, -400));
-      await settle(tester);
-      await tester.pumpAndSettle();
-      expect(repository.urls, hasLength(2));
-      expect(repository.urls.last, contains('page=2'));
+      expect(page().threadList.take(threads.length).map((e) => e.title), threads.map((e) => e.title));
+      expect(repository.urls.length, greaterThan(1));
+      expect(repository.urls[1], contains('page=2'));
       expect(page().threadList.length, greaterThan(threads.length));
     });
   });

@@ -26,7 +26,16 @@ final class PointsStatisticsState with PointsStatisticsStateMappable {
     this.status = PointsStatus.initial,
     this.pointsMap = const {},
     this.recentChangelog = const [],
+    this.refreshing = false,
+    this.failure,
   });
+
+  /// The page is asked again while the points shown stay; they stay when it fails.
+  final bool refreshing;
+
+  /// Why the last load failed ([PointsStatus.failed], or a refresh that kept the points shown); null once one
+  /// succeeded.
+  final LoadFailure? failure;
 
   /// Status.
   final PointsStatus status;
@@ -58,7 +67,24 @@ final class PointsChangelogState with PointsChangelogStateMappable {
     this.allParameters = const ChangelogAllParameters.empty(),
     this.currentPage = 1,
     this.totalPages = 1,
+    this.refreshing = false,
+    this.loadingMore = false,
+    this.loadMoreFailed = false,
+    this.failure,
   });
+
+  /// The first page is asked again (a pull to refresh) while the records shown stay; they stay when it fails.
+  final bool refreshing;
+
+  /// The next page is on its way.
+  final bool loadingMore;
+
+  /// The next page failed: the records loaded before stay, the end of the list retries.
+  final bool loadMoreFailed;
+
+  /// Why the last load failed: the first page ([PointsStatus.failed]), the next page ([loadMoreFailed]), or a refresh
+  /// that kept the records shown. Null once a load succeeded.
+  final LoadFailure? failure;
 
   /// Status.
   final PointsStatus status;

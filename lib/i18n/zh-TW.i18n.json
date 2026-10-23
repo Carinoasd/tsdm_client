@@ -162,8 +162,70 @@
     "now": "剛剛",
     "settings": "設定",
     "openInBrowser": "在瀏覽器中開啟",
-    "close": "關閉",
-    "loadMoreFailed": "載入更多失敗"
+    "close": "關閉"
+  },
+  "loadState": {
+    "loading": "正在載入…",
+    "failure": {
+      "noNetwork": {
+        "title": "連不上論壇",
+        "hint": "請檢查網路連線後再試一次。"
+      },
+      "connectionLost": {
+        "title": "連線中斷了",
+        "hint": "網路可能不穩定，請再試一次。"
+      },
+      "timeout": {
+        "title": "論壇回應逾時",
+        "hint": "論壇或網路比較慢，請稍後再試。"
+      },
+      "rateLimited": {
+        "title": "操作太頻繁，論壇暫時不接受",
+        "hint": "請稍等一下再試。",
+        "hintSeconds": "請在 ${seconds: int} 秒後再試。"
+      },
+      "server": {
+        "title": "論壇伺服器出了問題",
+        "hint": "通常過一會兒就會恢復，請稍後再試。"
+      },
+      "badStatus": {
+        "title": "論壇回應了錯誤",
+        "hint": "請稍後再試；一直失敗的話，可以展開下方的詳細資訊回報。"
+      },
+      "challenge": {
+        "title": "網站要求瀏覽器驗證",
+        "hint": "請稍後再試，或在瀏覽器中開啟論壇。"
+      },
+      "closed": {
+        "title": "論壇維護中或暫時關閉",
+        "hint": "請稍後再來。"
+      },
+      "needLogin": {
+        "title": "登入後才能查看",
+        "hint": "論壇只對已登入的會員顯示這裡的內容。"
+      },
+      "noPermission": {
+        "title": "沒有權限查看",
+        "hint": "目前的帳號沒有權限，可以換個帳號試試。"
+      },
+      "accountChanged": {
+        "title": "帳號已切換",
+        "hint": "請為目前的帳號重新載入此頁。"
+      },
+      "unknown": {
+        "title": "載入失敗",
+        "hint": "請再試一次；一直失敗的話，可以展開下方的詳細資訊回報。"
+      }
+    },
+    "details": "詳細資訊",
+    "hideDetails": "收起詳細資訊",
+    "copyDetails": "複製詳細資訊",
+    "retryIn": "${seconds: int} 秒後再試",
+    "refreshFailed": "重新整理失敗：${reason}",
+    "footer": {
+      "loading": "正在載入更多…",
+      "failed": "載入更多失敗：${reason}"
+    }
   },
   "navigation": {
     "homepage": "首頁",
@@ -807,13 +869,15 @@
     },
     "threadTab": {
       "title": "貼文",
-      "noThread": "沒有貼文",
+      "noThread": "這個版塊還沒有貼文",
       "threadType": "分類",
       "threadSpecialType": "特殊分類",
       "threadDateline": "活躍時間",
       "threadOrder": "排序",
       "threadDigested": "加精",
-      "threadRecommended": "推薦"
+      "threadRecommended": "推薦",
+      "noFilteredThread": "沒有符合篩選條件的貼文",
+      "clearFilter": "清除篩選"
     },
     "subredditTab": {
       "title": "子版塊",
@@ -982,21 +1046,21 @@
       "title": "搜尋結果",
       "totalThreadCount": "$count 條結果",
       "pageInfo": "$total 頁",
-      "noData": "沒有資料",
+      "noData": "沒有找到相關貼文",
       "hint": "輸入關鍵字、作者或論壇 id 後搜尋",
-      "failed": "搜尋失敗：$message",
-      "rateLimited": "論壇限制每 $seconds 秒只能搜尋一次",
-      "retryIn": "$seconds 秒後再試",
-      "retry": "再試一次"
+      "noDataHint": "換個關鍵字試試。",
+      "noDataFiltered": "限定了作者或版塊，試試放寬限制。"
     }
   },
   "myThreadPage": {
     "title": "我的貼文",
     "threadTab": {
-      "title": "主題"
+      "title": "主題",
+      "empty": "你還沒有發表過主題"
     },
     "replyTab": {
-      "title": "回覆"
+      "title": "回覆",
+      "empty": "你還沒有回覆過貼文"
     },
     "forum": "分區"
   },
@@ -1004,7 +1068,9 @@
     "title": "${name} 的貼文",
     "titleUnknown": "此會員的貼文",
     "blocked": "你已屏蔽此用戶（本機），其主題與回覆不顯示。",
-    "notList": "論壇沒有顯示此會員的貼文列表。"
+    "notList": "論壇沒有顯示此會員的貼文列表。",
+    "emptyThread": "此會員還沒有發表主題",
+    "emptyReply": "此會員還沒有回覆"
   },
   "favoritePage": {
     "title": "收藏",
@@ -1012,6 +1078,8 @@
     "forumTab": "版塊",
     "empty": "還沒有收藏",
     "emptyForum": "還沒有收藏的版塊",
+    "emptyHint": "在貼文頁的選單選擇「收藏」，貼文就會出現在這裡。",
+    "emptyForumHint": "在版塊頁的選單選擇「收藏本版」，版塊就會出現在這裡。",
     "remove": "取消收藏",
     "removeConfirm": "確定要取消收藏「${title}」嗎？",
     "removed": "已取消收藏",
@@ -1023,6 +1091,8 @@
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "還沒有好友",
+    "emptyHint": "在會員的個人資料頁點「加好友」就能送出好友請求。",
+    "emptyOther": "此會員的好友列表是空的",
     "credits": "積分 ${count}",
     "sendMessage": "傳送訊息",
     "addFriend": {
@@ -1116,7 +1186,8 @@
     "title": "積分統計",
     "statisticsTab": {
       "title": "我的點數",
-      "recentChangelog": "近期積分記錄"
+      "recentChangelog": "近期積分記錄",
+      "emptyRecent": "近期沒有積分變動"
     },
     "changelogTab": {
       "title": "積分記錄",
@@ -1126,7 +1197,9 @@
       "dateRange": "日期範圍",
       "query": "查詢",
       "showFilterTip": "顯示篩選條件",
-      "hideFilterTip": "隱藏篩選條件"
+      "hideFilterTip": "隱藏篩選條件",
+      "empty": "還沒有積分記錄",
+      "emptyFiltered": "沒有符合查詢條件的記錄"
     }
   },
   "postEditPage": {
@@ -1206,7 +1279,10 @@
     "title": "交談記錄",
     "info": "和 $user ($count 條)",
     "success": "發送成功",
-    "failed": "發送失敗：$message"
+    "failed": "發送失敗：$message",
+    "empty": "還沒有和此會員的交談記錄",
+    "loadingOlder": "正在載入更早的訊息…",
+    "noOlder": "沒有更早的訊息了"
   },
   "chatPage": {
     "title": "聊天",
@@ -1219,7 +1295,8 @@
     "viewChatHistoryTip": "查看歷史聊天",
     "failedNetwork": "發送失敗：網路不可用，請檢查網路後重試",
     "maybeSent": "發送結果不明：可能已送出，請重新整理確認後再決定是否重送",
-    "refresh": "重新整理"
+    "refresh": "重新整理",
+    "empty": "還沒有訊息，在下方傳送第一則吧。"
   },
   "imageDetailPage": {
     "title": "圖片詳情",
@@ -1597,6 +1674,8 @@
     "accountWithUid": "$username（UID $uid）",
     "empty": "還沒有瀏覽紀錄",
     "emptyForAccount": "這個帳號沒有瀏覽紀錄",
+    "emptyHint": "開啟過的貼文會記錄在這裡，只保存在這台裝置上。",
+    "showAllAccounts": "顯示全部帳號",
     "entryTooltip": "貼文瀏覽紀錄",
     "title": "貼文瀏覽紀錄",
     "localOnlyTip": "僅記錄本機的瀏覽記錄，在網頁端或其他機器上可能會有所不同"
@@ -1915,7 +1994,8 @@
       "original": "原資料"
     },
     "total": "總分",
-    "showTotalRatePointsTip": "顯示總分"
+    "showTotalRatePointsTip": "顯示總分",
+    "empty": "這一樓還沒有人評分"
   },
   "replyBar": {
     "notReplyToFloorTip": "不回覆該樓層（改為回覆樓主）",

@@ -27,6 +27,21 @@ final class HostUnreachableException implements IOException {
   String toString() => 'HostUnreachableException: $message';
 }
 
+/// The host was reached but the answer did not come in time: OkHttp's read or write timeout ("timeout", "Read timed
+/// out", "SSL handshake timed out"), reported by the Android channel as `KT_HTTP_ERROR` with that message.
+///
+/// A connect that timed out is a [HostUnreachableException] instead (`KT_HTTP_UNREACHABLE`).
+final class RequestTimedOutException implements IOException {
+  /// Constructor.
+  const RequestTimedOutException(this.message);
+
+  /// What the platform said.
+  final String message;
+
+  @override
+  String toString() => 'RequestTimedOutException: $message';
+}
+
 /// The method channel for [KotlinHttpClient].
 abstract class _AndroidHttpMethodChannel {
   static const _httpChannel = MethodChannel('kzs.th000.tsdm_client/httpChannel');
@@ -35,11 +50,26 @@ abstract class _AndroidHttpMethodChannel {
   /// out while connecting), see `HttpClient.errorCode` in `HttpClient.kt`.
   static const _unreachable = 'KT_HTTP_UNREACHABLE';
 
+  /// Error code of every other failed request (see `HttpClient.errorCode` in `HttpClient.kt`): its details carry the
+  /// message of the exception, "timeout" or "Read timed out" for a read or write timeout.
+  static const _error = 'KT_HTTP_ERROR';
+
+  static final _timeoutRe = RegExp(r'\btime(d)? ?out\b', caseSensitive: false);
+
   /// [e] as the failure the caller sees: [HostUnreachableException] when the host was not reached at all
   /// ([_unreachable]), so a post that never left is told apart from one that may have reached the forum (a reply
-  /// failed after the connect may be stored); null for every other failure, a failed request without status.
-  static HostUnreachableException? _unreachableOf(PlatformException e) =>
-      e.code == _unreachable ? HostUnreachableException('${e.details ?? e.message ?? 'host unreachable'}') : null;
+  /// failed after the connect may be stored); [RequestTimedOutException] when the answer did not come in time (still
+  /// a request that may have reached the forum); null for every other failure, a failed request without status.
+  static IOException? _failureOf(PlatformException e) {
+    if (e.code == _unreachable) {
+      return HostUnreachableException('${e.details ?? e.message ?? 'host unreachable'}');
+    }
+    final details = '${e.details ?? ''}';
+    if (e.code == _error && _timeoutRe.hasMatch(details)) {
+      return RequestTimedOutException(details);
+    }
+    return null;
+  }
 
   static const _methodGet = 'get';
   static const _methodPost = 'postForm';
@@ -64,11 +94,11 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] GET failed on $url');
-      if (_unreachableOf(e) case final unreachable?) {
+      if (_failureOf(e) case final failure?) {
         // Its own exception, as dio's connection error and connection timeout are on the other platforms, so a thread
-        // page can be read from its offline copy (see mapException); still a failed request without status for every
-        // other caller.
-        throw unreachable;
+        // page can be read from its offline copy (see mapException), and a timeout as dio's receive timeout; still a
+        // failed request without status for every other caller.
+        throw failure;
       }
       return null;
     }
@@ -94,8 +124,8 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST form failed on $url');
-      if (_unreachableOf(e) case final unreachable?) {
-        throw unreachable;
+      if (_failureOf(e) case final failure?) {
+        throw failure;
       }
       return null;
     }
@@ -119,8 +149,8 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST multipart failed on $url');
-      if (_unreachableOf(e) case final unreachable?) {
-        throw unreachable;
+      if (_failureOf(e) case final failure?) {
+        throw failure;
       }
       return null;
     }
@@ -146,8 +176,8 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST json failed on $url');
-      if (_unreachableOf(e) case final unreachable?) {
-        throw unreachable;
+      if (_failureOf(e) case final failure?) {
+        throw failure;
       }
       return null;
     }

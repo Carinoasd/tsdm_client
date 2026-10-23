@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/features/chat/models/models.dart';
 import 'package:tsdm_client/features/chat/repository/chat_repository.dart';
 import 'package:tsdm_client/features/chat/utils/parse_chat.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -38,7 +39,7 @@ final class ChatBloc extends Bloc<ChatEvent, ChatState> with LoggerMixin {
 
   FutureOr<void> _onChatFetchHistoryRequested(ChatFetchHistoryRequested event, _Emit emit) async {
     final generation = ++_generation;
-    emit(state.copyWith(status: ChatStatus.loading));
+    emit(state.copyWith(status: ChatStatus.loading, failure: null));
     await await _chatRepository
         .fetchChat(event.uid)
         .match(
@@ -47,7 +48,7 @@ final class ChatBloc extends Bloc<ChatEvent, ChatState> with LoggerMixin {
               return;
             }
             handle(e);
-            emit(state.copyWith(status: ChatStatus.failure));
+            _emitFailure(LoadFailure.of(e), emit);
           },
           (v) async {
             if (generation != _generation) {
@@ -60,10 +61,19 @@ final class ChatBloc extends Bloc<ChatEvent, ChatState> with LoggerMixin {
         .run();
   }
 
+  /// A fetch that failed with [failure]: the messages shown stay (the page tells the failure), a dialog not shown yet
+  /// is the failure.
+  void _emitFailure(LoadFailure failure, _Emit emit) => emit(
+    state.copyWith(
+      status: state.messageList.isEmpty ? ChatStatus.failure : ChatStatus.success,
+      failure: failure,
+    ),
+  );
+
   void _updateState(uh.Document document, _Emit emit) {
     final info = parseChatDialog(document);
     if (info == null) {
-      emit(state.copyWith(status: ChatStatus.failure));
+      _emitFailure(LoadFailure(LoadFailureKind.unknown, details: 'chat dialog not found in the answer'), emit);
       return;
     }
     emit(
@@ -76,6 +86,7 @@ final class ChatBloc extends Bloc<ChatEvent, ChatState> with LoggerMixin {
         spaceUrl: info.spaceUrl,
         chatSendTarget: info.sendTarget,
         messageList: info.messageList,
+        failure: null,
       ),
     );
   }

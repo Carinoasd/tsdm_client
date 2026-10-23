@@ -44,14 +44,31 @@ class ForumState with ForumStateMappable {
     this.filterDatelineList = const [],
     this.pollOfferUid,
     this.loadMoreFailed = false,
+    this.loadingMore = false,
+    this.refreshing = false,
+    this.failure,
   });
 
   /// Account the latest loaded page offered a poll creation link to; cleared while loading or on failure.
   final int? pollOfferUid;
 
   /// The last page asked to go on with the list failed: the threads loaded before it stay ([status] is success), the
-  /// end of the list tells the failure and retries ([ForumRetryRequested]).
+  /// end of the list tells the failure ([failure]) and retries ([ForumRetryRequested]).
   final bool loadMoreFailed;
+
+  /// The next page is on its way, the threads loaded before stay.
+  final bool loadingMore;
+
+  /// The first page is asked again (a pull to refresh) while the threads loaded stay on screen; they stay when it
+  /// fails.
+  final bool refreshing;
+
+  /// Why the last load failed: the first page ([ForumStatus.failure]), the next page ([loadMoreFailed]), or a refresh
+  /// that kept the threads shown. Null once a load succeeded.
+  final LoadFailure? failure;
+
+  /// Something is on screen: threads, pinned threads, sub forums.
+  bool get hasContent => normalThreadList.isNotEmpty || stickThreadList.isNotEmpty || subredditList.isNotEmpty;
 
   /// Page status.
   final ForumStatus status;

@@ -5,13 +5,15 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/points/bloc/points_bloc.dart';
+import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
 import 'package:tsdm_client/features/points/widgets/points_card.dart';
 import 'package:tsdm_client/features/points/widgets/points_query_form.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
 
 /// Page to show current logged user's points statistics and changelog.
 class PointsPage extends StatefulWidget {
@@ -30,10 +32,19 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
   late final ScrollController _changelogScrollController;
 
   Widget _buildStatisticsTab(BuildContext context, PointsStatisticsState state) {
-    if (state.status == PointsStatus.loading) {
+    if (state.status == PointsStatus.initial || state.status == PointsStatus.loading) {
       return const CenteredCircularIndicator();
     }
-    _statisticsRefreshController.finishRefresh();
+    if (state.status == PointsStatus.failed) {
+      // Failed, not empty: "no data" would be wrong.
+      return FailureView(
+        failure: state.failure,
+        onRetry: () => context.read<PointsStatisticsBloc>().add(PointsStatisticsRefreshRequested()),
+      );
+    }
+    if (!state.refreshing) {
+      _statisticsRefreshController.finishRefresh();
+    }
 
     final attrList = state.pointsMap.entries.toList();
 
@@ -107,7 +118,11 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
                   ),
                 ),
                 if (state.recentChangelog.isEmpty)
-                  AppStateView(icon: Icons.history_outlined, message: context.t.general.noData, scrollable: false),
+                  AppStateView(
+                    icon: Icons.history_outlined,
+                    message: context.t.pointsPage.statisticsTab.emptyRecent,
+                    scrollable: false,
+                  ),
                 ...state.recentChangelog
                     .map(PointsChangeCard.new)
                     .toList()
@@ -123,38 +138,52 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
 
   Widget _buildChangelogTab(BuildContext context, PointsChangelogState state) {
     late final Widget body;
-    if (state.status == PointsStatus.loading) {
+    final bloc = context.read<PointsChangelogBloc>();
+    final tr = context.t.pointsPage.changelogTab;
+    if (state.status == PointsStatus.initial || state.status == PointsStatus.loading) {
       body = const Expanded(child: CenteredCircularIndicator());
+    } else if (state.status == PointsStatus.failed) {
+      // Failed, not empty: "no data" would be wrong.
+      body = Expanded(
+        child: FailureView(failure: state.failure, onRetry: () => bloc.add(PointsChangelogRefreshRequested())),
+      );
     } else {
+      // A query that found nothing is told apart from no records at all.
+      final queried = state.parameter != const ChangelogParameter.empty();
       final changelogList = EasyRefresh(
         controller: _changelogRefreshController,
         scrollController: _changelogScrollController,
         header: const MaterialHeader(),
-        footer: const MaterialFooter(),
-        onLoad: () async {
-          if (state.currentPage >= state.totalPages) {
-            _changelogRefreshController.finishLoad(IndicatorResult.noMore);
-            showNoMoreSnackBar(context);
-            return;
-          }
-          context.read<PointsChangelogBloc>().add(PointsChangelogLoadMoreRequested(state.currentPage));
-        },
-        onRefresh: () {
-          context.read<PointsChangelogBloc>().add(PointsChangelogRefreshRequested());
-        },
+        onRefresh: () => bloc.add(PointsChangelogRefreshRequested()),
         child: AppCenteredList(
           builder: (context, side, _) => state.fullChangelog.isEmpty
               ? ListView(
                   padding: side.copyWith(top: 8, bottom: 12).add(context.safePadding()),
                   children: [
-                    AppStateView(icon: Icons.history_outlined, message: context.t.general.noData, scrollable: false),
+                    AppStateView(
+                      icon: queried ? Icons.filter_alt_off_outlined : Icons.history_outlined,
+                      message: queried ? tr.emptyFiltered : tr.empty,
+                      scrollable: false,
+                    ),
                   ],
                 )
               : ListView.separated(
-                  shrinkWrap: true,
                   padding: side.copyWith(top: 8, bottom: 12).add(context.safePadding()),
-                  itemCount: state.fullChangelog.length,
-                  itemBuilder: (_, index) => PointsChangeCard(state.fullChangelog[index]),
+                  // The end of the list is its last item: built when it comes near, it asks the next page.
+                  itemCount: state.fullChangelog.length + 1,
+                  itemBuilder: (_, index) => index < state.fullChangelog.length
+                      ? PointsChangeCard(state.fullChangelog[index])
+                      : ListFooter(
+                          status: listFooterStatus(
+                            hasMore: state.currentPage < state.totalPages,
+                            loading: state.loadingMore,
+                            failed: state.loadMoreFailed,
+                          ),
+                          itemCount: state.fullChangelog.length,
+                          failure: state.failure,
+                          onLoadMore: () => bloc.add(PointsChangelogLoadMoreRequested(state.currentPage)),
+                          onRetry: () => bloc.add(PointsChangelogLoadMoreRequested(state.currentPage)),
+                        ),
                   separatorBuilder: (_, _) => appListSeparator,
                 ),
         ),
@@ -163,9 +192,9 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
       body = Expanded(child: changelogList);
     }
 
-    _changelogRefreshController
-      ..finishLoad()
-      ..finishRefresh();
+    if (!state.refreshing) {
+      _changelogRefreshController.finishRefresh();
+    }
 
     // The opened filter form scrolls on its own within 60% of the height (landscape phones, large fonts), so the
     // records below always keep some room.
@@ -193,7 +222,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
     _tabController = TabController(length: 2, vsync: this);
     _statisticsRefreshController = EasyRefreshController(controlFinishRefresh: true);
     _statisticsScrollController = ScrollController();
-    _changelogRefreshController = EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true);
+    _changelogRefreshController = EasyRefreshController(controlFinishRefresh: true);
     _changelogScrollController = ScrollController();
   }
 
@@ -235,12 +264,47 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
         ),
         body: SafeArea(
           bottom: false,
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              BlocBuilder<PointsStatisticsBloc, PointsStatisticsState>(builder: _buildStatisticsTab),
-              BlocBuilder<PointsChangelogBloc, PointsChangelogState>(builder: _buildChangelogTab),
+          // A refresh that failed keeps what the tab shows and says so.
+          child: MultiBlocListener(
+            listeners: [
+              BlocListener<PointsStatisticsBloc, PointsStatisticsState>(
+                listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
+                listener: (context, state) {
+                  final bloc = context.read<PointsStatisticsBloc>();
+                  showRefreshFailedSnackBar(
+                    context,
+                    state.failure,
+                    onRetry: () {
+                      if (!bloc.isClosed) {
+                        bloc.add(PointsStatisticsRefreshRequested());
+                      }
+                    },
+                  );
+                },
+              ),
+              BlocListener<PointsChangelogBloc, PointsChangelogState>(
+                listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
+                listener: (context, state) {
+                  final bloc = context.read<PointsChangelogBloc>();
+                  showRefreshFailedSnackBar(
+                    context,
+                    state.failure,
+                    onRetry: () {
+                      if (!bloc.isClosed) {
+                        bloc.add(PointsChangelogRefreshRequested());
+                      }
+                    },
+                  );
+                },
+              ),
             ],
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                BlocBuilder<PointsStatisticsBloc, PointsStatisticsState>(builder: _buildStatisticsTab),
+                BlocBuilder<PointsChangelogBloc, PointsChangelogState>(builder: _buildChangelogTab),
+              ],
+            ),
           ),
         ),
       ),

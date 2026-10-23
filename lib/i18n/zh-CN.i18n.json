@@ -162,8 +162,70 @@
     "now": "刚刚",
     "settings": "设置",
     "openInBrowser": "在浏览器中打开",
-    "close": "关闭",
-    "loadMoreFailed": "加载更多失败"
+    "close": "关闭"
+  },
+  "loadState": {
+    "loading": "正在加载…",
+    "failure": {
+      "noNetwork": {
+        "title": "连不上论坛",
+        "hint": "请检查网络连接后再试一次。"
+      },
+      "connectionLost": {
+        "title": "连接中断了",
+        "hint": "网络可能不稳定，请再试一次。"
+      },
+      "timeout": {
+        "title": "论坛响应超时",
+        "hint": "论坛或网络比较慢，请稍后再试。"
+      },
+      "rateLimited": {
+        "title": "操作太频繁，论坛暂时不接受",
+        "hint": "请稍等一下再试。",
+        "hintSeconds": "请在 ${seconds: int} 秒后再试。"
+      },
+      "server": {
+        "title": "论坛服务器出了问题",
+        "hint": "通常过一会儿就会恢复，请稍后再试。"
+      },
+      "badStatus": {
+        "title": "论坛返回了错误",
+        "hint": "请稍后再试；一直失败的话，可以展开下方的详细信息反馈。"
+      },
+      "challenge": {
+        "title": "网站要求浏览器验证",
+        "hint": "请稍后再试，或在浏览器中打开论坛。"
+      },
+      "closed": {
+        "title": "论坛维护中或暂时关闭",
+        "hint": "请稍后再来。"
+      },
+      "needLogin": {
+        "title": "登录后才能查看",
+        "hint": "论坛只对已登录的会员显示这里的内容。"
+      },
+      "noPermission": {
+        "title": "没有权限查看",
+        "hint": "当前账号没有权限，可以换个账号试试。"
+      },
+      "accountChanged": {
+        "title": "账号已切换",
+        "hint": "请为当前账号重新加载此页。"
+      },
+      "unknown": {
+        "title": "加载失败",
+        "hint": "请再试一次；一直失败的话，可以展开下方的详细信息反馈。"
+      }
+    },
+    "details": "详细信息",
+    "hideDetails": "收起详细信息",
+    "copyDetails": "复制详细信息",
+    "retryIn": "${seconds: int} 秒后再试",
+    "refreshFailed": "刷新失败：${reason}",
+    "footer": {
+      "loading": "正在加载更多…",
+      "failed": "加载更多失败：${reason}"
+    }
   },
   "navigation": {
     "homepage": "主页",
@@ -807,13 +869,15 @@
     },
     "threadTab": {
       "title": "帖子",
-      "noThread": "没有帖子",
+      "noThread": "这个版块还没有帖子",
       "threadType": "分类",
       "threadSpecialType": "特殊分类",
       "threadDateline": "活跃时间",
       "threadOrder": "排序",
       "threadDigested": "加精",
-      "threadRecommended": "推荐"
+      "threadRecommended": "推荐",
+      "noFilteredThread": "没有符合筛选条件的帖子",
+      "clearFilter": "清除筛选"
     },
     "subredditTab": {
       "title": "子版块",
@@ -982,21 +1046,21 @@
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
-      "noData": "没有数据",
+      "noData": "没有找到相关帖子",
       "hint": "输入关键字、作者或论坛 id 后搜索",
-      "failed": "搜索失败：$message",
-      "rateLimited": "论坛限制每 $seconds 秒只能搜索一次",
-      "retryIn": "$seconds 秒后再试",
-      "retry": "再试一次"
+      "noDataHint": "换个关键字试试。",
+      "noDataFiltered": "限定了作者或版块，试试放宽限制。"
     }
   },
   "myThreadPage": {
     "title": "我的帖子",
     "threadTab": {
-      "title": "主题"
+      "title": "主题",
+      "empty": "你还没有发表过主题"
     },
     "replyTab": {
-      "title": "回复"
+      "title": "回复",
+      "empty": "你还没有回复过帖子"
     },
     "forum": "分区"
   },
@@ -1004,7 +1068,9 @@
     "title": "${name} 的帖子",
     "titleUnknown": "TA的帖子",
     "blocked": "你已屏蔽此用户（本机），其主题与回复不显示。",
-    "notList": "论坛没有显示此会员的帖子列表。"
+    "notList": "论坛没有显示此会员的帖子列表。",
+    "emptyThread": "TA 还没有发表主题",
+    "emptyReply": "TA 还没有回复"
   },
   "favoritePage": {
     "title": "收藏",
@@ -1012,6 +1078,8 @@
     "forumTab": "版块",
     "empty": "还没有收藏",
     "emptyForum": "还没有收藏的版块",
+    "emptyHint": "在帖子页的菜单选择「收藏」，帖子就会出现在这里。",
+    "emptyForumHint": "在版块页的菜单选择「收藏本版」，版块就会出现在这里。",
     "remove": "取消收藏",
     "removeConfirm": "确定要取消收藏「${title}」吗？",
     "removed": "已取消收藏",
@@ -1023,6 +1091,8 @@
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "还没有好友",
+    "emptyHint": "在会员的个人资料页点「加好友」就能发送好友请求。",
+    "emptyOther": "TA 的好友列表是空的",
     "credits": "积分 ${count}",
     "sendMessage": "发送消息",
     "addFriend": {
@@ -1116,7 +1186,8 @@
     "title": "积分统计",
     "statisticsTab": {
       "title": "我的积分",
-      "recentChangelog": "近期积分记录"
+      "recentChangelog": "近期积分记录",
+      "emptyRecent": "近期没有积分变动"
     },
     "changelogTab": {
       "title": "积分记录",
@@ -1126,7 +1197,9 @@
       "dateRange": "日期范围",
       "query": "查询",
       "showFilterTip": "显示筛选条件",
-      "hideFilterTip": "隐藏筛选条件"
+      "hideFilterTip": "隐藏筛选条件",
+      "empty": "还没有积分记录",
+      "emptyFiltered": "没有符合查询条件的记录"
     }
   },
   "postEditPage": {
@@ -1206,7 +1279,10 @@
     "title": "交谈记录",
     "info": "和 $user ($count 条)",
     "success": "发送成功",
-    "failed": "发送失败：$message"
+    "failed": "发送失败：$message",
+    "empty": "还没有和 TA 的交谈记录",
+    "loadingOlder": "正在加载更早的消息…",
+    "noOlder": "没有更早的消息了"
   },
   "chatPage": {
     "title": "聊天",
@@ -1219,7 +1295,8 @@
     "viewChatHistoryTip": "查看历史聊天",
     "failedNetwork": "发送失败：网络不可用，请检查网络后重试",
     "maybeSent": "发送结果不明：可能已发出，请刷新确认后再决定是否重发",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "empty": "还没有消息，在下方发送第一条吧。"
   },
   "imageDetailPage": {
     "title": "图片详情",
@@ -1597,6 +1674,8 @@
     "accountWithUid": "$username（UID $uid）",
     "empty": "还没有浏览记录",
     "emptyForAccount": "这个账号没有浏览记录",
+    "emptyHint": "打开过的帖子会记录在这里，只保存在这台设备上。",
+    "showAllAccounts": "显示全部账号",
     "entryTooltip": "帖子浏览记录",
     "title": "帖子浏览记录",
     "localOnlyTip": "仅记录本机的浏览记录，在网页端或其他机器上可能会有所不同"
@@ -1915,7 +1994,8 @@
       "original": "原数据"
     },
     "total": "总评分",
-    "showTotalRatePointsTip": "显示总评分"
+    "showTotalRatePointsTip": "显示总评分",
+    "empty": "这一楼还没有人评分"
   },
   "replyBar": {
     "notReplyToFloorTip": "不回复该楼层（改为回复楼主）",

@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/my_thread/utils/my_thread_page_parser.dart'
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -46,6 +47,8 @@ final class MemberThreadListState {
     this.loadingMore = false,
     this.message,
     this.failureCount = 0,
+    this.loadMoreFailed = false,
+    this.failure,
   });
 
   /// Status.
@@ -69,10 +72,18 @@ final class MemberThreadListState {
   /// The forum's message ([MemberThreadStatus.notice]).
   final String? message;
 
-  /// Counts the failed loads of a next page, so the page tells each one.
+  /// Counts the failed loads of a next page.
   final int failureCount;
 
-  /// A copy with the given fields replaced; [nextPageUrl] and [message] are replaced as given (null clears them).
+  /// The next page failed: the rows loaded before stay, the end of the list retries.
+  final bool loadMoreFailed;
+
+  /// Why the last load failed: the first page ([MemberThreadStatus.failed]), the next page ([loadMoreFailed]), or a
+  /// refresh that kept the rows shown. Null once a load succeeded.
+  final LoadFailure? failure;
+
+  /// A copy with the given fields replaced; [nextPageUrl], [message] and [failure] are replaced as given (null clears
+  /// them).
   MemberThreadListState copyWith({
     MemberThreadStatus? status,
     List<MyThread>? items,
@@ -82,6 +93,8 @@ final class MemberThreadListState {
     bool? loadingMore,
     String? Function()? message,
     int? failureCount,
+    bool? loadMoreFailed,
+    LoadFailure? Function()? failure,
   }) => MemberThreadListState(
     status: status ?? this.status,
     items: items ?? this.items,
@@ -91,6 +104,8 @@ final class MemberThreadListState {
     loadingMore: loadingMore ?? this.loadingMore,
     message: message != null ? message() : this.message,
     failureCount: failureCount ?? this.failureCount,
+    loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
+    failure: failure != null ? failure() : this.failure,
   );
 }
 
@@ -212,7 +227,7 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
       state._with(
         tab,
         shown
-            ? list.copyWith(refreshing: true, loadingMore: false)
+            ? list.copyWith(refreshing: true, loadingMore: false, loadMoreFailed: false, failure: () => null)
             : const MemberThreadListState(status: MemberThreadStatus.loading),
       ),
     );
@@ -229,7 +244,13 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
     switch (result) {
       case Left(:final value):
         handle(value);
-        emit(state._with(tab, state.of(tab).copyWith(status: _failedStatus(tab), refreshing: false)));
+        // A refresh keeps the rows shown (the page says it failed), a first page tells why it failed.
+        emit(
+          state._with(
+            tab,
+            state.of(tab).copyWith(status: _failedStatus(tab), refreshing: false, failure: () => LoadFailure.of(value)),
+          ),
+        );
       case Right(:final value):
         _onFirstPage(tab, value, url, session);
     }
@@ -254,7 +275,18 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
     }
     if (_servedToAnother(answer, session)) {
       error('member thread: the $tab list was served to another account than ${session.uid}');
-      emit(state._with(tab, state.of(tab).copyWith(status: _failedStatus(tab), refreshing: false)));
+      emit(
+        state._with(
+          tab,
+          state
+              .of(tab)
+              .copyWith(
+                status: _failedStatus(tab),
+                refreshing: false,
+                failure: () => LoadFailure(LoadFailureKind.accountChanged),
+              ),
+        ),
+      );
       return;
     }
     // Not the list either: the forum printed another page instead (the profile of a banned member, see the plugin
@@ -302,7 +334,7 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
       return;
     }
     final generation = ++_generations[tab.index];
-    emit(state._with(tab, list.copyWith(loadingMore: true)));
+    emit(state._with(tab, list.copyWith(loadingMore: true, loadMoreFailed: false)));
     final result = await _repository.fetchPage(url).run();
     if (!_isCurrent(tab, generation)) {
       return;
@@ -314,20 +346,33 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
       return;
     }
     final current = state.of(tab);
-    final failed = current.copyWith(loadingMore: false, failureCount: current.failureCount + 1);
+    // The rows loaded before stay, the end of the list tells why the next page failed and retries.
+    MemberThreadListState failed(LoadFailure failure) => current.copyWith(
+      loadingMore: false,
+      failureCount: current.failureCount + 1,
+      loadMoreFailed: true,
+      failure: () => failure,
+    );
     switch (result) {
       case Left(:final value):
         handle(value);
-        emit(state._with(tab, failed));
+        emit(state._with(tab, failed(LoadFailure.of(value))));
       case Right(:final value):
-        if (_messageOf(value) != null) {
-          emit(state._with(tab, failed));
+        if (_messageOf(value) case final message?) {
+          emit(
+            state._with(
+              tab,
+              failed(
+                message.login ? LoadFailure(LoadFailureKind.needLogin) : LoadFailure.fromMessage(message.text),
+              ),
+            ),
+          );
           return;
         }
         if (_servedToAnother(value, session) ||
             (value is TsdmAppWebPage && value.document.querySelector('form#delform') == null)) {
           error('member thread: a next page of the $tab list was served to another account, or is no list');
-          emit(state._with(tab, failed));
+          emit(state._with(tab, failed(LoadFailure(LoadFailureKind.unknown))));
           return;
         }
         final (items, nextPageUrl) = myThreadPageOf(value, url, reply: tab == MemberThreadTab.reply);
@@ -339,6 +384,8 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
               nextPageUrl: () => nextPageUrl,
               pageNumber: current.pageNumber + 1,
               loadingMore: false,
+              loadMoreFailed: false,
+              failure: () => null,
             ),
           ),
         );

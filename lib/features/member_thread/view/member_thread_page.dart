@@ -15,11 +15,12 @@ import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.d
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
+import 'package:tsdm_client/widgets/list_skeleton.dart';
 
 /// The threads and the replies of another member ("TA的主题"), in the two tabs the forum's page has.
 ///
@@ -50,8 +51,7 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
   late final TabController _tabController;
   late final MemberThreadCubit _cubit;
   final Map<MemberThreadTab, EasyRefreshController> _refreshControllers = {
-    for (final tab in MemberThreadTab.values)
-      tab: EasyRefreshController(controlFinishRefresh: true, controlFinishLoad: true),
+    for (final tab in MemberThreadTab.values) tab: EasyRefreshController(controlFinishRefresh: true),
   };
   StreamSubscription<AuthStatus>? _authSubscription;
 
@@ -111,7 +111,8 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
     final controller = _refreshControllers[tab]!;
     switch (list.status) {
       case MemberThreadStatus.initial || MemberThreadStatus.loading:
-        return const CenteredCircularIndicator();
+        // The shape of the rows to come instead of a spinner over the whole tab.
+        return const ThreadListSkeleton();
       case MemberThreadStatus.needLogin:
         return NeedLoginPage(
           backUri: GoRouterState.of(context).uri,
@@ -119,49 +120,62 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
           popCallback: (_) async => _cubit.reloadAll(),
         );
       case MemberThreadStatus.notice:
-        // The forum's own explanation (no such member, the forum closed), or another page than the list.
+        // The forum's own explanation (no such member, the forum closed), as it wrote it, or another page than the
+        // list.
         final message = list.message;
-        return AppStateView(
-          icon: Icons.info_outline,
-          message: message == null || message.isEmpty ? context.t.memberThreadPage.notList : message,
+        return FailureView(
+          failure: message == null || message.isEmpty
+              ? LoadFailure(LoadFailureKind.forumMessage, message: context.t.memberThreadPage.notList)
+              : LoadFailure.fromMessage(message),
+          onRetry: () => _cubit.load(tab),
         );
       case MemberThreadStatus.failed:
-        return buildRetryButton(context, () => _cubit.load(tab));
+        return FailureView(failure: list.failure, onRetry: () => _cubit.load(tab));
       case MemberThreadStatus.success:
         break;
     }
     if (!list.refreshing) {
       controller.finishRefresh();
     }
-    if (!list.loadingMore) {
-      controller.finishLoad(list.nextPageUrl == null ? IndicatorResult.noMore : IndicatorResult.success);
-    }
-    final Widget child;
-    if (list.items.isEmpty) {
-      child = AppStateView(icon: Icons.article_outlined, message: context.t.general.noData);
-    } else {
-      child = AppCenteredList(
-        builder: (context, side, _) => ListView.separated(
-          padding: side.copyWith(top: 8).add(context.safePadding()),
-          itemCount: list.items.length,
-          itemBuilder: (context, index) => MyThreadCard(list.items[index]),
-          separatorBuilder: (context, index) => appListSeparator,
-        ),
-      );
-    }
-    return EasyRefresh(
+    final tr = context.t.memberThreadPage;
+    return EasyRefresh.builder(
       controller: controller,
       header: const MaterialHeader(),
-      footer: const MaterialFooter(),
       onRefresh: () async => _cubit.load(tab),
-      onLoad: () async {
-        if (list.nextPageUrl == null) {
-          controller.finishLoad(IndicatorResult.noMore);
-          return;
-        }
-        await _cubit.loadMore(tab);
-      },
-      child: child,
+      childBuilder: (context, physics) => list.items.isEmpty
+          ? AppScrollableStateView(
+              physics: physics,
+              child: AppStateView(
+                icon: Icons.article_outlined,
+                message: switch (tab) {
+                  MemberThreadTab.thread => tr.emptyThread,
+                  MemberThreadTab.reply => tr.emptyReply,
+                },
+                scrollable: false,
+              ),
+            )
+          : AppCenteredList(
+              builder: (context, side, _) => ListView.separated(
+                physics: physics,
+                padding: side.copyWith(top: 8).add(context.safePadding()),
+                // The end of the list is its last item: built when it comes near, it asks the next page.
+                itemCount: list.items.length + 1,
+                itemBuilder: (context, index) => index < list.items.length
+                    ? MyThreadCard(list.items[index])
+                    : ListFooter(
+                        status: listFooterStatus(
+                          hasMore: list.nextPageUrl != null,
+                          loading: list.loadingMore,
+                          failed: list.loadMoreFailed,
+                        ),
+                        itemCount: list.items.length,
+                        failure: list.failure,
+                        onLoadMore: () async => _cubit.loadMore(tab),
+                        onRetry: () async => _cubit.loadMore(tab),
+                      ),
+                separatorBuilder: (context, index) => appListSeparator,
+              ),
+            ),
     );
   }
 
@@ -200,10 +214,24 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
       value: _cubit,
       child: MultiBlocListener(
         listeners: [
+          // A refresh that failed keeps the rows on screen and says so; the end of the list tells a next page that
+          // failed.
           for (final tab in MemberThreadTab.values)
             BlocListener<MemberThreadCubit, MemberThreadState>(
-              listenWhen: (prev, curr) => curr.of(tab).failureCount > prev.of(tab).failureCount,
-              listener: (context, state) => showFailedToLoadSnackBar(context),
+              listenWhen: (prev, curr) =>
+                  prev.of(tab).refreshing &&
+                  !curr.of(tab).refreshing &&
+                  curr.of(tab).status == MemberThreadStatus.success &&
+                  curr.of(tab).failure != null,
+              listener: (context, state) => showRefreshFailedSnackBar(
+                context,
+                state.of(tab).failure,
+                onRetry: () {
+                  if (!_cubit.isClosed) {
+                    unawaited(_cubit.load(tab));
+                  }
+                },
+              ),
             ),
         ],
         child: BlocBuilder<MemberThreadCubit, MemberThreadState>(
