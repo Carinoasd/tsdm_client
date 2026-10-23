@@ -99,3 +99,13 @@ hash → 32 zeros, the key of an attachment's thumbnail url → `00000000`, the 
 The forms of forum 2 that open a thread (the new threads of forum 2, the edits of its first posts) list the test
 forum's form plugin in `hook_fields`; the tests take them as a forum without such a plugin serves them by clearing it.
 `post_v16_newthread.json` carries a deliberate garbage `document`: the structured path never reads it.
+
+`form_v17_*.json` (the small forms asked with `tsdmform=1`, `type: form`, `schema: 17`, plugin 3.0.0: the rate window,
+the report window, the buy windows of a paid thread and of an anonymous one, the user group list with switchable
+groups and without any, the switch window of a group, the profile editor's base and info tabs; the messages of a
+duplicate rate, of a group without the permission to rate, of a guest at the rate and report windows, of not enough
+credits to buy, of a group the member is not in, and of a guest at the profile editor) are fetched from the test forum
+by the plugin's contract tool (`tools/fixtures.py --group form`) with its fixture script (`formfix300.php`: the tids and
+pids it made are pinned to 9900001… and 9910001…, in referers, urls and handle keys too, the suffix of its marker
+strings to `000000`), scrubbed the same way; `formhash` → `f1f2f3f4`, the buyer's credits → 1000 (the balance after
+buying 1000 minus the price), the expiry of an extra group → `2023-11-25`. test_237 reads them.

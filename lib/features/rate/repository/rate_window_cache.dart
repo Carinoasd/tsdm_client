@@ -51,9 +51,22 @@ abstract final class RateWindowCache {
   }
 
   /// The kept window [info] as the window of post [pid] of the same thread: the post id, and the `#pid` anchor of
-  /// the referer the forum sends the browser back to.
-  static RateWindowInfo forPost(RateWindowInfo info, String pid) =>
-      info.copyWith(pid: pid, referer: info.referer.replaceFirst('#pid${info.pid}', '#pid$pid'));
+  /// the referer the forum sends the browser back to; in the served fields of a window of the forum's app API too.
+  static RateWindowInfo forPost(RateWindowInfo info, String pid) {
+    final referer = info.referer.replaceFirst('#pid${info.pid}', '#pid$pid');
+    final fields = info.submitFields;
+    return info.copyWith(
+      pid: pid,
+      referer: referer,
+      submitFields: fields == null
+          ? null
+          : {
+              ...fields,
+              if (fields.containsKey('pid')) 'pid': pid,
+              if (fields.containsKey('referer')) 'referer': referer,
+            },
+    );
+  }
 
   /// The window [info] after a rate just accepted: [rated] (score id to value, as sent) is taken off today's
   /// remaining scores, so the form shows what is left without waiting for the forum. The real window replaces it

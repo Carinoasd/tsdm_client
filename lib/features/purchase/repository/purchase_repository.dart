@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/purchase/models/models.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -13,6 +14,11 @@ import 'package:universal_html/parsing.dart';
 
 /// Repository of purchasing.
 final class PurchaseRepository with LoggerMixin {
+  /// Constructor; [currentUid] tells the account a window is asked for (the logged in account by default).
+  PurchaseRepository({int Function()? currentUid}) : _currentUid = currentUid ?? currentLoginUid;
+
+  final int Function() _currentUid;
+
   // Keep the same host as every other request: the forum's cookies are
   // host-only (bound to `www.tsdm39.com`), so the bare `tsdm39.com` host would
   // be treated as a guest and the purchase would fail.
@@ -121,44 +127,126 @@ final class PurchaseRepository with LoggerMixin {
     );
   }
 
+  /// The purchase window of the forum's app API (plugin 3.0.0, `type: form`, `form: buy`) [form] for thread [tid]:
+  /// the author, the price, what the author gets and the balance after buying as the forum printed them (`price`,
+  /// `net`, `balance`, which may be negative), and the form as served. Null when the answer misses what a purchase
+  /// needs (a form hash, a target that is not the pay url, another thread): the window is then read as before.
+  static PurchaseConfirmInfo? purchaseConfirmInfoFromApi(SmallFormFields form, {required String tid}) {
+    final json = form.json;
+    final fields = form.submitFields;
+    final url = form.submitUrl('forum.php', const {'mod': 'misc', 'action': 'pay', 'paysubmit': 'yes'});
+    final formHash = fields['formhash'] ?? '';
+    final served = tsdmAppInt(json['tid']);
+    final price = json['price'];
+    final net = json['net'];
+    final balance = json['balance'];
+    if (url == null ||
+        formHash.isEmpty ||
+        served <= 0 ||
+        '$served' != tid ||
+        fields['tid'] != tid ||
+        price is! num ||
+        net is! num ||
+        balance is! num) {
+      return null;
+    }
+    return PurchaseConfirmInfo(
+      author: tsdmAppText(tsdmAppMap(json['author'])['name']),
+      price: '$price',
+      authorProfit: '$net',
+      coinsLast: '$balance',
+      formHash: formHash,
+      referer: fields['referer'] ?? '',
+      tid: tid,
+      handleKey: fields['handlekey'] ?? '',
+      submitUrl: url,
+      submitFields: fields,
+    );
+  }
+
   /// Fetch confirm info before purchase post [pid] in thread [tid].
   ///
   /// MUST call this function before purchase.
-  AsyncEither<PurchaseConfirmInfo> fetchPurchaseConfirmInfo({required String tid, required String pid}) =>
-      AsyncEither(() async {
-        final respEither = await getIt
-            .get<NetClientProvider>()
-            .get(withTsdmAppJsonWrite(formatPurchaseDialogUrl(tid, pid)))
-            .run();
-        if (respEither.isLeft()) {
-          return left(respEither.unwrapErr());
-        }
-        final resp = respEither.unwrap();
-        if (resp.statusCode != HttpStatus.ok) {
-          // Network error.
-          error('fetch purchase dialog failed: code${resp.statusCode}');
-          return left(HttpRequestFailedException(resp.statusCode));
-        }
-        final result = _parsePurchaseDialog(resp.data, tid: tid);
-        if (result.isLeft()) {
-          error('parse purchase dialog failed: ${result.unwrapErr()}');
-        }
-        return result;
-      });
+  ///
+  /// The window is asked as a small form of the forum's app API ([withTsdmAppForm], plugin 3.0.0): the form as
+  /// structured fields ([purchaseConfirmInfoFromApi]) or the forum's message instead of it (bought already, not enough
+  /// credits, the login prompt: [PurchaseRefusedException] with the forum's text), served to the account that asked
+  /// ([_currentUid]) or never used. An older plugin answers the window as its write result and the forum without the
+  /// plugin its AJAX fragment, parsed as before; a form the plugin could not tell, or with fields the app does not
+  /// know, is asked again the way it always was.
+  AsyncEither<PurchaseConfirmInfo> fetchPurchaseConfirmInfo({required String tid, required String pid}) => AsyncEither(
+    () async {
+      final url = formatPurchaseDialogUrl(tid, pid);
+      final uid = _currentUid();
+      final respEither = await getIt.get<NetClientProvider>().get(withTsdmAppForm(url)).run();
+      if (respEither.isLeft()) {
+        return left(respEither.unwrapErr());
+      }
+      final resp = respEither.unwrap();
+      if (resp.statusCode != HttpStatus.ok) {
+        // Network error.
+        error('fetch purchase dialog failed: code${resp.statusCode}');
+        return left(HttpRequestFailedException(resp.statusCode));
+      }
+      switch (smallFormAnswerOf(resp.data, SmallFormKind.buy)) {
+        case final SmallFormAnswer answer when answer.identityProblem(uid) != null:
+          return left(PurchaseRefusedException(answer.identityProblem(uid)!));
+        case final SmallFormMessage message:
+          return left(
+            message.reason.isNotEmpty ? PurchaseRefusedException(message.reason) : PurchaseInfoInvalidNoticeException(),
+          );
+        case final SmallFormFields form when form.usable:
+          if (purchaseConfirmInfoFromApi(form, tid: tid) case final info?) {
+            return right(info);
+          }
+          return _fetchAsBefore(url, tid: tid);
+        case SmallFormFields():
+          return _fetchAsBefore(url, tid: tid);
+        case null when isSmallFormUnknown(resp.data):
+          return _fetchAsBefore(url, tid: tid);
+        case null:
+          break;
+      }
+      final result = _parsePurchaseDialog(resp.data, tid: tid);
+      if (result.isLeft()) {
+        error('parse purchase dialog failed: ${result.unwrapErr()}');
+      }
+      return result;
+    },
+  );
+
+  /// The window [url] asked as before plugin 3.0.0 (the write result of plugin 2.6.0, or the AJAX fragment).
+  Future<Either<AppException, PurchaseConfirmInfo>> _fetchAsBefore(String url, {required String tid}) async {
+    final respEither = await getIt.get<NetClientProvider>().get(withTsdmAppJsonWrite(url)).run();
+    if (respEither.isLeft()) {
+      return left(respEither.unwrapErr());
+    }
+    final resp = respEither.unwrap();
+    if (resp.statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(resp.statusCode));
+    }
+    return _parsePurchaseDialog(resp.data, tid: tid);
+  }
 
   /// Purchase with given parameters.
   ///
   /// The forum's app API (plugin 2.6.0) answers the result as JSON ([tsdmAppWriteResultOf]): the success hook
   /// (`thread_pay_succeed`, "购买成功") is the success, anything else failed; an older plugin answers the AJAX
   /// fragment, read as before.
-  AsyncVoidEither purchase({
-    required String formHash,
-    required String referer,
-    required String tid,
-    required String handleKey,
-  }) => AsyncVoidEither(() async {
-    final body = {'formhash': formHash, 'referer': referer, 'tid': tid, 'handlekey': handleKey};
-    final respEither = await getIt.get<NetClientProvider>().postForm(_purchaseTarget, data: body).run();
+  ///
+  /// A window of the forum's app API (plugin 3.0.0, [PurchaseConfirmInfo.submitFields]) posts what it served to
+  /// its `submit.url` with `inajax=1`, as the website does. A refusal carries the forum's message
+  /// ([PurchaseActionFailedException.reason]); "bought already" (`credits_buy_thread`) is a success.
+  ///
+  /// Sent once, never retried by the transport (a purchase moves credits).
+  AsyncVoidEither purchase(PurchaseConfirmInfo info) => AsyncVoidEither(() async {
+    final served = info.submitFields;
+    final target = info.submitUrl;
+    final body = served != null && target != null
+        ? served
+        : {'formhash': info.formHash, 'referer': info.referer, 'tid': info.tid, 'handlekey': info.handleKey};
+    final url = served != null && target != null ? withSmallFormInAjax(target) : _purchaseTarget;
+    final respEither = await getIt.get<NetClientProvider>().postForm(url, data: body, singleAttempt: true).run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }
@@ -169,10 +257,18 @@ final class PurchaseRepository with LoggerMixin {
     }
 
     if (tsdmAppWriteResultOf(resp.data) case final result?) {
+      // Told by the language key, not by the words: `thread_pay_succeed`, or `credits_buy_thread` (bought already:
+      // an earlier send of this purchase went through), which shows the thread the same way.
       final bought =
           (result.kind == TsdmAppWriteKind.handle && result.succeeded) ||
-          (result.kind != TsdmAppWriteKind.page && result.message.contains('购买成功'));
-      return bought ? rightVoid() : left(PurchaseActionFailedException());
+          result.messageKey == 'thread_pay_succeed' ||
+          result.messageKey == 'credits_buy_thread';
+      if (bought) {
+        return rightVoid();
+      }
+      return left(
+        PurchaseActionFailedException(reason: result.reason.isNotEmpty ? result.reason : null),
+      );
     }
     if (!(resp.data is String && (resp.data as String).contains('购买成功'))) {
       return left(PurchaseActionFailedException());

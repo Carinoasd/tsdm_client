@@ -144,6 +144,7 @@
     "noPermission": "沒有權限查看該內容",
     "needLoginToSeeThisPage": "登入後才能存取此頁面",
     "needLogin": "請先登入",
+    "accountChangedRetry": "帳號已切換，請重新開啟此頁。",
     "pleaseWait": "請稍候",
     "loadFailedAndRetry": "載入失敗，正在重試",
     "noData": "沒有資料",
@@ -1090,6 +1091,8 @@
     "onlyAllowIntegers": "只允許整數",
     "failedToRate": "評分失敗",
     "scoreTodayRemaining": "今日剩餘 $score",
+    "overTodayRemaining": "超過今日剩餘 $score",
+    "selfDeduct": "評分將扣除您的同類積分",
     "fillWithTemplate": "使用模板填滿"
   },
   "pointsPage": {
@@ -2143,6 +2146,9 @@
     "save": "儲存資料",
     "saveSuccess": "保存成功",
     "saveFailed": "儲存失敗",
+    "saveFailedReason": "儲存失敗：$reason",
+    "fieldRefused": "論壇不接受「$field」的內容",
+    "fieldNotOffered": "「$field」的值不在論壇的選項裡",
     "visibility": {
       "title": "隱私",
       "public": "公開",

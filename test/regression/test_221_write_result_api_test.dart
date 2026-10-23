@@ -46,6 +46,7 @@ import 'package:tsdm_client/features/post_report/models/post_report.dart';
 import 'package:tsdm_client/features/profile/models/editable_user_profile.dart';
 import 'package:tsdm_client/features/profile/repository/edit_user_profile_repository.dart';
 import 'package:tsdm_client/features/profile/repository/switch_user_group_repository.dart';
+import 'package:tsdm_client/features/purchase/models/models.dart';
 import 'package:tsdm_client/features/purchase/repository/purchase_repository.dart';
 import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -1124,7 +1125,7 @@ void main() {
       ]) {
         final forum = _Forum.always(answer);
         _use(forum);
-        final result = await const SwitchUserGroupRepository().submitSwitchRequest(3, 'f1f2f3f4').run();
+        final result = await SwitchUserGroupRepository().submitSwitchRequest(3, 'f1f2f3f4').run();
         if (reason == null) {
           _right(result);
         } else {
@@ -1328,7 +1329,18 @@ void main() {
         final forum = _Forum.always(answer);
         _use(forum);
         final result = await PurchaseRepository()
-            .purchase(formHash: 'f1f2f3f4', referer: '$baseUrl/forum.php', tid: '9199849', handleKey: 'pay')
+            .purchase(
+              const PurchaseConfirmInfo(
+                author: null,
+                price: null,
+                authorProfit: null,
+                coinsLast: null,
+                formHash: 'f1f2f3f4',
+                referer: '$baseUrl/forum.php',
+                tid: '9199849',
+                handleKey: 'pay',
+              ),
+            )
             .run();
         if (ok) {
           _right(result);

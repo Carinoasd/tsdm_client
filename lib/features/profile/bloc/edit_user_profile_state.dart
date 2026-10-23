@@ -22,11 +22,14 @@ enum EditUserProfileStatus {
 @MappableClass()
 final class EditUserProfileState with EditUserProfileStateMappable {
   /// Constructor.
-  const EditUserProfileState({this.status = .initial, this.profile});
+  const EditUserProfileState({this.status = .initial, this.profile, this.failureReason});
 
   /// The status.
   final EditUserProfileStatus status;
 
   /// Current loaded profile.
   final eup.UserProfile? profile;
+
+  /// Why loading or saving failed, as the forum said it; null when it gave no reason.
+  final String? failureReason;
 }

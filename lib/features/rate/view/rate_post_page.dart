@@ -93,6 +93,18 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
         if (vv == null) {
           return tr.invalidNumber;
         }
+        if ((score.min, score.max) case (final int min, final int max)) {
+          // The range and today's remaining of the forum's app API: what the forum checks again when the rate is
+          // sent (thread_rate_range_invalid, thread_rate_ctrl); 0 rates nothing with this score.
+          if (vv != 0 && (vv < min || vv > max)) {
+            return tr.notInAllowedRange(range: score.allowedRangeDescription);
+          }
+          final left = score.todayLeft;
+          if (vv != 0 && left != null && vv.abs() > left) {
+            return tr.overTodayRemaining(score: score.remaining);
+          }
+          return null;
+        }
         final allowedList = score.allowedRangeDescription.split('~');
         final allowedMinValue = allowedList.firstOrNull?.trim().parseToInt();
         final allowedMaxValue = allowedList.lastOrNull?.trim().parseToInt();
@@ -112,30 +124,14 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
       error('rate post page validate failed');
       return;
     }
-    final tid = info.tid;
     final pid = info.pid;
-    final formHash = info.formHash;
-    final referer = info.referer;
-    final handleKey = info.handleKey;
-
-    final body = <String, String>{
-      'formhash': formHash,
-      'tid': tid,
-      'pid': pid,
-      'referer': referer,
-      'handlekey': handleKey,
-      'reason': reasonController.text,
-    };
+    final scores = <String, String>{};
     for (final e in scoreMap!.entries) {
       // "0" should make an empty value.
       final v = '${e.value.text.parseToInt()}';
-      body[e.key] = v == '0' ? '' : v;
+      scores[e.key] = v == '0' ? '' : v;
     }
-    // A checkbox on the web page: sent only when checked. The forum notifies the author whenever the field is not
-    // empty, so sending "off" notified the author as well.
-    if (noticeAuthor || info.noticeAuthorForced) {
-      body['sendreasonpm'] = 'on';
-    }
+    final body = info.body(scores: scores, reason: reasonController.text, noticeAuthor: noticeAuthor);
     debug('going to rate pid=$pid with ${body.length} fields');
 
     context.read<RateBloc>().add(RateRateRequested(body));
@@ -144,8 +140,13 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
   Widget _buildBody(BuildContext context, RateState state) {
     final tr = context.t.ratePostPage;
 
-    if (state.status == RateStatus.gotInfo) {
-      scoreMap ??= Map.fromEntries(state.info!.scoreList.map((e) => MapEntry(e.id, TextEditingController(text: '0'))));
+    if (state.status == RateStatus.gotInfo && scoreMap == null) {
+      scoreMap = Map.fromEntries(state.info!.scoreList.map((e) => MapEntry(e.id, TextEditingController(text: '0'))));
+      // The form of the forum's app API starts the switch as served (the site's ratenotify plugin checks it, as on
+      // the website); the window parsed from the web page keeps the app's default.
+      if (state.info!.isFromApi) {
+        noticeAuthor = state.info!.noticeAuthorPreset;
+      }
     }
 
     if (state.status == RateStatus.initial || state.status == RateStatus.fetchingInfo) {
@@ -252,6 +253,11 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
                       ],
                     ),
                     appListSeparator,
+                    if (state.info!.selfDeduct) ...[
+                      // The website says so above the form: the scores come off the rater's own credits.
+                      AppNoticeBanner(message: tr.selfDeduct),
+                      appListSeparator,
+                    ],
                     AppFormSection(
                       gap: 4,
                       children: [
@@ -259,19 +265,21 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
                           controller: reasonController,
                           decoration: InputDecoration(labelText: tr.reason, suffixIcon: defaultReasonButton),
                         ),
-                        SectionSwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: noticeAuthor || state.info!.noticeAuthorForced,
-                          title: Text(tr.noticeAuthor),
-                          subtitle: state.info!.noticeAuthorForced ? Text(tr.noticeAuthorForced) : null,
-                          onChanged: state.info!.noticeAuthorForced
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    noticeAuthor = value;
-                                  });
-                                },
-                        ),
+                        // A form of the forum's app API without the checkbox: the website offers no choice either.
+                        if (!state.info!.isFromApi || state.info!.noticeAuthorName != null)
+                          SectionSwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: noticeAuthor || state.info!.noticeAuthorForced,
+                            title: Text(tr.noticeAuthor),
+                            subtitle: state.info!.noticeAuthorForced ? Text(tr.noticeAuthorForced) : null,
+                            onChanged: state.info!.noticeAuthorForced
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      noticeAuthor = value;
+                                    });
+                                  },
+                          ),
                       ],
                     ),
                   ],
