@@ -195,12 +195,12 @@ class PostListState extends State<PostList> with LoggerMixin {
     _layout.layOut(widget.postList, widget.generation);
     _targetSerial = widget.scrollTargetSerial;
     final target = widget.scrollTargetPid ?? widget.initialPostID?.toString();
-    if (target != null) {
-      _targetKey = _keyOfPid(target);
+    _targetKey = target == null ? null : _keyOfPid(target);
+    if (_targetKey != null) {
       // Scroll to post, if any.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToTarget());
     } else {
-      // Opened at the floors' start: the title above them shows too.
+      // Opened at the floors' start (or the floor asked for is not among them): the title above them shows too.
       _showStart();
     }
     _scheduleCheck();
