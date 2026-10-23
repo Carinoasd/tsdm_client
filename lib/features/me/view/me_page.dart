@@ -35,14 +35,15 @@ typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
 /// The "me" tab of the home shell: the account in use and every page of it, in one place.
 ///
 /// Up top the account card: avatar, name, user group (a tap opens the profile), the check-in of the day and the
-/// switch to another saved account. Under it the pages of the account (threads, favorites, history, drafts, private
-/// messages, friends, points, medals and titles), then the services of the forum (activities, medal center, title
-/// shop, bank, pokemon center, achievements) and the app itself (accounts, settings, about).
+/// switch to another saved account. Under it the pages of the account (threads, favorites, history, the drafts kept on
+/// this device and the forum's drafts box, private messages, friends, points), then the services of the forum (medals
+/// and titles, activities, medal center, title shop, bank, pokemon center, achievements) and the app itself (accounts,
+/// settings, about).
 ///
 /// The settings were a tab of their own before; the whole settings page is one tap away here, nothing in it moved. The
 /// pages the side navigation of wide windows listed besides its tabs are entries here as well.
 ///
-/// Without an account: the login, the settings and about.
+/// Without an account: the login, the services (a tap asks for a login), the settings and about.
 class MePage extends StatefulWidget {
   /// Constructor.
   const MePage({super.key});
@@ -108,7 +109,14 @@ class _MePageState extends State<MePage> {
         label: tr.history,
         onTap: () => _open(ScreenPaths.threadVisitHistory),
       ),
-      // The drafts box of the forum, the third tab of "my threads".
+      // The drafts kept on this device while writing, and the drafts box of the forum (the third tab of "my threads"):
+      // named apart so the one is not taken for the other.
+      (
+        key: const ValueKey('me-local-drafts'),
+        icon: Icons.edit_note_outlined,
+        label: tr.localDrafts,
+        onTap: () => _open(ScreenPaths.localDrafts),
+      ),
       (
         key: const ValueKey('me-drafts'),
         icon: Icons.drafts_outlined,
@@ -137,36 +145,46 @@ class _MePageState extends State<MePage> {
         label: tr.points,
         onTap: () => _open(ScreenPaths.points),
       ),
-      (
-        key: const ValueKey('me-medals'),
-        icon: Icons.workspace_premium_outlined,
-        label: context.t.medalTitleHub.title,
-        onTap: () => _open(ScreenPaths.medalTitleHub),
-      ),
     ];
   }
 
-  /// A row of the lists under the entries.
-  Widget _row(BuildContext context, {required Key key, required IconData icon, required String title, String? path}) =>
-      SectionListTile(
-        key: key,
-        leading: Icon(icon),
-        title: Text(title),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: path == null ? null : () => _open(path),
-      );
+  /// A row of the lists under the entries; with [needLogin] a guest gets the login page instead.
+  Widget _row(
+    BuildContext context, {
+    required Key key,
+    required IconData icon,
+    required String title,
+    String? path,
+    bool needLogin = false,
+  }) => SectionListTile(
+    key: key,
+    leading: Icon(icon),
+    title: Text(title),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: path == null ? null : () => _open(needLogin ? ScreenPaths.login : path),
+  );
 
   /// The services of the forum: the pages the side navigation listed besides its tabs, and the others of the account.
-  Widget _buildServices(BuildContext context) => AppTileGroup(
+  /// Listed for a guest too, a tap asks for a login then.
+  Widget _buildServices(BuildContext context, {required bool loggedIn}) => AppTileGroup(
     title: context.t.mePage.services,
     icon: Icons.apps_outlined,
     children: [
+      _row(
+        context,
+        key: const ValueKey('me-medals'),
+        icon: Icons.workspace_premium_outlined,
+        title: context.t.medalTitleHub.title,
+        path: ScreenPaths.medalTitleHub,
+        needLogin: !loggedIn,
+      ),
       _row(
         context,
         key: const ValueKey('me-activities'),
         icon: Icons.event_outlined,
         title: context.t.navigation.activities,
         path: ScreenPaths.activities,
+        needLogin: !loggedIn,
       ),
       _row(
         context,
@@ -174,6 +192,7 @@ class _MePageState extends State<MePage> {
         icon: Icons.military_tech_outlined,
         title: context.t.medalCenter.title,
         path: ScreenPaths.medalCenter,
+        needLogin: !loggedIn,
       ),
       _row(
         context,
@@ -181,6 +200,7 @@ class _MePageState extends State<MePage> {
         icon: Icons.sell_outlined,
         title: context.t.titleShop.title,
         path: ScreenPaths.titleShop,
+        needLogin: !loggedIn,
       ),
       _row(
         context,
@@ -188,6 +208,7 @@ class _MePageState extends State<MePage> {
         icon: Icons.account_balance_outlined,
         title: context.t.bank.title,
         path: ScreenPaths.bank,
+        needLogin: !loggedIn,
       ),
       _row(
         context,
@@ -195,6 +216,7 @@ class _MePageState extends State<MePage> {
         icon: Icons.catching_pokemon,
         title: context.t.pokemon.title,
         path: ScreenPaths.pokemon,
+        needLogin: !loggedIn,
       ),
       _row(
         context,
@@ -202,6 +224,7 @@ class _MePageState extends State<MePage> {
         icon: Icons.emoji_events_outlined,
         title: context.t.achievementsPage.title,
         path: ScreenPaths.achievements,
+        needLogin: !loggedIn,
       ),
     ],
   );
@@ -263,10 +286,10 @@ class _MePageState extends State<MePage> {
                     entries: _accountEntries(context),
                     wide: constraints.maxWidth >= _wideEntriesWidth,
                   ),
-                  SizedBox(height: gap),
-                  _buildServices(context),
                 ] else
                   const _GuestCard(),
+                SizedBox(height: gap),
+                _buildServices(context, loggedIn: loggedIn),
                 SizedBox(height: gap),
                 _buildApp(context, loggedIn: loggedIn),
               ],
@@ -299,15 +322,20 @@ class _AccountCardState extends State<_AccountCard> {
     if (repository == null) {
       return null;
     }
-    final page = (await repository.fetchProfile().run()).toNullable();
+    // The profile of this very account, by its uid: the account in use may change while the page is on its way.
+    final page = (await repository.fetchProfile(uid: '$uid').run()).toNullable();
     final profile = page == null ? null : (await buildProfilePage(page).run()).toNullable();
     final group = profile?.userGroup;
-    if (group == null || group.isEmpty) {
+    final name = group == null || group.isEmpty
+        // Html, the group's name with the forum's color and icon; the name is enough here.
+        ? null
+        : parseHtmlDocument(group).body?.firstEndDeepText()?.trim();
+    if (name == null || name.isEmpty) {
+      // Asked again next time the card is built, not kept as missing.
+      _groups.removeWhere((key, _) => key == uid);
       return null;
     }
-    // Html, the group's name with the forum's color and icon; the name is enough here.
-    final name = parseHtmlDocument(group).body?.firstEndDeepText()?.trim();
-    return name == null || name.isEmpty ? null : name;
+    return name;
   }();
 
   @override

@@ -232,8 +232,25 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
       _scrollToTopSub = scrollToTopStream.stream.listen(_onScrollToTop);
     }
     _searchController = TextEditingController();
-    // The time offset of the account in use, stored by its last sync, for the relative times.
-    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    _accountUid = _uidInUse(context, listen: false);
+    _setUpForAccount(_accountUid);
+  }
+
+  /// The account the page shows, set up by [_setUpForAccount].
+  int? _accountUid;
+
+  /// The account in use: the stored one counts before the homepage verified it, as the navigation shows it.
+  int? _uidInUse(BuildContext context, {bool listen = true}) {
+    final account = watchCurrentAccount(context, listen: listen);
+    if (account != null) {
+      return account.user?.uid;
+    }
+    return context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+  }
+
+  /// What the page reads for the account [uid]: the time offset its last sync stored, for the relative times, and the
+  /// card explaining the notification permission on the first visit with an account (asked once).
+  void _setUpForAccount(int? uid) {
     if (uid != null && getIt.isRegistered<StorageProvider>()) {
       unawaited(
         NotificationTimeOffsets.load(getIt.get<StorageProvider>(), uid).then((_) {
@@ -243,14 +260,28 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         }),
       );
     }
-    // The first visit of the notice page: the card explaining the notification permission, once.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await askNotificationPermission(
         context,
         trigger: NotificationPermissionTrigger.noticePage,
-        loggedIn: context.readOrNull<AuthenticationRepository>()?.currentUser != null,
+        loggedIn: uid != null,
       );
+    });
+  }
+
+  /// Another account is in use: the search and the "unread only" filter were the previous one's.
+  void _onAccountChanged(int? uid) {
+    _accountUid = uid;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _query = '';
+        onlyShowUnread = false;
+      });
+      _searchController.clear();
+      _setUpForAccount(uid);
     });
   }
 
@@ -329,10 +360,28 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final tr = context.t.noticePage;
+    final uid = _uidInUse(context);
+    if (uid != _accountUid) {
+      _onAccountChanged(uid);
+    }
     if (!_loggedIn(context)) {
       return _buildGuest(context);
     }
+    // Back closes the search first, before the tab goes back to the homepage or the page closes.
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (!_searching) {
+          return false;
+        }
+        _toggleSearch();
+        return true;
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final tr = context.t.noticePage;
     return BlocListener<NotificationBloc, NotificationState>(
       listener: (context, state) {
         final inUse = watchCurrentAccount(context, listen: false)?.user?.uid;

@@ -377,6 +377,8 @@ final class _Auth extends Fake implements AuthenticationRepository {
   AsyncVoidEither loginWithServedUser(UserLoginInfo? user, {required bool guest, int? fetchedAs, int? epoch}) =>
       AsyncVoidEither(() async => rightVoid());
 
+  void emit(AuthStatus status) => _controller.add(status);
+
   Future<void> close() => _controller.close();
 }
 
@@ -501,6 +503,7 @@ const _stubPaths = [
   ScreenPaths.rootNotice,
   ScreenPaths.userBlock,
   ScreenPaths.openInApp,
+  ScreenPaths.localDrafts,
 ];
 
 /// The app's router shape: the home shell with its four tabs (built by [tab]), the forum page, the settings and
@@ -824,16 +827,29 @@ void main() {
       expect(find.descendant(of: find.byType(NavigationBar), matching: find.byType(Badge)), findsNothing);
     });
 
-    testWidgets('a notification tap: the reading pages close, the notifications tab shows', (tester) async {
+    testWidgets('a notification tap on a tab: the notifications tab shows', (tester) async {
       await app.pump(tester, initial: ScreenPaths.topic);
-      unawaited(app.router.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': '4001'}));
-      await _settle(tester, rounds: 4);
       final (:top, :action) = openNoticePageForTap(app.router, loggedIn: true, hasPopup: false);
-      await _settle(tester, rounds: 4);
-      expect((top, action), (ScreenPaths.threadV1, LocalNoticeTapAction.showNoticeTab));
+      await _settle(tester, rounds: 6);
+      expect((top, action), (ScreenPaths.topic, LocalNoticeTapAction.showNoticeTab));
       expect(app.stack, hasLength(1));
       expect(app.top, ScreenPaths.notice);
       expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, HomeTab.notice.index);
+    });
+
+    testWidgets('a notification tap while reading: the notice page above the thread, back returns to it', (
+      tester,
+    ) async {
+      await app.pump(tester, initial: ScreenPaths.topic);
+      unawaited(app.router.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': '4001'}));
+      await _settle(tester, rounds: 6);
+      final (:top, :action) = openNoticePageForTap(app.router, loggedIn: true, hasPopup: false);
+      await _settle(tester, rounds: 6);
+      expect((top, action), (ScreenPaths.threadV1, LocalNoticeTapAction.openNoticePage));
+      expect(app.stack.sublist(1), [ScreenPaths.threadV1, ScreenPaths.rootNotice]);
+      await tester.binding.handlePopRoute();
+      await _settle(tester, rounds: 6);
+      expect(app.top, ScreenPaths.threadV1, reason: 'the thread was kept');
     });
 
     testWidgets('a link opened in the app is a page above the shell, back returns to the tab', (tester) async {
@@ -867,16 +883,17 @@ void main() {
           'me-favorites',
           'me-history',
           'me-drafts',
+          'me-local-drafts',
           'me-messages',
           'me-friends',
           'me-points',
-          'me-medals',
           'me-switch-account',
         ]) {
           expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
         }
         final list = find.byKey(const ValueKey('me-page-list'));
         for (final key in [
+          'me-medals',
           'me-activities',
           'me-medal-center',
           'me-title-shop',
@@ -908,6 +925,8 @@ void main() {
         ('me-settings', ScreenPaths.settings.path, ''),
         ('me-about', ScreenPaths.about, ''),
         ('me-bank', ScreenPaths.bank, ''),
+        ('me-local-drafts', ScreenPaths.localDrafts, ''),
+        ('me-medals', ScreenPaths.medalTitleHub, ''),
       ]) {
         testWidgets('$key opens $path$query above the shell', (tester) async {
           await app.pump(tester, initial: ScreenPaths.me, tab: _realTab);
@@ -982,16 +1001,31 @@ void main() {
       setUp(() async => app.setUp(guest: true));
       tearDown(() async => app.tearDown());
 
-      testWidgets('the login, the settings and about, nothing of an account', (tester) async {
+      testWidgets('the login, the services, the settings and about, nothing of an account', (tester) async {
         await app.pump(tester, initial: ScreenPaths.me, tab: _realTab);
         expect(find.byKey(const ValueKey('me-guest-card')), findsOneWidget);
         expect(find.byKey(const ValueKey('me-account-card')), findsNothing);
         expect(find.byKey(const ValueKey('me-my-threads')), findsNothing);
         expect(find.byKey(const ValueKey('me-manage-accounts')), findsNothing);
-        expect(find.byKey(const ValueKey('me-settings')), findsOneWidget);
-        expect(find.byKey(const ValueKey('me-about')), findsOneWidget);
+        final list = find
+            .descendant(of: find.byKey(const ValueKey('me-page-list')), matching: find.byType(Scrollable))
+            .first;
+        for (final key in ['me-medals', 'me-bank', 'me-settings', 'me-about']) {
+          await tester.scrollUntilVisible(find.byKey(ValueKey(key)), 200, scrollable: list);
+          expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
+        }
+        // A service asks for a login.
+        await tester.ensureVisible(find.byKey(const ValueKey('me-bank')));
+        await _settle(tester, rounds: 2);
+        await tester.tap(find.byKey(const ValueKey('me-bank')));
+        await _settle(tester, rounds: 6);
+        expect(app.top, ScreenPaths.login);
+        await tester.binding.handlePopRoute();
+        await _settle(tester, rounds: 6);
+        await tester.drag(list, const Offset(0, 2000));
+        await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));
-        await _settle(tester, rounds: 4);
+        await _settle(tester, rounds: 6);
         expect(app.top, ScreenPaths.login);
       });
 
@@ -1019,6 +1053,38 @@ void main() {
       await _settle(tester, rounds: 4);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('back closes the search first; another account clears the search and the filter', (tester) async {
+      await app.pump(tester, initial: ScreenPaths.notice, tab: _realTab);
+      await tester.tap(find.byKey(const ValueKey('notice-search')));
+      await _settle(tester, rounds: 2);
+      await tester.enterText(find.byKey(const ValueKey('notice-search-field')), 'Dave');
+      await _settle(tester, rounds: 2);
+      await tester.binding.handlePopRoute();
+      await _settle(tester, rounds: 4);
+      expect(find.byKey(const ValueKey('notice-search-field')), findsNothing, reason: 'the search closed');
+      expect(app.top, ScreenPaths.notice, reason: 'still on the tab');
+      await tester.binding.handlePopRoute();
+      await _settle(tester, rounds: 6);
+      expect(app.top, ScreenPaths.homepage, reason: 'then back goes home');
+
+      await tapText(tester, tr.navigation.notice);
+      await tester.tap(find.byKey(const ValueKey('notice-unread-filter')));
+      await _settle(tester, rounds: 2);
+      expect(tester.widget<IconButton>(find.byKey(const ValueKey('notice-unread-filter'))).isSelected, isTrue);
+      await tester.tap(find.byKey(const ValueKey('notice-search')));
+      await _settle(tester, rounds: 2);
+      // Another account: the account cubit follows the authentication status.
+      app.auth.currentUser = const UserLoginInfo(username: 'Bob', uid: 1001);
+      app.auth.emit(AuthStatusAuthed(app.auth.currentUser!));
+      await _settle(tester, rounds: 6);
+      expect(find.byKey(const ValueKey('notice-search-field')), findsNothing);
+      // Back on the first account (its lists are the ones of the bloc): the filter is off.
+      app.auth.currentUser = _alice;
+      app.auth.emit(const AuthStatusAuthed(_alice));
+      await _settle(tester, rounds: 6);
+      expect(tester.widget<IconButton>(find.byKey(const ValueKey('notice-unread-filter'))).isSelected, isFalse);
     });
 
     testWidgets('a double tap on its tab scrolls the list in view to top', (tester) async {
@@ -1139,14 +1205,23 @@ void main() {
         expect(app.top, '/editPost/0/11');
       });
 
-      testWidgets('the forum does not let the account post: told why, no editor', (tester) async {
+      testWidgets('the page says the account may not post: told, the editor still offered', (tester) async {
         app.adapter.allowPost = false;
         await openForum(tester);
         await tester.tap(button());
         await _settle(tester, rounds: 4);
         expect(find.text(tr.forumPage.newThread.noPermissionTitle), findsOneWidget);
         expect(find.text(tr.forumPage.newThread.noPermissionMessage), findsOneWidget);
-        expect(app.top, '/forum/11');
+        await tester.tap(find.text(tr.general.cancel));
+        await _settle(tester, rounds: 4);
+        expect(app.top, '/forum/11', reason: 'cancelled');
+
+        // The forum decides: the editor opens anyway.
+        await tester.tap(button());
+        await _settle(tester, rounds: 4);
+        await tester.tap(find.text(tr.forumPage.newThread.openAnyway));
+        await _settle(tester, rounds: 4);
+        expect(app.top, '/editPost/0/11');
       });
     });
 

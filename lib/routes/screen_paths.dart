@@ -165,8 +165,8 @@ class ScreenPaths {
   /// Show all notice and private messages on current user.
   static const String notice = '/notice';
 
-  /// The notice page opened above the pages on top, when they cannot be closed to show the [notice] tab (a reply being
-  /// written, a form).
+  /// The notice page opened above a page on top of the home shell (a thread being read, a form): a notification tap or
+  /// the bell there pushes it, and back returns to that page. With the shell alone the [notice] tab is shown instead.
   ///
   /// A page of the home shell cannot be pushed (https://github.com/flutter/flutter/issues/140586): this is a copy of
   /// the tab at the root level, the same page without the navigation bar.

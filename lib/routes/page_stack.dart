@@ -119,26 +119,24 @@ bool returnToPage(GoRouter router, String name) {
 /// returned so the caller can tell why the homepage did not show.
 bool returnToHome(GoRouter router) => returnToShellTab(router, ScreenPaths.homepage);
 
-/// Whether the home shell of [router] is the bottom page and every page above it can be closed quietly, so one of its
-/// tabs can be shown by [returnToShellTab]; also true when nothing is above it.
+/// Whether the home shell of [router] is the only page, so one of its tabs is what the user looks at and another tab can
+/// be shown in its place ([returnToShellTab]).
 ///
-/// False when a dialog or sheet is open ([hasPopup]): the pages under a dialog are not closed behind the user's back.
-bool canReturnToShell(GoRouter router, {required bool hasPopup}) {
+/// False when a page is open above the shell (reading a thread, a form): a notification tap pushes the notice page
+/// above it instead, and back returns to it. False too when a dialog or sheet is open ([hasPopup]).
+bool isOnShell(GoRouter router, {required bool hasPopup}) {
   if (hasPopup) {
     return false;
   }
   final matches = router.routerDelegate.currentConfiguration.matches;
   final pages = _rootNavigator(router)?.widget.pages ?? const <Page<dynamic>>[];
-  if (matches.isEmpty || matches.first is! ShellRouteMatch || pages.isEmpty) {
-    return false;
-  }
-  return pages.skip(1).every((page) => quietlyClosablePages.contains(page.name) && !RouteDrafts.pageHasDraft(page));
+  return matches.isNotEmpty && matches.first is ShellRouteMatch && pages.length == 1;
 }
 
 /// Close the pages above the home shell of [router] and show its tab at [path], one of the shell's tab paths.
 ///
 /// Pages that cannot be closed quietly stay: the closing stops on the first one, which is then on top, and false is
-/// returned so the caller can tell why the tab did not show. Check [canReturnToShell] first to avoid half the way.
+/// returned so the caller can tell why the tab did not show.
 bool returnToShellTab(GoRouter router, String path) {
   final navigator = _rootNavigator(router);
   if (navigator == null) {

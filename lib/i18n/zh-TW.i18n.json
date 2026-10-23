@@ -187,7 +187,8 @@
       "myThreads": "我的貼文",
       "favorites": "收藏",
       "history": "瀏覽紀錄",
-      "drafts": "草稿箱",
+      "drafts": "論壇草稿",
+      "localDrafts": "本機草稿",
       "messages": "私訊",
       "friends": "好友",
       "points": "積分"
@@ -878,8 +879,9 @@
       "label": "發帖",
       "guestTitle": "登入後才能發帖",
       "guestMessage": "發表主題需要帳號。請先登入，再回到這個版塊發帖。",
-      "noPermissionTitle": "無法在此版塊發帖",
-      "noPermissionMessage": "論壇沒有開放你目前的使用者群組在這個版塊發表主題。其他版塊可能允許，使用者群組也可能隨參與程度提升。"
+      "noPermissionTitle": "可能無法在此版塊發帖",
+      "noPermissionMessage": "論壇顯示你目前的使用者群組可能沒有發帖權限。版塊與會員也有各自的權限設定，你仍可以開啟編輯器，由論壇判斷能否發表。",
+      "openAnyway": "仍要開啟編輯器"
     },
     "copyFid": "複製fid（${fid: String}）",
     "favorite": {

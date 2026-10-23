@@ -187,7 +187,8 @@
       "myThreads": "My threads",
       "favorites": "Favorites",
       "history": "History",
-      "drafts": "Drafts",
+      "drafts": "Forum drafts",
+      "localDrafts": "Local drafts",
       "messages": "Messages",
       "friends": "Friends",
       "points": "Points"
@@ -878,8 +879,9 @@
       "label": "Post",
       "guestTitle": "Log in to post",
       "guestMessage": "Posting a thread needs an account. Log in first, then come back to this forum.",
-      "noPermissionTitle": "No permission to post here",
-      "noPermissionMessage": "The forum does not let your user group post threads in this forum. Other forums may allow it, or your user group may change as you take part."
+      "noPermissionTitle": "Possibly no permission to post here",
+      "noPermissionMessage": "The forum shows that your user group may not post threads here. The forum and this board have their own permissions as well; you can still open the editor and let the forum decide.",
+      "openAnyway": "Open the editor anyway"
     },
     "copyFid": "Copy fid(${fid: String})",
     "favorite": {

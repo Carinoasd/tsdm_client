@@ -21,9 +21,9 @@ import 'package:tsdm_client/widgets/back_to_home_button.dart';
 /// GitHub #117: each tap on the auto sync notification while reading a thread opened out of the notice page pushed
 /// another notice page, they piled up; and there was no way back to the homepage but pressing back through all of them.
 ///
-/// Since the navigation rework of 2026-10-23 the notice page is a tab of the home shell: a tap closes the reading pages
-/// above the shell and shows that tab; pages that cannot be closed get the notice page opened above them instead
-/// (`ScreenPaths.rootNotice`).
+/// Since the navigation rework of 2026-10-23 the notice page is a tab of the home shell: a tap on the shell alone shows
+/// that tab; above a page (a thread being read) the notice page is opened (`ScreenPaths.rootNotice`) and back returns
+/// to that page.
 ///
 /// The router is a real GoRouter shaped like the app's: the home shell with its four tabs, pages pushed on the root
 /// navigator with the page name set to the route path as `AppRoute` does. Taps go through [openNoticePageForTap], the
@@ -159,24 +159,44 @@ void main() {
   }
 
   group('notification tap', () {
-    testWidgets('thread -> tap, many times: the notifications tab, nothing piles up', (tester) async {
+    testWidgets('on the shell: the notifications tab', (tester) async {
       await pumpApp(tester);
       expect(await tapNotification(tester), LocalNoticeTapAction.showNoticeTab);
       expect(stack(), hasLength(1));
       expect(routerTopLocation(router), ScreenPaths.notice);
       expect(find.text('notice tab'), findsOneWidget);
+    });
 
+    testWidgets('notice -> thread -> tap, many times: one notice page, the notice page on top', (tester) async {
+      await pumpApp(tester);
       for (var i = 0; i < 5; i++) {
         await push(tester, ScreenPaths.threadV1, tid: '$i');
         await push(tester, ScreenPaths.reply, path: {'target': '$i'});
         expect(routerTopLocation(router), '/reply/$i');
 
-        expect(await tapNotification(tester), LocalNoticeTapAction.showNoticeTab);
-        expect(noticePages(), 0, reason: 'tap $i must not stack a notice page');
-        expect(stack(), hasLength(1));
-        expect(routerTopLocation(router), ScreenPaths.notice);
-        expect(find.text('notice tab'), findsOneWidget);
+        expect(
+          await tapNotification(tester),
+          i == 0 ? LocalNoticeTapAction.openNoticePage : LocalNoticeTapAction.returnToNoticePage,
+        );
+        expect(noticePages(), 1, reason: 'tap $i must not stack another notice page');
+        expect(stack().sublist(1), [ScreenPaths.threadV1, ScreenPaths.reply, ScreenPaths.rootNotice]);
+        expect(routerTopLocation(router), ScreenPaths.rootNotice);
+        expect(find.text('notice'), findsOneWidget);
       }
+    });
+
+    testWidgets('no notice page open: pushed once over the thread, the thread stays under the notice page', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await push(tester, ScreenPaths.threadV1, tid: '1');
+      expect(await tapNotification(tester), LocalNoticeTapAction.openNoticePage);
+      expect(stack().sublist(1), [ScreenPaths.threadV1, ScreenPaths.rootNotice]);
+
+      // Back returns to the thread.
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('thread 1'), findsOneWidget);
     });
 
     testWidgets('two taps before the next frame: the tab, no page pushed', (tester) async {
@@ -361,7 +381,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected(), HomeTab.topic.index, reason: 'tab changed by the router, not by the bar');
 
-    await push(tester, ScreenPaths.threadV1, tid: '1');
     await tapNotification(tester);
     expect(tester.takeException(), isNull);
     expect(stack(), hasLength(1));

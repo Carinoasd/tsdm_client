@@ -24,7 +24,6 @@ import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
-import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/error_card.dart';
@@ -458,11 +457,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     // Wide windows have room for labelled buttons; phones keep the compact round ones over the list.
     final wide = MediaQuery.sizeOf(context).width >= 600;
     Future<void> openNewThread() async {
-      // Told before the editor opens: a guest needs an account, and the page said this account may not post here.
+      // A guest needs an account first. The page saying the account may not post is only a hint (the plugin reads the
+      // user group, the forum also has its own permissions): told, with the editor still offered.
       final loggedIn = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null;
       if (!loggedIn || state.postAllowed == false) {
-        await showNewThreadUnavailableDialog(context, guest: !loggedIn);
-        return;
+        final openAnyway = await showNewThreadUnavailableDialog(context, guest: !loggedIn);
+        if (!openAnyway || !context.mounted) {
+          return;
+        }
       }
       await context.pushNamed(
         ScreenPaths.editPost,
@@ -630,29 +632,36 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 }
 
-/// Tell why the post button of a forum opens no editor: a [guest] needs to log in (offered here), otherwise the forum
-/// does not let the account post in it.
-Future<void> showNewThreadUnavailableDialog(BuildContext context, {required bool guest}) async {
+/// Tell why the post button of a forum may not lead anywhere: a [guest] needs to log in (offered here); otherwise the
+/// forum's page said the account may not post in it, which may be wrong (the forum's own permissions of the forum and
+/// of the member decide), so the editor is still offered and the forum answers there.
+///
+/// True when the editor is to be opened anyway.
+Future<bool> showNewThreadUnavailableDialog(BuildContext context, {required bool guest}) async {
   final tr = context.t.forumPage.newThread;
-  if (!guest) {
-    return showMessageSingleButtonDialog(
-      context: context,
-      title: tr.noPermissionTitle,
-      message: tr.noPermissionMessage,
-    );
-  }
-  final login = await showDialog<bool>(
+  final choice = await showDialog<bool>(
     context: context,
     builder: (context) => CustomAlertDialog.sync(
-      title: AppDialogTitle(icon: Icons.login_outlined, title: tr.guestTitle),
-      content: Text(tr.guestMessage),
+      title: AppDialogTitle(
+        icon: guest ? Icons.login_outlined : Icons.lock_outline,
+        title: guest ? tr.guestTitle : tr.noPermissionTitle,
+      ),
+      content: Text(guest ? tr.guestMessage : tr.noPermissionMessage),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.t.general.cancel)),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.t.loginPage.login)),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(guest ? context.t.loginPage.login : tr.openAnyway),
+        ),
       ],
     ),
   );
-  if ((login ?? false) && context.mounted) {
-    await context.pushNamed(ScreenPaths.login);
+  if (!(choice ?? false) || !context.mounted) {
+    return false;
   }
+  if (guest) {
+    await context.pushNamed(ScreenPaths.login);
+    return false;
+  }
+  return true;
 }

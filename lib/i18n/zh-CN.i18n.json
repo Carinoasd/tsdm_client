@@ -187,7 +187,8 @@
       "myThreads": "我的帖子",
       "favorites": "收藏",
       "history": "浏览记录",
-      "drafts": "草稿箱",
+      "drafts": "论坛草稿",
+      "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
       "points": "积分"
@@ -878,8 +879,9 @@
       "label": "发帖",
       "guestTitle": "登录后才能发帖",
       "guestMessage": "发表主题需要账号。请先登录，再回到这个版块发帖。",
-      "noPermissionTitle": "无法在此版块发帖",
-      "noPermissionMessage": "论坛没有开放你目前的用户组在这个版块发表主题。其他版块可能允许，用户组也可能随参与程度提升。"
+      "noPermissionTitle": "可能无法在此版块发帖",
+      "noPermissionMessage": "论坛显示你目前的用户组可能没有发帖权限。版块与会员也有各自的权限设置，你仍可以打开编辑器，由论坛判断能否发表。",
+      "openAnyway": "仍要打开编辑器"
     },
     "copyFid": "复制fid（${fid: String}）",
     "favorite": {
