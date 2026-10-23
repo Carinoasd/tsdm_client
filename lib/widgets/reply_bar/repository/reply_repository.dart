@@ -149,12 +149,13 @@ final class ReplyRepository with LoggerMixin {
     final replyWindowUrl = withTsdmAppJsonWrite('${replyAction.prependHost()}$replyPostWindowSuffix');
     final respEither = await netClient.get(replyWindowUrl).run();
     if (respEither.isLeft()) {
-      return left(respEither.unwrapErr());
+      // Only the window was asked: nothing posted.
+      return left(ReplyWindowFetchFailedException.of(respEither.unwrapErr()));
     }
 
     final replyWindowResp = respEither.unwrap();
     if (replyWindowResp.statusCode != HttpStatus.ok) {
-      return left(HttpRequestFailedException(replyWindowResp.statusCode));
+      return left(ReplyWindowFetchFailedException(noNetwork: false, statusCode: replyWindowResp.statusCode));
     }
 
     // The response is an ajax xml document with the html form wrapped in CDATA.
@@ -301,12 +302,13 @@ final class ReplyRepository with LoggerMixin {
     final Response<dynamic> resp;
     switch (respEither) {
       case Left(:final value):
-        return left(value);
+        // Only the window was asked: nothing posted.
+        return left(ReplyWindowFetchFailedException.of(value));
       case Right(:final value):
         resp = value;
     }
     if (resp.statusCode != HttpStatus.ok) {
-      return left(HttpRequestFailedException(resp.statusCode));
+      return left(ReplyWindowFetchFailedException(noNetwork: false, statusCode: resp.statusCode));
     }
     final json = postFormAnswerOf(resp.data);
     if (json == null) {

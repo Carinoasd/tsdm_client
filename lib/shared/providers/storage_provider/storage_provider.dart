@@ -816,6 +816,30 @@ class StorageProvider with LoggerMixin {
     return entity;
   }
 
+  /// The saved page with the highest page number for the rest of the key ([OfflineThreadDao.selectLastPage]), null
+  /// when none; a page found is marked used at [usedAt].
+  Future<OfflineThreadEntity?> fetchLastOfflineThreadPage({
+    required int uid,
+    required int tid,
+    required int orderType,
+    required int authorId,
+    DateTime? usedAt,
+  }) async {
+    final dao = OfflineThreadDao(_db);
+    final entity = await dao.selectLastPage(uid: uid, tid: tid, orderType: orderType, authorId: authorId);
+    if (entity != null) {
+      await dao.touch(
+        uid: uid,
+        tid: tid,
+        page: entity.page,
+        orderType: orderType,
+        authorId: authorId,
+        time: usedAt ?? DateTime.now(),
+      );
+    }
+    return entity;
+  }
+
   /// Every saved offline thread page of every user, with the bodies. Tests only.
   @visibleForTesting
   Future<List<OfflineThreadEntity>> fetchAllOfflineThreadPages() async => OfflineThreadDao(_db).selectAll();

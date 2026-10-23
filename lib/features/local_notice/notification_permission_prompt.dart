@@ -93,14 +93,9 @@ Future<bool> askNotificationPermission(
       return false;
     }
     await permissions.requestNotification(openSettingsWhenPermanentlyDenied: false);
+    // Denied now (or no dialog came, notifications being switched off in the system): not asked again right away; the
+    // next time from the settings, the card leads to the app settings page (permanently denied before the request).
     talker.info('notification permission asked ($trigger): ${permissions.state.notification}');
-    if ((permissions.state.notification?.isPermanentlyDenied ?? false) && context.mounted) {
-      // No system dialog came (notifications switched off in the system settings, or denied twice before): the app
-      // settings page is the only way left.
-      if (await showNotificationPermissionCard(context, openSettings: true)) {
-        await permissions.requestNotification();
-      }
-    }
     return true;
   } finally {
     if (cubit == null) {

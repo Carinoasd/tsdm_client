@@ -77,6 +77,23 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
           ))
           .getSingleOrNull();
 
+  /// The saved page of the thread with the highest page number for the rest of the key (account, thread, order,
+  /// author), null when none: the last page saved of a thread asked past its last page.
+  Future<OfflineThreadEntity?> selectLastPage({
+    required int uid,
+    required int tid,
+    required int orderType,
+    required int authorId,
+  }) async =>
+      (select(offlineThread)
+            ..where(
+              (e) =>
+                  e.uid.equals(uid) & e.tid.equals(tid) & e.orderType.equals(orderType) & e.authorId.equals(authorId),
+            )
+            ..orderBy([(e) => OrderingTerm.desc(e.page)])
+            ..limit(1))
+          .getSingleOrNull();
+
   /// Mark the page of the key used at [time].
   Future<void> touch({
     required int uid,

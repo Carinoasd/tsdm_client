@@ -175,7 +175,9 @@ class ThreadRepository {
             orderType: orderType,
             authorId: authorId,
           );
-          final saved = await offline.load(key);
+          // A page asked past the last one on purpose (with a fallback page: the last floor, the author-only view)
+          // was saved under the page the forum answered: the last page saved of the thread.
+          final saved = await offline.load(key) ?? (pageFallback != null ? await offline.loadLast(key) : null);
           if (saved != null) {
             ThreadPageInfo? page;
             try {

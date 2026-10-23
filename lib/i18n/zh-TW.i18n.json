@@ -1159,7 +1159,7 @@
       "discard": "捨棄",
       "saveDraft": "存草稿",
       "keepEditing": "繼續編輯",
-      "sending": "送出中，請稍候"
+      "sending": "仍在送出，離開後無法得知結果，確定離開？"
     },
     "threadPublish": {
       "title": "發布新帖",

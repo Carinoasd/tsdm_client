@@ -351,6 +351,28 @@ class ReplyToPostFetchParameterFailedException extends AppException
   ReplyToPostFetchParameterFailedException([String? message]) : super(message: message);
 }
 
+/// The reply window (or its form) a reply to a floor is posted with could not be fetched: only that GET went out,
+/// the reply was never posted. [noNetwork] when nothing came back (the forum may not have been reached, or the answer
+/// timed out), else the HTTP [statusCode] of the answer.
+@MappableClass()
+final class ReplyWindowFetchFailedException extends AppException with ReplyWindowFetchFailedExceptionMappable {
+  /// Constructor.
+  ReplyWindowFetchFailedException({required this.noNetwork, this.statusCode, super.message});
+
+  /// The window of [e], the failure of its GET.
+  factory ReplyWindowFetchFailedException.of(AppException e) => switch (e) {
+    HttpHandshakeFailedException(:final statusCode) || HttpRequestFailedException(:final statusCode) =>
+      ReplyWindowFetchFailedException(noNetwork: statusCode == null, statusCode: statusCode, message: e.message),
+    _ => ReplyWindowFetchFailedException(noNetwork: false, message: e.message),
+  };
+
+  /// Nothing came back.
+  final bool noNetwork;
+
+  /// The HTTP status of the answer, null when none came back.
+  final int? statusCode;
+}
+
 /// Replying here needs the website, nothing was sent: the forum asks for a captcha or a security question
 /// ([verification]), or the reply window has fields the app cannot fill (another plugin's, another editor). [url] is
 /// the page to reply on.

@@ -1159,7 +1159,7 @@
       "discard": "舍弃",
       "saveDraft": "存草稿",
       "keepEditing": "继续编辑",
-      "sending": "发送中，请稍候"
+      "sending": "仍在发送，离开后无法得知结果，确定离开？"
     },
     "threadPublish": {
       "title": "发布新帖",

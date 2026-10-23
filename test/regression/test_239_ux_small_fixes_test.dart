@@ -59,8 +59,10 @@ import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/view/notification_detail_page.dart';
+import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/view/post_edit_page.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
@@ -72,6 +74,7 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
@@ -1147,12 +1150,20 @@ void main() {
   group('review follow-ups', () {
     const sendTimeout = DioExceptionType.receiveTimeout;
 
-    Future<ReplyState> replyFailing(FutureOr<_Answer> Function(_Request) answer) async {
+    Future<ReplyState> replyFailing(FutureOr<_Answer> Function(_Request) answer, {bool toPost = false}) async {
       forum.answer = answer;
       final bloc = ReplyBloc(replyRepository: const ReplyRepository());
       addTearDown(bloc.close);
       final done = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
-      bloc.add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+      bloc.add(
+        toPost
+            ? const ReplyToPostRequested(
+                replyParameters: _replyParameters,
+                replyAction: 'forum.php?mod=post&action=reply&fid=2&tid=9600001&repquote=9700002&extra=page%3D1&page=1',
+                replyMessage: 'hi',
+              )
+            : const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'),
+      );
       return done;
     }
 
@@ -1327,11 +1338,151 @@ void main() {
       expect(bloc.state.status, PostEditStatus.uploading);
       await tester.binding.handlePopRoute();
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // Asked, not left: the user decides, knowing the result will not be known.
       expect(find.text(t.postEditPage.leaveDialog.sending), findsOneWidget);
+      await tester.tap(find.text(t.general.cancel));
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(PostEditPage), findsOneWidget, reason: 'used to leave while sending');
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(t.general.ok));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('below the editor'), findsOneWidget, reason: 'left on purpose');
       held.complete(_json({'ok': 0, 'api': 1, 'error': 'message', 'message': 'x'}));
       await _settle(tester);
       await _unpump(tester);
+    });
+
+    test('N4. an exception while sending is a failed upload, not "uploading" for good', () async {
+      final form = jsonDecode(File('test/data/tsdmapp/post_v16_newthread.json').readAsStringSync()) as Object;
+      final repository = PostEditRepository.withTransport(
+        currentUid: () => 31,
+        getPage: (url) async => right(
+          Response<dynamic>(requestOptions: RequestOptions(), data: jsonEncode(form), statusCode: 200),
+        ),
+        sendForm: (url, body) async => throw StateError('broken'),
+      );
+      final bloc = PostEditBloc(postEditRepository: repository);
+      addTearDown(bloc.close);
+      bloc.add(const ThreadPubFetchInfoRequested(fid: '7'));
+      final loaded = await bloc.stream.firstWhere((s) => s.status != PostEditStatus.loading);
+      final content = loaded.content!;
+      bloc.add(
+        ThreadPubPostThread(
+          ThreadPublishInfo(
+            formHash: content.formHash,
+            postTime: content.postTime,
+            delAttachOp: '0',
+            wysiwyg: '0',
+            fid: '7',
+            threadType: null,
+            checkbox: '0',
+            subject: '標題',
+            message: '內文內文內文內文內文',
+            perm: null,
+            price: null,
+            save: '',
+            options: const [],
+          ),
+        ),
+      );
+      final failed = await bloc.stream.firstWhere((s) => s.status == PostEditStatus.failedToUpload);
+      expect(failed.status, PostEditStatus.failedToUpload);
+      expect(bloc.canSubmit, isTrue, reason: 'can be sent again');
+    });
+
+    test('N3. the reply window that failed to load: the reply was never posted', () async {
+      forum.answer = (r) => r.method == 'GET' ? _throws(DioExceptionType.receiveTimeout) : fail('posted');
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      final done = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+      bloc.add(
+        const ReplyToPostRequested(
+          replyParameters: _replyParameters,
+          replyAction: 'forum.php?mod=post&action=reply&fid=2&tid=9600001&repquote=9700002&extra=page%3D1&page=1',
+          replyMessage: 'hi',
+        ),
+      );
+      final state = await done;
+      expect(state.maybeSent, isFalse, reason: 'only the GET of the window went out');
+      expect(state.networkFailure, isTrue);
+      final windowFailed = await replyFailing(
+        (r) => r.method == 'GET' ? _html('', status: 502) : fail('posted'),
+        toPost: true,
+      );
+      expect(windowFailed.maybeSent, isFalse);
+      expect(windowFailed.failedReason, 'HTTP 502');
+      expect(forum.requests.where((r) => r.method == 'POST'), isEmpty);
+    });
+
+    testWidgets('N1. a check after a reply that failed does not land the next loads on a last floor', (tester) async {
+      var failing = false;
+      forum.answer = (r) {
+        if (r.method == 'POST') return _throws(sendTimeout);
+        if (failing) return _throws(DioExceptionType.connectionError);
+        final page = int.tryParse(r.uri.queryParameters['page'] ?? '') ?? 1;
+        return _html(
+          _threadPage(
+            [for (var i = 1; i <= 8; i++) (page > 3 ? 3 : page) * 10 + i],
+            page: page > 3 ? 3 : page,
+            pages: 3,
+          ),
+        );
+      };
+      await _pumpThread(tester, app);
+      BlocProvider.of<ReplyBloc>(
+        tester.element(find.byType(ReplyBar)),
+      ).add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+      await _settle(tester);
+      failing = true;
+      await tester.tap(find.text(t.threadPage.refreshToCheck));
+      // A frame while loading, as the network takes its time.
+      await tester.pump();
+      await _settle(tester);
+      failing = false;
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)))
+        ..add(const ThreadJumpPageRequested(2));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(PostList), findsNothing, reason: 'loading');
+      await _settle(tester);
+      expect(bloc.state.currentPage, 2);
+      final position = tester.widget<PostList>(find.byType(PostList)).scrollController.position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      expect(position.pixels, 0, reason: 'a jump starts at the top, not on the last floor of the page');
+      await _unpump(tester);
+    });
+
+    test('N5. offline, a page asked past the last one reads the last page saved', () async {
+      await storage.saveCookie(username: 'Alice', uid: 31, cookie: {'Ystv_2132_auth': 'x31'});
+      await settings.setValue(SettingsKeys.offlineThreads, true);
+      final offline = OfflineThreadRepository(storage: storage, settings: settings, currentUid: () => 31);
+      final repository = ThreadRepository(offline: offline);
+      final answer =
+          jsonDecode(File('test/data/tsdmapp/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>
+            ..['uid'] = 31
+            ..['page'] = 3
+            ..['pages'] = 3;
+      final tid = '${(answer['thread'] as Map<String, dynamic>)['tid']}';
+      var failing = false;
+      forum.answer = (r) => failing ? _throws(DioExceptionType.connectionError) : _json(answer);
+      Future<Either<AppException, ThreadPageInfo>> lastPost() =>
+          repository.fetchThreadPage(tid: tid, pageNumber: lastPageAsked, pageFallback: 1).run();
+
+      final online = (await lastPost()).getOrElse((e) => fail('$e'));
+      expect(online.currentPage, 3);
+      await offline.pendingWrites;
+      final rows = await storage.fetchAllOfflineThreadPages();
+      expect(rows.map((e) => e.page), [3], reason: 'saved as the page the forum answered (L2)');
+
+      failing = true;
+      final copy = (await lastPost()).getOrElse((e) => fail('no copy: $e'));
+      expect(copy.offlineSavedAt, isNotNull);
+      expect(copy.currentPage, 3);
+      expect(copy.postList, isNotEmpty);
+      // A page asked as such finds only its own copy.
+      expect((await repository.fetchThreadPage(tid: tid, pageNumber: 5).run()).isLeft(), isTrue);
     });
 
     Map<String, dynamic> reversed({required int Function(int asked) page, required int pages}) {
@@ -1457,26 +1608,40 @@ void main() {
         expect(gateway.requests, 0);
       });
 
-      testWidgets('switched off in the system: no dialog came, the card leads to the app settings', (tester) async {
+      testWidgets('denied right now (or no dialog came): not asked again at once; from the settings later, the '
+          'card leads to the app settings', (tester) async {
         final context = await pumpContext(tester);
         final gateway = _Gateway(PermissionStatus.denied)
           ..answer = PermissionStatus.denied
           ..rationale = false;
+        // The settings page's permission state, which remembers that the system will not ask again.
+        final cubit = AndroidPermissionCubit(gateway: gateway, enabled: true);
+        addTearDown(cubit.close);
         final asked = askNotificationPermission(
           context,
           trigger: NotificationPermissionTrigger.login,
           loggedIn: true,
-          gateway: gateway,
-          enabled: true,
+          cubit: cubit,
         );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('notification-permission-allow')));
         await tester.pumpAndSettle();
+        await asked;
         final tr = t.settingsPage.behaviorSection.notificationPermission;
+        expect(find.text(tr.promptSettingsMessage), findsNothing, reason: 'no second card right after the answer');
+        expect(gateway.settingsOpened, 0);
+
+        final again = askNotificationPermission(
+          context,
+          trigger: NotificationPermissionTrigger.settings,
+          loggedIn: true,
+          cubit: cubit,
+        );
+        await tester.pumpAndSettle();
         expect(find.text(tr.promptSettingsMessage), findsOneWidget);
         await tester.tap(find.text(tr.promptOpenSettings));
         await tester.pumpAndSettle();
-        await asked;
+        await again;
         expect(gateway.settingsOpened, 1);
       });
     });

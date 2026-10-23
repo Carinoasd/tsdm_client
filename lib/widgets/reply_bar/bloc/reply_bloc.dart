@@ -160,6 +160,14 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   /// A reply that needs the website ([ReplyNeedsBrowserException]: a captcha or a security question, fields the app
   /// cannot fill) says so and names the page to reply on ([ReplyState.browserUrl]); nothing was sent.
   ReplyState _failed(AppException e) => switch (e) {
+    // The reply window could not be fetched: the reply was never posted, whatever the failure of that GET.
+    ReplyWindowFetchFailedException(:final noNetwork, :final statusCode) => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: noNetwork ? '' : 'HTTP $statusCode',
+      networkFailure: noNetwork,
+      maybeSent: false,
+      browserUrl: null,
+    ),
     HttpHandshakeFailedException(statusCode: null) || HttpRequestFailedException(statusCode: null) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: '',

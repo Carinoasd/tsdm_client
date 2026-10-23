@@ -238,7 +238,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     }
     _reloadWhenShown = false;
     final page = _jumpPageCubit?.state.currentPage ?? 1;
-    if (page > 1 && bloc.state.tid != null) {
+    if (_landOnLastPost && bloc.state.tid != null) {
+      // Still opening on the last floor (the forum's message was on screen): the last page for the new account.
+      bloc.add(const ThreadJumpPageRequested(lastPageAsked, pageFallback: 1));
+    } else if (page > 1 && bloc.state.tid != null) {
       bloc.add(ThreadJumpPageRequested(page));
     } else {
       bloc.add(ThreadRefreshRequested());
@@ -875,6 +878,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               if (state.status == ThreadStatus.failure && state.postList.isNotEmpty) {
                 // A reload (for example after a reply) failed: the posts stay on screen, only tell the user.
                 showSnackBar(context: context, message: context.t.general.failedToLoad);
+                // Nor land on the last floor at a later load of other floors (a pull to refresh, a jump): the check
+                // after a reply that failed is over.
+                _landOnLastPost = false;
               }
               if (state.status == ThreadStatus.loading && state.postList.isEmpty) {
                 // A reload starts the floors over from the top: with the bar.

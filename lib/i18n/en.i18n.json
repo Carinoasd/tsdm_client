@@ -1159,7 +1159,7 @@
       "discard": "Discard",
       "saveDraft": "Save draft",
       "keepEditing": "Keep editing",
-      "sending": "Sending, please wait"
+      "sending": "Still sending: after leaving you will not know whether it was stored. Leave anyway?"
     },
     "threadPublish": {
       "title": "Post New Thread",
