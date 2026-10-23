@@ -274,6 +274,13 @@ void main() {
       expect(await store.load(SavedAnswerKind.homepage, uid: 4242), isNull);
     });
 
+    test('nothing of the session is kept on disk: no form hash, daily login request or red packet', () async {
+      store.save(SavedAnswerKind.homepage, _index({'checknewpm': 'home.php?mod=spacecp&ac=pm&op=checknewpm'}));
+      final saved = (await store.load(SavedAnswerKind.homepage, uid: 4242))!.answer;
+      expect(saved.keys, isNot(anyOf(contains('formhash'), contains('checknewpm'), contains('red_packet'))));
+      expect(File('${tmp.path}/homepage_4242.json').readAsStringSync(), isNot(contains('formhash')));
+    });
+
     test('gone with the account; an answer naming nobody is not saved', () async {
       store
         ..save(SavedAnswerKind.homepage, _index())

@@ -89,11 +89,24 @@ final class SavedAnswerStore with LoggerMixin {
     });
   }
 
-  /// Keep [answer] of [kind] as the last one served to the account it names, replacing the one saved before.
+  /// Fields of an answer that belong to the session it was served in, never kept on disk: its form hash, the
+  /// forum's daily login request and today's daily red packet. A saved page shows none of them.
+  static const sessionFields = {'formhash', 'checknewpm', 'red_packet'};
+
+  /// How many times the answers of each account were forgotten ([forget]): what was read for an account before
+  /// ([forgetCountOf] changed since) is stale.
+  final _forgotten = <int, int>{};
+
+  /// How many times the answers of the account [uid] were forgotten, see [_forgotten].
+  int forgetCountOf(int? uid) => _forgotten[_uidOf(uid)] ?? 0;
+
+  /// Keep [answer] of [kind] as the last one served to the account it names, replacing the one saved before, without
+  /// its [sessionFields].
   ///
   /// Nothing is kept for an answer that names no account (no `uid`).
   void save(SavedAnswerKind kind, Map<String, dynamic> answer) {
-    final uid = _answerUid(answer);
+    final kept = Map.of(answer)..removeWhere((key, _) => sessionFields.contains(key));
+    final uid = _answerUid(kept);
     if (uid == null) {
       warning('saved answers: ${kind.name} answer names no account, not saved');
       return;
@@ -109,7 +122,7 @@ final class SavedAnswerStore with LoggerMixin {
           'kind': kind.name,
           'uid': uid,
           'savedAt': savedAt.millisecondsSinceEpoch,
-          'answer': answer,
+          'answer': kept,
         }),
         flush: true,
       );
@@ -171,6 +184,7 @@ final class SavedAnswerStore with LoggerMixin {
     if (uid <= 0) {
       return;
     }
+    _forgotten[uid] = (_forgotten[uid] ?? 0) + 1;
     _queue('forget account', () async {
       for (final kind in SavedAnswerKind.values) {
         final file = await _fileOf(kind, uid);

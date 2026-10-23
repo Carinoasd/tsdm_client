@@ -104,7 +104,10 @@ final class ImageDao extends DatabaseAccessor<AppDatabase> with _$ImageDaoMixin 
 
   /// Up to [limit] rows after [afterUrl] in the order of their url (from the first one when null), with only what the
   /// clean up of the cache reads: the whole table is read page by page through its key, never at once.
-  Future<List<({String url, String fileName, DateTime lastUsedTime})>> selectPageAfter(String? afterUrl, int limit) async {
+  Future<List<({String url, String fileName, DateTime lastUsedTime})>> selectPageAfter(
+    String? afterUrl,
+    int limit,
+  ) async {
     final rows = await customSelect(
       'SELECT url, file_name, last_used_time FROM image_cache '
       '${afterUrl == null ? '' : 'WHERE url > ?1 '}ORDER BY url LIMIT ${afterUrl == null ? '?1' : '?2'}',
@@ -128,8 +131,9 @@ final class ImageDao extends DatabaseAccessor<AppDatabase> with _$ImageDaoMixin 
     if (urls.isEmpty) {
       return const [];
     }
-    return (delete(image)..where((e) => e.url.isIn(urls) & e.lastUsedTime.isSmallerOrEqualValue(usedNoLaterThan)))
-        .goAndReturn();
+    return (delete(
+      image,
+    )..where((e) => e.url.isIn(urls) & e.lastUsedTime.isSmallerOrEqualValue(usedNoLaterThan))).goAndReturn();
   }
 
   /// The images the clean up of the cache never deletes besides the pictures of the offline thread pages: the user's

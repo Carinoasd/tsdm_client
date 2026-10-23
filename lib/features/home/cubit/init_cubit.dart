@@ -49,14 +49,17 @@ final class InitCubit extends Cubit<InitState> with LoggerMixin {
   Timer? _imageCacheTrimTimer;
 
   /// Clean up the image cache in the background, [delay] after the first frame: the images not shown within the age
-  /// of [limits] and the least recently shown ones beyond its count and size go (`ImageCacheProvider.trimCache`).
+  /// of the limits and the least recently shown ones beyond their count and size go (`ImageCacheProvider.trimCache`).
+  ///
+  /// [limits] is read when the time comes, from the settings then: null (the clean up switched off meanwhile) cleans
+  /// nothing.
   ///
   /// Never before the first frame and never waited for: the homepage used to show a spinner instead of its content
   /// until the outdated images were deleted and the whole table read again, which took long with a large cache.
   ///
   /// [trim] is the clean up, `ImageCacheProvider.trimCache` of the app by default.
   void scheduleImageCacheTrim(
-    ImageCacheLimits limits, {
+    ImageCacheLimits? Function() limits, {
     Duration delay = imageCacheTrimDelay,
     @visibleForTesting Future<Object?> Function(ImageCacheLimits limits)? trim,
   }) {
@@ -70,8 +73,13 @@ final class InitCubit extends Cubit<InitState> with LoggerMixin {
         if (isClosed) {
           return;
         }
+        final now = limits();
+        if (now == null) {
+          debug('image cache clean up switched off meanwhile');
+          return;
+        }
         debug('trim image cache');
-        await (trim ?? getIt.get<ImageCacheProvider>().trimCache)(limits);
+        await (trim ?? getIt.get<ImageCacheProvider>().trimCache)(now);
       });
     });
   }

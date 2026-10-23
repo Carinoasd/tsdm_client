@@ -514,21 +514,22 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           ),
           BlocProvider(
             create: (context) {
-              final settings = context.read<SettingsBloc>().state.settingsMap;
-
               final cubit = InitCubit();
               // We intend to delete legacy files asynchronously, so do not wait it.
               unawaited(cubit.deleteV0LegacyData());
-              if (settings.enableAutoClearImageCache) {
-                // In the background long after the first frame; the homepage no longer waits for it.
-                cubit.scheduleImageCacheTrim(
-                  ImageCacheLimits(
-                    maxAge: settings.autoClearImageCacheDuration > 0
-                        ? Duration(seconds: settings.autoClearImageCacheDuration)
-                        : null,
-                  ),
+              // In the background long after the first frame, with the settings of that moment; the homepage no
+              // longer waits for it.
+              cubit.scheduleImageCacheTrim(() {
+                final now = getIt.get<SettingsRepository>().currentSettings;
+                if (!now.enableAutoClearImageCache) {
+                  return null;
+                }
+                return ImageCacheLimits(
+                  maxAge: now.autoClearImageCacheDuration > 0
+                      ? Duration(seconds: now.autoClearImageCacheDuration)
+                      : null,
                 );
-              }
+              });
               unawaited(cubit.autoClearFilePickerCache());
               return cubit;
             },

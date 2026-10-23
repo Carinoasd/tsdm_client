@@ -5,7 +5,7 @@
 ///    the settings page queues behind it;
 /// 2. the legacy notification channel goes in the background; the notification that launched the app is still read
 ///    before the home page asks for it;
-/// 3. no image cache row is read, and the clean up of the cache waits long after the first frame (test_241, test_242).
+/// 3. no image cache row is read, and the clean up of the cache waits long after the first frame (test_250, test_251).
 library;
 
 import 'dart:async';

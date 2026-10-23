@@ -4,7 +4,7 @@
 ///
 /// 1. the page is answered as soon as it is fetched, the rewards follow in the background;
 /// 2. the page asked once more after them replaces the cached page and the page the homepage shows (the claimed packet
-///    gone), and only that page: a page the homepage does not show, or of another account, changes nothing.
+///    gone, also when the rewards finished before the page showed), and only that page: a page the homepage does not show, or of another account, changes nothing.
 library;
 
 import 'dart:async';
@@ -66,6 +66,7 @@ const _checknewpm = 'home.php?mod=spacecp&ac=pm&op=checknewpm&rand=123';
 final class _Forum implements HttpClientAdapter {
   bool claimed = false;
   Completer<void>? holdVisit;
+  Completer<void>? holdProfile;
   final requests = <Uri>[];
 
   Iterable<Uri> get homepage => requests.where((e) => e.path == '/forum.php' && e.queryParameters['mod'] == null);
@@ -89,6 +90,7 @@ final class _Forum implements HttpClientAdapter {
       await holdVisit?.future;
       body = '';
     } else if (uri.path == '/home.php') {
+      await holdProfile?.future;
       body = _json('profile_v4_self.json');
     } else {
       claimed = true;
@@ -208,6 +210,19 @@ void main() {
       final after = await bloc.stream.firstWhere((s) => s.dailyRedPacket == null);
       expect(after.status, HomepageStatus.success);
       expect(after.loggedUserInfo?.username, 'alice');
+    });
+
+    test('the rewards done before the page shows (the profile was slower): the page after them shows', () async {
+      forum.holdProfile = Completer<void>();
+      final bloc = homepage()..add(HomepageLoadRequested());
+      while (forum.homepage.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await home.dailyRewardsDone;
+      expect(home.getCache()?.dailyRedPacket, isNull, reason: 'replaced before the homepage showed anything');
+      forum.holdProfile!.complete();
+      final shown = await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success);
+      expect(shown.dailyRedPacket, isNull, reason: 'the claimed packet is not shown as still there');
     });
 
     test('a page it does not show, or of another account, changes nothing', () async {

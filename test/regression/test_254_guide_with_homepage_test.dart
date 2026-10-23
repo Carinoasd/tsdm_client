@@ -222,6 +222,16 @@ void main() {
     });
   });
 
+  test('3. the saved guide in memory goes with the account', () async {
+    final feed = GuideFeed(savedAnswers: store);
+    store.save(SavedAnswerKind.guide, _json('guide_v7_index.json'));
+    await store.pendingWrites;
+    await feed.loadSaved(4242);
+    expect(feed.savedModules, isNotEmpty);
+    store.forget(4242);
+    expect(feed.savedModules, isNull, reason: 'logged out or removed meanwhile');
+  });
+
   test('2. the homepage asks for the guide before its own page arrives', () async {
     final auth = _Auth();
     addTearDown(auth.close);

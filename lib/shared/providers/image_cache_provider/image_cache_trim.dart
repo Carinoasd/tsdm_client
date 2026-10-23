@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
 import 'package:tsdm_client/constants/url.dart';
@@ -69,9 +70,10 @@ typedef ImageCacheTrimResult = ({int countBefore, int bytesBefore, int deletedRo
 /// "forum.php?mod=attachment&aid=…"), on another host of the forum, in an attribute (`zoomfile`, `file`, `src`…) or a
 /// field of a JSON answer, while the cache knows the url the app built from one of them. Their last part is the same:
 /// the file name of an attachment is a random hash, an attachment link carries its own `aid` token. The path is cut at
-/// its last `/` or `=` the same way on both sides (an attribute without quotes, `src=forum.php?…`).
+/// its last `/` or `=` the same way on both sides (an attribute without quotes, `src=forum.php?…`), and decoded the
+/// same way on both sides: character references (`&amp;`, `&#x26;`) and percent-encoding.
 String imageCacheKeyOf(String url) {
-  var s = url.trim();
+  var s = _decodeUrl(url.trim());
   final hash = s.indexOf('#');
   if (hash >= 0) {
     s = s.substring(0, hash);
@@ -81,6 +83,33 @@ String imageCacheKeyOf(String url) {
   final start = (path.lastIndexOf('/') > path.lastIndexOf('=') ? path.lastIndexOf('/') : path.lastIndexOf('=')) + 1;
   return s.substring(start);
 }
+
+final _charRefRe = RegExp('&(?:#[xX]([0-9a-fA-F]+)|#([0-9]+)|amp);');
+
+/// [url] with its character references and percent-encoding decoded (kept as it is when that is not valid).
+String _decodeUrl(String url) {
+  var s = url.contains('&')
+      ? url.replaceAllMapped(_charRefRe, (m) {
+          final code = m[1] != null ? int.tryParse(m[1]!, radix: 16) : (m[2] != null ? int.tryParse(m[2]!) : 0x26);
+          return code == null || code > 0x10FFFF ? m[0]! : String.fromCharCode(code);
+        })
+      : url;
+  if (s.contains('%')) {
+    // Runs of percent-encoded bytes as UTF-8 (a broken sequence decodes to U+FFFD, never throws).
+    s = s.replaceAllMapped(_percentRunRe, (m) {
+      final bytes = [for (final h in m[0]!.split('%').skip(1)) int.parse(h, radix: 16)];
+      return utf8.decode(bytes, allowMalformed: true);
+    });
+  }
+  return s;
+}
+
+final _percentRunRe = RegExp('(?:%[0-9a-fA-F]{2})+');
+
+/// The whole value of an image attribute, spaces included: `src="…"`, `file='…'`, `zoomfile=\"…\"` in a JSON answer.
+final _imageAttributeRe = RegExp(
+  r'''(?:src|file|zoomfile|data-src|data-original)\s*=\s*\\?(["'])(.+?)\\?\1''',
+);
 
 /// Characters that end a url in a page: quotes, spaces, brackets and the escapes of a JSON string.
 final _pageUrlSeparators = RegExp(r'''[\s"'<>\\()\[\]{}|^`]+''');
@@ -102,6 +131,12 @@ Set<String> imageKeysOfPage(String body) {
       .replaceAll('&#38;', '&')
       .replaceAll('&#038;', '&');
   final keys = <String>{};
+  for (final m in _imageAttributeRe.allMatches(text)) {
+    final key = imageCacheKeyOf(m[2]!);
+    if (key.isNotEmpty) {
+      keys.add(key);
+    }
+  }
   for (final token in text.split(_pageUrlSeparators)) {
     if (token.length < 3 || (!token.contains('/') && !token.contains('?'))) {
       continue;

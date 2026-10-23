@@ -55,7 +55,7 @@ void main() {
       final runs = <ImageCacheLimits>[];
       final cubit = InitCubit();
       const limits = ImageCacheLimits(maxAge: Duration(days: 7));
-      cubit.scheduleImageCacheTrim(limits, delay: const Duration(seconds: 5), trim: (l) async => runs.add(l));
+      cubit.scheduleImageCacheTrim(() => limits, delay: const Duration(seconds: 5), trim: (l) async => runs.add(l));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
       expect(runs, isEmpty);
@@ -63,12 +63,20 @@ void main() {
       expect(runs, [limits]);
 
       final closed = InitCubit()
-        ..scheduleImageCacheTrim(limits, delay: const Duration(seconds: 5), trim: (l) async => runs.add(l));
+        ..scheduleImageCacheTrim(() => limits, delay: const Duration(seconds: 5), trim: (l) async => runs.add(l));
       await tester.pump();
       await closed.close();
       await tester.pump(const Duration(seconds: 30));
       expect(runs, hasLength(1));
       await cubit.close();
+
+      // Switched off before the time came: nothing cleaned.
+      final off = InitCubit()
+        ..scheduleImageCacheTrim(() => null, delay: const Duration(seconds: 5), trim: (l) async => runs.add(l));
+      await tester.pumpWidget(const SizedBox(width: 1));
+      await tester.pump(const Duration(seconds: 6));
+      expect(runs, hasLength(1));
+      await off.close();
     });
   });
 
@@ -117,6 +125,21 @@ void main() {
       final escaped = imageKeysOfPage(body.replaceAll('/', r'\/'));
       expect(escaped, contains('big.jpg'));
       expect(escaped, contains('forum.php?mod=attachment&aid=MTIz&x=1'));
+    });
+
+    test('spaces, character references and percent-encoding are read alike on both sides', () {
+      final cases = <String, String>{
+        r'{"message":"[img]https:\/\/img.example\/图片.jpg[\/img]"}': 'https://img.example/图片.jpg',
+        '<img src="https://img.example/a b.jpg">': 'https://img.example/a b.jpg',
+        '<img src="https://img.example/%E5%9B%BE.jpg">': 'https://img.example/图.jpg',
+        '<img src="forum.php?mod=attachment&#x26;aid=XYZ">': '$baseUrl/forum.php?mod=attachment&aid=XYZ',
+        '[img=100,100]https://img.example/abc.jpg[/img]': 'https://img.example/abc.jpg',
+        '<img src="//img.example/proto.jpg">': 'https://img.example/proto.jpg',
+        r'{"body_html":"<img zoomfile=\"data/attachment/forum/x y.jpg\">"}': '$baseUrl/data/attachment/forum/x y.jpg',
+      };
+      for (final MapEntry(key: page, value: url) in cases.entries) {
+        expect(imageKeysOfPage(page), contains(imageCacheKeyOf(url)), reason: page);
+      }
     });
 
     test('a web page: the attributes of its images, quoted or not', () {

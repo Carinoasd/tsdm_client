@@ -321,9 +321,10 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     if (!await _recordAccountOf(page, asked: asked, generation: generation)) {
       return;
     }
-    // Parse data and change state.
-    _shownPage = page;
-    final s = _parseState(page, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
+    // Parse data and change state; the page the daily rewards replaced meanwhile, if they finished first.
+    final shown = _latestOf(page);
+    _shownPage = shown;
+    final s = _parseState(shown, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
     emit(s.copyWith(scrollSwiper: state.scrollSwiper));
   }
 
@@ -380,9 +381,10 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
           return;
         }
         final avatarUrl = d2.unwrap().avatarUrl;
-        // Parse data and change state.
-        _shownPage = value;
-        final s = _parseState(value, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
+        // Parse data and change state; the page the daily rewards replaced meanwhile, if they finished first.
+        final shown = _latestOf(value);
+        _shownPage = shown;
+        final s = _parseState(shown, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
         emit(s.copyWith(scrollSwiper: state.scrollSwiper));
     }
   }
@@ -425,11 +427,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         emit(state.copyWith(checkingDailyRedPacket: false));
       case Right(:final value):
         // The page the packet was read from is the page the daily rewards may replace now.
-        _shownPage = value;
+        final shown = _latestOf(value);
+        _shownPage = shown;
         emit(
-          state.copyWith(checkingDailyRedPacket: false, dailyRedPacket: value.dailyRedPacket, formHash: value.formHash),
+          state.copyWith(checkingDailyRedPacket: false, dailyRedPacket: shown.dailyRedPacket, formHash: shown.formHash),
         );
     }
+  }
+
+  /// [page] or the page it was replaced with in the background, when that one is of the same account.
+  ForumHomePage _latestOf(ForumHomePage page) {
+    final latest = _forumHomeRepository.latestOf(page);
+    return latest.servedUid == page.servedUid ? latest : page;
   }
 
   /// The page shown was replaced in the background after the daily rewards: show the new one, while it is still the

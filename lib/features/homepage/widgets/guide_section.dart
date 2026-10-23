@@ -100,7 +100,10 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
-        children: [GuideModuleList(selected!, maxCount: widget.maxCount), retry],
+        children: [
+          GuideModuleList(selected!, maxCount: widget.maxCount),
+          retry,
+        ],
       );
     } else if (selected == null) {
       body = Padding(

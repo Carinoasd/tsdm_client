@@ -97,6 +97,19 @@ final class ForumHomeRepository with LoggerMixin {
   /// A page showing `previous` shows `page` instead; it is published on [pageStream] too.
   Stream<({ForumHomePage previous, ForumHomePage page})> get pageReplacements => _replacements.stream;
 
+  /// The page each page was replaced with in the background ([pageReplacements]).
+  final _replacedBy = Expando<ForumHomePage>();
+
+  /// [page], or the page it was replaced with in the background after the daily rewards (followed to the last one):
+  /// a page about to be shown that was replaced meanwhile (the rewards finished first) shows its replacement.
+  ForumHomePage latestOf(ForumHomePage page) {
+    var current = page;
+    for (var next = _replacedBy[current]; next != null; next = _replacedBy[current]) {
+      current = next;
+    }
+    return current;
+  }
+
   /// Completes when the daily rewards of the last page fetched are done (tests).
   @visibleForTesting
   Future<void> get dailyRewardsDone => _dailyRewardsJob;
@@ -281,10 +294,12 @@ final class ForumHomeRepository with LoggerMixin {
       }
       // Not recursive: one best-effort reload updates the balance and removes the claimed packet entry.
       final updated = await _askPage(client);
-      if (updated case Right(value: final next)
-          when isCurrent() && next.servedUid == uid && _sessionNow() == session && identical(_page, page)) {
+      if (updated case Right(
+        value: final next,
+      ) when isCurrent() && next.servedUid == uid && _sessionNow() == session && identical(_page, page)) {
         _page = next;
         _sessionOfPage[next] = session;
+        _replacedBy[page] = next;
         if (!_pageSubject.isClosed) {
           _pageSubject.add(next);
         }

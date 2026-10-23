@@ -24,6 +24,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/connection.dart' as conn;
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -61,7 +62,9 @@ final class _BackgroundSyncRuntime {
       ..registerSingleton(storage)
       ..registerSingleton(settingsRepo)
       ..registerFactory(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
-      ..registerSingleton(NetErrorSaver());
+      ..registerSingleton(NetErrorSaver())
+      // An account removed here takes the pages saved for it along, as in the app.
+      ..registerSingleton(SavedAnswerStore());
     final repository = NotificationSyncAllRepository(
       storageProvider: storage,
       notificationRepository: NotificationRepository(storageProvider: storage),

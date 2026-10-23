@@ -241,7 +241,7 @@ class StorageProvider with LoggerMixin {
     _cookieWrites[uid] = (_cookieWrites[uid] ?? 0) + 1;
   }
 
-    /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
+  /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
   /// pages, the times it was polled for notifications and the pages saved for the next start ([SavedAnswerStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
@@ -569,7 +569,12 @@ class StorageProvider with LoggerMixin {
     // Written with the row below.
     _pendingImageUsedTimes.remove(url);
     _rememberImage(
-      ImageEntity(url: url, fileName: fileName, lastCachedTime: lastCacheTime ?? now, lastUsedTime: lastUsedTime ?? now),
+      ImageEntity(
+        url: url,
+        fileName: fileName,
+        lastCachedTime: lastCacheTime ?? now,
+        lastUsedTime: lastUsedTime ?? now,
+      ),
     );
     await ImageDao(_db).upsertImageCache(
       ImageCompanion(

@@ -54,8 +54,9 @@ final class GuideFeed with LoggerMixin {
 
   _Prefetch? _prefetch;
 
-  /// Modules saved for each account (0 for the guest), read by [loadSaved].
-  final _saved = <int, List<GuideModule>>{};
+  /// Modules saved for each account (0 for the guest), read by [loadSaved], with when they were saved and the
+  /// [SavedAnswerStore.forgetCountOf] of the account then.
+  final _saved = <int, ({List<GuideModule> modules, DateTime savedAt, int forgotten})>{};
 
   /// Ask for the guide of the session in use now, unless a fresh request of it is waiting already.
   void prefetch() {
@@ -97,16 +98,30 @@ final class GuideFeed with LoggerMixin {
   /// it is older than a day or of another format ([SavedAnswerStore]).
   Future<void> loadSaved(int? uid) async {
     final key = _accountKey(uid);
+    final forgotten = _savedAnswers?.forgetCountOf(uid) ?? 0;
     final saved = await _savedAnswers?.load(SavedAnswerKind.guide, uid: uid);
     final json = saved == null ? null : guideApiAnswerOf(saved.answer);
     final modules = json == null || json['ok'] != 1 ? null : guideModulesFromApi(json);
-    if (modules == null || modules.isEmpty) {
+    if (modules == null || modules.isEmpty || saved == null) {
       _saved.remove(key);
     } else {
-      _saved[key] = modules;
+      _saved[key] = (modules: modules, savedAt: saved.savedAt, forgotten: forgotten);
     }
   }
 
-  /// The modules [loadSaved] read for the account in use now, null when none.
-  List<GuideModule>? get savedModules => _saved[_accountKey(_sessionNow().uid)];
+  /// The modules [loadSaved] read for the account in use now, null when none, when they are too old by now, or the
+  /// account's answers were forgotten since (logged out, removed, its session dead).
+  List<GuideModule>? get savedModules {
+    final key = _accountKey(_sessionNow().uid);
+    final saved = _saved[key];
+    final store = _savedAnswers;
+    if (saved == null || store == null) {
+      return null;
+    }
+    if (store.forgetCountOf(key) != saved.forgotten || DateTime.now().difference(saved.savedAt) > store.maxAge) {
+      _saved.remove(key);
+      return null;
+    }
+    return saved.modules;
+  }
 }

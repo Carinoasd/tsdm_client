@@ -686,7 +686,12 @@ final class ImageCacheProvider with LoggerMixin {
       }
       final orphans = plan.orphanFiles.take(math.max(0, budget)).toList();
       for (var i = 0; i < orphans.length; i += _trimBatch) {
-        final batch = orphans.sublist(i, math.min(i + _trimBatch, orphans.length));
+        // Not a file of an image cached again meanwhile: its row may be on its way.
+        final saved = {for (final url in storage.touchedImageUrls) url.fileNameV5()};
+        final batch = [
+          for (final name in orphans.sublist(i, math.min(i + _trimBatch, orphans.length)))
+            if (!saved.contains(name)) name,
+        ];
         deletedFiles += await _deleteFilesIn(dirPath, batch);
         await Future<void>.delayed(_trimPause);
       }
