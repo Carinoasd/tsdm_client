@@ -33,6 +33,10 @@ final class MyThreadState with MyThreadStateMappable {
     this.replyPageNumber = 1,
     this.nextReplyPageUrl,
     this.refreshingReply = false,
+    this.threadFailed = false,
+    this.threadLoadMoreFailed = false,
+    this.replyFailed = false,
+    this.replyLoadMoreFailed = false,
   });
 
   /// Status.
@@ -61,4 +65,17 @@ final class MyThreadState with MyThreadStateMappable {
 
   /// Flag indicates refreshing reply tab.
   final bool refreshingReply;
+
+  /// Loading the thread tab (its first page) failed last time: an empty tab offers the retry instead of "no data".
+  final bool threadFailed;
+
+  /// Loading the next page of the thread tab failed last time: the threads loaded before stay, the end of the list
+  /// offers the retry.
+  final bool threadLoadMoreFailed;
+
+  /// Loading the reply tab (its first page) failed last time, see [threadFailed].
+  final bool replyFailed;
+
+  /// Loading the next page of the reply tab failed last time, see [threadLoadMoreFailed].
+  final bool replyLoadMoreFailed;
 }

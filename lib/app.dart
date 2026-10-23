@@ -59,6 +59,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/app_text_scale.dart';
 import 'package:tsdm_client/utils/high_refresh_rate.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -664,10 +665,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                     builder: (context, child) {
                       final data = MediaQuery.of(context);
                       return MediaQuery(
-                        data: data.copyWith(
-                          textScaler: TextScaler.linear(textScaleFactor)
-                            ..clamp(minScaleFactor: 0.7, maxScaleFactor: 1.5),
-                        ),
+                        data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
                         child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
                       );
                     },

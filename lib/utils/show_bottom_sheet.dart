@@ -20,6 +20,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/image_file_name.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -241,9 +242,8 @@ Future<void> showImageActionBottomSheet({
               }
             case Some<Uint8List>(value: final data):
               {
-                final fileName =
-                    imageUrl.tryParseAsUri()?.pathSegments.lastOrNull ??
-                    'tsdm_client_image_${DateTime.now().microsecondsSinceEpoch}.jpg';
+                // The extension of the type the image is, not the url's (an attachment url ends with "forum.php").
+                final fileName = imageFileNameOf(imageUrl, data);
                 if (isDesktop) {
                   // On desktop platforms, `saveFiles` only return the selected path.
                   final filePath = await FilePicker.platform.saveFile(dialogTitle: tr.saveImage, fileName: fileName);

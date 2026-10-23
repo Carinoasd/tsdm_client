@@ -200,6 +200,7 @@ final List<RouteBase> _appRoutes = [
         overrideReverseOrder: overrideReverseOrder,
         overrideWithExactOrder: overrideWithExactOrder,
         onlyVisibleUid: onlyVisibleUid,
+        lastPost: state.uri.queryParameters['lastPost'] == '1',
       );
     },
   ),

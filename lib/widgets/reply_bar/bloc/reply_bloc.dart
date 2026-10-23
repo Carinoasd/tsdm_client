@@ -145,34 +145,55 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     browserUrl: null,
   );
 
+  /// Whether an answer with HTTP [statusCode] may come after the forum stored the post: a server error (5xx, the
+  /// forum may have failed after writing) or a redirect (3xx: the forum goes on to the new post after storing it, and
+  /// a post sent once does not follow it). A client error (4xx) refused the request before anything was stored.
+  static bool _mayHaveStored(int? statusCode) =>
+      statusCode != null && (statusCode >= 500 || (statusCode >= 300 && statusCode < 400));
+
   /// Failure state for [e]: the server's own words when it gave any, the HTTP status when a broken answer came
   /// back, or the network flag when nothing came back at all (offline, DNS failure, timeout).
+  ///
+  /// Nothing came back but the request left ([isNoNetworkFailure] tells the forum was never reached), or a server
+  /// error or a redirect came back ([_mayHaveStored]): the forum may have stored it ([ReplyState.maybeSent]). The posts are sent once (`singleAttempt`), never again by the transport.
   ///
   /// A reply that needs the website ([ReplyNeedsBrowserException]: a captcha or a security question, fields the app
   /// cannot fill) says so and names the page to reply on ([ReplyState.browserUrl]); nothing was sent.
   ReplyState _failed(AppException e) => switch (e) {
+    // The reply window could not be fetched: the reply was never posted, whatever the failure of that GET.
+    ReplyWindowFetchFailedException(:final noNetwork, :final statusCode) => state.copyWith(
+      status: ReplyStatus.failure,
+      failedReason: noNetwork ? '' : 'HTTP $statusCode',
+      networkFailure: noNetwork,
+      maybeSent: false,
+      browserUrl: null,
+    ),
     HttpHandshakeFailedException(statusCode: null) || HttpRequestFailedException(statusCode: null) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: '',
       networkFailure: true,
+      maybeSent: !isNoNetworkFailure(e),
       browserUrl: null,
     ),
     HttpHandshakeFailedException(:final statusCode) || HttpRequestFailedException(:final statusCode) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: 'HTTP $statusCode',
       networkFailure: false,
+      maybeSent: _mayHaveStored(statusCode),
       browserUrl: null,
     ),
     ReplyNeedsBrowserException(:final url, :final verification) => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: verification ? t.threadPage.replyNeedsVerification : t.threadPage.replyNeedsBrowser,
       networkFailure: false,
+      maybeSent: false,
       browserUrl: url,
     ),
     _ => state.copyWith(
       status: ReplyStatus.failure,
       failedReason: e.message ?? e.runtimeType.toString(),
       networkFailure: false,
+      maybeSent: false,
       browserUrl: null,
     ),
   };
@@ -191,11 +212,11 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       final err = result.unwrapErr();
       if (err case ReplyPersonalMessageFailedException()) {
         error('failed to reply chat history');
-        emit(state.copyWith(status: ReplyStatus.failure, failedReason: err.message));
-        return;
+      } else {
+        handle(err);
       }
-      handle(err);
-      emit(state.copyWith(status: ReplyStatus.failure));
+      // Every failure is told (a network one used to be dropped: no reason, no hint, and the editor closed).
+      emit(_failed(err));
       return;
     }
     emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
@@ -207,12 +228,11 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     final result = await _replyRepository.replyPersonalMessage(event.touid, event.formData).run();
     if (result.isLeft()) {
       final err = result.unwrapErr();
-      if (err case ReplyPersonalMessageFailedException()) {
-        emit(state.copyWith(status: ReplyStatus.failure, failedReason: err.message));
-        return;
+      if (err is! ReplyPersonalMessageFailedException) {
+        handle(err);
       }
-      handle(err);
-      emit(state.copyWith(status: ReplyStatus.failure));
+      // Every failure is told, see the chat history.
+      emit(_failed(err));
       return;
     }
     emit(state.copyWith(status: ReplyStatus.success, needClearText: true));

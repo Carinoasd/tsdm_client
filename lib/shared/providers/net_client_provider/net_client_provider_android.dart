@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:http/http.dart' as http;
@@ -10,7 +11,7 @@ import 'package:tsdm_client/instance.dart';
 /// Internal Dio metadata; never transmitted in an HTTP header or form body.
 const singleAttemptHttpRequestKey = 'tsdm_single_attempt';
 
-/// The host of a GET was not reached at all: no network, the name not resolved, the connection refused or timed out
+/// The host of a request was not reached at all: no network, the name not resolved, the connection refused or timed out
 /// while connecting (`KT_HTTP_UNREACHABLE` of the Android channel, see `HttpClient.errorCode` in `HttpClient.kt`).
 ///
 /// Its own type, not a [SocketException]: a socket failing after the connection was made (reset, closed while
@@ -30,9 +31,15 @@ final class HostUnreachableException implements IOException {
 abstract class _AndroidHttpMethodChannel {
   static const _httpChannel = MethodChannel('kzs.th000.tsdm_client/httpChannel');
 
-  /// Error code of a GET whose host was not reached at all (no network, name not resolved, connection refused or timed
+  /// Error code of a request whose host was not reached at all (no network, name not resolved, connection refused or timed
   /// out while connecting), see `HttpClient.errorCode` in `HttpClient.kt`.
   static const _unreachable = 'KT_HTTP_UNREACHABLE';
+
+  /// [e] as the failure the caller sees: [HostUnreachableException] when the host was not reached at all
+  /// ([_unreachable]), so a post that never left is told apart from one that may have reached the forum (a reply
+  /// failed after the connect may be stored); null for every other failure, a failed request without status.
+  static HostUnreachableException? _unreachableOf(PlatformException e) =>
+      e.code == _unreachable ? HostUnreachableException('${e.details ?? e.message ?? 'host unreachable'}') : null;
 
   static const _methodGet = 'get';
   static const _methodPost = 'postForm';
@@ -57,11 +64,11 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] GET failed on $url');
-      if (e.code == _unreachable) {
+      if (_unreachableOf(e) case final unreachable?) {
         // Its own exception, as dio's connection error and connection timeout are on the other platforms, so a thread
         // page can be read from its offline copy (see mapException); still a failed request without status for every
         // other caller.
-        throw HostUnreachableException('${e.details ?? e.message ?? 'host unreachable'}');
+        throw unreachable;
       }
       return null;
     }
@@ -87,6 +94,9 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST form failed on $url');
+      if (_unreachableOf(e) case final unreachable?) {
+        throw unreachable;
+      }
       return null;
     }
   }
@@ -109,6 +119,9 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST multipart failed on $url');
+      if (_unreachableOf(e) case final unreachable?) {
+        throw unreachable;
+      }
       return null;
     }
   }
@@ -133,6 +146,9 @@ abstract class _AndroidHttpMethodChannel {
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
       talker.handle(e, st, '[KtHttp] POST json failed on $url');
+      if (_unreachableOf(e) case final unreachable?) {
+        throw unreachable;
+      }
       return null;
     }
   }
@@ -188,8 +204,13 @@ final class _KotlinHttpResponse {
 /// Note that this class is not derived form `dart:http:BaseClient`, unlike `cronet_http`, because we want to keep
 /// multiple header structure as `Map<String, List<String>>` instead of `Map<String, String>`.
 final class KotlinHttpClient {
+  /// Constructor; [android] overrides the platform check (tests driving the method channel).
+  KotlinHttpClient({@visibleForTesting bool? android}) : _android = android ?? Platform.isAndroid;
+
+  final bool _android;
+
   Future<_KotlinHttpResponse> _get(Uri url, {Map<String, String>? headers, bool singleAttempt = false}) async {
-    if (!Platform.isAndroid) {
+    if (!_android) {
       throw http.ClientException('Only available on Android');
     }
     final rawResp = await _AndroidHttpMethodChannel._get(
@@ -209,7 +230,7 @@ final class KotlinHttpClient {
     Object? body,
     bool singleAttempt = false,
   }) async {
-    if (!Platform.isAndroid) {
+    if (!_android) {
       throw http.ClientException('Only available on Android');
     }
 

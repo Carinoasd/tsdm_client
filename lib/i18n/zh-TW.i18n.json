@@ -162,7 +162,8 @@
     "now": "剛剛",
     "settings": "設定",
     "openInBrowser": "在瀏覽器中開啟",
-    "close": "關閉"
+    "close": "關閉",
+    "loadMoreFailed": "載入更多失敗"
   },
   "navigation": {
     "homepage": "首頁",
@@ -265,8 +266,8 @@
         "detail": "使用螢幕支援的最高刷新率，捲動更流暢，但會稍微多耗電"
       },
       "showShortcutInForumCard": {
-        "title": "論壇卡可跳轉",
-        "detail": "論壇卡上顯示可跳到最新貼文和子板塊的零件"
+        "title": "版塊卡片顯示捷徑",
+        "detail": "在版塊卡片上顯示跳到最新貼文和子版塊的按鈕"
       },
       "showUnreadInfoHint": {
         "title": "未讀取訊息提示",
@@ -277,7 +278,7 @@
         "detail": "設定貼文卡的外觀",
         "infoRowAlignCenter": "訊息居中排列",
         "showLastReplyAuthor": "顯示最後回覆的使用者的名字",
-        "highlightRecentThread": "突出顯示顯示近期發佈的貼文",
+        "highlightRecentThread": "突出顯示近期發佈的貼文",
         "highlightAuthorName": "突出顯示貼文作者的使用者名稱",
         "highlightInfoRow": "高亮顯示貼文資訊",
         "example": {
@@ -386,7 +387,7 @@
       },
       "windowInCenter": {
         "title": "視窗居中",
-        "detail": "強制視窗劇中，並在每次啟動時套用"
+        "detail": "強制視窗居中，並在每次啟動時套用"
       }
     },
     "behaviorSection": {
@@ -414,7 +415,13 @@
         "granted": "已允許",
         "denied": "未允許",
         "permanentlyDenied": "已永久拒絕",
-        "openSettingsTip": "系統不再彈出權限對話框。請打開應用程式設定頁，在那裡開啟通知後再回來。"
+        "openSettingsTip": "系統不再彈出權限對話框。請打開應用程式設定頁，在那裡開啟通知後再回來。",
+        "promptTitle": "允許通知？",
+        "promptMessage": "開啟後，新的提醒、私信和公共訊息會顯示為系統通知。接下來系統會詢問是否允許通知；之後也可以在「設定 → 通知權限」更改。",
+        "promptAllow": "繼續",
+        "promptLater": "以後再說",
+        "promptSettingsMessage": "通知權限已被拒絕或在系統裡關閉，系統不會再詢問。要收到通知，請到 App 設定頁開啟。",
+        "promptOpenSettings": "開啟設定"
       },
       "ignoreBatteryOptimizations": {
         "title": "忽略電池最佳化",
@@ -423,15 +430,15 @@
         "denied": "未忽略"
       },
       "editorBBCodeParser": {
-        "title": "啟用BBCode parser",
+        "title": "啟用 BBCode 解析器",
         "tip": {
-          "title": "BBCode parser是什麼",
-          "detail": "以下場景中BBCode parser會將純文字的BBCode轉換為所見即所得的內容以供編輯:\n\n1. 編輯已發布的帖子\n2. 編輯回复模板\n3. 插入回复模板\n4. 展開帖子和聊天頁面底部的編輯框\n\n關閉BBCode parse後在編輯時將使用純文本，遇到問題時可將其關閉"
+          "title": "BBCode 解析器是什麼",
+          "detail": "以下場景中，BBCode 解析器會把純文字的 BBCode 轉成所見即所得的內容以供編輯：\n\n1. 編輯已發佈的貼文\n2. 編輯回覆範本\n3. 插入回覆範本\n4. 展開貼文和聊天頁面底部的編輯框\n\n關閉 BBCode 解析器後，編輯時會使用純文字；遇到問題時可以把它關閉"
         }
       },
       "collapseAppBarWhenScroll": {
-        "title": "滑動時收起AppBar",
-        "detail": "分割區與貼文頁面中收起"
+        "title": "捲動時收起頂欄",
+        "detail": "在貼文頁往下捲時收起頂欄與導覽路徑，往上捲時再出現"
       },
       "threadFloorInteractionMode": {
         "title": "貼文樓層互動方式",
@@ -512,7 +519,7 @@
         "invalidPort": "無效的連接埠",
         "testConnection": {
           "waiting": "測試連線",
-          "testing": "測試中。。。",
+          "testing": "測試中…",
           "connected": "代理正在運行",
           "disconnected": "代理程式可能未執行"
         },
@@ -537,7 +544,7 @@
         "export": "匯出"
       },
       "importData": {
-        "title": "導入資料",
+        "title": "匯入資料",
         "invalidData": "無效的資料",
         "tip": "所有現有資料都會被覆蓋。未輸入備份密碼時各帳號需要重新登入；匯入完成後應用程式會自動關閉，重新開啟即生效。\n是否繼續匯入？",
         "invalidDetail": "無法匯入這個檔案：${reason}。現有資料未變更。",
@@ -836,6 +843,11 @@
     "replySuccess": "回覆成功",
     "replyFailed": "回覆失敗：$err",
     "replyFailedNetwork": "回覆失敗：網路不可用，請檢查網路後重試",
+    "replyMaybeSent": "回覆結果不明：可能已送出，請重新整理確認後再決定是否重送",
+    "refreshToCheck": "重新整理",
+    "replyCheckFiltered": "目前只看某位作者的樓層，你的回覆可能不在列表裡",
+    "lastFloorReached": "已到最後一樓",
+    "firstFloorReached": "已到最早一樓",
     "replyNeedsVerification": "這個版塊回覆需要填寫驗證碼或回答安全提問，App 暫不支援，請在瀏覽器中回覆。",
     "replyNeedsBrowser": "這個回覆表單有 App 暫不支援的欄位，請在瀏覽器中回覆。",
     "replyInBrowser": "在瀏覽器中回覆",
@@ -843,7 +855,7 @@
     "operationLog": {
       "title": "操作記錄"
     },
-    "softCloseHint": "帖子已关闭，回复前请注意",
+    "softCloseHint": "貼文已關閉，回覆前請注意",
     "offlineBanner": "離線內容（${time: String} 保存）",
     "statistics": "${view: int} 查看 ${reply: int} 回覆",
     "threadInfo": {
@@ -970,7 +982,12 @@
       "title": "搜尋結果",
       "totalThreadCount": "$count 條結果",
       "pageInfo": "$total 頁",
-      "noData": "沒有資料"
+      "noData": "沒有資料",
+      "hint": "輸入關鍵字、作者或論壇 id 後搜尋",
+      "failed": "搜尋失敗：$message",
+      "rateLimited": "論壇限制每 $seconds 秒只能搜尋一次",
+      "retryIn": "$seconds 秒後再試",
+      "retry": "再試一次"
     }
   },
   "myThreadPage": {
@@ -1139,6 +1156,14 @@
     },
     "editSuccess": "編輯成功",
     "saveAsDraft": "儲存草稿",
+    "leaveDialog": {
+      "title": "要離開編輯嗎？",
+      "message": "目前的內容還沒有送出。",
+      "discard": "捨棄",
+      "saveDraft": "存草稿",
+      "keepEditing": "繼續編輯",
+      "sending": "仍在送出，離開後無法得知結果，確定離開？"
+    },
     "threadPublish": {
       "title": "發布新帖",
       "warningBeforePost": {
@@ -1169,12 +1194,12 @@
       "typesTip": "BBCode格式只保存正文；Quill Delta既保存正文也保存帖子的設定",
       "copyBBCode": "複製BBCode",
       "pasteBBCode": "貼上BBCode",
-      "exportBBCode": "匯出BBCode",
-      "importBBCode": "導入BBCode",
+      "exportBBCode": "匯出 BBCode",
+      "importBBCode": "匯入 BBCode",
       "copyQuilllDelta": "複製Quill Delta",
       "pasteQuillDelta": "貼上Quill Delta",
-      "exportQuillDelta": "導出Quill Delta",
-      "importQuillDelta": "導入Quill Delta"
+      "exportQuillDelta": "匯出 Quill Delta",
+      "importQuillDelta": "匯入 Quill Delta"
     }
   },
   "chatHistoryPage": {
@@ -1191,7 +1216,10 @@
     "online": "[線上]",
     "offline": "[離線]",
     "viewUserSpaceTip": "查看使用者資料",
-    "viewChatHistoryTip": "查看歷史聊天"
+    "viewChatHistoryTip": "查看歷史聊天",
+    "failedNetwork": "發送失敗：網路不可用，請檢查網路後重試",
+    "maybeSent": "發送結果不明：可能已送出，請重新整理確認後再決定是否重送",
+    "refresh": "重新整理"
   },
   "imageDetailPage": {
     "title": "圖片詳情",
@@ -1466,7 +1494,7 @@
     "emoji": {
       "title": "表情",
       "downloading": "正在下載表情（大約10MB內容），這可能需要一些時間。。",
-      "loadingAssets": "正在載入已打包的表情。。。"
+      "loadingAssets": "正在載入已打包的表情…"
     },
     "url": {
       "title": "插入連結",
@@ -1625,7 +1653,7 @@
   "autoCheckinPage": {
     "title": "自動簽到",
     "detail": "為所有已登記的使用者自動簽到",
-    "running": "進行中。。。",
+    "running": "進行中…",
     "user": {
       "waiting": "等待中",
       "running": "進行中",

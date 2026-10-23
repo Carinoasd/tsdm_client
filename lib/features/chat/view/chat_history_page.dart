@@ -158,12 +158,29 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
                 showSnackBar(context: context, message: tr.success);
                 // Show the message just sent: reload the latest page (GitHub #76).
                 context.read<ChatHistoryBloc>().add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: null));
-              } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
-                _replyBarController.closeEditor();
-                FocusManager.instance.primaryFocus?.unfocus();
+              } else if (state.status == ReplyStatus.failure) {
+                // Every failure is told, and the editor stays open with the message for another try.
+                final chatTr = context.t.chatPage;
+                final historyBloc = context.read<ChatHistoryBloc>();
                 showSnackBar(
                   context: context,
-                  message: tr.failed(message: state.failedReason!),
+                  message: state.maybeSent
+                      ? chatTr.maybeSent
+                      : state.networkFailure
+                      ? chatTr.failedNetwork
+                      : tr.failed(message: state.failedReason ?? ''),
+                  // The keyboard stays up and this page does not resize for it: lift the hint above it.
+                  bottomInset: MediaQuery.viewInsetsOf(context).bottom,
+                  // The message may be in the dialog already: look before sending it again.
+                  action: state.maybeSent
+                      ? SnackBarAction(
+                          label: chatTr.refresh,
+                          onPressed: () {
+                            if (historyBloc.isClosed) return;
+                            historyBloc.add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: null));
+                          },
+                        )
+                      : null,
                 );
               }
             },

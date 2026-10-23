@@ -891,10 +891,14 @@ void main() {
       await bloc.stream.firstWhere((e) => e.status == ForumStatus.success);
       failing = true;
       bloc.add(const ForumLoadMoreRequested(2));
-      await bloc.stream.firstWhere((e) => e.status == ForumStatus.failure);
+      // Going on with the list failed: the list stays, its end offers the retry (test_239).
+      await bloc.stream.firstWhere((e) => e.loadMoreFailed);
+      expect(bloc.state.status, ForumStatus.success);
+      expect(bloc.state.normalThreadList.map((e) => e.threadID), ['10']);
       failing = false;
       bloc.add(const ForumRetryRequested());
-      await bloc.stream.firstWhere((e) => e.status == ForumStatus.success);
+      await bloc.stream.firstWhere((e) => e.currentPage == 2);
+      expect(bloc.state.loadMoreFailed, isFalse);
       expect(bloc.state.normalThreadList.map((e) => e.threadID), ['10', '20'], reason: 'before: 10, 10');
       expect(bloc.state.currentPage, 2);
       asked.addAll(repository.asked);

@@ -4,11 +4,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/draft_box/view/draft_box_panel.dart';
 import 'package:tsdm_client/features/my_thread/bloc/my_thread_bloc.dart';
+import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/load_more_failed_footer.dart';
 
 /// Page to show the threads and replies published by current logged user.
 class MyThreadPage extends StatefulWidget {
@@ -31,6 +35,22 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
   late final EasyRefreshController _threadRefreshController;
   late final EasyRefreshController _replyRefreshController;
 
+  /// The cards of [items], with the retry of a next page that failed to load ([loadMoreFailed]) at the end.
+  Widget _buildList(
+    BuildContext context,
+    List<MyThread> items, {
+    required bool loadMoreFailed,
+    required VoidCallback onRetry,
+  }) => AppCenteredList(
+    builder: (context, side, _) => ListView.separated(
+      padding: side.copyWith(top: 8).add(context.safePadding()),
+      itemCount: items.length + (loadMoreFailed ? 1 : 0),
+      itemBuilder: (context, index) =>
+          index < items.length ? MyThreadCard(items[index]) : LoadMoreFailedFooter(onRetry: onRetry),
+      separatorBuilder: (context, index) => appListSeparator,
+    ),
+  );
+
   Widget _buildThreadTab(BuildContext context, MyThreadState state) {
     if (state.status == MyThreadStatus.loading || state.refreshingThread) {
       return const CenteredCircularIndicator();
@@ -39,18 +59,17 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
       ..finishRefresh()
       ..finishLoad();
     final Widget child;
-    if (state.threadList.isEmpty) {
+    if (state.threadList.isEmpty && state.threadFailed) {
+      // Failed, not empty: "no data" would be wrong.
+      return buildRetryButton(context, () => context.read<MyThreadBloc>().add(MyThreadRefreshThreadRequested()));
+    } else if (state.threadList.isEmpty) {
       child = AppStateView(icon: Icons.article_outlined, message: context.t.general.noData);
     } else {
-      child = AppCenteredList(
-        builder: (context, side, _) => ListView.separated(
-          padding: side.copyWith(top: 8).add(context.safePadding()),
-          itemCount: state.threadList.length,
-          itemBuilder: (context, index) {
-            return MyThreadCard(state.threadList[index]);
-          },
-          separatorBuilder: (context, index) => appListSeparator,
-        ),
+      child = _buildList(
+        context,
+        state.threadList,
+        loadMoreFailed: state.threadLoadMoreFailed,
+        onRetry: () => context.read<MyThreadBloc>().add(const MyThreadLoadMoreThreadRequested()),
       );
     }
     return EasyRefresh(
@@ -79,18 +98,17 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
       ..finishRefresh()
       ..finishLoad();
     final Widget child;
-    if (state.replyList.isEmpty) {
+    if (state.replyList.isEmpty && state.replyFailed) {
+      // Failed, not empty: "no data" would be wrong.
+      return buildRetryButton(context, () => context.read<MyThreadBloc>().add(MyThreadRefreshReplyRequested()));
+    } else if (state.replyList.isEmpty) {
       child = AppStateView(icon: Icons.article_outlined, message: context.t.general.noData);
     } else {
-      child = AppCenteredList(
-        builder: (context, side, _) => ListView.separated(
-          padding: side.copyWith(top: 8).add(context.safePadding()),
-          itemCount: state.replyList.length,
-          itemBuilder: (context, index) {
-            return MyThreadCard(state.replyList[index]);
-          },
-          separatorBuilder: (context, index) => appListSeparator,
-        ),
+      child = _buildList(
+        context,
+        state.replyList,
+        loadMoreFailed: state.replyLoadMoreFailed,
+        onRetry: () => context.read<MyThreadBloc>().add(const MyThreadLoadMoreReplyRequested()),
       );
     }
 
@@ -142,7 +160,12 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
               MyThreadBloc(myThreadRepository: context.repo())..add(MyThreadLoadInitialDataRequested()),
         ),
       ],
-      child: BlocBuilder<MyThreadBloc, MyThreadState>(
+      child: BlocConsumer<MyThreadBloc, MyThreadState>(
+        // A refresh that failed with the list on screen keeps the list: say it failed, every time it ends so.
+        listenWhen: (prev, curr) =>
+            (prev.refreshingThread && !curr.refreshingThread && curr.threadFailed && curr.threadList.isNotEmpty) ||
+            (prev.refreshingReply && !curr.refreshingReply && curr.replyFailed && curr.replyList.isNotEmpty),
+        listener: (context, state) => showFailedToLoadSnackBar(context),
         builder: (context, state) {
           return Scaffold(
             appBar: AppBar(

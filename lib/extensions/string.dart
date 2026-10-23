@@ -146,10 +146,14 @@ extension ParseUrl on String {
 
     if (mod == 'redirect' && queryParameters['tid'] != null) {
       // TODO: Migrate to v2 when supported.
+      // `goto=lastpost` (the "last reply" links of the forum lists and the notices) lands on the last floor: the last
+      // page in the thread's own order, scrolled to its end.
+      final lastPost = queryParameters['goto'] == 'lastpost';
       return RecognizedRoute(
         ScreenPaths.threadV1,
         queryParameters: {
           'tid': "${queryParameters['tid']}",
+          if (lastPost) ...{'lastPost': '1', 'overrideReverseOrder': 'false'},
           if (queryParameters.containsKey('authorid')) 'onlyVisibleUid': "${queryParameters['authorid']}",
         },
       );

@@ -162,7 +162,8 @@
     "now": "Now",
     "settings": "Settings",
     "openInBrowser": "Open in browser",
-    "close": "Close"
+    "close": "Close",
+    "loadMoreFailed": "Failed to load more"
   },
   "navigation": {
     "homepage": "Home",
@@ -414,7 +415,13 @@
         "granted": "Allowed",
         "denied": "Not allowed",
         "permanentlyDenied": "Permanently denied",
-        "openSettingsTip": "The system no longer shows the permission dialog. Open the app settings page and turn on notifications there, then come back."
+        "openSettingsTip": "The system no longer shows the permission dialog. Open the app settings page and turn on notifications there, then come back.",
+        "promptTitle": "Allow notifications?",
+        "promptMessage": "New notices, private messages and broadcast messages are then shown as system notifications. The system asks for the permission next; you can change it later in Settings → Notification permission.",
+        "promptAllow": "Continue",
+        "promptLater": "Not now",
+        "promptSettingsMessage": "Notifications are denied or switched off in the system, which will not ask again. Turn them on in the app settings page to get notifications.",
+        "promptOpenSettings": "Open settings"
       },
       "ignoreBatteryOptimizations": {
         "title": "Ignore battery optimizations",
@@ -430,8 +437,8 @@
         }
       },
       "collapseAppBarWhenScroll": {
-        "title": "Hide app bar when scroll",
-        "detail": "Hide when scroll down in subreddit and thread pages"
+        "title": "Hide app bar when scrolling",
+        "detail": "Hide the app bar and the breadcrumbs when scrolling down a thread, show them again when scrolling up"
       },
       "threadFloorInteractionMode": {
         "title": "Interaction on thread floor",
@@ -836,6 +843,11 @@
     "replySuccess": "Reply success",
     "replyFailed": "Failed to reply: $err",
     "replyFailedNetwork": "Failed to reply: the network is unreachable, check the connection and retry",
+    "replyMaybeSent": "The reply may have been sent: refresh to check before sending it again",
+    "refreshToCheck": "Refresh",
+    "replyCheckFiltered": "Only one author's floors are shown: your reply may not be among them",
+    "lastFloorReached": "This is the last floor",
+    "firstFloorReached": "This is the oldest floor",
     "replyNeedsVerification": "This forum asks for a captcha or a security question to reply, which the app cannot show yet. Reply in your browser.",
     "replyNeedsBrowser": "This reply form has fields the app cannot fill yet. Reply in your browser.",
     "replyInBrowser": "Reply in browser",
@@ -970,7 +982,12 @@
       "title": "Search Result",
       "totalThreadCount": "$count results",
       "pageInfo": "$total pages",
-      "noData": "No Data"
+      "noData": "No Data",
+      "hint": "Enter a keyword, an author or a forum id to search",
+      "failed": "Search failed: $message",
+      "rateLimited": "The forum allows one search every $seconds seconds",
+      "retryIn": "Retry in $seconds s",
+      "retry": "Retry"
     }
   },
   "myThreadPage": {
@@ -1139,6 +1156,14 @@
     },
     "editSuccess": "Edit success",
     "saveAsDraft": "Save Draft",
+    "leaveDialog": {
+      "title": "Leave the editor?",
+      "message": "The content has not been sent yet.",
+      "discard": "Discard",
+      "saveDraft": "Save draft",
+      "keepEditing": "Keep editing",
+      "sending": "Still sending: after leaving you will not know whether it was stored. Leave anyway?"
+    },
     "threadPublish": {
       "title": "Post New Thread",
       "warningBeforePost": {
@@ -1191,7 +1216,10 @@
     "online": "[Online]",
     "offline": "[Offline]",
     "viewUserSpaceTip": "View user space",
-    "viewChatHistoryTip": "ViewChatHistory"
+    "viewChatHistoryTip": "ViewChatHistory",
+    "failedNetwork": "Failed to send: the network is unreachable, check the connection and retry",
+    "maybeSent": "The message may have been sent: refresh to check before sending it again",
+    "refresh": "Refresh"
   },
   "imageDetailPage": {
     "title": "Image detail",

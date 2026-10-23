@@ -370,7 +370,7 @@ class MainActivity: FlutterActivity() {
                         result.success(buildResponse(statusCode, headers, body, isRedirect))
                     } catch (e: Exception) {
                         Log.e("KT_HTTP_ERROR", "failed to post form: ${e.message ?: "unknown error"}")
-                        result.error("KT_HTTP_ERROR", "failed to perform http POST form",e.message ?: "unknown error")
+                        result.error(HttpClient.errorCode(e), "failed to perform http POST form", e.message ?: "unknown error")
                     }
                 }
             }
@@ -388,7 +388,7 @@ class MainActivity: FlutterActivity() {
                         result.success(buildResponse(statusCode, headers, body, isRedirect))
                     } catch (e: Exception) {
                         Log.e("KT_HTTP_ERROR", "failed to post multipart: ${e.message ?: "unknown error"}")
-                        result.error("KT_HTTP_ERROR", "failed to perform http POST multipart",e.message ?: "unknown error")
+                        result.error(HttpClient.errorCode(e), "failed to perform http POST multipart", e.message ?: "unknown error")
                     }
                 }
 
@@ -408,7 +408,7 @@ class MainActivity: FlutterActivity() {
                         result.success(buildResponse(statusCode, headers, body, isRedirect))
                     } catch (e: Exception) {
                         Log.e("KT_HTTP_ERROR", "failed to post json: ${e.message ?: "unknown error"}")
-                        result.error("KT_HTTP_ERROR", "failed to perform http POST json", e.message ?: "unknown error")
+                        result.error(HttpClient.errorCode(e), "failed to perform http POST json", e.message ?: "unknown error")
                     }
                 }
             }

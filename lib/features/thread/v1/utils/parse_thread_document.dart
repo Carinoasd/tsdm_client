@@ -42,6 +42,7 @@ final class ThreadPageInfo {
     this.special,
     this.offlineSavedAt,
     this.authorUid,
+    this.newestFirst = false,
   });
 
   /// Thread id.
@@ -118,6 +119,10 @@ final class ThreadPageInfo {
   /// the first does not show the first floor, this tells the thread's author all the same.
   final int? authorUid;
 
+  /// The floors of this page are in the newest first order (the forum's app API `ordertype` 1: asked so, or the
+  /// thread's author set it, the thread status bit 4); false when the page does not tell (a web page).
+  final bool newestFirst;
+
   /// This page read back from an offline copy loaded at [savedAt]: without its reply form, whose form hash is from an
   /// old session and could only send a reply over a network that is not there.
   ThreadPageInfo asOffline(DateTime savedAt) => ThreadPageInfo(
@@ -144,6 +149,7 @@ final class ThreadPageInfo {
     special: special,
     offlineSavedAt: savedAt,
     authorUid: authorUid,
+    newestFirst: newestFirst,
   );
 }
 

@@ -29,9 +29,9 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     : _repo = postEditRepository,
       super(const PostEditState()) {
     on<PostEditLoadDataRequested>(_onPostEditLoadDataRequested);
-    on<PostEditCompleteEditRequested>(_onPostEditCompleteEditRequested);
+    on<PostEditCompleteEditRequested>(_sending(_onPostEditCompleteEditRequested));
     on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit));
-    on<ThreadPubPostThread>((event, emit) => _onPostNewThread(event.info, emit));
+    on<ThreadPubPostThread>(_sending((event, emit) => _onPostNewThread(event.info, emit)));
     on<PostEditIdentityChanged>((event, emit) => emit(const PostEditState(status: PostEditStatus.identityChanged)));
     _authenticationSubscription = authenticationChanges?.listen((status) {
       if (status is AuthStatusAuthed && _repo.belongsTo(status.userInfo.uid)) return;
@@ -134,6 +134,22 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
         emit(state.copyWith(status: PostEditStatus.editing, content: content, forumName: form.forumName));
     }
   }
+
+  /// [handler] sending the content, its unexpected failure (an exception, not a failed request) made a failed upload:
+  /// the page stayed "uploading" for good, and leaving it was refused while sending.
+  EventHandler<E, PostEditState> _sending<E extends PostEditEvent>(EventHandler<E, PostEditState> handler) =>
+      (event, emit) async {
+        try {
+          await handler(event, emit);
+        } on Object catch (e, st) {
+          handleRaw(e, st);
+          final wasSending = _submitting;
+          _submitting = false;
+          if (wasSending && _active(emit)) {
+            emit(state.copyWith(status: PostEditStatus.failedToUpload, errorText: null, needsBrowser: false));
+          }
+        }
+      };
 
   Future<void> _onPostEditCompleteEditRequested(PostEditCompleteEditRequested event, _Emit emit) async {
     if (!canSubmit || !_active(emit)) return;

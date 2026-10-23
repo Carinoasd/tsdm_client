@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/root/models/models.dart';
 import 'package:tsdm_client/features/root/stream/root_location_stream.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -49,6 +52,14 @@ class _RootPageState extends State<RootPage> with LoggerMixin {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
+          if (widget.path != ScreenPaths.homepage) {
+            // Back on another tab goes to the homepage first, as the tab bar of most apps does; only back on the
+            // homepage leaves the app.
+            debug('back on shell tab ${widget.path}, go to the homepage');
+            context.readOrNull<HomeCubit>()?.setTab(HomeTab.home);
+            context.goNamed(ScreenPaths.homepage);
+            return;
+          }
           if (isAndroid) {
             final exitResult = await androidExitApp();
             debug('exit android app, result=$exitResult');
