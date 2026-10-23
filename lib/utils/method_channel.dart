@@ -27,3 +27,24 @@ const _methodSetHighRefreshRate = 'setHighRefreshRate';
 /// display modes to pick from).
 Future<double> androidSetHighRefreshRate({required bool enable}) async =>
     await _mainChannel.invokeMethod<double>(_methodSetHighRefreshRate, {'enable': enable}) ?? 0;
+
+const _methodIsActiveNetworkMetered = 'isActiveNetworkMetered';
+
+/// Whether Android counts the network in use as metered (mobile data, a hotspot, a Wi-Fi the user marked metered), as
+/// `ConnectivityManager.isActiveNetworkMetered` tells it: true without any network, and when the system does not tell.
+Future<bool> androidActiveNetworkMetered() async =>
+    await _mainChannel.invokeMethod<bool>(_methodIsActiveNetworkMetered) ?? true;
+
+const _methodNetworkMeteredChanged = 'networkMeteredChanged';
+
+/// Let Android tell [onChanged] whether the default network is metered each time it changes (a `NetworkCallback` of
+/// the activity): the main channel's only call from Android.
+void androidOnNetworkMeteredChanged(void Function({required bool metered}) onChanged) =>
+    _mainChannel.setMethodCallHandler(
+      (call) async {
+        if (call.method == _methodNetworkMeteredChanged && call.arguments is bool) {
+          onChanged(metered: call.arguments as bool);
+        }
+        return null;
+      },
+    );

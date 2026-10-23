@@ -286,6 +286,27 @@
         "highlightRecentThread": "突出顯示近期發佈的貼文",
         "highlightAuthorName": "突出顯示貼文作者的使用者名稱",
         "highlightInfoRow": "高亮顯示貼文資訊",
+        "listPreview": {
+          "title": "列表預覽",
+          "note": "摘要與縮圖由論壇提供；論壇尚未支援時，列表只顯示標題。需要權限才能看的內容不會出現在預覽裡。",
+          "showExcerpt": {
+            "title": "列表顯示摘要",
+            "detail": "在標題下方顯示首樓開頭的兩行文字"
+          },
+          "thumbnail": {
+            "title": "列表顯示縮圖",
+            "always": "總是",
+            "alwaysDetail": "使用行動數據時也顯示，但只載入論壇做好的小縮圖；原圖只在 Wi-Fi 下載入",
+            "wifiOnly": "僅 Wi-Fi",
+            "wifiOnlyDetail": "連上 Wi-Fi 或其他不計流量的網路時才顯示",
+            "never": "關閉",
+            "neverDetail": "列表不顯示圖片"
+          },
+          "externalImages": {
+            "title": "列表也載入外站圖片",
+            "detail": "關閉時縮圖只用論壇自己的附件。外站圖片一載入，圖片所在的網站就會知道誰滑過了這則貼文（網頁上要點進貼文才會載入），所以預設不在列表載入。"
+          }
+        },
         "example": {
           "title": "TV動畫《魔法禁書目錄》第四季製作決定！",
           "author": "茵蒂克絲",
@@ -2001,6 +2022,7 @@
   },
   "workaroundRedirect": "查看對話",
   "threadCard": {
+    "previewImages": "${count: int} 張圖片",
     "viewInfo": "查看貼文資訊",
     "replied": "已回覆"
   },

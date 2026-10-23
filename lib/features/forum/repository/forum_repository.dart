@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/forum/utils/forum_page_api.dart';
 import 'package:tsdm_client/features/forum/utils/forum_page_parser.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
+import 'package:tsdm_client/features/tsdmapp/list_preview.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -22,6 +23,9 @@ class ForumRepository {
   /// structured fields (`schema: 2`) and the page is built from them ([forumPageFromApi]), its `document` never read.
   /// Any other answer (a web page from a forum without the plugin, an older plugin's answer, whose `document` holds
   /// the blocks of the page) is parsed as the web page ([parseForumPage]).
+  ///
+  /// The page asks for the previews of its rows too when they are wanted ([tsdmAppListPreviewParameters], plugin
+  /// 3.1.0): every thread then carries the excerpt and the images of its first floor ([NormalThread.preview]).
   AsyncEither<ForumPageData> fetchForum({
     required String fid,
     required FilterState filterState,
@@ -31,7 +35,15 @@ class ForumRepository {
     final netClient = getIt.get<NetClientProvider>();
     // JSON mode of the forum's app API when the forum has it, the web page otherwise (see TsdmAppApi).
     final respEither = await netClient
-        .getUri(fetchUrl.replace(queryParameters: {...fetchUrl.queryParameters, ...tsdmAppJsonQueryParameters}))
+        .getUri(
+          fetchUrl.replace(
+            queryParameters: {
+              ...fetchUrl.queryParameters,
+              ...tsdmAppJsonQueryParameters,
+              ...tsdmAppListPreviewParameters(),
+            },
+          ),
+        )
         .run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());

@@ -2,6 +2,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/latest_thread/utils/guide_page_api.dart';
+import 'package:tsdm_client/features/tsdmapp/list_preview.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -14,7 +15,8 @@ class LatestThreadRepository {
   /// (`srchfrom`, its redirect to the results carried by the plugin) since plugin 1.3.0, the guide lists since 1.6.0.
   /// Plugin 2.4.0 answers both as structured fields (the guide `schema: 7`, the search `schema: 6`,
   /// [latestThreadApiAnswerOf]), kept as a [TsdmAppStructuredPage] for `latestThreadsFromApi`; an older plugin, or a
-  /// forum without it, answers the web page ([TsdmAppWebPage]), which parses as before.
+  /// forum without it, answers the web page ([TsdmAppWebPage]), which parses as before. A list of threads asks for
+  /// the previews of its rows too when they are wanted ([withTsdmAppListPreview], plugin 3.1.0).
   AsyncEither<TsdmAppPageAnswer> fetchPage(String url) {
     // The url is handed over as a route parameter; only forum urls are fetched, on the canonical https host.
     final uri = Uri.tryParse(url);
@@ -23,7 +25,7 @@ class LatestThreadRepository {
     }
     return getIt
         .get<NetClientProvider>()
-        .get(withTsdmAppJson(url.canonicalForumUrl()))
+        .get(withTsdmAppListPreview(withTsdmAppJson(url.canonicalForumUrl())))
         .mapHttpPageAnswer(latestThreadApiAnswerOf);
   }
 }

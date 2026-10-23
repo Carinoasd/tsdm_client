@@ -3,12 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/settings/widgets/select_thread_thumbnail_mode_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
+import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
 
 /// Settings page for thread card appearance
@@ -117,6 +119,12 @@ class _SettingsThreadCardAppearancePageState extends State<SettingsThreadCardApp
         css: null,
         stateSet: {ThreadStateModel.pinnedGlobally, ThreadStateModel.digested},
         isRecentThread: true,
+        // The excerpt and a picture placeholder (an image without url) with "+2": what the list preview settings show.
+        preview: ThreadPreview(
+          excerpt: tr.message,
+          images: const [ThreadPreviewImage(url: '')],
+          imageTotal: 3,
+        ),
       ),
       disableTap: true,
     );
@@ -184,6 +192,54 @@ class _SettingsThreadCardAppearancePageState extends State<SettingsThreadCardApp
     );
   }
 
+  /// The list preview settings (the forum's app API, plugin 3.1.0): the excerpt on or off, when the thumbnail shows.
+  Widget _buildPreviewOptions(BuildContext context, SettingsMap settings) {
+    final tr = context.t.settingsPage.appearanceSection.threadCard.listPreview;
+    final mode = settings.threadThumbnailMode;
+    return AppTileGroup(
+      title: tr.title,
+      icon: Icons.view_agenda_outlined,
+      footer: AppNoticeBanner(message: tr.note),
+      children: [
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-card-excerpt'),
+          secondary: const Icon(Icons.short_text_outlined),
+          title: Text(tr.showExcerpt.title),
+          subtitle: Text(tr.showExcerpt.detail),
+          value: settings.threadCardShowExcerpt,
+          onChanged: (v) =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadCardShowExcerpt, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-thread-card-thumbnail'),
+          leading: const Icon(Icons.image_outlined),
+          title: Text(tr.thumbnail.title),
+          subtitle: Text(threadThumbnailModeName(context, mode)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final picked = await showSelectThreadThumbnailModeDialog(context, mode);
+            if (picked == null || !context.mounted) {
+              return;
+            }
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadCardThumbnailMode, picked.index));
+          },
+        ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-card-external'),
+          secondary: const Icon(Icons.public_outlined),
+          title: Text(tr.externalImages.title),
+          subtitle: Text(tr.externalImages.detail),
+          value: settings.threadCardExternalThumbnails,
+          onChanged: mode == ThreadThumbnailMode.never
+              ? null
+              : (v) => context.read<SettingsBloc>().add(
+                  SettingsValueChanged(SettingsKeys.threadCardExternalThumbnails, v),
+                ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.settingsPage.appearanceSection.threadCard;
@@ -220,13 +276,23 @@ class _SettingsThreadCardAppearancePageState extends State<SettingsThreadCardApp
                     children: [
                       Expanded(child: _buildPreview(context)),
                       const SizedBox(width: appSurfaceGap),
-                      Expanded(child: _buildOptions(context, settings)),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _buildOptions(context, settings),
+                            const SizedBox(height: appSurfaceGap),
+                            _buildPreviewOptions(context, settings),
+                          ],
+                        ),
+                      ),
                     ],
                   )
                 else ...[
                   _buildPreview(context),
                   const SizedBox(height: appSurfaceGap),
                   _buildOptions(context, settings),
+                  const SizedBox(height: appSurfaceGap),
+                  _buildPreviewOptions(context, settings),
                 ],
               ],
             );
