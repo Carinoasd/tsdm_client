@@ -934,8 +934,66 @@
         "recent": "Synced moments ago, the stored notices are shown; unread ${unreadNotice}/${unreadPm}/${unreadBm}",
         "notAuthed": "Login expired, sign in again",
         "rateLimited": "The forum rate-limited the request (429), try again later",
-        "failed": "Failed: ${message}"
+        "failed": "Failed: ${message}",
+        "open": "Switch to this account and open its notifications"
       }
+    },
+    "kind": {
+      "reply": "Reply",
+      "quote": "Quote",
+      "mention": "Mention",
+      "rate": "Rating",
+      "comment": "Comment",
+      "friend": "Friend",
+      "friendRequest": "Friend request",
+      "poke": "Poke",
+      "wall": "Wall",
+      "moderation": "Moderation",
+      "post": "Post",
+      "reward": "Bounty",
+      "activity": "Event",
+      "medal": "Medal",
+      "magic": "Magic item",
+      "system": "System",
+      "manage": "To review",
+      "generic": "Notice"
+    },
+    "action": {
+      "reply": "${user} replied to your post",
+      "quote": "${user} quoted your post",
+      "mention": "${user} mentioned you",
+      "rate": "${user} rated your post",
+      "comment": "${user} commented on your post",
+      "friend": "${user} is now your friend",
+      "friendRequest": "${user} wants to be your friend",
+      "poke": "${user} poked you",
+      "wall": "${user} left a message on your wall"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "${n} min ago",
+      "hoursAgo": "${n} h ago",
+      "yesterdayAt": "Yesterday ${time}",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "quickReply": "Quick reply",
+    "markAllRead": "Mark all as read",
+    "markAllReadDone": "All marked as read",
+    "search": {
+      "tooltip": "Search notifications",
+      "hint": "Find in the synced notifications",
+      "close": "Close search"
+    },
+    "empty": {
+      "notice": "No notices yet",
+      "personalMessage": "No private messages yet",
+      "broadcastMessage": "No public messages yet",
+      "unreadNotice": "No unread notices",
+      "unreadPersonalMessage": "No unread private messages",
+      "unreadBroadcastMessage": "No unread public messages",
+      "search": "Nothing matches \"${keyword}\""
     }
   },
   "noticeSearchPage": {
@@ -1643,7 +1701,16 @@
         "notice": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[Notice]${msg: String}",
         "pm": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[PM]${user: String}: ${msg: String}",
         "bm": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[BM]${msg: String}"
-      }
+      },
+      "noticeTitle": "New notice",
+      "pmFrom": "Message from ${user}",
+      "bmTitle": "Public message",
+      "noticeCount": "${n} notice(s)",
+      "pmCount": "${n} PM(s)",
+      "bmCount": "${n} public message(s)",
+      "pmLine": "${user}: ${msg}",
+      "bmLine": "[Public] ${msg}",
+      "more": "${n} more"
     }
   },
   "backgroundService": {
@@ -2538,7 +2605,8 @@
     "switched": "Switched to ${username}",
     "switchBusy": "Notifications are syncing, try again in a moment",
     "moreAccounts": "${count} more account(s)",
-    "replyBusy": "A reply is being sent, switch accounts once it is done"
+    "replyBusy": "A reply is being sent, switch accounts once it is done",
+    "unread": "${count} unread"
   },
   "specialThread": {
     "refused": "The forum did not accept it.",

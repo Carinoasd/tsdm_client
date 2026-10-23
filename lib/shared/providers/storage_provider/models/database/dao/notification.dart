@@ -53,27 +53,41 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
     });
   }
 
-  /// Resolve the author metadata (`ignoreType`, `authorId`) of [message] before it replaces a stored copy.
+  /// Resolve the author metadata (`ignoreType`, `authorId`) and the metadata of the forum's app API (`author`,
+  /// `fromId`, `fromIdType`) of [message] before it replaces a stored copy.
   ///
-  /// A copy carrying metadata is stored as is. A copy without metadata (layout change, parse failure) keeps the
-  /// stored metadata only when it is the same revision (same time and same body); a merged notice that got a newer
-  /// time or another body may come from another author, so its metadata becomes unknown (null) instead of
-  /// inheriting the old author.
+  /// A copy carrying the author metadata is stored as is. A copy without metadata (layout change, parse failure) keeps
+  /// the stored metadata only when it is the same revision (same time and same body); a merged notice that got a newer
+  /// time or another body may come from another author, so its metadata becomes unknown (null) instead of inheriting
+  /// the old author. The same for the metadata of the app API, which the notice page does not print: a copy read from
+  /// the page (an older plugin, a fetch that fell back to the pages) keeps the stored `fromId`, `fromIdType` (and
+  /// `author`) of the same revision.
   Future<NoticeCompanion> _withRevisionMetadata(NoticeCompanion message) async {
-    final hasMetadata =
-        (message.authorId.present && message.authorId.value != null) ||
-        (message.ignoreType.present && message.ignoreType.value != null);
-    if (hasMetadata) {
+    bool has<T>(Value<T?> v) => v.present && v.value != null;
+    final hasMetadata = has(message.authorId) || has(message.ignoreType);
+    final hasApiMetadata = has(message.author) && has(message.fromId) && has(message.fromIdType);
+    if (hasMetadata && hasApiMetadata) {
       return message;
     }
     final old = await (select(
       notice,
     )..where((e) => e.uid.equals(message.uid.value) & e.nid.equals(message.nid.value))).getSingleOrNull();
     final sameRevision = old != null && old.timestamp == message.timestamp.value && old.data == message.data.value;
-    return message.copyWith(
-      ignoreType: Value(sameRevision ? old.ignoreType : null),
-      authorId: Value(sameRevision ? old.authorId : null),
-    );
+    var result = message;
+    if (!hasMetadata) {
+      result = result.copyWith(
+        ignoreType: Value(sameRevision ? old.ignoreType : null),
+        authorId: Value(sameRevision ? old.authorId : null),
+      );
+    }
+    if (!hasApiMetadata) {
+      result = result.copyWith(
+        author: Value(has(message.author) ? message.author.value : (sameRevision ? old.author : null)),
+        fromId: Value(has(message.fromId) ? message.fromId.value : (sameRevision ? old.fromId : null)),
+        fromIdType: Value(has(message.fromIdType) ? message.fromIdType.value : (sameRevision ? old.fromIdType : null)),
+      );
+    }
+    return result;
   }
 
   /// Insert personal message [message] into table [personalMessage], or replace the stored conversation unless that

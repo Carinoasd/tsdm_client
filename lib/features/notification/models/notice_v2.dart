@@ -11,6 +11,9 @@ final class NoticeV2 with NoticeV2Mappable {
     this.alreadyRead = false,
     this.ignoreType,
     this.authorId,
+    this.author,
+    this.fromId,
+    this.fromIdType,
   });
 
   /// Notice id.
@@ -31,4 +34,18 @@ final class NoticeV2 with NoticeV2Mappable {
 
   /// Uid of the user who triggered the notice, from the notice's own ignore link, null when unknown (never guessed).
   final int? authorId;
+
+  /// Name of the user who triggered the notice: the `author` of the forum's app API (`notify`), or on the notice page
+  /// the name of the link to that user's space in the body ([authorId] of that link). Null when unknown.
+  final String? author;
+
+  /// The `from_id` of the forum's app API: what the notice is about, a thread id for most of the post notices (the
+  /// post id for a quote). Null on the notice page, which does not print it.
+  @MappableField(key: 'from_id')
+  final int? fromId;
+
+  /// The `from_idtype` of the forum's app API: the kind of [fromId] and the finer kind of the notice (`post`, `quote`,
+  /// `at`, `moderate_*`, `friendrequest`...). Null on the notice page, which does not print it.
+  @MappableField(key: 'from_idtype')
+  final String? fromIdType;
 }

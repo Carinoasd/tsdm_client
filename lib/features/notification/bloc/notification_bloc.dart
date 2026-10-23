@@ -259,6 +259,9 @@ Future<PersistedNotification> _persistFetchedNotification({
                   alreadyRead: e.alreadyRead,
                   ignoreType: e.ignoreType,
                   authorId: e.authorId,
+                  author: e.author,
+                  fromId: e.fromId,
+                  fromIdType: e.fromIdType,
                 ),
               )
               .toList(),
@@ -292,7 +295,8 @@ Future<PersistedNotification> _persistFetchedNotification({
   return (fresh: fresh, reconciled: info, unread: await countUnreadNotification(storage: storage, uid: uid));
 }
 
-/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link (null for old rows).
+/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link and of the forum's app API (null
+/// for old rows).
 NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
   id: e.nid,
   timestamp: e.timestamp,
@@ -300,6 +304,9 @@ NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
   alreadyRead: e.alreadyRead ?? false,
   ignoreType: e.ignoreType,
   authorId: e.authorId,
+  author: e.author,
+  fromId: e.fromId,
+  fromIdType: e.fromIdType,
 );
 
 /// Recount the unread notifications of [uid] from [storage].
@@ -362,6 +369,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
           markType,
           markAsRead: markAsRead,
         ),
+        NotificationMarkAllReadRequested() => _onMarkAllReadRequested(emit),
         NotificationDeleteNoticeRequested(:final uid, :final nid) => _onDeleteNotice(emit, uid: uid, nid: nid),
         NotificationDeletePersonalMessageRequested(:final uid, :final peerUid) => _onDeletePersonalMessage(
           emit,
@@ -669,6 +677,33 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         final list = state.broadcastMessageList.map((e) => e.copyWith(alreadyRead: markAsRead)).toList();
         emit(state.copyWith(status: NotificationStatus.success, broadcastMessageList: list));
     }
+  }
+
+  Future<void> _onMarkAllReadRequested(_Emit emit) async {
+    final uid = _authRepo.currentUser?.uid;
+    if (uid == null) {
+      error('intend to mark all notifications as read but uid not found');
+      return;
+    }
+    for (final type in NotificationType.values) {
+      await _storageProvider.markTypeAsRead(notificationType: type, uid: uid, alreadyRead: true).run();
+    }
+    if (_authRepo.currentUser?.uid != uid) {
+      debug('Async gap meets uid changes, do NOT update state.');
+      return;
+    }
+    await _publishUnreadCounts(uid);
+    emit(
+      state.copyWith(
+        noticeList: state.noticeList.map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true)).toList(),
+        personalMessageList: state.personalMessageList
+            .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+            .toList(),
+        broadcastMessageList: state.broadcastMessageList
+            .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+            .toList(),
+      ),
+    );
   }
 
   Future<void> _onRecordFetchTimeRequested(DateTime time) async {

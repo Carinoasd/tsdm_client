@@ -934,8 +934,66 @@
         "recent": "剛同步過，沿用已存的結果；未讀 ${unreadNotice}/${unreadPm}/${unreadBm}",
         "notAuthed": "登入已失效，請重新登入",
         "rateLimited": "論壇限制了請求頻率（429），請稍後再試",
-        "failed": "失敗：${message}"
+        "failed": "失敗：${message}",
+        "open": "切換到這個帳號並查看通知"
       }
+    },
+    "kind": {
+      "reply": "回覆",
+      "quote": "引用",
+      "mention": "提到了你",
+      "rate": "評分",
+      "comment": "點評",
+      "friend": "好友",
+      "friendRequest": "好友請求",
+      "poke": "打招呼",
+      "wall": "留言",
+      "moderation": "管理操作",
+      "post": "帖子",
+      "reward": "懸賞",
+      "activity": "活動",
+      "medal": "勳章",
+      "magic": "道具",
+      "system": "系統",
+      "manage": "待處理",
+      "generic": "提醒"
+    },
+    "action": {
+      "reply": "${user} 回覆了你的帖子",
+      "quote": "${user} 引用了你的帖子",
+      "mention": "${user} 提到了你",
+      "rate": "${user} 給你的帖子評分",
+      "comment": "${user} 點評了你的帖子",
+      "friend": "${user} 和你成為了好友",
+      "friendRequest": "${user} 請求加你為好友",
+      "poke": "${user} 向你打招呼",
+      "wall": "${user} 在留言板給你留言"
+    },
+    "time": {
+      "justNow": "剛剛",
+      "minutesAgo": "${n} 分鐘前",
+      "hoursAgo": "${n} 小時前",
+      "yesterdayAt": "昨天 ${time}",
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
+    "quickReply": "快速回覆",
+    "markAllRead": "全部已讀",
+    "markAllReadDone": "已全部標為已讀",
+    "search": {
+      "tooltip": "搜尋通知",
+      "hint": "在已同步的通知中尋找",
+      "close": "關閉搜尋"
+    },
+    "empty": {
+      "notice": "還沒有提醒",
+      "personalMessage": "還沒有私人訊息",
+      "broadcastMessage": "還沒有公用訊息",
+      "unreadNotice": "沒有未讀提醒",
+      "unreadPersonalMessage": "沒有未讀私人訊息",
+      "unreadBroadcastMessage": "沒有未讀公用訊息",
+      "search": "沒有符合「${keyword}」的內容"
     }
   },
   "noticeSearchPage": {
@@ -1643,7 +1701,16 @@
         "notice": "收到了${noticeCount: int}條提醒，${pmCount: int}條私信，${bmCount: int}條公用訊息\n[提醒]${msg: String}",
         "pm": "收到了${noticeCount: int}條提醒，${pmCount: int}條私信，${bmCount: int}條公用訊息\n[私訊]${user: String}：${msg: String}",
         "bm": "收到了${noticeCount: int}條提醒，${pmCount: int}條私信，${bmCount: int}條公用訊息\n[公用訊息]${msg: String}"
-      }
+      },
+      "noticeTitle": "新提醒",
+      "pmFrom": "${user} 傳來私訊",
+      "bmTitle": "公用訊息",
+      "noticeCount": "${n} 則提醒",
+      "pmCount": "${n} 則私訊",
+      "bmCount": "${n} 則公用訊息",
+      "pmLine": "${user}：${msg}",
+      "bmLine": "[公用訊息] ${msg}",
+      "more": "還有 ${n} 則"
     }
   },
   "backgroundService": {
@@ -2538,7 +2605,8 @@
     "switched": "已切換到 ${username}",
     "switchBusy": "正在同步通知，請稍後再試",
     "moreAccounts": "另外 ${count} 個帳號",
-    "replyBusy": "正在送出回覆，送出完成後再切換帳號"
+    "replyBusy": "正在送出回覆，送出完成後再切換帳號",
+    "unread": "${count} 則未讀"
   },
   "specialThread": {
     "refused": "論壇沒有接受這次操作。",

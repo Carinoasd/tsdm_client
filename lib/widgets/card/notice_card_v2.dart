@@ -16,6 +16,8 @@ import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/notification/utils/relative_time.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -67,10 +69,32 @@ class NoticeCardV2 extends StatefulWidget {
 }
 
 class _NoticeCardV2State extends State<NoticeCardV2> {
+  /// What the card shows of the notice, read once per notice.
+  late NoticeInfo _info;
+
+  @override
+  void initState() {
+    super.initState();
+    _info = NoticeInfo.of(widget.data);
+  }
+
+  @override
+  void didUpdateWidget(covariant NoticeCardV2 oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _info = NoticeInfo.of(widget.data);
+    }
+  }
+
   void _onUrlLaunched({required bool markAsRead}) {
     // Update state to read if any link in rendered html launched. `mounted`, not `context.mounted`: reading `context`
     // on an unmounted state throws (the card is rebuilt while the pushed page is open).
     if (!mounted) {
+      return;
+    }
+    if (markAsRead == widget.data.alreadyRead) {
+      // Nothing changes: the badge must not count it twice.
+      _recordMark(markAsRead: markAsRead);
       return;
     }
 
@@ -79,13 +103,48 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     } else {
       context.read<NotificationStateCubit>().increaseNotice();
     }
+    _recordMark(markAsRead: markAsRead);
+  }
 
+  void _recordMark({required bool markAsRead}) {
     final uid = context.read<AuthenticationRepository>().currentUser?.uid;
     if (uid == null) {
       return;
     }
     context.read<NotificationBloc>().add(
       NotificationMarkReadRequested(RecordMarkNotice(uid: uid, nid: widget.data.id, alreadyRead: markAsRead)),
+    );
+  }
+
+  /// A tap on the card: the floor (or thread) the notice links, else the profile of the user of a friend, poke or wall
+  /// notice; the notice is read either way.
+  Future<void> _onTap() async {
+    final url = _tapUrlOf(_info);
+    _onUrlLaunched(markAsRead: true);
+    if (url != null) {
+      await context.dispatchAsUrl(url);
+    }
+  }
+
+  Future<void> _openAuthor() async {
+    final authorId = _info.authorId;
+    if (authorId == null) {
+      return;
+    }
+    await context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '$authorId'});
+  }
+
+  /// Reply to the floor of the notice on the notice detail page: the floor and the reply bar under it.
+  Future<void> _quickReply() async {
+    final target = _info.target;
+    if (target == null || target.pid == null || target.tid == null) {
+      return;
+    }
+    _onUrlLaunched(markAsRead: true);
+    await context.pushNamed(
+      ScreenPaths.reply,
+      pathParameters: {'target': target.url},
+      queryParameters: {'noticeType': '${NoticeType.reply.index}'},
     );
   }
 
@@ -99,11 +158,76 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     }
     final showBadge = getIt.get<SettingsRepository>().currentSettings.showUnreadNoticeBadge;
     final unread = showBadge && !widget.data.alreadyRead;
+    final info = _info;
+    final kindLabel = noticeKindLabel(context.t, info.kind);
+    final author = info.author;
+    final authorId = info.authorId;
+    final colorScheme = Theme.of(context).colorScheme;
+    final repliable = noticeKindRepliable(info.kind) && info.target?.pid != null && info.target?.tid != null;
+    final kindIcon = noticeKindIcon(info.kind);
+    final Widget leading;
+    if (authorId != null) {
+      // The author's avatar with the kind of the notice in its corner.
+      leading = GestureDetector(
+        onTap: _openAuthor,
+        child: SizedBox.square(
+          dimension: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              HeroUserAvatar(
+                username: author ?? '$authorId',
+                avatarUrl: avatarUrlOfUid('$authorId'),
+                disableHero: true,
+              ),
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.surfaceContainerLow, width: 2),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(kindIcon, size: 12, color: colorScheme.onSecondaryContainer),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      leading = info.kind == NoticeKind.system || info.kind == NoticeKind.manage
+          ? AppIconTile(
+              kindIcon,
+              color: colorScheme.tertiaryContainer,
+              foregroundColor: colorScheme.onTertiaryContainer,
+            )
+          : AppIconTile(kindIcon);
+    }
     return _NotificationCardShell(
+      key: ValueKey('notice-card-${widget.data.id}'),
       highlight: unread,
-      leading: Badge(isLabelVisible: unread, child: const AppIconTile(Icons.notifications_outlined)),
-      title: Text(context.t.noticePage.noticeTab.title),
+      onTap: _onTap,
+      leading: Badge(isLabelVisible: unread, child: leading),
+      title: Text(author ?? kindLabel),
+      label: author != null ? kindLabel : null,
       timestamp: widget.data.timestamp,
+      footer: repliable
+          ? Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: ValueKey('notice-quick-reply-${widget.data.id}'),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.reply_outlined, size: 18),
+                label: Text(context.t.noticePage.quickReply),
+                onPressed: _quickReply,
+              ),
+            )
+          : null,
       menu: PopupMenuButton(
         itemBuilder: (_) => [
           if (!widget.data.alreadyRead)
@@ -178,9 +302,10 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
         onSelected: (value) async {
           switch (value) {
             case _Actions.blockAuthor:
-              // The notice names no reliable username, the management page shows the uid.
+              // The name is the one the notice gives (the forum's app API, or the author's link in the body); the
+              // management page shows the uid otherwise.
               final authorId = widget.data.authorId!;
-              await confirmAndBlockUser(context, uid: authorId, username: 'UID $authorId');
+              await confirmAndBlockUser(context, uid: authorId, username: _info.author ?? 'UID $authorId');
             case _Actions.ignoreOnForum:
               await showNoticeIgnoreDialog(
                 context,
@@ -222,6 +347,23 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
       ),
     );
   }
+}
+
+/// Where a tap on a notice card with [info] goes: the floor or thread it links, else the profile of the user of a
+/// friend, poke or wall notice; null when there is nowhere to go.
+String? _tapUrlOf(NoticeInfo info) {
+  if (info.target case final target?) {
+    return target.url;
+  }
+  final authorId = info.authorId;
+  if (authorId != null &&
+      (info.kind == NoticeKind.friend ||
+          info.kind == NoticeKind.friendRequest ||
+          info.kind == NoticeKind.poke ||
+          info.kind == NoticeKind.wall)) {
+    return '$baseUrl/home.php?mod=space&uid=$authorId';
+  }
+  return null;
 }
 
 /// Widget to display personal message stored in [PersonalMessageV2].
@@ -490,11 +632,15 @@ class _BroadcastMessageCardV2State extends State<BroadcastMessageCardV2> {
   }
 }
 
-/// Layout shared by the notification cards: leading block with the unread badge, title and time, menu, then the
-/// content.
+/// Clock of the relative times and the day groups of the notification cards; tests and screenshots set a fixed one.
+DateTime Function() notificationCardClock = DateTime.now;
+
+/// Layout shared by the notification cards: leading block with the unread badge, title, kind and relative time, menu,
+/// then the content and an optional footer.
 ///
 /// Unread cards (only when their unread badge is enabled in settings) get a tinted surface and a bolder title, so the
-/// state is visible without relying on the small badge alone.
+/// state is visible without relying on the small badge alone. The time is relative ("3 分钟前", "昨天 12:30"); a long
+/// press on it shows the full time.
 class _NotificationCardShell extends StatelessWidget {
   const _NotificationCardShell({
     required this.leading,
@@ -503,7 +649,10 @@ class _NotificationCardShell extends StatelessWidget {
     required this.menu,
     required this.body,
     required this.highlight,
+    this.label,
+    this.footer,
     this.onTap,
+    super.key,
   });
 
   /// Avatar or icon block.
@@ -511,6 +660,9 @@ class _NotificationCardShell extends StatelessWidget {
 
   /// Title, a text; styled here.
   final Widget title;
+
+  /// Kind of the notification shown before the time, none when null.
+  final String? label;
 
   /// Time of the notification, in seconds.
   final int timestamp;
@@ -520,6 +672,9 @@ class _NotificationCardShell extends StatelessWidget {
 
   /// Content.
   final Widget body;
+
+  /// Actions under the content, none when null.
+  final Widget? footer;
 
   /// Show as unread.
   final bool highlight;
@@ -531,12 +686,15 @@ class _NotificationCardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    // Timestamp in second.
+    final time = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final relative = relativeTimeOf(context.t, time, now: notificationCardClock());
     return AppSurface(
       onTap: onTap,
       color: highlight
           ? Color.alphaBlend(colorScheme.primaryContainer.withValues(alpha: 0.3), colorScheme.surfaceContainerLow)
           : null,
-      padding: const EdgeInsets.fromLTRB(14, 10, 4, 12),
+      padding: EdgeInsets.fromLTRB(14, 10, 4, footer == null ? 12 : 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -556,12 +714,14 @@ class _NotificationCardShell extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       child: title,
                     ),
-                    Text(
-                      // Timestamp in second.
-                      DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).yyyyMMDDHHMMSS(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    Tooltip(
+                      message: time.yyyyMMDDHHMMSS(),
+                      child: Text(
+                        label == null ? relative : '$label · $relative',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                      ),
                     ),
                   ],
                 ),
@@ -571,6 +731,7 @@ class _NotificationCardShell extends StatelessWidget {
           ),
           sizedBoxW8H8,
           Padding(padding: edgeInsetsR12, child: body),
+          ?footer,
         ],
       ),
     );

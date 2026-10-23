@@ -406,6 +406,12 @@ String _rawNote(String page, int id) => RegExp(
 
 int _secondsOf(DateTime local) => local.millisecondsSinceEpoch ~/ 1000;
 
+/// [notice] without what only the forum's app API gives (`from_id`, `from_idtype`): the notice page does not print
+/// them. The author is the API's `author`; the page reads the name of the author's link (the synthetic notes name
+/// another user than the synthetic `author`), so it is left out with [withoutAuthor].
+NoticeV2? _pageView(NoticeV2? notice, {bool withoutAuthor = false}) =>
+    notice?.copyWith(fromId: null, fromIdType: null, author: withoutAuthor ? null : notice.author);
+
 void main() {
   setUpAll(() {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -433,8 +439,10 @@ void main() {
           _notice(id, _secondsOf(at), unread: unread, authorId: author, type: type, note: _rawNote(page, id)),
           timeOffset: 8,
         );
-        expect(fromApi, fromPage, reason: file);
+        expect(_pageView(fromApi, withoutAuthor: true), _pageView(fromPage, withoutAuthor: true), reason: file);
         expect((fromApi!.ignoreType, fromApi.authorId), (type, author), reason: file);
+        expect((fromApi.author, fromApi.fromId, fromApi.fromIdType), ('Peer', 5, 'post'), reason: 'the API fields');
+        expect(fromPage!.author, isNotEmpty, reason: 'the name of the author link, $file');
         expect(fromApi.data, contains('href="$baseUrl/home.php?mod=space'), reason: 'absolute urls, $file');
         expect(fromApi.data, isNot(contains('href="home.php')), reason: file);
       }
@@ -447,7 +455,7 @@ void main() {
       ]) {
         final fromPage = NotificationV2.noticeNodes(parseHtmlDocument(_noticePage([n]))).map(Notice.toV2).single;
         final fromApi = Notice.toV2FromApi(n, timeOffset: _offset);
-        expect(fromApi, fromPage);
+        expect(_pageView(fromApi), fromPage);
         expect(fromApi!.timestamp % 60, 0, reason: 'the minute the page shows');
       }
       final system = Notice.toV2FromApi(_notice(8, _since, authorId: 0, type: 'system', note: 'x'), timeOffset: 8)!;
@@ -461,7 +469,7 @@ void main() {
       for (final offset in [8, 9, -5, 5.5]) {
         final n = _notice(7, at);
         expect(
-          Notice.toV2FromApi(n, timeOffset: offset),
+          _pageView(Notice.toV2FromApi(n, timeOffset: offset)),
           NotificationV2.noticeNodes(parseHtmlDocument(_noticePage([n], offset: offset))).map(Notice.toV2).single,
           reason: 'notice at $offset',
         );
@@ -605,7 +613,8 @@ void main() {
         since: _since,
       );
       expect(value.info.noticeList.map((e) => e.id), [105, 101, 99]);
-      expect(value.info.noticeList, fromPages.noticeList, reason: 'the notices the notice page shows');
+      expect(value.info.noticeList.map(_pageView), fromPages.noticeList, reason: 'the notices the notice page shows');
+      expect(value.info.noticeList.map((e) => (e.fromId, e.fromIdType)).toSet(), {(5, 'post')}, reason: 'API only');
       expect(value.info.noticeList.first.data, contains('href="$baseUrl/forum.php?mod=redirect'));
       expect(value.info.noticeList.first.data, contains('src="$baseUrl/static/image/smiley/default/smile.gif"'));
       expect((value.info.noticeList.first.ignoreType, value.info.noticeList.first.authorId), ('post', 3001));

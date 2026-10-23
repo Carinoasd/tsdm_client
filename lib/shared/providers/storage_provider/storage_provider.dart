@@ -926,6 +926,9 @@ class StorageProvider with LoggerMixin {
               // `NotificationDao.insertManyNotice`.
               ignoreType: Value(e.ignoreType),
               authorId: Value(e.authorId),
+              author: Value(e.author),
+              fromId: Value(e.fromId),
+              fromIdType: Value(e.fromIdType),
             ),
           )
           .toList(),

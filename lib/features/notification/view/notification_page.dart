@@ -14,6 +14,8 @@ import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.d
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
+import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/notification/utils/relative_time.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -21,10 +23,12 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/back_to_home_button.dart';
 import 'package:tsdm_client/widgets/card/notice_card_v2.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:universal_html/parsing.dart';
 
 enum _Actions { markAllNoticeAsRead, markAllPersonalMessageAsRead, markAllBroadcastMessageAsRead, syncAllAccounts }
 
@@ -46,35 +50,107 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
   /// Flag indicating only show unread messages or not
   bool onlyShowUnread = false;
 
-  /// One tab of the page: a centered list of [count] cards built by [itemBuilder], or the empty state; both keep the
-  /// pull to refresh.
+  /// Text of the search box, empty when not searching.
+  String _query = '';
+
+  /// Whether the search box replaces the title.
+  bool _searching = false;
+
+  late final TextEditingController _searchController;
+
+  /// Plain text of the notification html bodies already searched, by body.
+  final _plainTexts = <String, String>{};
+
+  String _plainTextOf(String html, {bool notice = false}) => _plainTexts.putIfAbsent(
+    html,
+    () => notice
+        ? noticePlainTextOfHtml(html)
+        : (parseHtmlDocument('<html><body>$html</body></html>').body?.text ?? html),
+  );
+
+  /// Whether one of [texts] contains the search text, ignoring case; true when not searching.
+  bool _matches(Iterable<String?> texts) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) {
+      return true;
+    }
+    return texts.any((e) => e != null && e.toLowerCase().contains(q));
+  }
+
+  /// One tab of the page: a centered list of the cards built by [itemBuilder] for the notifications at [timestamps]
+  /// (seconds, newest first), grouped under "today", "yesterday" and "earlier"; or the empty state saying [empty].
+  /// Both keep the pull to refresh.
   Widget _buildTab(
     BuildContext context, {
     required EasyRefreshController controller,
-    required int count,
+    required List<int> timestamps,
     required IconData emptyIcon,
+    required String empty,
     required IndexedWidgetBuilder itemBuilder,
   }) {
+    final tr = context.t;
+    final now = notificationCardClock();
+    // Rows of the list: a group title (the day) or the index of a card.
+    final rows = <Object>[];
+    NotificationDay? day;
+    for (final (index, timestamp) in timestamps.indexed) {
+      final d = notificationDayOf(DateTime.fromMillisecondsSinceEpoch(timestamp * 1000), now);
+      if (d != day) {
+        rows.add(d);
+        day = d;
+      }
+      rows.add(index);
+    }
     return EasyRefresh.builder(
       controller: controller,
       header: const MaterialHeader(),
       onRefresh: () => context.read<NotificationBloc>().add(const NotificationUpdateAllRequested(bypassGate: true)),
-      childBuilder: (context, physics) => count == 0
+      childBuilder: (context, physics) => timestamps.isEmpty
           ? AppScrollableStateView(
               physics: physics,
-              child: AppStateView(icon: emptyIcon, message: context.t.general.noData, scrollable: false),
+              child: AppStateView(icon: emptyIcon, message: empty, scrollable: false),
             )
           : AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
+              builder: (context, side, _) => ListView.builder(
                 physics: physics,
                 padding: side.copyWith(top: 4, bottom: 12).add(context.safePadding()),
-                itemCount: count,
-                itemBuilder: itemBuilder,
-                separatorBuilder: (_, _) => appListSeparator,
+                itemCount: rows.length,
+                itemBuilder: (context, i) => switch (rows[i]) {
+                  final NotificationDay d => AppSectionHeader(
+                    notificationDayLabel(tr, d),
+                    key: ValueKey('notice-day-${d.name}'),
+                    padding: EdgeInsets.only(top: i == 0 ? 4 : 12, bottom: 6, left: 4),
+                  ),
+                  final int index => Padding(
+                    padding: i + 1 < rows.length && rows[i + 1] is int
+                        ? const EdgeInsets.only(bottom: appSurfaceGapCompact)
+                        : EdgeInsets.zero,
+                    child: itemBuilder(context, index),
+                  ),
+                  _ => const SizedBox.shrink(),
+                },
               ),
             ),
     );
   }
+
+  /// The search box in the app bar, filtering the three tabs by the text of the synced notifications.
+  Widget _buildSearchField(BuildContext context) => TextField(
+    key: const ValueKey('notice-search-field'),
+    controller: _searchController,
+    autofocus: true,
+    textInputAction: TextInputAction.search,
+    decoration: InputDecoration(hintText: context.t.noticePage.search.hint, border: InputBorder.none),
+    onChanged: (v) => setState(() => _query = v),
+  );
+
+  void _toggleSearch() => setState(() {
+    _searching = !_searching;
+    if (!_searching) {
+      _searchController.clear();
+      _query = '';
+    }
+  });
 
   /// "Unread only" toggle in the app bar, applied to all three tabs.
   ///
@@ -112,6 +188,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     _personalMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _broadcastMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _tabController = TabController(vsync: this, length: 3);
+    _searchController = TextEditingController();
   }
 
   @override
@@ -120,6 +197,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     _personalMessageRefreshController.dispose();
     _broadcastMessageRefreshController.dispose();
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -162,6 +240,14 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
             ),
             false => (noticeList, state.personalMessageList, state.broadcastMessageList),
           };
+          // The search filters by what the cards show: the text of a notice and its author, the peer and the summary
+          // of a conversation, the summary of a broadcast message.
+          final shownNotices = n.where((e) => _matches([_plainTextOf(e.data, notice: true), e.author])).toList();
+          final shownPms = pm.where((e) => _matches([e.peerUsername, _plainTextOf(e.data)])).toList();
+          final shownBms = bm.where((e) => _matches([_plainTextOf(e.data)])).toList();
+          final emptyTr = tr.empty;
+          String emptyOf(String all, String unread) =>
+              _query.trim().isNotEmpty ? emptyTr.search(keyword: _query.trim()) : (onlyShowUnread ? unread : all);
 
           // Unread counters on the tabs: same rules as the badge above (muted conversations are not counted), and
           // only for the kinds whose unread badge is enabled in settings.
@@ -192,30 +278,29 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                 _buildTab(
                   context,
                   controller: _noticeRefreshController,
-                  count: n.length,
+                  timestamps: shownNotices.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.notifications_none_outlined,
+                  empty: emptyOf(emptyTr.notice, emptyTr.unreadNotice),
                   itemBuilder: (_, idx) =>
-                      NoticeCardV2(key: ValueKey('NOTICE_${n.elementAt(idx).id}'), n.elementAt(idx)),
+                      NoticeCardV2(key: ValueKey('NOTICE_${shownNotices[idx].id}'), shownNotices[idx]),
                 ),
                 _buildTab(
                   context,
                   controller: _personalMessageRefreshController,
-                  count: pm.length,
+                  timestamps: shownPms.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.forum_outlined,
-                  itemBuilder: (_, idx) => PersonalMessageCardV2(
-                    key: ValueKey('PM_${pm.elementAt(idx).timestamp}'),
-                    pm.elementAt(idx),
-                  ),
+                  empty: emptyOf(emptyTr.personalMessage, emptyTr.unreadPersonalMessage),
+                  itemBuilder: (_, idx) =>
+                      PersonalMessageCardV2(key: ValueKey('PM_${shownPms[idx].timestamp}'), shownPms[idx]),
                 ),
                 _buildTab(
                   context,
                   controller: _broadcastMessageRefreshController,
-                  count: bm.length,
+                  timestamps: shownBms.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.campaign_outlined,
-                  itemBuilder: (_, idx) => BroadcastMessageCardV2(
-                    key: ValueKey('BM_${bm.elementAt(idx).timestamp}'),
-                    bm.elementAt(idx),
-                  ),
+                  empty: emptyOf(emptyTr.broadcastMessage, emptyTr.unreadBroadcastMessage),
+                  itemBuilder: (_, idx) =>
+                      BroadcastMessageCardV2(key: ValueKey('BM_${shownBms[idx].timestamp}'), shownBms[idx]),
                 ),
               ],
             ),
@@ -226,20 +311,33 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           };
           return Scaffold(
             appBar: AppBar(
-              title: Text(tr.title),
+              title: _searching ? _buildSearchField(context) : Text(tr.title),
               actions: [
-                if (state.status == NotificationStatus.success) _buildUnreadFilterButton(context),
-                const BackToHomeButton(),
-                IconButton(
-                  icon: const Icon(Icons.block_outlined),
-                  tooltip: context.t.userBlock.manageEntry,
-                  onPressed: () async => context.pushNamed(ScreenPaths.userBlock),
-                ),
-                // TODO: Notification search.
-                // IconButton(
-                //   icon: const Icon(Icons.saved_search_outlined),
-                //   onPressed: () => context.pushNamed(ScreenPaths.noticeSearch),
-                // ),
+                if (state.status == NotificationStatus.success)
+                  IconButton(
+                    key: const ValueKey('notice-search'),
+                    icon: Icon(_searching ? Icons.close : Icons.search_outlined),
+                    tooltip: _searching ? tr.search.close : tr.search.tooltip,
+                    onPressed: _toggleSearch,
+                  ),
+                if (state.status == NotificationStatus.success && !_searching) _buildUnreadFilterButton(context),
+                if (state.status == NotificationStatus.success && !_searching)
+                  IconButton(
+                    key: const ValueKey('notice-mark-all-read'),
+                    icon: const Icon(Icons.done_all_outlined),
+                    tooltip: tr.markAllRead,
+                    onPressed: () {
+                      context.read<NotificationBloc>().add(const NotificationMarkAllReadRequested());
+                      showSnackBar(context: context, message: tr.markAllReadDone);
+                    },
+                  ),
+                if (!_searching) const BackToHomeButton(),
+                if (!_searching)
+                  IconButton(
+                    icon: const Icon(Icons.block_outlined),
+                    tooltip: context.t.userBlock.manageEntry,
+                    onPressed: () async => context.pushNamed(ScreenPaths.userBlock),
+                  ),
                 PopupMenuButton<_Actions>(
                   itemBuilder: (_) => [
                     PopupMenuItem(

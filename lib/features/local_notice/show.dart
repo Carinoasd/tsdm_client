@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/notification/utils/notice_info.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -58,37 +59,139 @@ final class LocalNoticeAccount {
   final bool named;
 }
 
-/// What is posted for an auto sync result: id, title, body and payload of the notification.
-typedef LocalNotificationContent = ({int id, String title, String body, String payload});
+/// What is posted for an auto sync result: id, title, body and payload of the notification, and the lines and the
+/// summary of its expanded form (Android's inbox style; empty for a single new item).
+typedef LocalNotificationContent = ({
+  int id,
+  String title,
+  String body,
+  String payload,
+  List<String> lines,
+  String? summary,
+});
 
 /// Build the notification of [info] with the texts of [translations], about [account] when known.
+///
+/// The title and the body say who did what: "A 回复了你的帖子" and the thread, "B 发来私信" and the message, the text
+/// of the notice when its kind has no sentence of its own. With several new items the body adds the counts, and the
+/// expanded notification lists them (the lines of the content, newest first) with the counts as its summary.
+/// A result without the details (built elsewhere, the test notification of the settings page) keeps the old texts.
 ///
 /// A [LocalNoticeAccount.named] notification (every logged-in account announced) names its account in the title, has
 /// an id of its own ([localNoticeIdOf]) and a payload naming the account ([LocalNoticeKeys.openNotificationOf]): a tap
 /// opens the notice page as that account, switching to it first when another one is in use by then. Any other
-/// notification is the one it always was: one id, the plain title, the payload of the account in use
+/// notification is the one it always was: one id, the payload of the account in use
 /// ([LocalNoticeKeys.openNotification]).
+///
+/// A notification of a single new item also carries what it is about ([LocalNoticeKeys.withTarget]): the floor of the
+/// notice, the conversation of the message. A tap opens that instead of the notice page, as the same account.
 LocalNotificationContent localNotificationContentOf(
   Translations translations,
   NotificationAutoSyncInfo info, {
   LocalNoticeAccount? account,
 }) {
   final tr = translations.localNotification;
-  if (account == null || !account.named) {
-    return (
-      id: localNoticeId,
-      title: tr.notice.title,
-      body: localNotificationBodyOf(translations, info),
-      payload: LocalNoticeKeys.openNotification,
-    );
+  final head = _headOf(translations, info);
+  final named = account != null && account.named;
+  final username = account?.username;
+  final String title;
+  if (named && username != null && username.isNotEmpty) {
+    title = head.title == null ? tr.notice.titleOf(username: username) : '[$username] ${head.title}';
+  } else {
+    title = head.title ?? tr.notice.title;
   }
-  final username = account.username;
+  final base = named ? LocalNoticeKeys.openNotificationOf(account.uid) : LocalNoticeKeys.openNotification;
+  final target = info.total == 1 ? _targetOf(info) : null;
+  final several = info.total > 1 && info.lines.isNotEmpty;
+  final counts = _countsOf(translations, info);
   return (
-    id: localNoticeIdOf(account.uid),
-    title: username != null && username.isNotEmpty ? tr.notice.titleOf(username: username) : tr.notice.title,
-    body: localNotificationBodyOf(translations, info),
-    payload: LocalNoticeKeys.openNotificationOf(account.uid),
+    id: named ? localNoticeIdOf(account.uid) : localNoticeId,
+    title: title,
+    body: several ? '${head.body}\n$counts' : head.body,
+    payload: target == null ? base : LocalNoticeKeys.withTarget(base, target),
+    lines: several ? [for (final line in info.lines) _lineOf(translations, line)] : const [],
+    summary: several
+        ? (info.total > info.lines.length ? '$counts · ${tr.notice.more(n: info.total - info.lines.length)}' : counts)
+        : null,
   );
+}
+
+/// Title (null for the old generic one) and body of the notification of [info].
+({String? title, String body}) _headOf(Translations translations, NotificationAutoSyncInfo info) {
+  final tr = translations.localNotification.notice;
+  switch (info) {
+    case NotificationAutoSyncInfoPm(:final user, :final msg, :final peerUid, :final lines):
+      // A result without the details keeps the old body: the counts and the message.
+      if (peerUid == null && lines.isEmpty) {
+        return (title: null, body: localNotificationBodyOf(translations, info));
+      }
+      return (title: tr.pmFrom(user: user), body: msg);
+    case NotificationAutoSyncInfoBm(:final msg, :final lines):
+      if (lines.isEmpty) {
+        return (title: null, body: localNotificationBodyOf(translations, info));
+      }
+      return (title: tr.bmTitle, body: msg);
+    case NotificationAutoSyncInfoNotice(
+      :final msg,
+      :final nid,
+      :final author,
+      :final noticeType,
+      :final fromIdType,
+      :final threadTitle,
+      :final quote,
+      :final tid,
+      :final pid,
+    ):
+      if (nid == null) {
+        return (title: null, body: localNotificationBodyOf(translations, info));
+      }
+      final kind = noticeKindOf(
+        type: noticeType,
+        fromIdType: fromIdType,
+        target: tid == null && pid == null ? null : NoticeTarget(tid: tid, pid: pid),
+      );
+      final action = noticeActionOf(translations, kind, author);
+      if (action == null) {
+        // The forum's text already says who did what.
+        return (title: tr.noticeTitle, body: msg);
+      }
+      final detail = [if (threadTitle != null) '《$threadTitle》', ?quote].join(' ');
+      return (title: action, body: detail.isEmpty ? msg : detail);
+  }
+}
+
+/// What a tap on the notification of [info], a single new item, opens; null when it names nothing.
+LocalNoticeTarget? _targetOf(NotificationAutoSyncInfo info) {
+  final target = switch (info) {
+    NotificationAutoSyncInfoNotice(:final nid, :final tid, :final pid) => LocalNoticeTarget(
+      nid: nid,
+      tid: tid,
+      pid: pid,
+    ),
+    NotificationAutoSyncInfoPm(:final peerUid) => LocalNoticeTarget(peerUid: peerUid),
+    NotificationAutoSyncInfoBm() => null,
+  };
+  return target == null || target.isEmpty ? null : target;
+}
+
+/// The counts of new items of [info], the kinds with none left out: "2 条提醒 · 1 条私信".
+String _countsOf(Translations translations, NotificationAutoSyncInfo info) {
+  final tr = translations.localNotification.notice;
+  return [
+    if (info.notice > 0) tr.noticeCount(n: info.notice),
+    if (info.personalMessage > 0) tr.pmCount(n: info.personalMessage),
+    if (info.broadcastMessage > 0) tr.bmCount(n: info.broadcastMessage),
+  ].join(' · ');
+}
+
+/// One line of the expanded notification.
+String _lineOf(Translations translations, NotificationAutoSyncLine line) {
+  final tr = translations.localNotification.notice;
+  return switch (line.kind) {
+    NotificationAutoSyncLineKind.notice => line.text,
+    NotificationAutoSyncLineKind.personalMessage => tr.pmLine(user: line.user ?? '', msg: line.text),
+    NotificationAutoSyncLineKind.broadcastMessage => tr.bmLine(msg: line.text),
+  };
 }
 
 /// Windows 平台使用的系统预设提示音。
@@ -143,10 +246,17 @@ String localNotificationBodyOf(Translations translations, NotificationAutoSyncIn
 /// icon is not set here on purpose: the one given to `flnp.initialize` is used.
 ///
 /// Windows: system toast with the IM preset sound (see [_windowsSound]).
+///
+/// [title], [body], [lines] and [summary] are the texts of the notification ([LocalNotificationContent]): Android
+/// shows [lines] in the inbox style when there are any, the whole [body] otherwise.
 NotificationDetails buildLocalNotificationDetails({
   required String channelName,
   required String channelDescription,
   required String ticker,
+  String? title,
+  String? body,
+  List<String> lines = const [],
+  String? summary,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     localNoticeChannelId,
@@ -155,6 +265,10 @@ NotificationDetails buildLocalNotificationDetails({
     ticker: ticker,
     importance: Importance.high,
     priority: Priority.high,
+    // Several new items are listed one per line when expanded; a single one shows its whole text.
+    styleInformation: lines.isNotEmpty
+        ? InboxStyleInformation(lines, contentTitle: title, summaryText: summary)
+        : (body != null ? BigTextStyleInformation(body, contentTitle: title) : null),
   ),
   windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
@@ -228,12 +342,16 @@ Future<void> showLocalNotificationWith({
   LocalNoticeAccount? account,
 }) async {
   final tr = translations.localNotification;
+  final content = localNotificationContentOf(translations, info, account: account);
   final nd = buildLocalNotificationDetails(
     channelName: tr.channelName,
     channelDescription: tr.channelDesc,
     ticker: tr.ticker,
+    title: content.title,
+    body: content.body,
+    lines: content.lines,
+    summary: content.summary,
   );
-  final content = localNotificationContentOf(translations, info, account: account);
   await plugin.show(
     id: content.id,
     title: content.title,
