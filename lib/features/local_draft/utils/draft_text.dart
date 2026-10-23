@@ -38,7 +38,8 @@ const _replyBoxHints = {'帖子已关闭', '貼文已關閉', 'Thread is closed'
 /// Whether [body] is only a hint the reply box showed instead of a reply, not a draft (GitHub #235).
 ///
 /// 1.47.0 kept "帖子已关闭" as the draft of a thread when the box of the quick reply page showed the closed hint before
-/// the thread loaded: such a draft is dropped when read, and never written again.
+/// the thread loaded: such a draft is dropped when the drafts are read. Only for what 1.47.0 left: the reply box itself
+/// tells its hint by its state, never by its text.
 bool isReplyBoxHint(String body) {
   final text = body.trim();
   if (text.isEmpty) {

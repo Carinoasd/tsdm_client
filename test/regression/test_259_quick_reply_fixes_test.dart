@@ -241,7 +241,7 @@ void main() {
       expect(isReplyBoxHint(''), isFalse);
     });
 
-    test('a draft holding only the closed hint is dropped when read, never written', () async {
+    test('a draft 1.47.0 kept holding only the closed hint is dropped when read', () async {
       final tmp = Directory.systemTemp.createTempSync('tsdm_259_');
       addTearDown(() => tmp.deleteSync(recursive: true));
       final hint = LocalDraft(key: LocalDraftKey.threadReply(_tid), body: '帖子已关闭', updatedAt: DateTime(2026, 10, 23));
@@ -263,12 +263,10 @@ void main() {
       expect((await store.list(31)).map((e) => e.body), ['写到一半']);
       expect(await store.load(31, hint.key), isNull);
 
-      store.save(
-        31,
-        LocalDraft(key: LocalDraftKey.threadReply('9'), body: 'Thread is closed', updatedAt: DateTime(2026)),
-      );
+      // Saving is not judged by the text: the reply box tells its hint by its state, a reply is kept as written.
+      store.save(31, LocalDraft(key: LocalDraftKey.threadReply('9'), body: '回复', updatedAt: DateTime(2026)));
       await store.pendingWrites;
-      expect(await store.load(31, LocalDraftKey.threadReply('9')), isNull, reason: 'the English hint is no draft');
+      expect((await store.load(31, LocalDraftKey.threadReply('9')))?.body, '回复');
       await store.dispose();
     });
 
@@ -521,6 +519,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(tr.noticePage.appBar.backToHomeDraftTitle), findsOneWidget);
       expect(find.text(tr.noticePage.appBar.backToHomeDraftDetail), findsOneWidget);
+      expect(tr.noticePage.appBar.backToHomeDraftDetail, contains('同一页'), reason: 'neutral: also a private message');
       await tester.tap(find.text(tr.general.cancel));
       await tester.pumpAndSettle();
       expect(find.text('reply 1'), findsOneWidget, reason: 'cancelled: the reply page stays');
@@ -580,6 +579,39 @@ void main() {
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('the last floor: the jump stays within the scroll range from the first frame', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        BlocProvider(
+          create: (_) => JumpPageCubit(),
+          child: MaterialApp(
+            home: Scaffold(
+              body: PostList(
+                threadID: '1',
+                postList: List.generate(30, (i) => _post(i + 1)),
+                canLoadMore: false,
+                scrollController: controller,
+                latestModAct: null,
+                title: 'title',
+                useDivider: true,
+                initialPostID: 30,
+                widgetBuilder: (_, p) => SizedBox(height: 300, child: Text('post ${p.postID}')),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final position = controller.position;
+        expect(position.pixels, lessThanOrEqualTo(position.maxScrollExtent), reason: 'frame $i: nothing past the end');
+      }
+      expect(find.text('post 30'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 3));
     });

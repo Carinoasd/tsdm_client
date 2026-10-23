@@ -201,6 +201,9 @@ abstract final class TsdmAppApi {
           json = null;
         }
         final wait = json is Map ? (json['retry_after'] as num?)?.toInt() ?? 3 : 3;
+        // The wait is the plugin's interval (`retry_after`, its "最短间隔" setting: 3 s by default, 1 s on the forum
+        // now). [askWaitingBriefly] waits up to 2 s: the forum's 1 s is waited for, the default 3 s is not and the
+        // caller reads the pages as before; [askWaiting] waits up to 10 s.
         if (wait > maxWait) {
           talker.debug('tsdmapp api $action busy for ${wait}s, not waited');
           return null;

@@ -1054,7 +1054,7 @@
       "backToHome": "Back to home",
       "backToHomeStopped": "Stopped at a page that may hold unsaved input",
       "backToHomeDraftTitle": "Leave the unsent reply?",
-      "backToHomeDraftDetail": "The reply is kept as a draft on this device and offered again when the same thread opens."
+      "backToHomeDraftDetail": "The reply is kept as a draft on this device and offered again when the same page opens."
     },
     "noticeTab": {
       "title": "Notice",

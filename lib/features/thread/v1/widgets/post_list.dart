@@ -285,6 +285,18 @@ class PostListState extends State<PostList> with LoggerMixin {
     // gone (the page left right after opening at a floor), throwing on every frame (GitHub #235). The hold below
     // keeps the floor in place from here.
     controller.jumpToItem(index: index, scrollController: _listScrollController, alignment: 0);
+    // The offset of the item is its raw one, past the end for the last floors: kept within the scroll range in the
+    // same frame, so nothing past the end (a blank) is ever painted. (`ListController.getOffsetToReveal` would give
+    // it first, but is only for tests.)
+    if (_listScrollController.hasClients) {
+      final position = _listScrollController.position;
+      if (position.hasContentDimensions) {
+        final clamped = position.pixels.clamp(position.minScrollExtent, position.maxScrollExtent);
+        if (clamped != position.pixels) {
+          position.jumpTo(clamped);
+        }
+      }
+    }
     _holdCorrections = 0;
     _holdTimer?.cancel();
     var ticks = 0;

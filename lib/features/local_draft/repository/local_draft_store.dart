@@ -216,8 +216,7 @@ final class LocalDraftStore with LoggerMixin {
 
   /// Keep [draft] as the draft of [uid] for its key, replacing the one there.
   void save(int uid, LocalDraft draft) {
-    // The hint the reply box shows instead of a reply is never a draft (GitHub #235).
-    if (!_writable(uid) || isReplyBoxHint(draft.body)) {
+    if (!_writable(uid)) {
       return;
     }
     unawaited(
