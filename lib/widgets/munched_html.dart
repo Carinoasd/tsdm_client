@@ -11,7 +11,7 @@ import 'package:universal_html/parsing.dart';
 /// again on every rebuild of the page: a badge update or the keyboard coming up re-munched every floor kept alive on
 /// the thread page, which is where most of the dropped frames came from. Here the result is kept and only rebuilt when
 /// the html changes or something the spans were built from changes: the theme, the text scale, the locale or the
-/// [PostTypography] of a post's content.
+/// [PostTypography] of a post's content (and whether it is one, [PostTypographyScope.postContent]).
 class MunchedHtml extends StatefulWidget {
   /// Constructor.
   const MunchedHtml(this.html, {this.options = const MunchOptions(), this.parseLockedWithPurchase = false, super.key});
@@ -36,6 +36,7 @@ class _MunchedHtmlState extends State<MunchedHtml> {
   TextScaler? _textScaler;
   Locale? _locale;
   PostTypography? _typography;
+  bool? _postContent;
 
   @override
   void didChangeDependencies() {
@@ -45,11 +46,17 @@ class _MunchedHtmlState extends State<MunchedHtml> {
     final textScaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.maybeLocaleOf(context);
     final typography = PostTypographyScope.maybeOf(context);
-    if (theme != _theme || textScaler != _textScaler || locale != _locale || typography != _typography) {
+    final postContent = PostTypographyScope.isPostContent(context);
+    if (theme != _theme ||
+        textScaler != _textScaler ||
+        locale != _locale ||
+        typography != _typography ||
+        postContent != _postContent) {
       _theme = theme;
       _textScaler = textScaler;
       _locale = locale;
       _typography = typography;
+      _postContent = postContent;
       _content = null;
     }
   }

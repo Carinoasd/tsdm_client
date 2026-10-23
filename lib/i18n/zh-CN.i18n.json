@@ -144,6 +144,7 @@
     "noPermission": "没有权限查看该内容",
     "needLoginToSeeThisPage": "登录后才能访问此页面",
     "needLogin": "请先登录",
+    "accountChangedRetry": "账号已切换，请重新打开此页。",
     "pleaseWait": "请稍候",
     "loadFailedAndRetry": "加载失败，正在重试",
     "noData": "没有数据",
@@ -1107,6 +1108,8 @@
     "onlyAllowIntegers": "只允许整数",
     "failedToRate": "评分失败",
     "scoreTodayRemaining": "今日剩余 $score",
+    "overTodayRemaining": "超过今日剩余 $score",
+    "selfDeduct": "评分将扣除您的同类积分",
     "fillWithTemplate": "使用模板填充"
   },
   "pointsPage": {
@@ -2171,6 +2174,9 @@
     "save": "保存资料",
     "saveSuccess": "保存成功",
     "saveFailed": "保存失败",
+    "saveFailedReason": "保存失败：$reason",
+    "fieldRefused": "论坛不接受“$field”的内容",
+    "fieldNotOffered": "“$field”的值不在论坛的选项里",
     "visibility": {
       "title": "隐私",
       "public": "公开",

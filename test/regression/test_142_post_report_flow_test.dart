@@ -130,8 +130,10 @@ void main() {
         'inajax': '1',
         'infloat': 'yes',
         'handlekey': 'miscreport$reportPid',
-        // The dialog is read with the write result of the forum's app API (plugin 2.6.0).
+        // The dialog is asked as a small form of the forum's app API (plugin 3.0.0); an older plugin answers its
+        // write result (plugin 2.6.0) to the same request.
         'tsdmapp': 'json',
+        'tsdmform': '1',
       });
     });
 

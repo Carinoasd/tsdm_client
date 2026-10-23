@@ -8,10 +8,14 @@
  },
  "c003": {
   "breaks.blank_less": 1,
-  "breaks.blank_more": 6
+  "breaks.blank_more": 6,
+  "style.block-bg:lost": 1425,
+  "style.color:diff": 160
  },
  "c004": {
-  "style.size:bigger": 337
+  "dark.hidden_shown": 78,
+  "style.block-bg:lost": 353,
+  "style.color:diff": 78
  },
  "c005": {
   "blocks.quote": 1,
@@ -20,7 +24,7 @@
   "style.b:extra": 21
  },
  "c006": {
-  "breaks.missing": 24,
+  "breaks.missing": 14,
   "spaces.lost": 2,
   "style.b:lost": 9,
   "style.block-bg:lost": 394,
@@ -33,7 +37,7 @@
   "style.u:lost": 51
  },
  "c010": {
-  "breaks.missing": 7,
+  "breaks.missing": 4,
   "style.block-bg:lost": 230,
   "style.color:diff": 2,
   "style.size:flattened": 20,
@@ -43,7 +47,7 @@
   "breaks.extra": 1
  },
  "c018": {
-  "breaks.missing": 15,
+  "breaks.missing": 12,
   "style.block-bg:lost": 245,
   "style.color:diff": 2,
   "style.size:smaller": 13

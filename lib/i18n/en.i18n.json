@@ -144,6 +144,7 @@
     "noPermission": "No permission to view this content",
     "needLoginToSeeThisPage": "Need to login to see this page",
     "needLogin": "Please log in first",
+    "accountChangedRetry": "The account changed meanwhile: open this page again.",
     "pleaseWait": "Please wait",
     "loadFailedAndRetry": "Load failed, retrying",
     "noData": "No Data",
@@ -1107,6 +1108,8 @@
     "onlyAllowIntegers": "Only integers are allowed",
     "failedToRate": "Rate failed",
     "scoreTodayRemaining": "Today Remaining $score",
+    "overTodayRemaining": "More than today's remaining $score",
+    "selfDeduct": "Rating takes the scores from your own credits of the same kind.",
     "fillWithTemplate": "Fill with template"
   },
   "pointsPage": {
@@ -2171,6 +2174,9 @@
     "save": "Save profile",
     "saveSuccess": "Save success",
     "saveFailed": "Save failed",
+    "saveFailedReason": "Failed to save: $reason",
+    "fieldRefused": "The forum did not accept “$field”",
+    "fieldNotOffered": "“$field” is not one of the forum's choices",
     "visibility": {
       "title": "Privacy",
       "public": "Public",

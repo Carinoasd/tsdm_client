@@ -34,7 +34,8 @@ enum Gender {
   male(1),
 
   /// Female.
-  female(2);
+  female(2)
+  ;
 
   /// Constructor.
   const Gender(this.value);
@@ -60,7 +61,8 @@ enum Visibility {
   friendsOnly(1),
 
   /// Not public to anyone.
-  private(3);
+  private(3)
+  ;
 
   /// Constructor.
   const Visibility(this.value);
@@ -153,6 +155,8 @@ final class UserProfile with UserProfileMappable {
     required this.signature,
     required this.timeZone,
     required this.availableTimeZones,
+    this.apiKeys,
+    this.lockedKeys = const [],
   });
 
   /// The selected `<option>` of the `<select>` matched by [selectSelector] under [root].
@@ -165,8 +169,10 @@ final class UserProfile with UserProfileMappable {
   }
 
   /// Visibility chosen in the privacy select of the row for [key].
-  static Visibility? _visibilityOf(uh.Element root, String key) =>
-      _selectedOption(root, 'tr#tr_$key select[name="${key.visibility()}"]')?.attributes['value']?.parseToInt().toVisibility();
+  static Visibility? _visibilityOf(uh.Element root, String key) => _selectedOption(
+    root,
+    'tr#tr_$key select[name="${key.visibility()}"]',
+  )?.attributes['value']?.parseToInt().toVisibility();
 
   /// Build model from the user profile form in web page.
   static UserProfile? fromForm(uh.Element root) {
@@ -488,4 +494,22 @@ final class UserProfile with UserProfileMappable {
 
   /// All available time zones.
   final List<TimeZone> availableTimeZones;
+
+  /// The fields the profile editor of the forum's app API printed (plugin 3.0.0, `type: form`, `form: profile`), by
+  /// the keys of [UserProfileKeys] (the birthday as [UserProfileKeys.birthday]); only these are shown and posted.
+  /// Null when the profile was parsed from the web page, which shows and posts every field.
+  final List<String>? apiKeys;
+
+  /// The fields of [apiKeys] the forum does not let the member change (`unchangeable` and filled): shown, never
+  /// posted.
+  final List<String> lockedKeys;
+
+  /// Whether the field [key] is shown.
+  bool shows(String key) => apiKeys == null || apiKeys!.contains(key);
+
+  /// Whether the field [key] is shown and can be changed.
+  bool canEdit(String key) => shows(key) && !lockedKeys.contains(key);
 }
+
+/// [_fixSignature] for the profile editor of the forum's app API.
+String? fixProfileSignature(String? signature) => _fixSignature(signature);

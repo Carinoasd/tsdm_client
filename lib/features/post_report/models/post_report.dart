@@ -4,6 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/blocking/repository/notice_ignore_repository.dart'
     show isCloudflareChallengePage, unwrapAjax;
+import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -488,6 +490,61 @@ PostReportForm _parsePostReportForm(String raw, {required PostReportTarget targe
   return PostReportForm._(
     action: action,
     hidden: List.unmodifiable(hidden),
+    reasons: List.unmodifiable(reasons),
+    target: target,
+  );
+}
+
+/// The report form of [target] from the small form answer [form] of the forum's app API (plugin 3.0.0, `type:
+/// form`, `form: report`), checked as the dialog's form is: `rtype=post`, `rid`, `fid` and the handle key of
+/// [target], a form hash, `reportsubmit`, only the hidden fields the dialog is known to carry, a `url` of this post
+/// when there is one, `misc.php?mod=report` as the target (posted with `inajax=1`, as the website's `ajaxpost` does)
+/// and the `message` textarea; the reasons are the forum's own (`reasons`, the last one "other"). The forum's limit
+/// (`message.max` 200, cut and not refused) is the one [postReportReasonFits] models.
+///
+/// The caller has checked the account the answer was served to, and that the form is [SmallFormFields.usable].
+/// Throws [PostReportFailure] only: any mismatch refuses the form so the user falls back to the browser.
+PostReportForm postReportFormFromApi(SmallFormFields form, {required PostReportTarget target}) {
+  final json = form.json;
+  final fields = form.submitFields;
+  final action = _reportAction(withSmallFormInAjax(form.submitUrlRaw));
+  if (action == null ||
+      json['rtype'] != 'post' ||
+      tsdmAppInt(json['rid']) != target.pid ||
+      tsdmAppInt(json['fid']) != target.fid ||
+      fields.keys.any((name) => !_knownHiddenFields.contains(name) || _isVerificationField(name)) ||
+      (fields['formhash'] ?? '').isEmpty ||
+      (fields['reportsubmit'] ?? '').isEmpty ||
+      fields['rtype'] != 'post' ||
+      fields['rid'] != '${target.pid}' ||
+      fields['fid'] != '${target.fid}' ||
+      fields['handlekey'] != target.handleKey ||
+      (fields['inajax'] != null && fields['inajax'] != '1')) {
+    throw const PostReportFailure(PostReportProblem.unsupported);
+  }
+  final url = fields['url'];
+  if (url != null && url.isNotEmpty && !_isTargetUrl(url, target)) {
+    throw const PostReportFailure(PostReportProblem.unsupported);
+  }
+  final message = PostFormInput.fromJson(json['message']);
+  if (message == null || message.name != 'message' || message.type != 'textarea') {
+    throw const PostReportFailure(PostReportProblem.unsupported);
+  }
+  final reasons = switch (json['reasons']) {
+    final List<dynamic> list when list.every((e) => e is String) => list.cast<String>(),
+    _ => null,
+  };
+  if (reasons == null ||
+      reasons.length < 2 ||
+      reasons.toSet().length != reasons.length ||
+      reasons.any(
+        (e) => normalizePostReportReason(e).isEmpty || !postReportReasonFits(normalizePostReportReason(e)),
+      )) {
+    throw const PostReportFailure(PostReportProblem.unsupported);
+  }
+  return PostReportForm._(
+    action: action,
+    hidden: List.unmodifiable([for (final MapEntry(:key, :value) in fields.entries) (key, value)]),
     reasons: List.unmodifiable(reasons),
     target: target,
   );

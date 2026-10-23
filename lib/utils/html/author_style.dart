@@ -101,8 +101,9 @@ final class AuthorStyle {
   Color? background;
 
   /// The background is a picture (`url(…)`, a gradient), which the app does not show: text colored for it may be
-  /// unreadable without it.
-  bool backgroundPicture = false;
+  /// unreadable without it. False: given as none (`background: pink` takes away the picture of a `background`
+  /// attribute too); null: not given.
+  bool? backgroundPicture;
 
   /// Size of the text, in css pixels of the web page or in multiples of the size around it.
   CssLength? fontSize;
@@ -131,11 +132,23 @@ final class AuthorStyle {
   /// Shadows of the text; empty for `none`.
   List<CssShadow>? textShadows;
 
+  /// The fonts the text is in (`font-family`, as written): see [AuthorFontFamily.of].
+  String? fontFamily;
+
+  /// How the element is laid out (`display`, its keyword in lower case): `none` hides it, a block (see
+  /// [displaysBlock]) puts an inline element on lines of its own.
+  String? display;
+
+  /// [display] lays the element out as a block of the web page: on lines of its own.
+  bool get displaysBlock => _blockDisplays.contains(display);
+
+  static const _blockDisplays = {'block', 'flex', 'grid', 'table', 'list-item', 'flow-root'};
+
   /// Nothing the app shows was given.
   bool get isEmpty =>
       color == null &&
       background == null &&
-      !backgroundPicture &&
+      backgroundPicture == null &&
       fontSize == null &&
       bold == null &&
       italic == null &&
@@ -144,14 +157,17 @@ final class AuthorStyle {
       !noDecoration &&
       textAlign == null &&
       textIndent == null &&
-      textShadows == null;
+      textShadows == null &&
+      fontFamily == null &&
+      display == null;
 
   /// Take the declaration of [property] (lower case) with [value]; a value the app cannot show is left out, as a
   /// browser leaves out a value it does not know.
   ///
-  /// Left out on purpose: `font-family` (the app has none of the fonts posts name), `line-height` (the line height of
-  /// a post's content is the reader's setting, see `PostTypography`; posts give it with what they paste, `30px` from
-  /// an editor, `1` on a heading), and the layout of the page (widths, margins, borders, positions).
+  /// Left out on purpose: `line-height` (the line height of a post's content is the reader's setting, see
+  /// `PostTypography`; posts give it with what they paste, `30px` from an editor, `1` on a heading), and the layout
+  /// of the page (widths, margins, borders, positions). Of `font-family`, only whether it is a serif font is shown
+  /// ([AuthorFontFamily]): the app has none of the fonts posts name.
   void declare(String property, String value) {
     final v = value.trim();
     final lower = v.toLowerCase();
@@ -168,7 +184,7 @@ final class AuthorStyle {
       case 'background':
         _declareBackground(lower);
       case 'background-image':
-        backgroundPicture = lower != 'none' && lower.isNotEmpty;
+        backgroundPicture = lower.contains('url(') || lower.contains('gradient(') || lower.contains('image(');
       case 'font-size':
         fontSize = parseCssFontSize(lower) ?? fontSize;
       case 'font-weight':
@@ -216,8 +232,34 @@ final class AuthorStyle {
         }
       case 'text-shadow':
         textShadows = parseCssTextShadows(v) ?? textShadows;
+      case 'font-family':
+        if (v.isNotEmpty && !const {'inherit', 'unset'}.contains(lower)) {
+          fontFamily = v;
+        }
+      case 'display':
+        final keyword = lower.split(_spaceRe).first;
+        if (_displays.contains(keyword)) {
+          display = keyword;
+        }
     }
   }
+
+  /// The values of `display` taken; another (`inherit`, a typo) leaves the display as it was.
+  static const _displays = {
+    'none',
+    'block',
+    'inline',
+    'inline-block',
+    'flex',
+    'inline-flex',
+    'grid',
+    'inline-grid',
+    'table',
+    'inline-table',
+    'list-item',
+    'flow-root',
+    'contents',
+  };
 
   /// `background`: its color, and whether it shows a picture.
   void _declareBackground(String value) {
@@ -245,6 +287,90 @@ final _spaceRe = RegExp(r'\s+');
 
 /// A background less opaque than this is not seen: transparent.
 const _seenAlpha = 0.05;
+
+/// The font family text in a serif font the author named is shown in ([AuthorFontFamily.serif]): the system's serif
+/// font, which Android and Linux have by this name; on the other systems the first of [serifFontFamilyFallback] there.
+const serifFontFamily = 'serif';
+
+/// The serif fonts of the systems that have no font named [serifFontFamily] (iOS, macOS, Windows), for the latin
+/// letters first, then for the Chinese ones.
+const serifFontFamilyFallback = ['Times New Roman', 'Noto Serif CJK SC', 'Source Han Serif SC', 'Songti SC', 'SimSun'];
+
+/// What the app shows of the fonts an author names (`<font face="仿宋">`, `font-family: Georgia, serif`): it has none
+/// of them. A serif font (宋体, 仿宋, 楷体, 华文中宋, 明體, Times, Georgia, `serif`…) is shown in the system's serif font,
+/// the text of a post set in one reads as set in it; any other font in the app's font, as before. The first font named
+/// decides: the one a browser takes where it is installed, as on the computers the posts were written on.
+enum AuthorFontFamily {
+  /// A serif font: shown in [serifFontFamily].
+  serif,
+
+  /// The generic `monospace` alone, the font of `<pre>`: the app's font, its sizes as a browser's monospace font has
+  /// them.
+  monospace,
+
+  /// Any other: the app's font.
+  other
+  ;
+
+  /// The family of the fonts [families] (a `font-family` value, a `face`).
+  static AuthorFontFamily of(String families) {
+    final names = _splitTopLevel(families, ',');
+    if (names.isEmpty) {
+      return other;
+    }
+    final first = names.first.replaceAll(_quoteRe, '').trim().toLowerCase();
+    if (names.length == 1 && first == 'monospace') {
+      return monospace;
+    }
+    return _serifNames.contains(first) ||
+            (first.contains('serif') && !first.contains('sans')) ||
+            _serifHanRe.hasMatch(first)
+        ? serif
+        : other;
+  }
+
+  static final _quoteRe = RegExp('^["\']+|["\']+\$');
+
+  /// Serif fonts by a Chinese or Japanese name: 宋 (宋体, 仿宋, 新宋体, 华文中宋), 楷 (楷体, 標楷體), 明體 and 明朝.
+  static final _serifHanRe = RegExp('[宋楷]|明[體体朝]');
+
+  /// Serif fonts by a latin name, in lower case (those with `serif` in their name aside).
+  static const _serifNames = {
+    'times new roman',
+    'times',
+    'georgia',
+    'garamond',
+    'palatino',
+    'palatino linotype',
+    'book antiqua',
+    'cambria',
+    'constantia',
+    'baskerville',
+    'didot',
+    'simsun',
+    'nsimsun',
+    'simsun-extb',
+    'fangsong',
+    'fangsong_gb2312',
+    'kaiti',
+    'kaiti_gb2312',
+    'stsong',
+    'stzhongsong',
+    'stfangsong',
+    'stkaiti',
+    'songti sc',
+    'songti tc',
+    'kaiti sc',
+    'kaiti tc',
+    'dfkai-sb',
+    'mingliu',
+    'pmingliu',
+    'mingliu_hkscs',
+    'ms mincho',
+    'ms pmincho',
+    'yu mincho',
+  };
+}
 
 /// [text] split at each [separator] outside of parentheses and quotes, each piece trimmed, empty ones left out.
 List<String> _splitTopLevel(String text, String separator) {
@@ -639,15 +765,85 @@ String? _resolveVariables(String value, Map<String, String> variables) {
   return v.contains('var(') ? null : v;
 }
 
-/// One part of a selector: a tag, an id, classes (`div`, `.Red`, `#tsdm`, `span.big`).
+/// A structural pseudo-class of a compound: `:nth-child(an+b)` and `:nth-of-type(an+b)` (`odd`, `even`, `3`, `-n+2`),
+/// their `:nth-last-` forms, and `:first-child`, `:last-child`, `:first-of-type`, `:last-of-type`, the `(1)` of them.
+/// What posts stripe the rows of a table with (`tr:nth-child(even)`), set the first items of a list apart with
+/// (`li:nth-of-type(-n+2)`).
+@immutable
+final class _Nth {
+  const _Nth(this.a, this.b, {required this.ofType, required this.fromEnd});
+
+  /// The step of `an+b`: the positions matched are `an+b` for n = 0, 1, 2….
+  final int a;
+
+  /// The offset of `an+b`.
+  final int b;
+
+  /// Counted among the siblings of the same tag (`-of-type`), not among all of them.
+  final bool ofType;
+
+  /// Counted from the last sibling (`:nth-last-`, `:last-`).
+  final bool fromEnd;
+
+  /// Whether the [position] (the first is 1) is one of `an+b`.
+  bool matches(int position) {
+    final n = position - b;
+    if (a == 0) {
+      return n == 0;
+    }
+    return n.remainder(a) == 0 && n ~/ a >= 0;
+  }
+
+  /// The pseudo-class [name] (lower case) with its [argument] (in its parentheses, null without), null when it is not
+  /// one of these (`:hover`, `:not(…)`, `:nth-child(2 of .x)`): a selector with it is left out, as before.
+  static _Nth? parse(String name, String? argument) {
+    switch (name) {
+      case 'first-child' || 'last-child' || 'first-of-type' || 'last-of-type':
+        return argument == null ? _Nth(0, 1, ofType: name.endsWith('of-type'), fromEnd: name.startsWith('last')) : null;
+      case 'nth-child' || 'nth-last-child' || 'nth-of-type' || 'nth-last-of-type':
+        final ab = argument == null ? null : _parseAnPlusB(argument);
+        return ab == null ? null : _Nth(ab.$1, ab.$2, ofType: name.endsWith('of-type'), fromEnd: name.contains('last'));
+    }
+    return null;
+  }
+
+  /// `an+b` of [text]: `odd`, `even`, a number, `n`, `-n+2`, `2n + 1`…
+  static (int, int)? _parseAnPlusB(String text) {
+    final t = text.trim().toLowerCase();
+    if (t == 'odd') {
+      return (2, 1);
+    }
+    if (t == 'even') {
+      return (2, 0);
+    }
+    final m = _anPlusBRe.firstMatch(t);
+    if (m == null) {
+      return null;
+    }
+    if (m.group(5) case final number?) {
+      return (0, int.parse(number));
+    }
+    final a = m.group(2)!.isEmpty ? 1 : int.parse(m.group(2)!);
+    final b = m.group(4) == null ? 0 : int.parse(m.group(4)!);
+    return (m.group(1) == '-' ? -a : a, m.group(3) == '-' ? -b : b);
+  }
+
+  static final _anPlusBRe = RegExp(r'^(?:([+-]?)(\d{0,6})n(?:\s*([+-])\s*(\d{1,6}))?|([+-]?\d{1,6}))$');
+}
+
+/// One part of a selector: a tag, an id, classes, structural pseudo-classes (`div`, `.Red`, `#tsdm`, `span.big`,
+/// `tr:nth-child(even)`).
 @immutable
 final class _Compound {
-  _Compound({this.tag, this.id, this.classes = const []})
+  _Compound({this.tag, this.id, this.classes = const [], this.nths = const []})
     : _keys = [?tag, if (id != null) '#$id', for (final c in classes) '.$c'];
 
   final String? tag;
   final String? id;
   final List<String> classes;
+
+  /// The structural pseudo-classes, all of which the element has to match.
+  final List<_Nth> nths;
 
   /// What an element has to have to match, as [AuthorStyler] keys an element: its tag, `#` its id, `.` each class.
   final List<String> _keys;
@@ -655,11 +851,11 @@ final class _Compound {
   /// The key an element is looked up by for this compound: its id, else its first class, else its tag.
   String get key => id != null ? '#$id' : (classes.isNotEmpty ? '.${classes.first}' : tag!);
 
-  /// Specificity as css counts it: ids, classes, tags.
-  int get specificity => (id == null ? 0 : 10000) + classes.length * 100 + (tag == null ? 0 : 1);
+  /// Specificity as css counts it: ids, classes and pseudo-classes, tags.
+  int get specificity => (id == null ? 0 : 10000) + (classes.length + nths.length) * 100 + (tag == null ? 0 : 1);
 
-  /// Whether an element with [keys] (see [AuthorStyler]) matches.
-  bool matchesKeys(uh.Element element, Set<String> keys) {
+  /// Whether an element with [keys] (see [AuthorStyler]) has the tag, the id and the classes (see [matches]).
+  bool matchesKeys(Set<String> keys) {
     for (final k in _keys) {
       if (!keys.contains(k)) {
         return false;
@@ -668,8 +864,21 @@ final class _Compound {
     return true;
   }
 
-  static final _re = RegExp(r'^([a-zA-Z][a-zA-Z0-9-]*)?((?:[.#][-_a-zA-Z0-9\u00a0-\uffff]+)*)$');
-  static final _partRe = RegExp(r'[.#][-_a-zA-Z0-9\u00a0-\uffff]+');
+  /// Whether [element], with [keys], matches: its tag, id, classes and place among its siblings.
+  bool matches(uh.Element element, Set<String> keys, AuthorStyler styler) {
+    if (!matchesKeys(keys)) {
+      return false;
+    }
+    for (final nth in nths) {
+      if (!styler._matchesNth(element, nth)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static final _re = RegExp(r'^([a-zA-Z][a-zA-Z0-9-]*)?((?:[.#][-_a-zA-Z0-9 -￿]+|:[a-zA-Z-]+(?:\([^()]*\))?)*)$');
+  static final _partRe = RegExp(r'[.#][-_a-zA-Z0-9 -￿]+|:([a-zA-Z-]+)(?:\(([^()]*)\))?');
 
   static _Compound? parse(String text) {
     final m = _re.firstMatch(text);
@@ -678,9 +887,16 @@ final class _Compound {
     }
     String? id;
     final classes = <String>[];
+    final nths = <_Nth>[];
     for (final part in _partRe.allMatches(m.group(2) ?? '')) {
       final s = part.group(0)!;
-      if (s.startsWith('#')) {
+      if (s.startsWith(':')) {
+        final nth = _Nth.parse(part.group(1)!.toLowerCase(), part.group(2));
+        if (nth == null) {
+          return null;
+        }
+        nths.add(nth);
+      } else if (s.startsWith('#')) {
         if (id != null) {
           return null;
         }
@@ -693,18 +909,21 @@ final class _Compound {
     if (tag == null && id == null && classes.isEmpty) {
       return null;
     }
-    return _Compound(tag: tag, id: id, classes: classes);
+    return _Compound(tag: tag, id: id, classes: classes, nths: nths);
   }
 }
 
-/// A selector the app understands: [compounds] separated by white space (descendants, `.box .card span`), the last
-/// one the [subject].
+/// A selector the app understands: [compounds] separated by white space (descendants, `.box .card span`) or `>`
+/// (children, `.box > span`), the last one the [subject].
 @immutable
 final class _Selector {
-  const _Selector(this.compounds);
+  const _Selector(this.compounds, this.children);
 
   /// The compounds, from the outermost ancestor to the subject.
   final List<_Compound> compounds;
+
+  /// For each compound but the subject: whether the compound after it is its child (`>`), not any descendant.
+  final List<bool> children;
 
   _Compound get subject => compounds.last;
 
@@ -719,52 +938,115 @@ final class _Selector {
   /// Most ancestors looked at to match the ancestors of a selector.
   static const maxDepth = 64;
 
-  /// Whether [element], whose subject compound already matches, has the ancestors of the selector, nearest first,
-  /// each the nearest one above the one before (the descendant combinator matches the nearest ancestor greedily).
+  /// Whether [element], whose subject compound already matches, has the ancestors of the selector, nearest first.
+  ///
+  /// Without `>`, each is the nearest ancestor above the one before matching it (the descendant combinator matches the
+  /// nearest ancestor greedily: a further one could not do better). With `>`, the nearest one may be the wrong choice
+  /// (`.a > .b .c`: the `.b` nearest above may not be a child of an `.a`, one further up may be), so the further ones
+  /// are tried too, each compound against each ancestor at most once.
   bool matchesAncestors(uh.Element element, uh.Element root, AuthorStyler styler) {
-    var node = element.parent;
-    var depth = 0;
-    for (final compound in ancestors) {
-      var found = false;
-      while (node != null && depth < maxDepth) {
-        final current = node;
-        node = identical(current, root) ? null : current.parent;
-        depth++;
-        if (compound.matchesKeys(current, styler._keysOf(current))) {
-          found = true;
-          break;
+    if (!children.contains(true)) {
+      var node = element.parent;
+      var depth = 0;
+      for (final compound in ancestors) {
+        var found = false;
+        while (node != null && depth < maxDepth) {
+          final current = node;
+          node = identical(current, root) ? null : current.parent;
+          depth++;
+          if (compound.matches(current, styler._keysOf(current), styler)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          return false;
         }
       }
-      if (!found) {
-        return false;
-      }
+      return true;
     }
-    return true;
+    // The compounds (by index, a bit each) an ancestor was tried for and did not match with the ones above it.
+    final failed = Map<uh.Element, int>.identity();
+    bool above(int index, uh.Element below, int depth) {
+      if (index < 0) {
+        return true;
+      }
+      final compound = compounds[index];
+      var node = identical(below, root) ? null : below.parent;
+      var d = depth;
+      while (node != null && d < maxDepth) {
+        final current = node;
+        d++;
+        if ((failed[current] ?? 0) & (1 << index) == 0) {
+          if (compound.matches(current, styler._keysOf(current), styler) && above(index - 1, current, d)) {
+            return true;
+          }
+          failed[current] = (failed[current] ?? 0) | (1 << index);
+        }
+        if (children[index]) {
+          // `>`: only the parent.
+          break;
+        }
+        node = identical(current, root) ? null : current.parent;
+      }
+      return false;
+    }
+
+    return above(compounds.length - 2, element, 0);
   }
 
-  /// The selector [text], null when it is not one the app understands: a child, sibling or attribute selector, a
-  /// pseudo class, `*`, more than [maxCompounds] compounds.
+  /// The selector [text], null when it is not one the app understands: a sibling or attribute selector, a pseudo class
+  /// other than the structural ones ([_Nth]), a pseudo element, `*`, more than [maxCompounds] compounds.
   static _Selector? parse(String text) {
     final t = text.trim();
-    if (t.isEmpty || t.length > 200 || t.contains(_unsupportedRe)) {
-      return null;
-    }
-    final parts = t.split(_spaceRe);
-    if (parts.length > maxCompounds) {
+    if (t.isEmpty || t.length > 200) {
       return null;
     }
     final compounds = <_Compound>[];
-    for (final part in parts) {
-      final compound = _Compound.parse(part);
+    final children = <bool>[];
+    var i = 0;
+    while (true) {
+      final m = _compoundRe.matchAsPrefix(t, i);
+      if (m == null || compounds.length == maxCompounds) {
+        return null;
+      }
+      final compound = _Compound.parse(m.group(0)!);
       if (compound == null) {
         return null;
       }
       compounds.add(compound);
+      i = m.end;
+      if (i == t.length) {
+        return _Selector(compounds, children);
+      }
+      // A sibling combinator (`+`, `~`) or anything else between two compounds is not taken.
+      final combinator = _combinatorRe.matchAsPrefix(t, i);
+      if (combinator == null) {
+        return null;
+      }
+      children.add(combinator.group(0)!.contains('>'));
+      i = combinator.end;
     }
-    return _Selector(compounds);
   }
 
-  static final _unsupportedRe = RegExp(r'[>+~:\[\]*()|\\@]');
+  /// The subject of the selector [text] the app does not understand, without its pseudo-classes and pseudo-elements
+  /// (`.answer` of `#open:checked + .answer`, `span` of `.box:hover span`); null when it has no tag, id or class.
+  static _Compound? subjectOf(String text) {
+    final parts = text.trim().split(_anyCombinatorRe);
+    final last = parts.isEmpty ? '' : parts.last;
+    if (last.isEmpty || last.length > 200) {
+      return null;
+    }
+    return _Compound.parse(last.replaceAll(_pseudoRe, ''));
+  }
+
+  static final _anyCombinatorRe = RegExp(r'\s*[\s>+~]\s*');
+  static final _pseudoRe = RegExp(r'::?[a-zA-Z-]+(?:\([^()]*\))?');
+
+  /// A compound: a run of anything but white space, combinators and brackets, the argument of a pseudo-class in its
+  /// parentheses (`:nth-child(2n + 1)`) taken with it. [_Compound.parse] says whether it is one the app understands.
+  static final _compoundRe = RegExp(r'(?:[^\s>+~()\[\]*,]|\([^()]*\))+');
+  static final _combinatorRe = RegExp(r'\s*>\s*|\s+');
 }
 
 /// A rule of a style sheet: a selector and its declarations, where it is in the sheets.
@@ -826,7 +1108,7 @@ const _matchBudget = Duration(milliseconds: 250);
 /// The style sheets a piece of html is shown with: the forum's ([_forumStyleSheet], [_postStyleSheet] for a post's
 /// content) and its own `<style>` elements, read once.
 final class AuthorStyleSheets {
-  AuthorStyleSheets._(this._rules, this._variables) {
+  AuthorStyleSheets._(this._rules, this._variables, [this._reveals = const []]) {
     for (final rule in _rules) {
       final selector = rule.selector;
       final key = selector.subject.key;
@@ -916,16 +1198,23 @@ final class AuthorStyleSheets {
       }
     }
     final rules = <_Rule>[];
+    final reveals = <_Compound>[];
     var order = 0;
     for (final (prelude, declarations) in parsed) {
+      final shows = declarations.any((d) => d.property == 'display' && d.value.trim().toLowerCase() != 'none');
       for (final text in prelude.split(',').take(32)) {
         final selector = _Selector.parse(text);
         if (selector != null && rules.length < _maxRules) {
           rules.add(_Rule(selector, declarations, order++));
+        } else if (selector == null && shows && reveals.length < _maxRules) {
+          // Shown on something the app does not see (`:hover`, `:checked`, `+`): see [_reveals].
+          if (_Selector.subjectOf(text) case final subject?) {
+            reveals.add(subject);
+          }
         }
       }
     }
-    return late() ? null : AuthorStyleSheets._(rules, variables);
+    return late() ? null : AuthorStyleSheets._(rules, variables, reveals);
   }
 
   /// No rules: the html has no style sheet of its own, and is not given the forum's.
@@ -962,6 +1251,8 @@ final class AuthorStyleSheets {
   /// The properties the app shows (see [AuthorStyle.declare]); the others are not kept.
   static const _shownProperties = {
     'color',
+    'display',
+    'font-family',
     'background-color',
     'background',
     'background-image',
@@ -1016,6 +1307,12 @@ final class AuthorStyleSheets {
   final List<_Rule> _rules;
   final Map<String, String> _variables;
 
+  /// What the style sheets show (a `display` other than `none`) by a selector the app does not understand, the
+  /// subject of each without its pseudo-classes: what a post shows on a hover, on a checked box, after another element
+  /// (`#open:checked + .answer { display: block }`). The app sees none of those: an element of them that the sheets
+  /// hide (`.answer { display: none }`) stays shown, as before the app read `display`; hidden, it was lost for good.
+  final List<_Compound> _reveals;
+
   /// Rules of one compound, by the key of their subject ([_Compound.key]).
   final Map<String, List<_Rule>> _plain = {};
 
@@ -1057,6 +1354,43 @@ final class AuthorStyler {
     return keys;
   });
 
+  /// The place of each element among its siblings ([_Nth]): among all of them and among those of its tag, from the
+  /// first and from the last; read for all the children of a parent at once.
+  final _positions = Map<uh.Element, ({int index, int fromEnd, int ofType, int ofTypeFromEnd})>.identity();
+
+  /// Whether [element] is at a place among its siblings [nth] matches. The root of the html has no siblings here.
+  bool _matchesNth(uh.Element element, _Nth nth) {
+    var position = _positions[element];
+    final parent = element.parent;
+    if (position == null && parent != null && !identical(element, _root)) {
+      final siblings = parent.children;
+      final ofTypeCount = <String, int>{};
+      for (final sibling in siblings) {
+        ofTypeCount[sibling.localName] = (ofTypeCount[sibling.localName] ?? 0) + 1;
+      }
+      final ofTypeSeen = <String, int>{};
+      for (final (i, sibling) in siblings.indexed) {
+        final seen = ofTypeSeen[sibling.localName] = (ofTypeSeen[sibling.localName] ?? 0) + 1;
+        _positions[sibling] = (
+          index: i + 1,
+          fromEnd: siblings.length - i,
+          ofType: seen,
+          ofTypeFromEnd: ofTypeCount[sibling.localName]! - seen + 1,
+        );
+      }
+      position = _positions[element];
+    }
+    if (position == null) {
+      return false;
+    }
+    return nth.matches(switch ((nth.ofType, nth.fromEnd)) {
+      (false, false) => position.index,
+      (false, true) => position.fromEnd,
+      (true, false) => position.ofType,
+      (true, true) => position.ofTypeFromEnd,
+    });
+  }
+
   /// The keys of the ancestors of [element] up to the root, at most [_Selector.maxDepth] of them.
   Set<String> _ancestorKeysOf(uh.Element element) {
     final keys = <String>{};
@@ -1082,7 +1416,7 @@ final class AuthorStyler {
         Set<String>? ancestorKeys;
         for (final key in keys) {
           for (final rule in _sheets._plain[key] ?? const <_Rule>[]) {
-            if (rule.selector.subject.matchesKeys(element, keys)) {
+            if (rule.selector.subject.matches(element, keys, this)) {
               matched.add(rule);
             }
           }
@@ -1100,7 +1434,7 @@ final class AuthorStyler {
               : [for (final k in ancestorKeys) ...?nested[k]];
           for (final rule in candidates) {
             final selector = rule.selector;
-            if (selector.subject.matchesKeys(element, keys) &&
+            if (selector.subject.matches(element, keys, this) &&
                 selector.ancestors.every((c) => c._keys.every(ancestorKeys!.contains)) &&
                 selector.matchesAncestors(element, _root, this)) {
               matched.add(rule);
@@ -1134,6 +1468,13 @@ final class AuthorStyler {
           style.declare(d.property, d.value);
         }
       }
+    }
+    if (style.display == 'none' &&
+        _sheets._reveals.isNotEmpty &&
+        !own.any((d) => d.property == 'display') &&
+        _sheets._reveals.any((c) => c.matchesKeys(_keysOf(element)))) {
+      // Hidden by the sheets, shown by them on something the app does not see ([AuthorStyleSheets._reveals]).
+      style.display = null;
     }
     return style.isEmpty ? null : style;
   }

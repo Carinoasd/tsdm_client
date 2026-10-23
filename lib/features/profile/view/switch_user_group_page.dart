@@ -87,7 +87,7 @@ class _SwitchUserGroupPageState extends State<SwitchUserGroupPage> with LoggerMi
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        RepositoryProvider(create: (_) => const SwitchUserGroupRepository()),
+        RepositoryProvider(create: (_) => SwitchUserGroupRepository()),
         BlocProvider(create: (context) => SwitchUserGroupBloc(context.repo())..add(SwitchUserGroupLoadInfoRequested())),
       ],
       child: BlocConsumer<SwitchUserGroupBloc, SwitchUserGroupState>(
@@ -116,7 +116,7 @@ class _SwitchUserGroupPageState extends State<SwitchUserGroupPage> with LoggerMi
             SwitchUserGroupStatus.failure => buildRetryButton(
               context,
               () => context.read<SwitchUserGroupBloc>().add(SwitchUserGroupLoadInfoRequested()),
-              message: tr.switchFailed,
+              message: state.failureReason ?? tr.switchFailed,
             ),
           };
           return Scaffold(

@@ -12,6 +12,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
+import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -267,7 +268,7 @@ final class _SpanBuilder {
     BbImage(:final url, :final width, :final height) => [_image(url, width: width, height: height, link: link)],
     BbAttachment(:final attachment) => _attachment(attachment, link: link),
     BbLink(:final href, :final children, :final auto) => _link(href, children, auto: auto),
-    BbQuote() || BbCodeBlock() || BbSpoiler() || BbList() || BbAlign() || BbDivider() => [_block(node)],
+    BbQuote() || BbCodeBlock() || BbSpoiler() || BbList() || BbAlign() || BbDivider() || BbVideo() => [_block(node)],
   };
 
   InlineSpan _block(BbNode node) {
@@ -327,6 +328,9 @@ final class _SpanBuilder {
         );
       case BbDivider():
         return const WidgetSpan(child: Divider());
+      case BbVideo(:final media):
+        // As the html renderer: a little apart from the last line of the message.
+        return textWidgetSpan(Padding(padding: const EdgeInsets.only(top: 4), child: PostMediaCard(media)));
       case BbText() || BbSmiley() || BbImage() || BbAttachment() || BbLink():
         return TextSpan(children: _inline(node));
     }

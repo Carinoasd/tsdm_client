@@ -269,7 +269,24 @@ final class PurchaseInfoInvalidNoticeException extends AppException with Purchas
 
 /// Failed to do the purchase action.
 @MappableClass()
-final class PurchaseActionFailedException extends AppException with PurchaseActionFailedExceptionMappable {}
+final class PurchaseActionFailedException extends AppException with PurchaseActionFailedExceptionMappable {
+  /// Constructor.
+  PurchaseActionFailedException({this.reason});
+
+  /// The forum's message of the refusal (not enough credits, bought already…), null when it gave none.
+  final String? reason;
+}
+
+/// The forum refused the purchase, or showed its message instead of the purchase window: bought already, not enough
+/// credits, not logged in… [reason] is the forum's own text, shown as it is.
+@MappableClass()
+final class PurchaseRefusedException extends AppException with PurchaseRefusedExceptionMappable {
+  /// Constructor.
+  PurchaseRefusedException(this.reason) : super(message: reason);
+
+  /// The forum's message, plain text.
+  final String reason;
+}
 
 /// Basic exception class of rate.
 @MappableClass()
@@ -488,7 +505,11 @@ final class ServerRespFailure extends AppException with ServerRespFailureMappabl
 @MappableClass()
 final class SwitchUserGroupFailed extends AppException with SwitchUserGroupFailedMappable {
   /// Constructor.
-  SwitchUserGroupFailed(String message) : super(message: message);
+  SwitchUserGroupFailed(String message, {this.reason}) : super(message: message);
+
+  /// What to tell the user, as the forum wrote it (its message, the login prompt) or the app's own account notice;
+  /// null for a failure the forum did not explain.
+  final String? reason;
 }
 
 /// Failed to find the avatar url.
@@ -502,14 +523,22 @@ final class EditAvatarUrlNotFound extends AppException with EditAvatarUrlNotFoun
 @MappableClass()
 final class EditUserProfileFormNotFound extends AppException with EditUserProfileFormNotFoundMappable {
   /// Constructor.
-  EditUserProfileFormNotFound() : super(message: 'user profile not found');
+  EditUserProfileFormNotFound({this.reason}) : super(message: 'user profile not found');
+
+  /// The forum's message shown instead of the form (the login prompt, a locked account…) or the app's own account
+  /// notice; null when there is none.
+  final String? reason;
 }
 
 /// Failed to upload user profile data to server.
 @MappableClass()
 final class EditUserProfileUploadFailed extends AppException with EditUserProfileUploadFailedMappable {
   /// Constructor.
-  EditUserProfileUploadFailed() : super();
+  EditUserProfileUploadFailed({this.reason}) : super();
+
+  /// What the forum said: its message, or the field it refused (a required field left empty, a value not among
+  /// its choices); null when it said nothing the app can tell.
+  final String? reason;
 }
 
 /// A request that is not GET/HEAD (typically a form POST) was answered with the antitheft challenge page.

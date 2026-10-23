@@ -1,12 +1,15 @@
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
 /// User groups, for witch current user can switch to.
 final class AvailableUserGroup {
   /// Constructor.
-  const AvailableUserGroup({required this.name, required this.gid, required this.infoUrl});
+  const AvailableUserGroup({required this.name, required this.gid, required this.infoUrl, this.switchUrl});
 
   /// User group name.
   final String name;
@@ -16,6 +19,40 @@ final class AvailableUserGroup {
 
   /// Url of page introducing user group permissions.
   final String infoUrl;
+
+  /// The url of the group's switch window (`home.php?mod=spacecp&ac=usergroup&do=switch&groupid=…`) the list of the
+  /// forum's app API names (plugin 3.0.0, the `switch` action of the row); null for a group parsed from the web
+  /// page, which is switched by posting to the fixed switch url.
+  final String? switchUrl;
+
+  /// The current user group and the groups the member can switch to in the user group list of the forum's app API
+  /// (plugin 3.0.0, `type: form`, `form: usergroup`, `do: expiry`) [form]: only the rows whose actions offer
+  /// `switch` (the website prints 切换 there); a group the member can only buy, renew or leave is not one. Null when
+  /// the answer is not that list.
+  static (String currentUserGroup, List<AvailableUserGroup> availableGroups)? parseApi(SmallFormFields form) {
+    final json = form.json;
+    final kind = json['do'];
+    if (kind != 'expiry' && kind != 'list') {
+      return null;
+    }
+    final groups = <AvailableUserGroup>[];
+    for (final row in tsdmAppList(json['groups'])) {
+      final gid = tsdmAppInt(row['gid']);
+      final name = tsdmAppText(row['title']).trim();
+      final action = tsdmAppList(row['actions']).where((a) => a['do'] == 'switch').firstOrNull;
+      final url = tsdmAppText(action?['url']);
+      if (gid <= 0 || name.isEmpty || url.isEmpty) {
+        continue;
+      }
+      final uri = Uri.tryParse(url);
+      final query = uri == null || !isForumScriptUri(uri, 'home.php') ? null : uniqueQueryParameters(uri);
+      if (query == null || query['ac'] != 'usergroup' || query['do'] != 'switch' || query['groupid'] != '$gid') {
+        continue;
+      }
+      groups.add(AvailableUserGroup(name: name, gid: gid, infoUrl: '', switchUrl: url));
+    }
+    return (tsdmAppText(tsdmAppMap(json['current'])['title']).trim(), groups);
+  }
 
   /// Build instance from `<tr>` node.
   ///

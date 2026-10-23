@@ -31,6 +31,7 @@ final class SwitchUserGroupState with SwitchUserGroupStateMappable {
     this.currentUserGroup = '',
     this.formHash = '',
     this.destination,
+    this.failureReason,
   });
 
   /// Current status.
@@ -49,4 +50,7 @@ final class SwitchUserGroupState with SwitchUserGroupStateMappable {
   ///
   /// Must set when set [status] to success.
   final String? destination;
+
+  /// Why loading or switching failed, as the forum wrote it; null when it gave no reason.
+  final String? failureReason;
 }
