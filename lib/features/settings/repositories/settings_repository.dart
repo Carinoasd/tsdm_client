@@ -147,6 +147,7 @@ final class SettingsRepository with LoggerMixin {
       autoSyncNoticeSeconds: s.extract(_SK.autoSyncNoticeSeconds),
       enableBackgroundMessageService: s.extract(_SK.enableBackgroundMessageService),
       backgroundSyncAllAccounts: s.extract(_SK.backgroundSyncAllAccounts),
+      notificationHideContent: s.extract(_SK.notificationHideContent),
       enableDebugOperations: s.extract(_SK.enableDebugOperations),
       fontFamily: s.extract(_SK.fontFamily),
       enableEditorBBCodeParser: s.extract(_SK.enableEditorBBCodeParser),

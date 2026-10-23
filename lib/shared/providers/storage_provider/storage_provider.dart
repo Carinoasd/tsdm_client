@@ -919,6 +919,12 @@ class StorageProvider with LoggerMixin {
     return;
   });
 
+  /// What the unread counts of user [uid] are made of, without reading the notification bodies, see
+  /// `NotificationDao.unreadOf`.
+  Future<({List<int?> noticeAuthors, List<int> personalMessagePeers, int broadcastMessages})> unreadNotificationOf(
+    int uid,
+  ) => NotificationDao(_db).unreadOf(uid);
+
   /// Fetch all notification for user [uid] since time [timestamp].
   ///
   /// Return a instance of [NotificationGroup] that contains all types of
@@ -953,6 +959,9 @@ class StorageProvider with LoggerMixin {
               // `NotificationDao.insertManyNotice`.
               ignoreType: Value(e.ignoreType),
               authorId: Value(e.authorId),
+              author: Value(e.author),
+              fromId: Value(e.fromId),
+              fromIdType: Value(e.fromIdType),
             ),
           )
           .toList(),

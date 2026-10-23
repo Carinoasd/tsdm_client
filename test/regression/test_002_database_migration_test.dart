@@ -254,4 +254,48 @@ void main() {
     expect(await db.select(db.offlineThread).get(), isEmpty);
     await db.close();
   });
+
+  test('upgrade from 15 to 16 keeps the notices, the new columns empty', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(15);
+    schema.rawDatabase.execute(
+      'INSERT INTO notice (uid, nid, timestamp, data, already_read, ignore_type, author_id) '
+      "VALUES (1000, 7, 100, 'x', 0, 'post', 2000)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    final row = (await db.select(db.notice).get()).single;
+    expect((row.authorId, row.ignoreType, row.alreadyRead), (2000, 'post', false));
+    expect((row.author, row.fromId, row.fromIdType), (null, null, null));
+    await db.close();
+  });
+
+  test('the 15 to 16 step runs again safely when another connection already added the columns', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    // Every column there, the version still 15: the background service isolate and the app opening the file together.
+    final schema = await verifier.schemaAt(16);
+    schema.rawDatabase.execute('PRAGMA user_version = 15');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    await db.close();
+  });
+
+  test('the 15 to 16 step adds what another connection left out', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(15);
+    schema.rawDatabase.execute('ALTER TABLE notice ADD COLUMN "author" TEXT NULL');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    await db.close();
+  });
+
+  for (final from in [10, 13, 14]) {
+    test('upgrade from $from to 16 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 16);
+      await db.close();
+    });
+  }
 }

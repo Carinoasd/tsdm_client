@@ -259,6 +259,9 @@ Future<PersistedNotification> _persistFetchedNotification({
                   alreadyRead: e.alreadyRead,
                   ignoreType: e.ignoreType,
                   authorId: e.authorId,
+                  author: e.author,
+                  fromId: e.fromId,
+                  fromIdType: e.fromIdType,
                 ),
               )
               .toList(),
@@ -292,7 +295,8 @@ Future<PersistedNotification> _persistFetchedNotification({
   return (fresh: fresh, reconciled: info, unread: await countUnreadNotification(storage: storage, uid: uid));
 }
 
-/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link (null for old rows).
+/// Convert a stored notice into [NoticeV2], keeping the metadata of the ignore link and of the forum's app API (null
+/// for old rows).
 NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
   id: e.nid,
   timestamp: e.timestamp,
@@ -300,7 +304,21 @@ NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
   alreadyRead: e.alreadyRead ?? false,
   ignoreType: e.ignoreType,
   authorId: e.authorId,
+  author: e.author,
+  fromId: e.fromId,
+  fromIdType: e.fromIdType,
 );
+
+/// The number of unread notifications of [uid] in [storage], the same rules as [countUnreadNotification] (blocked
+/// authors and muted peers left out) without reading the notification bodies: for the account list of the avatar
+/// menu, an account at a time.
+Future<int> countUnreadNotificationTotal({required StorageProvider storage, required int uid}) async {
+  final unread = await storage.unreadNotificationOf(uid);
+  final blocked = await noticeBlockListOf(storage, uid);
+  return unread.noticeAuthors.where((e) => !isBlockedNoticeAuthor(e, blocked)).length +
+      unread.personalMessagePeers.where((e) => !isMutedPersonalMessagePeer(e, blocked)).length +
+      unread.broadcastMessages;
+}
 
 /// Recount the unread notifications of [uid] from [storage].
 ///
@@ -362,6 +380,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
           markType,
           markAsRead: markAsRead,
         ),
+        NotificationMarkAllReadRequested(:final done) => _onMarkAllReadRequested(emit, done),
         NotificationDeleteNoticeRequested(:final uid, :final nid) => _onDeleteNotice(emit, uid: uid, nid: nid),
         NotificationDeletePersonalMessageRequested(:final uid, :final peerUid) => _onDeletePersonalMessage(
           emit,
@@ -669,6 +688,59 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         final list = state.broadcastMessageList.map((e) => e.copyWith(alreadyRead: markAsRead)).toList();
         emit(state.copyWith(status: NotificationStatus.success, broadcastMessageList: list));
     }
+  }
+
+  Future<void> _onMarkAllReadRequested(_Emit emit, Completer<bool>? done) async {
+    // [done] always ends: false when nothing was written or the write failed, the page says so.
+    try {
+      await _markAllRead(emit, done);
+    } on Object catch (e, st) {
+      error('failed to mark all notifications as read: $e');
+      handleRaw(e, st);
+      if (done != null && !done.isCompleted) {
+        done.complete(false);
+      }
+    }
+  }
+
+  Future<void> _markAllRead(_Emit emit, Completer<bool>? done) async {
+    final uid = _authRepo.currentUser?.uid;
+    if (uid == null) {
+      error('intend to mark all notifications as read but uid not found');
+      done?.complete(false);
+      return;
+    }
+    for (final type in NotificationType.values) {
+      final written = await _storageProvider.markTypeAsRead(notificationType: type, uid: uid, alreadyRead: true).run();
+      if (written.isLeft()) {
+        error('failed to mark all ${type.name} as read');
+        done?.complete(false);
+        return;
+      }
+    }
+    if (_authRepo.currentUser?.uid != uid) {
+      // Written for the account it was asked for; the lists on screen are another one's now.
+      debug('Async gap meets uid changes, do NOT update state.');
+      done?.complete(true);
+      return;
+    }
+    await _publishUnreadCounts(uid);
+    // The lists on screen are another account's (switched, its lists not in yet): they are rebuilt for the new one,
+    // nothing to update in place.
+    if (state.ownerUid == null || state.ownerUid == uid) {
+      emit(
+        state.copyWith(
+          noticeList: state.noticeList.map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true)).toList(),
+          personalMessageList: state.personalMessageList
+              .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+              .toList(),
+          broadcastMessageList: state.broadcastMessageList
+              .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+              .toList(),
+        ),
+      );
+    }
+    done?.complete(true);
   }
 
   Future<void> _onRecordFetchTimeRequested(DateTime time) async {

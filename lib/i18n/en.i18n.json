@@ -409,6 +409,10 @@
         "detail": "The app's auto sync (also while the desktop app is in the tray) and the Android background message service also check the other accounts logged in on this device, each with its own login; new notices are announced under the account's name, and tapping one switches to that account before opening the notice page",
         "seenNote": "Checking the other accounts marks their notices read on the website (the red dot goes away), as opening the notice page would"
       },
+      "notificationHideContent": {
+        "title": "Hide notification content",
+        "detail": "System notifications only show the account and how many new items there are, not who did what nor the message text"
+      },
       "notificationPermission": {
         "title": "Notification permission",
         "detail": "Required by auto sync to show new notices, messages and broadcasts as system notifications",
@@ -947,8 +951,67 @@
         "recent": "Synced moments ago, the stored notices are shown; unread ${unreadNotice}/${unreadPm}/${unreadBm}",
         "notAuthed": "Login expired, sign in again",
         "rateLimited": "The forum rate-limited the request (429), try again later",
-        "failed": "Failed: ${message}"
+        "failed": "Failed: ${message}",
+        "open": "Switch to this account and open its notifications"
       }
+    },
+    "kind": {
+      "reply": "Reply",
+      "quote": "Quote",
+      "mention": "Mention",
+      "rate": "Rating",
+      "comment": "Comment",
+      "friend": "Friend",
+      "friendRequest": "Friend request",
+      "poke": "Poke",
+      "wall": "Wall",
+      "moderation": "Moderation",
+      "post": "Post",
+      "reward": "Bounty",
+      "activity": "Event",
+      "medal": "Medal",
+      "magic": "Magic item",
+      "system": "System",
+      "manage": "To review",
+      "generic": "Notice"
+    },
+    "action": {
+      "reply": "${user} replied to your post",
+      "quote": "${user} quoted your post",
+      "mention": "${user} mentioned you",
+      "rate": "${user} rated your post",
+      "comment": "${user} commented on your post",
+      "friend": "${user} is now your friend",
+      "friendRequest": "${user} wants to be your friend",
+      "poke": "${user} poked you",
+      "wall": "${user} left a message on your wall"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "${n} min ago",
+      "hoursAgo": "${n} h ago",
+      "yesterdayAt": "Yesterday ${time}",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "quickReply": "Quick reply",
+    "markAllRead": "Mark all as read",
+    "markAllReadDone": "All marked as read",
+    "markAllReadFailed": "Could not mark them as read, try again later",
+    "search": {
+      "tooltip": "Search notifications",
+      "hint": "Find in the synced notifications",
+      "close": "Close search"
+    },
+    "empty": {
+      "notice": "No notices yet",
+      "personalMessage": "No private messages yet",
+      "broadcastMessage": "No public messages yet",
+      "unreadNotice": "No unread notices",
+      "unreadPersonalMessage": "No unread private messages",
+      "unreadBroadcastMessage": "No unread public messages",
+      "search": "Nothing matches \"${keyword}\""
     }
   },
   "noticeSearchPage": {
@@ -1674,7 +1737,16 @@
         "notice": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[Notice]${msg: String}",
         "pm": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[PM]${user: String}: ${msg: String}",
         "bm": "You received ${noticeCount: int} notice, ${pmCount: int} PMs, ${bmCount: int} BMs\n[BM]${msg: String}"
-      }
+      },
+      "noticeTitle": "New notice",
+      "pmFrom": "Message from ${user}",
+      "bmTitle": "Public message",
+      "noticeCount": "${n} notice(s)",
+      "pmCount": "${n} PM(s)",
+      "bmCount": "${n} public message(s)",
+      "pmLine": "${user}: ${msg}",
+      "bmLine": "[Public] ${msg}",
+      "more": "${n} more"
     }
   },
   "backgroundService": {
@@ -2572,7 +2644,8 @@
     "switched": "Switched to ${username}",
     "switchBusy": "Notifications are syncing, try again in a moment",
     "moreAccounts": "${count} more account(s)",
-    "replyBusy": "A reply is being sent, switch accounts once it is done"
+    "replyBusy": "A reply is being sent, switch accounts once it is done",
+    "unread": "${count} unread"
   },
   "specialThread": {
     "refused": "The forum did not accept it.",
