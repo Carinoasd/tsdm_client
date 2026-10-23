@@ -36,6 +36,7 @@ part 'post_bbcode.dart';
 part 'post_report_target.dart';
 part 'rate.dart';
 part 'reply_parameters.dart';
+part 'sec_check.dart';
 part 'settings.dart';
 part 'settings_map.dart';
 part 'stick_thread.dart';

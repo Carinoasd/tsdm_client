@@ -13,13 +13,21 @@ enum LeaveEditChoice {
   /// Save the content in the forum's draft box, then leave.
   saveDraft,
 
+  /// Leave, the content kept on this device as the local draft of the editor (offered again when it opens).
+  keepDraft,
+
   /// Stay in the editor.
   keepEditing,
 }
 
 /// Ask what to do with the content not sent yet when leaving the editor: discard it, save it as a draft (only offered
-/// with [canSaveDraft]) or keep editing. Dismissing the dialog keeps editing.
-Future<LeaveEditChoice> showLeaveEditDialog(BuildContext context, {required bool canSaveDraft}) async {
+/// with [canSaveDraft]), leave with it kept on this device (only offered with [keepsLocalDraft], the editor keeps one)
+/// or keep editing. Dismissing the dialog keeps editing.
+Future<LeaveEditChoice> showLeaveEditDialog(
+  BuildContext context, {
+  required bool canSaveDraft,
+  bool keepsLocalDraft = false,
+}) async {
   final choice = await showDialog<LeaveEditChoice>(
     context: context,
     builder: (context) {
@@ -28,7 +36,7 @@ Future<LeaveEditChoice> showLeaveEditDialog(BuildContext context, {required bool
         DialogPaths.question,
         CustomAlertDialog.sync(
           title: AppDialogTitle(icon: Icons.edit_note_outlined, title: tr.title),
-          content: Text(tr.message),
+          content: Text(keepsLocalDraft ? tr.messageLocal : tr.message),
           actions: [
             TextButton(
               key: const ValueKey('leave-edit-discard'),
@@ -41,11 +49,23 @@ Future<LeaveEditChoice> showLeaveEditDialog(BuildContext context, {required bool
                 onPressed: () => Navigator.pop(context, LeaveEditChoice.saveDraft),
                 child: Text(tr.saveDraft),
               ),
-            FilledButton(
-              key: const ValueKey('leave-edit-keep'),
-              onPressed: () => Navigator.pop(context, LeaveEditChoice.keepEditing),
-              child: Text(tr.keepEditing),
-            ),
+            if (keepsLocalDraft) ...[
+              TextButton(
+                key: const ValueKey('leave-edit-keep'),
+                onPressed: () => Navigator.pop(context, LeaveEditChoice.keepEditing),
+                child: Text(tr.keepEditing),
+              ),
+              FilledButton(
+                key: const ValueKey('leave-edit-keep-draft'),
+                onPressed: () => Navigator.pop(context, LeaveEditChoice.keepDraft),
+                child: Text(tr.keepDraft),
+              ),
+            ] else
+              FilledButton(
+                key: const ValueKey('leave-edit-keep'),
+                onPressed: () => Navigator.pop(context, LeaveEditChoice.keepEditing),
+                child: Text(tr.keepEditing),
+              ),
           ],
         ),
       );

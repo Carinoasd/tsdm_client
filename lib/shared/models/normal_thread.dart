@@ -152,7 +152,8 @@ enum ThreadStateModel {
   /// Thread in draft.
   ///
   /// Only used in MyThread page.
-  draft(Icons.drafts_outlined);
+  draft(Icons.drafts_outlined)
+  ;
 
   const ThreadStateModel(this.icon);
 
@@ -548,7 +549,9 @@ class NormalThread with NormalThreadMappable {
     final threadLastReplyAuthorUrl = threadLastReplyCite?.querySelector('a')?.attributes['href'] ?? '';
     // We only have username here.
     final threadLastReplyAuthorName =
-        threadLastReplyCite?.querySelector('a')?.firstEndDeepText()?.trim() ?? threadLastReplyCite?.innerText.trim() ?? '';
+        threadLastReplyCite?.querySelector('a')?.firstEndDeepText()?.trim() ??
+        threadLastReplyCite?.innerText.trim() ??
+        '';
     final threadLastReplyTimeNode = threadLastReplyNode?.querySelector('em');
     final threadLastReplyTime =
         threadLastReplyTimeNode?.querySelector('a')?.dateTime() ??

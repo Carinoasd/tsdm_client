@@ -1162,7 +1162,9 @@
       "discard": "捨棄",
       "saveDraft": "存草稿",
       "keepEditing": "繼續編輯",
-      "sending": "仍在送出，離開後無法得知結果，確定離開？"
+      "sending": "仍在送出，離開後無法得知結果，確定離開？",
+      "messageLocal": "目前的內容還沒有送出，已保存為本機草稿。",
+      "keepDraft": "保留草稿並離開"
     },
     "threadPublish": {
       "title": "發布新帖",
@@ -1200,7 +1202,10 @@
       "pasteQuillDelta": "貼上Quill Delta",
       "exportQuillDelta": "匯出 Quill Delta",
       "importQuillDelta": "匯入 Quill Delta"
-    }
+    },
+    "titleCount": "${count: int} / ${max: int}",
+    "bodyCount": "正文 ${count: int} / ${max: int} 位元組",
+    "bodyCountNoMax": "正文 ${count: int} 位元組"
   },
   "chatHistoryPage": {
     "title": "交談記錄",
@@ -1494,7 +1499,9 @@
     "emoji": {
       "title": "表情",
       "downloading": "正在下載表情（大約10MB內容），這可能需要一些時間。。",
-      "loadingAssets": "正在載入已打包的表情…"
+      "loadingAssets": "正在載入已打包的表情…",
+      "recent": "最近使用",
+      "noRecent": "用過的表情會出現在這裡"
     },
     "url": {
       "title": "插入連結",
@@ -1920,7 +1927,21 @@
   "replyBar": {
     "notReplyToFloorTip": "不回覆該樓層（改為回覆樓主）",
     "expandToolbarTip": "展開工具列",
-    "collapseToolbarTip": "收起工具列"
+    "collapseToolbarTip": "收起工具列",
+    "emojiTip": "表情",
+    "keyboardTip": "鍵盤",
+    "maximizeTip": "展開成全頁編輯",
+    "restoreSizeTip": "縮回小編輯框",
+    "quoteLoading": "引用這一樓",
+    "quoteOf": "引用：$header",
+    "quoteRemove": "不引用",
+    "quoteRemoved": "不引用原文（仍會通知該樓作者）",
+    "quoteAdd": "引用",
+    "lengthCount": "${count: int} / ${max: int} 位元組",
+    "lengthCountNoMax": "${count: int} 位元組",
+    "tooShort": "太短：至少 ${min: int} 位元組，引用不計（目前 ${count: int}）",
+    "tooLong": "太長：最多 ${max: int} 位元組（目前 ${count: int}）",
+    "floodWait": "論壇要再等 ${seconds: int} 秒才接受下一次發表"
   },
   "workaroundRedirect": "查看對話",
   "threadCard": {
@@ -2705,5 +2726,52 @@
       "openHint": "購買、數量與運費在瀏覽器的商品頁辦理。"
     },
     "already": "之前已經完成。"
+  },
+  "localDraft": {
+    "title": "本機草稿",
+    "details": "還沒送出的回覆、私信、新帖與編輯，保存在這台裝置上",
+    "offer": "有未送出的草稿（${time}）",
+    "restore": "恢復",
+    "discard": "捨棄",
+    "emoji": "[表情]",
+    "empty": "沒有本機草稿。寫到一半的內容會保存在這裡，送出後自動刪除。",
+    "needLogin": "登入後可以查看這個帳號的草稿。",
+    "deleteAll": "全部刪除",
+    "deleteAllConfirm": "刪除這個帳號的所有本機草稿？刪除後無法復原。",
+    "delete": "刪除",
+    "deleted": "草稿已刪除",
+    "copy": "複製內容",
+    "open": "前往",
+    "older": "較早的版本",
+    "kind": {
+      "threadReply": "回覆主題",
+      "floorReply": "回覆樓層",
+      "message": "私信",
+      "newThread": "發新帖",
+      "edit": "編輯"
+    },
+    "thread": "主題 ${tid}",
+    "forum": "版塊 ${fid}",
+    "member": "會員 ${uid}",
+    "post": "帖子 ${pid}",
+    "savedAt": "保存於 ${time}"
+  },
+  "secCheck": {
+    "title": "請完成驗證",
+    "message": "論壇要求完成以下驗證才會接受這次發表。",
+    "captcha": "驗證碼",
+    "captchaHint": "輸入圖中的字元",
+    "refresh": "換一個",
+    "question": "問題",
+    "answer": "答案",
+    "loadFailed": "載入失敗，點擊重試",
+    "unsupported": "App 無法顯示這種驗證，請在瀏覽器中繼續。",
+    "wrongAnswer": "論壇沒有接受剛才的答案，請重新輸入。",
+    "invalidCaptcha": "驗證碼不正確，已換一張",
+    "invalidAnswer": "答案不正確",
+    "empty": "請填寫",
+    "confirm": "送出",
+    "openBrowser": "在瀏覽器中開啟",
+    "cancelled": "沒有送出：論壇要求填寫驗證碼或回答安全提問"
   }
 }

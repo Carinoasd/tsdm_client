@@ -79,22 +79,22 @@ String pokemonRegionName(String region) => switch (region) {
 /// Sort order of a map region, mirroring the plugin. Accepts both the raw id and the display name.
 int pokemonRegionOrder(String region) =>
     switch (region.endsWith('地区') ? region.substring(0, region.length - 2) : region) {
-  'central' || '中央' => 1,
-  'north' || '北部' || '东北' => 2,
-  'east' || '东部' || '东南' => 3,
-  'south' || '南部' || '西南' => 4,
-  'west' || '西部' || '西北' => 5,
-  'ocean' || '海洋' => 6,
-  'cave' || '洞窟' || '山洞' => 7,
-  'mountain' || '山脉' || '山谷' => 8,
-  'sky' || '天空' => 9,
-  'desert' || '沙漠' => 10,
-  'city' || '城市' => 11,
-  'volcano' || '火山' => 12,
-  'wild' || '野外' => 13,
-  'special' || '特殊' => 14,
-  _ => 99,
-};
+      'central' || '中央' => 1,
+      'north' || '北部' || '东北' => 2,
+      'east' || '东部' || '东南' => 3,
+      'south' || '南部' || '西南' => 4,
+      'west' || '西部' || '西北' => 5,
+      'ocean' || '海洋' => 6,
+      'cave' || '洞窟' || '山洞' => 7,
+      'mountain' || '山脉' || '山谷' => 8,
+      'sky' || '天空' => 9,
+      'desert' || '沙漠' => 10,
+      'city' || '城市' => 11,
+      'volcano' || '火山' => 12,
+      'wild' || '野外' => 13,
+      'special' || '特殊' => 14,
+      _ => 99,
+    };
 
 /// Difficulty of a map for a trainer with a given strongest pokemon level.
 enum AdventureAdvice {

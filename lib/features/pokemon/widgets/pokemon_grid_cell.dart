@@ -41,7 +41,12 @@ class PokemonGridCell extends StatelessWidget {
               Expanded(child: image == null ? Icon(fallbackIcon) : CachedImage(image!, fit: BoxFit.contain)),
               const SizedBox(height: 4),
               Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
-              Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
             ],
           ),
         ),

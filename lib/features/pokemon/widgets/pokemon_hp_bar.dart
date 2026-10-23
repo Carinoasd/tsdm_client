@@ -15,7 +15,11 @@ class PokemonHpBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = maxHp <= 0 ? 0.0 : (hp / maxHp).clamp(0.0, 1.0);
-    final color = ratio > 0.5 ? Colors.green : ratio > 0.2 ? Colors.orange : Colors.red;
+    final color = ratio > 0.5
+        ? Colors.green
+        : ratio > 0.2
+        ? Colors.orange
+        : Colors.red;
     return Row(
       children: [
         Expanded(

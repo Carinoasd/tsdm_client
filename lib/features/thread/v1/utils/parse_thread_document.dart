@@ -290,6 +290,7 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
       subject: subject,
       // The quick reply form asks for a captcha or a security question (its `seccheck_fastpost` placeholders).
       verification: fastPost != null && elementAsksVerification(fastPost),
+      secCheck: SecCheck.fromElement(fastPost, modid: SecCheck.viewthreadModid),
     );
   }
 

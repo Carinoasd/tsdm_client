@@ -554,7 +554,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       );
     });
 
-    test('a captcha or a security question: never posted, whatever else the form is', () {
+    test('a captcha or a security question: answered in the app when the form names its ids, else the website', () {
       const seccheck = {
         'seccode': 1,
         'secqaa': 0,
@@ -570,18 +570,23 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
           }),
         )!;
         expect(listed.asksVerification, isTrue, reason: name);
-        expect(listed.editorSupport(listed.action), PostFormSupport.verification, reason: name);
-        // Either sign is enough.
-        expect(PostForm.fromJson(_with(name, {'seccheck': seccheck}))!.asksVerification, isTrue, reason: name);
+        // The ids are told: the editor asks the user (`seccheck` is no reason to leave the form any more).
+        expect(listed.secCheck?.seccodeHash, 'cSA0000', reason: name);
         expect(
-          PostForm.fromJson(
-            _with(name, {
-              'unsupported': ['seccheck'],
-            }),
-          )!.asksVerification,
-          isTrue,
+          listed.editorSupport(listed.action),
+          name == 'newthread_poll' ? PostFormSupport.unsupported : PostFormSupport.supported,
           reason: name,
         );
+        // Either sign is enough.
+        expect(PostForm.fromJson(_with(name, {'seccheck': seccheck}))!.asksVerification, isTrue, reason: name);
+        final unnamed = PostForm.fromJson(
+          _with(name, {
+            'unsupported': ['seccheck'],
+          }),
+        )!;
+        expect(unnamed.asksVerification, isTrue, reason: name);
+        // Asked without saying what: only the website can.
+        expect(unnamed.editorSupport(unnamed.action), PostFormSupport.verification, reason: name);
       }
     });
 
@@ -910,7 +915,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(harness.posts, hasLength(1));
     });
 
-    test("a captcha: the website, nothing typed or posted; the web page's too", () async {
+    test("a captcha: edited here with the ids to answer; the web page's too; no ids, the website", () async {
       final seccheck = _Harness(
         page: (_) => _with('newthread', {
           'seccheck': {
@@ -924,16 +929,21 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         }),
       );
       final bloc = await _load(seccheck, const ThreadPubFetchInfoRequested(fid: '7'));
-      expect(bloc.state.status, PostEditStatus.verificationRequired);
-      expect(bloc.state.content, isNull);
-      expect(bloc.canSubmit, isFalse);
+      expect(bloc.state.status, PostEditStatus.editing);
+      expect(bloc.state.content!.secCheck, const SecCheck(secqaa: true, secqaaHash: 'qSA0000'));
+      expect(bloc.canSubmit, isTrue);
 
       const challenge =
           '<div id="seccheck"><span id="seccode_cSA0000"></span> '
           '<script type="text/javascript" reload="1">updateseccode(\'cSA0000\', \'\', \'forum::post\');</script></div>';
       final page = _Harness(page: (_) => draftEditForm(extra: challenge, uid: 31));
       final pageBloc = await _load(page, const ThreadPubFetchInfoRequested(fid: '4'));
-      expect(pageBloc.state.status, PostEditStatus.verificationRequired);
+      expect(pageBloc.state.status, PostEditStatus.editing);
+      expect(pageBloc.state.content!.secCheck, const SecCheck(seccode: true, seccodeHash: 'cSA0000'));
+      // A field without the id of its check: the website.
+      final unnamed = _Harness(page: (_) => draftEditForm(extra: '<input name="secanswer" value="">', uid: 31));
+      final unnamedBloc = await _load(unnamed, const ThreadPubFetchInfoRequested(fid: '4'));
+      expect(unnamedBloc.state.status, PostEditStatus.verificationRequired);
       expect(documentAsksVerification(parseHtmlDocument(draftEditForm(extra: challenge))), isTrue);
       expect(documentAsksVerification(parseHtmlDocument(draftEditForm())), isFalse);
       expect(
@@ -1266,7 +1276,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(forum.requests.every(asksJson), isTrue);
     });
 
-    test("a captcha, other plugins' fields: the browser, nothing posted", () async {
+    test("a captcha: asked first; other plugins' fields: the browser; nothing posted", () async {
       TsdmAppApi.notePostForm();
       for (final (answer, verification) in [
         (
@@ -1299,23 +1309,34 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         final failure = _left(await _replyToPost());
         expect(
           failure,
-          isA<ReplyNeedsBrowserException>()
-              .having((e) => e.verification, 'verification', verification)
-              .having((e) => e.url, 'url', '$baseUrl/$_replyAction'),
+          verification
+              ? isA<ReplyNeedsVerificationException>()
+                    .having((e) => e.check.seccodeHash, 'id', 'cSA0000')
+                    .having((e) => e.url, 'url', '$baseUrl/$_replyAction')
+              : isA<ReplyNeedsBrowserException>()
+                    .having((e) => e.verification, 'verification', isFalse)
+                    .having((e) => e.url, 'url', '$baseUrl/$_replyAction'),
         );
         expect(forum.requests.map((r) => r.method), ['GET']);
         await getIt.unregister<NetClientProvider>();
       }
     });
 
-    test('the web window asking for a captcha: the browser, nothing posted', () async {
+    test('the web window asking for a captcha: asked first, nothing posted', () async {
       final window = File('test/data/reply_window_x5.xml').readAsStringSync().replaceFirst(
         '<div id="seccheck_reply">',
         '<div id="seccheck_reply"><span id="secqaa_qSA0000"></span>',
       );
       final forum = _Forum((r) => _xml(window));
       _use(forum);
-      expect(_left(await _replyToPost()), isA<ReplyNeedsBrowserException>().having((e) => e.verification, 'v', isTrue));
+      expect(
+        _left(await _replyToPost()),
+        isA<ReplyNeedsVerificationException>().having(
+          (e) => e.check,
+          'check',
+          const SecCheck(secqaa: true, secqaaHash: 'qSA0000'),
+        ),
+      );
       expect(forum.requests.map((r) => r.method), ['GET']);
     });
 
@@ -1347,7 +1368,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(forum.requests.map((r) => r.method), ['GET']);
     });
 
-    test('the reply bar: the reason, and the page to reply on in the browser', () async {
+    test('the reply bar: asks for the check, with the page to reply on in the browser', () async {
       TsdmAppApi.notePostForm();
       _use(
         _Forum(
@@ -1361,14 +1382,20 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       );
       final bloc = ReplyBloc(replyRepository: const ReplyRepository());
       addTearDown(bloc.close);
-      final failed = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+      final asked = bloc.stream.firstWhere((s) => s.status == ReplyStatus.verification);
       bloc.add(
         const ReplyToPostRequested(replyParameters: _replyParameters, replyAction: _replyAction, replyMessage: 'hi'),
       );
-      final state = await failed.timeout(const Duration(seconds: 3));
+      final state = await asked.timeout(const Duration(seconds: 3));
       expect(state.browserUrl, '$baseUrl/$_replyAction');
-      expect(state.failedReason, t.threadPage.replyNeedsVerification);
+      // No id named: one of the app's own.
+      expect(state.secCheck?.secqaa, isTrue);
+      expect(state.secCheck?.secqaaHash, startsWith('qSA'));
       expect(state.networkFailure, isFalse);
+      // Not answered: not sent, said so.
+      final failed = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+      bloc.add(const ReplyVerificationCancelled());
+      expect((await failed.timeout(const Duration(seconds: 3))).failedReason, t.secCheck.cancelled);
     });
   });
 
@@ -1629,7 +1656,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(parseThreadDocument(parseHtmlDocument(asked), 1).replyParameters!.verification, isTrue);
     });
 
-    test('the quick reply is not sent; the reply page in the browser instead', () async {
+    test('the quick reply is not sent before the check is answered; without ids, the browser', () async {
       final forum = _Forum((r) => throw StateError('nothing may be sent'));
       _use(forum);
       final parameters = threadPageFromApi(threadPage(), 1).replyParameters!;
@@ -1638,11 +1665,21 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       );
       expect(
         failure,
-        isA<ReplyNeedsBrowserException>()
-            .having((e) => e.verification, 'verification', isTrue)
+        isA<ReplyNeedsVerificationException>()
+            .having(
+              (e) => e.check,
+              'check',
+              const SecCheck(seccode: true, seccodeHash: 'cSA0000', modid: 'forum::viewthread'),
+            )
             .having((e) => e.url, 'url', '$homePage?mod=post&action=reply&fid=${parameters.fid}&tid=${parameters.tid}'),
       );
       expect(forum.requests, isEmpty);
+      final unnamed = _left(
+        await const ReplyRepository()
+            .replyToThread(replyParameters: parameters.copyWith(secCheck: null), replyMessage: 'hi')
+            .run(),
+      );
+      expect(unnamed, isA<ReplyNeedsBrowserException>().having((e) => e.verification, 'verification', isTrue));
     });
 
     test('asked only when posted (a site asking by the number of posts or their interval): the same', () async {
@@ -1653,7 +1690,14 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         final failure = _left(
           await const ReplyRepository().replyToThread(replyParameters: parameters, replyMessage: 'hi').run(),
         );
-        expect(failure, isA<ReplyNeedsBrowserException>().having((e) => e.verification, 'v', isTrue), reason: key);
+        expect(
+          failure,
+          isA<ReplyNeedsVerificationException>()
+              .having((e) => e.check.seccode, 'seccode', key == 'submit_seccode_invalid')
+              .having((e) => e.check.secqaa, 'secqaa', key == 'submit_secqaa_invalid')
+              .having((e) => e.wrongAnswer, 'wrong', isFalse),
+          reason: key,
+        );
         expect(forum.requests.map((r) => r.method), ['POST']);
         await getIt.unregister<NetClientProvider>();
       }
@@ -1685,8 +1729,8 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         _use(forum);
         expect(
           _left(await _replyToPost()),
-          isA<ReplyNeedsBrowserException>()
-              .having((e) => e.verification, 'v', isTrue)
+          isA<ReplyNeedsVerificationException>()
+              .having((e) => e.check.seccode, 'seccode', isTrue)
               .having((e) => e.url, 'url', '$baseUrl/$_replyAction'),
           reason: 'known $known',
         );
@@ -1695,7 +1739,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       }
     });
 
-    test('a new thread refused for it: the content stays, the website offered', () async {
+    test('a new thread refused for it: the content stays, the check to answer told', () async {
       final harness = _Harness(
         page: (_) => _json('newthread'),
         post: (_, _) => refused(handlekey: ''),
@@ -1723,7 +1767,8 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         ),
       );
       final state = await failed.timeout(const Duration(seconds: 3));
-      expect(state.needsBrowser, isTrue);
+      expect(state.needsBrowser, isFalse);
+      expect(state.secCheck?.seccode, isTrue);
       expect(state.content, same(content));
       expect(bloc.canSubmit, isTrue);
       // Any other refusal: no browser offered.

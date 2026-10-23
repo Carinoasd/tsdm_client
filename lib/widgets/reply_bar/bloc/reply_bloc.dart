@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
+import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -41,7 +44,13 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     on<ReplyResetClearTextStateTriggered>(_onReplyResetClearTextStateTriggered);
     on<ReplyChatHistoryRequested>(_counted(_onReplyChatHistoryRequested));
     on<ReplyChatRequested>(_counted(_onReplyChatRequested));
+    on<ReplyVerificationAnswered>(_onVerificationAnswered);
+    on<ReplyVerificationCancelled>(_onVerificationCancelled);
   }
+
+  /// The reply waiting for the answers to the checks the forum asked for ([ReplyStatus.verification]), sent again with
+  /// them ([ReplyVerificationAnswered]).
+  ReplyEvent? _awaitingAnswer;
 
   /// Replies and messages being sent right now, by every page together.
   static int _sending = 0;
@@ -109,14 +118,21 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
           replyAction: event.replyAction,
           replyMessage: event.replyMessage,
           stand: event.stand,
+          verification: event.verification,
         )
         .run();
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
+      if (err is ReplyNeedsVerificationException) {
+        _awaitingAnswer = event;
+        emit(_verification(err));
+        return;
+      }
       handle(err);
-      emit(_failed(err));
+      emit(_failed(err, uid: event.draftUid));
       return;
     }
+    _sent(event);
     await _recordReplied(event.replyParameters);
     emit(_stored(ret.unwrap()));
   }
@@ -124,16 +140,82 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   Future<void> _onReplyToThreadRequested(ReplyToThreadRequested event, _Emit emit) async {
     emit(state.copyWith(status: ReplyStatus.loading));
     final ret = await _replyRepository
-        .replyToThread(replyParameters: event.replyParameters, replyMessage: event.replyMessage, stand: event.stand)
+        .replyToThread(
+          replyParameters: event.replyParameters,
+          replyMessage: event.replyMessage,
+          stand: event.stand,
+          verification: event.verification,
+        )
         .run();
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
+      if (err is ReplyNeedsVerificationException) {
+        _awaitingAnswer = event;
+        emit(_verification(err));
+        return;
+      }
       handle(err);
-      emit(_failed(err));
+      emit(_failed(err, uid: event.draftUid));
       return;
     }
+    _sent(event);
     await _recordReplied(event.replyParameters);
     emit(_stored(ret.unwrap()));
+  }
+
+  /// Send the reply waiting for the answers again, with them.
+  Future<void> _onVerificationAnswered(ReplyVerificationAnswered event, _Emit emit) async {
+    final pending = _awaitingAnswer;
+    _awaitingAnswer = null;
+    switch (pending) {
+      case final ReplyToThreadRequested reply:
+        add(reply.copyWith(verification: event.answer));
+      case final ReplyToPostRequested reply:
+        add(reply.copyWith(verification: event.answer));
+      default:
+        break;
+    }
+  }
+
+  /// The reply waiting for the answers is not sent: a failure, with the page to reply on in the browser.
+  Future<void> _onVerificationCancelled(ReplyVerificationCancelled event, _Emit emit) async {
+    if (_awaitingAnswer == null) {
+      return;
+    }
+    _awaitingAnswer = null;
+    emit(
+      state.copyWith(
+        status: ReplyStatus.failure,
+        failedReason: t.secCheck.cancelled,
+        networkFailure: false,
+        maybeSent: false,
+        secCheck: null,
+        wrongAnswer: false,
+        retryAt: null,
+      ),
+    );
+  }
+
+  /// The state asking for the checks of [e]: nothing was sent.
+  ReplyState _verification(ReplyNeedsVerificationException e) => state.copyWith(
+    status: ReplyStatus.verification,
+    secCheck: e.check,
+    wrongAnswer: e.wrongAnswer,
+    browserUrl: e.url,
+    networkFailure: false,
+    maybeSent: false,
+    retryAt: null,
+  );
+
+  /// The reply or message of [event] was stored: its local draft goes, and the forum's interval between two posts
+  /// counts from now.
+  void _sent(_DraftedReply event) {
+    final uid = event.draftUid ?? _authenticationRepository?.currentUser?.uid;
+    FloodControl.notePosted(uid);
+    final key = event.draftKey == null ? null : LocalDraftKey.parse(event.draftKey!);
+    if (uid != null && key != null) {
+      LocalDraftStore.app?.delete(uid, key);
+    }
   }
 
   /// Success state carrying where the new post landed, so the thread page can jump to it.
@@ -143,6 +225,9 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     postedPid: posted.pid ?? '',
     postedPage: posted.page ?? 0,
     browserUrl: null,
+    secCheck: null,
+    wrongAnswer: false,
+    retryAt: null,
   );
 
   /// Whether an answer with HTTP [statusCode] may come after the forum stored the post: a server error (5xx, the
@@ -159,7 +244,22 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   ///
   /// A reply that needs the website ([ReplyNeedsBrowserException]: a captcha or a security question, fields the app
   /// cannot fill) says so and names the page to reply on ([ReplyState.browserUrl]); nothing was sent.
-  ReplyState _failed(AppException e) => switch (e) {
+  ///
+  /// A refusal for a post sent too soon after the previous one (`post_flood_ctrl`) tells when the next one is taken
+  /// ([ReplyState.retryAt]), counted for account [uid].
+  ReplyState _failed(AppException e, {int? uid}) {
+    final failed = _failure(e);
+    final seconds = floodControlSeconds(failed.failedReason);
+    return failed.copyWith(
+      secCheck: null,
+      wrongAnswer: false,
+      retryAt: seconds == null
+          ? null
+          : FloodControl.retryAt(uid ?? _authenticationRepository?.currentUser?.uid, seconds),
+    );
+  }
+
+  ReplyState _failure(AppException e) => switch (e) {
     // The reply window could not be fetched: the reply was never posted, whatever the failure of that GET.
     ReplyWindowFetchFailedException(:final noNetwork, :final statusCode) => state.copyWith(
       status: ReplyStatus.failure,
@@ -216,10 +316,11 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
         handle(err);
       }
       // Every failure is told (a network one used to be dropped: no reason, no hint, and the editor closed).
-      emit(_failed(err));
+      emit(_failed(err, uid: event.draftUid));
       return;
     }
-    emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
+    _sent(event);
+    emit(state.copyWith(status: ReplyStatus.success, needClearText: true, retryAt: null, secCheck: null));
   }
 
   Future<void> _onReplyChatRequested(ReplyChatRequested event, _Emit emit) async {
@@ -232,9 +333,10 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
         handle(err);
       }
       // Every failure is told, see the chat history.
-      emit(_failed(err));
+      emit(_failed(err, uid: event.draftUid));
       return;
     }
-    emit(state.copyWith(status: ReplyStatus.success, needClearText: true));
+    _sent(event);
+    emit(state.copyWith(status: ReplyStatus.success, needClearText: true, retryAt: null, secCheck: null));
   }
 }

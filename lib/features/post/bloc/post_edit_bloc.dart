@@ -7,10 +7,14 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'post_edit_bloc.mapper.dart';
@@ -31,7 +35,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     on<PostEditLoadDataRequested>(_onPostEditLoadDataRequested);
     on<PostEditCompleteEditRequested>(_sending(_onPostEditCompleteEditRequested));
     on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit));
-    on<ThreadPubPostThread>(_sending((event, emit) => _onPostNewThread(event.info, emit)));
+    on<ThreadPubPostThread>(_sending(_onPostNewThread));
     on<PostEditIdentityChanged>((event, emit) => emit(const PostEditState(status: PostEditStatus.identityChanged)));
     _authenticationSubscription = authenticationChanges?.listen((status) {
       if (status is AuthStatusAuthed && _repo.belongsTo(status.userInfo.uid)) return;
@@ -80,8 +84,9 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
   /// The web page is read as it always was ([PostEditContent.supportsDocument], [PostEditContent.fromDocument]), the
   /// post form of the forum's app API (plugin 2.9.0) from its fields ([PostForm.editorSupport],
   /// [PostEditContent.fromPostForm]); the forum's message instead of the form is a failure with its text. Either way
-  /// a form asking for a captcha or a security question goes to the website before anything is typed
-  /// ([PostEditStatus.verificationRequired]): the editor cannot post it.
+  /// a form asking for a captcha or a security question is edited here when it tells their ids
+  /// ([PostEditContent.secCheck]: the page asks the user before sending), else it goes to the website before anything
+  /// is typed ([PostEditStatus.verificationRequired]).
   void _onFormLoaded(Either<AppException, PostEditFormAnswer> answer, _Emit emit, {required String action}) {
     switch (answer) {
       case Left():
@@ -89,15 +94,21 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       case Right(value: PostEditFormRefused(:final message)):
         emit(state.copyWith(status: PostEditStatus.failedToLoad, errorText: message.isEmpty ? null : message));
       case Right(value: PostEditFormPage(:final document)):
+        SecCheck? check;
         if (documentAsksVerification(document)) {
-          emit(const PostEditState(status: PostEditStatus.verificationRequired));
-          return;
+          check = SecCheck.fromElement(document.querySelector('form#postform') ?? document.querySelector('#ct'));
+          if (check == null) {
+            emit(const PostEditState(status: PostEditStatus.verificationRequired));
+            return;
+          }
         }
         if (!PostEditContent.supportsDocument(document)) {
           emit(const PostEditState(status: PostEditStatus.unsupported));
           return;
         }
-        final content = PostEditContent.fromDocument(document, requireThreadInfo: action == 'edit');
+        final content = PostEditContent.fromDocument(document, requireThreadInfo: action == 'edit')?.copyWith(
+          secCheck: check,
+        );
         if (content == null) {
           error('failed to build edit content');
           emit(state.copyWith(status: PostEditStatus.failedToLoad));
@@ -146,7 +157,15 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
           final wasSending = _submitting;
           _submitting = false;
           if (wasSending && _active(emit)) {
-            emit(state.copyWith(status: PostEditStatus.failedToUpload, errorText: null, needsBrowser: false));
+            emit(
+              state.copyWith(
+                status: PostEditStatus.failedToUpload,
+                errorText: null,
+                needsBrowser: false,
+                secCheck: null,
+                wrongAnswer: false,
+              ),
+            );
           }
         }
       };
@@ -203,15 +222,10 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     if (result.isLeft()) {
       final error = result.unwrapErr();
       _submitting = false;
-      emit(
-        state.copyWith(
-          status: PostEditStatus.failedToUpload,
-          errorText: error is PostEditFailedToUploadResult ? error.errorText : null,
-          needsBrowser: error is PostVerificationRequiredException,
-        ),
-      );
+      emit(_uploadFailed(error));
       return;
     }
+    _taken(event.draftKey);
     final threadUrl = '$baseUrl/forum.php?mod=viewthread&tid=${event.tid}';
     final confirmed = event.save != '1' || await _repo.confirmsDraft(threadUrl);
     // A draft published from a post form of the app API (its first post: the thread itself): the forum may keep it a
@@ -244,13 +258,35 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     _onFormLoaded(answer, emit, action: 'newthread');
   }
 
-  Future<void> _onPostNewThread(ThreadPublishInfo info, _Emit emit) async {
+  /// The failed upload of [error]: the forum's reason, or what it asks before taking the post ([SecCheck]: the page asks
+  /// the user and sends again; none known, the website).
+  PostEditState _uploadFailed(AppException error) => state.copyWith(
+    status: PostEditStatus.failedToUpload,
+    errorText: error is PostEditFailedToUploadResult ? error.errorText : null,
+    needsBrowser: error is PostVerificationRequiredException && error.check == null,
+    secCheck: error is PostVerificationRequiredException ? error.check : null,
+    wrongAnswer: error is PostVerificationRequiredException && error.wrongAnswer,
+  );
+
+  /// The post was taken: the local draft of [draftKey] goes, the forum's interval between two posts counts from now.
+  void _taken(String? draftKey) {
+    final uid = _repo.ownerUid;
+    FloodControl.notePosted(uid);
+    final key = draftKey == null ? null : LocalDraftKey.parse(draftKey);
+    if (uid != null && key != null) {
+      LocalDraftStore.app?.delete(uid, key);
+    }
+  }
+
+  Future<void> _onPostNewThread(ThreadPubPostThread event, _Emit emit) async {
+    final info = event.info;
     if (!canSubmit || !_active(emit)) return;
     if (info.save == '1' && !state.content!.canSaveDraft) return;
     _submitting = true;
     emit(state.copyWith(status: PostEditStatus.uploading));
 
     final form = state.content!.form;
+    final told = state.content!.secCheck;
     final tidEither = form != null
         ? await _repo
               .submitForm(
@@ -264,23 +300,22 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                   options: {for (final option in info.options) option.name: option.checked},
                   save: info.save,
                 ),
+                verification: event.verification,
+                told: told,
               )
               .run()
-        : await _repo.postThread(info).run();
+        : await _repo.postThread(info, verification: event.verification, told: told).run();
+    if (tidEither.isRight()) {
+      // Taken: whatever the page does now (it may be gone), the local draft goes.
+      _taken(event.draftKey);
+    }
     if (!_active(emit)) {
       _submitting = false;
       return;
     }
     if (tidEither.isLeft()) {
       _submitting = false;
-      final err = tidEither.unwrapErr();
-      emit(
-        state.copyWith(
-          status: PostEditStatus.failedToUpload,
-          errorText: err is PostEditFailedToUploadResult ? err.errorText : null,
-          needsBrowser: err is PostVerificationRequiredException,
-        ),
-      );
+      emit(_uploadFailed(tidEither.unwrapErr()));
       return;
     }
     final tid = _tidRe.firstMatch(tidEither.unwrap())?.namedGroup('tid');

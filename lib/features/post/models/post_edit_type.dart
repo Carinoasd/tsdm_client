@@ -13,7 +13,8 @@ enum PostEditType {
   /// This type is similar to [newThread] and [editPost], only on editing the
   /// first floor post, fetch info like [editPost] but have save-as-draft
   /// action.
-  editDraft;
+  editDraft
+  ;
 
   /// Check whether the edit type is editing something.
   bool get isEditingPost => this == editPost;

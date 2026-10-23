@@ -56,8 +56,7 @@ class _AnimatedBranchPageViewState extends State<AnimatedBranchPageView> {
       // container this replaced did that for us by wrapping every hidden branch in an `Offstage` with a disabled
       // `TickerMode`.
       children: [
-        for (final (index, child) in widget.children.indexed)
-          TickerMode(enabled: index == currentIndex, child: child),
+        for (final (index, child) in widget.children.indexed) TickerMode(enabled: index == currentIndex, child: child),
       ],
     );
   }

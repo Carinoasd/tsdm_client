@@ -80,9 +80,7 @@ int rewriteCloudflareEmails(uh.Element root) {
       continue;
     }
     // The text placeholder, on the link itself (bare address) or inside it (address as link text).
-    final placeholder = a.attributes.containsKey('data-cfemail')
-        ? a
-        : a.querySelectorAll('.__cf_email__').firstOrNull;
+    final placeholder = a.attributes.containsKey('data-cfemail') ? a : a.querySelectorAll('.__cf_email__').firstOrNull;
     final address =
         cloudflareEmailFromUrl(href) ?? decodeCloudflareEmail(placeholder?.attributes['data-cfemail'] ?? '');
     if (address == null) {

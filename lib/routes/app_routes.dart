@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_detail_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
+import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
@@ -445,6 +446,7 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),
+  AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.autoCheckinDetail, builder: (_) => const AutoCheckinPage()),
   AppRoute(path: ScreenPaths.debugLog, builder: (_) => const DebugLogPage()),
   AppRoute(path: ScreenPaths.debugHistoricalLog, builder: (_) => const DebugHistoricalLogPage()),

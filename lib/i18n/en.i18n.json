@@ -1162,7 +1162,9 @@
       "discard": "Discard",
       "saveDraft": "Save draft",
       "keepEditing": "Keep editing",
-      "sending": "Still sending: after leaving you will not know whether it was stored. Leave anyway?"
+      "sending": "Still sending: after leaving you will not know whether it was stored. Leave anyway?",
+      "messageLocal": "The content has not been sent yet. It is kept on this device as a local draft.",
+      "keepDraft": "Keep draft and leave"
     },
     "threadPublish": {
       "title": "Post New Thread",
@@ -1200,7 +1202,10 @@
       "pasteQuillDelta": "Paste Quill Delta",
       "exportQuillDelta": "Export Quill Delta",
       "importQuillDelta": "Import Quill Delta"
-    }
+    },
+    "titleCount": "${count: int} / ${max: int}",
+    "bodyCount": "${count: int} / ${max: int} bytes",
+    "bodyCountNoMax": "${count: int} bytes"
   },
   "chatHistoryPage": {
     "title": "Chat History",
@@ -1494,7 +1499,9 @@
     "emoji": {
       "title": "Emoji",
       "downloading": "Downloading emoji (10MB), this may take a while...",
-      "loadingAssets": "Loading bundled emoji from assets..."
+      "loadingAssets": "Loading bundled emoji from assets...",
+      "recent": "Recent",
+      "noRecent": "Emojis you use show up here"
     },
     "url": {
       "title": "Insert Url",
@@ -1920,7 +1927,21 @@
   "replyBar": {
     "notReplyToFloorTip": "Not reply to this floor",
     "expandToolbarTip": "Expand toolbar",
-    "collapseToolbarTip": "Collapse toolbar"
+    "collapseToolbarTip": "Collapse toolbar",
+    "emojiTip": "Emoji",
+    "keyboardTip": "Keyboard",
+    "maximizeTip": "Write on the whole page",
+    "restoreSizeTip": "Back to the small editor",
+    "quoteLoading": "Quoting this floor",
+    "quoteOf": "Quote: $header",
+    "quoteRemove": "No quote",
+    "quoteRemoved": "Not quoting the floor (its author is still notified)",
+    "quoteAdd": "Quote",
+    "lengthCount": "${count: int} / ${max: int} bytes",
+    "lengthCountNoMax": "${count: int} bytes",
+    "tooShort": "Too short: at least ${min: int} bytes, quotes not counted (now ${count: int})",
+    "tooLong": "Too long: up to ${max: int} bytes (now ${count: int})",
+    "floodWait": "The forum takes the next post in ${seconds: int} s"
   },
   "workaroundRedirect": "View conversation",
   "threadCard": {
@@ -2705,5 +2726,52 @@
       "openHint": "Buying, quantity and shipping are on the goods page in the browser."
     },
     "already": "Done already."
+  },
+  "localDraft": {
+    "title": "Local drafts",
+    "details": "Replies, messages, threads and edits not sent yet, kept on this device",
+    "offer": "Unsent draft (${time})",
+    "restore": "Restore",
+    "discard": "Discard",
+    "emoji": "[emoji]",
+    "empty": "No local draft. What you write is kept here until it is sent.",
+    "needLogin": "Log in to see the drafts of your account.",
+    "deleteAll": "Delete all",
+    "deleteAllConfirm": "Delete every local draft of this account? This cannot be undone.",
+    "delete": "Delete",
+    "deleted": "Draft deleted",
+    "copy": "Copy text",
+    "open": "Open",
+    "older": "Earlier version",
+    "kind": {
+      "threadReply": "Reply",
+      "floorReply": "Reply to a floor",
+      "message": "Private message",
+      "newThread": "New thread",
+      "edit": "Edit"
+    },
+    "thread": "Thread ${tid}",
+    "forum": "Forum ${fid}",
+    "member": "Member ${uid}",
+    "post": "Post ${pid}",
+    "savedAt": "Saved ${time}"
+  },
+  "secCheck": {
+    "title": "Verification",
+    "message": "The forum asks for this before it takes the post.",
+    "captcha": "Captcha",
+    "captchaHint": "The characters in the image",
+    "refresh": "Another one",
+    "question": "Question",
+    "answer": "Answer",
+    "loadFailed": "Could not load, tap to retry",
+    "unsupported": "The app cannot show this kind of check. Continue in your browser.",
+    "wrongAnswer": "The forum did not accept the answer, try again.",
+    "invalidCaptcha": "Wrong captcha, here is a new one",
+    "invalidAnswer": "Wrong answer",
+    "empty": "Required",
+    "confirm": "Send",
+    "openBrowser": "Open in browser",
+    "cancelled": "Not sent: the forum asks for a captcha or a security question"
   }
 }

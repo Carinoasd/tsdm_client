@@ -1,4 +1,6 @@
 import 'package:system_network_proxy/system_network_proxy.dart';
+import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -63,7 +65,10 @@ Future<void> initProviders() async {
     ..registerSingleton(NetErrorSaver())
     ..registerSingleton(AdventureCache())
     // One write queue for every thread page, the settings and the cache sheet.
-    ..registerSingleton(OfflineThreadRepository());
+    ..registerSingleton(OfflineThreadRepository())
+    // The drafts the editors did not send, a file per account; the emojis used lately.
+    ..registerSingleton(LocalDraftStore())
+    ..registerSingleton(RecentEmojiStore());
   await getIt.allReady();
 
   getIt.registerSingleton(
