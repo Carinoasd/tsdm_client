@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/widgets/guest_home.dart';
 import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
@@ -188,8 +189,9 @@ class _HomepagePageState extends State<HomepagePage> {
         : PinSection(state.pinnedThreadGroupList);
     // The guide owns the fetch of the guide index page. It keeps its place in the tree (first child of the main
     // column's Expanded, found by key among its siblings) in every layout, so a window resize or a rotation moves the
-    // loaded guide instead of fetching it again.
-    const guide = GuideSection(key: ValueKey('homepage-guide'));
+    // loaded guide instead of fetching it again. Keyed by the account too: the page saved for an account shows at once
+    // after a switch, and the guide of the previous one must not stay in it.
+    final guide = GuideSection(key: ValueKey('homepage-guide-${state.loggedUserInfo?.username}'));
     const support = HomeSupportCard();
 
     List<Widget> spaced(List<Widget?> children, double gap) => [
@@ -436,6 +438,7 @@ class _HomepagePageState extends State<HomepagePage> {
         authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
         forumHomeRepository: RepositoryProvider.of<ForumHomeRepository>(context),
         profileRepository: RepositoryProvider.of<ProfileRepository>(context),
+        guideFeed: context.readOrNull<GuideFeed>(),
       )..add(HomepageLoadRequested()),
       child: MultiBlocListener(
         listeners: [
@@ -450,7 +453,11 @@ class _HomepagePageState extends State<HomepagePage> {
             },
           ),
           BlocListener<HomepageBloc, HomepageState>(
-            listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
+            // A page fetched now, after a load, a refresh or the page saved at the last start; not the saved page.
+            listenWhen: (prev, curr) =>
+                curr.status == HomepageStatus.success &&
+                curr.savedAt == null &&
+                (prev.status != HomepageStatus.success || prev.savedAt != null),
             listener: (context, state) {
               // The header notice count is a raw forum total and the personal message flag an aggregate without
               // sender: merge them only while nothing can be hidden or muted locally, otherwise keep the filtered
@@ -498,6 +505,17 @@ class _HomepagePageState extends State<HomepagePage> {
                     controller: _scrollController,
                     padding: edgeInsetsL12T12R12.add(context.safePadding()),
                     children: [
+                      if (state.savedAt case final savedAt?)
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                            child: _SavedPageNote(
+                              savedAt: savedAt,
+                              failed: state.refreshFailed,
+                              onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                            ),
+                          ),
+                        ),
                       Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: _maxContentWidth),
@@ -536,6 +554,50 @@ class _HomepagePageState extends State<HomepagePage> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// What the homepage says while it shows the page saved at the last start ([HomepageState.savedAt]): when that page
+/// is from and that it is being updated, or that updating failed, with a retry. A plain line above the cards: the
+/// page is usable meanwhile.
+class _SavedPageNote extends StatelessWidget {
+  const _SavedPageNote({required this.savedAt, required this.failed, required this.onRetry});
+
+  final DateTime savedAt;
+  final bool failed;
+  final VoidCallback onRetry;
+
+  String _time() {
+    final now = DateTime.now();
+    String two(int v) => '$v'.padLeft(2, '0');
+    final clock = '${two(savedAt.hour)}:${two(savedAt.minute)}';
+    return savedAt.year == now.year && savedAt.month == now.month && savedAt.day == now.day
+        ? clock
+        : '${two(savedAt.month)}-${two(savedAt.day)} $clock';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.homepage.saved;
+    final colorScheme = Theme.of(context).colorScheme;
+    final time = _time();
+    return Padding(
+      key: const ValueKey('homepage-saved-note'),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(failed ? Icons.sync_problem_outlined : Icons.sync_outlined, size: 16, color: colorScheme.outline),
+          sizedBoxW8H8,
+          Expanded(
+            child: Text(
+              failed ? tr.failed(time: time) : tr.updating(time: time),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+            ),
+          ),
+          if (failed) TextButton(onPressed: onRetry, child: Text(tr.retry)),
+        ],
       ),
     );
   }

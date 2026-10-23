@@ -27,7 +27,8 @@ enum CheckinFeeling {
   lazy,
 
   /// 倒霉
-  unlucky;
+  unlucky
+  ;
 
   factory CheckinFeeling.from(String feeling) {
     return switch (feeling) {

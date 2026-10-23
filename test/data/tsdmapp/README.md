@@ -109,3 +109,14 @@ by the plugin's contract tool (`tools/fixtures.py --group form`) with its fixtur
 pids it made are pinned to 9900001… and 9910001…, in referers, urls and handle keys too, the suffix of its marker
 strings to `000000`), scrubbed the same way; `formhash` → `f1f2f3f4`, the buyer's credits → 1000 (the balance after
 buying 1000 minus the price), the expiry of an extra group → `2023-11-25`. test_237 reads them.
+
+`preview_v*.json` (the list pages asked with `tsdmpreview=1`, plugin 3.1.0: every thread row carries `preview`, the
+excerpt and up to three images of its first floor or the reason none is given; the forum page of the fixture forum,
+its page 2, the same page for a member who blocked an author and for a guest, the pinned rows of another forum the
+viewer may not enter, a search, the guide list of the new threads and the guide index, the "my threads" list and the
+reply list, whose rows carry `null`) are fetched from the test forum by the plugin's contract tool
+(`tools/fixtures.py --group preview`) with its fixture script (`previewfix310.php`: one thread per rule, the ids pinned
+to 9990001…, 9991001…, 9992001…, the suffix of its marker strings to `000000`, its times shifted to 1700000000),
+scrubbed the same way; the test forum's accounts are renamed (Alice, Bob, Carol, Dave, Mallory, Member01…): a fetch
+again needs the same renaming. In the fixture threads `VIS_`
+marks text the viewer may read and `SEC_` text it may not. test_246 reads them.

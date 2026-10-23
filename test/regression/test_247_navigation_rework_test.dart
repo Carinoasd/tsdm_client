@@ -617,7 +617,7 @@ final class _App {
       ..devicePixelRatio = ratio;
     addTearDown(tester.view.reset);
     router = _router(initial: initial, tab: tab, popups: popups);
-    final init = InitCubit()..skipAutoClearImageCache();
+    final init = InitCubit();
     final checkin = CheckinBloc(
       checkinRepository: CheckinRepository(storageProvider: storage),
       authenticationRepository: auth,

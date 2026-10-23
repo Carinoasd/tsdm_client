@@ -22,14 +22,19 @@ class RedactingTalker extends Talker {
   }
 
   @override
-  void log(dynamic message, {LogLevel logLevel = LogLevel.debug, Object? exception, StackTrace? stackTrace, AnsiPen? pen}) =>
-      super.log(
-        _clean(message),
-        logLevel: logLevel,
-        exception: exception == null ? null : _cleanException(exception),
-        stackTrace: stackTrace,
-        pen: pen,
-      );
+  void log(
+    dynamic message, {
+    LogLevel logLevel = LogLevel.debug,
+    Object? exception,
+    StackTrace? stackTrace,
+    AnsiPen? pen,
+  }) => super.log(
+    _clean(message),
+    logLevel: logLevel,
+    exception: exception == null ? null : _cleanException(exception),
+    stackTrace: stackTrace,
+    pen: pen,
+  );
 
   @override
   void critical(dynamic msg, [Object? exception, StackTrace? stackTrace]) =>

@@ -118,7 +118,7 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    final init = InitCubit()..skipAutoClearImageCache();
+    final init = InitCubit();
     addTearDown(init.close);
     await tester.pumpWidget(
       TranslationProvider(

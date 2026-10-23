@@ -12,7 +12,8 @@ enum TopicsStatus {
   success,
 
   /// Failed to load data.
-  failed;
+  failed
+  ;
 
   /// Is [initial].
   bool get isInitial => this == TopicsStatus.initial;

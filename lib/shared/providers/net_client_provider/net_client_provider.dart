@@ -214,26 +214,32 @@ final class NetClientProvider with LoggerMixin {
       AsyncEither.tryCatch(() async => _dio.getUri<dynamic>(uri), mapException);
 
   /// Make a GET request to [path], with options set to image types.
-  AsyncEither<Response<dynamic>> getImage(String path, {Map<String, dynamic>? queryParameters}) =>
-      AsyncEither.tryCatch(() async {
-        final resp = await _dio.get<dynamic>(
-          path,
-          queryParameters: queryParameters,
-          options: Options(
-            responseType: ResponseType.bytes,
-            headers: {
-              HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
-              HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
-            },
-          ),
-        );
+  ///
+  /// [headers] are added to the request (the `Referer` the forum's captcha asks for).
+  AsyncEither<Response<dynamic>> getImage(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+  }) => AsyncEither.tryCatch(() async {
+    final resp = await _dio.get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {
+          HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
+          HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
+          ...?headers,
+        },
+      ),
+    );
 
-        if (resp.statusCode != HttpStatus.ok) {
-          throw HttpRequestFailedException(resp.statusCode);
-        }
-        _ensureImageBody(resp);
-        return resp;
-      }, mapException);
+    if (resp.statusCode != HttpStatus.ok) {
+      throw HttpRequestFailedException(resp.statusCode);
+    }
+    _ensureImageBody(resp);
+    return resp;
+  }, mapException);
 
   /// Get a image from the given [uri].
   AsyncEither<Response<dynamic>> getImageFromUri(Uri uri) => AsyncEither.tryCatch(() async {

@@ -612,6 +612,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.fastReplyTemplate, pathParameters: {'pick': 'false'}),
         ),
+        // What the editors kept and did not send, for the current account.
+        SectionListTile(
+          key: const ValueKey('settings-local-drafts'),
+          leading: const Icon(Icons.history_edu_outlined),
+          title: Text(context.t.localDraft.title),
+          subtitle: Text(context.t.localDraft.details),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.localDrafts),
+        ),
       ],
     );
   }

@@ -128,17 +128,16 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
               unawaited(_handleBack());
             },
             child: Scaffold(
-            appBar: AppBar(
-              title: Text(
-                scene == null
-                    ? context.t.battle.title
-                    : '${scene.mapName} · ${context.t.battle.turn(turn: state.turn)}',
+              appBar: AppBar(
+                title: Text(
+                  scene == null
+                      ? context.t.battle.title
+                      : '${scene.mapName} · ${context.t.battle.turn(turn: state.turn)}',
+                ),
               ),
-            ),
-            body: switch (state.status) {
-              // Keep the current battle on screen while the next one starts (no full-page spinner flash).
-              BattleStatus.loading when scene != null =>
-                _buildBattleView(
+              body: switch (state.status) {
+                // Keep the current battle on screen while the next one starts (no full-page spinner flash).
+                BattleStatus.loading when scene != null => _buildBattleView(
                   scene,
                   busy: true,
                   wildGender: state.wildGender,
@@ -146,45 +145,46 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   skillOrder: state.skillOrder,
                   turn: state.turn,
                 ),
-              BattleStatus.loading => const CenteredCircularIndicator(),
-              BattleStatus.needLogin => _NeedLogin(onRetry: () => unawaited(_cubit.start(widget.args.mapId!, bossTypeId: widget.args.bossTypeId))),
-              BattleStatus.failure => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(state.failureMessage ?? context.t.battle.failedToLoad, textAlign: TextAlign.center),
-                    ),
-                    const SizedBox(height: 8),
-                    if (widget.args.mapId != null)
-                      // A pet that needs healing cannot be sent out, and the client already healed and retried once:
-                      // point at the centre instead of offering a retry that would fail the same way.
-                      if (petNeedsHealingMessage(state.failureMessage))
-                        FilledButton(
-                          onPressed: () => unawaited(context.pushNamed(ScreenPaths.pokemon, extra: 1)),
-                          child: Text(context.t.battle.goToCenter),
-                        )
-                      // The server no longer has this battle (it ended on its own, or another client took it over):
-                      // asking again would fail the same way, so go back to the map instead.
-                      else if (battleAlreadyOverMessage(state.failureMessage))
-                        FilledButton(
-                          onPressed: _leaveHealingParty,
-                          child: Text(context.t.battle.backToMap),
-                        )
-                      else
-                        TextButton(
-                          onPressed: () => unawaited(
-                            _cubit.start(widget.args.mapId!, bossTypeId: widget.args.bossTypeId),
-                          ),
-                          child: Text(context.t.general.retry),
-                        ),
-                  ],
+                BattleStatus.loading => const CenteredCircularIndicator(),
+                BattleStatus.needLogin => _NeedLogin(
+                  onRetry: () => unawaited(_cubit.start(widget.args.mapId!, bossTypeId: widget.args.bossTypeId)),
                 ),
-              ),
-              BattleStatus.success when scene == null => const CenteredCircularIndicator(),
-              BattleStatus.success =>
-                _buildBattleView(
+                BattleStatus.failure => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(state.failureMessage ?? context.t.battle.failedToLoad, textAlign: TextAlign.center),
+                      ),
+                      const SizedBox(height: 8),
+                      if (widget.args.mapId != null)
+                        // A pet that needs healing cannot be sent out, and the client already healed and retried once:
+                        // point at the centre instead of offering a retry that would fail the same way.
+                        if (petNeedsHealingMessage(state.failureMessage))
+                          FilledButton(
+                            onPressed: () => unawaited(context.pushNamed(ScreenPaths.pokemon, extra: 1)),
+                            child: Text(context.t.battle.goToCenter),
+                          )
+                        // The server no longer has this battle (it ended on its own, or another client took it over):
+                        // asking again would fail the same way, so go back to the map instead.
+                        else if (battleAlreadyOverMessage(state.failureMessage))
+                          FilledButton(
+                            onPressed: _leaveHealingParty,
+                            child: Text(context.t.battle.backToMap),
+                          )
+                        else
+                          TextButton(
+                            onPressed: () => unawaited(
+                              _cubit.start(widget.args.mapId!, bossTypeId: widget.args.bossTypeId),
+                            ),
+                            child: Text(context.t.general.retry),
+                          ),
+                    ],
+                  ),
+                ),
+                BattleStatus.success when scene == null => const CenteredCircularIndicator(),
+                BattleStatus.success => _buildBattleView(
                   scene!,
                   busy: state.actionInProgress,
                   wildGender: state.wildGender,
@@ -192,7 +192,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   skillOrder: state.skillOrder,
                   turn: state.turn,
                 ),
-            },
+              },
             ),
           );
         },
@@ -281,7 +281,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   child: CachedImage(pokemonImageUrl(p.typeId), width: 40, height: 40, fit: BoxFit.contain),
                 ),
                 title: Text(p.displayName),
-                subtitle: Text('${context.t.pokemon.level(level: p.level)} · ${context.t.pokemon.hp} ${p.hp}/${p.maxHp}'),
+                subtitle: Text(
+                  '${context.t.pokemon.level(level: p.level)} · ${context.t.pokemon.hp} ${p.hp}/${p.maxHp}',
+                ),
                 onTap: () => Navigator.of(context).pop(p),
               ),
           ],

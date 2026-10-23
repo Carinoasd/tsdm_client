@@ -8,8 +8,10 @@ import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/features/post/utils/submission_result.dart';
+import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -81,6 +83,9 @@ final class PostEditRepository with LoggerMixin {
 
   /// Ignore repeated verification events for the same active account.
   bool belongsTo(int? uid) => isCurrent && uid == _ownerUid;
+
+  /// The account this editing session belongs to, null without one.
+  int? get ownerUid => _ownerUid != null && _ownerUid > 0 ? _ownerUid : null;
 
   /// A successful POST may instead enter moderation; verify the draft marker through GET.
   ///
@@ -158,26 +163,40 @@ final class PostEditRepository with LoggerMixin {
   /// Post the post form [form] (plugin 2.9.0) once, with the member's [edits] over every served value
   /// ([PostForm.bodyWith]), to the url the forum gave (`submit.url`); the result is read as for the web page's form
   /// ([parseSubmissionResult]): the url of the thread, [expectedTid] for an edit.
-  AsyncEither<String> submitForm(PostForm form, PostFormEdits edits, {String? expectedTid}) => AsyncEither(() async {
+  ///
+  /// [verification] answers the captcha or the security question the forum asks ([told]: what the form said); a form
+  /// asking for them is never posted without the answers ([PostVerificationRequiredException]).
+  AsyncEither<String> submitForm(
+    PostForm form,
+    PostFormEdits edits, {
+    String? expectedTid,
+    SecCheckAnswer? verification,
+    SecCheck? told,
+  }) => AsyncEither(() async {
     final url = form.submitUrl;
-    final body = form
-        .bodyWith(
-          PostFormEdits(
-            message: toOfficialMentions(edits.message),
-            subject: edits.subject,
-            typeId: edits.typeId,
-            perm: edits.perm,
-            price: edits.price,
-            options: edits.options,
-            save: edits.save,
-          ),
-        )
-        .toMap();
+    final edited = form.bodyWith(
+      PostFormEdits(
+        message: toOfficialMentions(edits.message),
+        subject: edits.subject,
+        typeId: edits.typeId,
+        perm: edits.perm,
+        price: edits.price,
+        options: edits.options,
+        save: edits.save,
+      ),
+    );
+    if (told != null && (verification == null || !verification.covers(told))) {
+      return left(PostVerificationRequiredException(check: verification?.check.merge(told) ?? told));
+    }
+    for (final MapEntry(:key, :value) in (verification?.fields ?? const <String, String>{}).entries) {
+      edited.set(key, value);
+    }
+    final body = edited.toMap();
     if (url == null || body == null) {
       // Never offered for editing (PostForm.editorSupport): nothing is sent.
       return left(ThreadPublishLocationNotFoundException());
     }
-    return _submit(url, body, expectedTid: expectedTid).run();
+    return _submit(url, body, expectedTid: expectedTid, verification: verification, told: told).run();
   });
 
   /// Fetch edit data from given [url].
@@ -195,7 +214,13 @@ final class PostEditRepository with LoggerMixin {
     });
   });
 
-  AsyncEither<String> _submit(String url, Map<String, String> body, {String? expectedTid}) => AsyncEither(() async {
+  AsyncEither<String> _submit(
+    String url,
+    Map<String, String> body, {
+    String? expectedTid,
+    SecCheckAnswer? verification,
+    SecCheck? told,
+  }) => AsyncEither(() async {
     if (!isCurrent) return left(IdentityChangedException());
     final result = await _post(url, body);
     if (!isCurrent) return left(IdentityChangedException());
@@ -210,9 +235,16 @@ final class PostEditRepository with LoggerMixin {
         response = value;
     }
     // The forum asked for a captcha or a security question when the form was posted (plugin 2.6.0 result: a site
-    // asking by the number of posts or their interval decides it then): nothing was posted.
-    if (tsdmAppWriteResultOf(response.data)?.asksVerification ?? false) {
-      return left(PostVerificationRequiredException());
+    // asking by the number of posts or their interval decides it then), or did not take the answers: nothing was
+    // posted. What to answer: the checks answered and told, with the refused one.
+    if (tsdmAppWriteResultOf(response.data) case final result? when result.asksVerification) {
+      final refused = refusedVerification(messageKey: result.messageKey, reason: result.reason);
+      return left(
+        PostVerificationRequiredException(
+          check: refused == null ? null : refusedCheck(refused, answered: verification?.check, told: told),
+          wrongAnswer: verification != null,
+        ),
+      );
     }
     final target = parseSubmissionResult(response, expectedTid: expectedTid);
     if (target != null) return right(target);
@@ -223,7 +255,16 @@ final class PostEditRepository with LoggerMixin {
         (response.data is String ? parseHtmlDocument(response.data as String) : null);
     final message = document?.querySelector('#messagetext');
     if (message != null && !message.classes.contains('alert_right')) {
-      return left(PostEditFailedToUploadResult(message.querySelector('p')?.innerText ?? ''));
+      final text = message.querySelector('p')?.innerText ?? '';
+      if (refusedVerification(reason: text) case final refused?) {
+        return left(
+          PostVerificationRequiredException(
+            check: refusedCheck(refused, answered: verification?.check, told: told),
+            wrongAnswer: verification != null,
+          ),
+        );
+      }
+      return left(PostEditFailedToUploadResult(text));
     }
     return left(ThreadPublishLocationNotFoundException());
   });
@@ -300,6 +341,18 @@ final class PostEditRepository with LoggerMixin {
   ///
   /// Generally the serer will response a status code of 301 with location in
   /// header to redirect to published thread page.
-  AsyncEither<String> postThread(ThreadPublishInfo info) =>
-      _submit(_buildThreadPostUrl(info.fid), info.toPostPayload());
+  ///
+  /// [verification] answers the captcha or the security question the page asks ([told]); a page asking for them is
+  /// never posted without the answers ([PostVerificationRequiredException]).
+  AsyncEither<String> postThread(ThreadPublishInfo info, {SecCheckAnswer? verification, SecCheck? told}) {
+    if (told != null && (verification == null || !verification.covers(told))) {
+      return taskLeft(PostVerificationRequiredException(check: verification?.check.merge(told) ?? told));
+    }
+    return _submit(
+      _buildThreadPostUrl(info.fid),
+      {...info.toPostPayload(), ...?verification?.fields},
+      verification: verification,
+      told: told,
+    );
+  }
 }

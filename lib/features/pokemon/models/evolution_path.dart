@@ -4,7 +4,13 @@ part of 'models.dart';
 @MappableClass(caseStyle: CaseStyle.snakeCase)
 final class EvolutionStep with EvolutionStepMappable {
   /// Constructor.
-  const EvolutionStep({required this.id, required this.name, required this.type1, required this.type2, required this.conditionDisplay});
+  const EvolutionStep({
+    required this.id,
+    required this.name,
+    required this.type1,
+    required this.type2,
+    required this.conditionDisplay,
+  });
 
   /// Tolerant decode.
   factory EvolutionStep.fromMap(Map<String, dynamic> map) => EvolutionStep(

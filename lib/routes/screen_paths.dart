@@ -301,6 +301,9 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page listing the drafts kept on this device for the current account.
+  static const String localDrafts = '/localDrafts';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 
@@ -420,6 +423,9 @@ class DialogPaths {
   /// Bottom sheet to let user pick emoji.
   static const String emojiPicker = '/dialog/emojiPicker';
 
+  /// Dialog to answer the captcha or the security question the forum asks before taking a post.
+  static const String secCheck = '/dialog/secCheck';
+
   /// Bottom sheet provide options to clear cache.
   static const String clearCache = '/dialog/clearCache';
 
@@ -431,6 +437,9 @@ class DialogPaths {
 
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
+
+  /// Dialog to select when the thread lists show the thumbnails of the threads.
+  static const String selectThreadThumbnailMode = '/dialog/selectThreadThumbnailMode';
 
   /// Dialog to let user select the interaction mode on thread floors.
   static const String selectThreadFloorInteractionMode = '/dialog/selectThreadFloorInteractionMode';

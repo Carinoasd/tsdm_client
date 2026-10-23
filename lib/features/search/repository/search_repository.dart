@@ -6,6 +6,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/search/utils/search_page_api.dart';
+import 'package:tsdm_client/features/tsdmapp/list_preview.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -66,7 +67,8 @@ int? searchRateLimitSeconds(String message) {
 /// it). Plugin 2.4.0 answers the results as structured fields (`schema: 6`, [searchApiAnswerOf]): the results are
 /// built from them ([searchResultFromApi]) and the search id read from the answer; the forum's refusal (too
 /// frequent, expired, no permission) is its message. An older plugin's answer and the web page are parsed as before
-/// ([SearchResult.fromDocument]).
+/// ([SearchResult.fromDocument]). The results ask for the previews of their rows too when they are wanted
+/// ([tsdmAppListPreviewParameters], plugin 3.1.0; the redirect of a new search carries the parameter as well).
 class SearchRepository with LoggerMixin {
   static const _searchUrl = '$baseUrl/search.php';
 
@@ -116,7 +118,10 @@ class SearchRepository with LoggerMixin {
     final netClient = getIt.get<NetClientProvider>();
     // JSON mode of the forum's app API when the forum has it (see TsdmAppApi); the redirect to the results keeps it.
     final respEither = await netClient
-        .get(_searchUrl, queryParameters: {...queryParameters, ...tsdmAppJsonQueryParameters})
+        .get(
+          _searchUrl,
+          queryParameters: {...queryParameters, ...tsdmAppJsonQueryParameters, ...tsdmAppListPreviewParameters()},
+        )
         .run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
