@@ -1455,7 +1455,12 @@ void main() {
       expect(bloc.state.currentPage, 2);
       final position = tester.widget<PostList>(find.byType(PostList)).scrollController.position;
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(position.pixels, 0, reason: 'a jump starts at the top, not on the last floor of the page');
+      // The start of the list: its zero offset is at the first floor, the title above it (reading progress round).
+      expect(
+        position.pixels,
+        position.minScrollExtent,
+        reason: 'a jump starts at the top, not on the last floor of the page',
+      );
       await _unpump(tester);
     });
 

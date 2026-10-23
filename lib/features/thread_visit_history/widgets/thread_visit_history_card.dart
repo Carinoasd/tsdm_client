@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
+import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -20,14 +21,18 @@ class ThreadVisitHistoryCard extends StatelessWidget {
   /// History data to show.
   final ThreadVisitHistoryModel model;
 
-  /// The floor the account of this record read to, when it went past the first screen.
+  /// The floor the account of this record read to, when it went past the first screen: the progress kept now for the
+  /// account in use, the one recorded for another account.
   int? _readFloor(BuildContext context) {
-    if (context.readOrNull<ReadingProgressCubit>() == null) {
-      return null;
+    var progress = ReadingProgress(page: model.lastPage, floor: model.lastFloor);
+    if (context.readOrNull<ReadingProgressCubit>() != null) {
+      final uid = context.select<ReadingProgressCubit, int?>((cubit) => cubit.state.uid);
+      final live = readingProgressOf(context, '${model.threadId}');
+      if (uid == model.uid && live != null) {
+        progress = live;
+      }
     }
-    final uid = context.select<ReadingProgressCubit, int?>((cubit) => cubit.state.uid);
-    final progress = readingProgressOf(context, '${model.threadId}');
-    return uid == model.uid && progress != null && progress.pastFirstScreen ? progress.floor : null;
+    return progress.pastFirstScreen ? progress.floor : null;
   }
 
   @override

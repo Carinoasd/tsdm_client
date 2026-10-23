@@ -503,10 +503,71 @@ void main() {
       await tester.pumpWidget(host(ThreadVisitHistoryCard(record(_alice.uid!)), cubit));
       await tester.pump();
       expect(find.text(t.threadVisitHistoryPage.readTo(floor: 14)), findsOneWidget);
-      // Another account's record: its progress is not the current one's.
+      // Another account's record: its progress is the one recorded with it, not the current one's.
       await tester.pumpWidget(host(ThreadVisitHistoryCard(record(99)), cubit));
       await tester.pump();
       expect(find.byKey(const ValueKey('visit-history-read-to')), findsNothing);
+      final other = ThreadVisitHistoryModel(
+        uid: 99,
+        username: 'Bob',
+        threadId: 7,
+        threadTitle: 'thread 7',
+        forumId: 2,
+        forumName: 'forum',
+        visitTime: DateTime(2026, 10, 23),
+        lastFloor: 33,
+        lastPage: 4,
+      );
+      await tester.pumpWidget(host(ThreadVisitHistoryCard(other), cubit));
+      await tester.pump();
+      expect(find.text(t.threadVisitHistoryPage.readTo(floor: 33)), findsOneWidget);
+    });
+  });
+
+  group('kept with the visit records (schema 17)', () {
+    Future<void> visit(int uid, int tid) => storage.updateThreadVisitHistory(
+      uid: uid,
+      tid: tid,
+      fid: 2,
+      username: 'Alice',
+      threadTitle: 'thread $tid',
+      forumName: 'forum',
+      visitTime: DateTime(2026, 10, 23),
+    );
+
+    test('written on the visit, watched, kept when the visit is recorded again, gone with it', () async {
+      final db = StorageReadingProgressStore(storage);
+      final seen = <Map<int, ReadingProgress>>[];
+      final sub = db.watch(31).listen(seen.add);
+      addTearDown(sub.cancel);
+      await pumpEventQueue();
+      expect(seen.last, isEmpty);
+
+      // No visit recorded: nothing to write the progress on.
+      await db.save(31, 7, const ReadingProgress(page: 2, pid: 9, floor: 14, seenReplies: 13));
+      await pumpEventQueue();
+      expect(seen.last, isEmpty);
+
+      await visit(31, 7);
+      await pumpEventQueue();
+      expect(seen.last, {7: const ReadingProgress()}, reason: 'visited, where it stopped not known yet');
+      await db.save(31, 7, const ReadingProgress(page: 2, pid: 9, floor: 14, seenReplies: 13));
+      await pumpEventQueue();
+      expect(seen.last, {7: const ReadingProgress(page: 2, pid: 9, floor: 14, seenReplies: 13)});
+
+      // The thread page records the visit again at every load: the progress stays.
+      await visit(31, 7);
+      await pumpEventQueue();
+      expect(seen.last[7], const ReadingProgress(page: 2, pid: 9, floor: 14, seenReplies: 13));
+
+      // Another account keeps its own.
+      await visit(32, 7);
+      await pumpEventQueue();
+      expect(seen.last.length, 1);
+
+      await storage.deleteThreadVisitHistory(uid: 31, tid: 7);
+      await pumpEventQueue();
+      expect(seen.last, isEmpty, reason: 'the history cleared, the thread is not read any more');
     });
   });
 

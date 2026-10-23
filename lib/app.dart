@@ -508,8 +508,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           // Where the current account stopped reading the threads it visited: the thread lists mark them, the thread
           // page goes on from there. Not lazy, so the first list shows the marks.
           BlocProvider(
-            create: (context) =>
-                ReadingProgressCubit(store: appReadingProgressStore, authenticationRepository: context.repo()),
+            create: (context) => ReadingProgressCubit(
+              store: StorageReadingProgressStore(getIt()),
+              authenticationRepository: context.repo(),
+            ),
             lazy: false,
           ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use

@@ -21,6 +21,8 @@ final class ThreadVisitHistoryRepo {
             threadTitle: entity.threadTitle,
             forumName: entity.forumName,
             visitTime: entity.visitTime,
+            lastFloor: entity.lastFloor,
+            lastPage: entity.lastPage,
           ),
         )
         .toList(),
@@ -40,6 +42,8 @@ final class ThreadVisitHistoryRepo {
                 threadTitle: entity.threadTitle,
                 forumName: entity.forumName,
                 visitTime: entity.visitTime,
+                lastFloor: entity.lastFloor,
+                lastPage: entity.lastPage,
               ),
             )
             .toList(),
