@@ -42,6 +42,8 @@ final class ThreadPageInfo {
     this.special,
     this.offlineSavedAt,
     this.authorUid,
+    this.postsPerPage,
+    this.paginationReplies,
     this.newestFirst = false,
   });
 
@@ -119,6 +121,14 @@ final class ThreadPageInfo {
   /// the first does not show the first floor, this tells the thread's author all the same.
   final int? authorUid;
 
+  /// Floors per page of the thread for the account the page was served to, as the forum's app API tells it (`ppp`);
+  /// null for a web page or an older answer.
+  final int? postsPerPage;
+
+  /// The replies the forum paginated this page by (the forum's app API `thread.replies`: one author's floors only, the
+  /// highest floor of a rush thread…); null when the page does not tell.
+  final int? paginationReplies;
+
   /// The floors of this page are in the newest first order (the forum's app API `ordertype` 1: asked so, or the
   /// thread's author set it, the thread status bit 4); false when the page does not tell (a web page).
   final bool newestFirst;
@@ -149,6 +159,8 @@ final class ThreadPageInfo {
     special: special,
     offlineSavedAt: savedAt,
     authorUid: authorUid,
+    postsPerPage: postsPerPage,
+    paginationReplies: paginationReplies,
     newestFirst: newestFirst,
   );
 }
