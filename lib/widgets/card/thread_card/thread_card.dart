@@ -587,6 +587,7 @@ class MyThreadCard extends StatelessWidget {
       latestReplyTime: thread.latestReplyTime,
       replyCount: thread.replyCount,
       viewCount: thread.viewCount,
+      progress: readingProgressOf(context, thread.threadID),
     );
   }
 }

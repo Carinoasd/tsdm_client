@@ -201,13 +201,14 @@ void main() {
     String pageNumber = '1',
     String? findPostID,
     UserLoginInfo? user = _alice,
+    ReadingProgressStore? progressStore,
   }) async {
     final auth = AuthenticationRepository(user: user);
     final blocks = UserBlockRepository(storage);
     final info = NotificationInfoRepository();
     final counts = NotificationStateCubit(info);
     final cubit = UserBlockCubit(repository: blocks, currentUid: () => user?.uid, authStatus: auth.status);
-    final progress = ReadingProgressCubit(store: store, uid: user?.uid);
+    final progress = ReadingProgressCubit(store: progressStore ?? store, uid: user?.uid);
     final router = GoRouter(
       routes: [
         GoRoute(
@@ -370,6 +371,39 @@ void main() {
       await pumpThread(tester);
       expect(forum.pages, [1]);
       expect(find.byKey(const ValueKey('thread-resume-banner')), findsNothing);
+      await leave(tester);
+    });
+
+    testWidgets('opened and left without scrolling: where the reading stopped stays, the replies seen are updated', (
+      tester,
+    ) async {
+      await remember(25);
+      var progress = await pumpThread(tester);
+      expect(find.byKey(const ValueKey('thread-resume-banner')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await leave(tester);
+      expect(progress.state.of(_tid)!.floor, 25);
+      expect(progress.state.of(_tid)!.page, 3);
+
+      // The offer closed, still not scrolled: the same.
+      progress = await pumpThread(tester);
+      await tester.tap(find.byKey(const ValueKey('thread-resume-close')));
+      await tester.pump(const Duration(seconds: 2));
+      await leave(tester);
+      expect(progress.state.of(_tid), ReadingProgress(page: 3, pid: _pidOf(25), floor: 25, seenReplies: 29));
+    });
+
+    testWidgets('read as the app starts (a link): offered once known, nothing kept before', (tester) async {
+      final slow = _SlowStore();
+      final progress = await pumpThread(tester, progressStore: slow);
+      expect(progress.state.loaded, isFalse);
+      expect(find.byKey(const ValueKey('thread-resume-banner')), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      slow.release({_tid: ReadingProgress(page: 3, pid: _pidOf(25), floor: 25, seenReplies: 29)});
+      await settle(tester);
+      expect(progress.state.loaded, isTrue);
+      expect(find.byKey(const ValueKey('thread-resume-banner')), findsOneWidget);
+      expect(progress.state.of(_tid)!.floor, 25, reason: 'the start of the thread was not kept over it');
       await leave(tester);
     });
 
@@ -595,4 +629,46 @@ void main() {
     expect(ThreadOpenPosition.fromIndex(9), ThreadOpenPosition.ask);
     expect(jsonEncode(SettingsKeys.threadOpenPosition.defaultValue), '1');
   });
+
+  test('a hot reply at the top: the reading is at the floor after it', () {
+    Post post(int floor, {bool hot = false}) => Post(
+      postID: '${_pidOf(floor)}${hot ? 'h' : ''}',
+      postFloor: floor,
+      author: const User(name: 'u', url: 'u'),
+      publishTime: DateTime(2026, 10, 23),
+      data: 'floor $floor',
+      replyAction: null,
+      rateAction: null,
+      lastEditUsername: null,
+      lastEditTime: null,
+      shareLink: null,
+      page: 1,
+      isDraft: false,
+      packetAllTaken: false,
+      hot: hot,
+    );
+    final first = post(1);
+    final hotA = post(95, hot: true);
+    final hotB = post(120, hot: true);
+    final second = post(2);
+    final posts = [first, hotA, hotB, second];
+    expect(readFloorAround(posts, hotA), same(second));
+    expect(readFloorAround(posts, hotB), same(second));
+    expect(readFloorAround(posts, second), same(second));
+    expect(readFloorAround([first, hotA], hotA), same(first), reason: 'none after it: the one before');
+  });
+}
+
+/// Records told only once [release] is called (the database read as the app starts).
+final class _SlowStore implements ReadingProgressStore {
+  final _records = StreamController<Map<int, ReadingProgress>>();
+
+  /// Tell [records].
+  void release(Map<int, ReadingProgress> records) => _records.add(records);
+
+  @override
+  Stream<Map<int, ReadingProgress>> watch(int uid) => _records.stream;
+
+  @override
+  Future<void> save(int uid, int tid, ReadingProgress progress) async {}
 }

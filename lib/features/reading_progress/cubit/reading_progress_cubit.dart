@@ -12,10 +12,14 @@ import 'package:tsdm_client/utils/logger.dart';
 @immutable
 final class ReadingProgressState {
   /// Constructor.
-  const ReadingProgressState({this.uid, this.threads = const {}});
+  const ReadingProgressState({this.uid, this.threads = const {}, this.loaded = false});
 
   /// The account, null when none is in use.
   final int? uid;
+
+  /// Whether [threads] are read from the records of [uid] yet (they are empty before, as for an account that read
+  /// nothing).
+  final bool loaded;
 
   /// Threads read, by tid.
   final Map<int, ReadingProgress> threads;
@@ -65,14 +69,22 @@ final class ReadingProgressCubit extends Cubit<ReadingProgressState> with Logger
       return;
     }
     emit(ReadingProgressState(uid: uid));
-    _recordsSub = _store.watch(uid).listen(
-      (threads) {
-        if (!isClosed && _uid == uid) {
-          emit(ReadingProgressState(uid: uid, threads: threads));
-        }
-      },
-      onError: (Object e, StackTrace st) => error('failed to watch the reading progress: $e', e, st),
-    );
+    _recordsSub = _store
+        .watch(uid)
+        .listen(
+          (threads) {
+            if (!isClosed && _uid == uid) {
+              emit(ReadingProgressState(uid: uid, threads: threads, loaded: true));
+            }
+          },
+          onError: (Object e, StackTrace st) {
+            error('failed to watch the reading progress: $e', e, st);
+            // Nothing more to wait for: the thread page goes on without it.
+            if (!isClosed && _uid == uid && !state.loaded) {
+              emit(ReadingProgressState(uid: uid, threads: state.threads, loaded: true));
+            }
+          },
+        );
   }
 
   /// Keep [progress] as where account [uid] stopped reading thread [tid].
@@ -80,7 +92,7 @@ final class ReadingProgressCubit extends Cubit<ReadingProgressState> with Logger
   /// Shown at once for the account in use; the record is written in the background.
   Future<void> save({required int uid, required int tid, required ReadingProgress progress}) async {
     if (uid == state.uid && state.threads[tid] != progress && !isClosed) {
-      emit(ReadingProgressState(uid: uid, threads: {...state.threads, tid: progress}));
+      emit(ReadingProgressState(uid: uid, threads: {...state.threads, tid: progress}, loaded: state.loaded));
     }
     try {
       await _store.save(uid, tid, progress);

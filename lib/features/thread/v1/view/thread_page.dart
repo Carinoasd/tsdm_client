@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -171,6 +172,17 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   /// Where the reading stopped last time, gone on with right away (the "continue where I stopped" setting).
   ReadingProgress? _resumeAt;
+
+  /// Where the reading stopped last time while the page opened at the start of the thread (not gone on with right
+  /// away): kept as the reading position until the user scrolls, goes on with it or jumps to a floor, so a page opened
+  /// and left again does not put the bookmark back to the first floor.
+  ReadingProgress? _heldPosition;
+
+  /// Whether the user scrolled the list (not only the page doing it).
+  bool _userScrolled = false;
+
+  /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
+  StreamSubscription<ReadingProgressState>? _progressWait;
 
   /// Keeps where the reading is, see [_onTopFloorChanged].
   ReadingProgressCubit? _progressCubit;
@@ -531,6 +543,18 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// Where the reading of this thread stopped, when the page opens it from a list (no page, floor or author asked) for
   /// an account that read it past its first screen.
   ReadingProgress? _savedProgress() {
+    final tid = _opensFromList();
+    final cubit = _progressCubit;
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    if (tid == null || cubit == null || uid == null || cubit.state.uid != uid) {
+      return null;
+    }
+    final progress = cubit.state.of(tid);
+    return progress != null && progress.pastFirstScreen && progress.floor != null ? progress : null;
+  }
+
+  /// The thread id when the page opens the thread from a list (no page, floor or author asked), else null.
+  int? _opensFromList() {
     final tid = int.tryParse(widget.threadID ?? '');
     if (tid == null ||
         widget.findPostID != null ||
@@ -539,13 +563,34 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         (int.tryParse(widget.pageNumber) ?? 1) != 1) {
       return null;
     }
+    return tid;
+  }
+
+  /// Whether where the reading stopped is not read yet for the account in use (a page opened from a link as the app
+  /// starts): nothing is offered or kept before it is.
+  bool _progressLoading() {
     final cubit = _progressCubit;
     final uid = context.read<AuthenticationRepository>().currentUser?.uid;
-    if (cubit == null || uid == null || cubit.state.uid != uid) {
-      return null;
+    return cubit != null && uid != null && !(cubit.state.uid == uid && cubit.state.loaded);
+  }
+
+  /// Go with where the reading stopped ([progress]) as the setting says, as the page opens ([atOpen]) or once read.
+  void _takeSavedProgress(ReadingProgress progress, {required bool atOpen}) {
+    switch (getIt.get<SettingsRepository>().currentSettings.openPosition) {
+      case ThreadOpenPosition.fromStart:
+        _heldPosition = progress;
+      case ThreadOpenPosition.ask:
+        _resumeOffer = progress;
+        _heldPosition = progress;
+      case ThreadOpenPosition.resume:
+        if (atOpen) {
+          _resumeAt = progress;
+        } else {
+          _threadBloc?.add(
+            ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page),
+          );
+        }
     }
-    final progress = cubit.state.of(tid);
-    return progress != null && progress.pastFirstScreen && progress.floor != null ? progress : null;
   }
 
   /// The first load of the page: the last page for the last floor, where the reading stopped when going on with it
@@ -580,23 +625,31 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     final state = bloc.state;
     final tid = int.tryParse(state.tid ?? '');
     if (tid == null ||
+        _progressLoading() ||
         state.status != ThreadStatus.success ||
         state.isOffline ||
         state.onlyVisibleUid != null ||
         !_mayKeepVisit(context, state)) {
       return;
     }
-    final seenReplies = state.paginationReplies ?? state.replyCount;
+    // The replies as the thread counts them (a rush thread's deleted floors are not replies), as the lists do.
+    final seenReplies = state.replyCount ?? state.paginationReplies;
     final ReadingProgress progress;
-    if (atThreadTop) {
+    if (_heldPosition case final held?) {
+      // Not scrolled yet: where the reading stopped stays, the replies seen are the thread's now.
+      progress = ReadingProgress(page: held.page, pid: held.pid, floor: held.floor, seenReplies: seenReplies);
+    } else if (atThreadTop) {
       progress = ReadingProgress(page: 1, floor: 1, seenReplies: seenReplies);
     } else {
-      final floor = post.shownFloor;
+      // A hot reply is a copy of a later floor shown on the first page: the floor read on to is the closest one
+      // around it in the thread's order.
+      final read = readFloorAround(state.postList, post);
+      final floor = read.shownFloor;
       final ppp = state.postsPerPage;
       progress = ReadingProgress(
         // The page oldest floor first, whatever the order shown.
-        page: !state.shownNewestFirst ? post.page : (floor != null && ppp != null ? (floor - 1) ~/ ppp + 1 : null),
-        pid: int.tryParse(post.postID),
+        page: !state.shownNewestFirst ? read.page : (floor != null && ppp != null ? (floor - 1) ~/ ppp + 1 : null),
+        pid: int.tryParse(read.postID),
         floor: floor,
         seenReplies: seenReplies,
       );
@@ -623,6 +676,18 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     unawaited(_progressCubit?.save(uid: pending.uid, tid: pending.tid, progress: pending.progress));
   }
 
+  /// Scrolling of the list: the app bar follows it, and a scroll of the user's own lets the reading position go
+  /// ([_heldPosition]).
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle &&
+        notification.metrics.axis == Axis.vertical) {
+      _heldPosition = null;
+      _userScrolled = true;
+    }
+    return _appBarCollapser.onNotification(notification);
+  }
+
   /// Ask for a floor to go to, and go there.
   Future<void> _askJumpToFloor(BuildContext context, ThreadState state) async {
     final floors = _floorCountOf(state);
@@ -633,12 +698,14 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     if (floor == null || !context.mounted) {
       return;
     }
+    _heldPosition = null;
     context.read<ThreadBloc>().add(ThreadJumpToFloorRequested(floor));
   }
 
   /// Go on reading where it stopped last time ([_resumeOffer]).
   void _resume() {
     final offer = _resumeOffer;
+    _heldPosition = null;
     setState(() => _resumeOffer = null);
     if (offer == null) {
       return;
@@ -851,7 +918,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 child: MunchCacheScope(
                   cache: _munchCache,
                   child: NotificationListener<ScrollNotification>(
-                    onNotification: _appBarCollapser.onNotification,
+                    onNotification: _onScrollNotification,
                     child: Stack(
                       children: [
                         PostList(
@@ -900,7 +967,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                                 : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
                           ),
                         ),
-                        if (_resumeOffer case final offer?)
+                        // Not for one author's floors: the reading position is the whole thread's.
+                        if (_resumeOffer case final offer? when state.onlyVisibleUid == null)
                           Positioned(
                             left: 12,
                             right: 12,
@@ -1043,14 +1111,19 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     super.initState();
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
-      switch (getIt.get<SettingsRepository>().currentSettings.openPosition) {
-        case ThreadOpenPosition.fromStart:
-          break;
-        case ThreadOpenPosition.ask:
-          _resumeOffer = progress;
-        case ThreadOpenPosition.resume:
-          _resumeAt = progress;
-      }
+      _takeSavedProgress(progress, atOpen: true);
+    } else if (_opensFromList() != null && _progressLoading()) {
+      // Read in a moment: offered (or gone on with) then, unless the user scrolled already.
+      _progressWait = _progressCubit?.stream.listen((_) {
+        if (!mounted || _progressLoading()) {
+          return;
+        }
+        unawaited(_progressWait?.cancel());
+        _progressWait = null;
+        if (_savedProgress() case final progress? when !_userScrolled) {
+          setState(() => _takeSavedProgress(progress, atOpen: false));
+        }
+      });
     }
     // Created here, not lazily: a page that never shows the bar (a blocked thread) still disposes it.
     _appBarController = AnimationController(vsync: this, duration: duration200, value: 1);
@@ -1070,6 +1143,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     _munchCache.clear();
     _authorLookup++;
     unawaited(_accountSub?.cancel());
+    unawaited(_progressWait?.cancel());
     _listScrollController.dispose();
     _appBarController.dispose();
     super.dispose();
@@ -1538,4 +1612,28 @@ class _ResumeBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// [post], or for a hot reply the closest floor of the thread around it in [posts]: the next one, else the one
+/// before it: the floor the reading is at when a hot reply is at the top of the list.
+@visibleForTesting
+Post readFloorAround(List<Post> posts, Post post) {
+  if (!post.hot) {
+    return post;
+  }
+  final at = posts.indexOf(post);
+  if (at < 0) {
+    return post;
+  }
+  for (var i = at + 1; i < posts.length; i++) {
+    if (!posts[i].hot) {
+      return posts[i];
+    }
+  }
+  for (var i = at - 1; i >= 0; i--) {
+    if (!posts[i].hot) {
+      return posts[i];
+    }
+  }
+  return post;
 }

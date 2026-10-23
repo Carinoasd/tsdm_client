@@ -89,9 +89,12 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
         // The image cache holds the placeholder for this avatar from now on, until it is evicted and loaded again.
         if (result.placeholder) {
           _placeholders.add(key);
-          // A long run offline would remember every avatar it met: the oldest go (at worst decoded once more).
+          // A long run offline would remember every avatar it met: the oldest go, and their placeholder with them from
+          // the image cache (forgotten but still cached, it would show for good): loaded again when shown next.
           if (_placeholders.length > _maxPlaceholders) {
-            _placeholders.remove(_placeholders.first);
+            final oldest = _placeholders.first;
+            _placeholders.remove(oldest);
+            PaintingBinding.instance.imageCache.evict(oldest);
           }
         } else {
           _placeholders.remove(key);

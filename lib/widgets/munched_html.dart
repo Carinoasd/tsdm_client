@@ -166,6 +166,26 @@ final class MunchCache {
   /// Forget every content kept (those in use stay with their widgets).
   void clear() => _entries.clear();
 
+  /// What a floor's widget left of itself (a vote chosen and not sent yet), by key: floors are not kept alive, one
+  /// built again takes it back from here. At most [_memoryCapacity] values, the oldest dropped first.
+  final _memory = <String, Object>{};
+  static const _memoryCapacity = 256;
+
+  /// The value remembered for [key], null when none.
+  Object? recall(String key) => _memory[key];
+
+  /// Remember [value] for [key]; null forgets it.
+  void remember(String key, Object? value) {
+    _memory.remove(key);
+    if (value == null) {
+      return;
+    }
+    _memory[key] = value;
+    while (_memory.length > _memoryCapacity) {
+      _memory.remove(_memory.keys.first);
+    }
+  }
+
   /// The content kept for [key] built from [deps], now used by [owner]; null when there is none, or it is in use by
   /// another widget still mounted (that one keeps it, [owner] munches its own).
   _MunchEntry? _adopt(String key, _MunchDeps deps, Element owner) {
@@ -241,6 +261,9 @@ class MunchCacheScope extends InheritedWidget {
   /// The cache above [context], null when none.
   static MunchCache? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MunchCacheScope>()?.cache;
+
+  /// The cache above [context] without depending on it (from `initState`), null when none.
+  static MunchCache? find(BuildContext context) => context.getInheritedWidgetOfExactType<MunchCacheScope>()?.cache;
 
   @override
   bool updateShouldNotify(MunchCacheScope oldWidget) => !identical(cache, oldWidget.cache);

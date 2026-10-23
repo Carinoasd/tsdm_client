@@ -52,6 +52,7 @@ import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
+import 'package:tsdm_client/widgets/card/spoiler_card.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 
@@ -493,6 +494,37 @@ void main() {
         if (value.target != null) key,
     ];
     expect(kept, isEmpty, reason: 'still reachable after the page was left');
+  });
+
+  testWidgets('floors not kept alive: an opened spoiler stays opened when its floor is built again', (tester) async {
+    // The munched content (MunchCache) keeps the same cards: built again, the spoiler is opened as it was left.
+    const card = SpoilerCard(
+      title: TextSpan(text: 'fold'),
+      content: TextSpan(text: 'hidden words'),
+    );
+    Widget host({required bool shown}) => TranslationProvider(
+      child: MaterialApp(home: Scaffold(body: shown ? card : const SizedBox())),
+    );
+    await tester.pumpWidget(host(shown: true));
+    expect(find.text('hidden words'), findsNothing);
+    await tester.tap(find.text('fold'));
+    await tester.pump();
+    expect(find.text('hidden words'), findsOneWidget);
+    await tester.pumpWidget(host(shown: false));
+    await tester.pumpWidget(host(shown: true));
+    expect(find.text('hidden words'), findsOneWidget);
+  });
+
+  test('what a floor left of itself is kept with the page, the oldest dropped first', () {
+    final cache = MunchCache()..remember('poll:1', {'a'});
+    expect(cache.recall('poll:1'), {'a'});
+    cache.remember('poll:1', null);
+    expect(cache.recall('poll:1'), isNull);
+    for (var i = 0; i < 300; i++) {
+      cache.remember('k$i', i);
+    }
+    expect(cache.recall('k0'), isNull);
+    expect(cache.recall('k299'), 299);
   });
 }
 
