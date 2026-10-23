@@ -100,17 +100,21 @@ final class EditUserProfileRepository with LoggerMixin {
   /// ([tsdmAppWriteResultOf]): the script as a `page` (a `parent.show_error(` page is not `ok`), the message as a
   /// `message` with its verdict; an older plugin answers the forum's page, read as before.
   ///
-  /// A profile loaded from the forum's app API (plugin 3.0.0) posts the page's fields as served with the member's
-  /// changes over them ([ProfileApiForm.bodyWith]) to its `submit.url`; a field the forum refuses
+  /// A profile loaded from the forum's app API (plugin 3.0.0) posts the form's own fields and the cells the member
+  /// changed ([ProfileApiForm.bodyWith]) to its `submit.url`; a field the forum refuses
   /// (`parent.show_error("field")`: a required one left empty, a value not among its choices) is named by its title.
   AsyncVoidEither uploadProfile(UserProfile profile) {
     final api = _apiForm;
     if (api != null && profile.apiKeys != null) {
-      final body = api.bodyWith(profile);
-      if (body == null) {
-        return AsyncVoidEither.left(EditUserProfileUploadFailed());
-      }
-      return _upload(api.submitUrl, body, api: api);
+      return switch (api.bodyWith(profile)) {
+        Right(value: final body) => _upload(api.submitUrl, body, api: api),
+        // A changed value the page does not offer: said by the field, nothing posted.
+        Left(value: final field) => AsyncVoidEither.left(
+          EditUserProfileUploadFailed(
+            reason: field.isEmpty ? null : t.editUserProfilePage.fieldNotOffered(field: field),
+          ),
+        ),
+      };
     }
     return _upload('$baseUrl/home.php?mod=spacecp&ac=profile&op=base', _webBody(profile));
   }

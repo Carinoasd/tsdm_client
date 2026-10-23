@@ -2148,6 +2148,7 @@
     "saveFailed": "保存失败",
     "saveFailedReason": "保存失败：$reason",
     "fieldRefused": "论坛不接受“$field”的内容",
+    "fieldNotOffered": "“$field”的值不在论坛的选项里",
     "visibility": {
       "title": "隐私",
       "public": "公开",

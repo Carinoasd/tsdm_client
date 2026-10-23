@@ -187,9 +187,12 @@ final class RateRepository with LoggerMixin {
   /// page or the login prompt fail with the forum's message ([TsdmAppWriteResult.reason]; without one the rate page
   /// says what it says for a refusal without a reason). A `page` is read as the forum's fragment would be. An older
   /// plugin answers the AJAX fragment, read as before.
+  ///
+  /// Sent once, never retried by the transport: the forum takes a second rate of the same post by the same account
+  /// (and, for a group whose rates come off the rater's own credits, takes them twice).
   AsyncVoidEither rate(Map<String, String> formData, {String? target}) => AsyncVoidEither(() async {
     final url = target == null ? _rateTarget : withSmallFormInAjax(target);
-    final respEither = await getIt.get<NetClientProvider>().postForm(url, data: formData).run();
+    final respEither = await getIt.get<NetClientProvider>().postForm(url, data: formData, singleAttempt: true).run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }

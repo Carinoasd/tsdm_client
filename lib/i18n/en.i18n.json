@@ -2148,6 +2148,7 @@
     "saveFailed": "Save failed",
     "saveFailedReason": "Failed to save: $reason",
     "fieldRefused": "The forum did not accept “$field”",
+    "fieldNotOffered": "“$field” is not one of the forum's choices",
     "visibility": {
       "title": "Privacy",
       "public": "Public",

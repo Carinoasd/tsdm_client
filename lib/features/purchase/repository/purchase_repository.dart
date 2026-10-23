@@ -236,7 +236,9 @@ final class PurchaseRepository with LoggerMixin {
   ///
   /// A window of the forum's app API (plugin 3.0.0, [PurchaseConfirmInfo.submitFields]) posts what it served to
   /// its `submit.url` with `inajax=1`, as the website does. A refusal carries the forum's message
-  /// ([PurchaseActionFailedException.reason]).
+  /// ([PurchaseActionFailedException.reason]); "bought already" (`credits_buy_thread`) is a success.
+  ///
+  /// Sent once, never retried by the transport (a purchase moves credits).
   AsyncVoidEither purchase(PurchaseConfirmInfo info) => AsyncVoidEither(() async {
     final served = info.submitFields;
     final target = info.submitUrl;
@@ -244,7 +246,7 @@ final class PurchaseRepository with LoggerMixin {
         ? served
         : {'formhash': info.formHash, 'referer': info.referer, 'tid': info.tid, 'handlekey': info.handleKey};
     final url = served != null && target != null ? withSmallFormInAjax(target) : _purchaseTarget;
-    final respEither = await getIt.get<NetClientProvider>().postForm(url, data: body).run();
+    final respEither = await getIt.get<NetClientProvider>().postForm(url, data: body, singleAttempt: true).run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }
@@ -255,9 +257,12 @@ final class PurchaseRepository with LoggerMixin {
     }
 
     if (tsdmAppWriteResultOf(resp.data) case final result?) {
+      // Told by the language key, not by the words: `thread_pay_succeed`, or `credits_buy_thread` (bought already:
+      // an earlier send of this purchase went through), which shows the thread the same way.
       final bought =
           (result.kind == TsdmAppWriteKind.handle && result.succeeded) ||
-          (result.kind != TsdmAppWriteKind.page && result.message.contains('购买成功'));
+          result.messageKey == 'thread_pay_succeed' ||
+          result.messageKey == 'credits_buy_thread';
       if (bought) {
         return rightVoid();
       }

@@ -2148,6 +2148,7 @@
     "saveFailed": "儲存失敗",
     "saveFailedReason": "儲存失敗：$reason",
     "fieldRefused": "論壇不接受「$field」的內容",
+    "fieldNotOffered": "「$field」的值不在論壇的選項裡",
     "visibility": {
       "title": "隱私",
       "public": "公開",

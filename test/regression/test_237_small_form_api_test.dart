@@ -13,6 +13,7 @@
 /// answers are the samples the readers' own tests use.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -34,6 +35,7 @@ import 'package:tsdm_client/features/profile/models/profile_form_api.dart';
 import 'package:tsdm_client/features/profile/repository/edit_user_profile_repository.dart';
 import 'package:tsdm_client/features/profile/repository/switch_user_group_repository.dart';
 import 'package:tsdm_client/features/purchase/repository/purchase_repository.dart';
+import 'package:tsdm_client/features/rate/bloc/rate_bloc.dart';
 import 'package:tsdm_client/features/rate/models/models.dart';
 import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
 import 'package:tsdm_client/features/rate/repository/rate_window_cache.dart';
@@ -46,6 +48,8 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart' show SettingsKeys;
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart'
+    show singleAttemptHttpRequestKey;
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
@@ -100,17 +104,6 @@ List<(String, String)> _form300Body(Map<String, dynamic> j) {
         ..addAll(inp(j['notify']));
     case 'report':
       pairs.addAll(inp(j['message']));
-    case 'profile':
-      for (final f in j['fields'] as List) {
-        for (final d in (f as Map)['inputs'] as List) {
-          pairs.addAll(inp(d));
-        }
-        pairs.addAll(inp(f['privacy']));
-      }
-      pairs
-        ..addAll(inp(j['customstatus']))
-        ..addAll(inp((j['signature'] as Map?)?['input']))
-        ..addAll(inp(j['timeoffset']));
   }
   return pairs;
 }
@@ -145,9 +138,12 @@ Map<String, dynamic> _result(String kind, Map<String, Object?> fields) => {
 
 /// A forum answering every request with [answer], recording the requests.
 final class _Forum implements HttpClientAdapter {
-  _Forum(this.answer);
+  _Forum(this.answer, {this.hold});
 
   final _Answer Function(RequestOptions options) answer;
+
+  /// Every answer waits for it when set.
+  final Future<void>? hold;
   final requests = <RequestOptions>[];
 
   @override
@@ -157,6 +153,7 @@ final class _Forum implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
+    await hold;
     final a = answer(options);
     return ResponseBody.fromString(
       a.body,
@@ -181,6 +178,10 @@ T _right<T>(Either<AppException, T> either) => either.fold((e) => throw e, (v) =
 
 AppException _left<T>(Either<AppException, T> either) =>
     either.fold((e) => e, (v) => throw StateError('expected a failure, got $v'));
+
+/// The body of a profile [either] built.
+Map<String, String> _body(Either<String, Map<String, String>> either) =>
+    either.fold((field) => throw StateError('refused by $field'), (v) => v);
 
 /// The query of a request without the `mobile=no` every request of the app's client carries.
 Map<String, String> _query(RequestOptions r) => {...r.uri.queryParameters}..remove('mobile');
@@ -434,6 +435,7 @@ void main() {
         'tsdmapp': 'json',
       });
       expect(_posted(post), body);
+      expect(post.extra[singleAttemptHttpRequestKey], isTrue, reason: 'a rate is never sent again by the transport');
     });
 
     test("the forum's message instead of the window, as the forum wrote it", () async {
@@ -464,6 +466,25 @@ void main() {
         isA<RateInfoWithErrorException>().having((e) => e.message, 'message', t.general.accountChangedRetry),
       );
       expect(forum.requests, hasLength(1));
+    });
+
+    test('one rate at a time: a second one while the first is out is dropped', () async {
+      final answer = Completer<void>();
+      final forum = _Forum(
+        (r) => _api(_result('handle', {'ok': 1, 'handlekey': 'rate', 'message_key': 'thread_rate_succeed'})),
+        hold: answer.future,
+      );
+      _use(forum);
+      final bloc = RateBloc(rateRepository: RateRepository(currentUid: () => 33));
+      addTearDown(bloc.close);
+      bloc
+        ..add(const RateRateRequested({'score6': '1'}))
+        ..add(const RateRateRequested({'score6': '1'}));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      answer.complete();
+      await bloc.stream.firstWhere((s) => s.status == RateStatus.gotInfo && s.justRated);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(forum.requests.where((r) => r.method == 'POST'), hasLength(1));
     });
 
     test('an older plugin: its write result of the same request, parsed as before', () async {
@@ -688,6 +709,29 @@ void main() {
         'tsdmapp': 'json',
       });
       expect(_posted(post), _asMap(_form300Body(_form('buy'))));
+      expect(
+        post.extra[singleAttemptHttpRequestKey],
+        isTrue,
+        reason: 'a purchase is never sent again by the transport',
+      );
+    });
+
+    test('told by the language key: bought already is a purchase done, the words are not read', () async {
+      for (final (fields, bought) in [
+        (
+          <String, Object?>{'ok': 0, 'handlekey': 'pay', 'message_key': 'credits_buy_thread', 'message': '抱歉，您已购买过此主题'},
+          true,
+        ),
+        (<String, Object?>{'kind': 'message', 'ok': 1, 'message_key': 'thread_pay_succeed', 'message': 'x'}, true),
+        (<String, Object?>{'kind': 'message', 'ok': 1, 'message_key': 'other', 'message': '购买成功'}, false),
+      ]) {
+        final forum = _Forum((r) => r.method == 'GET' ? _api(_form('buy')) : _api(_result('handle', fields)));
+        _use(forum);
+        final repo = PurchaseRepository(currentUid: () => 35);
+        final info = _right(await repo.fetchPurchaseConfirmInfo(tid: tid, pid: '0').run());
+        expect((await repo.purchase(info).run()).isRight(), bought, reason: '$fields');
+        await getIt.unregister<NetClientProvider>();
+      }
     });
 
     test("not enough credits, bought already: the forum's words; another account's window is not used", () async {
@@ -806,6 +850,7 @@ void main() {
       });
       final switchForm = _form('usergroup_switch');
       expect(_posted(post), _asMap(_form300Body(switchForm)));
+      expect(post.extra[singleAttemptHttpRequestKey], isTrue);
     });
 
     test("not in the group: the forum's words; a list served to another account is not used", () async {
@@ -893,47 +938,104 @@ void main() {
       expect(ProfileApiForm.fromApi(_fields(_form('profile_info'))), isNull);
     });
 
-    test('unchanged, the body is the page as served (form300); a change goes over its own field only', () {
+    /// The profile fixture with the birthday cell of [month]/[day] whose day select offers [days] days.
+    Map<String, dynamic> withBirthday({required String month, required String day, required int days}) {
+      final json = _form('profile');
+      return {
+        ...json,
+        'fields': [
+          for (final f in json['fields'] as List)
+            if ((f as Map<String, dynamic>)['id'] == 'birthday')
+              {
+                ...f,
+                'inputs': [
+                  for (final i in (f['inputs'] as List).cast<Map<String, dynamic>>())
+                    switch (i['name']) {
+                      'birthmonth' => {...i, 'value': month},
+                      'birthday' => {
+                        ...i,
+                        'value': day,
+                        'choices': [
+                          {'value': '', 'label': '日'},
+                          for (var d = 1; d <= days; d++) {'value': '$d', 'label': '$d'},
+                        ],
+                      },
+                      _ => i,
+                    },
+                ],
+              }
+            else
+              f,
+        ],
+      };
+    }
+
+    test("only the form's own fields and the cells the member changed, each with its controls and privacy", () {
       final json = _form('profile');
       final api = ProfileApiForm.fromApi(_fields(json))!;
-      final served = _asMap(_form300Body(json));
-      expect(api.bodyWith(api.profile), served);
+      final own = (json['submit'] as Map)['fields'] as Map<String, dynamic>;
+      expect(_body(api.bodyWith(api.profile)), own, reason: 'nothing changed: nothing but the form posted');
       final edited = api.profile.copyWith(
         nickname: 'tsdmapp 300',
         nicknameVisibility: Visibility.friendsOnly,
         gender: Gender.female,
         birthdayYear: 2001,
+        favoriteBangumiVisibility: Visibility.private,
       );
-      final body = api.bodyWith(edited)!;
-      expect(body, {
-        ...served,
+      expect(_body(api.bodyWith(edited)), {
+        ...own,
         UserProfileKeys.nickname: 'tsdmapp 300',
         UserProfileKeys.nickname.visibility(): '1',
         UserProfileKeys.gender: '2',
+        // The privacy of a changed cell goes with it, as served.
+        UserProfileKeys.gender.visibility(): '1',
         UserProfileKeys.birthYear: '2001',
+        UserProfileKeys.birthMonth: '10',
+        UserProfileKeys.birthday: '11',
+        UserProfileKeys.birthday.visibility(): '0',
+        // Unchangeable: only its privacy.
+        UserProfileKeys.favoriteBangumi.visibility(): '3',
       });
-      expect(body.keys, isNot(contains('styleid')));
-      expect(body.keys, isNot(contains('qq')));
-      expect(body['field3'], '', reason: 'a field the app does not edit is posted as served');
-      expect(body.keys, isNot(contains('field4')), reason: 'unchangeable: the page prints no control');
+      // Not shown, not changed: never posted (realname, bloodtype, the required field3, another tab's qq, styleid).
+      for (final absent in ['realname', 'bloodtype', 'lookingfor', 'field3', 'field2', 'qq', 'styleid', 'field4']) {
+        expect(_body(api.bodyWith(edited)).keys, isNot(contains(absent)), reason: absent);
+      }
     });
 
-    test('a select value is posted as the JSON gives it, a carriage return included', () {
+    test('a select of a cell posted is posted as the JSON gives it, a carriage return included', () {
       final json = _form('profile');
-      final fields = [
-        for (final f in json['fields'] as List)
-          if ((f as Map)['id'] == 'bloodtype')
-            {
-              ...f as Map<String, dynamic>,
-              'inputs': [
-                {...((f['inputs'] as List).single as Map<String, dynamic>), 'value': 'A\r'},
-              ],
-            }
-          else
-            f,
-      ];
-      final api = ProfileApiForm.fromApi(_fields({...json, 'fields': fields}))!;
-      expect(api.bodyWith(api.profile)!['bloodtype'], 'A\r');
+      final api = ProfileApiForm.fromApi(_fields(json))!;
+      expect(_body(api.bodyWith(api.profile.copyWith(nickname: 'x'))).keys, isNot(contains('bloodtype')));
+      // The birthday's month of a cell posted keeps the served value when the member did not change it.
+      final feb = ProfileApiForm.fromApi(_fields(withBirthday(month: '2\r', day: '15', days: 28)))!;
+      final body = _body(feb.bodyWith(feb.profile.copyWith(birthdayYear: 2001)));
+      expect(body[UserProfileKeys.birthMonth], '2\r');
+    });
+
+    test('a day of another month is posted; a changed value the page does not offer is refused by its field', () {
+      final feb = ProfileApiForm.fromApi(_fields(withBirthday(month: '2', day: '15', days: 28)))!;
+      final body = _body(feb.bodyWith(feb.profile.copyWith(birthdayMonth: 3, birthdayDay: 31)));
+      expect((body[UserProfileKeys.birthMonth], body[UserProfileKeys.birthday]), ('3', '31'));
+      expect(feb.bodyWith(feb.profile.copyWith(birthdayYear: 1800)), left<String, Map<String, String>>('生日'));
+    });
+
+    test('a list field checked twice can not be posted as a map: the page is read as before', () {
+      final json = _form('profile');
+      (json['fields'] as List).add({
+        'id': 'field7',
+        'title': '多選',
+        'required': 0,
+        'unchangeable': 0,
+        'inputs': [
+          {'name': 'field7[]', 'type': 'checkbox', 'value': 'A', 'checked': 1, 'disabled': 0},
+          {'name': 'field7[]', 'type': 'checkbox', 'value': 'B', 'checked': 1, 'disabled': 0},
+        ],
+        'text': null,
+        'tips': '',
+        'pending': null,
+        'privacy': null,
+      });
+      expect(ProfileApiForm.fromApi(_fields(json)), isNull);
     });
 
     test('the editor in one request (lean); saved to submit.url with the served fields', () async {
@@ -953,7 +1055,11 @@ void main() {
       expect(post.method, 'POST');
       expect(_query(post), {'mod': 'spacecp', 'ac': 'profile', 'op': 'base', 'tsdmapp': 'json'});
       final sent = {for (final e in (post.data as FormData).fields) e.key: e.value};
-      expect(sent, {..._asMap(_form300Body(_form('profile'))), 'field5': 'x'});
+      expect(sent, {
+        ...((_form('profile')['submit'] as Map)['fields'] as Map<String, dynamic>),
+        'field5': 'x',
+        'privacy[field5]': '0',
+      });
     });
 
     test("a refused field is named by its title; the forum's message; a guest's page is not used", () async {

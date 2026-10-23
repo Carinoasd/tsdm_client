@@ -94,6 +94,11 @@ final class RateBloc extends Bloc<RateEvent, RateState> with LoggerMixin {
   }
 
   Future<void> _onRateRateRequested(RateRateRequested event, RateEmitter emit) async {
+    // One rate at a time: a second tap while one is out would rate the post again (the forum takes it).
+    if (state.status == RateStatus.rating) {
+      debug('a rate is being sent, dropped another one');
+      return;
+    }
     final rate = ++_rateCount;
     emit(state.copyWith(status: RateStatus.rating, failedReason: null, justRated: false));
 

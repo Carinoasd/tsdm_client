@@ -181,8 +181,11 @@ final class SwitchUserGroupRepository with LoggerMixin {
     'formhash': formHash,
   });
 
-  AsyncVoidEither _post(String url, Map<String, String> body) =>
-      getIt.get<NetClientProvider>().postForm(url, data: body).mapHttp((resp) => resp.data).flatMap((data) {
+  AsyncVoidEither _post(String url, Map<String, String> body) => getIt
+      .get<NetClientProvider>()
+      .postForm(url, data: body, singleAttempt: true)
+      .mapHttp((resp) => resp.data)
+      .flatMap((data) {
         if (tsdmAppWriteResultOf(data) case final result?) {
           if (result.kind != TsdmAppWriteKind.page && result.succeeded) {
             return AsyncEither.right(());

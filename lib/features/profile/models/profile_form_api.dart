@@ -1,9 +1,11 @@
 import 'package:collection/collection.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/profile/models/birthday_info.dart';
 import 'package:tsdm_client/features/profile/models/editable_user_profile.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 
 typedef _Keys = UserProfileKeys;
 
@@ -22,17 +24,20 @@ const List<String> _textKeys = [
 ];
 
 /// The profile editor of the forum's app API (plugin 3.0.0, `type: form`, `form: profile`): the page's form as
-/// served, posted with the member's changes over it ([bodyWith]).
+/// served, posted with the member's changes ([bodyWith]).
 ///
-/// The forum only updates the fields a post carries, so the app posts what the page printed (`submit.fields`, every
-/// control of every field and its privacy, the custom title, the signature, the time zone, as the browser posts them)
-/// and nothing else: no fixed set of fields, no field of another tab. Select values are posted as served, a `\r`
-/// included (an option the site set up with CRLF line breaks: the forum stores it trimmed).
+/// The forum only updates the fields a post carries, and merges the privacy settings it is given into the stored
+/// ones, so the app posts the form's own fields (`submit.fields`) and the fields the member changed, each with the
+/// controls and the privacy of its cell, and nothing else: no field the app does not show, no field left as it was
+/// (posting it again would store the plugin's first option of a select without a chosen one, and run the forum's
+/// word filter over text the member did not touch), no field of another tab. A control of a changed cell the member
+/// did not change is posted as served, a `\r` of a select value included (an option the site set up with CRLF line
+/// breaks: the forum stores it trimmed).
 final class ProfileApiForm {
   ProfileApiForm._({
     required this.submitUrl,
-    required this.served,
-    required this.inputs,
+    required this.submitFields,
+    required this.cells,
     required this.titles,
     required this.profile,
   });
@@ -40,11 +45,11 @@ final class ProfileApiForm {
   /// The url the form posts to (`submit.url`), absolute, `multipart/form-data`.
   final String submitUrl;
 
-  /// Every field the browser posts for the page as served, in order.
-  final List<(String, String)> served;
+  /// The form's hidden fields and its submit button, as served.
+  final List<(String, String)> submitFields;
 
-  /// The controls by name, for the choices of a select.
-  final Map<String, PostFormInput> inputs;
+  /// The controls of each cell the app edits (the field's controls and its privacy), by its key in [UserProfileKeys].
+  final Map<String, List<PostFormInput>> cells;
 
   /// The titles of the fields by the name the forum names a refused one with (`parent.show_error("field3")`).
   final Map<String, String> titles;
@@ -65,29 +70,15 @@ final class ProfileApiForm {
         formHash.isEmpty) {
       return null;
     }
-    final served = <(String, String)>[...form.submitFields.entries.map((e) => (e.key, e.value))];
-    final inputs = <String, PostFormInput>{};
+    final submitFields = <(String, String)>[...form.submitFields.entries.map((e) => (e.key, e.value))];
+    // Every field the browser posts for the page as served: a form whose list field (`name[]`) is checked more than
+    // once can not be posted as a map, which the app's transports take; such a page is read as before.
+    final served = PostFormBody(submitFields);
+    final cells = <String, List<PostFormInput>>{};
     final titles = <String, String>{};
     final keys = <String>[];
     final locked = <String>[];
     final fields = <String, Map<String, dynamic>>{};
-    void serve(PostFormInput? input) {
-      if (input == null) {
-        return;
-      }
-      inputs[input.name] = input;
-      switch (input.type) {
-        case 'file':
-          break;
-        case 'radio':
-          // As a checkbox: only the checked one of the group, never a disabled one.
-          if (input.checked && !input.disabled) {
-            served.add((input.name, input.value ?? 'on'));
-          }
-        default:
-          served.addAll(input.submitted);
-      }
-    }
 
     for (final field in tsdmAppList(json['fields'])) {
       final id = tsdmAppText(field['id']);
@@ -96,13 +87,10 @@ final class ProfileApiForm {
       }
       fields[id] = field;
       titles[id] = tsdmAppText(field['title']);
-      final controls = smallFormInputs(field['inputs'])..forEach(serve);
+      final controls = smallFormInputs(field['inputs']);
       final privacy = PostFormInput.fromJson(field['privacy']);
-      serve(privacy);
-      if (privacy != null) {
-        titles[privacy.name] = titles[id]!;
-      }
-      for (final c in controls) {
+      for (final c in [...controls, ?privacy]) {
+        served.addAll(_servedPairs(c));
         titles[c.name] = titles[id]!;
       }
       final known = id == _Keys.gender || id == _Keys.birthday || _textKeys.contains(id);
@@ -111,23 +99,33 @@ final class ProfileApiForm {
       }
       if (controls.isNotEmpty) {
         keys.add(id);
+        cells[id] = [...controls, ?privacy];
       } else if (field['text'] is String) {
         keys.add(id);
         locked.add(id);
+        // Not changeable: only its privacy is the member's to set.
+        if (privacy != null) {
+          cells[id] = [privacy];
+        }
       }
     }
     final customStatus = PostFormInput.fromJson(json['customstatus']);
     final signature = PostFormInput.fromJson(tsdmAppMap(json['signature'])['input']);
     final timeOffset = PostFormInput.fromJson(json['timeoffset']);
-    for (final (key, input) in [
-      (_Keys.customTitle, customStatus),
-      (_Keys.signature, signature),
-      (_Keys.timezone, timeOffset),
+    for (final (key, input, title) in [
+      (_Keys.customTitle, customStatus, t.editUserProfilePage.customTitle),
+      (_Keys.signature, signature, t.editUserProfilePage.signature),
+      (_Keys.timezone, timeOffset, t.editUserProfilePage.timezone),
     ]) {
       if (input != null && input.name == key) {
-        serve(input);
+        served.addAll(_servedPairs(input));
         keys.add(key);
+        cells[key] = [input];
+        titles[key] = title;
       }
+    }
+    if (served.toMap() == null) {
+      return null;
     }
 
     String? value(String id, [String? name]) {
@@ -191,7 +189,13 @@ final class ProfileApiForm {
       apiKeys: keys,
       lockedKeys: locked,
     );
-    return ProfileApiForm._(submitUrl: submitUrl, served: served, inputs: inputs, titles: titles, profile: profile);
+    return ProfileApiForm._(
+      submitUrl: submitUrl,
+      submitFields: submitFields,
+      cells: cells,
+      titles: titles,
+      profile: profile,
+    );
   }
 
   /// The fields of [profile] the app edits, by the name the forum reads them with.
@@ -230,26 +234,52 @@ final class ProfileApiForm {
     };
   }
 
-  /// The fields to post for [edited], the profile [profile] as the member changed it: every served field, and over
-  /// it each value the member changed, only for a field the page printed (a select only to one of its choices). A
-  /// field the member did not change is posted as served, never rebuilt from the app's model. Null when the body
-  /// cannot be posted as a map (a list field posted twice).
-  Map<String, String>? bodyWith(UserProfile edited) {
-    final body = PostFormBody(served);
+  /// What the browser posts for control [input] as served: a checkbox or a radio only when checked and not
+  /// disabled, a file nothing, any other control its value.
+  static Iterable<(String, String)> _servedPairs(PostFormInput input) => switch (input.type) {
+    'file' => const [],
+    'radio' => input.checked && !input.disabled ? [(input.name, input.value ?? 'on')] : const [],
+    _ => input.submitted,
+  };
+
+  /// The day of the birthday: the forum prints the days of the month stored (28 for February), the member may pick
+  /// any day of another month; the forum checks the date when it saves.
+  static bool _isBirthDay(String name, String value) {
+    final day = int.tryParse(value);
+    return name == _Keys.birthday && day != null && day >= 1 && day <= 31;
+  }
+
+  /// The fields to post for [edited], the profile [profile] as the member changed it: the form's own fields, and each
+  /// cell the member changed (its value or its privacy) with every control of the cell, the member's values where
+  /// changed and the served ones elsewhere. A cell the member did not change, and a field the app does not show, is
+  /// not posted.
+  ///
+  /// Left with the title of the field when a changed select value is not one of its choices (the birthday's day
+  /// excepted, see [_isBirthDay]): nothing is posted, rather than a value dropped without a word.
+  Either<String, Map<String, String>> bodyWith(UserProfile edited) {
+    final body = PostFormBody(submitFields);
     final before = _values(profile);
-    for (final MapEntry(key: name, value: value) in _values(edited).entries) {
-      if (before[name] == value) {
+    final after = _values(edited);
+    for (final MapEntry(key: key, value: controls) in cells.entries) {
+      if (controls.every((c) => before[c.name] == after[c.name])) {
         continue;
       }
-      final input = inputs[name];
-      if (input == null || input.type == 'hidden' || input.type == 'file') {
-        continue;
+      for (final control in controls) {
+        final value = after[control.name];
+        if (value == null || value == before[control.name] || control.type == 'hidden' || control.type == 'file') {
+          body.addAll(_servedPairs(control));
+          continue;
+        }
+        if (control.type == 'select' &&
+            value.isNotEmpty &&
+            !control.choices.any((c) => c.value == value) &&
+            !_isBirthDay(control.name, value)) {
+          return left(titles[control.name] ?? titles[key] ?? key);
+        }
+        body.add(control.name, value);
       }
-      if (input.type == 'select' && value.isNotEmpty && !input.choices.any((c) => c.value == value)) {
-        continue;
-      }
-      body.set(name, value);
     }
-    return body.toMap();
+    final map = body.toMap();
+    return map == null ? left('') : right(map);
   }
 }
