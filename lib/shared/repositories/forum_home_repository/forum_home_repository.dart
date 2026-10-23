@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:fpdart/fpdart.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/red_packet/repository/daily_rewards_repository.dart';
 import 'package:tsdm_client/features/red_packet/repository/red_packet_repository.dart';
@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// A repository that fetches the homepage (`forum.php`) from the forum.
@@ -31,6 +32,12 @@ import 'package:tsdm_client/utils/logger.dart';
 /// Callers that ask while a fetch is on its way for the same session share it ([fetchHomePage]): the homepage and the
 /// topics tab loading together cost one request.
 ///
+/// The forum's daily rewards of the account (the daily login visit, the automatic daily red packet) follow the page in
+/// the background ([fetchHomePage]); when they change it, the page asked once more replaces it ([pageReplacements]).
+///
+/// Every structured page fetched is saved for the account it was served to ([SavedAnswerStore]); the next start shows
+/// it ([savedPageOf]) while the page is asked again.
+///
 /// What an answer of an older plugin gives only on the web page is read from the page asked once more without
 /// `nodoc=1` ([fetchPageDocument]), in the background, for the page that needs it, and that answer, which carries the
 /// `document`, is published as the page:
@@ -46,10 +53,15 @@ final class ForumHomeRepository with LoggerMixin {
   /// Constructor.
   ///
   /// [documentTimeout] is how long [fetchPageDocument] waits for the page with its document.
-  ForumHomeRepository({this.documentTimeout = const Duration(seconds: 10)});
+  ///
+  /// [savedAnswers] keeps the pages for the next start, the app's store by default (none in tests that register none).
+  ForumHomeRepository({this.documentTimeout = const Duration(seconds: 10), SavedAnswerStore? savedAnswers})
+    : _savedAnswers = savedAnswers ?? SavedAnswerStore.app;
 
   /// How long [fetchPageDocument] waits for the page with its document before the page stays without it.
   final Duration documentTimeout;
+
+  final SavedAnswerStore? _savedAnswers;
 
   final _dailyRewards = DailyRewardsRepository();
 
@@ -70,15 +82,69 @@ final class ForumHomeRepository with LoggerMixin {
   /// Every page fetched from the server, the latest one replayed to new listeners.
   final _pageSubject = BehaviorSubject<ForumHomePage>();
 
+  /// Pages replaced in the background by the page asked once more after the daily rewards.
+  final _replacements = StreamController<({ForumHomePage previous, ForumHomePage page})>.broadcast();
+
+  /// The daily rewards of the last page fetched, running in the background ([_processDailyRewards]).
+  Future<void> _dailyRewardsJob = Future<void>.value();
+
   /// Stream of every `forum.php` page fetched from the server, in order; a new listener gets the latest one first
   /// when there is any.
   Stream<ForumHomePage> get pageStream => _pageSubject.stream;
+
+  /// Pages the cached page was replaced with in the background, with the page each one replaced: the page asked once
+  /// more after the daily login visit or the automatic daily red packet changed it (a new balance, the packet gone).
+  /// A page showing `previous` shows `page` instead; it is published on [pageStream] too.
+  Stream<({ForumHomePage previous, ForumHomePage page})> get pageReplacements => _replacements.stream;
+
+  /// Completes when the daily rewards of the last page fetched are done (tests).
+  @visibleForTesting
+  Future<void> get dailyRewardsDone => _dailyRewardsJob;
 
   /// Check has cached [_page] or not.
   bool hasCache() => _page != null;
 
   /// Get the cached [_page].
   ForumHomePage? getCache() => _page;
+
+  /// The homepage saved at the last fetch for the account [uid] (null for a guest) and when it was saved, to show while
+  /// the page is asked again: null when none is saved, it is older than a day, of an older format, or not served to
+  /// [uid] ([SavedAnswerStore]).
+  Future<({ForumHomeApiPage page, DateTime savedAt})?> savedPageOf(int? uid) async {
+    final saved = await _savedAnswers?.load(SavedAnswerKind.homepage, uid: uid);
+    if (saved == null) {
+      return null;
+    }
+    final json = indexApiAnswerOf(saved.answer);
+    if (json == null || json['ok'] != 1) {
+      return null;
+    }
+    final page = ForumHomeApiPage(json);
+    if (page.servedUid != (uid != null && uid > 0 ? uid : null)) {
+      return null;
+    }
+    return (page: page, savedAt: saved.savedAt);
+  }
+
+  /// Save [page], fetched with [session], for the next start: the structured answer of the account it was served to,
+  /// without its `document`. A guest page or a login prompt while an account is in use says that account's session is
+  /// dead: what was saved for it must not show again.
+  void _savePage(ForumHomePage page, _Session session) {
+    final store = _savedAnswers;
+    if (store == null || page is! ForumHomeApiPage) {
+      return;
+    }
+    final json = page.json;
+    final account = session.uid;
+    if (json['ok'] == 1) {
+      store.save(SavedAnswerKind.homepage, Map.of(json)..remove('document'));
+      if (page.servedUid == null && account != null && account > 0) {
+        store.forget(account);
+      }
+    } else if (json['login'] == 1 && account != null && account > 0) {
+      store.forget(account);
+    }
+  }
 
   /// Drop the cached page so the next fetch goes to the server, and let no later caller share a fetch on its way.
   void invalidate() {
@@ -91,12 +157,16 @@ final class ForumHomeRepository with LoggerMixin {
   /// Release the stream.
   Future<void> dispose() async {
     await _pageSubject.close();
+    await _replacements.close();
   }
 
   /// Fetch the home page of app from server.
   ///
   /// Without [force], the cached page, or the fetch on its way for the session in use now when there is one. A
   /// forced fetch always asks the server: it may follow a change (a favorite added) that a fetch on its way missed.
+  ///
+  /// The page is answered as soon as it is fetched; the daily rewards of the account follow in the background
+  /// ([_processDailyRewards]).
   AsyncEither<ForumHomePage> fetchHomePage({bool force = false}) => AsyncEither(() async {
     debug('fetch home page');
     if (!force && _page != null) {
@@ -122,18 +192,111 @@ final class ForumHomeRepository with LoggerMixin {
     }
   });
 
-  /// Fetch the page asked with [session], then keep and publish it.
+  /// Fetch the page asked with [session], then keep, publish and save it; the daily rewards of the account follow in
+  /// the background.
+  ///
+  /// # Exception
+  ///
+  /// * [HttpHandshakeFailedException] if GET request failed.
+  /// * [IdentityChangedException] when the account in use changed while the page was asked.
   Future<Either<AppException, ForumHomePage>> _fetchAndKeep(_Session session) async {
-    final pageEither = await _fetchForumHome().run();
-    if (pageEither case Right(value: final page)) {
-      _page = page;
-      _sessionOfPage[page] = session;
-      if (!_pageSubject.isClosed) {
-        _pageSubject.add(page);
-      }
-      debug('use fetched home page');
+    // Keep every follow-up on the same identity-bound client, including after an account switch.
+    final client = getIt.get<NetClientProvider>();
+    final cookie = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>() : null;
+    final uid = cookie?.userLoginInfo.uid;
+    // JSON mode of the forum's app API when the forum has it (see TsdmAppApi); the web page otherwise.
+    final pageEither = await _askPage(client);
+    final ForumHomePage page;
+    switch (pageEither) {
+      case Left():
+        return pageEither;
+      case Right(:final value):
+        page = value;
     }
+    if (cookie?.userLoginInfo.uid != uid) {
+      return left(IdentityChangedException());
+    }
+    _page = page;
+    _sessionOfPage[page] = session;
+    if (!_pageSubject.isClosed) {
+      _pageSubject.add(page);
+    }
+    debug('use fetched home page');
+    _savePage(page, session);
+    _dailyRewardsJob = _processDailyRewards(page, client: client, cookie: cookie, uid: uid, session: session);
     return pageEither;
+  }
+
+  /// The daily login visit and the automatic daily red packet of [page], fetched for the account [uid] with [client]
+  /// in [session], in the background: the homepage waited for them before (the visit, the claim and a reload of the
+  /// page, three more requests before anything showed).
+  ///
+  /// When the forum credited the visit or the packet was claimed, the page is asked once more and, while the session
+  /// is still the one in use and [page] still the cached page, replaces it ([pageReplacements], [pageStream]). Nothing
+  /// is visited, claimed or replaced once the account in use changed, and [page] is no longer cached then. Failures are
+  /// logged: the page stays.
+  Future<void> _processDailyRewards(
+    ForumHomePage page, {
+    required NetClientProvider client,
+    required CookieProvider? cookie,
+    required int? uid,
+    required _Session session,
+  }) async {
+    bool isCurrent() => cookie?.userLoginInfo.uid == uid;
+    try {
+      final refresh = await _dailyRewards.processFields(
+        servedUid: page.servedUid,
+        visitUri: page.dailyVisitUri,
+        packet: page.dailyRedPacket,
+        formHash: page.formHash,
+        uid: uid,
+        isCurrent: isCurrent,
+        autoClaimEnabled: () =>
+            getIt.isRegistered<SettingsRepository>() &&
+            getIt.get<SettingsRepository>().currentSettings.autoDailyRedPacket,
+        visit: (uri) async {
+          final result = await client.getUri(uri).run();
+          return result.fold(
+            (_) => false,
+            // Stock checknewpm answers an empty JavaScript response. A login/error page is not a successful visit.
+            (response) => response.statusCode == 200 && '${response.data ?? ''}'.trim().isEmpty,
+          );
+        },
+        claim: (formHash) async =>
+            (await const RedPacketRepository().claimDaily(formHash: formHash, client: client).run()).fold(
+              (_) => null,
+              (value) => value,
+            ),
+      );
+      if (!isCurrent()) {
+        // The account changed while the rewards ran: its page is not handed to the next one (it was not even cached
+        // when the page waited for the rewards).
+        if (identical(_page, page)) {
+          _page = null;
+        }
+        return;
+      }
+      if (!refresh) {
+        return;
+      }
+      // Not recursive: one best-effort reload updates the balance and removes the claimed packet entry.
+      final updated = await _askPage(client);
+      if (updated case Right(value: final next)
+          when isCurrent() && next.servedUid == uid && _sessionNow() == session && identical(_page, page)) {
+        _page = next;
+        _sessionOfPage[next] = session;
+        if (!_pageSubject.isClosed) {
+          _pageSubject.add(next);
+        }
+        if (!_replacements.isClosed) {
+          _replacements.add((previous: page, page: next));
+        }
+        _savePage(next, session);
+        debug('use home page reloaded after the daily rewards');
+      }
+    } on Object catch (e) {
+      warning('daily rewards homepage reload failed; keep the original page: $e');
+    }
   }
 
   /// Read the "我收藏的版块" panel of [page] from the web page, in the background: for the topics tab, when [page] is an
@@ -256,58 +419,6 @@ final class ForumHomeRepository with LoggerMixin {
         );
     }
   }
-
-  /// Fetch the [homePage] of forum.
-  ///
-  /// # Exception
-  ///
-  /// * [HttpHandshakeFailedException] if GET request failed.
-  AsyncEither<ForumHomePage> _fetchForumHome() => AsyncEither(() async {
-    // Keep every follow-up on the same identity-bound client, including after an account switch.
-    final client = getIt.get<NetClientProvider>();
-    final cookie = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>() : null;
-    final uid = cookie?.userLoginInfo.uid;
-    // JSON mode of the forum's app API when the forum has it (see TsdmAppApi); the web page otherwise.
-    final first = await _askPage(client);
-    if (first.isLeft()) return first;
-    final page = first.unwrap();
-    bool isCurrent() => cookie?.userLoginInfo.uid == uid;
-    final refresh = await _dailyRewards.processFields(
-      servedUid: page.servedUid,
-      visitUri: page.dailyVisitUri,
-      packet: page.dailyRedPacket,
-      formHash: page.formHash,
-      uid: uid,
-      isCurrent: isCurrent,
-      autoClaimEnabled: () =>
-          getIt.isRegistered<SettingsRepository>() &&
-          getIt.get<SettingsRepository>().currentSettings.autoDailyRedPacket,
-      visit: (uri) async {
-        final result = await client.getUri(uri).run();
-        return result.fold(
-          (_) => false,
-          // Stock checknewpm answers an empty JavaScript response. A login/error page is not a successful visit.
-          (response) => response.statusCode == 200 && '${response.data ?? ''}'.trim().isEmpty,
-        );
-      },
-      claim: (formHash) async =>
-          (await const RedPacketRepository().claimDaily(formHash: formHash, client: client).run()).fold(
-            (_) => null,
-            (value) => value,
-          ),
-    );
-    if (refresh && isCurrent()) {
-      // Not recursive: one best-effort reload updates the balance and removes the claimed packet entry.
-      try {
-        final updated = await _askPage(client);
-        if (updated.isRight() && isCurrent() && updated.unwrap().servedUid == uid) return updated;
-      } on Object {
-        warning('daily rewards homepage reload failed; keep the original page');
-      }
-    }
-    if (!isCurrent()) return left(IdentityChangedException());
-    return first;
-  });
 }
 
 /// The account the global cookie names and the session of it it holds ([CookieProvider.generation]); null fields

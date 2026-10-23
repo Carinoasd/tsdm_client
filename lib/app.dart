@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -296,6 +297,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           create: (_) => ForumHomeRepository(),
           dispose: (repo) async => repo.dispose(),
         ),
+        // The guide of the homepage, asked together with the homepage and saved per account for the next start.
+        RepositoryProvider<GuideFeed>(create: (_) => GuideFeed()),
         RepositoryProvider<FavoriteRepository>(
           create: (_) => FavoriteRepository(),
           dispose: (repo) async => repo.dispose(),

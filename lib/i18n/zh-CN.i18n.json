@@ -200,6 +200,11 @@
       "failed": "加载失败，点击重试",
       "empty": "暂时还没有帖子"
     },
+    "saved": {
+      "updating": "显示 ${time} 的首页，正在更新…",
+      "failed": "更新失败，显示的是 ${time} 的首页",
+      "retry": "重试"
+    },
     "forumStatus": {
       "today": "今日",
       "yesterday": "昨日",

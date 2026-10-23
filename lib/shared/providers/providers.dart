@@ -10,6 +10,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/connection.dart' as conn;
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
@@ -62,6 +63,8 @@ Future<void> initProviders() async {
     ..registerFactory(NetClientProvider.buildNoCookie, instanceName: ServiceKeys.noCookie)
     ..registerSingleton(NetErrorSaver())
     ..registerSingleton(AdventureCache())
+    // The last homepage and guide of each account, shown at the next start while they are asked again.
+    ..registerSingleton(SavedAnswerStore())
     // One write queue for every thread page, the settings and the cache sheet.
     ..registerSingleton(OfflineThreadRepository());
   await getIt.allReady();

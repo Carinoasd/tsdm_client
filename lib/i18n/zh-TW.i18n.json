@@ -200,6 +200,11 @@
       "failed": "載入失敗，點一下重試",
       "empty": "目前還沒有貼文"
     },
+    "saved": {
+      "updating": "顯示 ${time} 的首頁，正在更新…",
+      "failed": "更新失敗，顯示的是 ${time} 的首頁",
+      "retry": "重試"
+    },
     "forumStatus": {
       "today": "今日",
       "yesterday": "昨日",

@@ -17,6 +17,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// A time to fetch notice or save notice.
@@ -241,9 +242,11 @@ class StorageProvider with LoggerMixin {
   }
 
     /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages and the times it was polled for notifications.
+  /// pages, the times it was polled for notifications and the pages saved for the next start ([SavedAnswerStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
+    // The pages saved to show at the next start (the homepage, the guide) were served to the account.
+    SavedAnswerStore.app?.forget(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);
