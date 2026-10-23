@@ -303,29 +303,39 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
     final before = {for (final post in state.postList) floorKeyOf(post)};
     emit(state.copyWith(nextStatus: ThreadEdgeStatus.loading));
     try {
-      await _fetch(state.currentPage)
-          .match(
-            (e) {
-              if (!_showsFailure(load, e)) {
-                return;
-              }
-              handle(e);
-              if (state.floorsUid == uid && state.postList.isNotEmpty) {
-                emit(state.copyWith(nextStatus: ThreadEdgeStatus.failed));
-                return;
-              }
-              emit(_failedState(uid));
-            },
-            (v) {
-              if (!_isCurrent(load)) {
-                return;
-              }
-              final merged = _merged(v, uid: uid, merge: _Merge.append);
-              final added = merged.postList.where((e) => !before.contains(floorKeyOf(e))).length;
-              emit(merged.copyWith(newRepliesSerial: state.newRepliesSerial + 1, newRepliesCount: added));
-            },
-          )
-          .run();
+      // The last page again, and the pages after it the new replies began (the last page was full): a few at most,
+      // the rest are the next pages read on to.
+      var page = state.currentPage;
+      for (var asked = 0; asked < 3; asked++) {
+        final result = await _fetch(page).run();
+        if (!_isCurrent(load)) {
+          return;
+        }
+        switch (result) {
+          case Left(value: final e):
+            if (!_showsFailure(load, e)) {
+              return;
+            }
+            handle(e);
+            if (state.floorsUid == uid && state.postList.isNotEmpty) {
+              emit(state.copyWith(nextStatus: ThreadEdgeStatus.failed));
+              return;
+            }
+            emit(_failedState(uid));
+            return;
+          case Right(value: final info):
+            final merged = _merged(info, uid: uid, merge: _Merge.append);
+            if (merged.canLoadMore && asked < 2) {
+              // Pages after the one asked: go on with the next.
+              emit(merged.copyWith(nextStatus: ThreadEdgeStatus.loading));
+              page = merged.currentPage + 1;
+              continue;
+            }
+            final added = merged.postList.where((e) => !before.contains(floorKeyOf(e))).length;
+            emit(merged.copyWith(newRepliesSerial: state.newRepliesSerial + 1, newRepliesCount: added));
+            return;
+        }
+      }
     } finally {
       if (_nextLoadOf == load) {
         _nextLoadOf = null;
@@ -439,7 +449,10 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
   /// The page floor [floor] is on, worked out from the floors per page ([ThreadState.postsPerPage], 10 while not
   /// known): oldest first, page N holds floors (N-1)×ppp+1 to N×ppp; newest first, page 1 holds the first floor and the
   /// latest ppp-1 replies, every later page the next ppp replies, counted from the highest floor.
-  int _pageOfFloor(int floor) {
+  ///
+  /// [known] is the state the pagination is read from, the current one when not given.
+  int _pageOfFloor(int floor, {ThreadState? known}) {
+    final state = known ?? this.state;
     final ppp = math.max(1, state.postsPerPage ?? 10);
     final last = math.max(1, state.totalPages);
     if (!state.shownNewestFirst) {
@@ -457,7 +470,8 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
 
   /// The page to ask next for floor [floor] when page [info] does not have it: before or after it, from the floors it
   /// holds; null when [floor] falls between its floors (the thread lacks it) or there is no such page.
-  int? _pageTowards(ThreadPageInfo info, int floor) {
+  int? _pageTowards(ThreadPageInfo info, int floor, {ThreadState? known}) {
+    final state = known ?? this.state;
     final numbers = info.postList
         .where((e) => !e.hot && e.postFloor != null && !(state.shownNewestFirst && e.postFloor == 1))
         .map((e) => e.postFloor!)
@@ -495,14 +509,20 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
     final load = _beginPageLoad();
     final uid = _currentUid();
     final previousPosts = state.postList;
-    // The page the floor was on when going on with the reading (oldest first), else the one worked out.
-    var page = (!state.shownNewestFirst ? event.page : null) ?? _pageOfFloor(floor);
+    // Whether the pages, the floors per page and the order of the thread are known from a page on screen: not when the
+    // page opens at a floor (going on with the reading), then a first page is asked and the floor's page worked out
+    // from it.
+    final known = state.status == ThreadStatus.success && state.postList.isNotEmpty && state.floorsUid == uid;
+    // The page the floor was on when going on with the reading (oldest first), else the one worked out; not known yet,
+    // the first page tells.
+    var page = (!state.shownNewestFirst ? event.page : null) ?? (known ? _pageOfFloor(floor) : 1);
+    var guessed = !known;
     emit(_replacing());
     ThreadPageInfo? found;
     Post? target;
     // A page worked out from a stale reply count or floors per page may be off: ask the page before or after it, a
-    // few times at most.
-    for (var attempt = 0; attempt < 3; attempt++) {
+    // few times at most (once more when the first page asked was a guess).
+    for (var attempt = 0; attempt < (known ? 3 : 4); attempt++) {
       final result = await _fetch(page).run();
       if (!_isCurrent(load)) {
         return;
@@ -527,7 +547,16 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
       if (target != null || !info.havePermission || info.needLogin) {
         break;
       }
-      final next = _pageTowards(info, floor);
+      // What the page tells of the thread: its pages, floors per page and order.
+      final told = _merged(info, uid: uid, merge: _Merge.replace);
+      var next = _pageTowards(info, floor, known: told);
+      if (guessed) {
+        guessed = false;
+        final worked = _pageOfFloor(floor, known: told);
+        if (worked != page) {
+          next = worked;
+        }
+      }
       if (next == null || next == page) {
         break;
       }

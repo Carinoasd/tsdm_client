@@ -308,13 +308,27 @@ void main() {
       await _settled();
       expect(bloc.state.newRepliesSerial, 2);
       expect(bloc.state.newRepliesCount, 0);
-      // A new page opened: the next one is there to read on to.
+      // A new page opened: asked as well, the new replies on it added.
       thread.floors = 33;
       bloc.add(const ThreadLoadNewRepliesRequested());
       await _settled();
-      expect(_floors(bloc.state).last, 30);
-      expect(bloc.state.canLoadMore, isTrue);
+      expect(thread.asked.sublist(3), [3, 4]);
+      expect(_floors(bloc.state).last, 33);
+      expect(bloc.state.canLoadMore, isFalse);
       expect(bloc.state.totalPages, 4);
+      expect(bloc.state.newRepliesCount, 5);
+    });
+
+    test('the last page was full: the new replies are on the next page', () async {
+      final thread = _Thread();
+      final bloc = await _openAt(thread, 15);
+      thread.floors = 152;
+      bloc.add(const ThreadLoadNewRepliesRequested());
+      await _settled();
+      expect(thread.asked, [15, 15, 16]);
+      expect(_floors(bloc.state).last, 152);
+      expect(bloc.state.newRepliesCount, 2);
+      expect(bloc.state.canLoadMore, isFalse);
     });
 
     test('the medal menus of every page on screen stay', () async {
@@ -412,6 +426,27 @@ void main() {
       expect(thread.asked, [5]);
       expect(bloc.state.scrollTargetPid, pidOf(44));
       expect(bloc.state.firstPage, 5);
+    });
+
+    test("opened at a floor, page not known: the first page tells the pages, then the floor's page", () async {
+      final thread = _Thread();
+      final bloc = _bloc(thread)..add(ThreadJumpToFloorRequested(120, pid: pidOf(120)));
+      addTearDown(bloc.close);
+      await _settled();
+      expect(thread.asked, [1, 12]);
+      expect(bloc.state.scrollTargetPid, pidOf(120));
+      expect(bloc.state.jumpFloorMissed, isNull);
+    });
+
+    test('opened at a floor newest first: worked out from the first page, not page 1 of an unknown thread', () async {
+      final thread = _Thread();
+      final bloc = _bloc(thread, reverseOrder: true)..add(ThreadJumpToFloorRequested(20, pid: pidOf(20)));
+      addTearDown(bloc.close);
+      await _settled();
+      expect(thread.asked.first, 1);
+      expect(thread.asked.length, lessThanOrEqualTo(3));
+      expect(bloc.state.scrollTargetPid, pidOf(20));
+      expect(bloc.state.jumpFloorMissed, isNull);
     });
   });
 
