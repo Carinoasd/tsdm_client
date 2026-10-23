@@ -17,6 +17,7 @@ class MyThread with MyThreadMappable {
     required this.quotedMessage,
     required this.stateSet,
     this.latestReplyClock,
+    this.preview,
   });
 
   /// Build a [MyThread] from a thread row [t] of a structured "my threads" answer of the forum's app API (plugin
@@ -33,6 +34,9 @@ class MyThread with MyThreadMappable {
   ///
   /// The last reply is the real instant ([latestReplyTime], shown relative to now) and the forum's wall clock with
   /// [timeOffset] (the answer's `timeoffset`, [latestReplyClock], shown as a date), as the page prints it.
+  ///
+  /// The `preview` of a thread row (plugin 3.1.0) is the [preview]; a reply row has none (`null`): its quote is the
+  /// reply itself.
   factory MyThread.fromApi(Map<String, dynamic> t, {num timeOffset = 8, bool reply = false}) {
     final fid = tsdmAppInt(t['fid']);
     final thread = NormalThread.fromApi(t, fid: fid, typePrefix: 0, timeOffset: timeOffset);
@@ -53,6 +57,7 @@ class MyThread with MyThreadMappable {
       latestReplyClock: tsdmAppWallClockTime(t['lastpost'], timeOffset),
       quotedMessage: summary.isEmpty ? null : summary,
       stateSet: {...thread.stateSet, if (tsdmAppInt(t['displayorder']) == -4) ThreadStateModel.draft},
+      preview: pid > 0 ? null : thread.preview,
     );
   }
 
@@ -103,6 +108,10 @@ class MyThread with MyThreadMappable {
   ///
   /// For example, a thread can be rated and marked pinned at the same time.
   final Set<ThreadStateModel> stateSet;
+
+  /// The excerpt and the images of the first floor the forum's app API gave for a thread row (plugin 3.1.0), null
+  /// when it gave none (a reply row never has one).
+  final ThreadPreview? preview;
 
   /// <tbody>
   ///   <tr>                                 <- or <tr class="bw0_all"> in reply list, followed by reply rows.

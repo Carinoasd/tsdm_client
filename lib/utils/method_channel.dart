@@ -27,3 +27,10 @@ const _methodSetHighRefreshRate = 'setHighRefreshRate';
 /// display modes to pick from).
 Future<double> androidSetHighRefreshRate({required bool enable}) async =>
     await _mainChannel.invokeMethod<double>(_methodSetHighRefreshRate, {'enable': enable}) ?? 0;
+
+const _methodIsActiveNetworkMetered = 'isActiveNetworkMetered';
+
+/// Whether Android counts the network in use as metered (mobile data, a hotspot, a Wi-Fi the user marked metered), as
+/// `ConnectivityManager.isActiveNetworkMetered` tells it: true without any network, and when the system does not tell.
+Future<bool> androidActiveNetworkMetered() async =>
+    await _mainChannel.invokeMethod<bool>(_methodIsActiveNetworkMetered) ?? true;

@@ -281,6 +281,27 @@
         "highlightRecentThread": "Highlight recently published thread",
         "highlightAuthorName": "Highlight thread author's username",
         "highlightInfoRow": "Highlight into row",
+        "listPreview": {
+          "title": "List previews",
+          "note": "The excerpts and the thumbnails come from the forum; until the forum offers them, the lists show the titles only. Content that needs a permission to read never shows in a preview.",
+          "showExcerpt": {
+            "title": "Show excerpts in lists",
+            "detail": "Two lines from the start of the first post under the title"
+          },
+          "thumbnail": {
+            "title": "Show thumbnails in lists",
+            "always": "Always",
+            "alwaysDetail": "Also on mobile data",
+            "wifiOnly": "Wi-Fi only",
+            "wifiOnlyDetail": "Only on Wi-Fi or another network that is not metered",
+            "never": "Off",
+            "neverDetail": "No pictures in the lists"
+          },
+          "externalImages": {
+            "title": "Load images of other sites in lists",
+            "detail": "Off: the thumbnails only use the forum's own attachments. An image hosted elsewhere tells its site who scrolls past the thread (on the web it only loads once the thread is opened), so it is left out unless this is on."
+          }
+        },
         "example": {
           "title": "TV Anime \"A Certain Magical Index\" 4th Season Coming Out",
           "author": "茵蒂克丝",
@@ -1924,6 +1945,7 @@
   },
   "workaroundRedirect": "View conversation",
   "threadCard": {
+    "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
     "replied": "Replied"
   },

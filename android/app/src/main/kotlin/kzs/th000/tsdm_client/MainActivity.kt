@@ -1,8 +1,10 @@
 package kzs.th000.tsdm_client
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Bundle
 import android.view.SurfaceHolder
@@ -28,6 +30,7 @@ class MainActivity: FlutterActivity() {
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
+        const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
 
         const val UPDATE_CHANNEL = "kzs.th000.tsdm_client/updateChannel"
         const val INTERACTIVE_HTML_CHANNEL = "kzs.th000.tsdm_client/interactiveHtmlChannel"
@@ -285,6 +288,12 @@ class MainActivity: FlutterActivity() {
             SET_HIGH_REFRESH_RATE -> {
                 preferHighRefreshRate = call.argument<Any>("enable") as? Boolean ?: false
                 result.success(applyRefreshRate())
+            }
+            // Whether large downloads should wait (the thread list thumbnails "on Wi-Fi only"): the system's own answer,
+            // true without a network. Needs ACCESS_NETWORK_STATE, which the manifest has.
+            IS_ACTIVE_NETWORK_METERED -> {
+                val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                result.success(manager?.isActiveNetworkMetered ?: true)
             }
             else -> result.notImplemented()
         }

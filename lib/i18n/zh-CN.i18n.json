@@ -281,6 +281,27 @@
         "highlightRecentThread": "高亮显示近期发布的帖子",
         "highlightAuthorName": "高亮帖子作者的用户名",
         "highlightInfoRow": "高亮显示帖子信息",
+        "listPreview": {
+          "title": "列表预览",
+          "note": "摘要与缩略图由论坛提供；论坛尚未支持时，列表只显示标题。需要权限才能看的内容不会出现在预览里。",
+          "showExcerpt": {
+            "title": "列表显示摘要",
+            "detail": "在标题下方显示首楼开头的两行文字"
+          },
+          "thumbnail": {
+            "title": "列表显示缩略图",
+            "always": "总是",
+            "alwaysDetail": "使用移动数据时也显示",
+            "wifiOnly": "仅 Wi-Fi",
+            "wifiOnlyDetail": "连接 Wi-Fi 或其他不计流量的网络时才显示",
+            "never": "关闭",
+            "neverDetail": "列表不显示图片"
+          },
+          "externalImages": {
+            "title": "列表也载入外站图片",
+            "detail": "关闭时缩略图只用论坛自己的附件。外站图片一载入，图片所在的网站就会知道谁滑过了这个帖子（网页上要点进帖子才会载入），所以默认不在列表载入。"
+          }
+        },
         "example": {
           "title": "TV动画《魔法禁书目录》第四季制作决定！",
           "author": "茵蒂克丝",
@@ -1924,6 +1945,7 @@
   },
   "workaroundRedirect": "查看对话",
   "threadCard": {
+    "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
     "replied": "已回复"
   },

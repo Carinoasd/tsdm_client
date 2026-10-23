@@ -53,6 +53,10 @@ import 'package:universal_html/parsing.dart';
 /// the `document` and `head` blocks when the answer carries the page as structured fields (`schema`) or is the forum's
 /// message: an answer with a `schema` is a page whether or not it carries the blocks ([tsdmAppAnswerHasStructuredPage]).
 /// The plugin version the last `status` or `notify` answer named is kept in [pluginInfo], for the settings page.
+///
+/// Plugin 3.1.0 adds to every thread row of the list pages (the forum page, the guide lists, the search results, the
+/// "my threads" pages) the excerpt and the images of its first floor, when the page is asked with
+/// `tsdmpreview=1` (`list_preview.dart`); `status` tells it with `preview: 1` ([knowsPreview]).
 abstract final class TsdmAppApi {
   /// Url of an action.
   static String url(String action, [Map<String, String> query = const {}]) => Uri.parse(
@@ -98,10 +102,22 @@ abstract final class TsdmAppApi {
     return _postFormSeen || (info != null && compareTsdmAppVersions(info.version, tsdmAppPostFormVersion) >= 0);
   }
 
+  /// Whether the forum's plugin is known to answer the previews of the list rows (plugin 3.1.0, `tsdmpreview=1`): the
+  /// last `status` said so (`preview: 1`), or an answer of an action named [tsdmAppPreviewVersion] or later
+  /// ([pluginInfo]: the notification fetch asks `notify` once the homepage loaded).
+  ///
+  /// The list pages carry the parameter only then: an older plugin ignores it (its rows have no `preview`), but the
+  /// plugin asks the app to send it only once `status` named it. Until something told the version, the lists are
+  /// asked as before.
+  static bool get knowsPreview {
+    final info = pluginInfo.value;
+    return info != null && (info.preview || compareTsdmAppVersions(info.version, tsdmAppPreviewVersion) >= 0);
+  }
+
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
   /// (an older action's, or a message such as `login`) tells nothing and changes nothing. Only `status` names
-  /// `nodoc`, and not every answer names `api`: what is known of the version holds through the answers of the same
-  /// version that leave them out.
+  /// `nodoc` and `preview`, and not every answer names `api`: what is known of the version holds through the answers
+  /// of the same version that leave them out.
   static void _notePluginInfo(Map<String, dynamic> json) {
     var info = TsdmAppPluginInfo.fromAnswer(json);
     if (info == null) {
@@ -114,6 +130,7 @@ abstract final class TsdmAppApi {
         version: info.version,
         api: info.api ?? known.api,
         nodoc: json.containsKey('nodoc') ? info.nodoc : known.nodoc,
+        preview: json.containsKey('preview') ? info.preview : known.preview,
       );
     }
     if (info != known) {
@@ -256,19 +273,24 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '3.0.0';
+const expectedTsdmAppVersion = '3.1.0';
 
 /// The first version of the forum's plugin that answers the post forms (a new thread, a reply, an edit, the reply
 /// window) as structured fields (`type: post`, `schema` 16): see [TsdmAppApi.knowsPostForm].
 const tsdmAppPostFormVersion = '2.9.0';
 
+/// The first version of the forum's plugin that answers the previews of the list rows (`tsdmpreview=1`): see
+/// [TsdmAppApi.knowsPreview].
+const tsdmAppPreviewVersion = '3.1.0';
+
 /// What the forum's plugin tells about itself in the answer of an action: `status` and `notify` name their `version`
-/// since plugin 1.0.0 (1.9.0 for `notify`), and 2.3.0 adds `nodoc: 1` to `status` when it takes [tsdmAppNodocQuery].
-/// The `smilies` action (2.7.0) names it `plugin_version`: its `version` is the version of the smilies table.
+/// since plugin 1.0.0 (1.9.0 for `notify`), 2.3.0 adds `nodoc: 1` to `status` when it takes [tsdmAppNodocQuery] and
+/// 3.1.0 `preview: 1` when it answers the previews of the list rows. The `smilies` action (2.7.0) names it
+/// `plugin_version`: its `version` is the version of the smilies table.
 @immutable
 final class TsdmAppPluginInfo {
   /// Constructor.
-  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc});
+  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview = false});
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
   static TsdmAppPluginInfo? fromAnswer(Map<String, dynamic> json) {
@@ -280,6 +302,7 @@ final class TsdmAppPluginInfo {
       version: version,
       api: (json['api'] as num?)?.toInt(),
       nodoc: json['nodoc'] == 1 || json['nodoc'] == true,
+      preview: json['preview'] == 1 || json['preview'] == true,
     );
   }
 
@@ -293,18 +316,26 @@ final class TsdmAppPluginInfo {
   /// (an older plugin, `notify`) leaves it false: it tells nothing about the parameter, which the plugin ignores.
   final bool nodoc;
 
+  /// Whether the plugin said it answers the previews of the list rows (`preview: 1` in `status`, plugin 3.1.0). An
+  /// answer without the field leaves it false, as [nodoc].
+  final bool preview;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
   @override
   bool operator ==(Object other) =>
-      other is TsdmAppPluginInfo && other.version == version && other.api == api && other.nodoc == nodoc;
+      other is TsdmAppPluginInfo &&
+      other.version == version &&
+      other.api == api &&
+      other.nodoc == nodoc &&
+      other.preview == preview;
 
   @override
-  int get hashCode => Object.hash(version, api, nodoc);
+  int get hashCode => Object.hash(version, api, nodoc, preview);
 
   @override
-  String toString() => 'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc)';
+  String toString() => 'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview)';
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part

@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.d
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
+import 'package:tsdm_client/features/thread_preview/widgets/thread_preview_section.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -40,6 +41,7 @@ class _CardLayout extends StatelessWidget {
   const _CardLayout({
     required this.threadID,
     required this.title,
+    this.preview,
     this.forum,
     this.author,
     this.publishTime,
@@ -60,6 +62,9 @@ class _CardLayout extends StatelessWidget {
 
   final String threadID;
   final String title;
+
+  /// The excerpt and the thumbnail of the first floor (the forum's app API, plugin 3.1.0), under the title.
+  final ThreadPreview? preview;
   final String? forum;
   final ThreadType? threadType;
   final User? author;
@@ -373,6 +378,9 @@ class _CardLayout extends StatelessWidget {
     final infoRowAlignCenter = state.settingsMap.threadCardInfoRowAlignCenter;
     final showLastReplyAuthor = state.settingsMap.threadCardShowLastReplyAuthor;
     final highlightInfoRow = state.settingsMap.threadCardHighlightInfoRow;
+    final showExcerpt = state.settingsMap.threadCardShowExcerpt;
+    final thumbnailMode = state.settingsMap.threadThumbnailMode;
+    final externalImages = state.settingsMap.threadCardExternalThumbnails;
 
     return _wrapWithCard(
       context,
@@ -401,6 +409,18 @@ class _CardLayout extends StatelessWidget {
               ],
             ),
           ),
+          if (ThreadPreviewSection.shows(
+            preview,
+            showExcerpt: showExcerpt,
+            thumbnailMode: thumbnailMode,
+            externalImages: externalImages,
+          ))
+            ThreadPreviewSection(
+              preview!,
+              showExcerpt: showExcerpt,
+              thumbnailMode: thumbnailMode,
+              externalImages: externalImages,
+            ),
           if (quotedMessage != null)
             Padding(
               padding: edgeInsetsL16R16B12,
@@ -428,7 +448,10 @@ class _CardLayout extends StatelessWidget {
             pm.threadCardShowLastReplyAuthor != cm.threadCardShowLastReplyAuthor ||
             pm.threadCardHighlightRecentThread != cm.threadCardHighlightRecentThread ||
             pm.threadCardHighlightAuthorName != cm.threadCardHighlightAuthorName ||
-            pm.threadCardHighlightInfoRow != cm.threadCardHighlightInfoRow;
+            pm.threadCardHighlightInfoRow != cm.threadCardHighlightInfoRow ||
+            pm.threadCardShowExcerpt != cm.threadCardShowExcerpt ||
+            pm.threadCardThumbnailMode != cm.threadCardThumbnailMode ||
+            pm.threadCardExternalThumbnails != cm.threadCardExternalThumbnails;
       },
       builder: _buildContent,
     );
@@ -456,6 +479,7 @@ class NormalThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID,
       title: thread.title,
+      preview: thread.preview,
       author: thread.author,
       publishTime: thread.publishDate,
       threadType: thread.threadType,
@@ -491,6 +515,7 @@ class SearchedThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: '${thread.threadID}',
       title: thread.title,
+      preview: thread.preview,
       forum: thread.forumName,
       author: thread.author,
       publishTime: thread.publishTime,
@@ -511,6 +536,7 @@ class MyThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID,
       title: thread.title,
+      preview: thread.preview,
       forum: thread.forumName,
       stateSet: thread.stateSet,
       // The date as the forum prints it (its wall clock); the info row tells the same time relative to now.
@@ -541,6 +567,7 @@ class LatestThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID!,
       title: thread.title!,
+      preview: thread.preview,
       author: thread.latestReplyAuthor,
       // FIXME: Do not use thread type to represent forum.
       threadType: ThreadType(name: thread.forumName!, url: thread.forumUrl!),

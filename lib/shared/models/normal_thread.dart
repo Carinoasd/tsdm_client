@@ -230,6 +230,7 @@ class NormalThread with NormalThreadMappable {
     required this.css,
     required this.stateSet,
     required this.isRecentThread,
+    this.preview,
   });
 
   /// Build a [NormalThread] from a thread row [t] of a structured forum page answer of the forum's app API (plugin
@@ -262,6 +263,8 @@ class NormalThread with NormalThreadMappable {
   /// * States: the sticky level, closed (`closed` 1, or a moved thread: `moved` is the tid it points to), poll
   ///   (`special` 1), rewarded (`special` 3), rated up (`rate` > 0), attachment (`attachment` 1 a file, 2 an image:
   ///   both the picture state, as [fromTBody] does), digest (`digest` > 0).
+  /// * `preview` (plugin 3.1.0, asked with `tsdmpreview=1`) is the [preview] of the row ([ThreadPreview.fromApi]),
+  ///   null when the row has none.
   factory NormalThread.fromApi(
     Map<String, dynamic> t, {
     required int fid,
@@ -352,6 +355,7 @@ class NormalThread with NormalThreadMappable {
       css: css,
       stateSet: stateSet,
       isRecentThread: _apiInt(t['istoday']) == 1,
+      preview: ThreadPreview.fromApi(t['preview']),
     );
   }
 
@@ -426,6 +430,10 @@ class NormalThread with NormalThreadMappable {
   ///
   /// If so, thread name is highlighted.
   final bool isRecentThread;
+
+  /// The excerpt and the images of the first floor the forum's app API gave for the row (plugin 3.1.0), null when it
+  /// gave none (the web page, an older plugin, a list asked without the parameter).
+  final ThreadPreview? preview;
 
   /// Build a [NormalThread] model with the given [uh.Element]
   ///
