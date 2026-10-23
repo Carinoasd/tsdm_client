@@ -228,14 +228,19 @@ final class NetClientProvider with LoggerMixin {
   /// Make a GET request to [path], with options set to image types.
   ///
   /// [headers] are added to the request (the `Referer` the forum's captcha asks for).
+  ///
+  /// [onReceiveProgress] is told the bytes received so far and the size of the answer (-1 when unknown) while it
+  /// downloads, for the progress of an image being loaded.
   AsyncEither<Response<dynamic>> getImage(
     String path, {
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    ProgressCallback? onReceiveProgress,
   }) => AsyncEither.tryCatch(() async {
     final resp = await _dio.get<dynamic>(
       path,
       queryParameters: queryParameters,
+      onReceiveProgress: onReceiveProgress,
       options: Options(
         responseType: ResponseType.bytes,
         headers: {

@@ -555,6 +555,13 @@
         "title": "滚动时收起顶栏",
         "detail": "在帖子页向下滚动时收起顶栏和导航路径，向上滚动时再出现"
       },
+      "postImageAutoLoad": {
+        "title": "帖子图片自动加载",
+        "detail": "只影响帖子楼层里的图片：不自动加载的图片显示占位，点击才加载；已缓存的图片照常显示",
+        "always": "总是",
+        "wifiOnly": "仅 Wi-Fi",
+        "never": "不自动（点击加载）"
+      },
       "threadFloorInteractionMode": {
         "title": "帖子楼层交互方式",
         "detail": "点击帖子页面中的楼层时如何响应",
@@ -1467,6 +1474,12 @@
     "usage": "用途",
     "fitToScreen": "适应屏幕"
   },
+  "imageGallery": {
+    "counter": "${index: int} / ${total: int}",
+    "percent": "${value: int}%",
+    "failedTapToRetry": "加载失败，点击重试",
+    "tapToLoad": "点击加载图片"
+  },
   "forumCard": {
     "links": "链接",
     "subForums": "子版块",
@@ -1803,7 +1816,11 @@
     "saveImage": "保存图片",
     "imageSaved": "图片已保存至 ${filePath: String}",
     "failedToSaveImage": "无法保存图片",
-    "saveAsSticker": "存到我的图片"
+    "saveAsSticker": "存到我的图片",
+    "shareImage": "分享图片",
+    "failedToShareImage": "无法分享图片",
+    "openInBrowser": "在浏览器中打开",
+    "failedToOpenInBrowser": "无法打开浏览器"
   },
   "init": {
     "v1DeleteLegacyData": {

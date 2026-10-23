@@ -32,8 +32,12 @@ class CachedImage extends StatefulWidget {
     this.fit,
     this.tag,
     this.enableAnimation = true,
+    this.cacheOnly = false,
+    this.placeholderBuilder,
+    this.errorBuilder,
+    this.onImageSize,
     super.key,
-  }) : _imageProvider = CachedImageProvider(imageUrl);
+  }) : _imageProvider = CachedImageProvider(imageUrl, cacheOnly: cacheOnly);
 
   /// Image to fetch url.
   ///
@@ -72,6 +76,26 @@ class CachedImage extends StatefulWidget {
   /// Default is true.
   final bool enableAnimation;
 
+  /// Only show the image when it is cached already, never fetch it ([CachedImageProvider.cacheOnly]); [errorBuilder]
+  /// shows what is there instead when it is not.
+  final bool cacheOnly;
+
+  /// What shows until the image is there instead of the default placeholder, with the progress of its download: null
+  /// before the first bytes arrived, and while it is read from the cache.
+  ///
+  /// With it the image is only built once its first frame is decoded, then at once: the placeholder keeps its place
+  /// until then.
+  final Widget Function(BuildContext context, ImageChunkEvent? progress)? placeholderBuilder;
+
+  /// What shows when the image did not load, with [placeholderBuilder]; `retry` loads it again (a failed load stays in
+  /// the image cache, nothing would ask again otherwise).
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)? errorBuilder;
+
+  /// Told the size of the image once its first frame is decoded, with [placeholderBuilder]: its pixels as decoded, and
+  /// whether it was decoded narrower than it is (no wider than shown, [boundDecodeToDisplay]). May be called while
+  /// building: it must not rebuild anything.
+  final void Function(Size size, {required bool downscaled})? onImageSize;
+
   /// Image provider to render the content.
   late final CachedImageProvider _imageProvider;
 
@@ -94,8 +118,178 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
 
   Future<void> onImageResponse(ImageCacheResponse resp) async {
     if (mounted && resp is ImageCacheLoadingResponse) {
+      // Loaded again while shown (reloaded from the image sheet): what comes is shown, see below.
+      _reloading = _loaded;
       await widget._imageProvider.evict();
     }
+    if (!mounted || widget.placeholderBuilder == null || resp is! ImageCacheSuccessResponse) {
+      return;
+    }
+    // The image is in the cache now: read again when it was reloaded while shown, or did not load here (a picture only
+    // shown when cached, loaded by another widget meanwhile).
+    if (_reloading || _error != null) {
+      _reloading = false;
+      await _reload();
+    }
+  }
+
+  void _listenToCache() {
+    unawaited(imageSub?.cancel());
+    imageSub = getIt
+        .get<ImageCacheProvider>()
+        .response
+        .where((e) => e.respType == ImageCacheResponseType.general && e.imageId == widget.imageUrl)
+        .listen((resp) async => onImageResponse(resp));
+  }
+
+  /// The provider of the image built last (resized as shown).
+  ImageProvider? _shownImageProvider;
+
+  /// The image was asked again since it was shown ([onImageResponse]).
+  bool _reloading = false;
+
+  /// The image as resolved for [CachedImage.placeholderBuilder]: its stream, and what it told so far.
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  ImageProvider? _provider;
+  bool _loaded = false;
+  ImageChunkEvent? _progress;
+  Object? _error;
+
+  /// The listener is being added: what it is told at once (an image or an error in the image cache already) comes while
+  /// building, only the fields are set.
+  bool _adding = false;
+
+  /// Load the image again: the load in the image cache goes first, a failed one would only fail again.
+  Future<void> _reload() async {
+    final provider = _provider;
+    await provider?.evict();
+    await widget._imageProvider.evict();
+    if (!mounted) {
+      return;
+    }
+    setState(_unwatch);
+  }
+
+  /// Stop following [stream] once its first frame is shown (see [_watch]); [_stream] stays, so the same image is not
+  /// watched again.
+  void _detach(ImageStream stream) {
+    if (!identical(stream, _stream) || !_loaded) {
+      return;
+    }
+    if (_listener case final listener?) {
+      stream.removeListener(listener);
+    }
+    _listener = null;
+  }
+
+  void _unwatch() {
+    if (_listener case final listener?) {
+      _stream?.removeListener(listener);
+    }
+    _stream = null;
+    _listener = null;
+    _provider = null;
+    _loaded = false;
+    _progress = null;
+    _error = null;
+  }
+
+  /// Follow the loading of [provider]: what [CachedImage.placeholderBuilder] shows, and the size of the image.
+  ///
+  /// Called while building: a listener called at once (an image already in the image cache) only sets the fields.
+  void _watch(ImageProvider provider) {
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    if (_stream != null && stream.key == _stream!.key) {
+      return;
+    }
+    _unwatch();
+    _provider = provider;
+    final decodeWidth = provider is ResizeImage ? provider.width : null;
+    final listener = ImageStreamListener(
+      (info, synchronousCall) {
+        final image = info.image;
+        final first = !_loaded;
+        if (first) {
+          widget.onImageSize?.call(
+            Size(image.width.toDouble(), image.height.toDouble()),
+            downscaled: decodeWidth != null && image.width >= decodeWidth,
+          );
+        }
+        info.dispose();
+        if (!first || !mounted) {
+          return;
+        }
+        if (synchronousCall || _adding) {
+          _loaded = true;
+          _progress = null;
+        } else {
+          setState(() {
+            _loaded = true;
+            _progress = null;
+          });
+        }
+        // The image built from now on follows the stream itself: an animation does not tell every frame here too.
+        // Detached once that image is built, so the stream is never left without a listener meanwhile.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _detach(stream));
+      },
+      onChunk: (event) {
+        if (!mounted || _loaded) {
+          return;
+        }
+        if (_adding) {
+          _progress = event;
+        } else {
+          setState(() => _progress = event);
+        }
+      },
+      onError: (e, st) {
+        if (!mounted) {
+          return;
+        }
+        if (widget.cacheOnly) {
+          // Not cached is all it says. The image cache keeps a failed load: a thread of pictures only shown when cached
+          // would leave one there for each.
+          scheduleMicrotask(() async => provider.evict());
+        } else {
+          handleRaw(e, st);
+        }
+        if (_adding) {
+          _error = e;
+        } else {
+          setState(() => _error = e);
+        }
+      },
+    );
+    _stream = stream;
+    _listener = listener;
+    _adding = true;
+    try {
+      stream.addListener(listener);
+    } finally {
+      _adding = false;
+    }
+  }
+
+  /// [image] once it is there, [CachedImage.placeholderBuilder] until then, [CachedImage.errorBuilder] when it did not
+  /// load.
+  Widget _buildWatched(BuildContext context, Image image) {
+    // A failed load is only tried again on purpose ([_reload]): asked again at every build, it would fail again.
+    if (_error == null) {
+      _watch(image.image);
+    }
+    if (_error case final error?) {
+      return widget.errorBuilder?.call(context, error, _reload) ??
+          FallbackPicture(
+            fit: widget.fit,
+            width: widget.width ?? widget.maxWidth,
+            height: widget.height ?? widget.maxHeight,
+          );
+    }
+    if (!_loaded) {
+      return widget.placeholderBuilder!(context, _progress);
+    }
+    return image;
   }
 
   @override
@@ -104,16 +298,27 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
     if (tmpImpellerWorkaroundUrls.contains(widget.imageUrl)) {
       return;
     }
-    imageSub = getIt
-        .get<ImageCacheProvider>()
-        .response
-        .where((e) => e.respType == ImageCacheResponseType.general && e.imageId == widget.imageUrl)
-        .listen((resp) async => onImageResponse(resp));
+    _listenToCache();
+  }
+
+  @override
+  void didUpdateWidget(CachedImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.cacheOnly != widget.cacheOnly ||
+        (oldWidget.placeholderBuilder == null) != (widget.placeholderBuilder == null)) {
+      _unwatch();
+      _reloading = false;
+    }
+    if (oldWidget.imageUrl != widget.imageUrl && !tmpImpellerWorkaroundUrls.contains(widget.imageUrl)) {
+      _listenToCache();
+    }
   }
 
   @override
   void dispose() {
     unawaited(imageSub?.cancel());
+    _unwatch();
     super.dispose();
   }
 
@@ -132,7 +337,7 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
         height: widget.height ?? widget.maxHeight,
       );
     } else {
-      body = Image(
+      final image = Image(
         // Decode no larger than the image is shown: a 4000px picture in a post used to be decoded whole and
         // uploaded to the GPU at full size, which stuttered the scroll and ate memory.
         image: ResizeImage.resizeIfNeeded(
@@ -155,7 +360,12 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
         width: widget.width,
         height: widget.height,
         errorBuilder: (context, e, st) {
-          handleRaw(e, st);
+          if (widget.cacheOnly) {
+            // Only not cached (a preview): nothing to log; the miss leaves the image cache, it is asked again next time.
+            unawaited(_shownImageProvider?.evict());
+          } else {
+            handleRaw(e, st);
+          }
           final picture = FallbackPicture(
             fit: widget.fit,
             width: widget.width ?? widget.maxWidth,
@@ -214,6 +424,8 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
           );
         },
       );
+      _shownImageProvider = image.image;
+      body = widget.placeholderBuilder == null ? image : _buildWatched(context, image);
     }
 
     return ConstrainedBox(

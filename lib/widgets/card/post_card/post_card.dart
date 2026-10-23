@@ -8,6 +8,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -21,6 +22,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
@@ -296,8 +298,23 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     );
   }
 
+  /// The pictures of the floor's content shown now, for the gallery a tap on one opens.
+  late final _floorImages = FloorImages(widget.post.attachments);
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.post.attachments, widget.post.attachments)) {
+      _floorImages.updateAttachments(widget.post.attachments);
+    }
+  }
+
   Widget _buildPostBody(BuildContext context) {
     final interactionMode = context.read<SettingsBloc>().state.settingsMap.threadFloorInteractionMode;
+    // When the pictures of the floor load by themselves (the data saver).
+    final imageAutoLoad = PostImageAutoLoad.fromIndex(
+      context.select<SettingsBloc, int>((e) => e.state.settingsMap.postImageAutoLoad),
+    );
     // The experimental app renderer draws the floor from its bbcode where it can (off by default: the html as before).
     final appRenderer = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.enableAppPostRenderer);
     // Line height and paragraphs of the content as the reader set them (a taller line and a gap between paragraphs by
@@ -312,11 +329,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             padding: edgeInsetsL16R16,
             child: PostTypographyScope(
               typography: typography,
-              child: widget.post.isSpoofed
-                  ? const _ContentUnavailable()
-                  : appRenderer
-                  ? PostBbcodeBody(widget.post)
-                  : MunchedHtml(widget.post.data),
+              child: PostImageScope(
+                images: _floorImages,
+                autoLoad: imageAutoLoad,
+                child: widget.post.isSpoofed
+                    ? const _ContentUnavailable()
+                    : appRenderer
+                    ? PostBbcodeBody(widget.post)
+                    : MunchedHtml(widget.post.data),
+              ),
             ),
           ),
         ),

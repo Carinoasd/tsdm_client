@@ -555,6 +555,13 @@
         "title": "Hide app bar when scrolling",
         "detail": "Hide the app bar and the breadcrumbs when scrolling down a thread, show them again when scrolling up"
       },
+      "postImageAutoLoad": {
+        "title": "Load images in posts automatically",
+        "detail": "Only the pictures of the floors of threads: one not loaded automatically shows a placeholder and loads when tapped; cached pictures always show",
+        "always": "Always",
+        "wifiOnly": "Wi-Fi only",
+        "never": "Never (tap to load)"
+      },
       "threadFloorInteractionMode": {
         "title": "Interaction on thread floor",
         "detail": "Interaction on floors in thread page",
@@ -1467,6 +1474,12 @@
     "usage": "Usage",
     "fitToScreen": "Fit to screen"
   },
+  "imageGallery": {
+    "counter": "${index: int} / ${total: int}",
+    "percent": "${value: int}%",
+    "failedTapToRetry": "Failed to load, tap to retry",
+    "tapToLoad": "Tap to load image"
+  },
   "forumCard": {
     "links": "Links",
     "subForums": "Subreddit",
@@ -1803,7 +1816,11 @@
     "saveImage": "Save image",
     "imageSaved": "Image saved at ${filePath: String}",
     "failedToSaveImage": "Failed to save image",
-    "saveAsSticker": "Save to my images"
+    "saveAsSticker": "Save to my images",
+    "shareImage": "Share image",
+    "failedToShareImage": "Failed to share image",
+    "openInBrowser": "Open in browser",
+    "failedToOpenInBrowser": "Failed to open the browser"
   },
   "init": {
     "v1DeleteLegacyData": {

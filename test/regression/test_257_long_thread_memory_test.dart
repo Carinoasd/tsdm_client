@@ -304,7 +304,8 @@ void main() {
       await show(tester, cache, []);
       await show(tester, cache, ['<p>above</p>', html]);
       await settle(tester, rounds: 2);
-      await tester.tap(
+      // A long press opens the image sheet (a tap opens the gallery of the floor).
+      await tester.longPress(
         find.descendant(of: find.byType(MunchedHtml).at(1), matching: find.byType(GestureDetector)).first,
       );
       for (var i = 0; i < 5; i++) {

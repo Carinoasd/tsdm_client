@@ -1124,7 +1124,7 @@ void main() {
       expect(imageFileNameOf('https://img.example/a/photo.jpg', webp, now: now), 'photo.webp');
       expect(imageFileNameOf('https://img.example/a/anim', gif, now: now), 'anim.gif');
       expect(imageFileNameOf('https://img.example/', png, now: now), 'tsdm_client_image_42.png');
-      expect(imageFileNameOf('https://img.example/x.bmp', Uint8List(4), now: now), 'x.bmp');
+      expect(imageFileNameOf('https://img.example/x.bmp', Uint8List(4), now: now), 'x.jpg');
       expect(imageFileNameOf('https://img.example/x', Uint8List(4), now: now), 'x.jpg');
     });
   });

@@ -42,6 +42,7 @@ import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
@@ -52,6 +53,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -544,6 +546,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final enableBBCodeParser = state.settingsMap.enableEditorBBCodeParser;
     final threadFloorInteractionMode = state.settingsMap.threadFloorInteractionMode;
     final collapseAppBarWhenScroll = state.settingsMap.collapseAppBarWhenScroll;
+    final postImageAutoLoad = PostImageAutoLoad.fromIndex(state.settingsMap.postImageAutoLoad);
 
     return AppTileGroup(
       title: tr.title,
@@ -588,6 +591,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: collapseAppBarWhenScroll,
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.collapseAppBarWhenScroll, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-post-image-auto-load'),
+          leading: const Icon(Icons.image_outlined),
+          title: Text(tr.postImageAutoLoad.title),
+          subtitle: Text(postImageAutoLoadLabel(context, postImageAutoLoad)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final result = await showSelectPostImageAutoLoad(context, postImageAutoLoad);
+            if (result == null || !context.mounted) return;
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.postImageAutoLoad, result.index));
+          },
         ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.code_outlined),

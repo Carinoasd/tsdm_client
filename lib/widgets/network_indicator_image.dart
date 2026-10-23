@@ -13,6 +13,10 @@ class NetworkIndicatorImage extends StatelessWidget {
     this.minWidth,
     this.minHeight,
     this.fit,
+    this.cacheOnly = false,
+    this.placeholderBuilder,
+    this.errorBuilder,
+    this.onImageSize,
     super.key,
   });
 
@@ -40,6 +44,18 @@ class NetworkIndicatorImage extends StatelessWidget {
   /// How the image is fitted into its box; null keeps the image's default (scaled down only, never enlarged).
   final BoxFit? fit;
 
+  /// See [CachedImage.cacheOnly].
+  final bool cacheOnly;
+
+  /// See [CachedImage.placeholderBuilder].
+  final Widget Function(BuildContext context, ImageChunkEvent? progress)? placeholderBuilder;
+
+  /// See [CachedImage.errorBuilder].
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)? errorBuilder;
+
+  /// See [CachedImage.onImageSize].
+  final void Function(Size size, {required bool downscaled})? onImageSize;
+
   @override
   Widget build(BuildContext context) => CachedImage(
     src,
@@ -50,5 +66,9 @@ class NetworkIndicatorImage extends StatelessWidget {
     minWidth: minWidth,
     minHeight: minHeight,
     fit: fit,
+    cacheOnly: cacheOnly,
+    placeholderBuilder: placeholderBuilder,
+    errorBuilder: errorBuilder,
+    onImageSize: onImageSize,
   );
 }

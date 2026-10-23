@@ -69,6 +69,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreads = false,
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
+    this.postImageAutoLoad = 0,
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
   });
@@ -188,6 +189,10 @@ class SettingsMap with SettingsMapMappable {
   /// backups from older versions lack it.
   final String homepagePinnedGroup;
 
+  /// When the pictures of the posts load by themselves, the index of a `PostImageAutoLoad`. Not required: backups from
+  /// older versions lack it.
+  final int postImageAutoLoad;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -261,6 +266,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableAppPostRenderer => copyWith(enableAppPostRenderer: value as bool?),
       SettingsKeys.homepagePinnedGroup => copyWith(homepagePinnedGroup: value as String?),
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
+      SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
     };
   }
 }

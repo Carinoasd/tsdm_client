@@ -35,3 +35,7 @@ final class ImageCacheUserAvatarRequest extends ImageCacheRequest with ImageCach
   @override
   String get imageId => username;
 }
+
+/// The progress of an image downloading: the bytes received so far, and the size of the image (null when the server
+/// does not tell).
+typedef ImageLoadProgress = void Function(int received, int? total);
