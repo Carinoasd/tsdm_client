@@ -140,6 +140,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
           tid: state.tid,
           pid: state.pid,
           pageNumber: event.pageNumber,
+          pageFallback: event.pageFallback,
           onlyVisibleUid: state.onlyVisibleUid,
           reverseOrder: state.reverseOrder,
           exactOrder: state.exactOrder,
@@ -392,7 +393,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
       needLogin: info.needLogin,
       threadSoftClosed: info.threadSoftClosed,
       threadClosed: info.threadClosed,
-      postList: [...previousPosts, ...info.postList],
+      postList: appendFloors(previousPosts, info.postList),
       threadType: info.threadType,
       onlyVisibleUid: (clearOnlyVisibleUid ?? false) ? null : state.onlyVisibleUid,
       reverseOrder: state.reverseOrder,
@@ -409,4 +410,17 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
 
     return threadState;
   });
+}
+
+/// The floors [loaded] appended to the floors [previous] on screen, without the floors already there (by pid): a page
+/// loaded twice (asked again after a failure, or its floors moved to the next page by new replies or deleted ones)
+/// showed its floors twice. A hot reply is kept, once as such: it is on the first page (numbered -1) and once more
+/// where it really is.
+List<Post> appendFloors(List<Post> previous, List<Post> loaded) {
+  if (previous.isEmpty) {
+    return loaded;
+  }
+  String keyOf(Post post) => '${post.hot ? 'hot' : 'floor'}:${post.postID}';
+  final seen = previous.map(keyOf).toSet();
+  return [...previous, ...loaded.where((e) => e.postID.isEmpty || seen.add(keyOf(e)))];
 }

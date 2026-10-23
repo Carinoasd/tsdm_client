@@ -12,7 +12,8 @@ enum SearchStatus {
   success,
 
   /// Load failed.
-  failed;
+  failed
+  ;
 
   /// Is in searching.
   bool isSearching() => this == SearchStatus.loading;
@@ -32,6 +33,9 @@ class SearchState with SearchStateMappable {
     this.pageNumber = 1,
     this.hasNextPage = false,
     this.hasPreviousPage = false,
+    this.failedMessage,
+    this.retryAfterSeconds,
+    this.failedAt,
   });
 
   /// Status.
@@ -60,4 +64,15 @@ class SearchState with SearchStateMappable {
 
   /// Search result.
   final SearchResult? searchResult;
+
+  /// The forum's own words when the last search failed with them (too frequent, expired, no permission), null for
+  /// any other failure (the network).
+  final String? failedMessage;
+
+  /// The forum allows one search in so many seconds and the last one came too early ([searchRateLimitSeconds]): the
+  /// seconds to wait from [failedAt]. Null for any other failure.
+  final int? retryAfterSeconds;
+
+  /// When the last search failed.
+  final DateTime? failedAt;
 }

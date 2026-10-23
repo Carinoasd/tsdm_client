@@ -137,10 +137,23 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
             showSnackBar(context: context, message: context.t.threadPage.replySuccess);
           } else if (state.status == ReplyStatus.failure) {
             final tr = context.t.threadPage;
+            final detailCubit = context.read<NotificationDetailCubit>();
             showSnackBar(
               context: context,
-              message: state.networkFailure ? tr.replyFailedNetwork : tr.replyFailed(err: state.failedReason ?? ''),
-              action: replyInBrowserAction(context, state.browserUrl),
+              message: state.maybeSent
+                  ? tr.replyMaybeSent
+                  : state.networkFailure
+                  ? tr.replyFailedNetwork
+                  : tr.replyFailed(err: state.failedReason ?? ''),
+              // The reply may be on the forum already: look before sending it again.
+              action: state.maybeSent
+                  ? SnackBarAction(
+                      label: tr.refreshToCheck,
+                      onPressed: () {
+                        if (!detailCubit.isClosed) unawaited(detailCubit.fetchDetail(widget.url));
+                      },
+                    )
+                  : replyInBrowserAction(context, state.browserUrl),
             );
           }
         },

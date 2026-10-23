@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -234,6 +235,66 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// * Editing thread draft.
   _UploadMethod uploadMethod = _UploadMethod.notYet;
 
+  /// The title and the post as loaded into the editor (an edit of an existing post or draft): leaving asks only when
+  /// they changed. A new thread asks whenever there is anything.
+  String? _loadedTitle;
+  String? _loadedBody;
+
+  /// The leave dialog is up.
+  bool _leaving = false;
+
+  /// Whether the editor holds content not sent yet that leaving would drop.
+  bool get _hasUnsentContent {
+    final title = threadTitleController.text;
+    final body = bbcodeController.toForumBBCode();
+    if (widget.editType == PostEditType.newThread) {
+      return title.trim().isNotEmpty || body.trim().isNotEmpty;
+    }
+    // Still loading: nothing typed yet.
+    if (_loadedTitle == null || _loadedBody == null) {
+      return false;
+    }
+    return title != _loadedTitle || body != _loadedBody;
+  }
+
+  /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent]) while it is being
+  /// edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep editing. Used to
+  /// drop the content right away.
+  Future<void> _onLeave(BuildContext context) async {
+    if (_leaving) {
+      return;
+    }
+    final bloc = context.read<PostEditBloc>();
+    final editing =
+        bloc.state.content != null &&
+        (bloc.state.status == PostEditStatus.editing || bloc.state.status == PostEditStatus.failedToUpload);
+    if (!editing || !_hasUnsentContent) {
+      context.pop();
+      return;
+    }
+    final canSaveDraft =
+        widget.editType.isEditingDraft && (bloc.state.content?.canSaveDraft ?? false) && bloc.canSubmit;
+    _leaving = true;
+    final LeaveEditChoice choice;
+    try {
+      choice = await showLeaveEditDialog(context, canSaveDraft: canSaveDraft);
+    } finally {
+      _leaving = false;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    switch (choice) {
+      case LeaveEditChoice.discard:
+        context.pop();
+      case LeaveEditChoice.saveDraft:
+        // Leaves by itself once the draft is saved; stays with the content when saving failed.
+        await _onFinish(context, bloc.state, saveDraft: true, confirmed: true);
+      case LeaveEditChoice.keepEditing:
+        break;
+    }
+  }
+
   static String _formatDataUrl({required String fid, required String tid, required String pid}) {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
   }
@@ -364,7 +425,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return null;
   }
 
-  Future<void> _onFinish(BuildContext context, PostEditState state, {bool saveDraft = false}) async {
+  /// [confirmed]: the user already chose to save the draft (when leaving the page), not asked again.
+  Future<void> _onFinish(
+    BuildContext context,
+    PostEditState state, {
+    bool saveDraft = false,
+    bool confirmed = false,
+  }) async {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
@@ -375,7 +442,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     }
     setState(() => _confirming = true);
     try {
-      if (widget.editType.isEditingDraft) {
+      if (widget.editType.isEditingDraft && !(saveDraft && confirmed)) {
         final tr = context.t.postEditPage.threadPublish;
         final ret = await showQuestionDialog(
           context: context,
@@ -848,6 +915,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           bbcodeController.setDocumentFromRawText(normalizeBlockMarkerNesting(data));
         }
       }
+      _loadedBody = bbcodeController.toForumBBCode();
       initialized = true;
     }
 
@@ -983,6 +1051,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     } else if (state.status == PostEditStatus.editing && !init) {
       threadTypeController.text = state.content?.threadType?.name ?? '  ';
       threadTitleController.text = _transfer?.subject ?? state.content?.threadTitle ?? '';
+      _loadedTitle = threadTitleController.text;
       // Update the length of chars user can still input.
       // Bytes of chars for title in utf-8 encoding.
       threadTitleRestLength =
@@ -1067,50 +1136,45 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       PostEditType.editPost || PostEditType.editDraft => context.t.postEditPage.editPostTitle,
     };
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
-          return;
-        }
-
-        // TODO: Control the pop back.
-        // * Return the value we need to pass the the caller route if writing
-        //   something new.
-        // * Let user confirm the pop back if editing something already existed.
-        // * If possible save the edit content into draft.
-        context.pop();
-      },
-      child: MultiBlocProvider(
-        providers: [
-          RepositoryProvider(
-            create: (context) => PostEditRepository(
-              client: getIt.get<NetClientProvider>(),
-              currentUid: () => context.read<AuthenticationRepository>().effectiveCurrentUid,
-            ),
+    return MultiBlocProvider(
+      providers: [
+        RepositoryProvider(
+          create: (context) => PostEditRepository(
+            client: getIt.get<NetClientProvider>(),
+            currentUid: () => context.read<AuthenticationRepository>().effectiveCurrentUid,
           ),
-          BlocProvider(
-            create: (context) {
-              final bloc = PostEditBloc(
-                postEditRepository: context.repo(),
-                authenticationChanges: context.read<AuthenticationRepository>().status,
-              );
+        ),
+        BlocProvider(
+          create: (context) {
+            final bloc = PostEditBloc(
+              postEditRepository: context.repo(),
+              authenticationChanges: context.read<AuthenticationRepository>().status,
+            );
 
-              final event = switch (widget.editType) {
-                PostEditType.editPost || PostEditType.editDraft => PostEditLoadDataRequested(
-                  _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!),
-                ),
-                PostEditType.newThread => ThreadPubFetchInfoRequested(fid: widget.fid),
-              };
-              bloc.add(event);
-              return bloc;
+            final event = switch (widget.editType) {
+              PostEditType.editPost || PostEditType.editDraft => PostEditLoadDataRequested(
+                _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!),
+              ),
+              PostEditType.newThread => ThreadPubFetchInfoRequested(fid: widget.fid),
+            };
+            bloc.add(event);
+            return bloc;
+          },
+        ),
+      ],
+      child: BlocConsumer<PostEditBloc, PostEditState>(
+        listener: (context, state) async => _onListen(context, state),
+        builder: (context, state) {
+          // Below the bloc: leaving asks what to do with content not sent yet, and may save it as a draft.
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) {
+                return;
+              }
+              await _onLeave(context);
             },
-          ),
-        ],
-        child: BlocConsumer<PostEditBloc, PostEditState>(
-          listener: (context, state) async => _onListen(context, state),
-          builder: (context, state) {
-            return Scaffold(
+            child: Scaffold(
               // Required by chat_bottom_container in the reply bar.
               resizeToAvoidBottomInset: false,
               appBar: AppBar(
@@ -1153,9 +1217,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 ],
               ),
               body: SafeArea(bottom: false, child: _buildBody(context, state)),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

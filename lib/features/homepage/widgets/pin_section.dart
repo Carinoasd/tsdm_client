@@ -137,7 +137,8 @@ class PinSection extends StatelessWidget {
     if (pinnedThreadGroup.isEmpty) {
       return sizedBoxEmpty;
     }
-    final textScaleFactor = context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.textScaleFactor);
+    // The text scale in effect: the system font size times the app's own scale (appTextScaler).
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(14) / 14;
     return _buildSection(context, textScaleFactor);
   }
 }

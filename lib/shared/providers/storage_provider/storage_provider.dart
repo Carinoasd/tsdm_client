@@ -470,7 +470,10 @@ class StorageProvider with LoggerMixin {
   /*            image cache           */
 
   /// Get the image cache for image from [url].
-  ImageEntity? getImageCacheSync(String url) => _imageCache.entries.firstWhereOrNull((e) => e.key == url)?.value;
+  ///
+  /// A lookup by key: the table holds every cached image (a hundred thousand rows are no exception), and walking it
+  /// for every image shown slowed the first frame down.
+  ImageEntity? getImageCacheSync(String url) => _imageCache[url];
 
   /// Get user avatar cache info on [username].
   Future<UserAvatarEntity?> getUserAvatarEntityCache({required String username, required String? imageUrl}) async =>

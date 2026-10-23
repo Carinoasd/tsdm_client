@@ -233,8 +233,9 @@ final class ReplyRepository with LoggerMixin {
       'stand': ?stand?.toString(),
     };
 
+    // Posted once: a transport retry would post the reply twice.
     final respEither2 = await netClient
-        .postForm(formatReplyPostUrl(replyParameters.fid, replyParameters.tid), data: formData)
+        .postForm(formatReplyPostUrl(replyParameters.fid, replyParameters.tid), data: formData, singleAttempt: true)
         .run();
     return _postedReplyOf(respEither2, browserUrl: replyAction.prependHost());
   });
@@ -388,9 +389,10 @@ final class ReplyRepository with LoggerMixin {
     if (replyParameters.postTime != null) {
       formData['posttime'] = replyParameters.postTime.toString();
     }
+    // Posted once: a transport retry would post the reply twice.
     final respEither = await getIt
         .get<NetClientProvider>()
-        .postForm(formatReplyThreadUrl(replyParameters.fid, replyParameters.tid), data: formData)
+        .postForm(formatReplyThreadUrl(replyParameters.fid, replyParameters.tid), data: formData, singleAttempt: true)
         .run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
@@ -430,7 +432,8 @@ final class ReplyRepository with LoggerMixin {
   }) => _reportSent(() async {
     final formData = <String, String>{'message': toOfficialMentions(message), 'formhash': formHash};
 
-    final e = await getIt.get<NetClientProvider>().postForm(targetUrl, data: formData).run();
+    // Sent once: a transport retry would send the message twice.
+    final e = await getIt.get<NetClientProvider>().postForm(targetUrl, data: formData, singleAttempt: true).run();
     if (e.isLeft()) {
       return left(e.unwrapErr());
     }
@@ -469,7 +472,11 @@ final class ReplyRepository with LoggerMixin {
   /// Return the pmid if send message succeed which is used to show the new
   /// generated message.
   AsyncVoidEither replyPersonalMessage(String touid, Map<String, String> formData) => _reportSent(() async {
-    final e = await getIt.get<NetClientProvider>().postForm(formatSendMessageUrl(touid), data: formData).run();
+    // Sent once: a transport retry would send the message twice.
+    final e = await getIt
+        .get<NetClientProvider>()
+        .postForm(formatSendMessageUrl(touid), data: formData, singleAttempt: true)
+        .run();
     if (e.isLeft()) {
       return left(e.unwrapErr());
     }

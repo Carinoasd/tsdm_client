@@ -161,7 +161,8 @@
     "now": "刚刚",
     "settings": "设置",
     "openInBrowser": "在浏览器中打开",
-    "close": "关闭"
+    "close": "关闭",
+    "loadMoreFailed": "加载更多失败"
   },
   "navigation": {
     "homepage": "主页",
@@ -413,7 +414,11 @@
         "granted": "已允许",
         "denied": "未允许",
         "permanentlyDenied": "已永久拒绝",
-        "openSettingsTip": "系统不再弹出权限对话框。请打开应用设置页，在那里开启通知后再回来。"
+        "openSettingsTip": "系统不再弹出权限对话框。请打开应用设置页，在那里开启通知后再回来。",
+        "promptTitle": "允许通知？",
+        "promptMessage": "开启后，新的提醒、私信和公共消息会显示为系统通知。接下来系统会询问是否允许通知；之后也可以在“设置 → 通知权限”中更改。",
+        "promptAllow": "继续",
+        "promptLater": "以后再说"
       },
       "ignoreBatteryOptimizations": {
         "title": "忽略电池优化",
@@ -429,8 +434,8 @@
         }
       },
       "collapseAppBarWhenScroll": {
-        "title": "滑动时收起AppBar",
-        "detail": "分区和帖子页面中收起"
+        "title": "滚动时收起顶栏",
+        "detail": "在帖子页向下滚动时收起顶栏和导航路径，向上滚动时再出现"
       },
       "threadFloorInteractionMode": {
         "title": "帖子楼层交互方式",
@@ -835,6 +840,9 @@
     "replySuccess": "回复成功",
     "replyFailed": "回复失败：$err",
     "replyFailedNetwork": "回复失败：网络不可用，请检查网络后重试",
+    "replyMaybeSent": "回复结果不明：可能已发出，请刷新确认后再决定是否重发",
+    "refreshToCheck": "刷新",
+    "lastFloorReached": "已到最后一楼",
     "replyNeedsVerification": "这个版块回复需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中回复。",
     "replyNeedsBrowser": "这个回复表单有 App 暂不支持的栏位，请在浏览器中回复。",
     "replyInBrowser": "在浏览器中回复",
@@ -969,7 +977,12 @@
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
-      "noData": "没有数据"
+      "noData": "没有数据",
+      "hint": "输入关键字、作者或论坛 id 后搜索",
+      "failed": "搜索失败：$message",
+      "rateLimited": "论坛限制每 $seconds 秒只能搜索一次",
+      "retryIn": "$seconds 秒后再试",
+      "retry": "再试一次"
     }
   },
   "myThreadPage": {
@@ -1136,6 +1149,13 @@
     },
     "editSuccess": "编辑成功",
     "saveAsDraft": "保存草稿",
+    "leaveDialog": {
+      "title": "要离开编辑吗？",
+      "message": "当前的内容还没有发出。",
+      "discard": "舍弃",
+      "saveDraft": "存草稿",
+      "keepEditing": "继续编辑"
+    },
     "threadPublish": {
       "title": "发布新帖",
       "warningBeforePost": {
@@ -1188,7 +1208,10 @@
     "online": "[在线]",
     "offline": "[离线]",
     "viewUserSpaceTip": "查看用户资料",
-    "viewChatHistoryTip": "查看历史聊天"
+    "viewChatHistoryTip": "查看历史聊天",
+    "failedNetwork": "发送失败：网络不可用，请检查网络后重试",
+    "maybeSent": "发送结果不明：可能已发出，请刷新确认后再决定是否重发",
+    "refresh": "刷新"
   },
   "imageDetailPage": {
     "title": "图片详情",

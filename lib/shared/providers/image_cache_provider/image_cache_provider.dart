@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/painting.dart' as painting;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_avif/flutter_avif.dart';
@@ -102,6 +103,22 @@ final class ImageCacheProvider with LoggerMixin {
   /// Kept in memory only: after a restart the url is tried again, and the entry always resolves to whatever avatar is
   /// cached for the user at that moment, so a new avatar is never hidden behind an old one.
   final _avatarWithoutFile = <String, String>{};
+
+  /// Avatar urls the server answered 404 for, with no avatar cached for the user to show instead: not asked again
+  /// until the app restarts (or the image is reloaded on purpose, `force`). Every card of such an author asked the
+  /// server again on every build, and a thread list is full of authors without an uploaded avatar.
+  final _missingAvatarUrls = <String>{};
+
+  /// Whether [e] is the server's 404 for an image.
+  static bool _isNotFound(Object e) => switch (e) {
+    HttpRequestFailedException(statusCode: HttpStatus.notFound) => true,
+    HttpHandshakeFailedException(statusCode: HttpStatus.notFound) => true,
+    _ => false,
+  };
+
+  /// Whether the avatar at [url] answered 404 before in this run (see [_missingAvatarUrls]).
+  @visibleForTesting
+  bool isKnownMissingAvatar(String url) => _missingAvatarUrls.contains(url);
 
   /// The avatar cached for [username] when [imageUrl] is known to have no file on the server.
   ///
@@ -235,6 +252,12 @@ final class ImageCacheProvider with LoggerMixin {
       }
     }
 
+    if (req is ImageCacheUserAvatarRequest && !force && _missingAvatarUrls.contains(imageUrl)) {
+      // The server has no file there (404 earlier in this run) and the user has no avatar cached either.
+      _controller.add(ImageCacheFailedResponse(imageId, respType));
+      return const Option.none();
+    }
+
     if (_loadingImages.contains(imageUrl)) {
       // If already loading, do nothing.
       final x = await response.firstWhere(
@@ -330,6 +353,9 @@ final class ImageCacheProvider with LoggerMixin {
           _controller.add(ImageCacheSuccessResponse(imageId, respType, value));
           return Option.of(value);
         }
+      }
+      if (req is ImageCacheUserAvatarRequest && _isNotFound(e)) {
+        _missingAvatarUrls.add(imageUrl);
       }
       _controller.add(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();

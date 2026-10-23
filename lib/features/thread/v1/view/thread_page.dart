@@ -32,6 +32,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -69,6 +70,7 @@ class ThreadPage extends StatefulWidget {
     this.title,
     this.threadType,
     this.onlyVisibleUid,
+    this.lastPost = false,
     super.key,
   }) : assert(threadID != null || findPostID != null, 'MUST provide threadID or findPostID');
 
@@ -135,9 +137,17 @@ class ThreadPage extends StatefulWidget {
   /// Only watch the floors posted by the user with uid [onlyVisibleUid].
   final String? onlyVisibleUid;
 
+  /// Open on the last floor (`goto=lastpost`): the last page, asked as a page past it ([lastPageAsked]) that the forum
+  /// answers with its last page, scrolled to its last floor; [pageNumber] is not used.
+  final bool lastPost;
+
   @override
   State<ThreadPage> createState() => _ThreadPageState();
 }
+
+/// The page asked for to open a thread on its last floor ([ThreadPage.lastPost]): past the last page of any thread,
+/// the forum answers its last page and says which one it is.
+const lastPageAsked = 99999;
 
 /// Upper bound of the combined text scale (global text scale times thread content scale) applied to floors.
 const threadContentMaxTextScale = 3.0;
@@ -148,9 +158,17 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   final _replyBarController = ReplyBarController();
 
+  /// Shown part of the app bar and the breadcrumbs: hidden while scrolling down the floors (the
+  /// `collapseAppBarWhenScroll` setting), shown again when scrolling up.
+  late final AnimationController _appBarController;
+  late final AppBarCollapser _appBarCollapser;
+
   /// Floor to scroll to when the thread reloads after a reply or edit. Read by the next
   /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
   String? _scrollToPidOnReload;
+
+  /// Scroll to the last floor once the first load succeeds ([ThreadPage.lastPost]).
+  late bool _landOnLastPost = widget.lastPost;
 
   /// Tid whose first page was asked for to learn who started the thread, see [_threadAuthorOf].
   String? _resolvedTid;
@@ -392,7 +410,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         return (
           title: neutral,
           body: _AuthorLookupFailure(
-            onRetry: () => context.read<ThreadBloc>().add(ThreadLoadMoreRequested(state.currentPage)),
+            onRetry: () => context.read<ThreadBloc>().add(_retryLoad(state)),
           ),
         );
       case ThreadStatus.success:
@@ -648,27 +666,30 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               // One line width for all the floors, measured in the width they have (the safe area left out), taken
               // once the width settles.
               child: PostLineWidth(
-                child: PostList(
-                  threadID: state.tid ?? widget.threadID,
-                  title: state.title ?? widget.title,
-                  pageNumber: context.read<JumpPageCubit>().state.currentPage,
-                  initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
-                  scrollController: _listScrollController,
-                  // Posts of locally blocked users become placeholders in place, the floors keep their positions.
-                  widgetBuilder: (context, post) => BlockAwarePost(
-                    post: post,
-                    postList: state.postList,
-                    builder: (context, post) => PostCard(
-                      post,
-                      replyCallback: replyPostCallback,
-                      onEdited: () => _scrollToPidOnReload = post.postID,
-                      onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _appBarCollapser.onNotification,
+                  child: PostList(
+                    threadID: state.tid ?? widget.threadID,
+                    title: state.title ?? widget.title,
+                    pageNumber: context.read<JumpPageCubit>().state.currentPage,
+                    initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
+                    scrollController: _listScrollController,
+                    // Posts of locally blocked users become placeholders in place, the floors keep their positions.
+                    widgetBuilder: (context, post) => BlockAwarePost(
+                      post: post,
+                      postList: state.postList,
+                      builder: (context, post) => PostCard(
+                        post,
+                        replyCallback: replyPostCallback,
+                        onEdited: () => _scrollToPidOnReload = post.postID,
+                        onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                      ),
                     ),
+                    useDivider: true,
+                    postList: state.postList,
+                    canLoadMore: state.canLoadMore,
+                    latestModAct: state.latestModAct,
                   ),
-                  useDivider: true,
-                  postList: state.postList,
-                  canLoadMore: state.canLoadMore,
-                  latestModAct: state.latestModAct,
                 ),
               ),
             ),
@@ -708,6 +729,28 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     return TextScaler.linear(math.min(globalScale * threadScale, threadContentMaxTextScale));
   }
 
+  /// Reload the floors where a reply that may have been stored would be: the first page of a thread shown newest
+  /// first, its last page otherwise (the page after it, when the reply opened a new one, loads from there).
+  void _reloadToCheckReply() {
+    final threadBloc = _threadBloc;
+    if (!mounted || threadBloc == null || threadBloc.isClosed) {
+      return;
+    }
+    final threadState = threadBloc.state;
+    final newestFirst =
+        threadState.exactOrder == 1 || (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
+    if (newestFirst) {
+      threadBloc.add(ThreadRefreshRequested());
+    } else {
+      threadBloc.add(ThreadJumpPageRequested(threadState.totalPages));
+    }
+  }
+
+  /// Ask the page that failed to load again: the last page while the page still opens on the last floor.
+  ThreadLoadMoreRequested _retryLoad(ThreadState state) => _landOnLastPost
+      ? const ThreadLoadMoreRequested(lastPageAsked, pageFallback: 1)
+      : ThreadLoadMoreRequested(state.currentPage);
+
   /// Body of the page; everything but the content (which handles the insets per part) stays in the safe area.
   Widget _buildBody(BuildContext context, ThreadState state) {
     Widget safe(Widget child) => SafeArea(bottom: false, child: child);
@@ -737,7 +780,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state),
       ThreadStatus.failure => safe(
         buildRetryButton(context, () {
-          context.read<ThreadBloc>().add(ThreadLoadMoreRequested(state.currentPage));
+          context.read<ThreadBloc>().add(_retryLoad(state));
         }),
       ),
       ThreadStatus.success => _buildContent(context, state),
@@ -761,6 +804,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    // Created here, not lazily: a page that never shows the bar (a blocked thread) still disposes it.
+    _appBarController = AnimationController(vsync: this, duration: duration200, value: 1);
+    _appBarCollapser = AppBarCollapser(_appBarController);
     _accountSub = listenAccountChanges(
       context.read<AuthenticationRepository>(),
       // Nothing to clear: the floors stay readable while logging in.
@@ -774,6 +820,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     _authorLookup++;
     unawaited(_accountSub?.cancel());
     _listScrollController.dispose();
+    _appBarController.dispose();
     super.dispose();
   }
 
@@ -789,14 +836,20 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         RepositoryProvider<ThreadRepository>(create: (_) => ThreadRepository(offline: _offline)),
         RepositoryProvider<ReplyRepository>(create: (_) => const ReplyRepository()),
         BlocProvider(
-          create: (context) => _threadBloc = ThreadBloc(
-            tid: widget.threadID,
-            pid: widget.findPostID,
-            onlyVisibleUid: widget.onlyVisibleUid,
-            threadRepository: context.repo(),
-            reverseOrder: widget.overrideReverseOrder ? threadReverseOrder : null,
-            exactOrder: widget.overrideWithExactOrder,
-          )..add(ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1)),
+          create: (context) => _threadBloc =
+              ThreadBloc(
+                tid: widget.threadID,
+                pid: widget.findPostID,
+                onlyVisibleUid: widget.onlyVisibleUid,
+                threadRepository: context.repo(),
+                reverseOrder: widget.overrideReverseOrder ? threadReverseOrder : null,
+                exactOrder: widget.overrideWithExactOrder,
+              )..add(
+                widget.lastPost
+                    // A web page without a pager is the only page of the thread.
+                    ? const ThreadLoadMoreRequested(lastPageAsked, pageFallback: 1)
+                    : ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1),
+              ),
         ),
         BlocProvider(
           create: (context) => ReplyBloc(
@@ -815,6 +868,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 // A reload (for example after a reply) failed: the posts stay on screen, only tell the user.
                 showSnackBar(context: context, message: context.t.general.failedToLoad);
               }
+              if (state.status == ThreadStatus.loading && state.postList.isEmpty) {
+                // A reload starts the floors over from the top: with the bar.
+                _appBarCollapser.show();
+              }
 
               // Update reply parameters to reply bar.
               context.read<ReplyBloc>().add(ReplyParametersUpdated(state.replyParameters));
@@ -828,6 +885,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
+                if (_landOnLastPost) {
+                  _landOnLastPost = false;
+                  // Read by the post list built for this state, see [_scrollToPidOnReload].
+                  _scrollToPidOnReload = state.postList.lastOrNull?.postID;
+                }
               }
             },
           ),
@@ -861,11 +923,18 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 final tr = context.t.threadPage;
                 showSnackBar(
                   context: context,
-                  message: state.networkFailure ? tr.replyFailedNetwork : tr.replyFailed(err: state.failedReason ?? ''),
+                  message: state.maybeSent
+                      ? tr.replyMaybeSent
+                      : state.networkFailure
+                      ? tr.replyFailedNetwork
+                      : tr.replyFailed(err: state.failedReason ?? ''),
                   // The editor and the keyboard stay open on failure and this page does not resize for the keyboard
                   // (`resizeToAvoidBottomInset: false`), so lift the hint above it.
                   bottomInset: MediaQuery.viewInsetsOf(context).bottom,
-                  action: replyInBrowserAction(context, state.browserUrl),
+                  // The reply may be on the forum already: look before sending it again.
+                  action: state.maybeSent
+                      ? SnackBarAction(label: tr.refreshToCheck, onPressed: _reloadToCheckReply)
+                      : replyInBrowserAction(context, state.browserUrl),
                 );
               }
             },
@@ -875,8 +944,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           builder: (context, state) {
             // Update jump page state.
             context.read<JumpPageCubit>().setPageInfo(totalPages: state.totalPages, currentPage: state.currentPage);
-            final textScaleExtraBreadHeight = context.select<SettingsBloc, double>(
-              (bloc) => 1 * math.max(0, (bloc.state.settingsMap.textScaleFactor - 1) / 0.1),
+            // The text scale in effect: the system font size times the app's own scale (appTextScaler).
+            final textScaleExtraBreadHeight = math.max<double>(
+              0,
+              (MediaQuery.textScalerOf(context).scale(14) / 14 - 1) / 0.1,
             );
 
             // A thread started by a locally blocked user shows nothing of it, not even the title; neither does a
@@ -911,68 +982,90 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   'pid=${widget.findPostID}';
             }
 
-            return Scaffold(
-              // Required by chat_bottom_container in the reply bar.
-              resizeToAvoidBottomInset: false,
-              appBar: ListAppBar(
-                title: title,
-                bottom: PreferredSize(
-                  preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
-                  child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
-                ),
-                showReverseOrderAction: true,
-                onJumpPage: (pageNumber) async {
-                  if (!mounted) {
-                    return;
-                  }
-                  // Mark loading here.
-                  // Mark state will be removed when loading finishes
-                  // in next build.
-                  context.read<JumpPageCubit>().markLoading();
-                  context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
-                },
-                onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
-                onCopyUrl: () async => copyToClipboard(context, threadUrl!),
-                onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
-                onBackToTop: () async =>
-                    _listScrollController.animateTo(0, curve: Curves.ease, duration: const Duration(milliseconds: 500)),
-                onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
-                customMenuItems: [
-                  if (state.tid != null) ...[
-                    // Favorite and share need the network: not offered on floors read back offline.
-                    if (!state.isOffline)
-                      MenuCustomItem(
-                        icon: isThreadFavorited(context, tid: state.tid!)
-                            ? Icons.bookmark_remove_outlined
-                            : Icons.bookmark_add_outlined,
-                        description: isThreadFavorited(context, tid: state.tid!)
-                            ? context.t.threadPage.favorite.remove
-                            : context.t.threadPage.favorite.add,
-                        onSelected: () async {
-                          final changed = await toggleThreadFavorite(context, tid: state.tid!);
-                          if (changed && mounted) {
-                            // Relabel the menu item.
-                            setState(() {});
-                          }
-                        },
-                      ),
-                    if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
-                      MenuCustomItem(
-                        icon: Icons.forward_to_inbox_outlined,
-                        description: context.t.threadPage.shareToFriend.title,
-                        onSelected: () async => shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
-                      ),
-                    MenuCustomItem(
-                      icon: Icons.numbers_outlined,
-                      description: context.t.threadPage.copyTid(tid: state.tid!),
-                      onSelected: () async => copyToClipboard(context, state.tid!),
-                    ),
-                  ],
-                ],
+            _appBarCollapser.enabled = context.select<SettingsBloc, bool>(
+              (bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll,
+            );
+            if (!_appBarCollapser.enabled && _appBarController.value < 1) {
+              // Turned off while the bar was hidden: show it again, not from inside this build.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _appBarCollapser.show();
+              });
+            }
+            final appBar = ListAppBar(
+              title: title,
+              bottom: PreferredSize(
+                preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
+                child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
               ),
-              // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
-              // The content's text-scale override must not restore the outer status-bar padding.
-              body: Builder(builder: (bodyContext) => _buildBody(bodyContext, state)),
+              showReverseOrderAction: true,
+              onJumpPage: (pageNumber) async {
+                if (!mounted) {
+                  return;
+                }
+                // Mark loading here.
+                // Mark state will be removed when loading finishes
+                // in next build.
+                context.read<JumpPageCubit>().markLoading();
+                context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
+              },
+              onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+              onCopyUrl: () async => copyToClipboard(context, threadUrl!),
+              onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
+              onBackToTop: () async {
+                _appBarCollapser.show();
+                await _listScrollController.animateTo(
+                  0,
+                  curve: Curves.ease,
+                  duration: const Duration(milliseconds: 500),
+                );
+              },
+              onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
+              customMenuItems: [
+                if (state.tid != null) ...[
+                  // Favorite and share need the network: not offered on floors read back offline.
+                  if (!state.isOffline)
+                    MenuCustomItem(
+                      icon: isThreadFavorited(context, tid: state.tid!)
+                          ? Icons.bookmark_remove_outlined
+                          : Icons.bookmark_add_outlined,
+                      description: isThreadFavorited(context, tid: state.tid!)
+                          ? context.t.threadPage.favorite.remove
+                          : context.t.threadPage.favorite.add,
+                      onSelected: () async {
+                        final changed = await toggleThreadFavorite(context, tid: state.tid!);
+                        if (changed && mounted) {
+                          // Relabel the menu item.
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                    MenuCustomItem(
+                      icon: Icons.forward_to_inbox_outlined,
+                      description: context.t.threadPage.shareToFriend.title,
+                      onSelected: () async => shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                    ),
+                  MenuCustomItem(
+                    icon: Icons.numbers_outlined,
+                    description: context.t.threadPage.copyTid(tid: state.tid!),
+                    onSelected: () async => copyToClipboard(context, state.tid!),
+                  ),
+                ],
+              ],
+            );
+            // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
+            // The content's text-scale override must not restore the outer status-bar padding.
+            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));
+            // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
+            // not rebuilt.
+            return AnimatedBuilder(
+              animation: _appBarController,
+              builder: (context, _) => Scaffold(
+                // Required by chat_bottom_container in the reply bar.
+                resizeToAvoidBottomInset: false,
+                appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
+                body: body,
+              ),
             );
           },
         ),

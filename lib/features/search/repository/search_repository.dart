@@ -28,6 +28,23 @@ Map<String, String> buildSearchQuery({
   if (pageNumber > 1) 'page': '$pageNumber',
 };
 
+/// Seconds to wait before searching again, when the forum's refusal [message] says the search came too early: "抱歉，
+/// 您在 20 秒内只能进行一次搜索" (the site's `searchctrl`, 20 seconds on TSDM) gives its seconds, "搜索过于频繁" and the
+/// site's searches per minute limit ("每分钟系统最多响应搜索请求") 20 and 60. Null for any other message.
+int? searchRateLimitSeconds(String message) {
+  final seconds = RegExp(r'(\d+)\s*秒内只能进行一次搜索').firstMatch(message)?.group(1);
+  if (seconds != null) {
+    return int.tryParse(seconds);
+  }
+  if (message.contains('每分钟') && message.contains('搜索')) {
+    return 60;
+  }
+  if (message.contains('过于频繁') || message.contains('只能进行一次搜索')) {
+    return 20;
+  }
+  return null;
+}
+
 /// Repository of searching.
 ///
 /// Uses the Discuz built-in forum search `search.php?mod=forum` because the old plugin `Kahrpba:search` is gone.

@@ -45,13 +45,20 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
     if (state.status == ForumStatus.failure) {
       // Restoring from failure state.
       emit(state.copyWith(status: ForumStatus.loading, pollOfferUid: null));
+    } else if (state.loadMoreFailed) {
+      emit(state.copyWith(loadMoreFailed: false));
     }
     await await _forumRepository
         .fetchForum(fid: state.fid, pageNumber: event.pageNumber, filterState: state.filterState)
         .match((e) {
           handle(e);
+          if (state.status == ForumStatus.success && state.normalThreadList.isNotEmpty) {
+            // Going on with the list failed: the threads on screen stay, the end of the list offers the retry.
+            emit(state.copyWith(loadMoreFailed: true));
+            return;
+          }
           emit(state.copyWith(status: ForumStatus.failure, pollOfferUid: null));
-        }, (v) async => emit(_loadedMore(v, event.pageNumber)))
+        }, (v) async => emit(_loadedMore(v, event.pageNumber).copyWith(loadMoreFailed: false)))
         .run();
   }
 
@@ -77,7 +84,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
 
   Future<void> _onForumRefreshRequested(ForumRefreshRequested event, ForumEmitter emit) async {
     _askedPage = 1;
-    emit(state.copyWith(status: ForumStatus.loading, normalThreadList: [], pollOfferUid: null));
+    emit(state.copyWith(status: ForumStatus.loading, normalThreadList: [], pollOfferUid: null, loadMoreFailed: false));
 
     await await _forumRepository.fetchForum(fid: state.fid, filterState: state.filterState).match((e) {
       handle(e);
@@ -88,7 +95,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
 
   Future<void> _onForumJumpPageRequested(ForumJumpPageRequested event, ForumEmitter emit) async {
     _askedPage = event.pageNumber;
-    emit(state.copyWith(status: ForumStatus.loading, normalThreadList: [], pollOfferUid: null));
+    emit(state.copyWith(status: ForumStatus.loading, normalThreadList: [], pollOfferUid: null, loadMoreFailed: false));
     await await _forumRepository
         .fetchForum(fid: state.fid, pageNumber: event.pageNumber, filterState: state.filterState)
         .match((e) {
@@ -110,6 +117,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
         normalThreadList: [],
         filterState: event.filterState,
         pollOfferUid: null,
+        loadMoreFailed: false,
       ),
     );
     await await _forumRepository.fetchForum(fid: state.fid, filterState: state.filterState).match((e) {

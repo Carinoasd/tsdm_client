@@ -194,8 +194,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// Auto clear outdated image cache.
   ///
-  /// Default is disabled, to match the old behavior.
-  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: false),
+  /// On by default: the cache table is read whole at start, and one that only grew slowed the first frame down. A
+  /// value saved before (on or off) stays what it was.
+  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: true),
 
   /// Duration of an image cache considered as outdated for auto clear, in seconds.
   ///
@@ -204,8 +205,8 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Default is 7 days = 60 * 60 * 24 * 7.
   autoClearImageCacheDuration<int>(name: 'autoClearImageCacheDuration', type: int, defaultValue: 60 * 60 * 24 * 7),
 
-  /// Collapse app bar when scroll in pages we want to do it, for example forum page and thread page where app bar
-  /// holds more spaces and user shall have more space to focus on contents in UI.
+  /// Hide the app bar and the breadcrumbs of the thread page while scrolling down the floors, show them again when
+  /// scrolling up: more room for the floors.
   collapseAppBarWhenScroll<bool>(name: 'collapseAppBarWhenScroll', type: bool, defaultValue: true),
 
   /// Interaction mode on thread floors.
@@ -281,6 +282,11 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Kept by title, the groups have no other stable key; empty or a title the homepage no longer has selects the first
   /// group. One value for every account.
   homepagePinnedGroup<String>(name: 'homepagePinnedGroup', type: String, defaultValue: ''),
+
+  /// The card explaining the notification permission was shown once (after a login or on the first visit of the
+  /// notice page): those never ask again, only turning the auto sync or the background service on in the settings
+  /// does.
+  notificationPermissionPrompted<bool>(name: 'notificationPermissionPrompted', type: bool, defaultValue: false),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

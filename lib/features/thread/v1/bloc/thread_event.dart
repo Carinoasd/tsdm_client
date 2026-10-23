@@ -15,10 +15,15 @@ final class ThreadRefreshRequested extends ThreadEvent with ThreadRefreshRequest
 @MappableClass()
 final class ThreadLoadMoreRequested extends ThreadEvent with ThreadLoadMoreRequestedMappable {
   /// Constructor.
-  const ThreadLoadMoreRequested(this.pageNumber) : super();
+  const ThreadLoadMoreRequested(this.pageNumber, {this.pageFallback}) : super();
 
   /// Page number to load.
   final int pageNumber;
+
+  /// The page the answer is when it does not tell its page (a web page without a pager is the only page of the
+  /// thread), [pageNumber] when null. Set when asking past the last page on purpose (`goto=lastpost`): the forum
+  /// answers its last page.
+  final int? pageFallback;
 }
 
 /// User request to jump to another page.

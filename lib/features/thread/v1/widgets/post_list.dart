@@ -10,9 +10,9 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// A widget that retrieve data from network and supports refresh.
@@ -262,17 +262,18 @@ class _PostListState extends State<PostList> with LoggerMixin {
         }
         context.read<ThreadBloc>().add(ThreadRefreshRequested());
       },
-      onLoad: () async {
-        if (!mounted) {
-          return;
-        }
-        if (!widget.canLoadMore) {
-          showNoMoreSnackBar(context);
-          _refreshController.finishLoad();
-          return;
-        }
-        context.read<ThreadBloc>().add(ThreadLoadMoreRequested(context.read<JumpPageCubit>().state.currentPage + 1));
-      },
+      // On the last page there is nothing to pull: the end of the list says so ([_LastFloorFooter]) instead of a snack
+      // bar at every pull.
+      onLoad: widget.canLoadMore
+          ? () async {
+              if (!mounted) {
+                return;
+              }
+              // The page after the last one loaded, not after the one in view: scrolled back up into an earlier page,
+              // the next page of that one was loaded a second time.
+              context.read<ThreadBloc>().add(ThreadLoadMoreRequested(context.read<ThreadBloc>().state.currentPage + 1));
+            }
+          : null,
       childBuilder: (context, physics) {
         return Listener(
           // The user taking over ends the settle hold of [_scrollToInitialPost].
@@ -319,10 +320,41 @@ class _PostListState extends State<PostList> with LoggerMixin {
                 ),
               ),
               _buildPostList(),
+              if (!widget.canLoadMore && widget.postList.isNotEmpty)
+                const SliverToBoxAdapter(child: _LastFloorFooter()),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// The end of the floors on the last page of the thread.
+class _LastFloorFooter extends StatelessWidget {
+  const _LastFloorFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.outline;
+    return Padding(
+      key: const ValueKey('thread-last-floor-footer'),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline, size: 18, color: color),
+          sizedBoxW4H4,
+          Flexible(
+            child: Text(
+              // The global translations: they need no TranslationProvider above the list.
+              t.threadPage.lastFloorReached,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

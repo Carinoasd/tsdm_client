@@ -58,6 +58,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentSplitLongParagraphs = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
+    this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
@@ -117,6 +118,7 @@ class SettingsMap with SettingsMapMappable {
   final bool enableAutoClearImageCache;
   final int autoClearImageCacheDuration;
   final bool collapseAppBarWhenScroll;
+  final bool notificationPermissionPrompted;
   final ThreadFloorInteractionMode threadFloorInteractionMode;
   final double textScaleFactor;
   final double threadContentScale;
@@ -224,6 +226,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
       SettingsKeys.enableAppPostRenderer => copyWith(enableAppPostRenderer: value as bool?),
       SettingsKeys.homepagePinnedGroup => copyWith(homepagePinnedGroup: value as String?),
+      SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
     };
   }
 }

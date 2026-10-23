@@ -13,10 +13,13 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -513,8 +516,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
     await getIt.get<SettingsRepository>().setValue(SettingsKeys.enableBackgroundMessageService, enable);
-    if (enable) {
-      unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+    if (enable && context.mounted) {
+      unawaited(
+        askNotificationPermission(
+          context,
+          trigger: NotificationPermissionTrigger.settings,
+          loggedIn: context.readOrNull<AuthenticationRepository>()?.currentUser != null,
+          cubit: _permissionCubit,
+        ),
+      );
     }
     if (!context.mounted) return;
     await _applyBackgroundSyncSettings(context);
@@ -534,6 +544,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final threadReverseOrder = state.settingsMap.threadReverseOrder;
     final enableBBCodeParser = state.settingsMap.enableEditorBBCodeParser;
     final threadFloorInteractionMode = state.settingsMap.threadFloorInteractionMode;
+    final collapseAppBarWhenScroll = state.settingsMap.collapseAppBarWhenScroll;
 
     return AppTileGroup(
       title: tr.title,
@@ -558,6 +569,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (!context.mounted) return;
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadFloorInteractionMode, result));
           },
+        ),
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.vertical_align_top_outlined),
+          title: Text(tr.collapseAppBarWhenScroll.title),
+          subtitle: Text(tr.collapseAppBarWhenScroll.detail),
+          value: collapseAppBarWhenScroll,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.collapseAppBarWhenScroll, v)),
         ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.code_outlined),
@@ -625,7 +644,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (seconds == null || !context.mounted) return;
             if (seconds > 0) {
               context.read<AutoNotificationCubit>().start(Duration(seconds: seconds));
-              unawaited(_permissionCubit.requestNotification(openSettingsWhenPermanentlyDenied: false));
+              unawaited(
+                askNotificationPermission(
+                  context,
+                  trigger: NotificationPermissionTrigger.settings,
+                  loggedIn: context.readOrNull<AuthenticationRepository>()?.currentUser != null,
+                  cubit: _permissionCubit,
+                ),
+              );
             } else {
               context.read<AutoNotificationCubit>().stop();
             }
