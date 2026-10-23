@@ -146,7 +146,7 @@ Iterable<BbNode> _all(List<BbNode> nodes) sync* {
         for (final item in items) {
           yield* _all(item);
         }
-      case BbText() || BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider():
+      case BbText() || BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider() || BbVideo():
         break;
     }
   }

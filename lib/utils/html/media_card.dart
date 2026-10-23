@@ -111,6 +111,148 @@ final class PostMedia {
   /// `div.media_container`), null when the script does not say.
   static String? scriptPlayerTarget(String script) => _detectPlayerRe.firstMatch(script)?.namedGroup('id');
 
+  /// The video of bilibili the player at the end of the message of a floor plays on the web page: the forum's
+  /// `videohub` plugin puts one after the content of a floor's message cell ([message], `td#postmessage_PID`) when it
+  /// links a video. Null when it links none.
+  ///
+  /// Found as the plugin finds it: in the order of the page, the first link (`<a href>`) or url in the text (bare urls
+  /// are not linked when the floor turns that off) to a video of bilibili (`http(s)://bilibili.com/video/BV…`, also
+  /// `www.` and `m.`, the `BV` id of 10 characters, at most one `p` for the part) that is seen: not in a quote, code,
+  /// a hidden or locked block, a player, a script or a form's field, nor hidden ([isHidden]: by default, the `hidden`
+  /// attribute and `display: none` or `visibility: hidden` in its `style`; the html renderer also knows the style
+  /// sheets). It is opened as the plugin's link opens it, `https://www.bilibili.com/video/BV…/?p=N`.
+  static PostMedia? bilibiliVideoOf(uh.Element message, {bool Function(uh.Element element)? isHidden}) {
+    final hidden = isHidden ?? _hiddenByStyle;
+    var budget = _videoNodeBudget;
+    Uri? walk(uh.Node node) {
+      for (final child in node.nodes) {
+        if (--budget < 0) {
+          return null;
+        }
+        if (child is uh.Element) {
+          if (_videoSkipped(child) || hidden(child)) {
+            continue;
+          }
+          if (child.localName == 'a') {
+            // A link is its address, not its text.
+            final video = _bilibiliVideo(child.attributes['href']);
+            if (video != null) {
+              return video;
+            }
+            continue;
+          }
+          final found = walk(child);
+          if (found != null || budget < 0) {
+            return found;
+          }
+        } else if (child.nodeType == uh.Node.TEXT_NODE) {
+          for (final match in _videoTextUrlRe.allMatches(child.text ?? '')) {
+            final video = _bilibiliVideo(match.group(0)!.replaceFirst(_videoTrailingRe, ''));
+            if (video != null) {
+              return video;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    try {
+      if (hidden(message)) {
+        return null;
+      }
+      final url = walk(message);
+      return url == null ? null : PostMedia(kind: PostMediaKind.video, url: url);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Most nodes of a message looked at for its video, as the plugin.
+  static const _videoNodeBudget = 6000;
+
+  /// Whether the plugin does not look for a video in [element] (nor in what it holds).
+  static bool _videoSkipped(uh.Element element) =>
+      _videoSkippedTags.contains(element.localName) ||
+      element.classes.any(_videoSkippedClasses.contains) ||
+      element.attributes.containsKey('hidden') ||
+      element.attributes['aria-hidden'] == 'true' ||
+      element.attributes['contenteditable'] == 'true';
+
+  static const _videoSkippedTags = {
+    'script',
+    'style',
+    'textarea',
+    'input',
+    'button',
+    'iframe',
+    'video',
+    'audio',
+    'pre',
+    'code',
+    'blockquote',
+  };
+
+  /// A quote, a code block, a locked or hidden block, the notice of attachments not allowed, the plugin's player.
+  static const _videoSkippedClasses = {
+    'quote',
+    'blockcode',
+    'locked',
+    'showhide',
+    'hidecontent',
+    'attach_nopermission',
+    'vh-post-embed',
+  };
+
+  static bool _hiddenByStyle(uh.Element element) => _hiddenStyleRe.hasMatch(element.attributes['style'] ?? '');
+
+  static final _hiddenStyleRe = RegExp(
+    r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*(hidden|collapse))\b',
+    caseSensitive: false,
+  );
+
+  /// A url in text, as the plugin finds one.
+  static final _videoTextUrlRe = RegExp(r"""https?://[^\s<>"'\[\]（）。，；！]+""");
+
+  /// The punctuation a sentence puts after a url, not part of it.
+  static final _videoTrailingRe = RegExp(r'[),.;!?]+$');
+
+  /// The page of the video of bilibili [value] is (see [bilibiliVideoOf]), null when it is none.
+  static Uri? _bilibiliVideo(String? value) {
+    if (value == null || value.length > 2048 || _videoUnsafeRe.hasMatch(value)) {
+      return null;
+    }
+    try {
+      final uri = Uri.tryParse(value);
+      if (uri == null ||
+          !(uri.isScheme('http') || uri.isScheme('https')) ||
+          !_bilibiliHosts.contains(uri.host.toLowerCase()) ||
+          uri.userInfo.isNotEmpty ||
+          uri.hasPort) {
+        return null;
+      }
+      final id = _bilibiliPathRe.firstMatch(uri.path)?.group(1);
+      if (id == null) {
+        return null;
+      }
+      final pages = uri.queryParametersAll['p'] ?? const <String>[];
+      final page = pages.isEmpty ? '1' : pages.first;
+      if (pages.length > 1 || !_bilibiliPageRe.hasMatch(page) || int.parse(page) > 65535) {
+        return null;
+      }
+      return Uri.parse('https://www.bilibili.com/video/$id/?p=${int.parse(page)}');
+    } on FormatException {
+      // A query that cannot be read (`%zz`).
+      return null;
+    }
+  }
+
+  /// Control characters, white space and backslashes: an address with any is not taken.
+  static final _videoUnsafeRe = RegExp(r'[\x00-\x20\x7f\\]');
+  static const _bilibiliHosts = {'bilibili.com', 'www.bilibili.com', 'm.bilibili.com'};
+  static final _bilibiliPathRe = RegExp(r'^/video/(BV[1-9A-HJ-NP-Za-km-z]{10})/?$');
+  static final _bilibiliPageRe = RegExp(r'^[1-9][0-9]{0,4}$');
+
   /// Types of `[media]` (the second argument of its script) that play sound only.
   static const _audioPlayerTypes = {'mp3', 'wma', 'ra', 'rm', 'ram', 'm4a', 'ogg', 'wav'};
 

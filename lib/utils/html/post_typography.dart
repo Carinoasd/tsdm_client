@@ -215,17 +215,27 @@ class _PostLineWidthScope extends InheritedWidget {
 /// The html renderer lays its text out with it where there is one, and as the body text where there is none.
 class PostTypographyScope extends InheritedWidget {
   /// Constructor.
-  const PostTypographyScope({required this.typography, required super.child, super.key});
+  const PostTypographyScope({required this.typography, required super.child, this.postContent = true, super.key});
 
   /// How the post content below is laid out.
   final PostTypography typography;
+
+  /// The html below is a post's content: shown with the forum's style sheet for posts, its links underlined and only
+  /// those out of the forum marked, the player of its video at the end of its message. False for html only laid out
+  /// as a post's content is (the rules of a forum, a self introduction), shown as before otherwise.
+  final bool postContent;
 
   /// The [PostTypography] of [context], null outside post content.
   static PostTypography? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PostTypographyScope>()?.typography;
 
+  /// Whether [context] is in a post's content ([postContent]).
+  static bool isPostContent(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PostTypographyScope>()?.postContent ?? false;
+
   @override
-  bool updateShouldNotify(PostTypographyScope oldWidget) => typography != oldWidget.typography;
+  bool updateShouldNotify(PostTypographyScope oldWidget) =>
+      typography != oldWidget.typography || postContent != oldWidget.postContent;
 }
 
 /// The space between two paragraphs in a rich text: a line break whose empty line is as tall as the spacing (a font

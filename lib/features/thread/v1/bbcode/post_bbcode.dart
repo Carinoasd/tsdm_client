@@ -7,6 +7,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:universal_html/parsing.dart';
 
 /// How a floor is shown by the experimental app renderer: drawn from its bbcode ([PostBbcodeRender]) or, whenever
@@ -260,6 +261,19 @@ final class BbDivider extends BbNode {
   bool get isBlock => true;
 }
 
+/// The player of the video of bilibili the message links, at its end: where the forum's videohub plugin puts it on the
+/// web page ([PostMedia.bilibiliVideoOf]), as the html renderer shows it.
+final class BbVideo extends BbNode {
+  /// Constructor.
+  const BbVideo(this.media);
+
+  /// The video.
+  final PostMedia media;
+
+  @override
+  bool get isBlock => true;
+}
+
 /// Whether the app renderer needs the smilies table for [post]: the forum turns its smiley codes into images
 /// (`smileyoff` 0 — the forum stores 1 for a post without any smiley code — and the forum allows smilies), with tags
 /// or without (`bbcodeoff` 1 does not stop the forum's smilies either).
@@ -463,7 +477,8 @@ const _tab = '\u00a0 \u00a0 \u00a0 \u00a0 ';
 /// * `bbcodeoff` 1: the text as it is, tags as text (no `[attach]` in it);
 /// * every tag is one of [postBbcodeSupportedTags] in lower case, with an attribute the forum takes, balanced,
 ///   not crossed, no `[quote]` or `[spoiler]` in another, no block in a link, no `[*]` outside a list;
-/// * `[img]` only where the forum shows images, on a host of its image whitelist when it has one; `[attach]aid[/attach]`
+/// * `[img]` only where the forum shows images, on a host of its image whitelist when it has one, not a path on the
+///   forum's site (`/img01/…`, which the forum prints on its image host); `[attach]aid[/attach]`
 ///   is the floor's attachment of that id (a locked one is drawn as a placeholder and nothing is fetched for it; an id
 ///   the answer does not list keeps the html), the first of the same id only, as the forum does; an id written with a
 ///   leading zero is dropped, as the forum drops it;
@@ -508,7 +523,11 @@ PostBbcodeDecision decidePostBbcode(Post post, {SmiliesTable? smilies}) {
       nodes = _applySmilies(nodes, smilies!, codes.maxSmilies);
     }
     nodes = _linkBareUrls(nodes);
-    return PostBbcodeRender(nodes: _trimEdges(nodes), htmlBefore: split.before, htmlAfter: split.after);
+    return PostBbcodeRender(
+      nodes: [..._trimEdges(nodes), if (split.video case final video?) BbVideo(video)],
+      htmlBefore: split.before,
+      htmlAfter: split.after,
+    );
   } on _Fallback catch (e) {
     return PostBbcodeFallback(e.reason);
   } on Object catch (e) {
@@ -518,8 +537,9 @@ PostBbcodeDecision decidePostBbcode(Post post, {SmiliesTable? smilies}) {
 }
 
 /// Cut the floor's html [html] around its message cell (`td#postmessage_PID` of floor [pid]): what comes before and
-/// after it, each empty when it shows nothing. Null when the cell is not there once.
-({String before, String after})? splitPostBodyHtml(String html, String pid) {
+/// after it, each empty when it shows nothing, and the video of bilibili the message links ([PostMedia.bilibiliVideoOf],
+/// shown at its end). Null when the cell is not there once.
+({String before, String after, PostMedia? video})? splitPostBodyHtml(String html, String pid) {
   const marker = '\uE00F';
   if (html.contains(marker)) {
     return null;
@@ -532,6 +552,7 @@ PostBbcodeDecision decidePostBbcode(Post post, {SmiliesTable? smilies}) {
   if (cells.length != 1) {
     return null;
   }
+  final video = PostMedia.bilibiliVideoOf(cells.single);
   cells.single.innerHtml = marker;
   final parts = body.innerHtml!.split(marker);
   if (parts.length != 2) {
@@ -545,7 +566,7 @@ PostBbcodeDecision decidePostBbcode(Post post, {SmiliesTable? smilies}) {
     return shows ? part : '';
   }
 
-  return (before: keep(parts[0]), after: keep(parts[1]));
+  return (before: keep(parts[0]), after: keep(parts[1]), video: video);
 }
 
 final class _Fallback implements Exception {
@@ -892,6 +913,11 @@ final class _Builder {
     if (url.length > 1 && url[1] == ':') {
       _fail('img-url');
     }
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      // A path on the forum's site (`/img01/medal/….gif`): the forum prints it with its image host
+      // (`https://img.tsdm39.com/img01/…`); the forum's own rule would make it `http:///img01/…`, a broken image.
+      _fail('img-relative');
+    }
     final lower = url.toLowerCase();
     if (lower.startsWith('static/') || lower.startsWith('data/')) {
       url = url.prependHost();
@@ -1100,7 +1126,7 @@ List<BbNode> _mapTexts(
         out.add(BbAlign(align, _mapTexts(children, map, inLink: inLink)));
       case BbList(:final type, :final items):
         out.add(BbList(type, [for (final item in items) _mapTexts(item, map, inLink: inLink)]));
-      case BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider():
+      case BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider() || BbVideo():
         out.add(node);
     }
   }
@@ -1122,7 +1148,7 @@ void _collectTexts(List<BbNode> nodes, List<BbText> into) {
         for (final item in items) {
           _collectTexts(item, into);
         }
-      case BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider():
+      case BbSmiley() || BbImage() || BbAttachment() || BbCodeBlock() || BbDivider() || BbVideo():
         break;
     }
   }
