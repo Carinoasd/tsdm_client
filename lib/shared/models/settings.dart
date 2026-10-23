@@ -126,6 +126,18 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   threadCardHighlightAuthorName<bool>(name: 'threadCardHighlightAuthorName', type: bool, defaultValue: true),
   threadCardHighlightInfoRow<bool>(name: 'threadCardHighlightInfoRow', type: bool, defaultValue: true),
 
+  /// Show the excerpt of the first floor under the title of a thread in the lists (the forum's app API, plugin 3.1.0).
+  threadCardShowExcerpt<bool>(name: 'threadCardShowExcerpt', type: bool, defaultValue: true),
+
+  /// When the thread lists show a thumbnail of the first floor's images (the forum's app API, plugin 3.1.0): the
+  /// index of a [ThreadThumbnailMode], 0 always, 1 on Wi-Fi only (the default), 2 never.
+  threadCardThumbnailMode<int>(name: 'threadCardThumbnailMode', type: int, defaultValue: 1),
+
+  /// Let the thumbnails of the thread lists load the images of other sites (`[img]` of the first floor), not only the
+  /// forum's attachments. Off by default: the site of such an image learns of everyone who scrolls past the thread,
+  /// while the web page only loads it once the thread is opened.
+  threadCardExternalThumbnails<bool>(name: 'threadCardExternalThumbnails', type: bool, defaultValue: false),
+
   /// Use network proxy config below or not.
   netClientUseProxy<bool>(name: 'netClientUseProxy', type: bool, defaultValue: false),
 
@@ -196,11 +208,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Detect system proxy settings when app startup and use the detected value.
   useDetectedProxyWhenStartup<bool>(name: 'useDetectedProxyWhenStartup', type: bool, defaultValue: false),
 
-  /// Auto clear outdated image cache.
+  /// Auto clear the image cache: the images not shown for [autoClearImageCacheDuration] and the least recently shown
+  /// ones beyond the size of the cache (`ImageCacheLimits`), the pictures of the offline thread pages kept.
   ///
-  /// Default is disabled, to match the old behavior: the clearing runs before the homepage shows and is slow on a
-  /// large cache.
-  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: false),
+  /// On by default: the clean up runs in the background long after the first frame and never holds the homepage
+  /// (`InitCubit.scheduleImageCacheTrim`). A value saved before (on or off) stays what it was.
+  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: true),
 
   /// Duration of an image cache considered as outdated for auto clear, in seconds.
   ///

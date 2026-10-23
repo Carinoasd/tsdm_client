@@ -41,6 +41,7 @@ part 'settings.dart';
 part 'settings_map.dart';
 part 'stick_thread.dart';
 part 'thread_perm.dart';
+part 'thread_preview.dart';
 part 'thread_special.dart';
 part 'thread_type.dart';
 part 'thread_visit_history_item.dart';

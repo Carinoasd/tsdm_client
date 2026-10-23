@@ -12,6 +12,7 @@ class SearchedThread with SearchedThreadMappable {
     required this.publishTime,
     required this.forumName,
     required this.forumUrl,
+    this.preview,
   });
 
   /// Build a [SearchedThread] from a thread row [t] of a structured search answer of the forum's app API (plugin
@@ -23,7 +24,8 @@ class SearchedThread with SearchedThreadMappable {
   /// url the thread's, the author a member by uid (an anonymous author, `anonymous` 1 or no `authorid`, has no uid
   /// and no link, as the page prints none), the forum from `fid` and `forum`. The publish time, shown as a date, is
   /// the forum's wall clock with [timeOffset] (the answer's `timeoffset`), as the page prints it; null when the row
-  /// names none (the web path drops such a row).
+  /// names none (the web path drops such a row). The row's `preview` (plugin 3.1.0) is the [preview]; the forum's own
+  /// excerpt of the search (`summary`, which the web page prints under the title) is not read.
   factory SearchedThread.fromApi(Map<String, dynamic> t, {num timeOffset = 8}) {
     final fid = tsdmAppInt(t['fid']);
     final thread = NormalThread.fromApi(t, fid: fid, typePrefix: 0, timeOffset: timeOffset);
@@ -35,6 +37,7 @@ class SearchedThread with SearchedThreadMappable {
       publishTime: thread.publishDate,
       forumName: tsdmAppText(t['forum']),
       forumUrl: '$baseUrl/forum.php?mod=forumdisplay&fid=$fid',
+      preview: thread.preview,
     );
   }
 
@@ -179,4 +182,8 @@ class SearchedThread with SearchedThreadMappable {
 
   /// Forum url this thread belongs to.
   final String forumUrl;
+
+  /// The excerpt and the images of the first floor the forum's app API gave for the row (plugin 3.1.0), null when it
+  /// gave none.
+  final ThreadPreview? preview;
 }

@@ -54,6 +54,20 @@ final class HomepageAuthChanged extends HomepageEvent with HomepageAuthChangedMa
   final AuthStatus curr;
 }
 
+/// The page shown was replaced in the background by the page asked once more after the daily rewards (a new balance,
+/// the claimed packet gone, `ForumHomeRepository.pageReplacements`).
+@MappableClass()
+final class HomepagePageReplaced extends HomepageEvent with HomepagePageReplacedMappable {
+  /// Constructor.
+  const HomepagePageReplaced({required this.previous, required this.page});
+
+  /// The page replaced.
+  final ForumHomePage previous;
+
+  /// The page replacing it.
+  final ForumHomePage page;
+}
+
 /// Pause the swiper scrolling.
 @MappableClass()
 final class HomepagePauseSwiper extends HomepageEvent with HomepagePauseSwiperMappable {

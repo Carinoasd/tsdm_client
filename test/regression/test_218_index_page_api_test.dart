@@ -698,7 +698,13 @@ void main() {
         await db.close();
       });
 
+      final replaced = repo.pageReplacements.first;
       final page = _right(await repo.fetchHomePage().run());
+      // The page is answered at once; the visit, the claim and the reload follow in the background (cold start).
+      expect(page, isA<ForumHomeApiPage>());
+      expect(page.servedUid, 35);
+      expect(page.dailyRedPacket, isNotNull, reason: 'the page as fetched, before the claim');
+      await repo.dailyRewardsDone;
       expect(forum.requests.map((e) => e.uri.path), ['/forum.php', '/home.php', '/plugin.php', '/forum.php']);
       // `mobile=no` is added by the net client to every forum request.
       expect(Map.of(forum.requests[1].uri.queryParameters)..remove('mobile'), {
@@ -707,9 +713,9 @@ void main() {
         'op': 'checknewpm',
         'rand': '123',
       });
-      expect(page, isA<ForumHomeApiPage>());
-      expect(page.servedUid, 35);
-      expect(page.dailyRedPacket, isNull, reason: 'the reloaded page, the packet claimed');
+      final replacement = await replaced;
+      expect(identical(replacement.previous, page), isTrue);
+      expect(replacement.page.dailyRedPacket, isNull, reason: 'the reloaded page, the packet claimed');
       expect(repo.getCache()?.dailyRedPacket, isNull);
     });
   });

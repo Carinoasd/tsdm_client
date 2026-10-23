@@ -1,8 +1,12 @@
 package kzs.th000.tsdm_client
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.view.SurfaceHolder
@@ -28,6 +32,9 @@ class MainActivity: FlutterActivity() {
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
+        const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
+        /** Sent to Dart with whether the default network is metered, each time it changes. */
+        const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
         const val UPDATE_CHANNEL = "kzs.th000.tsdm_client/updateChannel"
         const val INTERACTIVE_HTML_CHANNEL = "kzs.th000.tsdm_client/interactiveHtmlChannel"
@@ -47,6 +54,8 @@ class MainActivity: FlutterActivity() {
     }
 
     private var windowChannel: MethodChannel? = null
+    private var mainChannel: MethodChannel? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var flutterViewWatched = false
     private val updateScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var installingUpdate = false
@@ -67,8 +76,10 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MAIN_CHANNEL)
-            .setMethodCallHandler{ call, result -> handleMainChannelCall(call, result) }
+        mainChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MAIN_CHANNEL).also {
+            it.setMethodCallHandler { call, result -> handleMainChannelCall(call, result) }
+        }
+        watchNetwork()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL)
             .setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL)
@@ -133,6 +144,13 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onDestroy() {
+        networkCallback?.let {
+            try {
+                (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.unregisterNetworkCallback(it)
+            } catch (_: Exception) {
+            }
+        }
+        networkCallback = null
         updateScope.cancel()
         super.onDestroy()
     }
@@ -275,6 +293,29 @@ class MainActivity: FlutterActivity() {
         windowChannel?.invokeMethod(name, payload)
     }
 
+    /** Tell Dart whether the default network is metered each time it changes ("on Wi-Fi only" settings). */
+    private fun watchNetwork() {
+        if (networkCallback != null || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = notifyNetworkMetered()
+            override fun onLost(network: Network) = notifyNetworkMetered()
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) =
+                notifyNetworkMetered()
+        }
+        try {
+            manager.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+        } catch (_: Exception) {
+            // Without the callback Dart asks again on its own (foreground, a few seconds old).
+        }
+    }
+
+    private fun notifyNetworkMetered() {
+        val metered = (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered ?: true
+        runOnUiThread { mainChannel?.invokeMethod(NETWORK_METERED_CHANGED, metered) }
+    }
+
     private fun handleMainChannelCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             EXIT_APP -> {
@@ -285,6 +326,12 @@ class MainActivity: FlutterActivity() {
             SET_HIGH_REFRESH_RATE -> {
                 preferHighRefreshRate = call.argument<Any>("enable") as? Boolean ?: false
                 result.success(applyRefreshRate())
+            }
+            // Whether large downloads should wait (the thread list thumbnails "on Wi-Fi only"): the system's own answer,
+            // true without a network. Needs ACCESS_NETWORK_STATE, which the manifest has.
+            IS_ACTIVE_NETWORK_METERED -> {
+                val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                result.success(manager?.isActiveNetworkMetered ?: true)
             }
             else -> result.notImplemented()
         }

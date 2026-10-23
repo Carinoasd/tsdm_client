@@ -21,6 +21,7 @@ class StickThread extends NormalThread with StickThreadMappable {
     required super.css,
     required super.stateSet,
     required super.isRecentThread,
+    super.preview,
   });
 
   /// Build a [StickThread] from a sticky row [t] (`displayorder` > 0) of a structured forum page answer of the forum's
@@ -51,6 +52,7 @@ class StickThread extends NormalThread with StickThreadMappable {
         css: t.css,
         stateSet: t.stateSet,
         isRecentThread: t.isRecentThread,
+        preview: t.preview,
       );
 
   /// Build a [StickThread] from [threadElement] <tbody id="stickthread_xxx">.

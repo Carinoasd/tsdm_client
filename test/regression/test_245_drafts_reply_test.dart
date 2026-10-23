@@ -85,6 +85,18 @@ const _dir = 'test/data/tsdmapp';
 Map<String, dynamic> _json(String name) =>
     jsonDecode(File('$_dir/post_v16_$name.json').readAsStringSync()) as Map<String, dynamic>;
 
+/// The reply window of a quoted floor (`post_v16_reply_quote`), the quote written by Bob.
+Map<String, dynamic> _replyQuote() {
+  final json = _json('reply_quote');
+  final fields = (json['submit'] as Map<String, dynamic>)['fields'] as Map<String, dynamic>;
+  fields['noticetrimstr'] =
+      '[quote][size=2][url=forum.php?mod=redirect&goto=findpost&pid=9700002&ptid=9600001][color=#999999]'
+      'Bob 发表于 2023-11-15 06:13[/color][/url][/size]\n二樓的內容 斜體[/quote]';
+  fields['noticeauthormsg'] = '二樓的內容 斜體';
+  json['quote_html'] = '';
+  return json;
+}
+
 /// A request the fake forum saw.
 typedef _Request = ({String method, Uri uri, Map<String, dynamic> headers, String body});
 
@@ -453,9 +465,9 @@ void main() {
       expect(limits.tooShort('你好你好'), isFalse);
       expect(limits.tooShort('[quote]很長很長很長很長[/quote]短'), isTrue, reason: 'quotes not counted');
       expect(limits.tooLong('字' * 3334), isTrue);
-      expect(quotePreviewOf(PostForm.fromJson(_json('reply_quote'))!.submitFields['noticetrimstr']!), (
-        header: 'ag_low2 发表于 2023-11-15 06:13',
-        body: 'N1 二樓（ag_low2）000000 斜體',
+      expect(quotePreviewOf(PostForm.fromJson(_replyQuote())!.submitFields['noticetrimstr']!), (
+        header: 'Bob 发表于 2023-11-15 06:13',
+        body: '二樓的內容 斜體',
       ));
     });
   });
@@ -661,15 +673,15 @@ void main() {
 
     testWidgets('a floor: its own draft, its quote shown, "不引用" replies without it', (tester) async {
       TsdmAppApi.notePostForm();
-      forum.answer = (r) => r.method == 'GET' ? _api(_json('reply_quote')) : _xml(_replyStored);
+      forum.answer = (r) => r.method == 'GET' ? _api(_replyQuote()) : _xml(_replyStored);
       await pumpBar(tester);
       controller
         ..replyAction = _floorAction
-        ..setHintText('回覆 ag_low2 #2');
+        ..setHintText('回覆 Bob #2');
       await _settle(tester);
       expect(controller.draftKey, 'floor:9600001:9700002');
       expect(find.byKey(const ValueKey('reply-bar-quote-preview')), findsOneWidget);
-      expect(find.textContaining('ag_low2 发表于 2023-11-15 06:13'), findsOneWidget);
+      expect(find.textContaining('Bob 发表于 2023-11-15 06:13'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('reply-bar-quote-remove')));
       await tester.pumpAndSettle();
       expect(controller.currentReplyAction, contains('reppost=9700002'));
@@ -1227,7 +1239,7 @@ void main() {
           EmojiPanel.debugEmojiImage = null;
         });
         await pump(tester, dark: dark);
-        controller.setHintText('回覆 ag_low2 #2');
+        controller.setHintText('回覆 Bob #2');
         await tester.pumpAndSettle();
         editorOf(tester).insertBBCode('好可愛 ');
         await tester.tap(find.byKey(const ValueKey('reply-bar-emoji')));
@@ -1241,11 +1253,11 @@ void main() {
 
       testWidgets('the quote of the floor, the size and the countdown ($mode)', skip: skip != null, (tester) async {
         TsdmAppApi.notePostForm();
-        forum.answer = (r) => r.method == 'GET' ? _api(_json('reply_quote')) : _xml(_floodRefused);
+        forum.answer = (r) => r.method == 'GET' ? _api(_replyQuote()) : _xml(_floodRefused);
         await pump(tester, dark: dark);
         controller
           ..replyAction = _floorAction
-          ..setHintText('回覆 ag_low2 #2');
+          ..setHintText('回覆 Bob #2');
         await _settle(tester);
         editorOf(tester).insertBBCode('同意樓上');
         await tester.pumpAndSettle();
@@ -1268,7 +1280,7 @@ void main() {
             updatedAt: DateTime(2026, 10, 23, 14, 5),
             fid: '2',
             replyAction: _floorAction,
-            hint: '回覆 ag_low2 #2',
+            hint: '回覆 Bob #2',
           ),
         );
         await _wait(tester, drafts.pendingWrites);
@@ -1318,11 +1330,11 @@ class _ThreadBody extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: const [
-      Text('ag_low2 #2', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text('Bob #2', style: TextStyle(fontWeight: FontWeight.bold)),
       SizedBox(height: 8),
-      Text('N1 二樓（ag_low2）000000 斜體'),
+      Text('二樓的內容 斜體'),
       Divider(height: 32),
-      Text('Bob #3', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text('Carol #3', style: TextStyle(fontWeight: FontWeight.bold)),
       SizedBox(height: 8),
       Text('排版的部分我覺得可以再討論。'),
     ],

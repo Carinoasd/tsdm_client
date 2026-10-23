@@ -431,6 +431,9 @@ class DialogPaths {
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
 
+  /// Dialog to select when the thread lists show the thumbnails of the threads.
+  static const String selectThreadThumbnailMode = '/dialog/selectThreadThumbnailMode';
+
   /// Dialog to let user select the interaction mode on thread floors.
   static const String selectThreadFloorInteractionMode = '/dialog/selectThreadFloorInteractionMode';
 

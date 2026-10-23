@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
-import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
@@ -18,7 +17,6 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
 
 const _drawerWidth = 250.0;
 
@@ -190,14 +188,12 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
   Widget build(BuildContext context) {
     Translations.of(context);
 
+    // The page used to wait here for the clean up of the outdated images (a spinner instead of the homepage); that
+    // runs in the background now, long after the first frame (InitCubit.scheduleImageCacheTrim).
     return MultiBlocProvider(
       providers: [BlocProvider.value(value: _homeCubit)],
-      child: BlocBuilder<InitCubit, InitState>(
-        builder: (context, state) {
-          if (state.clearingOutdatedImageCache) {
-            return const CenteredCircularIndicator();
-          }
-
+      child: Builder(
+        builder: (context) {
           if (ResponsiveBreakpoints.of(context).largerThan(WindowSize.expanded.name)) {
             return _buildDrawerBody(context);
           } else if (ResponsiveBreakpoints.of(context).largerThan(WindowSize.compact.name)) {
