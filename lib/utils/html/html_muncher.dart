@@ -2161,6 +2161,12 @@ final class _Muncher with LoggerMixin {
   /// Whether a link to [url] has a mark before it ([postLinkHasMark] in a post's content).
   bool _marksLink(String url) => !postContent || postLinkHasMark(url);
 
+  /// Whether a link to [url] leads nowhere: an anchor of the page, a script.
+  static bool _leadsNowhere(String url) {
+    final s = url.trim().toLowerCase();
+    return s.isEmpty || s.startsWith('#') || s.startsWith('javascript:');
+  }
+
   List<InlineSpan>? _buildA(uh.Element element) {
     if (!element.attributes.containsKey('href') || !options.renderUrl) {
       return _munch(element);
@@ -2187,7 +2193,8 @@ final class _Muncher with LoggerMixin {
       ..atLineStart = state.atLineStart || spaceBefore
       ..pendingSpace = false
       ..pendingBreak = false
-      ..tapUrl = url.prependHost()
+      // An anchor of the page (`#…`) or a script (`javascript:`) leads nowhere: what is in it (a picture) is not a link.
+      ..tapUrl = _leadsNowhere(url) ? null : url.prependHost()
       ..wrapInWord = true
       // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page.
       ..linkDepth = state.colorStack.length

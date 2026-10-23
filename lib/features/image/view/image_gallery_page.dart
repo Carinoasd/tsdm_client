@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/utils/image_actions.dart';
@@ -157,13 +158,25 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
     }
   }
 
+  /// The bars were given back to a page opened over the gallery.
+  bool _shownForNext = false;
+
   // A page opened over the gallery (a link of the image sheet) has the bars of the app; they go again when it is back.
+  // A sheet or a menu over it keeps them hidden: it is part of the gallery, the bars would only flash.
   @override
-  void didPushNext() => _restoreSystemUi();
+  void didPushNext() {
+    final next = popupRouteObserver.lastPushed;
+    if (next is PopupRoute<dynamic> || next is ModalSheetRoute<dynamic>) {
+      return;
+    }
+    _shownForNext = true;
+    _restoreSystemUi();
+  }
 
   @override
   void didPopNext() {
-    if (!_leaving) {
+    if (_shownForNext && !_leaving) {
+      _shownForNext = false;
       _hideSystemUi();
     }
   }

@@ -142,6 +142,9 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
         .listen((resp) async => onImageResponse(resp));
   }
 
+  /// The provider of the image built last (resized as shown).
+  ImageProvider? _shownImageProvider;
+
   /// The image was asked again since it was shown ([onImageResponse]).
   bool _reloading = false;
 
@@ -357,7 +360,12 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
         width: widget.width,
         height: widget.height,
         errorBuilder: (context, e, st) {
-          handleRaw(e, st);
+          if (widget.cacheOnly) {
+            // Only not cached (a preview): nothing to log; the miss leaves the image cache, it is asked again next time.
+            unawaited(_shownImageProvider?.evict());
+          } else {
+            handleRaw(e, st);
+          }
           final picture = FallbackPicture(
             fit: widget.fit,
             width: widget.width ?? widget.maxWidth,
@@ -416,6 +424,7 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
           );
         },
       );
+      _shownImageProvider = image.image;
       body = widget.placeholderBuilder == null ? image : _buildWatched(context, image);
     }
 

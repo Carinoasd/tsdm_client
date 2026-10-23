@@ -164,6 +164,10 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
               placeholder: true,
             );
           } else {
+            if (cacheOnly) {
+              // Not cached is all it says: the image cache must not keep the miss (it would show for good).
+              scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
+            }
             // Thrown, not returned: a future returned before the `finally` below ran had no listener yet, and its
             // error went to the zone as uncaught.
             throw StateError('failed to load image for $imageUrl');

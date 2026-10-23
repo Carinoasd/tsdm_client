@@ -409,6 +409,21 @@ void main() {
       expect(opened!.images[3].linkUrl, _bFull);
     });
 
+    testWidgets('a picture in a script link or an anchor is not in a link: a tap opens the gallery', (tester) async {
+      await pumpFloor(
+        tester,
+        const MunchedHtml(
+          '<a href="javascript:void(0)"><img src="$_a" /></a><br /><a href="#top"><img src="$_b" /></a>',
+        ),
+        until: () => shown(_a) && shown(_b),
+      );
+      expect(tester.widget<PostImage>(pictureOf(_a)).image.linkUrl, isNull);
+      expect(tester.widget<PostImage>(pictureOf(_b)).image.linkUrl, isNull);
+      await tester.tap(pictureOf(_b));
+      await _navigated(tester);
+      expect(opened!.images.map((e) => e.url), [_a, _b]);
+    });
+
     testWidgets('a picture in a link to a page opens the link; a smiley opens the image sheet', (tester) async {
       await pumpFloor(tester, const MunchedHtml(_floorHtml), until: () => shown(_c));
       await tester.tap(pictureOf(_c));
@@ -605,7 +620,7 @@ void main() {
     Future<GoRouter> pumpGallery(WidgetTester tester, List<GalleryImage> images, {int index = 0, String? path}) async {
       final router = GoRouter(
         initialLocation: path ?? '/',
-        observers: [routeObserver],
+        observers: [popupRouteObserver, routeObserver],
         routes: [
           GoRoute(
             path: '/over',
@@ -698,7 +713,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(zoomOf(tester).value.getMaxScaleOnAxis(), closeTo(1, 0.01));
       await tester.drag(find.byType(PageView), const Offset(-500, 0));
-      await _settle(tester, until: () => counter(tester) == '2 / 2');
+      await _settle(
+        tester,
+        until: () =>
+            counter(tester) == '2 / 2' && find.byKey(const ValueKey('image-gallery-loading')).evaluate().isEmpty,
+      );
       expect(counter(tester), '2 / 2');
 
       // The page settles first: a page still moving takes no tap.
@@ -772,6 +791,15 @@ void main() {
       router.pop();
       await tester.pumpAndSettle();
       expect(systemUiModes().last, 'SystemUiMode.immersiveSticky');
+    });
+
+    testWidgets('the image sheet over the gallery keeps the system bars hidden', (tester) async {
+      server.serve(_a, 300, 200);
+      await pumpGallery(tester, const [GalleryImage(_a)]);
+      await tester.tap(find.byKey(const ValueKey('image-gallery-more')));
+      await _settle(tester, until: () => find.text(t.imageBottomSheet.title).evaluate().isNotEmpty);
+      expect(find.text(t.imageBottomSheet.title), findsOneWidget);
+      expect(systemUiModes(), ['SystemUiMode.immersiveSticky'], reason: 'no flash of the bars');
     });
 
     testWidgets('the route of one picture (its url in the path, no pictures given) shows it alone', (tester) async {
@@ -877,6 +905,24 @@ void main() {
         expect((calls.single.arguments as Map).containsKey('progressId'), isFalse);
       },
     );
+
+    testWidgets('a picture only read from the cache and not there leaves the image cache, nothing logged', (
+      tester,
+    ) async {
+      const provider = CachedImageProvider(_a, cacheOnly: true);
+      await tester.runAsync(() async {
+        final failed = Completer<void>();
+        provider
+            .resolve(ImageConfiguration.empty)
+            .addListener(
+              ImageStreamListener((info, _) => info.dispose(), onError: (_, _) => failed.complete()),
+            );
+        await failed.future.timeout(const Duration(seconds: 5));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      expect(PaintingBinding.instance.imageCache.containsKey(provider), isFalse);
+      expect(server.requests, isEmpty);
+    });
 
     test('the Kotlin side reads a body in pieces only when its progress is asked for', () {
       final source = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/MainActivity.kt').readAsStringSync();
@@ -1329,6 +1375,14 @@ void main() {
       expect(name('https://e.example/a/.hidden.png'), 'hidden.png');
       expect(name('https://e.example/a/${'x' * 300}.png'), '${'x' * imageFileNameMaxLength}.png');
       expect(name('https://e.example/a/run.exe', unknown), 'run.jpg', reason: "an unknown type is never the url's");
+      expect(name('https://e.example/a/CON.png'), '_CON.png', reason: 'a name Windows keeps for a device');
+      expect(name('https://e.example/a/lpt9.png'), '_lpt9.png');
+      expect(name('https://e.example/a/nul.tar.png'), '_nul.tar.png');
+      expect(name('https://e.example/a/console.png'), 'console.png');
+      expect(name('https://e.example/a/a%E2%80%AEgnp.exe.png'), 'agnp.exe.png', reason: 'no mark turning the text');
+      expect(name('https://e.example/a/.%20x.png'), 'x.png');
+      final emoji = name('https://e.example/a/${Uri.encodeComponent('😀' * 100)}.png');
+      expect(emoji, '${'😀' * imageFileNameMaxLength}.png', reason: 'cut by characters, not code units');
       for (final url in [
         'https://e.example/a/..%2F..%2Fx.png',
         'https://e.example/%2F%2Fetc%2Fpasswd',

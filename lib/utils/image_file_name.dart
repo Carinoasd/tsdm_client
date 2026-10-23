@@ -36,8 +36,12 @@ const _sameExtensions = {
 /// Longest name (without its extension) [imageFileNameOf] gives.
 const imageFileNameMaxLength = 80;
 
-/// Characters no file name may hold on some platform, and control characters.
-final _unsafeFileNameChars = RegExp(r'[/\\:*?"<>|\x00-\x1F\x7F]');
+/// Characters no file name may hold on some platform, control characters, and the marks that turn the direction of
+/// the text (a name shown as `gnp.exe` that is `exe.png`).
+final _unsafeFileNameChars = RegExp(r'[/\\:*?"<>|\x00-\x1F\x7F\u200E\u200F\u202A-\u202E\u2066-\u2069]');
+
+/// Names Windows keeps for its devices, whatever the case and the extension (`con.png` is the console too).
+final _windowsReservedName = RegExp(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])$', caseSensitive: false);
 
 /// Name to save the image [data] loaded from [url] under: a plain file name, never a path.
 ///
@@ -57,15 +61,20 @@ String imageFileNameOf(String url, Uint8List data, {DateTime? now}) {
       .last
       .replaceAll(_unsafeFileNameChars, '')
       .trim()
-      .replaceFirst(RegExp(r'^\.+'), '');
+      .replaceFirst(RegExp(r'^\.+'), '')
+      .trim();
   final dot = segment.lastIndexOf('.');
   var urlBase = dot > 0 ? segment.substring(0, dot) : segment;
   final urlExtension = dot > 0 ? segment.substring(dot + 1).toLowerCase() : '';
-  if (urlBase.length > imageFileNameMaxLength) {
-    urlBase = urlBase.substring(0, imageFileNameMaxLength);
+  if (urlBase.runes.length > imageFileNameMaxLength) {
+    // By characters: a cut in the middle of a pair of code units would leave half a character.
+    urlBase = String.fromCharCodes(urlBase.runes.take(imageFileNameMaxLength));
   }
   final script = const {'php', 'asp', 'aspx', 'jsp', 'cgi', 'html', 'htm'}.contains(urlExtension);
-  final base = urlBase.isEmpty || script ? fallbackBase : urlBase;
+  var base = urlBase.isEmpty || script ? fallbackBase : urlBase;
+  if (_windowsReservedName.hasMatch(base.split('.').first.trim())) {
+    base = '_$base';
+  }
   final dataExtension = imageExtensionOf(data);
   if (dataExtension == null) {
     return '$base.jpg';
