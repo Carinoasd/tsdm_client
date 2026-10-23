@@ -156,6 +156,12 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
   /// Whether the user can write here: otherwise [controller] shows a hint (need login, thread closed), not a reply.
   bool _enabled = false;
 
+  /// The hint [controller] shows instead of a reply (need login, thread closed), null while it holds the reply.
+  ///
+  /// Taken out once the user can write here (GitHub #235): the quick reply page tells the thread closed until it loaded,
+  /// and the hint stayed in the box as if written, went into the editor and was kept as the draft.
+  String? _shownHint;
+
   /// The draft target is looked at again after this frame.
   bool _targetScheduled = false;
 
@@ -164,10 +170,12 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
 
   _ReplyDraftSession get _drafts => widget.controller._drafts;
 
-  /// Whether a reply is being written or was written and not sent.
+  /// Whether a reply is being written or was written and not sent: some text in the open editor or the box.
   ///
-  /// An open editor counts even while empty: the user is in the middle of writing.
-  bool _hasDraft() => widget.controller._showingEditor || (_enabled && controller.text.trim().isNotEmpty);
+  /// An open editor still empty holds nothing to lose: the home button goes home without asking (GitHub #235).
+  bool _hasDraft() => widget.controller._showingEditor
+      ? _drafts.content.body.trim().isNotEmpty
+      : _enabled && controller.text.trim().isNotEmpty;
 
   Future<void> showEditor() async {
     if (widget.controller._showingEditor) {
@@ -189,6 +197,8 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
       builder: (_) => _ReplyBar(
         controller: widget.controller,
         outerTextController: controller,
+        // The box shows a hint instead of a reply (need login, thread closed): none of it goes into the editor.
+        outerIsHint: !_enabled || _shownHint != null,
         replyType: widget.replyType,
         chatHistorySendTarget: widget.chatHistorySendTarget,
         chatSendTarget: widget.chatSendTarget,
@@ -272,6 +282,12 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     }
     controller.dispose();
     super.dispose();
+  }
+
+  /// Show [hint] in the box instead of a reply.
+  void _showHint(String hint) {
+    _shownHint = hint;
+    controller.text = hint;
   }
 
   /// Look at the target of the draft after this frame (the page told more, another floor was picked).
@@ -388,15 +404,22 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
     Future<void> Function()? onTapCallback;
 
     if (!hasLogin) {
-      controller.text = context.t.threadPage.needLogin;
+      _showHint(context.t.threadPage.needLogin);
       onTapCallback = null;
     } else if (closed &&
         // Never close in chat page.
         (widget.replyType != ReplyTypes.chat && widget.replyType != ReplyTypes.chatHistory)) {
-      controller.text = context.t.threadPage.closed;
+      _showHint(context.t.threadPage.closed);
       onTapCallback = null;
     } else {
       onTapCallback = showEditor;
+      // The hint shown while nothing could be sent is not a reply.
+      if (_shownHint != null) {
+        if (controller.text == _shownHint) {
+          controller.clear();
+        }
+        _shownHint = null;
+      }
       // The unsent reply of the bar this page showed before it reloaded.
       if (widget.controller._keptDraft case final draft?) {
         widget.controller._keptDraft = null;
@@ -522,6 +545,7 @@ class _ReplyBar extends StatefulWidget {
     required this.controller,
     required this.replyType,
     required this.outerTextController,
+    this.outerIsHint = false,
     this.chatHistorySendTarget,
     this.chatSendTarget,
     this.disabledEditorFeatures = const {},
@@ -537,6 +561,9 @@ class _ReplyBar extends StatefulWidget {
   // Try another implementation to achieve syncing text to outside field.
   /// Text controller in the wrapper widget to show current entered text.
   final TextEditingController outerTextController;
+
+  /// [outerTextController] holds the hint the box shows instead of a reply, not a reply (GitHub #235).
+  final bool outerIsHint;
 
   /// Usage type of [_ReplyBar].
   ///
@@ -1545,7 +1572,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     widget.controller._bind = this;
     final authRepo = context.read<AuthenticationRepository>();
     _hasLogin = authRepo.currentUser != null;
-    final outer = widget.outerTextController.text;
+    // The hint the box showed instead of a reply never goes into the editor (GitHub #235).
+    final outer = widget.outerIsHint ? '' : widget.outerTextController.text;
     // The editor's own document when the box still holds what the editor left (styles BBCode does not carry), else
     // the text parsed again.
     _replyRichController = _editorControllerFor(outer, delta: _drafts.deltaFor(outer));

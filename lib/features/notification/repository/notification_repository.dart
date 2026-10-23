@@ -317,7 +317,9 @@ final class NotificationRepository with LoggerMixin {
     final since = _buildSinceTimestamp(timestamp);
     // A poll inside a known window; the first fetch and a refresh the user asked for read everything there is.
     final polling = timestamp != null && !bypassGate;
-    final notify = await TsdmAppApi.ask(client, 'notify', {'since': '$since'});
+    // Another poll of the account a moment ago (the background service and this page at app start or after an
+    // account switch) is waited for when the plugin asks a second or two (GitHub #235), not read from the pages.
+    final notify = await TsdmAppApi.askWaitingBriefly(client, 'notify', {'since': '$since'});
     switch (notifyGateOf(notify, since: since)) {
       case TsdmAppNotLoggedIn():
         // Every plugin version answers it before reading the action: the pages would be the guest page.

@@ -1,3 +1,5 @@
+import 'package:tsdm_client/i18n/strings.g.dart';
+
 final _tagRe = RegExp(r'\[/?[a-zA-Z*@]+(?:=[^\]\n]*)?\]');
 final _emojiRe = RegExp(r'\{:\d+_\d+:\}');
 final _spaceRe = RegExp(r'\s+');
@@ -27,4 +29,22 @@ String draftSnippet(String bbcode, {String emoji = '', int max = 80}) {
       .take(maxLines)
       .join('\n');
   return (header: header, body: body);
+}
+
+/// The hints the collapsed reply box shows instead of a reply ("thread closed", "need login") in each language of the
+/// app (`threadPage.closed` / `threadPage.needLogin`); the languages other than the current one are not loaded.
+const _replyBoxHints = {'帖子已关闭', '貼文已關閉', 'Thread is closed', '需要登录', '需要登入', 'Need login'};
+
+/// Whether [body] is only a hint the reply box showed instead of a reply, not a draft (GitHub #235).
+///
+/// 1.47.0 kept "帖子已关闭" as the draft of a thread when the box of the quick reply page showed the closed hint before
+/// the thread loaded: such a draft is dropped when the drafts are read. Only for what 1.47.0 left: the reply box itself
+/// tells its hint by its state, never by its text.
+bool isReplyBoxHint(String body) {
+  final text = body.trim();
+  if (text.isEmpty) {
+    return false;
+  }
+  final t = LocaleSettings.instance.currentTranslations.threadPage;
+  return _replyBoxHints.contains(text) || text == t.closed.trim() || text == t.needLogin.trim();
 }

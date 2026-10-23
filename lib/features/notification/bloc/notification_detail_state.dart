@@ -26,7 +26,7 @@ final class NotificationDetailState with NotificationDetailStateMappable {
     this.tid,
     this.page,
     this.replyParameters,
-    this.threadClosed = true,
+    this.threadClosed = false,
   });
 
   /// Detail page status.
@@ -48,5 +48,7 @@ final class NotificationDetailState with NotificationDetailStateMappable {
   final ReplyParameters? replyParameters;
 
   /// Flag indicating current thread is closed or not.
+  ///
+  /// Not closed until the thread told so: the reply box showed the closed hint while the page loaded (GitHub #235).
   final bool threadClosed;
 }

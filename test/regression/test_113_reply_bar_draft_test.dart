@@ -83,14 +83,22 @@ void main() {
     return (controller, ModalRoute.of(tester.element(find.text('thread page')))!);
   }
 
-  testWidgets('an open editor and an unsent reply are drafts of the page, a sent or empty one is not', (tester) async {
+  testWidgets('text in the open editor and an unsent reply are drafts of the page, a sent or empty one is not', (
+    tester,
+  ) async {
     final (controller, route) = await pumpPage(tester);
     expect(RouteDrafts.hasDraft(route), isFalse, reason: 'nothing written yet');
 
     controller.setHintText('reply');
     await tester.pumpAndSettle();
     expect(controller.showingEditor, isTrue);
-    expect(RouteDrafts.hasDraft(route), isTrue, reason: 'the user is writing, even before the first letter');
+    // GitHub #235: an open editor still empty holds nothing to lose, the home button goes home without asking.
+    expect(RouteDrafts.hasDraft(route), isFalse, reason: 'nothing written in the open editor yet');
+    tester.widget<RichEditor>(find.byType(RichEditor)).controller.insertBBCode('hi');
+    await tester.pumpAndSettle();
+    expect(RouteDrafts.hasDraft(route), isTrue, reason: 'the user is writing');
+    tester.widget<RichEditor>(find.byType(RichEditor)).controller.clear();
+    await tester.pumpAndSettle();
 
     // Close without writing: nothing to keep.
     controller.closeEditor();
@@ -118,6 +126,8 @@ void main() {
   testWidgets('the page forgets its draft once the bar is gone', (tester) async {
     final (controller, route) = await pumpPage(tester);
     controller.setHintText('reply');
+    await tester.pumpAndSettle();
+    tester.widget<RichEditor>(find.byType(RichEditor)).controller.insertBBCode('hi');
     await tester.pumpAndSettle();
     expect(RouteDrafts.hasDraft(route), isTrue);
 

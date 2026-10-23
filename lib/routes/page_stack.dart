@@ -66,12 +66,15 @@ abstract final class RouteDrafts {
 ///
 /// Never the first route (the home shell), a dialog or sheet route, a page refusing to pop (`PopScope`) or a page
 /// holding a draft.
-bool canCloseQuietly(Route<dynamic> route) =>
+///
+/// With [leaveDrafts] a page holding a draft is closed too: the user agreed to leave it, its reply bar keeps the text
+/// on this device as a local draft when the page goes.
+bool canCloseQuietly(Route<dynamic> route, {bool leaveDrafts = false}) =>
     !route.isFirst &&
     route is! PopupRoute<dynamic> &&
     quietlyClosablePages.contains(route.settings.name) &&
     route.popDisposition != RoutePopDisposition.doNotPop &&
-    !RouteDrafts.hasDraft(route);
+    (leaveDrafts || !RouteDrafts.hasDraft(route));
 
 NavigatorState? _rootNavigator(GoRouter router) => router.routerDelegate.navigatorKey.currentState;
 
@@ -116,8 +119,17 @@ bool returnToPage(GoRouter router, String name) {
 /// Close the pages above the home shell of [router] and show the homepage tab (GitHub #117).
 ///
 /// Pages that cannot be closed quietly stay: the closing stops on the first one, which is then on top, and false is
-/// returned so the caller can tell why the homepage did not show.
-bool returnToHome(GoRouter router) => returnToShellTab(router, ScreenPaths.homepage);
+/// returned so the caller can tell why the homepage did not show. With [leaveDrafts] the pages holding an unsent reply
+/// are closed too, their replies kept as local drafts ([canCloseQuietly]).
+bool returnToHome(GoRouter router, {bool leaveDrafts = false}) =>
+    returnToShellTab(router, ScreenPaths.homepage, leaveDrafts: leaveDrafts);
+
+/// Whether a page above the home shell of [router] holds an unsent reply ([RouteDrafts]), so the way home asks before
+/// leaving it (GitHub #235).
+bool hasDraftAboveShell(GoRouter router) {
+  final pages = _rootNavigator(router)?.widget.pages ?? const <Page<dynamic>>[];
+  return pages.skip(1).any(RouteDrafts.pageHasDraft);
+}
 
 /// Whether the home shell of [router] is the only page, so one of its tabs is what the user looks at and another tab can
 /// be shown in its place ([returnToShellTab]).
@@ -137,7 +149,7 @@ bool isOnShell(GoRouter router, {required bool hasPopup}) {
 ///
 /// Pages that cannot be closed quietly stay: the closing stops on the first one, which is then on top, and false is
 /// returned so the caller can tell why the tab did not show.
-bool returnToShellTab(GoRouter router, String path) {
+bool returnToShellTab(GoRouter router, String path, {bool leaveDrafts = false}) {
   final navigator = _rootNavigator(router);
   if (navigator == null) {
     return false;
@@ -148,7 +160,7 @@ bool returnToShellTab(GoRouter router, String path) {
       reachedFirst = true;
       return true;
     }
-    return !canCloseQuietly(route);
+    return !canCloseQuietly(route, leaveDrafts: leaveDrafts);
   });
   // Switching tabs replaces the bottom page: only do it when that page is the home shell, not some other page the app
   // was started on.

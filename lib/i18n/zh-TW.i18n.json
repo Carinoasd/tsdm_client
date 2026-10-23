@@ -1059,7 +1059,9 @@
       "unread": "未讀",
       "unreadDetail": "只顯示未讀",
       "backToHome": "回到首頁",
-      "backToHomeStopped": "已停在可能有未儲存內容的頁面"
+      "backToHomeStopped": "已停在可能有未儲存內容的頁面",
+      "backToHomeDraftTitle": "離開未送出的回覆？",
+      "backToHomeDraftDetail": "回覆會作為草稿保留在本機，下次開啟同一頁時可以還原。"
     },
     "noticeTab": {
       "title": "提醒",

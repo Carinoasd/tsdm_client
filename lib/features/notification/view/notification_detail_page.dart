@@ -129,93 +129,108 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
           },
         ),
       ],
-      child: BlocListener<ReplyBloc, ReplyState>(
-        // Drop only needClearText changed changes.
-        listenWhen: (prev, curr) => prev.status != curr.status,
+      child: BlocListener<NotificationDetailCubit, NotificationDetailState>(
+        // Tell the reply bar whether the thread is closed as soon as the thread told it, before the bar is first
+        // built: told from the builder, the bar was built with the bloc's initial "closed" and showed "帖子已关闭" for a
+        // thread open for replies (GitHub #235). Nothing is closed while the page loads.
+        listenWhen: (prev, curr) =>
+            curr.status == NotificationDetailStatus.success &&
+            (prev.status != curr.status || prev.threadClosed != curr.threadClosed),
         listener: (context, state) {
-          if (state.status == ReplyStatus.success) {
-            showSnackBar(context: context, message: context.t.threadPage.replySuccess);
-          } else if (state.status == ReplyStatus.failure) {
-            final tr = context.t.threadPage;
-            final tid = _tid ?? state.replyParameters?.tid;
-            showSnackBar(
-              context: context,
-              message: state.maybeSent
-                  ? tr.replyMaybeSent
-                  : state.networkFailure
-                  ? tr.replyFailedNetwork
-                  : tr.replyFailed(err: state.failedReason ?? ''),
-              // The reply may be on the forum already: look before sending it again, on the last floor of the thread
-              // (fetching this notice again shows only the floor it is about).
-              action: state.maybeSent && tid != null
-                  ? SnackBarAction(
-                      label: tr.refreshToCheck,
-                      onPressed: () {
-                        if (!mounted) return;
-                        unawaited(
-                          context.pushNamed(
-                            ScreenPaths.threadV1,
-                            queryParameters: {'tid': tid, 'lastPost': '1', 'overrideReverseOrder': 'false'},
-                          ),
-                        );
-                      },
-                    )
-                  : replyInBrowserAction(context, state.browserUrl),
-            );
+          final bloc = context.read<ReplyBloc>();
+          if (state.threadClosed != bloc.state.closed) {
+            bloc.add(ReplyThreadClosed(closed: state.threadClosed));
           }
         },
-        child: BlocBuilder<NotificationDetailCubit, NotificationDetailState>(
-          builder: (context, state) {
-            final body = switch (state.status) {
-              NotificationDetailStatus.initial || NotificationDetailStatus.loading => const CenteredCircularIndicator(),
-              NotificationDetailStatus.success => _buildBody(context, state),
-              NotificationDetailStatus.failed => SafeArea(
-                top: false,
-                bottom: false,
-                child: buildRetryButton(context, () async {
-                  await context.read<NotificationDetailCubit>().fetchDetail(widget.url);
-                }),
-              ),
-            };
-
-            // Update thread closed state to reply bar.
-            if (state.threadClosed != context.read<ReplyBloc>().state.closed) {
-              context.read<ReplyBloc>().add(ReplyThreadClosed(closed: state.threadClosed));
-            }
-
-            return Scaffold(
-              appBar: AppBar(
-                title: Text(title),
-                actions: [
-                  const BackToHomeButton(),
-                  IconButton(
-                    icon: const Icon(Icons.open_in_new_outlined),
-                    tooltip: context.t.general.openInBrowser,
-                    onPressed: () async {
-                      if (_tid == null || _page == null || _pid == null) {
-                        return;
-                      }
-                      info('find post: tid:$_tid, page:$_page, pid:$_pid');
-                      await context.pushNamed(
-                        ScreenPaths.threadV1,
-                        queryParameters: <String, String>{
-                          'tid': _tid!,
-                          'pageNumber': _page!,
-                          'pid': _pid!,
-                          // Set this value to false to reserve the original
-                          // post order in thread so that we are heading to the
-                          // correct page contains target post.
-                          'overrideReverseOrder': 'false',
+        child: BlocListener<ReplyBloc, ReplyState>(
+          // Drop only needClearText changed changes.
+          listenWhen: (prev, curr) => prev.status != curr.status,
+          listener: (context, state) {
+            if (state.status == ReplyStatus.success) {
+              showSnackBar(context: context, message: context.t.threadPage.replySuccess);
+            } else if (state.status == ReplyStatus.failure) {
+              final tr = context.t.threadPage;
+              final tid = _tid ?? state.replyParameters?.tid;
+              showSnackBar(
+                context: context,
+                // The editor and the keyboard stay open on failure and this page does not resize for the keyboard.
+                bottomInset: MediaQuery.viewInsetsOf(context).bottom,
+                message: state.maybeSent
+                    ? tr.replyMaybeSent
+                    : state.networkFailure
+                    ? tr.replyFailedNetwork
+                    : tr.replyFailed(err: state.failedReason ?? ''),
+                // The reply may be on the forum already: look before sending it again, on the last floor of the thread
+                // (fetching this notice again shows only the floor it is about).
+                action: state.maybeSent && tid != null
+                    ? SnackBarAction(
+                        label: tr.refreshToCheck,
+                        onPressed: () {
+                          if (!mounted) return;
+                          unawaited(
+                            context.pushNamed(
+                              ScreenPaths.threadV1,
+                              queryParameters: {'tid': tid, 'lastPost': '1', 'overrideReverseOrder': 'false'},
+                            ),
+                          );
                         },
-                      );
-                    },
-                  ),
-                ],
-              ),
-              // The post and the retry keep the side safe area; the reply bar pads itself for all its insets.
-              body: body,
-            );
+                      )
+                    : replyInBrowserAction(context, state.browserUrl),
+              );
+            }
           },
+          child: BlocBuilder<NotificationDetailCubit, NotificationDetailState>(
+            builder: (context, state) {
+              final body = switch (state.status) {
+                NotificationDetailStatus.initial ||
+                NotificationDetailStatus.loading => const CenteredCircularIndicator(),
+                NotificationDetailStatus.success => _buildBody(context, state),
+                NotificationDetailStatus.failed => SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: buildRetryButton(context, () async {
+                    await context.read<NotificationDetailCubit>().fetchDetail(widget.url);
+                  }),
+                ),
+              };
+
+              return Scaffold(
+                // The editor of the reply bar makes room for the keyboard itself (chat_bottom_container), as on the
+                // thread page: resizing too lifted it twice the keyboard's height (GitHub #235).
+                resizeToAvoidBottomInset: false,
+                appBar: AppBar(
+                  title: Text(title),
+                  actions: [
+                    const BackToHomeButton(),
+                    IconButton(
+                      icon: const Icon(Icons.open_in_new_outlined),
+                      tooltip: context.t.general.openInBrowser,
+                      onPressed: () async {
+                        if (_tid == null || _page == null || _pid == null) {
+                          return;
+                        }
+                        info('find post: tid:$_tid, page:$_page, pid:$_pid');
+                        await context.pushNamed(
+                          ScreenPaths.threadV1,
+                          queryParameters: <String, String>{
+                            'tid': _tid!,
+                            'pageNumber': _page!,
+                            'pid': _pid!,
+                            // Set this value to false to reserve the original
+                            // post order in thread so that we are heading to the
+                            // correct page contains target post.
+                            'overrideReverseOrder': 'false',
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                // The post and the retry keep the side safe area; the reply bar pads itself for all its insets.
+                body: body,
+              );
+            },
+          ),
         ),
       ),
     );
