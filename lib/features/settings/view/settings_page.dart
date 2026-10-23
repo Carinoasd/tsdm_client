@@ -43,6 +43,7 @@ import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
@@ -555,6 +556,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: threadReverseOrder,
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadReverseOrder, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-thread-open-position'),
+          leading: const Icon(Icons.bookmark_outline),
+          title: Text(tr.threadOpenPosition.title),
+          subtitle: Text(threadOpenPositionLabel(context, state.settingsMap.openPosition)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final result = await showSelectThreadOpenPosition(context, state.settingsMap.openPosition);
+            if (result == null || !context.mounted) return;
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadOpenPosition, result.index));
+          },
         ),
         SectionListTile(
           leading: const Icon(Icons.touch_app_outlined),

@@ -375,6 +375,9 @@ class DialogPaths {
   /// Dialog to let user select all pages in thread could jump to.
   static const String jumpPage = '/dialog/jumpPage';
 
+  /// Dialog to ask for a floor of the thread to go to.
+  static const String jumpToFloor = '/dialog/jumpToFloor';
+
   /// Dialog to let user picker a font.
   static const String fontPicker = '/dialog/fontPicker';
 
@@ -443,6 +446,9 @@ class DialogPaths {
 
   /// Dialog to let user select the interaction mode on thread floors.
   static const String selectThreadFloorInteractionMode = '/dialog/selectThreadFloorInteractionMode';
+
+  /// Dialog to select where a thread read before opens from a list.
+  static const String selectThreadOpenPosition = '/dialog/selectThreadOpenPosition';
 
   /// Dialog to edit user profile.
   static const String editUserProfile = '/dialog/editUserProfile';

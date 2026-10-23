@@ -498,6 +498,13 @@
         "detail": "點擊貼文頁面中的樓層時如何回應",
         "adaptiveTapOpenContextMenu": "長按或右鍵時開啟選單",
         "tapToReply": "點擊樓層時將目前樓層設為回覆目標"
+      },
+      "threadOpenPosition": {
+        "title": "打開看過的貼文時",
+        "detail": "從列表打開讀過第一個畫面以後的貼文時，是否回到上次看到的地方",
+        "fromStart": "從頭開始",
+        "ask": "詢問（顯示「繼續」）",
+        "resume": "自動續讀"
       }
     },
     "checkinSection": {
@@ -946,6 +953,29 @@
       "message": "分享帖子：${title}\n${url}",
       "sent": "已發送給 ${name}",
       "failed": "發送失敗：${err}"
+    },
+    "pageDivider": "第 ${page: int} 頁",
+    "loadingPage": "正在載入第 ${page: int} 頁…",
+    "loadPage": "載入第 ${page: int} 頁",
+    "pageLoadFailed": "第 ${page: int} 頁載入失敗",
+    "floorCount": "共 ${count: int} 樓",
+    "loadNewReplies": "載入新回覆",
+    "newRepliesFailed": "新回覆載入失敗",
+    "newRepliesLoaded": "已載入 ${count: int} 則新回覆",
+    "noNewReplies": "沒有新的回覆",
+    "jumpToFloor": {
+      "menu": "跳到樓層…",
+      "title": "跳到樓層",
+      "label": "樓層",
+      "hint": "1 至 ${max: int}",
+      "go": "跳轉",
+      "invalid": "請輸入 1 以上的樓層",
+      "missed": "沒有第 ${floor: int} 樓，已跳到最接近的樓層"
+    },
+    "resume": {
+      "message": "上次看到第 ${floor: int} 樓",
+      "action": "繼續",
+      "close": "關閉"
     }
   },
   "topicsPage": {
@@ -1727,7 +1757,8 @@
     "emptyForAccount": "這個帳號沒有瀏覽紀錄",
     "entryTooltip": "貼文瀏覽紀錄",
     "title": "貼文瀏覽紀錄",
-    "localOnlyTip": "僅記錄本機的瀏覽記錄，在網頁端或其他機器上可能會有所不同"
+    "localOnlyTip": "僅記錄本機的瀏覽記錄，在網頁端或其他機器上可能會有所不同",
+    "readTo": "看到第 ${floor: int} 樓"
   },
   "openInAppPage": {
     "title": "開啟頁面",
@@ -2077,7 +2108,8 @@
   "threadCard": {
     "previewImages": "${count: int} 張圖片",
     "viewInfo": "查看貼文資訊",
-    "replied": "已回覆"
+    "replied": "已回覆",
+    "newReplies": "上次看過之後有 ${count: int} 則新回覆"
   },
   "medalCenter": {
     "title": "勳章中心",

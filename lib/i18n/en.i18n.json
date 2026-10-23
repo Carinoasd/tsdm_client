@@ -498,6 +498,13 @@
         "detail": "Interaction on floors in thread page",
         "adaptiveTapOpenContextMenu": "Open context menu when long press or right click",
         "tapToReply": "Set floor as reply target when tap"
+      },
+      "threadOpenPosition": {
+        "title": "Opening a thread read before",
+        "detail": "Opened from a list, a thread you read past its first screen can go on where you stopped",
+        "fromStart": "From the start",
+        "ask": "Ask (a \"continue\" banner)",
+        "resume": "Continue where I stopped"
       }
     },
     "checkinSection": {
@@ -946,6 +953,29 @@
       "message": "Sharing a thread: ${title}\n${url}",
       "sent": "Sent to ${name}",
       "failed": "Failed to send: ${err}"
+    },
+    "pageDivider": "Page ${page: int}",
+    "loadingPage": "Loading page ${page: int}…",
+    "loadPage": "Load page ${page: int}",
+    "pageLoadFailed": "Page ${page: int} failed to load",
+    "floorCount": "${count: int} floors",
+    "loadNewReplies": "Load new replies",
+    "newRepliesFailed": "New replies failed to load",
+    "newRepliesLoaded": "${count: int} new replies loaded",
+    "noNewReplies": "No new replies",
+    "jumpToFloor": {
+      "menu": "Go to floor…",
+      "title": "Go to floor",
+      "label": "Floor",
+      "hint": "1 to ${max: int}",
+      "go": "Go",
+      "invalid": "Enter a floor of 1 or more",
+      "missed": "There is no floor ${floor: int}, went to the closest one"
+    },
+    "resume": {
+      "message": "Last read: floor ${floor: int}",
+      "action": "Continue",
+      "close": "Dismiss"
     }
   },
   "topicsPage": {
@@ -1727,7 +1757,8 @@
     "emptyForAccount": "No browsing history for this account",
     "entryTooltip": "Thread browsing history",
     "title": "Thread browsing history",
-    "localOnlyTip": "Only local browsing history was recorded, may be different on web side or other machines"
+    "localOnlyTip": "Only local browsing history was recorded, may be different on web side or other machines",
+    "readTo": "Read to floor ${floor: int}"
   },
   "openInAppPage": {
     "title": "Open in app",
@@ -2077,7 +2108,8 @@
   "threadCard": {
     "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
-    "replied": "Replied"
+    "replied": "Replied",
+    "newReplies": "${count: int} new replies since your last visit"
   },
   "medalCenter": {
     "title": "Medal centre",
