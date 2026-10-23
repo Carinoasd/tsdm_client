@@ -27,7 +27,13 @@ class RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<RootPage> with LoggerMixin {
-  static final List<String> _shellPaths = [ScreenPaths.homepage, ScreenPaths.topic, ScreenPaths.settings.fullPath];
+  /// The tabs of the home shell, in the order of `HomeTab`.
+  static final List<String> _shellPaths = [
+    ScreenPaths.homepage,
+    ScreenPaths.topic,
+    ScreenPaths.notice,
+    ScreenPaths.me,
+  ];
 
   @override
   void initState() {

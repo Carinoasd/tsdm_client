@@ -13,7 +13,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 /// GitHub #103: a double tap on the tablet navigation rail, or on the navigation drawer of a large window, scrolls the
 /// tab to top (or refreshes it at the top) like a double tap on the phone navigation bar does.
 ///
-/// The three widgets are the real ones, under a shell route with the three home tabs; the tab pages are placeholders.
+/// The three widgets are the real ones, under a shell route with the four home tabs; the tab pages are placeholders.
 /// What the real topics page does with the event (scroll to top, or refresh when already there) is covered end to end
 /// in test_043_topics_favorite_forums_test.dart.
 Translations get tr => LocaleSettings.instance.currentTranslations;
@@ -42,13 +42,15 @@ final class _HomeCubit extends HomeCubit {
 const Map<HomeTab, String> _paths = {
   HomeTab.home: ScreenPaths.homepage,
   HomeTab.topic: ScreenPaths.topic,
-  HomeTab.settings: '/settings',
+  HomeTab.notice: ScreenPaths.notice,
+  HomeTab.me: '/me',
 };
 
 const Map<HomeTab, (IconData, IconData)> _icons = {
   HomeTab.home: (Icons.home_outlined, Icons.home),
   HomeTab.topic: (Icons.topic_outlined, Icons.topic),
-  HomeTab.settings: (Icons.settings_outlined, Icons.settings),
+  HomeTab.notice: (Icons.notifications_outlined, Icons.notifications),
+  HomeTab.me: (Icons.person_outline, Icons.person),
 };
 
 void main() {
@@ -79,7 +81,7 @@ void main() {
   String location() => router.routerDelegate.currentConfiguration.uri.path;
 
   Future<void> pumpHome(WidgetTester tester, _Layout layout) async {
-    expect(ScreenPaths.settings.path, _paths[HomeTab.settings]);
+    expect(ScreenPaths.me, _paths[HomeTab.me]);
     cubit = _HomeCubit();
     router = GoRouter(
       initialLocation: ScreenPaths.homepage,
@@ -135,7 +137,8 @@ void main() {
   String label(HomeTab tab) => switch (tab) {
     HomeTab.home => tr.navigation.homepage,
     HomeTab.topic => tr.navigation.topics,
-    HomeTab.settings => tr.navigation.settings,
+    HomeTab.notice => tr.navigation.notice,
+    HomeTab.me => tr.navigation.me,
   };
 
   /// The icon currently drawn for [tab]: the filled one when selected.
@@ -146,8 +149,7 @@ void main() {
 
   /// Tap the destination of [tab] like a user, on its icon or (bar and drawer: the rail hides its labels) its label.
   ///
-  /// The side navigation has nine entries since 2026-09-27 and the rail scrolls in short windows: like a user, scroll
-  /// the destination into view first (settings is the last entry).
+  /// The rail scrolls in short windows: like a user, scroll the destination into view first.
   Future<void> tap(WidgetTester tester, HomeTab tab, {bool onLabel = false}) async {
     final target = onLabel ? find.text(label(tab)) : icon(tab);
     await tester.ensureVisible(target);
@@ -167,9 +169,9 @@ void main() {
         expect(events, isEmpty);
 
         wait(1000);
-        await tap(tester, HomeTab.settings);
-        expect(cubit.switches, [HomeTab.topic, HomeTab.settings]);
-        expect(location(), '/settings');
+        await tap(tester, HomeTab.me);
+        expect(cubit.switches, [HomeTab.topic, HomeTab.me]);
+        expect(location(), '/me');
         wait(1000);
         await tap(tester, HomeTab.home);
         expect(location(), ScreenPaths.homepage);
@@ -202,11 +204,11 @@ void main() {
 
         testWidgets('icon then label of the same destination is a double tap too', (tester) async {
           await pumpHome(tester, layout);
-          await tap(tester, HomeTab.settings);
+          await tap(tester, HomeTab.me);
           wait(100);
-          await tap(tester, HomeTab.settings, onLabel: true);
-          expect(cubit.switches, [HomeTab.settings]);
-          expect(events, [HomeTab.settings.index]);
+          await tap(tester, HomeTab.me, onLabel: true);
+          expect(cubit.switches, [HomeTab.me]);
+          expect(events, [HomeTab.me.index]);
         });
       }
 
@@ -266,12 +268,12 @@ void main() {
         await pumpHome(tester, layout);
         await tap(tester, HomeTab.home);
         wait(100);
-        await tap(tester, HomeTab.settings);
+        await tap(tester, HomeTab.me);
         wait(100);
-        await tap(tester, HomeTab.settings);
-        expect(events, [HomeTab.settings.index]);
-        expect(cubit.switches, [HomeTab.home, HomeTab.settings]);
-        expect(location(), '/settings');
+        await tap(tester, HomeTab.me);
+        expect(events, [HomeTab.me.index]);
+        expect(cubit.switches, [HomeTab.home, HomeTab.me]);
+        expect(location(), '/me');
       });
     });
   }
@@ -283,9 +285,9 @@ void main() {
       (HomeTab.topic, 200),
       (HomeTab.topic, 100),
       (HomeTab.home, 100),
-      (HomeTab.settings, 100),
-      (HomeTab.settings, 100),
-      (HomeTab.settings, 600),
+      (HomeTab.me, 100),
+      (HomeTab.me, 100),
+      (HomeTab.me, 600),
       (HomeTab.home, 1000),
       (HomeTab.home, 499),
     ];
@@ -305,13 +307,13 @@ void main() {
     }
 
     final phone = results[_Layout.phone]!;
-    expect(phone.$1, [HomeTab.topic.index, HomeTab.settings.index, HomeTab.home.index]);
+    expect(phone.$1, [HomeTab.topic.index, HomeTab.me.index, HomeTab.home.index]);
     expect(phone.$2, [
       HomeTab.topic,
       HomeTab.topic,
       HomeTab.home,
-      HomeTab.settings,
-      HomeTab.settings,
+      HomeTab.me,
+      HomeTab.me,
       HomeTab.home,
     ]);
     for (final layout in [_Layout.tablet, _Layout.desktop]) {

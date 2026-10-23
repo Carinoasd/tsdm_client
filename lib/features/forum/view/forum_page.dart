@@ -24,11 +24,13 @@ import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/error_card.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
+import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/list_app_bar/list_app_bar.dart';
 import 'package:tsdm_client/widgets/load_more_failed_footer.dart';
@@ -84,6 +86,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
 
   /// Visibility of FAB.
   bool _fabVisible = true;
+
+  /// The post button shows its label; scrolling the list down folds it to its icon, scrolling up unfolds it.
+  bool _fabExtended = true;
 
   /// The bloc of this page, created by the provider in [build]. Created again for another account (see
   /// [AccountReloadScope]); the new one keeps the filter of this one.
@@ -452,24 +457,31 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         pollOfferUid != null && pollOfferUid == context.read<AuthenticationRepository>().effectiveCurrentUid;
     // Wide windows have room for labelled buttons; phones keep the compact round ones over the list.
     final wide = MediaQuery.sizeOf(context).width >= 600;
-    Future<void> openNewThread() async => context.pushNamed(
-      ScreenPaths.editPost,
-      pathParameters: {'editType': '${PostEditType.newThread.index}', 'fid': widget.fid},
-      queryParameters: {if (canCreatePoll) 'poll': '1'},
-    );
+    Future<void> openNewThread() async {
+      // Told before the editor opens: a guest needs an account, and the page said this account may not post here.
+      final loggedIn = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null;
+      if (!loggedIn || state.postAllowed == false) {
+        await showNewThreadUnavailableDialog(context, guest: !loggedIn);
+        return;
+      }
+      await context.pushNamed(
+        ScreenPaths.editPost,
+        pathParameters: {'editType': '${PostEditType.newThread.index}', 'fid': widget.fid},
+        queryParameters: {if (canCreatePoll) 'poll': '1'},
+      );
+    }
+
     Future<void> openPoll() async => context.pushNamed(ScreenPaths.createPoll, pathParameters: {'fid': widget.fid});
-    final newThread = wide
-        ? FloatingActionButton.extended(
-            onPressed: openNewThread,
-            tooltip: context.t.forumPage.tooltip.fab,
-            icon: const Icon(Icons.edit_outlined),
-            label: Text(context.t.forumPage.tooltip.fab),
-          )
-        : FloatingActionButton(
-            onPressed: openNewThread,
-            tooltip: context.t.forumPage.tooltip.fab,
-            child: const Icon(Icons.edit_outlined),
-          );
+    // Always labelled, so the way to post is plain to see; folded to its icon while the list is scrolled down (the
+    // wide windows keep the label, they have the room).
+    final newThread = FloatingActionButton.extended(
+      key: const ValueKey('forum-new-thread'),
+      onPressed: openNewThread,
+      tooltip: context.t.forumPage.tooltip.fab,
+      isExtended: wide || _fabExtended,
+      icon: const Icon(Icons.edit_outlined),
+      label: Text(context.t.forumPage.newThread.label),
+    );
     if (!canCreatePoll) return newThread;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -512,15 +524,15 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return false;
     }
 
-    // Update fab visibility according to scroll direction.
-    if (notification.direction == ScrollDirection.forward && !_fabVisible) {
-      setState(() {
-        _fabVisible = true;
-      });
-    } else if (notification.direction == ScrollDirection.reverse && _fabVisible) {
-      setState(() {
-        _fabVisible = false;
-      });
+    // Fold the post button while scrolling down, unfold it when scrolling up: it stays in reach. Nothing to do on the
+    // tabs without it.
+    if (!_fabVisible) {
+      return false;
+    }
+    if (notification.direction == ScrollDirection.forward && !_fabExtended) {
+      setState(() => _fabExtended = true);
+    } else if (notification.direction == ScrollDirection.reverse && _fabExtended) {
+      setState(() => _fabExtended = false);
     }
     return true;
   }
@@ -615,5 +627,32 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         ),
       ),
     );
+  }
+}
+
+/// Tell why the post button of a forum opens no editor: a [guest] needs to log in (offered here), otherwise the forum
+/// does not let the account post in it.
+Future<void> showNewThreadUnavailableDialog(BuildContext context, {required bool guest}) async {
+  final tr = context.t.forumPage.newThread;
+  if (!guest) {
+    return showMessageSingleButtonDialog(
+      context: context,
+      title: tr.noPermissionTitle,
+      message: tr.noPermissionMessage,
+    );
+  }
+  final login = await showDialog<bool>(
+    context: context,
+    builder: (context) => CustomAlertDialog.sync(
+      title: AppDialogTitle(icon: Icons.login_outlined, title: tr.guestTitle),
+      content: Text(tr.guestMessage),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.t.general.cancel)),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.t.loginPage.login)),
+      ],
+    ),
+  );
+  if ((login ?? false) && context.mounted) {
+    await context.pushNamed(ScreenPaths.login);
   }
 }

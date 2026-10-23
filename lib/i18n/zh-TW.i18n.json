@@ -170,12 +170,28 @@
     "topics": "版塊",
     "activities": "活動",
     "notice": "通知",
-    "profile": "我的",
-    "moreSection": "更多功能",
-    "titleShop": "稱號商店",
-    "medalCenter": "勳章中心",
-    "bank": "銀行",
+    "me": "我的",
     "settings": "設定"
+  },
+  "mePage": {
+    "title": "我的",
+    "mine": "我的帳號",
+    "services": "論壇服務",
+    "app": "應用程式",
+    "switchAccount": "切換帳號",
+    "inUse": "使用中",
+    "uid": "UID ${uid}",
+    "guestTitle": "尚未登入",
+    "guestDetail": "登入後可以簽到、收藏貼文、查看通知與私訊。",
+    "entries": {
+      "myThreads": "我的貼文",
+      "favorites": "收藏",
+      "history": "瀏覽紀錄",
+      "drafts": "草稿箱",
+      "messages": "私訊",
+      "friends": "好友",
+      "points": "積分"
+    }
   },
   "home": {
     "confirmExit": "再按一次以退出"
@@ -215,7 +231,13 @@
     "forumActivity": "論壇動態",
     "guideTitle": "論壇導讀",
     "tools": "我的工具",
-    "supportNote": "完全自願，不支持也能使用全部功能"
+    "supportNote": "完全自願，不支持也能使用全部功能",
+    "guest": {
+      "title": "登入看更多",
+      "detail": "登入後可以簽到、領取每日紅包、收藏貼文，查看通知與私訊，也能進入只對會員開放的版塊。",
+      "forums": "版塊入口",
+      "allForums": "全部版塊"
+    }
   },
   "medalTitleHub": {
     "title": "勳章與稱號",
@@ -826,6 +848,13 @@
     "tooltip": {
       "fab": "發佈新帖"
     },
+    "newThread": {
+      "label": "發帖",
+      "guestTitle": "登入後才能發帖",
+      "guestMessage": "發表主題需要帳號。請先登入，再回到這個版塊發帖。",
+      "noPermissionTitle": "無法在此版塊發帖",
+      "noPermissionMessage": "論壇沒有開放你目前的使用者群組在這個版塊發表主題。其他版塊可能允許，使用者群組也可能隨參與程度提升。"
+    },
     "copyFid": "複製fid（${fid: String}）",
     "favorite": {
       "add": "收藏本版",
@@ -896,6 +925,7 @@
   },
   "noticePage": {
     "title": "通知",
+    "guestHint": "登入後可以查看提醒、私人訊息與公共訊息。",
     "appBar": {
       "unread": "未讀",
       "unreadDetail": "只顯示未讀",

@@ -53,16 +53,16 @@ void main() {
     );
     unawaited(
       nav.currentState!.push<void>(
-        MaterialPageRoute(builder: (_) => const RootPage(ScreenPaths.notice, Scaffold(body: Text('notice')))),
+        MaterialPageRoute(builder: (_) => const RootPage(ScreenPaths.rootNotice, Scaffold(body: Text('notice')))),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('notice'), findsOneWidget);
-    expect(events, [const RootLocationEventEnter(ScreenPaths.notice)]);
+    expect(events, [const RootLocationEventEnter(ScreenPaths.rootNotice)]);
     nav.currentState!.pop();
     await tester.pumpAndSettle();
     expect(find.text('notice'), findsNothing);
-    expect(events.last, const RootLocationEventLeave(ScreenPaths.notice));
+    expect(events.last, const RootLocationEventLeave(ScreenPaths.rootNotice));
 
     // A shell branch page is mounted for the whole run: entering counts, being disposed (never happens in the app)
     // must not report a leave that could pop somebody else.

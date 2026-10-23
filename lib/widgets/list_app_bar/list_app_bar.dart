@@ -180,7 +180,7 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
       //                     IconButton(
       //                       icon: const Icon(Icons.settings_outlined),
       //                       tooltip: context.t.general.openSettings,
-      //                       onPressed: () async => context.pushNamed(ScreenPaths.rootSettings),
+      //                       onPressed: () async => context.pushNamed(ScreenPaths.settings.path),
       //                     ),
       //                   ],
       //                 ),
@@ -337,7 +337,7 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
               case MenuActions.openNoticePage:
                 openNoticePageInApp(context);
               case MenuActions.openSettingsPage:
-                await context.pushNamed(ScreenPaths.rootSettings);
+                await context.pushNamed(ScreenPaths.settings.path);
               case MenuActions.debugViewLog:
                 await context.pushNamed(ScreenPaths.debugLog);
               case MenuActions.custom:

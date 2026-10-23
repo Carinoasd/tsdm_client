@@ -29,13 +29,19 @@ enum LocalNoticeTapAction {
   /// No account in use: the notice page needs a login, stay where we are.
   needLogin,
 
-  /// The notice page is already the page on top, nothing to open.
+  /// The notice page is already the page on top (the notifications tab, or the copy opened above other pages), nothing
+  /// to open.
   alreadyOnNoticePage,
 
-  /// A notice page is open under the pages on top, close those to show it again.
+  /// A notice page opened above other pages ([ScreenPaths.rootNotice]) is under the pages on top, close those to show
+  /// it again.
   returnToNoticePage,
 
-  /// Push the notice page.
+  /// Close the pages above the home shell, if any, and show its notifications tab.
+  showNoticeTab,
+
+  /// Push the notice page above the pages on top ([ScreenPaths.rootNotice]): they cannot be closed (a reply being
+  /// written, a form, an open dialog).
   openNoticePage,
 
   /// Push the page the notification is about ([LocalNoticeTarget]): the floor of the notice, the conversation.
@@ -49,21 +55,28 @@ enum LocalNoticeTapAction {
 /// enter/leave events and used to drift, so a tap on the homepage was answered "already in the notice page" after the
 /// notice page had been left once (GitHub #14).
 ///
-/// [canReturnToNoticePage] tells whether a notice page further down can be shown again ([canReturnToPage]). Each tap
-/// while reading a thread opened out of the notice page used to push another notice page, piling them up (GitHub #117).
+/// [canReturnToNoticePage] tells whether a notice page opened above other pages further down can be shown again
+/// ([canReturnToPage]): each tap while reading a thread opened out of the notice page used to push another notice page,
+/// piling them up (GitHub #117). [canShowNoticeTab] tells whether every page above the home shell can be closed
+/// ([canReturnToShell]) to show its notifications tab. The nearer one wins: a notice page opened above other pages is
+/// above the shell.
 LocalNoticeTapAction decideLocalNoticeTap({
   required bool loggedIn,
   required String? topLocation,
   bool canReturnToNoticePage = false,
+  bool canShowNoticeTab = false,
 }) {
   if (!loggedIn) {
     return LocalNoticeTapAction.needLogin;
   }
-  if (topLocation == ScreenPaths.notice) {
+  if (topLocation == ScreenPaths.notice || topLocation == ScreenPaths.rootNotice) {
     return LocalNoticeTapAction.alreadyOnNoticePage;
   }
   if (canReturnToNoticePage) {
     return LocalNoticeTapAction.returnToNoticePage;
+  }
+  if (canShowNoticeTab) {
+    return LocalNoticeTapAction.showNoticeTab;
   }
   return LocalNoticeTapAction.openNoticePage;
 }
@@ -71,8 +84,9 @@ LocalNoticeTapAction decideLocalNoticeTap({
 /// Carry out a tap on the auto sync notification on [router].
 ///
 /// Returns the page that was on top before and what was done: [LocalNoticeTapAction.openNoticePage] also when going
-/// back to the open notice page stopped early (a page refused to close) and another one was pushed instead. [hasPopup]
-/// tells whether a dialog or sheet is open, the pages under it are then never closed.
+/// back to the open notice page or to the notifications tab stopped early (a page refused to close) and the notice page
+/// was pushed above it instead. [hasPopup] tells whether a dialog or sheet is open, the pages under it are then never
+/// closed.
 ({String? top, LocalNoticeTapAction action}) openNoticePageForTap(
   GoRouter router, {
   required bool loggedIn,
@@ -82,14 +96,18 @@ LocalNoticeTapAction decideLocalNoticeTap({
   var action = decideLocalNoticeTap(
     loggedIn: loggedIn,
     topLocation: top,
-    canReturnToNoticePage: canReturnToPage(router, ScreenPaths.notice, hasPopup: hasPopup),
+    canReturnToNoticePage: canReturnToPage(router, ScreenPaths.rootNotice, hasPopup: hasPopup),
+    canShowNoticeTab: canReturnToShell(router, hasPopup: hasPopup),
   );
-  if (action == LocalNoticeTapAction.returnToNoticePage && !returnToPage(router, ScreenPaths.notice)) {
+  if (action == LocalNoticeTapAction.returnToNoticePage && !returnToPage(router, ScreenPaths.rootNotice)) {
+    action = LocalNoticeTapAction.openNoticePage;
+  }
+  if (action == LocalNoticeTapAction.showNoticeTab && !returnToShellTab(router, ScreenPaths.notice)) {
     action = LocalNoticeTapAction.openNoticePage;
   }
   if (action == LocalNoticeTapAction.openNoticePage) {
     // Completes only when the pushed page is closed, nothing to wait for.
-    unawaited(router.pushNamed(ScreenPaths.notice));
+    unawaited(router.pushNamed(ScreenPaths.rootNotice));
   }
   return (top: top, action: action);
 }
@@ -98,10 +116,11 @@ LocalNoticeTapAction decideLocalNoticeTap({
 /// menu and of the profile page's menu. Every way into the notice page goes through here or [openNoticePageForTap]
 /// and nowhere pushes it by itself (a regression test checks the sources).
 ///
-/// The same as a tap on the auto sync notification: a notice page already open under the pages on top is shown again
-/// when they can all be closed quietly, otherwise one is pushed. Reading the notices one by one (notice page, a
-/// thread, the bell of the thread page, the next thread...) pushed another notice page each time and piled them up,
-/// as the notification tap did before GitHub #117 (GitHub #196).
+/// The same as a tap on the auto sync notification: the notifications tab of the home shell (or a notice page already
+/// open above other pages) is shown again when the pages on top can all be closed quietly, otherwise the notice page is
+/// pushed. Reading the notices one by one (notice page, a thread, the bell of the thread page, the next thread...)
+/// pushed another notice page each time and piled them up, as the notification tap did before GitHub #117 (GitHub
+/// #196).
 ///
 /// The account is not checked here: the controls are only offered with one, and the notice page asks for a login
 /// itself, as before. [popups] is the observer of the app's dialogs and menus ([popupRouteObserver] by default): with

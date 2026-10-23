@@ -12,8 +12,11 @@ enum HomeTab {
   /// All top-level forums showed in homepage with forum group.
   topic,
 
-  /// Settings page of the app.
-  settings,
+  /// Notifications of the account in use: notices, private messages and broadcast messages.
+  notice,
+
+  /// The account in use and its pages (threads, favorites, history, messages...), the settings and about the app.
+  me,
 }
 
 /// State of the homepage of the app.

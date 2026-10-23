@@ -24,7 +24,6 @@ import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
-import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -93,7 +92,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   final scrollController = ScrollController();
-  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub; // 新增
 
   final _permissionCubit = AndroidPermissionCubit();
   String? _logExportPath;
@@ -1233,20 +1231,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
-
-    // 新增：监听返回顶部事件
-    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
-      if (event.tabIndex == 2 && mounted && scrollController.hasClients && scrollController.offset > 0) {
-        unawaited(scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
-      }
-    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_permissionCubit.close());
-    unawaited(_scrollToTopSub.cancel()); // 新增
     scrollController.dispose();
     super.dispose();
   }

@@ -170,12 +170,28 @@
     "topics": "Forums",
     "activities": "Activities",
     "notice": "Notifications",
-    "profile": "Profile",
-    "moreSection": "More",
-    "titleShop": "Title shop",
-    "medalCenter": "Medal center",
-    "bank": "Bank",
+    "me": "Me",
     "settings": "Settings"
+  },
+  "mePage": {
+    "title": "Me",
+    "mine": "My account",
+    "services": "Forum services",
+    "app": "App",
+    "switchAccount": "Switch account",
+    "inUse": "In use",
+    "uid": "UID ${uid}",
+    "guestTitle": "Not logged in",
+    "guestDetail": "Log in to check in, keep favorites, and read your notifications and messages.",
+    "entries": {
+      "myThreads": "My threads",
+      "favorites": "Favorites",
+      "history": "History",
+      "drafts": "Drafts",
+      "messages": "Messages",
+      "friends": "Friends",
+      "points": "Points"
+    }
   },
   "home": {
     "confirmExit": "Press again to exit"
@@ -215,7 +231,13 @@
     "forumActivity": "Forum activity",
     "guideTitle": "Forum guide",
     "tools": "My tools",
-    "supportNote": "Entirely optional: every feature stays available without it"
+    "supportNote": "Entirely optional: every feature stays available without it",
+    "guest": {
+      "title": "Log in to see more",
+      "detail": "With an account you can check in, claim the daily red packet, keep favorites, read your notifications and messages, and enter the forums open to members only.",
+      "forums": "Forums",
+      "allForums": "All forums"
+    }
   },
   "medalTitleHub": {
     "title": "Medals & titles",
@@ -826,6 +848,13 @@
     "tooltip": {
       "fab": "Post new thread"
     },
+    "newThread": {
+      "label": "Post",
+      "guestTitle": "Log in to post",
+      "guestMessage": "Posting a thread needs an account. Log in first, then come back to this forum.",
+      "noPermissionTitle": "No permission to post here",
+      "noPermissionMessage": "The forum does not let your user group post threads in this forum. Other forums may allow it, or your user group may change as you take part."
+    },
     "copyFid": "Copy fid(${fid: String})",
     "favorite": {
       "add": "Add forum to favorites",
@@ -896,6 +925,7 @@
   },
   "noticePage": {
     "title": "Notifications",
+    "guestHint": "Log in to read your notices, private messages and broadcast messages.",
     "appBar": {
       "unread": "unread",
       "unreadDetail": "Only show unread",

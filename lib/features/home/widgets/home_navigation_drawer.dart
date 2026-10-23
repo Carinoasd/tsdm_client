@@ -19,11 +19,8 @@ class _HomeNavigationDrawerState extends State<HomeNavigationDrawer> {
     final barItems = _buildNavigationItems(context);
     final colorScheme = Theme.of(context).colorScheme;
     // Same look as the bottom bar and the rail: low container color (shared with the brand block above it), rounded
-    // indicator.
-    //
-    // Grouped like the reference sidebar: the main entries, then the "more" entries under their header. The header is
-    // not a destination, so the indices of onDestinationSelected and selectedIndex stay those of barItems. The drawer
-    // is a list and scrolls when the window is short.
+    // indicator. The same four destinations as the bottom bar; the drawer is a list and scrolls when the window is
+    // short.
     return NavigationDrawer(
       backgroundColor: colorScheme.surfaceContainerLow,
       elevation: 0,
@@ -31,8 +28,7 @@ class _HomeNavigationDrawerState extends State<HomeNavigationDrawer> {
       selectedIndex: _selectedIndexOf(barItems, context.watch<HomeCubit>().state.tab),
       onDestinationSelected: (index) => _onHomeDestinationSelected(context, _doubleTap, barItems, index),
       children: [
-        for (final (i, e) in barItems.indexed) ...[
-          if (i > 0 && e.group != barItems[i - 1].group) _NavigationSectionHeader(context.t.navigation.moreSection),
+        for (final e in barItems)
           NavigationDrawerDestination(
             icon: _destinationIcon(e),
             selectedIcon: _destinationIcon(e, selected: true),
@@ -43,7 +39,6 @@ class _HomeNavigationDrawerState extends State<HomeNavigationDrawer> {
               child: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ),
-        ],
       ],
     );
   }
