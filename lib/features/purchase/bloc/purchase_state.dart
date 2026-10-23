@@ -22,11 +22,14 @@ enum PurchaseStatus {
 @MappableClass()
 final class PurchaseState with PurchaseStateMappable {
   /// Constructor.
-  const PurchaseState({this.status = PurchaseStatus.initial, this.confirmInfo});
+  const PurchaseState({this.status = PurchaseStatus.initial, this.confirmInfo, this.failedReason});
 
   /// Status.
   final PurchaseStatus status;
 
   /// MUST get this info before purchase.
   final PurchaseConfirmInfo? confirmInfo;
+
+  /// The forum's message of a failure (bought already, not enough credits, not logged in…), null when it gave none.
+  final String? failedReason;
 }

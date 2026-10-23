@@ -13,6 +13,8 @@ class PurchaseConfirmInfo with PurchaseConfirmInfoMappable {
     required this.referer,
     required this.tid,
     required this.handleKey,
+    this.submitUrl,
+    this.submitFields,
   });
 
   /// Author name
@@ -38,4 +40,12 @@ class PurchaseConfirmInfo with PurchaseConfirmInfoMappable {
 
   /// Handle key parameter in request.
   final String handleKey;
+
+  /// The url the form posts to (`submit.url` of the forum's app API, plugin 3.0.0, absolute; posted with `inajax=1`
+  /// as the website does); null when the window was parsed from the web page, which posts to the fixed pay url.
+  final String? submitUrl;
+
+  /// The hidden fields of the form and its submit button as served (`submit.fields`, plugin 3.0.0); null when the
+  /// window was parsed from the web page, which posts [formHash], [referer], [tid] and [handleKey].
+  final Map<String, String>? submitFields;
 }

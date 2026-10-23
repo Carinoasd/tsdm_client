@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/profile/models/editable_user_profile.dart' as eup;
 import 'package:tsdm_client/features/profile/repository/edit_user_profile_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -28,26 +29,36 @@ final class EditUserProfileBloc extends Bloc<EditUserProfileEvent, EditUserProfi
   final EditUserProfileRepository _repo;
 
   Future<void> _onLoadProfile(_Emit emit) async {
-    emit(state.copyWith(status: .loading));
+    emit(state.copyWith(status: .loading, failureReason: null));
     switch (await _repo.loadProfile().run()) {
       case Right(:final value):
         emit(state.copyWith(status: .success, profile: value));
       case Left(:final value):
         error('failed to load editable user profile: $value');
-        emit(state.copyWith(status: .failure));
+        emit(
+          state.copyWith(
+            status: .failure,
+            failureReason: value is EditUserProfileFormNotFound ? value.reason : null,
+          ),
+        );
     }
   }
 
   void _onSaveProfile(_Emit emit, eup.UserProfile profile) => emit(state.copyWith(profile: profile));
 
   Future<void> _onUploadProfile(_Emit emit, eup.UserProfile profile) async {
-    emit(state.copyWith(status: .submitting));
+    emit(state.copyWith(status: .submitting, failureReason: null));
     switch (await _repo.uploadProfile(profile).run()) {
       case Right():
         emit(state.copyWith(status: .success));
       case Left(:final value):
         handle(value);
-        emit(state.copyWith(status: .failure));
+        emit(
+          state.copyWith(
+            status: .failure,
+            failureReason: value is EditUserProfileUploadFailed ? value.reason : null,
+          ),
+        );
     }
   }
 }

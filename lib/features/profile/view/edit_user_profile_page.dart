@@ -25,6 +25,8 @@ import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/selectable_list_tile.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 
+typedef _Keys = UserProfileKeys;
+
 const _profileFieldTextMaxLines = 10;
 const _profileFieldTextMinLines = 3;
 
@@ -117,7 +119,8 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
     eup.Visibility? visibility,
     FutureOr<void> Function(eup.Visibility)? onVisibilityChanged,
     bool multiline = false,
-  }) => _buildProfileListTile(
+    bool editable = true,
+  }) => _buildProfileListTile<String?>(
     context: context,
     icon: icon,
     title: title,
@@ -125,16 +128,18 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
     value: value,
     visibility: visibility,
     onVisibilityChanged: onVisibilityChanged,
-    onTap: (v) async => _spawnTextFieldDialog(
-      context: context,
-      profile: profile,
-      title: title,
-      icon: icon,
-      currentValue: v ?? '',
-      onValueUpdated: onValueUpdated,
-      maxLines: multiline ? _profileFieldTextMaxLines : 1,
-      minLines: multiline ? _profileFieldTextMinLines : null,
-    ),
+    onTap: !editable
+        ? null
+        : (v) async => _spawnTextFieldDialog(
+            context: context,
+            profile: profile,
+            title: title,
+            icon: icon,
+            currentValue: v ?? '',
+            onValueUpdated: onValueUpdated,
+            maxLines: multiline ? _profileFieldTextMaxLines : 1,
+            minLines: multiline ? _profileFieldTextMinLines : null,
+          ),
   );
 
   void _save(BuildContext context, eup.UserProfile profile) =>
@@ -155,109 +160,122 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
           value: tr.username,
           subtitle: profile.usernameReadonly,
         ),
-        _buildProfileListTile(
-          context: context,
-          icon: Icons.face_2_outlined,
-          title: tr.gender.title,
-          subtitle: switch (profile.gender) {
-            eup.Gender.private => tr.gender.hide,
-            eup.Gender.male => tr.gender.male,
-            eup.Gender.female => tr.gender.female,
-          },
-          value: profile.gender,
-          visibility: profile.genderVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(genderVisibility: visibility)),
-          onTap: (gender) async => _spawnSelectionDialog<eup.Gender>(
+        if (profile.shows(_Keys.gender))
+          _buildProfileListTile(
             context: context,
-            profile: profile,
-            title: tr.gender.title,
             icon: Icons.face_2_outlined,
-            currentValue: profile.gender,
-            valueNamePairs: [
-              (eup.Gender.private, tr.gender.hide),
-              (eup.Gender.male, tr.gender.male),
-              (eup.Gender.female, tr.gender.female),
-            ],
-            onValueUpdated: (p, v) => p.copyWith(gender: v),
+            title: tr.gender.title,
+            subtitle: switch (profile.gender) {
+              eup.Gender.private => tr.gender.hide,
+              eup.Gender.male => tr.gender.male,
+              eup.Gender.female => tr.gender.female,
+            },
+            value: profile.gender,
+            visibility: profile.genderVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(genderVisibility: visibility)),
+            onTap: !profile.canEdit(_Keys.gender)
+                ? null
+                : (gender) async => _spawnSelectionDialog<eup.Gender>(
+                    context: context,
+                    profile: profile,
+                    title: tr.gender.title,
+                    icon: Icons.face_2_outlined,
+                    currentValue: profile.gender,
+                    valueNamePairs: [
+                      (eup.Gender.private, tr.gender.hide),
+                      (eup.Gender.male, tr.gender.male),
+                      (eup.Gender.female, tr.gender.female),
+                    ],
+                    onValueUpdated: (p, v) => p.copyWith(gender: v),
+                  ),
           ),
-        ),
-        _buildProfileListTile(
-          context: context,
-          icon: Icons.cake_outlined,
-          title: tr.birthday.title,
-          subtitle:
-              '${profile.birthdayYear ?? "-"} ${tr.birthday.year} '
-              '${profile.birthdayMonth ?? "-"} ${tr.birthday.month} '
-              '${profile.birthdayDay ?? "-"} ${tr.birthday.day}',
-          value: _BirthdayInfo(
-            year: profile.birthdayYear,
-            month: profile.birthdayMonth,
-            day: profile.birthdayDay,
-            availableYears: profile.birthdayAvailableYears,
+        if (profile.shows(_Keys.birthday))
+          _buildProfileListTile(
+            context: context,
+            icon: Icons.cake_outlined,
+            title: tr.birthday.title,
+            subtitle:
+                '${profile.birthdayYear ?? "-"} ${tr.birthday.year} '
+                '${profile.birthdayMonth ?? "-"} ${tr.birthday.month} '
+                '${profile.birthdayDay ?? "-"} ${tr.birthday.day}',
+            value: _BirthdayInfo(
+              year: profile.birthdayYear,
+              month: profile.birthdayMonth,
+              day: profile.birthdayDay,
+              availableYears: profile.birthdayAvailableYears,
+            ),
+            visibility: profile.birthdayVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(birthdayVisibility: visibility)),
+            onTap: !profile.canEdit(_Keys.birthday)
+                ? null
+                : (_) async {
+                    final birthday = await showSelectBirthdayDialog(
+                      context,
+                      BirthdayInfo(
+                        year: profile.birthdayYear,
+                        month: profile.birthdayMonth,
+                        day: profile.birthdayDay,
+                      ),
+                      profile.birthdayAvailableYears,
+                    );
+                    if (birthday == null || !context.mounted) {
+                      return;
+                    }
+                    _save(
+                      context,
+                      profile.copyWith(
+                        birthdayYear: birthday.year,
+                        birthdayMonth: birthday.month,
+                        birthdayDay: birthday.day,
+                      ),
+                    );
+                  },
           ),
-          visibility: profile.birthdayVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(birthdayVisibility: visibility)),
-          onTap: (_) async {
-            final birthday = await showSelectBirthdayDialog(
-              context,
-              BirthdayInfo(
-                year: profile.birthdayYear,
-                month: profile.birthdayMonth,
-                day: profile.birthdayDay,
-              ),
-              profile.birthdayAvailableYears,
-            );
-            if (birthday == null || !context.mounted) {
-              return;
-            }
-            _save(
-              context,
-              profile.copyWith(
-                birthdayYear: birthday.year,
-                birthdayMonth: birthday.month,
-                birthdayDay: birthday.day,
-              ),
-            );
-          },
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.location_on_outlined,
-          title: tr.location,
-          value: profile.location,
-          visibility: profile.locationVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(locationVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(location: v),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.alternate_email_outlined,
-          title: tr.nickname,
-          value: profile.nickname,
-          visibility: profile.nicknameVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(nicknameVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(nickname: v),
-        ),
-        _buildProfileListTile(
-          context: context,
-          icon: Icons.schedule_outlined,
-          title: tr.timezone,
-          value: _TimeZoneInfo(profile.timeZone, profile.availableTimeZones),
-          subtitle: profile.timeZone?.name ?? '-',
-          onTap: (gender) async => _spawnSelectionDialog<String>(
+        if (profile.shows(_Keys.location))
+          _textTile(
             context: context,
             profile: profile,
-            title: tr.timezone,
-            icon: Icons.schedule_outlined,
-            currentValue: profile.timeZone?.value,
-            valueNamePairs: profile.availableTimeZones.map((v) => (v.value, v.name)).toList(),
-            onValueUpdated: (p, v) => p.copyWith(
-              timeZone: profile.availableTimeZones.firstWhereOrNull((e) => e.value == v),
-            ),
+            icon: Icons.location_on_outlined,
+            title: tr.location,
+            value: profile.location,
+            editable: profile.canEdit(_Keys.location),
+            visibility: profile.locationVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(locationVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(location: v),
           ),
-        ),
+        if (profile.shows(_Keys.nickname))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.alternate_email_outlined,
+            title: tr.nickname,
+            value: profile.nickname,
+            editable: profile.canEdit(_Keys.nickname),
+            visibility: profile.nicknameVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(nicknameVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(nickname: v),
+          ),
+        if (profile.shows(_Keys.timezone))
+          _buildProfileListTile(
+            context: context,
+            icon: Icons.schedule_outlined,
+            title: tr.timezone,
+            value: _TimeZoneInfo(profile.timeZone, profile.availableTimeZones),
+            subtitle: profile.timeZone?.name ?? '-',
+            onTap: !profile.canEdit(_Keys.timezone)
+                ? null
+                : (gender) async => _spawnSelectionDialog<String>(
+                    context: context,
+                    profile: profile,
+                    title: tr.timezone,
+                    icon: Icons.schedule_outlined,
+                    currentValue: profile.timeZone?.value,
+                    valueNamePairs: profile.availableTimeZones.map((v) => (v.value, v.name)).toList(),
+                    onValueUpdated: (p, v) => p.copyWith(
+                      timeZone: profile.availableTimeZones.firstWhereOrNull((e) => e.value == v),
+                    ),
+                  ),
+          ),
       ],
     );
 
@@ -265,65 +283,72 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
       title: tr.sections.contact,
       icon: Icons.contact_mail_outlined,
       children: [
-        _buildProfileListTile(
-          context: context,
-          icon: Icons.chat_outlined,
-          title: tr.qq.title,
-          subtitle: '${profile.qq ?? ""}',
-          value: profile.qq,
-          visibility: profile.qqVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(qqVisibility: visibility)),
-          onTap: (v) async => _spawnTextFieldDialog(
+        if (profile.shows(_Keys.qq))
+          _buildProfileListTile(
+            context: context,
+            icon: Icons.chat_outlined,
+            title: tr.qq.title,
+            subtitle: '${profile.qq ?? ""}',
+            value: profile.qq,
+            visibility: profile.qqVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(qqVisibility: visibility)),
+            onTap: !profile.canEdit(_Keys.qq)
+                ? null
+                : (v) async => _spawnTextFieldDialog(
+                    context: context,
+                    profile: profile,
+                    title: tr.qq.title,
+                    icon: Icons.chat_outlined,
+                    currentValue: v == null ? '' : v.toString(),
+                    onValueUpdated: (p, v) => p.copyWith(qq: v.parseToInt()),
+                    validator: (v) {
+                      if (v == null) {
+                        return tr.qq.invalidQQ;
+                      }
+
+                      if (v.isEmpty) {
+                        return null;
+                      }
+
+                      if (v.startsWith('0') || !RegExp('[0-9]{6,}').hasMatch(v)) {
+                        return tr.qq.invalidQQ;
+                      }
+
+                      final vv = v.parseToInt();
+                      if (vv == null || vv < 0) {
+                        return tr.qq.invalidQQ;
+                      }
+
+                      return null;
+                    },
+                    keyboardType: .number,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9]+'))],
+                  ),
+          ),
+        if (profile.shows(_Keys.msn))
+          _textTile(
             context: context,
             profile: profile,
-            title: tr.qq.title,
-            icon: Icons.chat_outlined,
-            currentValue: v == null ? '' : v.toString(),
-            onValueUpdated: (p, v) => p.copyWith(qq: v.parseToInt()),
-            validator: (v) {
-              if (v == null) {
-                return tr.qq.invalidQQ;
-              }
-
-              if (v.isEmpty) {
-                return null;
-              }
-
-              if (v.startsWith('0') || !RegExp('[0-9]{6,}').hasMatch(v)) {
-                return tr.qq.invalidQQ;
-              }
-
-              final vv = v.parseToInt();
-              if (vv == null || vv < 0) {
-                return tr.qq.invalidQQ;
-              }
-
-              return null;
-            },
-            keyboardType: .number,
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9]+'))],
+            icon: Icons.forum_outlined,
+            title: tr.msn,
+            value: profile.msn,
+            editable: profile.canEdit(_Keys.msn),
+            visibility: profile.msnVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(msnVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(msn: v),
           ),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.forum_outlined,
-          title: tr.msn,
-          value: profile.msn,
-          visibility: profile.msnVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(msnVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(msn: v),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.home_outlined,
-          title: tr.homepage,
-          value: profile.homepage,
-          visibility: profile.homepageVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(homepageVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(homepage: v),
-        ),
+        if (profile.shows(_Keys.homepage))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.home_outlined,
+            title: tr.homepage,
+            value: profile.homepage,
+            editable: profile.canEdit(_Keys.homepage),
+            visibility: profile.homepageVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(homepageVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(homepage: v),
+          ),
       ],
     );
 
@@ -331,58 +356,69 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
       title: tr.sections.aboutMe,
       icon: Icons.notes_outlined,
       children: [
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.description_outlined,
-          title: tr.bio,
-          value: profile.bio,
-          visibility: profile.bioVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(bioVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(bio: v),
-          multiline: true,
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.interests_outlined,
-          title: tr.hobby,
-          value: profile.hobby,
-          visibility: profile.hobbyVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(hobbyVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(hobby: v),
-          multiline: true,
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.format_quote_outlined,
-          title: tr.wordsToSay,
-          value: profile.wordsToSay,
-          visibility: profile.wordsToSayVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(wordsToSayVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(wordsToSay: v),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.construction_outlined,
-          title: tr.skills,
-          value: profile.skill,
-          visibility: profile.skillVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(skillVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(skill: v),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.live_tv_outlined,
-          title: tr.favoriteBangumi,
-          value: profile.favoriteBangumi,
-          visibility: profile.favoriteBangumiVisibility,
-          onVisibilityChanged: (visibility) => _save(context, profile.copyWith(favoriteBangumiVisibility: visibility)),
-          onValueUpdated: (p, v) => p.copyWith(favoriteBangumi: v),
-        ),
+        if (profile.shows(_Keys.bio))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.description_outlined,
+            title: tr.bio,
+            value: profile.bio,
+            editable: profile.canEdit(_Keys.bio),
+            visibility: profile.bioVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(bioVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(bio: v),
+            multiline: true,
+          ),
+        if (profile.shows(_Keys.hobby))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.interests_outlined,
+            title: tr.hobby,
+            value: profile.hobby,
+            editable: profile.canEdit(_Keys.hobby),
+            visibility: profile.hobbyVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(hobbyVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(hobby: v),
+            multiline: true,
+          ),
+        if (profile.shows(_Keys.wordsToSay))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.format_quote_outlined,
+            title: tr.wordsToSay,
+            value: profile.wordsToSay,
+            editable: profile.canEdit(_Keys.wordsToSay),
+            visibility: profile.wordsToSayVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(wordsToSayVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(wordsToSay: v),
+          ),
+        if (profile.shows(_Keys.skill))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.construction_outlined,
+            title: tr.skills,
+            value: profile.skill,
+            editable: profile.canEdit(_Keys.skill),
+            visibility: profile.skillVisibility,
+            onVisibilityChanged: (visibility) => _save(context, profile.copyWith(skillVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(skill: v),
+          ),
+        if (profile.shows(_Keys.favoriteBangumi))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.live_tv_outlined,
+            title: tr.favoriteBangumi,
+            value: profile.favoriteBangumi,
+            editable: profile.canEdit(_Keys.favoriteBangumi),
+            visibility: profile.favoriteBangumiVisibility,
+            onVisibilityChanged: (visibility) =>
+                _save(context, profile.copyWith(favoriteBangumiVisibility: visibility)),
+            onValueUpdated: (p, v) => p.copyWith(favoriteBangumi: v),
+          ),
       ],
     );
 
@@ -390,23 +426,27 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
       title: tr.sections.forum,
       icon: Icons.forum_outlined,
       children: [
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.military_tech_outlined,
-          title: tr.customTitle,
-          value: profile.customTitle,
-          onValueUpdated: (p, v) => p.copyWith(customTitle: v),
-        ),
-        _textTile(
-          context: context,
-          profile: profile,
-          icon: Icons.draw_outlined,
-          title: tr.signature,
-          value: profile.signature,
-          onValueUpdated: (p, v) => p.copyWith(signature: v),
-          multiline: true,
-        ),
+        if (profile.shows(_Keys.customTitle))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.military_tech_outlined,
+            title: tr.customTitle,
+            value: profile.customTitle,
+            editable: profile.canEdit(_Keys.customTitle),
+            onValueUpdated: (p, v) => p.copyWith(customTitle: v),
+          ),
+        if (profile.shows(_Keys.signature))
+          _textTile(
+            context: context,
+            profile: profile,
+            icon: Icons.draw_outlined,
+            title: tr.signature,
+            value: profile.signature,
+            editable: profile.canEdit(_Keys.signature),
+            onValueUpdated: (p, v) => p.copyWith(signature: v),
+            multiline: true,
+          ),
         // Page style is not editable on Discuz X5 (no "styleid" select in form), hide it if no style available.
         if (profile.availablePageStyles.isNotEmpty)
           _buildProfileListTile(
@@ -439,7 +479,8 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
           children: [
             // Edits stay on this page until uploaded with the button of the app bar.
             AppNoticeBanner(message: tr.uploadHint, icon: Icons.cloud_upload_outlined),
-            for (final group in [basic, contact, aboutMe, forum]) ...[
+            // The editor of the forum's app API shows only the fields the page printed: a group may have none.
+            for (final group in [basic, contact, aboutMe, forum].where((g) => g.children.isNotEmpty)) ...[
               const SizedBox(height: appSurfaceGap),
               group,
             ],
@@ -466,7 +507,14 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
           if (state.status == .success) {
             showSnackBar(context: context, message: context.t.editUserProfilePage.saveSuccess);
           } else if (state.status == .failure) {
-            showSnackBar(context: context, message: context.t.editUserProfilePage.saveFailed);
+            // The forum's words when it gave them (the field it refused, its message).
+            final reason = state.failureReason;
+            showSnackBar(
+              context: context,
+              message: reason == null || reason.isEmpty
+                  ? context.t.editUserProfilePage.saveFailed
+                  : context.t.editUserProfilePage.saveFailedReason(reason: reason),
+            );
           }
         },
         builder: (context, state) {
@@ -475,6 +523,7 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
             EditUserProfileStatus.failure when state.profile == null => buildRetryButton(
               context,
               () => context.read<EditUserProfileBloc>().add(const EditUserProfileLoadProfileRequested()),
+              message: state.failureReason,
             ),
             // Form pages stay at most [appFormMaxWidth] wide, centered on wide windows.
             _ => _buildBody(context, state.profile!),

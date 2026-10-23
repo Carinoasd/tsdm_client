@@ -1,9 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/profile/models/available_user_group.dart';
 import 'package:tsdm_client/features/profile/repository/switch_user_group_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:universal_html/html.dart' as uh;
 
 part 'switch_user_group_bloc.mapper.dart';
 part 'switch_user_group_event.dart';
@@ -31,49 +32,40 @@ final class SwitchUserGroupBloc extends Bloc<SwitchUserGroupBaseEvent, SwitchUse
   final SwitchUserGroupRepository _repo;
 
   Future<void> _onLoadInfo(_Emit emit) async {
-    emit(state.copyWith(status: SwitchUserGroupStatus.loadingInfo));
-    await _repo.fetchAvailableGroupDocument().match((e) {
-      handle(e);
-      emit(state.copyWith(status: SwitchUserGroupStatus.failure));
-    }, (v) => _updateFromInfoDocument(emit, v)).run();
+    emit(state.copyWith(status: SwitchUserGroupStatus.loadingInfo, failureReason: null));
+    switch (await _repo.fetchAvailableGroups().run()) {
+      case Right(:final value):
+        emit(
+          state.copyWith(
+            status: SwitchUserGroupStatus.waitingSwitchAction,
+            currentUserGroup: value.currentUserGroup,
+            availableGroups: value.availableGroups,
+            formHash: value.formHash,
+          ),
+        );
+      case Left(:final value):
+        handle(value);
+        emit(state.copyWith(status: SwitchUserGroupStatus.failure, failureReason: _reasonOf(value)));
+    }
   }
 
   Future<void> _onRunSwitch(_Emit emit, String name, int gid, String formHash) async {
-    emit(state.copyWith(status: SwitchUserGroupStatus.switching));
-    await _repo
-        .submitSwitchRequest(gid, formHash)
-        .mapLeft((e) {
-          handle(e);
-          // Rollback to waiting state.
-          emit(state.copyWith(status: SwitchUserGroupStatus.failure));
-        })
-        .map((_) => emit(state.copyWith(status: SwitchUserGroupStatus.success, destination: name)))
-        .run();
-  }
-
-  void _updateFromInfoDocument(_Emit emit, uh.Document document) {
-    final (currentUserGroup, availableUserGroups) = AvailableUserGroup.parseInfoDocument(document);
-    final formHash = document.querySelector('input[name="formhash"]')?.attributes['value'];
-    if (formHash == null) {
-      error('failed to build switch user group document: form hash not found');
-      emit(
-        state.copyWith(
-          status: SwitchUserGroupStatus.failure,
-          currentUserGroup: null,
-          availableGroups: null,
-          formHash: null,
-        ),
-      );
-      return;
+    emit(state.copyWith(status: SwitchUserGroupStatus.switching, failureReason: null));
+    final group =
+        state.availableGroups.where((e) => e.gid == gid).firstOrNull ??
+        AvailableUserGroup(name: name, gid: gid, infoUrl: '');
+    switch (await _repo.switchTo(group, formHash).run()) {
+      case Right(:final value):
+        emit(state.copyWith(status: SwitchUserGroupStatus.success, destination: value));
+      case Left(:final value):
+        handle(value);
+        emit(state.copyWith(status: SwitchUserGroupStatus.failure, failureReason: _reasonOf(value)));
     }
-
-    emit(
-      state.copyWith(
-        status: SwitchUserGroupStatus.waitingSwitchAction,
-        currentUserGroup: currentUserGroup,
-        availableGroups: availableUserGroups,
-        formHash: formHash,
-      ),
-    );
   }
+
+  /// The forum's own words of a failure, null when it gave none.
+  static String? _reasonOf(Object e) => switch (e) {
+    SwitchUserGroupFailed(:final reason?) when reason.isNotEmpty => reason,
+    _ => null,
+  };
 }

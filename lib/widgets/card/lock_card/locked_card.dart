@@ -157,7 +157,12 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
             }
             context.read<ThreadBloc>().add(ThreadRefreshRequested());
           } else if (state.status == PurchaseStatus.failed) {
-            showSnackBar(context: context, message: tr.failedPurchase);
+            // The forum's own words when it gave them (bought already, not enough credits…).
+            final reason = state.failedReason;
+            showSnackBar(
+              context: context,
+              message: reason == null || reason.isEmpty ? tr.failedPurchase : tr.failedPurchaseMessage(message: reason),
+            );
             if (!context.mounted) {
               return;
             }

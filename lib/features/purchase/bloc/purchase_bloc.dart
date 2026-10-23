@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/purchase/models/models.dart';
 import 'package:tsdm_client/features/purchase/repository/purchase_repository.dart';
@@ -35,8 +36,13 @@ final class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> with LoggerM
     await _purchaseRepository.fetchPurchaseConfirmInfo(tid: event.tid, pid: event.pid).match((e) {
       handle(e);
       error('failed to fetch purchase info: $e');
-      emit(state.copyWith(status: PurchaseStatus.failed));
-    }, (v) => emit(state.copyWith(status: PurchaseStatus.gotInfo, confirmInfo: v))).run();
+      emit(
+        state.copyWith(
+          status: PurchaseStatus.failed,
+          failedReason: e is PurchaseRefusedException ? e.reason : null,
+        ),
+      );
+    }, (v) => emit(state.copyWith(status: PurchaseStatus.gotInfo, confirmInfo: v, failedReason: null))).run();
   }
 
   Future<void> _onPurchasePurchaseRequested(PurchasePurchaseRequested event, PurchaseEmitter emit) async {
@@ -49,24 +55,22 @@ final class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> with LoggerM
 
     final confirmInfo = state.confirmInfo!;
 
-    try {
-      await _purchaseRepository
-          .purchase(
-            formHash: confirmInfo.formHash,
-            referer: confirmInfo.referer,
-            handleKey: confirmInfo.handleKey,
-            tid: confirmInfo.tid,
-          )
-          .run();
-      emit(state.copyWith(status: PurchaseStatus.success));
-    } on HttpRequestFailedException catch (e) {
-      error('failed to purchase: $e');
-      emit(state.copyWith(status: PurchaseStatus.failed));
-      return;
-    } on PurchaseActionFailedException catch (e) {
-      error('failed to purchase: $e');
-      emit(state.copyWith(status: PurchaseStatus.failed));
-      return;
+    switch (await _purchaseRepository.purchase(confirmInfo).run()) {
+      case Right():
+        emit(state.copyWith(status: PurchaseStatus.success, failedReason: null));
+      case Left(:final value):
+        handle(value);
+        error('failed to purchase: $value');
+        emit(
+          state.copyWith(
+            status: PurchaseStatus.failed,
+            failedReason: switch (value) {
+              PurchaseRefusedException(:final reason) => reason,
+              PurchaseActionFailedException(:final reason) => reason,
+              _ => null,
+            },
+          ),
+        );
     }
   }
 
