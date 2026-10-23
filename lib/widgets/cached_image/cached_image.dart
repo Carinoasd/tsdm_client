@@ -168,6 +168,18 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
     setState(_unwatch);
   }
 
+  /// Stop following [stream] once its first frame is shown (see [_watch]); [_stream] stays, so the same image is not
+  /// watched again.
+  void _detach(ImageStream stream) {
+    if (!identical(stream, _stream) || !_loaded) {
+      return;
+    }
+    if (_listener case final listener?) {
+      stream.removeListener(listener);
+    }
+    _listener = null;
+  }
+
   void _unwatch() {
     if (_listener case final listener?) {
       _stream?.removeListener(listener);
@@ -214,6 +226,9 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
             _progress = null;
           });
         }
+        // The image built from now on follows the stream itself: an animation does not tell every frame here too.
+        // Detached once that image is built, so the stream is never left without a listener meanwhile.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _detach(stream));
       },
       onChunk: (event) {
         if (!mounted || _loaded) {

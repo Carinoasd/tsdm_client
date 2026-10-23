@@ -55,6 +55,7 @@ import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
@@ -70,6 +71,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/image_file_name.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
@@ -603,7 +605,12 @@ void main() {
     Future<GoRouter> pumpGallery(WidgetTester tester, List<GalleryImage> images, {int index = 0, String? path}) async {
       final router = GoRouter(
         initialLocation: path ?? '/',
+        observers: [routeObserver],
         routes: [
+          GoRoute(
+            path: '/over',
+            builder: (_, _) => const Scaffold(body: Text('a page over the gallery')),
+          ),
           GoRoute(
             path: '/',
             builder: (_, _) => Scaffold(
@@ -753,6 +760,20 @@ void main() {
       expect(find.byType(ImageGalleryPage), findsNothing);
     });
 
+    testWidgets('a page opened over the gallery has the system bars; back to the gallery they go again', (
+      tester,
+    ) async {
+      server.serve(_a, 300, 200);
+      final router = await pumpGallery(tester, const [GalleryImage(_a)]);
+      expect(systemUiModes(), ['SystemUiMode.immersiveSticky']);
+      unawaited(router.push('/over'));
+      await tester.pumpAndSettle();
+      expect(systemUiModes().last, startsWith('shown:'));
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(systemUiModes().last, 'SystemUiMode.immersiveSticky');
+    });
+
     testWidgets('the route of one picture (its url in the path, no pictures given) shows it alone', (tester) async {
       server.serve(_a, 300, 200);
       await pumpGallery(tester, const [], path: '/imageDetail/${Uri.encodeComponent(_a)}');
@@ -772,7 +793,7 @@ void main() {
       expect(find.byKey(const ValueKey('image-gallery-save')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('image-gallery-share')));
       await _settle(tester, until: () => shared.isNotEmpty);
-      expect(shared.single.fileNameOverrides, ['a.png']);
+      expect(shared.single.files!.single.path, endsWith('/a.png'));
       expect(shared.single.text, isNull, reason: 'the file, not the url');
     });
   });
@@ -1164,12 +1185,26 @@ void main() {
       expect(find.text(t.imageGallery.tapToLoad), findsOneWidget);
       expect(find.text('38.57 KB · 1920 × 1080'), findsOneWidget);
       expect(server.requests, isEmpty);
+      // The image sheet shows what is cached only: nothing is downloaded for its preview.
+      await tester.longPress(find.byKey(const ValueKey('post-image-tap-to-load')));
+      await _settle(tester, until: () => find.text(t.imageBottomSheet.title).evaluate().isNotEmpty);
+      expect(find.text(t.imageBottomSheet.title), findsOneWidget);
+      expect(server.requests, isEmpty);
+      Navigator.of(tester.element(find.text(t.imageBottomSheet.title))).pop();
+      await _settle(tester, rounds: 20);
 
       await tester.tap(find.byKey(const ValueKey('post-image-tap-to-load')));
       await _settle(tester, until: () => shown(attachment.url));
       expect(shown(attachment.url), isTrue);
       expect(server.requestsOf(attachment.url), 1);
       expect(opened, isNull, reason: 'the tap loaded it; the next one opens the gallery');
+    });
+
+    testWidgets('tap to load, its size not known: a low bar, not the room of a picture', (tester) async {
+      server.serve(_a, 800, 450);
+      await pumpFloor(tester, const MunchedHtml('<img src="$_a" />'), autoLoad: PostImageAutoLoad.never);
+      final box = tester.getSize(find.descendant(of: pictureOf(_a), matching: find.byType(ImageReservedBox)));
+      expect(box, const Size(400, unknownPlaceholderHeight));
     });
 
     testWidgets('tap to load: a picture cached already shows at once, it costs nothing', (tester) async {
@@ -1258,8 +1293,52 @@ void main() {
       final file = params.files!.single;
       expect(await tester.runAsync(file.readAsBytes), server.images[url]);
       expect(file.mimeType, 'image/png');
-      expect(params.fileNameOverrides!.single, endsWith('.png'));
+      expect(file.path, endsWith('.png'));
       expect(imageMimeTypeOf('x.JPG'), 'image/jpeg');
+    });
+
+    testWidgets('a url naming a path writes nothing out of the folder of shared images', (tester) async {
+      const url = 'https://evil.example/a/..%2F..%2Fapp_flutter%2Ftsdm.sqlite';
+      server.serve(url, 30, 20);
+      final shared = <ShareParams>[];
+      shareImageFiles = (params) async {
+        shared.add(params);
+        return const ShareResult('ok', ShareResultStatus.success);
+      };
+      addTearDown(() => shareImageFiles = SharePlus.instance.share);
+      await tester.pumpWidget(TranslationProvider(child: const MaterialApp(home: SizedBox())));
+      final context = tester.element(find.byType(SizedBox));
+      expect(await tester.runAsync(() => shareImageOf(context, url)), isTrue);
+      final file = File(shared.single.files!.single.path);
+      expect(file.parent.path, '${tmp.path}/tmp/shared_images');
+      expect(file.path.split('/').last, 'tsdm.png');
+      expect(File('${tmp.path}/app_flutter/tsdm.sqlite').existsSync(), isFalse);
+    });
+
+    test('a name taken from the url is a plain file name: no path, no reserved character, not too long', () {
+      final png = Uint8List.fromList(const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0]);
+      final unknown = Uint8List.fromList(const [1, 2, 3, 4]);
+      final now = DateTime.fromMicrosecondsSinceEpoch(42);
+      String name(String url, [Uint8List? data]) => imageFileNameOf(url, data ?? png, now: now);
+      expect(name('https://e.example/a/..%2F..%2Fapp_flutter%2Ftsdm.sqlite'), 'tsdm.png');
+      expect(name('https://e.example/a/..%5C..%5CStartup%5Cevil.png'), 'evil.png');
+      expect(name('https://e.example/a/..'), 'tsdm_client_image_42.png');
+      expect(name('https://e.example/a/%2E%2E'), 'tsdm_client_image_42.png');
+      expect(name('https://e.example/a/x%3A%2A%3F%22%3C%3E%7C.png'), 'x.png');
+      expect(name('https://e.example/a/b%07%0Ac%7F.png'), 'bc.png');
+      expect(name('https://e.example/a/.hidden.png'), 'hidden.png');
+      expect(name('https://e.example/a/${'x' * 300}.png'), '${'x' * imageFileNameMaxLength}.png');
+      expect(name('https://e.example/a/run.exe', unknown), 'run.jpg', reason: "an unknown type is never the url's");
+      for (final url in [
+        'https://e.example/a/..%2F..%2Fx.png',
+        'https://e.example/%2F%2Fetc%2Fpasswd',
+        'https://e.example/C%3A%5CWindows%5Cx.png',
+      ]) {
+        final n = name(url);
+        expect(n, isNot(contains('/')), reason: url);
+        expect(n, isNot(contains(r'\')), reason: url);
+        expect(n.startsWith('.'), isFalse, reason: url);
+      }
     });
   });
 

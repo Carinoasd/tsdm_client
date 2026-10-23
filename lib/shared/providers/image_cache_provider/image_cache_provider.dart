@@ -335,11 +335,14 @@ final class ImageCacheProvider with LoggerMixin {
       final respEither = await _netClientProvider
           .getImage(
             imageUrl,
-            onReceiveProgress: (received, total) {
-              for (final listener in [...?_progressListeners[imageUrl]]) {
-                listener(received, total > 0 ? total : null);
-              }
-            },
+            // Only asked for when someone follows it: the Android client then reads the body in pieces.
+            onReceiveProgress: onProgress == null
+                ? null
+                : (received, total) {
+                    for (final listener in [...?_progressListeners[imageUrl]]) {
+                      listener(received, total > 0 ? total : null);
+                    }
+                  },
           )
           .run();
       if (respEither.isLeft()) {

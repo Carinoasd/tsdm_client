@@ -143,14 +143,19 @@ Future<T?> showCustomBottomSheet<T>({
 /// * Its cache statistics ([onShowStatistics], the gallery).
 ///
 /// [showCheckDetail] is false when the sheet is opened from the full page viewer itself.
+///
+/// [shownUrl] is the picture shown where the sheet was opened ([imageUrl] when null; a floor shows the thumbnail of an
+/// attachment): the preview, only read from the cache (nothing is downloaded for it), and what "reload" loads again.
 Future<void> showImageActionBottomSheet({
   required BuildContext context,
   required String imageUrl,
   String? hrefUrl,
+  String? shownUrl,
   bool showCheckDetail = true,
   VoidCallback? onCheckDetail,
   VoidCallback? onShowStatistics,
 }) async {
+  final shown = shownUrl ?? imageUrl;
   final tr = context.t.imageBottomSheet;
 
   await showCustomBottomSheet<void>(
@@ -165,7 +170,7 @@ Future<void> showImageActionBottomSheet({
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 100),
-              child: NetworkIndicatorImage(imageUrl),
+              child: NetworkIndicatorImage(shown, cacheOnly: true),
             ),
           ),
         ),
@@ -247,7 +252,7 @@ Future<void> showImageActionBottomSheet({
       ListTile(
         leading: const Icon(Icons.refresh_outlined),
         title: Text(tr.reloadImage),
-        onTap: () => context.read<ImageCacheTriggerCubit>().updateImageCache(imageUrl, force: true),
+        onTap: () => context.read<ImageCacheTriggerCubit>().updateImageCache(shown, force: true),
       ),
       ListTile(
         leading: const Icon(Icons.collections_bookmark_outlined),

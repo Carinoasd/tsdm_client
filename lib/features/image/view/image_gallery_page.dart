@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/image/utils/image_sizes.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -94,7 +95,8 @@ class ImageGalleryPage extends StatefulWidget {
   State<ImageGalleryPage> createState() => _ImageGalleryPageState();
 }
 
-class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerProviderStateMixin, LoggerMixin {
+class _ImageGalleryPageState extends State<ImageGalleryPage>
+    with SingleTickerProviderStateMixin, LoggerMixin, RouteAware {
   late final PageController _pageController;
   late int _index;
 
@@ -116,7 +118,13 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerPr
   late final AnimationController _dragBack;
   Animation<Offset>? _dragBackAnimation;
 
+  /// The system bars are shown (the gallery left, or a page opened over it).
   bool _systemUiRestored = false;
+
+  /// Leaving: the bars stay shown whatever comes.
+  bool _leaving = false;
+
+  PageRoute<dynamic>? _route;
 
   _PageZoom _zoomOf(int index) => _zooms.putIfAbsent(index, _PageZoom.new);
 
@@ -133,11 +141,44 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerPr
         }
       });
     _zoomOf(_index).transform.addListener(_onTransform);
+    _hideSystemUi();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && route != _route) {
+      if (_route != null) {
+        routeObserver.unsubscribe(this);
+      }
+      _route = route;
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  // A page opened over the gallery (a link of the image sheet) has the bars of the app; they go again when it is back.
+  @override
+  void didPushNext() => _restoreSystemUi();
+
+  @override
+  void didPopNext() {
+    if (!_leaving) {
+      _hideSystemUi();
+    }
+  }
+
+  void _hideSystemUi() {
+    _systemUiRestored = false;
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
   }
 
   @override
   void dispose() {
+    _leaving = true;
+    if (_route != null) {
+      routeObserver.unsubscribe(this);
+    }
     _restoreSystemUi();
     _zoomOf(_index).transform.removeListener(_onTransform);
     for (final zoom in _zooms.values) {
@@ -201,6 +242,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerPr
   void _onDragEnd(DragEndDetails details) {
     _dragStart = null;
     if (_dragOffset.dy > _dismissDistance || details.velocity.pixelsPerSecond.dy > _dismissVelocity) {
+      _leaving = true;
       _restoreSystemUi();
       context.pop();
       return;
@@ -268,6 +310,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerPr
                 icon: const Icon(Icons.close, color: foreground),
                 tooltip: context.t.general.close,
                 onPressed: () {
+                  _leaving = true;
                   _restoreSystemUi();
                   context.pop();
                 },
@@ -339,6 +382,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> with SingleTickerPr
       child: PopScope(
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) {
+            _leaving = true;
             _restoreSystemUi();
           }
         },
@@ -549,7 +593,8 @@ class _GalleryImageViewState extends State<_GalleryImageView> with SingleTickerP
         ImageSizes.record(
           widget.image.url,
           size,
-          downscaled: (maxWidth != null && size.width >= maxWidth) || size.height >= _maxDecodeHeight,
+          // Exactly as wide as the bound may be its own width: taken as its own (wider than any floor anyway).
+          downscaled: (maxWidth != null && size.width > maxWidth) || size.height > _maxDecodeHeight,
         );
         update(() {
           _imageSize = size;
@@ -674,7 +719,9 @@ class _GalleryImageViewState extends State<_GalleryImageView> with SingleTickerP
     }
     final progress = _progress;
     final total = progress?.expectedTotalBytes;
-    final value = progress != null && total != null && total > 0 ? progress.cumulativeBytesLoaded / total : null;
+    final value = progress != null && total != null && total > 0
+        ? (progress.cumulativeBytesLoaded / total).clamp(0.0, 1.0)
+        : null;
     return Center(
       child: Column(
         key: const ValueKey('image-gallery-loading'),

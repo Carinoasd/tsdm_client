@@ -21,6 +21,9 @@ import 'package:tsdm_client/widgets/network_indicator_image.dart';
 /// Width to height of a picture whose size is not known before it loads: the one of most photos.
 const double defaultImageAspectRatio = 4 / 3;
 
+/// Height of the placeholder of a picture of unknown size waiting for a tap (the data saver) or failed.
+const double unknownPlaceholderHeight = 88;
+
 /// A picture no larger than this on both sides is an icon, not a picture of the post: it stays out of the gallery.
 const smallImageMaxSide = 48.0;
 
@@ -208,6 +211,15 @@ class _PostImageState extends State<PostImage> {
     }
   }
 
+  @override
+  void didUpdateWidget(PostImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image.floorUrl != widget.image.floorUrl) {
+      // Another picture: it waits for its own tap.
+      _requested = false;
+    }
+  }
+
   /// Listening to [NetworkUsage] (the pictures load by themselves on Wi-Fi only).
   bool _listening = false;
 
@@ -258,7 +270,8 @@ class _PostImageState extends State<PostImage> {
       return false;
     }
     final uri = Uri.tryParse(link);
-    if (uri == null) {
+    // Not a link to follow: an anchor of the page, a script.
+    if (uri == null || link.startsWith('#') || (uri.hasScheme && uri.scheme != 'http' && uri.scheme != 'https')) {
       return false;
     }
     if (uri.queryParameters['mod'] == 'attachment') {
@@ -294,6 +307,7 @@ class _PostImageState extends State<PostImage> {
     context: context,
     imageUrl: widget.image.url,
     hrefUrl: widget.image.linkUrl,
+    shownUrl: widget.image.floorUrl,
     onCheckDetail: _openGallery,
   );
 
@@ -309,6 +323,10 @@ class _PostImageState extends State<PostImage> {
       declaredHeight: widget.declaredHeight,
     );
     final fetches = _fetches;
+    final sizeKnown =
+        ImageSizes.of(image.floorUrl) != null ||
+        ((image.width ?? 0) > 0 && (image.height ?? 0) > 0) ||
+        ((widget.declaredWidth ?? 0) > 0 && (widget.declaredHeight ?? 0) > 0);
     final cached = NetworkIndicatorImage(
       image.floorUrl,
       cacheOnly: fetches != true,
@@ -320,6 +338,9 @@ class _PostImageState extends State<PostImage> {
       errorBuilder: (context, error, retry) => ImageReservedBox(
         aspectRatio: box.aspectRatio,
         width: box.width,
+        // A picture that may never load (waiting for a tap, failed) whose size is not known: a low bar, not the room of
+        // a picture.
+        height: sizeKnown || fetches == null ? null : unknownPlaceholderHeight,
         child: switch (fetches) {
           // Not cached, and the network is being asked about: tapping comes once it answered.
           null => const _ImageLoading(null),
@@ -363,7 +384,7 @@ class _ImageLoading extends StatelessWidget {
       content = Icon(Icons.image_outlined, size: 32, color: colorScheme.outlineVariant);
     } else {
       final total = progress.expectedTotalBytes;
-      final value = total != null && total > 0 ? progress.cumulativeBytesLoaded / total : null;
+      final value = total != null && total > 0 ? (progress.cumulativeBytesLoaded / total).clamp(0.0, 1.0) : null;
       content = Column(
         key: const ValueKey('post-image-progress'),
         mainAxisSize: MainAxisSize.min,
@@ -499,7 +520,7 @@ class _PlaceholderSurface extends StatelessWidget {
 /// spans for their width would break.
 class ImageReservedBox extends SingleChildRenderObjectWidget {
   /// Constructor.
-  const ImageReservedBox({required this.aspectRatio, this.width, super.child, super.key});
+  const ImageReservedBox({required this.aspectRatio, this.width, this.height, super.child, super.key});
 
   /// Width to height.
   final double aspectRatio;
@@ -507,22 +528,36 @@ class ImageReservedBox extends SingleChildRenderObjectWidget {
   /// The width at most; null: as wide as there is room.
   final double? width;
 
+  /// A height of its own instead of the one of [aspectRatio], null for none.
+  final double? height;
+
   /// Width of a box whose [width] is not known where it is asked or there is no limit to it.
   static const double fallbackWidth = 320;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => RenderImageReservedBox(aspectRatio, width);
+  RenderObject createRenderObject(BuildContext context) => RenderImageReservedBox(aspectRatio, width, height);
 
   @override
   void updateRenderObject(BuildContext context, RenderImageReservedBox renderObject) => renderObject
     ..aspectRatio = aspectRatio
-    ..width = width;
+    ..width = width
+    ..height = height;
 }
 
 /// The render object of [ImageReservedBox].
 class RenderImageReservedBox extends RenderProxyBox {
   /// Constructor.
-  RenderImageReservedBox(this._aspectRatio, this._width);
+  RenderImageReservedBox(this._aspectRatio, this._width, [this._height]);
+
+  /// A height of its own instead of the one of [aspectRatio].
+  double? get height => _height;
+  double? _height;
+  set height(double? value) {
+    if (value != _height) {
+      _height = value;
+      markNeedsLayout();
+    }
+  }
 
   /// Width to height.
   double get aspectRatio => _aspectRatio;
@@ -554,6 +589,9 @@ class RenderImageReservedBox extends RenderProxyBox {
     if (maxWidth.isFinite) {
       width = math.min(width, maxWidth);
     }
+    if (_height case final fixed?) {
+      return constraints.constrain(Size(width, fixed));
+    }
     var height = width / _ratio;
     if (height > constraints.maxHeight) {
       height = constraints.maxHeight;
@@ -569,10 +607,10 @@ class RenderImageReservedBox extends RenderProxyBox {
   double computeMaxIntrinsicWidth(double height) => height.isFinite ? height * _ratio : _preferredWidth;
 
   @override
-  double computeMinIntrinsicHeight(double width) => (width.isFinite ? width : _preferredWidth) / _ratio;
+  double computeMinIntrinsicHeight(double width) => _height ?? (width.isFinite ? width : _preferredWidth) / _ratio;
 
   @override
-  double computeMaxIntrinsicHeight(double width) => (width.isFinite ? width : _preferredWidth) / _ratio;
+  double computeMaxIntrinsicHeight(double width) => _height ?? (width.isFinite ? width : _preferredWidth) / _ratio;
 
   @override
   Size computeDryLayout(BoxConstraints constraints) => _sizeFor(constraints);

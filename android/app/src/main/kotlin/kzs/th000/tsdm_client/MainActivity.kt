@@ -51,8 +51,8 @@ class MainActivity: FlutterActivity() {
         /** Called on Dart while a GET that carried a `progressId` downloads: how much of its body arrived. */
         const val HTTP_PROGRESS = "progress"
 
-        /** Largest body read with its progress whose buffer is allocated at its full size up front. */
-        const val PREALLOCATED_BODY_MAX = 64L * 1024 * 1024
+        /** Largest buffer allocated up front for a body read with its progress; a larger body grows it as it comes. */
+        const val PREALLOCATED_BODY_MAX = 8L * 1024 * 1024
 
         /** Window size events sent to Dart, see `lib/utils/window_events.dart` (GitHub #28). */
         const val WINDOW_CHANNEL = "kzs.th000.tsdm_client/windowChannel"
@@ -399,7 +399,7 @@ class MainActivity: FlutterActivity() {
     private fun readReportingProgress(resp: Response, id: Int): ByteArray {
         val body = resp.body
         val total = body.contentLength()
-        val out = ByteArrayOutputStream(if (total in 1..PREALLOCATED_BODY_MAX) total.toInt() else 64 * 1024)
+        val out = ByteArrayOutputStream(if (total in 1..PREALLOCATED_BODY_MAX) total.toInt() else 256 * 1024)
         val buffer = ByteArray(16 * 1024)
         var received = 0L
         var reportedAt = 0L

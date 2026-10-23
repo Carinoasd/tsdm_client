@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' show None, Some;
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -97,10 +99,10 @@ Future<bool> shareImageOf(BuildContext context, String url, {Rect? origin}) asyn
   }
   final fileName = imageFileNameOf(url, data);
   try {
+    final file = await _sharedImageFile(fileName, data);
     final result = await shareImageFiles(
       ShareParams(
-        files: [XFile.fromData(data, mimeType: imageMimeTypeOf(fileName), name: fileName)],
-        fileNameOverrides: [fileName],
+        files: [XFile(file.path, mimeType: imageMimeTypeOf(fileName), name: fileName)],
         sharePositionOrigin: origin,
       ),
     );
@@ -117,11 +119,30 @@ Future<bool> shareImageOf(BuildContext context, String url, {Rect? origin}) asyn
   }
 }
 
-/// Open the image at [url] in the browser (never in this app, which takes forum links itself).
+/// The file an image shared is written to: [fileName] in a folder of the temporary directory, of which the images
+/// shared before are deleted first (the share sheet is done with them by then).
+///
+/// Throws when the name would lead out of the folder: [imageFileNameOf] gives a plain name, this checks it again
+/// before anything is written.
+Future<File> _sharedImageFile(String fileName, Uint8List data) async {
+  final folder = Directory(path.join((await getTemporaryDirectory()).path, 'shared_images'));
+  if (folder.existsSync()) {
+    await folder.delete(recursive: true);
+  }
+  await folder.create(recursive: true);
+  final target = path.normalize(path.join(folder.path, fileName));
+  if (!path.isWithin(folder.path, target) || path.dirname(target) != path.normalize(folder.path)) {
+    throw FileSystemException('refuse to write a shared image outside its folder', fileName);
+  }
+  return File(target).writeAsBytes(data, flush: true);
+}
+
+/// Open the image at [url] in the browser (never in this app, which takes forum links itself). Only a web url
+/// (`http`, `https`) is handed over.
 Future<void> openImageInBrowser(BuildContext context, String url) async {
   final uri = Uri.tryParse(url);
   var opened = false;
-  if (uri != null) {
+  if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
     try {
       opened = await openInExternalBrowser(uri);
     } on PlatformException catch (e, st) {

@@ -557,7 +557,7 @@
       },
       "postImageAutoLoad": {
         "title": "Load images in posts automatically",
-        "detail": "An image not loaded automatically shows a placeholder and loads when tapped; cached images always show",
+        "detail": "Only the pictures of the floors of threads: one not loaded automatically shows a placeholder and loads when tapped; cached pictures always show",
         "always": "Always",
         "wifiOnly": "Wi-Fi only",
         "never": "Never (tap to load)"
