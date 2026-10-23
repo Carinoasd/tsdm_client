@@ -508,14 +508,20 @@ void main() {
       expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
       answers['notify'] = {'ok': 1, 'version': '2.3.0', 'time': 1792000000, 'uid': 35, 'notices': <Object?>[]};
       expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-      expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.3.0', api: 1, nodoc: true));
+      expect(
+        TsdmAppApi.pluginInfo.value,
+        const TsdmAppPluginInfo(version: '2.3.0', api: 1, nodoc: true, preview: false),
+      );
       // Another version: what it leaves out is not known of it.
       answers['notify'] = {'ok': 1, 'version': '2.6.0', 'time': 1792000000, 'uid': 35, 'notices': <Object?>[]};
       expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
       expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.6.0', api: null, nodoc: false));
       answers['status'] = {..._status('2.6.0', nodoc: true), 'api': 2};
       expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
-      expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.6.0', api: 2, nodoc: true));
+      expect(
+        TsdmAppApi.pluginInfo.value,
+        const TsdmAppPluginInfo(version: '2.6.0', api: 2, nodoc: true, preview: false),
+      );
     });
 
     test(
@@ -537,7 +543,10 @@ void main() {
 
         answers['status'] = _status('2.2.0');
         expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '2.2.0', api: 1, nodoc: false));
+        expect(
+          TsdmAppApi.pluginInfo.value,
+          const TsdmAppPluginInfo(version: '2.2.0', api: 1, nodoc: false, preview: false),
+        );
         expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isTrue);
 
         // The same again tells the listeners nothing.
@@ -550,18 +559,27 @@ void main() {
         expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: false));
         answers['status'] = _status('3.1.0', nodoc: true);
         expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true));
+        expect(
+          TsdmAppApi.pluginInfo.value,
+          const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true, preview: false),
+        );
         expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isFalse);
 
         // notify never names nodoc: what status said of the same version holds, and the listeners hear nothing.
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true));
+        expect(
+          TsdmAppApi.pluginInfo.value,
+          const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true, preview: false),
+        );
         expect(seen, hasLength(3));
 
         // The session expired: the message names no version, what was known stays.
         answers['notify'] = {'ok': 0, 'error': 'login'};
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
-        expect(TsdmAppApi.pluginInfo.value, const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true));
+        expect(
+          TsdmAppApi.pluginInfo.value,
+          const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true, preview: false),
+        );
 
         // The one action that writes names it as well; another version, so nodoc is not carried over.
         answers['seen'] = {'ok': 1, 'api': 1, 'version': '2.3.1', 'time': 1792000000, 'uid': 35};

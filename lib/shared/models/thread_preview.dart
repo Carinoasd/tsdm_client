@@ -73,16 +73,23 @@ final class ThreadPreview with ThreadPreviewMappable {
 
   static final _lineBreaks = RegExp(r'[ \t　]*(?:\r\n|\r|\n)(?:[ \t　]*(?:\r\n|\r|\n))*[ \t　]*');
 
-  /// The image a list shows, null when there is none (or when withheld): among the attachments of the floor
-  /// ([ThreadPreviewImage.attachment]), and the images of other sites too when [external] (off by default: a list
-  /// loading them would tell the author's site about everyone who only scrolls past the thread, which the web page
-  /// only does once the thread is opened). A thumbnail the forum made ([ThreadPreviewImage.thumb]) first, then the
-  /// first one over https (Android and iOS refuse plain http), then the first one.
-  ThreadPreviewImage? thumbnailOf({bool external = false}) {
+  /// The image a list shows, null when there is none (or when withheld).
+  ///
+  /// * Only the attachments of the floor served by the forum itself ([ThreadPreviewImage.attachment]); the images of
+  ///   other sites too when [external] (off by default: a list loading them would tell the author's site about
+  ///   everyone who only scrolls past the thread, which the web page only does once the thread is opened).
+  /// * On a metered network (not [unmetered]) only a thumbnail the forum made ([ThreadPreviewImage.thumb]); a picture
+  ///   itself only on an unmetered one, and never one with a side over [maxFullSizeSide] (the size the forum noted).
+  /// * A thumbnail the forum made first, then the first one over https (Android and iOS refuse plain http), then the
+  ///   first one.
+  ThreadPreviewImage? thumbnailOf({bool external = false, bool unmetered = false}) {
     if (withheld) {
       return null;
     }
-    final candidates = external ? images : images.where((e) => e.attachment).toList();
+    final candidates = images
+        .where((e) => external || e.attachment)
+        .where((e) => e.thumb || (unmetered && !e.oversized))
+        .toList();
     if (candidates.isEmpty) {
       return null;
     }
@@ -91,16 +98,20 @@ final class ThreadPreview with ThreadPreviewMappable {
         candidates.first;
   }
 
-  /// How many images there are besides the thumbnail [thumbnailOf] picks with [external] (the "+N" on it); 0 when
-  /// there is no thumbnail.
-  int moreImagesOf({bool external = false}) {
-    if (thumbnailOf(external: external) == null) {
+  /// How many images there are besides the thumbnail [thumbnailOf] picks (the "+N" on it); 0 when there is no
+  /// thumbnail.
+  int moreImagesOf({bool external = false, bool unmetered = false}) {
+    if (thumbnailOf(external: external, unmetered: unmetered) == null) {
       return 0;
     }
     final total = imageTotal > images.length ? imageTotal : images.length;
     return total - 1;
   }
 }
+
+/// The longest side of a picture (not a thumbnail the forum made) a list loads as a thumbnail, as the forum noted its
+/// size; a larger one is left out of the lists.
+const maxFullSizeSide = 1600;
 
 /// One image of a [ThreadPreview].
 @MappableClass()
@@ -155,9 +166,19 @@ final class ThreadPreviewImage with ThreadPreviewImageMappable {
   /// Whether [url] is an https one.
   bool get secure => url.startsWith('https://');
 
-  /// Whether the image is an attachment of the floor (`source: attach`), served by the forum itself; an image without
-  /// url (the app's own example) counts as one.
-  bool get attachment => source == 'attach' || url.isEmpty;
+  /// Whether the image is an attachment of the floor (`source: attach`) served by the forum itself (its host is the
+  /// forum's); an image without url (the app's own example) counts as one. An attachment the answer names on another
+  /// host (a remote attachment server) counts as an image of another site.
+  bool get attachment {
+    if (url.isEmpty) {
+      return true;
+    }
+    final host = Uri.tryParse(url)?.host.toLowerCase();
+    return source == 'attach' && (host == baseHost || host == baseHostAlt);
+  }
+
+  /// Whether the picture has a side over [maxFullSizeSide], as the forum noted its size (0: unknown, not over).
+  bool get oversized => width > maxFullSizeSide || height > maxFullSizeSide;
 }
 
 /// When the thread lists show the thumbnail of a [ThreadPreview] ([SettingsKeys.threadCardThumbnailMode] holds the

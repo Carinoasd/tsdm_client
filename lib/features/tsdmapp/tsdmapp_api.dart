@@ -103,15 +103,16 @@ abstract final class TsdmAppApi {
   }
 
   /// Whether the forum's plugin is known to answer the previews of the list rows (plugin 3.1.0, `tsdmpreview=1`): the
-  /// last `status` said so (`preview: 1`), or an answer of an action named [tsdmAppPreviewVersion] or later
-  /// ([pluginInfo]: the notification fetch asks `notify` once the homepage loaded).
+  /// last `status` said so (`preview: 1`; a `status` without it says no, whatever its version), or, when no `status`
+  /// told it, an answer of an action named [tsdmAppPreviewVersion] or later ([pluginInfo]: the notification fetch asks
+  /// `notify` once the homepage loaded).
   ///
   /// The list pages carry the parameter only then: an older plugin ignores it (its rows have no `preview`), but the
   /// plugin asks the app to send it only once `status` named it. Until something told the version, the lists are
   /// asked as before.
   static bool get knowsPreview {
     final info = pluginInfo.value;
-    return info != null && (info.preview || compareTsdmAppVersions(info.version, tsdmAppPreviewVersion) >= 0);
+    return info != null && (info.preview ?? compareTsdmAppVersions(info.version, tsdmAppPreviewVersion) >= 0);
   }
 
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
@@ -130,7 +131,7 @@ abstract final class TsdmAppApi {
         version: info.version,
         api: info.api ?? known.api,
         nodoc: json.containsKey('nodoc') ? info.nodoc : known.nodoc,
-        preview: json.containsKey('preview') ? info.preview : known.preview,
+        preview: info.preview ?? known.preview,
       );
     }
     if (info != known) {
@@ -290,7 +291,7 @@ const tsdmAppPreviewVersion = '3.1.0';
 @immutable
 final class TsdmAppPluginInfo {
   /// Constructor.
-  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview = false});
+  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview});
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
   static TsdmAppPluginInfo? fromAnswer(Map<String, dynamic> json) {
@@ -302,7 +303,8 @@ final class TsdmAppPluginInfo {
       version: version,
       api: (json['api'] as num?)?.toInt(),
       nodoc: json['nodoc'] == 1 || json['nodoc'] == true,
-      preview: json['preview'] == 1 || json['preview'] == true,
+      // `status` lists its actions: a `status` without `preview` is a plugin that does not answer the previews.
+      preview: json['preview'] == 1 || json['preview'] == true ? true : (json['actions'] is List ? false : null),
     );
   }
 
@@ -316,9 +318,9 @@ final class TsdmAppPluginInfo {
   /// (an older plugin, `notify`) leaves it false: it tells nothing about the parameter, which the plugin ignores.
   final bool nodoc;
 
-  /// Whether the plugin said it answers the previews of the list rows (`preview: 1` in `status`, plugin 3.1.0). An
-  /// answer without the field leaves it false, as [nodoc].
-  final bool preview;
+  /// Whether the plugin said it answers the previews of the list rows: true for `preview: 1` in `status` (plugin
+  /// 3.1.0), false for a `status` without it, null when the answer is not a `status` (it tells nothing).
+  final bool? preview;
 
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;

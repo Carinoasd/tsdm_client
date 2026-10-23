@@ -560,6 +560,7 @@ class LatestThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showExcerpt = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardShowExcerpt);
     ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
     if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
       return const SizedBox.shrink();
@@ -572,7 +573,8 @@ class LatestThreadCard extends StatelessWidget {
       // FIXME: Do not use thread type to represent forum.
       threadType: ThreadType(name: thread.forumName!, url: thread.forumUrl!),
       publishTime: thread.latestReplyTime,
-      quotedMessage: thread.quotedMessage,
+      // The forum's own excerpt of a search row goes with the excerpts setting; a reply quoted always shows.
+      quotedMessage: thread.quoteIsExcerpt && !showExcerpt ? null : thread.quotedMessage,
     );
   }
 }

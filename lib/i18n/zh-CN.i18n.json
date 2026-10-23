@@ -291,7 +291,7 @@
           "thumbnail": {
             "title": "列表显示缩略图",
             "always": "总是",
-            "alwaysDetail": "使用移动数据时也显示",
+            "alwaysDetail": "使用移动数据时也显示，但只载入论坛做好的小缩略图；原图只在 Wi-Fi 下载入",
             "wifiOnly": "仅 Wi-Fi",
             "wifiOnlyDetail": "连接 Wi-Fi 或其他不计流量的网络时才显示",
             "never": "关闭",

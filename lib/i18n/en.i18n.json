@@ -291,7 +291,7 @@
           "thumbnail": {
             "title": "Show thumbnails in lists",
             "always": "Always",
-            "alwaysDetail": "Also on mobile data",
+            "alwaysDetail": "Also on mobile data: then only the small thumbnails the forum made; the pictures themselves on Wi-Fi",
             "wifiOnly": "Wi-Fi only",
             "wifiOnlyDetail": "Only on Wi-Fi or another network that is not metered",
             "never": "Off",

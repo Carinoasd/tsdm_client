@@ -291,7 +291,7 @@
           "thumbnail": {
             "title": "列表顯示縮圖",
             "always": "總是",
-            "alwaysDetail": "使用行動數據時也顯示",
+            "alwaysDetail": "使用行動數據時也顯示，但只載入論壇做好的小縮圖；原圖只在 Wi-Fi 下載入",
             "wifiOnly": "僅 Wi-Fi",
             "wifiOnlyDetail": "連上 Wi-Fi 或其他不計流量的網路時才顯示",
             "never": "關閉",

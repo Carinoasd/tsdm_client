@@ -55,7 +55,8 @@ class MyThread with MyThreadMappable {
       latestReplyAuthor: thread.latestReplyAuthor,
       latestReplyTime: thread.latestReplyTime,
       latestReplyClock: tsdmAppWallClockTime(t['lastpost'], timeOffset),
-      quotedMessage: summary.isEmpty ? null : summary,
+      // A thread row with a preview: the preview stands for whatever excerpt the row carries.
+      quotedMessage: summary.isEmpty || (pid <= 0 && thread.preview != null) ? null : summary,
       stateSet: {...thread.stateSet, if (tsdmAppInt(t['displayorder']) == -4) ThreadStateModel.draft},
       preview: pid > 0 ? null : thread.preview,
     );

@@ -21,6 +21,7 @@ class _LatestThreadInfo {
     required this.quotedMessage,
     this.threadAuthor,
     this.preview,
+    this.quoteIsExcerpt = false,
   });
 
   /// Thread title.
@@ -67,6 +68,9 @@ class _LatestThreadInfo {
 
   /// The excerpt and the images of the first floor, from a structured answer of plugin 3.1.0.
   final ThreadPreview? preview;
+
+  /// [quotedMessage] is the forum's excerpt of the thread (a search row), not a reply.
+  final bool quoteIsExcerpt;
 }
 
 /// Latest thread model.
@@ -163,6 +167,10 @@ class LatestThread {
   /// gave none.
   ThreadPreview? get preview => _info?.preview;
 
+  /// Whether [quotedMessage] is the forum's own excerpt of the thread (the search of 查看新帖, an older plugin), which
+  /// the lists hide with the excerpts ([SettingsKeys.threadCardShowExcerpt]); false for a reply quoted.
+  bool get quoteIsExcerpt => _info?.quoteIsExcerpt ?? false;
+
   static _LatestThreadInfo _buildFromApi(
     Map<String, dynamic> row, {
     required num timeOffset,
@@ -192,6 +200,7 @@ class LatestThread {
       quotedMessage: summary.isEmpty || preview != null ? null : summary,
       threadAuthor: thread.author,
       preview: preview,
+      quoteIsExcerpt: pid <= 0,
     );
   }
 

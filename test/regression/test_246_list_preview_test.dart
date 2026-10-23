@@ -44,6 +44,7 @@ import 'package:tsdm_client/features/latest_thread/repository/latest_thread_repo
 import 'package:tsdm_client/features/latest_thread/utils/guide_page_api.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
+import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
 import 'package:tsdm_client/features/my_thread/utils/my_thread_page_api.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -107,6 +108,7 @@ Map<String, Object?> _status(String version, {bool preview = false}) => {
   'time': 1700000000,
   'uid': 35,
   'nodoc': 1,
+  'actions': ['status', 'notify'],
   if (preview) 'preview': 1,
 };
 
@@ -303,6 +305,9 @@ void main() {
       final status = TsdmAppPluginInfo.fromAnswer(_status('3.1.0', preview: true))!;
       expect(status.preview, isTrue);
       expect(TsdmAppPluginInfo.fromAnswer(_status('3.1.0'))!.preview, isFalse);
+      TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.1.0'));
+      expect(TsdmAppApi.knowsPreview, isFalse, reason: 'a status without preview: 1 says no, whatever its version');
+      expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': '3.1.0'})!.preview, isNull, reason: 'not a status');
       expect(status, isNot(TsdmAppPluginInfo.fromAnswer(_status('3.1.0'))));
 
       TsdmAppApi.pluginInfo.value = status;
@@ -494,8 +499,13 @@ void main() {
       expect(k20.images.map((e) => e.attachment), everyElement(isFalse));
       expect(k20.thumbnailOf(), isNull, reason: 'the site of an [img] would learn who scrolls past');
       expect(k20.moreImagesOf(), 0);
-      expect(k20.thumbnailOf(external: true)!.url, 'https://img.example.com/k20a.png');
-      expect(k20.moreImagesOf(external: true), 3);
+      expect(
+        k20.thumbnailOf(external: true),
+        isNull,
+        reason: 'not a thumbnail the forum made: not on a metered network',
+      );
+      expect(k20.thumbnailOf(external: true, unmetered: true)!.url, 'https://img.example.com/k20a.png');
+      expect(k20.moreImagesOf(external: true, unmetered: true), 3);
       final http = ThreadPreview.fromApi({
         'excerpt': '',
         'reason': null,
@@ -510,7 +520,7 @@ void main() {
         'image_total': 2,
       })!;
       expect(http.images.map((e) => e.url), ['http://img.example.com/a.png', 'https://img.example.com/b.png']);
-      expect(http.thumbnailOf(external: true)!.url, 'https://img.example.com/b.png');
+      expect(http.thumbnailOf(external: true, unmetered: true)!.url, 'https://img.example.com/b.png');
       expect(http.excerptText, isEmpty);
       expect(ThreadPreviewSection.shows(http, showExcerpt: true, thumbnailMode: ThreadThumbnailMode.never), isFalse);
       expect(ThreadPreviewSection.shows(http, showExcerpt: false, thumbnailMode: ThreadThumbnailMode.always), isFalse);
@@ -525,12 +535,10 @@ void main() {
       );
 
       final k23 = ThreadPreview.fromApi(_fx('preview_v2_forum_p2.json', 'K23')['preview'])!;
-      expect((k23.images.length, k23.imageTotal, k23.moreImagesOf()), (3, 7, 6));
-      expect(
-        k23.thumbnailOf()!.url,
-        endsWith('_K23_m1.png'),
-        reason: 'the attachment, after two images of other sites',
-      );
+      expect((k23.images.length, k23.imageTotal), (3, 7));
+      expect(k23.thumbnailOf(unmetered: true), isNull, reason: 'its attachment is 1920x1080, over 1600');
+      expect(k23.thumbnailOf(external: true, unmetered: true)!.url, 'https://img.example.com/k23a.png');
+      expect(k23.moreImagesOf(external: true, unmetered: true), 6);
       final k24 = ThreadPreview.fromApi(_fx('preview_v2_forum_p2.json', 'K24')['preview'])!;
       expect(k24.partial, isTrue);
       expect(k24.excerptText, endsWith(' ...'));
@@ -544,6 +552,43 @@ void main() {
           images: [ThreadPreviewImage(url: '')],
         ).moreImagesOf(),
         0,
+      );
+    });
+
+    test('a metered network: the thumbnails the forum made only; a large picture never; the forum host only', () {
+      ThreadPreview of(List<Map<String, Object>> images) =>
+          ThreadPreview.fromApi({'excerpt': 'x', 'reason': null, 'images': images, 'image_total': images.length})!;
+      const forum = 'https://www.tsdm39.com/data/attachment/forum/a.png';
+      final small = of([
+        {'url': forum, 'thumb': 0, 'width': 800, 'height': 600, 'source': 'attach'},
+      ]);
+      expect(small.thumbnailOf(), isNull);
+      expect(small.thumbnailOf(unmetered: true)!.url, forum);
+      final large = of([
+        {'url': forum, 'thumb': 0, 'width': 1920, 'height': 1080, 'source': 'attach'},
+        {'url': '$forum.thumb.jpg', 'thumb': 1, 'width': 4000, 'height': 3000, 'source': 'attach'},
+      ]);
+      expect(large.images.first.oversized, isTrue);
+      expect(
+        large.thumbnailOf()!.url,
+        '$forum.thumb.jpg',
+        reason: "the size noted is the picture's, not the thumbnail's",
+      );
+      final onlyLarge = of([
+        {'url': forum, 'thumb': 0, 'width': 1601, 'height': 100, 'source': 'attach'},
+      ]);
+      expect(onlyLarge.thumbnailOf(unmetered: true), isNull, reason: 'a side over 1600');
+      final remote = of([
+        {'url': 'https://files.example.com/forum/a.png.thumb.jpg', 'thumb': 1, 'source': 'attach'},
+      ]);
+      expect(remote.images.single.attachment, isFalse, reason: 'an attachment named on another host');
+      expect(remote.thumbnailOf(unmetered: true), isNull);
+      expect(remote.thumbnailOf(external: true)!.thumb, isTrue);
+      expect(
+        of([
+          {'url': 'https://tsdm39.com/a.png.thumb.jpg', 'thumb': 1, 'source': 'attach'},
+        ]).thumbnailOf(),
+        isNotNull,
       );
     });
 
@@ -567,6 +612,10 @@ void main() {
       final (mine, _) = myThreadsFromApi(_json('preview_v9_mythread.json'), myThreadThreadUrl);
       expect(mine.first.preview!.excerptText, startsWith('K01 '));
       expect(mine.first.quotedMessage, isNull);
+      final withSummary = MyThread.fromApi({..._fx('preview_v9_mythread.json', 'K01'), 'summary': 'the forum excerpt'});
+      expect(withSummary.quotedMessage, isNull, reason: 'the preview stands for it');
+      final old = MyThread.fromApi({..._withoutPreview(_fx('preview_v9_mythread.json', 'K01')), 'summary': 'x'});
+      expect(old.quotedMessage, 'x');
       final (replies, _) = myThreadsFromApi(_json('preview_v9_mythread_reply.json'), myThreadReplyUrl);
       expect(replies, isNotEmpty);
       expect(
@@ -802,6 +851,49 @@ void main() {
       expect(app.images.requested, ['https://img.example.com/k16.png']);
     });
 
+    testWidgets('always on a metered network: the thumbnail the forum made, never an attachment itself', (
+      tester,
+    ) async {
+      NetworkUsage.check = () async => false;
+      await app.settings.setValue(SettingsKeys.threadCardThumbnailMode, ThreadThumbnailMode.always.index);
+      // An attachment itself of a size a list loads (the fixture's are 1920x1080: never in a list).
+      final row = _fx('preview_v2_forum.json', 'K18');
+      final preview = {...row['preview'] as Map<String, dynamic>};
+      preview['images'] = [
+        {...(preview['images'] as List).single as Map<String, dynamic>, 'width': 800, 'height': 600},
+      ];
+      final k18 = NormalThread.fromApi({...row, 'preview': preview}, fid: 13, typePrefix: 0);
+      expect(k18.preview!.images.single.thumb, isFalse);
+      await pump(tester, [NormalThreadCard(k18)]);
+      expect(thumbnail(), findsNothing);
+      expect(app.images.requested, isEmpty);
+      await pump(tester, [NormalThreadCard(thread('K01'))], until: loaded);
+      expect(app.images.requested, [thread('K01').preview!.thumbnailOf()!.url]);
+      // On Wi-Fi the attachment itself.
+      NetworkUsage.handlePlatformChange(metered: false);
+      await pump(tester, [NormalThreadCard(k18)], until: loaded);
+      expect(thumbnail(), findsOneWidget);
+    });
+
+    testWidgets('the excerpts off: the search excerpt of an older plugin goes too, a reply quoted stays', (
+      tester,
+    ) async {
+      final search = LatestThread.fromSearchApi(_withoutPreview(_fx('preview_v6_search.json', 'K17')));
+      expect(search.quoteIsExcerpt, isTrue);
+      final (replies, _) = latestThreadsFromApi(
+        {..._json('preview_v9_mythread_reply.json'), 'type': 'guide', 'schema': 7, 'kind': 'reply'},
+        guideUrl('my'),
+      );
+      final reply = replies.first;
+      expect(reply.quoteIsExcerpt, isFalse);
+      await pump(tester, [LatestThreadCard(search), LatestThreadCard(reply)]);
+      expect(find.text(search.quotedMessage!), findsOneWidget);
+      await app.settings.setValue(SettingsKeys.threadCardShowExcerpt, false);
+      await pump(tester, [LatestThreadCard(search), LatestThreadCard(reply)]);
+      expect(find.text(search.quotedMessage!), findsNothing);
+      expect(find.text(reply.quotedMessage!), findsOneWidget);
+    });
+
     testWidgets('a tap on the thumbnail opens the thread', (tester) async {
       final router = await pump(tester, [NormalThreadCard(thread('K01'))], until: loaded);
       await tester.tap(thumbnail());
@@ -845,7 +937,7 @@ void main() {
         SearchedThreadCard(searchResultFromApi(_json('preview_v6_search.json')).data!.first),
         LatestThreadCard(latest.firstWhere((e) => e.title!.endsWith(' K04 000000'))),
         MyThreadCard(mine.first),
-        LatestThreadCard(guide.firstWhere((e) => e.preview?.thumbnailOf() != null)),
+        LatestThreadCard(guide.firstWhere((e) => e.preview?.thumbnailOf(unmetered: true) != null)),
       ], until: loaded);
       expect(excerpt(), findsNWidgets(4));
       expect(find.textContaining('SEC_'), findsNothing);
@@ -939,6 +1031,30 @@ void main() {
       NetworkUsage.refreshIfStale();
       await Future<void>.delayed(Duration.zero);
       expect(NetworkUsage.unmetered.value, isFalse);
+      expect(await NetworkUsage.isMetered(), isTrue);
+    });
+
+    test('the platform pushes a change; back in the foreground it is asked again; listeners hear it', () async {
+      var answer = true;
+      var asked = 0;
+      NetworkUsage.check = () async {
+        asked++;
+        return answer;
+      };
+      expect(await NetworkUsage.isMetered(), isFalse);
+      final heard = <bool?>[];
+      void listener() => heard.add(NetworkUsage.unmetered.value);
+      NetworkUsage.unmetered.addListener(listener);
+      addTearDown(() => NetworkUsage.unmetered.removeListener(listener));
+      NetworkUsage.handlePlatformChange(metered: true);
+      expect(await NetworkUsage.isMetered(), isTrue, reason: 'pushed, not asked');
+      expect(asked, 1);
+      answer = true;
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(asked, 2, reason: 'asked again at once, whatever its age');
+      expect(heard, [false, true]);
     });
   });
 
@@ -988,7 +1104,7 @@ void main() {
       final json = _json(name);
       const samples = [
         ('【心得】十月新番第三集觀後感：作畫穩定、劇情節奏剛好', '這一集終於把前兩集埋的伏筆收回來了，配樂也很到位，特別是最後那段長鏡頭，看完直接重播了三次。', 'K01'),
-        ('分享幾張這週末去海邊拍的照片', '', 'K23'),
+        ('分享幾張這週末去海邊拍的照片', '', 'K01'),
         ('【求助】新手入坑該從哪一部看起？', '最近朋友推坑，想問大家有沒有適合新手、集數不要太長的作品可以推薦，類型不限，謝謝各位。', 'K17'),
         ('【付費】整理好的設定集掃圖合集', '', 'K09'),
         ('【繪圖】練習中的角色設計，歡迎給建議', '畫了一個多禮拜，配色還在調整，背景是參考上次旅行拍的照片。', 'K02'),

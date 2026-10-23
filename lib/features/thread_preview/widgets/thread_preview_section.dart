@@ -45,8 +45,8 @@ class ThreadPreviewSection extends StatelessWidget {
   /// Whether the thumbnail may be an image of another site ([SettingsKeys.threadCardExternalThumbnails]).
   final bool externalImages;
 
-  /// Whether a card shows something of [preview] with these settings: the excerpt, or a thumbnail (which "on Wi-Fi
-  /// only" still waits for the network). A card leaves the section out otherwise.
+  /// Whether a card shows something of [preview] with these settings: the excerpt, or a thumbnail on some network
+  /// (which network it needs is told when the section builds). A card leaves the section out otherwise.
   static bool shows(
     ThreadPreview? preview, {
     required bool showExcerpt,
@@ -56,7 +56,8 @@ class ThreadPreviewSection extends StatelessWidget {
       preview != null &&
       !preview.withheld &&
       ((showExcerpt && preview.excerptText.isNotEmpty) ||
-          (thumbnailMode != ThreadThumbnailMode.never && preview.thumbnailOf(external: externalImages) != null));
+          (thumbnailMode != ThreadThumbnailMode.never &&
+              preview.thumbnailOf(external: externalImages, unmetered: true) != null));
 
   @override
   Widget build(BuildContext context) {
@@ -64,14 +65,19 @@ class ThreadPreviewSection extends StatelessWidget {
       return sizedBoxEmpty;
     }
     final excerpt = showExcerpt ? preview.excerptText : '';
-    final image = thumbnailMode == ThreadThumbnailMode.never ? null : preview.thumbnailOf(external: externalImages);
-    final more = preview.moreImagesOf(external: externalImages);
-    if (image == null || thumbnailMode == ThreadThumbnailMode.always) {
-      return _PreviewRow(excerpt: excerpt, image: image, more: more);
+    if (thumbnailMode == ThreadThumbnailMode.never) {
+      return _PreviewRow(excerpt: excerpt, image: null, more: 0);
     }
+    // The network decides: "on Wi-Fi only" shows nothing on a metered one, "always" only a thumbnail the forum made
+    // there (a picture itself on an unmetered network).
     return _OnUnmeteredNetwork(
-      builder: (context, {required unmetered}) =>
-          _PreviewRow(excerpt: excerpt, image: unmetered ? image : null, more: more),
+      builder: (context, {required unmetered}) {
+        final image = thumbnailMode == ThreadThumbnailMode.wifiOnly && !unmetered
+            ? null
+            : preview.thumbnailOf(external: externalImages, unmetered: unmetered);
+        final more = preview.moreImagesOf(external: externalImages, unmetered: unmetered);
+        return _PreviewRow(excerpt: excerpt, image: image, more: more);
+      },
     );
   }
 }
@@ -196,6 +202,9 @@ class ThreadPreviewThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!extent.isFinite || extent <= 0) {
+      return sizedBoxEmpty;
+    }
     final colorScheme = Theme.of(context).colorScheme;
     final Widget picture;
     if (image.url.isEmpty) {
