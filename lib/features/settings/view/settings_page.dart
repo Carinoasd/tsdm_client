@@ -24,7 +24,6 @@ import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
-import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -45,6 +44,7 @@ import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dial
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
@@ -95,7 +95,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   final scrollController = ScrollController();
-  late final StreamSubscription<ScrollToTopEvent> _scrollToTopSub; // 新增
 
   final _permissionCubit = AndroidPermissionCubit();
   String? _logExportPath;
@@ -562,6 +561,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadReverseOrder, v)),
         ),
         SectionListTile(
+          key: const ValueKey('settings-thread-open-position'),
+          leading: const Icon(Icons.bookmark_outline),
+          title: Text(tr.threadOpenPosition.title),
+          subtitle: Text(threadOpenPositionLabel(context, state.settingsMap.openPosition)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final result = await showSelectThreadOpenPosition(context, state.settingsMap.openPosition);
+            if (result == null || !context.mounted) return;
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadOpenPosition, result.index));
+          },
+        ),
+        SectionListTile(
           leading: const Icon(Icons.touch_app_outlined),
           title: Text(tr.threadFloorInteractionMode.title),
           subtitle: Text(tr.threadFloorInteractionMode.detail),
@@ -628,6 +639,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           subtitle: Text(context.t.fastReplyTemplate.details),
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.fastReplyTemplate, pathParameters: {'pick': 'false'}),
+        ),
+        // What the editors kept and did not send, for the current account.
+        SectionListTile(
+          key: const ValueKey('settings-local-drafts'),
+          leading: const Icon(Icons.history_edu_outlined),
+          title: Text(context.t.localDraft.title),
+          subtitle: Text(context.t.localDraft.details),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.localDrafts),
         ),
       ],
     );
@@ -705,6 +725,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             ),
             value: state.settingsMap.backgroundSyncAllAccounts,
             onChanged: (v) async => _toggleBackgroundSyncAllAccounts(context, enable: v),
+          ),
+        // What the system notifications show, on the lock screen too.
+        if (autoSyncPostsNotifications)
+          SectionSwitchListTile(
+            key: const ValueKey('notification-hide-content'),
+            secondary: const Icon(Icons.visibility_off_outlined),
+            title: Text(tr.notificationHideContent.title),
+            subtitle: Text(tr.notificationHideContent.detail),
+            value: state.settingsMap.notificationHideContent,
+            onChanged: (v) async => getIt.get<SettingsRepository>().setValue(SettingsKeys.notificationHideContent, v),
           ),
       ],
     );
@@ -1238,20 +1268,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
-
-    // 新增：监听返回顶部事件
-    _scrollToTopSub = scrollToTopStream.stream.listen((event) {
-      if (event.tabIndex == 2 && mounted && scrollController.hasClients && scrollController.offset > 0) {
-        unawaited(scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
-      }
-    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_permissionCubit.close());
-    unawaited(_scrollToTopSub.cancel()); // 新增
     scrollController.dispose();
     super.dispose();
   }

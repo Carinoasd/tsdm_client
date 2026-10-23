@@ -47,6 +47,18 @@ AppException mapException(Object error, StackTrace st) {
           (error.type == DioExceptionType.connectionError ||
               error.type == DioExceptionType.connectionTimeout ||
               error.error is HostUnreachableException),
+      // Connected, but the answer did not come in time: a slow forum or network, told apart from a dropped
+      // connection.
+      timedOut:
+          response == null &&
+          (error.type == DioExceptionType.sendTimeout ||
+              error.type == DioExceptionType.receiveTimeout ||
+              error.error is RequestTimedOutException),
+      connectionLost:
+          response == null &&
+          error.error is IOException &&
+          error.error is! HostUnreachableException &&
+          error.error is! RequestTimedOutException,
     );
   }
   return HttpRequestFailedException(null);
@@ -215,11 +227,14 @@ final class NetClientProvider with LoggerMixin {
 
   /// Make a GET request to [path], with options set to image types.
   ///
+  /// [headers] are added to the request (the `Referer` the forum's captcha asks for).
+  ///
   /// [onReceiveProgress] is told the bytes received so far and the size of the answer (-1 when unknown) while it
   /// downloads, for the progress of an image being loaded.
   AsyncEither<Response<dynamic>> getImage(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
     ProgressCallback? onReceiveProgress,
   }) => AsyncEither.tryCatch(() async {
     final resp = await _dio.get<dynamic>(
@@ -231,6 +246,7 @@ final class NetClientProvider with LoggerMixin {
         headers: {
           HttpHeaders.acceptHeader: 'image/avif,image/webp,*/*;q=0.8',
           HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
+          ...?headers,
         },
       ),
     );
@@ -603,7 +619,8 @@ class _ErrorHandler extends Interceptor with LoggerMixin {
       return;
     }
     error('${err.requestOptions.uri} ${err.type}: error: ${err.error}, status code: $status');
-    getIt.get<NetErrorSaver>().save(err.message);
+    // The failure as the caller gets it, so a page that did not keep its own can still tell what went wrong.
+    getIt.get<NetErrorSaver>().save(err.message, failure: mapException(err, err.stackTrace));
 
     if (err.type == DioExceptionType.badResponse) {
       // Till now we can do nothing if encounter a bad response.

@@ -64,6 +64,18 @@ final class NotificationMarkTypeReadRequested extends NotificationEvent with Not
   final bool markAsRead;
 }
 
+/// Mark every notice, personal message and broadcast message of the current user as read at once: the "mark all as
+/// read" of the notification page, one storage write and one state update for the three kinds.
+@MappableClass()
+final class NotificationMarkAllReadRequested extends NotificationEvent with NotificationMarkAllReadRequestedMappable {
+  /// Constructor.
+  const NotificationMarkAllReadRequested({this.done});
+
+  /// Completed once the marks are written (true), or with false when nothing was written (no account) or the write
+  /// failed: the page says "done" or "failed" only then.
+  final Completer<bool>? done;
+}
+
 /// Internal event.
 ///
 /// Repository has fetched new info from server.

@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/features/rate/models/models.dart';
 import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'rate_log_cubit.mapper.dart';
@@ -16,11 +17,11 @@ final class RateLogCubit extends Cubit<RateLogState> with LoggerMixin {
 
   /// Fetch rate log with give post id [pid] and thread id [tid].
   Future<void> fetchLog({required String tid, required String pid}) async {
-    emit(state.copyWith(status: RateLogStatus.loading));
+    emit(state.copyWith(status: RateLogStatus.loading, failure: null));
     (await _repo.fetchRateLog(tid: tid, pid: pid).run()).match(
       (e) {
         handle(e);
-        emit(state.copyWith(status: RateLogStatus.failure));
+        emit(state.copyWith(status: RateLogStatus.failure, failure: LoadFailure.of(e)));
       },
       (v) => emit(state.copyWith(status: RateLogStatus.success, logItems: v, accumulatedLogItems: _accumulateItems(v))),
     );

@@ -44,7 +44,10 @@ class MyPokemonTab extends StatelessWidget {
           ),
           const Divider(height: 1),
           if (pokemons.isEmpty)
-            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr.empty)))
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text(tr.empty)),
+            )
           else
             for (final pokemon in pokemons) _PokemonTile(pokemon: pokemon),
         ],
@@ -90,7 +93,9 @@ class _PokemonTile extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${tr.level(level: pokemon.level)} · ${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)}'),
+            Text(
+              '${tr.level(level: pokemon.level)} · ${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)}',
+            ),
             const SizedBox(height: 2),
             PokemonHpBar(hp: pokemon.hp, maxHp: pokemon.maxHp),
           ],

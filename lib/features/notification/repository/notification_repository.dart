@@ -10,6 +10,7 @@ import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
+import 'package:tsdm_client/features/notification/utils/relative_time.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -393,6 +394,16 @@ final class NotificationRepository with LoggerMixin {
     required bool bypassGate,
   }) async {
     final timeOffset = notify['timeoffset'] as num;
+    // The relative times of the notification page read "now" in the member's offset too.
+    // Never fails the sync: without it the times read with the offset remembered before (8 by default).
+    if (_servedUidOfNotify(notify) case final uid?) {
+      try {
+        await NotificationTimeOffsets.remember(_storage, uid, timeOffset);
+      } on Object catch (e, st) {
+        error('failed to remember the time offset of the account: $e');
+        handleRaw(e, st);
+      }
+    }
     final notices = (notify['notices'] as List)
         .whereType<Map<String, dynamic>>()
         .map((e) => Notice.toV2FromApi(e, timeOffset: timeOffset))

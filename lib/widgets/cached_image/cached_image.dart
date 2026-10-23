@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
@@ -8,6 +9,7 @@ import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/features/cache/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/fallback_picture.dart';
@@ -325,7 +327,11 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
               ? decodeWidthFor(
                   width: widget.width,
                   maxWidth: widget.maxWidth,
-                  displayWidth: MediaQuery.sizeOf(context).width,
+                  // In a floor of the thread page: no wider than the floor's content.
+                  displayWidth: math.min(
+                    MediaQuery.sizeOf(context).width,
+                    postContentWidthOf(context) ?? double.infinity,
+                  ),
                   devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                 )
               : null,

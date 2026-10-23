@@ -97,7 +97,12 @@ class _PokemonStoragePageState extends State<PokemonStoragePage> {
               child: pokemons.isEmpty
                   ? ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      children: [Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr.empty)))],
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Center(child: Text(tr.empty)),
+                        ),
+                      ],
                     )
                   : ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -122,7 +127,9 @@ class _PokemonStoragePageState extends State<PokemonStoragePage> {
                               ),
                             ),
                             title: Text(pokemon.displayName, overflow: TextOverflow.ellipsis),
-                            subtitle: Text('${tr.level(level: pokemon.level)} · ${pokemonStateText(context, pokemon.state, pokemon.stateText)}'),
+                            subtitle: Text(
+                              '${tr.level(level: pokemon.level)} · ${pokemonStateText(context, pokemon.state, pokemon.stateText)}',
+                            ),
                             trailing: FilledButton.tonal(
                               onPressed: _actionInProgress ? null : () => unawaited(_putInBag(pokemon)),
                               child: Text(tr.putInBag),
@@ -140,7 +147,11 @@ class _PokemonStoragePageState extends State<PokemonStoragePage> {
       appBar: AppBar(
         title: Text(tr.storage),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: tr.refresh, onPressed: _loading ? null : () => unawaited(_load())),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: tr.refresh,
+            onPressed: _loading ? null : () => unawaited(_load()),
+          ),
         ],
       ),
       body: SafeArea(child: body),

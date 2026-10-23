@@ -119,7 +119,9 @@ class _ShopTabState extends State<ShopTab> {
           padding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
           child: Row(
             children: [
-              Expanded(child: PokemonSearchField(hintText: tr.searchItems, onChanged: _onSearch)),
+              Expanded(
+                child: PokemonSearchField(hintText: tr.searchItems, onChanged: _onSearch),
+              ),
               IconButton(
                 tooltip: _grid ? tr.viewList : tr.viewGrid,
                 icon: Icon(_grid ? Icons.view_list_outlined : Icons.grid_view_outlined),
@@ -156,7 +158,12 @@ class _ShopTabState extends State<ShopTab> {
   Widget _empty() => ListView(
     controller: _controller,
     physics: const AlwaysScrollableScrollPhysics(),
-    children: [Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(context.t.pokemon.empty)))],
+    children: [
+      Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(child: Text(context.t.pokemon.empty)),
+      ),
+    ],
   );
 
   Widget _buildItems(BuildContext context, PokemonState state) {

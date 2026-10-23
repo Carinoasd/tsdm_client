@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
@@ -22,6 +23,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -37,13 +39,19 @@ typedef _AskedAs = ({int? uid, int epoch});
 /// Bloc for the homepage of the app.
 class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   /// Constructor.
+  ///
+  /// [guideFeed] is asked for the guide together with the page and reads the guide saved for the account
+  /// (`GuideSection` takes both from it).
   HomepageBloc({
     required ForumHomeRepository forumHomeRepository,
     required ProfileRepository profileRepository,
     required AuthenticationRepository authenticationRepository,
+    GuideFeed? guideFeed,
   }) : _forumHomeRepository = forumHomeRepository,
        _profileRepository = profileRepository,
        _authenticationRepository = authenticationRepository,
+       _guideFeed = guideFeed,
+       _shownPage = forumHomeRepository.getCache(),
        super(
          forumHomeRepository.hasCache()
              ? _parseState(
@@ -57,8 +65,14 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     on<HomepageRefreshRequested>(_onHomepageRefreshRequested);
     on<HomepageDailyRedPacketCheckRequested>(_onDailyRedPacketCheckRequested);
     on<HomepageAuthChanged>(_onHomepageAuthChanged);
+    on<HomepagePageReplaced>(_onHomepagePageReplaced);
     on<HomepagePauseSwiper>(_onHomepagePauseSwiper);
     on<HomepageResumeSwiper>(_onHomepageResumeSwiper);
+
+    // The daily rewards run after the page showed; the page asked once more after them replaces it.
+    _replacementSub = _forumHomeRepository.pageReplacements.listen(
+      (e) => add(HomepagePageReplaced(previous: e.previous, page: e.page)),
+    );
 
     // Every status from now on, the first one too (a switch may be the first status of the run: the stored login of
     // the account the app started with was never verified); the one the stream replays to this new listener ended
@@ -79,6 +93,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
 
   final ForumHomeRepository _forumHomeRepository;
   final ProfileRepository _profileRepository;
+  final GuideFeed? _guideFeed;
+  late final StreamSubscription<({ForumHomePage previous, ForumHomePage page})> _replacementSub;
+
+  /// The fetched page the state shows (null while none, or while the saved page shows): a page replacing it in the
+  /// background ([HomepagePageReplaced]) shows instead.
+  ForumHomePage? _shownPage;
 
   /// Do not dispose this repo because it is not the owner.
   final AuthenticationRepository _authenticationRepository;
@@ -181,25 +201,78 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     return generation == _pageGeneration;
   }
 
+  /// Ask the guide of the account [asked] together with the page: its card is built only once the page shows. Not
+  /// for a guest, whose homepage asks to log in and has no guide card.
+  void _prefetchGuide(_AskedAs asked) {
+    if ((asked.uid ?? 0) > 0) {
+      _guideFeed?.prefetch();
+    }
+  }
+
+  /// Show at once what the homepage showed last for the account [asked] while its page is asked again
+  /// (stale-while-revalidate): the page saved at the last fetch ([ForumHomeRepository.savedPageOf]) with the guide
+  /// saved for it ([GuideFeed.loadSaved]), for the load of [generation]. False when nothing is saved for the account,
+  /// it is too old, or the session changed meanwhile (nothing of another account ever shows).
+  ///
+  /// The saved page names no daily red packet and no form hash (the packet may be claimed meanwhile, the form hash
+  /// old), and records nothing about the account: only the fresh page does ([_recordAccountOf]).
+  Future<bool> _showSavedPage(Emitter<HomepageState> emit, {required _AskedAs asked, required int generation}) async {
+    final (saved, _) = await (
+      _forumHomeRepository.savedPageOf(asked.uid),
+      _guideFeed?.loadSaved(asked.uid) ?? Future<void>.value(),
+    ).wait;
+    if (saved == null || generation != _pageGeneration || _askedAs() != asked) {
+      return false;
+    }
+    debug('show saved homepage of ${saved.savedAt}');
+    emit(
+      _parseState(saved.page, null).copyWith(
+        savedAt: saved.savedAt,
+        dailyRedPacket: null,
+        formHash: null,
+        scrollSwiper: state.scrollSwiper,
+      ),
+    );
+    return true;
+  }
+
+  /// [failed] while the saved page shows ([HomepageState.savedAt]): it stays, with a retry; otherwise [failed].
+  HomepageState _failedOver(HomepageState failed) =>
+      state.savedAt != null && state.status == HomepageStatus.success ? state.copyWith(refreshFailed: true) : failed;
+
   Future<void> _onHomepageLoadRequested(HomepageLoadRequested event, Emitter<HomepageState> emit) async {
     final generation = ++_pageGeneration;
-    if (_forumHomeRepository.hasCache()) {
+    final cached = _forumHomeRepository.getCache();
+    if (cached != null) {
+      _shownPage = cached;
       final s = _parseState(
-        _forumHomeRepository.getCache()!,
+        cached,
         _authenticationRepository.currentUser?.username,
         avatarUrl: state.loggedUserInfo?.avatarUrl,
       );
       emit(s);
       return;
     }
-    // Clear data.
-    emit(const HomepageState(status: HomepageStatus.loading));
+    final asked = _askedAs();
+    _loadedFor = asked.uid;
+    _prefetchGuide(asked);
+    if ((asked.uid ?? 0) <= 0 && _authenticationRepository.currentUser == null) {
+      // No account in use: the homepage asks to log in whatever the forum answers (the page is still asked, the
+      // topics tab shows it), so the login card shows at once instead of after the page.
+      debug('show guest homepage');
+      emit(const HomepageState(status: HomepageStatus.needLogin));
+    } else if (!await _showSavedPage(emit, asked: asked, generation: generation)) {
+      if (generation != _pageGeneration) {
+        return;
+      }
+      // Clear data.
+      emit(const HomepageState(status: HomepageStatus.loading));
+    }
     var needLogin = false;
     // A request dropped: the account or its session changed while it was on its way (a login with the password of
     // the same account too, which reloads nothing by itself).
     var identityChanged = false;
-    final asked = _askedAs();
-    _loadedFor = asked.uid;
+    AppException? failed;
     final respList = (await Future.wait([
       _forumHomeRepository.fetchHomePage().mapLeft((e) {
         if (e case HttpHandshakeFailedException(:final statusCode)) {
@@ -211,6 +284,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         } else if (e case IdentityChangedException()) {
           identityChanged = true;
         } else {
+          failed ??= e;
           handle(e);
         }
       }).run(),
@@ -221,6 +295,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
           case IdentityChangedException():
             identityChanged = true;
           default:
+            failed ??= e;
             handle(e);
         }
       }).run(),
@@ -236,10 +311,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     }
     if (respList.length != 2) {
       if (_authenticationRepository.currentUser == null && needLogin) {
-        emit(state.copyWith(status: HomepageStatus.needLogin));
+        if (state.status != HomepageStatus.needLogin) {
+          emit(const HomepageState(status: HomepageStatus.needLogin));
+        }
         return;
       } else {
-        emit(state.copyWith(status: HomepageStatus.failure));
+        emit(_failedOver(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(failed))));
         return;
       }
     }
@@ -248,18 +325,29 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     if (!await _recordAccountOf(page, asked: asked, generation: generation)) {
       return;
     }
-    // Parse data and change state.
-    final s = _parseState(page, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
-    emit(s);
+    // Parse data and change state; the page the daily rewards replaced meanwhile, if they finished first.
+    final shown = _latestOf(page);
+    _shownPage = shown;
+    final s = _parseState(shown, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
+    emit(s.copyWith(scrollSwiper: state.scrollSwiper));
   }
 
   Future<void> _onHomepageRefreshRequested(HomepageRefreshRequested event, Emitter<HomepageState> emit) async {
     final generation = ++_pageGeneration;
-    // Clear data.
-    emit(const HomepageState(status: HomepageStatus.loading));
-
     final asked = _askedAs();
     _loadedFor = asked.uid;
+    _shownPage = null;
+    _prefetchGuide(asked);
+    // An account switched to (or logged in again) shows what the homepage showed it last while its page is asked; a
+    // refresh asked by the user starts from a clean page.
+    if (event.userLoginInfo == null || !await _showSavedPage(emit, asked: asked, generation: generation)) {
+      if (generation != _pageGeneration) {
+        return;
+      }
+      // Clear data.
+      emit(const HomepageState(status: HomepageStatus.loading));
+    }
+
     final fetched = await _forumHomeRepository.fetchHomePage(force: true).run();
     if (generation != _pageGeneration) {
       // A newer load (an account change) took over: it shows the page.
@@ -272,7 +360,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       case Left(:final value):
         handle(value);
         debug('failed to fetch dom: $value');
-        emit(state.copyWith(status: HomepageStatus.failure));
+        emit(_failedOver(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(value))));
       case Right(:final value):
         if (!await _recordAccountOf(value, asked: asked, generation: generation)) {
           return;
@@ -293,13 +381,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         }
         if (d2.isLeft()) {
           handle(d2.unwrapErr());
-          emit(state.copyWith(status: HomepageStatus.failure));
+          emit(_failedOver(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(d2.unwrapErr()))));
           return;
         }
         final avatarUrl = d2.unwrap().avatarUrl;
-        // Parse data and change state.
-        final s = _parseState(value, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
-        emit(s);
+        // Parse data and change state; the page the daily rewards replaced meanwhile, if they finished first.
+        final shown = _latestOf(value);
+        _shownPage = shown;
+        final s = _parseState(shown, _authenticationRepository.currentUser?.username, avatarUrl: avatarUrl);
+        emit(s.copyWith(scrollSwiper: state.scrollSwiper));
     }
   }
 
@@ -340,10 +430,39 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         debug('drop the daily red packet check for uid $uid: the page belongs to another account');
         emit(state.copyWith(checkingDailyRedPacket: false));
       case Right(:final value):
+        // The page the packet was read from is the page the daily rewards may replace now.
+        final shown = _latestOf(value);
+        _shownPage = shown;
         emit(
-          state.copyWith(checkingDailyRedPacket: false, dailyRedPacket: value.dailyRedPacket, formHash: value.formHash),
+          state.copyWith(checkingDailyRedPacket: false, dailyRedPacket: shown.dailyRedPacket, formHash: shown.formHash),
         );
     }
+  }
+
+  /// [page] or the page it was replaced with in the background, when that one is of the same account.
+  ForumHomePage _latestOf(ForumHomePage page) {
+    final latest = _forumHomeRepository.latestOf(page);
+    return latest.servedUid == page.servedUid ? latest : page;
+  }
+
+  /// The page shown was replaced in the background after the daily rewards: show the new one, while it is still the
+  /// page shown, fresh, and of the account in use.
+  void _onHomepagePageReplaced(HomepagePageReplaced event, Emitter<HomepageState> emit) {
+    if (!identical(event.previous, _shownPage) ||
+        state.status != HomepageStatus.success ||
+        state.savedAt != null ||
+        event.page.servedUid != _authenticationRepository.currentUser?.uid) {
+      return;
+    }
+    debug('show the homepage reloaded after the daily rewards');
+    _shownPage = event.page;
+    emit(
+      _parseState(
+        event.page,
+        _authenticationRepository.currentUser?.username,
+        avatarUrl: state.loggedUserInfo?.avatarUrl,
+      ).copyWith(scrollSwiper: state.scrollSwiper, checkingDailyRedPacket: state.checkingDailyRedPacket),
+    );
   }
 
   Future<void> _onHomepageAuthChanged(HomepageAuthChanged event, Emitter<HomepageState> emit) async {
@@ -352,6 +471,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         if (event.prev != event.curr) {
           _pageGeneration++;
           _loadedFor = null;
+          _shownPage = null;
           // The cached `forum.php` was served to the previous user; nobody may show it again.
           _forumHomeRepository.invalidate();
         }
@@ -365,6 +485,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         // before the stored login was verified): the cached `forum.php` was served to the previous one (or a guest),
         // nobody may show it again, and the forced refresh below can fail (rate limit, offline), so drop it now.
         _pageGeneration++;
+        _shownPage = null;
         _forumHomeRepository.invalidate();
         add(HomepageRefreshRequested(userLoginInfo: userInfo));
       case AuthStatusAuthed(:final userInfo)
@@ -491,6 +612,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   @override
   Future<void> close() async {
     await _authStatusSub.cancel();
+    await _replacementSub.cancel();
     await super.close();
   }
 }

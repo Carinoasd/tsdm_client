@@ -36,6 +36,9 @@ class SearchState with SearchStateMappable {
     this.failedMessage,
     this.retryAfterSeconds,
     this.failedAt,
+    this.loadingMore = false,
+    this.loadMoreFailed = false,
+    this.failure,
   });
 
   /// Status.
@@ -75,4 +78,14 @@ class SearchState with SearchStateMappable {
 
   /// When the last search failed.
   final DateTime? failedAt;
+
+  /// The next page of the results is on its way, appended to them once it came.
+  final bool loadingMore;
+
+  /// The next page of the results failed: the results shown stay, the end of the list retries.
+  final bool loadMoreFailed;
+
+  /// Why the last search ([SearchStatus.failed]) or the next page of it ([loadMoreFailed]) failed, as the user is
+  /// told; null once one succeeded.
+  final LoadFailure? failure;
 }

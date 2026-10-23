@@ -50,7 +50,12 @@ class _PokemonCenterTabState extends State<PokemonCenterTab> {
             child: matched.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: [Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr.empty)))],
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(child: Text(tr.empty)),
+                      ),
+                    ],
                   )
                 : ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -89,7 +94,9 @@ class _PokemonCenterTabState extends State<PokemonCenterTab> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${tr.level(level: pokemon.level)} · ${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)}'),
+            Text(
+              '${tr.level(level: pokemon.level)} · ${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)}',
+            ),
             const SizedBox(height: 2),
             PokemonHpBar(hp: pokemon.hp, maxHp: pokemon.maxHp),
           ],

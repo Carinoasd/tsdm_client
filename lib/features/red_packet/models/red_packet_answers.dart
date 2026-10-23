@@ -49,7 +49,8 @@ enum RedPacketState {
   closed,
 
   /// Anything else.
-  unknown;
+  unknown
+  ;
 
   /// Parse the server value.
   static RedPacketState parse(String? value) => switch (value) {

@@ -767,8 +767,9 @@ void main() {
           account: LocalNoticeAccount(uid: done.uid, username: done.username, named: done.named),
         );
         ids.add(content.id);
-        expect(content.title, '[${done.username}] 新訊息');
-        expect(content.payload, 'openNotification:${done.uid}');
+        // The account, then who did what (a single new notice of a user: "Peer 回覆了你的帖子").
+        expect(content.title, startsWith('[${done.username}] '));
+        expect(content.payload, startsWith('openNotification:${done.uid}'));
         expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: done.uid));
         expect(isLocalNoticeId(content.id), isTrue);
       }
@@ -1272,7 +1273,7 @@ void main() {
           done.latest!,
           account: LocalNoticeAccount(uid: done.uid, username: done.username, named: done.named),
         );
-        expect(content.title, '[${done.username}] 新訊息', reason: 'a Windows toast names the account too');
+        expect(content.title, startsWith('[${done.username}] '), reason: 'a Windows toast names the account too');
         expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: done.uid));
       }
       expect(events, [
@@ -1997,8 +1998,8 @@ void main() {
             builder: (_, _) => const Scaffold(body: Center(child: Text('home'))),
           ),
           GoRoute(
-            path: ScreenPaths.notice,
-            name: ScreenPaths.notice,
+            path: ScreenPaths.rootNotice,
+            name: ScreenPaths.rootNotice,
             builder: (context, _) {
               _log.add('notice page as ${auth.currentUser?.uid}');
               final state = context.read<NotificationBloc>().state;

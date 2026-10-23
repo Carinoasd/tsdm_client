@@ -27,7 +27,11 @@ class SpoilerCard extends StatefulWidget {
 }
 
 class _SpoilerCardState extends State<SpoilerCard> {
-  bool _visible = false;
+  /// Spoilers opened, by the card: a floor built again (floors are not kept alive) shows its content munched before
+  /// (MunchCache), the same cards, opened as they were left.
+  static final _opened = Expando<bool>('spoiler opened');
+
+  late bool _visible = _opened[widget] ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +51,7 @@ class _SpoilerCardState extends State<SpoilerCard> {
             onPressed: () {
               setState(() {
                 _visible = !_visible;
+                _opened[widget] = _visible;
               });
             },
           ),

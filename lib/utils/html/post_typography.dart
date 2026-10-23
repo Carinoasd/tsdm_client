@@ -116,6 +116,18 @@ double postContentLineWidth(BuildContext context) =>
     PostLineWidth.maybeOf(context) ??
     postContentLineWidthIn(context, MediaQuery.sizeOf(context).width - MediaQuery.paddingOf(context).horizontal);
 
+/// How wide the content of a floor is under [context], in logical pixels: the line width [PostLineWidth] measured
+/// for the floors (the thread page) times the size of the body text; null without one above. Images in a floor are
+/// decoded no wider than that.
+double? postContentWidthOf(BuildContext context) {
+  final lineWidth = PostLineWidth.maybeOf(context);
+  if (lineWidth == null) {
+    return null;
+  }
+  final fontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
+  return lineWidth * MediaQuery.textScalerOf(context).scale(fontSize);
+}
+
 /// Measures how many characters a line of the floors below holds ([postContentLineWidthIn]) in the width it is given,
 /// for every floor at once.
 ///

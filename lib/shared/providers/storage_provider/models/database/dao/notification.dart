@@ -41,6 +41,46 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
         .get();
   }
 
+  /// What the unread counts of user [uid] are made of, without reading the bodies: the author of every unread notice,
+  /// the peer of every unread conversation and the number of unread broadcast messages. A notice or a broadcast
+  /// message without a read state counts as unread, as everywhere else.
+  Future<({List<int?> noticeAuthors, List<int> personalMessagePeers, int broadcastMessages})> unreadOf(int uid) async {
+    // The same window as the lists the unread badge is counted from ([selectNoticeSince] and the others): the newest
+    // rows of each table, at most [_noticeFetchMaxCountLimit], so both counts agree.
+    final noticeAuthors =
+        await (selectOnly(notice)
+              ..addColumns([notice.authorId, notice.alreadyRead])
+              ..where(notice.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: notice.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => (read: row.read(notice.alreadyRead) ?? false, author: row.read(notice.authorId)))
+            .get();
+    final peers =
+        await (selectOnly(personalMessage)
+              ..addColumns([personalMessage.peerUid, personalMessage.alreadyRead])
+              ..where(personalMessage.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: personalMessage.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => row.read(personalMessage.alreadyRead)! ? null : row.read(personalMessage.peerUid))
+            .get();
+    final broadcasts =
+        await (selectOnly(broadcastMessage)
+              ..addColumns([broadcastMessage.alreadyRead])
+              ..where(broadcastMessage.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: broadcastMessage.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => row.read(broadcastMessage.alreadyRead) ?? false)
+            .get();
+    return (
+      noticeAuthors: [
+        for (final e in noticeAuthors)
+          if (!e.read) e.author,
+      ],
+      personalMessagePeers: [for (final p in peers) ?p],
+      broadcastMessages: broadcasts.where((read) => !read).length,
+    );
+  }
+
   /// Insert notice [message] into table [notice], or replace the stored copy unless that one is newer.
   ///
   /// A notice keeps its nid when Discuz merges a later reply into it and bumps its time. A response that was sent
@@ -53,27 +93,41 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
     });
   }
 
-  /// Resolve the author metadata (`ignoreType`, `authorId`) of [message] before it replaces a stored copy.
+  /// Resolve the author metadata (`ignoreType`, `authorId`) and the metadata of the forum's app API (`author`,
+  /// `fromId`, `fromIdType`) of [message] before it replaces a stored copy.
   ///
-  /// A copy carrying metadata is stored as is. A copy without metadata (layout change, parse failure) keeps the
-  /// stored metadata only when it is the same revision (same time and same body); a merged notice that got a newer
-  /// time or another body may come from another author, so its metadata becomes unknown (null) instead of
-  /// inheriting the old author.
+  /// A copy carrying the author metadata is stored as is. A copy without metadata (layout change, parse failure) keeps
+  /// the stored metadata only when it is the same revision (same time and same body); a merged notice that got a newer
+  /// time or another body may come from another author, so its metadata becomes unknown (null) instead of inheriting
+  /// the old author. The same for the metadata of the app API, which the notice page does not print: a copy read from
+  /// the page (an older plugin, a fetch that fell back to the pages) keeps the stored `fromId`, `fromIdType` (and
+  /// `author`) of the same revision.
   Future<NoticeCompanion> _withRevisionMetadata(NoticeCompanion message) async {
-    final hasMetadata =
-        (message.authorId.present && message.authorId.value != null) ||
-        (message.ignoreType.present && message.ignoreType.value != null);
-    if (hasMetadata) {
+    bool has<T>(Value<T?> v) => v.present && v.value != null;
+    final hasMetadata = has(message.authorId) || has(message.ignoreType);
+    final hasApiMetadata = has(message.author) && has(message.fromId) && has(message.fromIdType);
+    if (hasMetadata && hasApiMetadata) {
       return message;
     }
     final old = await (select(
       notice,
     )..where((e) => e.uid.equals(message.uid.value) & e.nid.equals(message.nid.value))).getSingleOrNull();
     final sameRevision = old != null && old.timestamp == message.timestamp.value && old.data == message.data.value;
-    return message.copyWith(
-      ignoreType: Value(sameRevision ? old.ignoreType : null),
-      authorId: Value(sameRevision ? old.authorId : null),
-    );
+    var result = message;
+    if (!hasMetadata) {
+      result = result.copyWith(
+        ignoreType: Value(sameRevision ? old.ignoreType : null),
+        authorId: Value(sameRevision ? old.authorId : null),
+      );
+    }
+    if (!hasApiMetadata) {
+      result = result.copyWith(
+        author: Value(has(message.author) ? message.author.value : (sameRevision ? old.author : null)),
+        fromId: Value(has(message.fromId) ? message.fromId.value : (sameRevision ? old.fromId : null)),
+        fromIdType: Value(has(message.fromIdType) ? message.fromIdType.value : (sameRevision ? old.fromIdType : null)),
+      );
+    }
+    return result;
   }
 
   /// Insert personal message [message] into table [personalMessage], or replace the stored conversation unless that

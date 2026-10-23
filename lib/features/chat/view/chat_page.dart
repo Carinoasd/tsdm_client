@@ -13,9 +13,9 @@ import 'package:tsdm_client/features/chat/widgets/chat_message_card.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
@@ -76,16 +76,26 @@ final class _ChatPageState extends State<ChatPage> {
         }
         context.read<ChatBloc>().add(ChatFetchHistoryRequested(state.uid));
       },
-      // Bubbles centered at a readable width; the list keeps the full width for scrolling and pull to refresh.
-      child: AppCenteredList(
-        maxWidth: appReadingMaxWidth,
-        builder: (context, side, _) => ListView.builder(
-          controller: _scrollController,
-          padding: side.copyWith(top: 8, bottom: 8),
-          itemCount: messages.length,
-          itemBuilder: (context, index) => ChatMessageCard(messages[index]),
-        ),
-      ),
+      // Bubbles centered at a readable width; the list keeps the full width for scrolling and pull to refresh. A dialog
+      // without messages says how to start it.
+      child: messages.isEmpty
+          ? AppScrollableStateView(
+              physics: null,
+              child: AppStateView(
+                icon: Icons.chat_bubble_outline,
+                message: context.t.chatPage.empty,
+                scrollable: false,
+              ),
+            )
+          : AppCenteredList(
+              maxWidth: appReadingMaxWidth,
+              builder: (context, side, _) => ListView.builder(
+                controller: _scrollController,
+                padding: side.copyWith(top: 8, bottom: 8),
+                itemCount: messages.length,
+                itemBuilder: (context, index) => ChatMessageCard(messages[index]),
+              ),
+            ),
     );
 
     // Only the messages keep the side safe area: the reply bar pads the insets itself so its background reaches the
@@ -172,6 +182,23 @@ final class _ChatPageState extends State<ChatPage> {
               }
             },
           ),
+          // A reload that failed keeps the messages on screen and says so.
+          BlocListener<ChatBloc, ChatState>(
+            listenWhen: (prev, curr) =>
+                prev.status == ChatStatus.loading && curr.status == ChatStatus.success && curr.failure != null,
+            listener: (context, state) {
+              final bloc = context.read<ChatBloc>();
+              showRefreshFailedSnackBar(
+                context,
+                state.failure,
+                onRetry: () {
+                  if (!bloc.isClosed) {
+                    bloc.add(ChatFetchHistoryRequested(widget.uid));
+                  }
+                },
+              );
+            },
+          ),
           BlocListener<ReplyBloc, ReplyState>(
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {
@@ -221,9 +248,9 @@ final class _ChatPageState extends State<ChatPage> {
               ChatStatus.loading || ChatStatus.success => _buildContent(context, state),
               ChatStatus.failure => SafeArea(
                 bottom: false,
-                child: buildRetryButton(
-                  context,
-                  () => context.read<ChatBloc>().add(ChatFetchHistoryRequested(widget.uid)),
+                child: FailureView(
+                  failure: state.failure,
+                  onRetry: () => context.read<ChatBloc>().add(ChatFetchHistoryRequested(widget.uid)),
                 ),
               ),
             };

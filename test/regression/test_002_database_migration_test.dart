@@ -254,4 +254,92 @@ void main() {
     expect(await db.select(db.offlineThread).get(), isEmpty);
     await db.close();
   });
+
+  test('upgrade from 15 to 16 keeps the notices, the new columns empty', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(15);
+    schema.rawDatabase.execute(
+      'INSERT INTO notice (uid, nid, timestamp, data, already_read, ignore_type, author_id) '
+      "VALUES (1000, 7, 100, 'x', 0, 'post', 2000)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    final row = (await db.select(db.notice).get()).single;
+    expect((row.authorId, row.ignoreType, row.alreadyRead), (2000, 'post', false));
+    expect((row.author, row.fromId, row.fromIdType), (null, null, null));
+    await db.close();
+  });
+
+  test('the 15 to 16 step runs again safely when another connection already added the columns', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    // Every column there, the version still 15: the background service isolate and the app opening the file together.
+    final schema = await verifier.schemaAt(16);
+    schema.rawDatabase.execute('PRAGMA user_version = 15');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    await db.close();
+  });
+
+  test('the 15 to 16 step adds what another connection left out', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(15);
+    schema.rawDatabase.execute('ALTER TABLE notice ADD COLUMN "author" TEXT NULL');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 16);
+    await db.close();
+  });
+
+  for (final from in [10, 13, 14]) {
+    test('upgrade from $from to 16 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 16);
+      await db.close();
+    });
+  }
+
+  test('upgrade from 16 to 17 keeps the visits, where the reading stopped not known yet', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(16);
+    schema.rawDatabase.execute(
+      'INSERT INTO thread_visit_history (uid, tid, username, thread_title, fid, forum_name, visit_time) '
+      "VALUES (1000, 1264975, 'Alice', 'title', 2, 'forum', 100)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 17);
+    final row = (await db.select(db.threadVisitHistory).get()).single;
+    expect((row.uid, row.tid, row.threadTitle, row.fid), (1000, 1264975, 'title', 2));
+    expect((row.lastPage, row.lastPid, row.lastFloor, row.seenReplies), (null, null, null, null));
+    await db.close();
+  });
+
+  test('the 16 to 17 step runs again safely when another connection already added the columns', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    // Every column there, the version still 16: the background service isolate and the app opening the file together.
+    final schema = await verifier.schemaAt(17);
+    schema.rawDatabase.execute('PRAGMA user_version = 16');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 17);
+    await db.close();
+  });
+
+  test('the 16 to 17 step adds what another connection left out', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(16);
+    schema.rawDatabase.execute('ALTER TABLE thread_visit_history ADD COLUMN "last_page" INTEGER NULL');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 17);
+    await db.close();
+  });
+
+  for (final from in [10, 14, 15]) {
+    test('upgrade from $from to 17 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 17);
+      await db.close();
+    });
+  }
 }

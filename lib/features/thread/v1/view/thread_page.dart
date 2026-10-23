@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/constants.dart';
@@ -24,7 +26,10 @@ import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
+import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
+import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
@@ -39,6 +44,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/models/thread_open_position.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
@@ -52,6 +58,7 @@ import 'package:tsdm_client/widgets/card/error_card.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/list_app_bar/list_app_bar.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/debate_stand_selector.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
@@ -154,7 +161,45 @@ const threadContentMaxTextScale = 3.0;
 
 class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateMixin, LoggerMixin {
   /// Controller of thread tab.
-  final _listScrollController = ScrollController();
+  final _listScrollController = ThreadScrollController();
+
+  /// The list of floors, asked whether it shows the thread from its start ("back to top").
+  final _postListKey = GlobalKey<PostListState>();
+
+  /// Where the reading of this thread stopped last time, offered to go on with ("continue" banner) while the list is
+  /// near the start; null when there is nothing to offer, or once taken or dismissed.
+  ReadingProgress? _resumeOffer;
+
+  /// Where the reading stopped last time, gone on with right away (the "continue where I stopped" setting).
+  ReadingProgress? _resumeAt;
+
+  /// Where the reading stopped last time while the page opened at the start of the thread (not gone on with right
+  /// away): kept as the reading position until the user scrolls, goes on with it or jumps to a floor, so a page opened
+  /// and left again does not put the bookmark back to the first floor.
+  ReadingProgress? _heldPosition;
+
+  /// Whether the user scrolled the list (not only the page doing it).
+  bool _userScrolled = false;
+
+  /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
+  StreamSubscription<ReadingProgressState>? _progressWait;
+
+  /// Keeps where the reading is, see [_onTopFloorChanged].
+  ReadingProgressCubit? _progressCubit;
+
+  /// The progress to keep once the list stays still ([_progressTimer]) or the page is left.
+  ({int uid, int tid, ReadingProgress progress})? _pendingProgress;
+  Timer? _progressTimer;
+
+  /// The progress kept last: the same one is not written again.
+  ({int uid, int tid, ReadingProgress progress})? _keptProgress;
+
+  /// The generation of the floors the page indicator was set to the first page of.
+  int? _pageInfoGeneration;
+
+  /// The munched contents of the floors, kept for the floors built again when scrolled back to (a floor is not kept
+  /// alive off screen), at most a few pages of them; gone with the page.
+  final _munchCache = MunchCache();
 
   final _replyBarController = ReplyBarController();
 
@@ -466,12 +511,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       info('not prepared to save visit history yet');
       return;
     }
-    // The history would list the title of a thread the user blocked the author of, or might have.
-    final blockList = currentBlockList(context, listen: false);
-    final author = _threadAuthorOf(state);
-    if (!blockList.isKnown ||
-        (blockList.uids.isNotEmpty && author == null && !_isUnattributable(state)) ||
-        blockList.hides(author)) {
+    if (!_mayKeepVisit(context, state)) {
       return;
     }
     debug('save thread visit history tid=${state.tid}');
@@ -488,6 +528,212 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         ),
       ),
     );
+  }
+
+  /// Whether the visit of the thread in [state] may be kept: the history (and the reading progress kept with it) would
+  /// list the title of a thread the user blocked the author of, or might have.
+  bool _mayKeepVisit(BuildContext context, ThreadState state) {
+    final blockList = currentBlockList(context, listen: false);
+    final author = _threadAuthorOf(state);
+    return blockList.isKnown &&
+        !(blockList.uids.isNotEmpty && author == null && !_isUnattributable(state)) &&
+        !blockList.hides(author);
+  }
+
+  /// Where the reading of this thread stopped, when the page opens it from a list (no page, floor or author asked) for
+  /// an account that read it past its first screen.
+  ReadingProgress? _savedProgress() {
+    final tid = _opensFromList();
+    final cubit = _progressCubit;
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    if (tid == null || cubit == null || uid == null || cubit.state.uid != uid) {
+      return null;
+    }
+    final progress = cubit.state.of(tid);
+    return progress != null && progress.pastFirstScreen && progress.floor != null ? progress : null;
+  }
+
+  /// The thread id when the page opens the thread from a list (no page, floor or author asked), else null.
+  int? _opensFromList() {
+    final tid = int.tryParse(widget.threadID ?? '');
+    if (tid == null ||
+        widget.findPostID != null ||
+        widget.lastPost ||
+        widget.onlyVisibleUid != null ||
+        (int.tryParse(widget.pageNumber) ?? 1) != 1) {
+      return null;
+    }
+    return tid;
+  }
+
+  /// Whether where the reading stopped is not read yet for the account in use (a page opened from a link as the app
+  /// starts): nothing is offered or kept before it is.
+  bool _progressLoading() {
+    final cubit = _progressCubit;
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    return cubit != null && uid != null && !(cubit.state.uid == uid && cubit.state.loaded);
+  }
+
+  /// Go with where the reading stopped ([progress]) as the setting says, as the page opens ([atOpen]) or once read.
+  void _takeSavedProgress(ReadingProgress progress, {required bool atOpen}) {
+    switch (getIt.get<SettingsRepository>().currentSettings.openPosition) {
+      case ThreadOpenPosition.fromStart:
+        _heldPosition = progress;
+      case ThreadOpenPosition.ask:
+        _resumeOffer = progress;
+        _heldPosition = progress;
+      case ThreadOpenPosition.resume:
+        if (atOpen) {
+          _resumeAt = progress;
+        } else {
+          _threadBloc?.add(
+            ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page),
+          );
+        }
+    }
+  }
+
+  /// The first load of the page: the last page for the last floor, where the reading stopped when going on with it
+  /// right away, else the page asked for.
+  ThreadEvent _initialEvent() {
+    if (widget.lastPost) {
+      // A web page without a pager is the only page of the thread.
+      return const ThreadLoadMoreRequested(lastPageAsked, pageFallback: 1);
+    }
+    if (_resumeAt case final progress?) {
+      return ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page);
+    }
+    return ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1);
+  }
+
+  /// The list told the floor at its top ([post]): the page goes on from there next time, see [ReadingProgress].
+  ///
+  /// Kept once the list stays still for a second, and when the page is left. Only for an account, for every author's
+  /// floors (one author's floors are not where the thread is), floors from the forum (not an offline copy), and a
+  /// thread whose visit is kept ([_mayKeepVisit]).
+  void _onTopFloorChanged(Post post, {required bool atThreadTop}) {
+    final offer = _resumeOffer;
+    if (offer != null && (!atThreadTop || (post.shownFloor ?? 0) >= (offer.floor ?? 0))) {
+      // Read on from the start, or got there: nothing to offer any more.
+      setState(() => _resumeOffer = null);
+    }
+    final bloc = _threadBloc;
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    if (bloc == null || bloc.isClosed || uid == null) {
+      return;
+    }
+    final state = bloc.state;
+    final tid = int.tryParse(state.tid ?? '');
+    if (tid == null ||
+        _progressLoading() ||
+        state.status != ThreadStatus.success ||
+        state.isOffline ||
+        state.onlyVisibleUid != null ||
+        !_mayKeepVisit(context, state)) {
+      return;
+    }
+    // The replies as the thread counts them (a rush thread's deleted floors are not replies), as the lists do.
+    final seenReplies = state.replyCount ?? state.paginationReplies;
+    final ReadingProgress progress;
+    if (_heldPosition case final held?) {
+      // Not scrolled yet: where the reading stopped stays, the replies seen are the thread's now.
+      progress = ReadingProgress(page: held.page, pid: held.pid, floor: held.floor, seenReplies: seenReplies);
+    } else if (atThreadTop) {
+      progress = ReadingProgress(page: 1, floor: 1, seenReplies: seenReplies);
+    } else {
+      // A hot reply is a copy of a later floor shown on the first page: the floor read on to is the closest one
+      // around it in the thread's order.
+      final read = readFloorAround(state.postList, post);
+      final floor = read.shownFloor;
+      final ppp = state.postsPerPage;
+      progress = ReadingProgress(
+        // The page oldest floor first, whatever the order shown.
+        page: !state.shownNewestFirst ? read.page : (floor != null && ppp != null ? (floor - 1) ~/ ppp + 1 : null),
+        pid: int.tryParse(read.postID),
+        floor: floor,
+        seenReplies: seenReplies,
+      );
+    }
+    final pending = (uid: uid, tid: tid, progress: progress);
+    if (_pendingProgress == pending || (_pendingProgress == null && _keptProgress == pending)) {
+      return;
+    }
+    _pendingProgress = pending;
+    _progressTimer?.cancel();
+    _progressTimer = Timer(const Duration(seconds: 1), _keepProgress);
+  }
+
+  /// Keep the reading progress told last ([_onTopFloorChanged]).
+  void _keepProgress() {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    final pending = _pendingProgress;
+    _pendingProgress = null;
+    if (pending == null || pending == _keptProgress) {
+      return;
+    }
+    _keptProgress = pending;
+    unawaited(_progressCubit?.save(uid: pending.uid, tid: pending.tid, progress: pending.progress));
+  }
+
+  /// Scrolling of the list: the app bar follows it, and a scroll of the user's own lets the reading position go
+  /// ([_heldPosition]).
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle &&
+        notification.metrics.axis == Axis.vertical) {
+      _heldPosition = null;
+      _userScrolled = true;
+    }
+    return _appBarCollapser.onNotification(notification);
+  }
+
+  /// Ask for a floor to go to, and go there.
+  Future<void> _askJumpToFloor(BuildContext context, ThreadState state) async {
+    final floors = _floorCountOf(state);
+    final floor = await showDialog<int>(
+      context: context,
+      builder: (_) => RootPage(DialogPaths.jumpToFloor, _JumpToFloorDialog(max: floors)),
+    );
+    if (floor == null || !context.mounted) {
+      return;
+    }
+    _heldPosition = null;
+    context.read<ThreadBloc>().add(ThreadJumpToFloorRequested(floor));
+  }
+
+  /// Go on reading where it stopped last time ([_resumeOffer]).
+  void _resume() {
+    final offer = _resumeOffer;
+    _heldPosition = null;
+    setState(() => _resumeOffer = null);
+    if (offer == null) {
+      return;
+    }
+    _threadBloc?.add(ThreadJumpToFloorRequested(offer.floor ?? 1, pid: offer.pid?.toString(), page: offer.page));
+  }
+
+  /// Floors of the thread: its highest floor, or the replies plus the first floor; null when filtered by author (the
+  /// count is that author's) or not known.
+  int? _floorCountOf(ThreadState state) {
+    if (state.onlyVisibleUid != null) {
+      return null;
+    }
+    final highest = state.postList.map((e) => e.postFloor ?? 0).fold(0, math.max);
+    final replies = state.paginationReplies ?? state.replyCount;
+    final count = math.max(highest, replies == null ? 0 : replies + 1);
+    return count > 0 ? count : null;
+  }
+
+  /// Open the reply bar for a reply to the thread (the end card's "reply").
+  void _replyToThread() {
+    if (_threadBloc?.state.isOffline ?? true) {
+      return;
+    }
+    _replyBarController
+      ..replyAction = null
+      ..setHintText(context.t.threadPage.sendReplyHint)
+      ..requestFocus();
   }
 
   /// Height of the breadcrumb row under the app bar for the extra height of large text.
@@ -669,29 +915,77 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               // One line width for all the floors, measured in the width they have (the safe area left out), taken
               // once the width settles.
               child: PostLineWidth(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _appBarCollapser.onNotification,
-                  child: PostList(
-                    threadID: state.tid ?? widget.threadID,
-                    title: state.title ?? widget.title,
-                    pageNumber: context.read<JumpPageCubit>().state.currentPage,
-                    initialPostID: (_scrollToPidOnReload ?? widget.findPostID)?.parseToInt(),
-                    scrollController: _listScrollController,
-                    // Posts of locally blocked users become placeholders in place, the floors keep their positions.
-                    widgetBuilder: (context, post) => BlockAwarePost(
-                      post: post,
-                      postList: state.postList,
-                      builder: (context, post) => PostCard(
-                        post,
-                        replyCallback: replyPostCallback,
-                        onEdited: () => _scrollToPidOnReload = post.postID,
-                        onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
-                      ),
+                child: MunchCacheScope(
+                  cache: _munchCache,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _onScrollNotification,
+                    child: Stack(
+                      children: [
+                        PostList(
+                          key: _postListKey,
+                          threadID: state.tid ?? widget.threadID,
+                          title: state.title ?? widget.title,
+                          pageNumber: context.read<JumpPageCubit>().state.currentPage,
+                          initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
+                              ?.parseToInt(),
+                          scrollController: _listScrollController,
+                          // Posts of locally blocked users become placeholders in place, the floors keep their
+                          // positions.
+                          widgetBuilder: (context, post) => BlockAwarePost(
+                            post: post,
+                            postList: state.postList,
+                            builder: (context, post) => PostCard(
+                              post,
+                              replyCallback: replyPostCallback,
+                              onEdited: () => _scrollToPidOnReload = post.postID,
+                              onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                            ),
+                          ),
+                          useDivider: true,
+                          postList: state.postList,
+                          canLoadMore: state.canLoadMore,
+                          latestModAct: state.latestModAct,
+                          generation: state.generation,
+                          firstPage: state.firstPage,
+                          lastPage: state.currentPage,
+                          nextStatus: state.nextStatus,
+                          previousStatus: state.previousStatus,
+                          scrollTargetPid: state.scrollTargetPid,
+                          scrollTargetSerial: state.scrollTargetSerial,
+                          onTopFloorChanged: _onTopFloorChanged,
+                          newestFirst: state.shownNewestFirst,
+                          endOfThread: ThreadEndCard(
+                            floors: _floorCountOf(state),
+                            status: state.nextStatus,
+                            newestFirst: state.shownNewestFirst,
+                            onReply: state.replyParameters == null || state.threadClosed || state.isOffline
+                                ? null
+                                : _replyToThread,
+                            // Newest floors first, the new replies are at the top: pulled down there.
+                            onLoadNewReplies: state.shownNewestFirst || state.isOffline
+                                ? null
+                                : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
+                          ),
+                        ),
+                        // Not for one author's floors: the reading position is the whole thread's.
+                        if (_resumeOffer case final offer? when state.onlyVisibleUid == null)
+                          Positioned(
+                            left: 12,
+                            right: 12,
+                            bottom: 12,
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 560),
+                                child: _ResumeBanner(
+                                  floor: offer.floor ?? 1,
+                                  onResume: _resume,
+                                  onClose: () => setState(() => _resumeOffer = null),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    useDivider: true,
-                    postList: state.postList,
-                    canLoadMore: state.canLoadMore,
-                    latestModAct: state.latestModAct,
                   ),
                 ),
               ),
@@ -815,6 +1109,22 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _progressCubit = context.readOrNull<ReadingProgressCubit>();
+    if (_savedProgress() case final progress?) {
+      _takeSavedProgress(progress, atOpen: true);
+    } else if (_opensFromList() != null && _progressLoading()) {
+      // Read in a moment: offered (or gone on with) then, unless the user scrolled already.
+      _progressWait = _progressCubit?.stream.listen((_) {
+        if (!mounted || _progressLoading()) {
+          return;
+        }
+        unawaited(_progressWait?.cancel());
+        _progressWait = null;
+        if (_savedProgress() case final progress? when !_userScrolled) {
+          setState(() => _takeSavedProgress(progress, atOpen: false));
+        }
+      });
+    }
     // Created here, not lazily: a page that never shows the bar (a blocked thread) still disposes it.
     _appBarController = AnimationController(vsync: this, duration: duration200, value: 1);
     _appBarCollapser = AppBarCollapser(_appBarController);
@@ -828,8 +1138,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    // Where the reading is when leaving the page.
+    _keepProgress();
+    _munchCache.clear();
     _authorLookup++;
     unawaited(_accountSub?.cancel());
+    unawaited(_progressWait?.cancel());
     _listScrollController.dispose();
     _appBarController.dispose();
     super.dispose();
@@ -847,20 +1161,14 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         RepositoryProvider<ThreadRepository>(create: (_) => ThreadRepository(offline: _offline)),
         RepositoryProvider<ReplyRepository>(create: (_) => const ReplyRepository()),
         BlocProvider(
-          create: (context) => _threadBloc =
-              ThreadBloc(
-                tid: widget.threadID,
-                pid: widget.findPostID,
-                onlyVisibleUid: widget.onlyVisibleUid,
-                threadRepository: context.repo(),
-                reverseOrder: widget.overrideReverseOrder ? threadReverseOrder : null,
-                exactOrder: widget.overrideWithExactOrder,
-              )..add(
-                widget.lastPost
-                    // A web page without a pager is the only page of the thread.
-                    ? const ThreadLoadMoreRequested(lastPageAsked, pageFallback: 1)
-                    : ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1),
-              ),
+          create: (context) => _threadBloc = ThreadBloc(
+            tid: widget.threadID,
+            pid: widget.findPostID,
+            onlyVisibleUid: widget.onlyVisibleUid,
+            threadRepository: context.repo(),
+            reverseOrder: widget.overrideReverseOrder ? threadReverseOrder : null,
+            exactOrder: widget.overrideWithExactOrder,
+          )..add(_initialEvent()),
         ),
         BlocProvider(
           create: (context) => ReplyBloc(
@@ -915,6 +1223,25 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               }
             },
           ),
+          // A jump to a floor the thread does not have went to the closest one.
+          BlocListener<ThreadBloc, ThreadState>(
+            listenWhen: (prev, curr) =>
+                prev.scrollTargetSerial != curr.scrollTargetSerial && curr.jumpFloorMissed != null,
+            listener: (context, state) => showSnackBar(
+              context: context,
+              message: context.t.threadPage.jumpToFloor.missed(floor: state.jumpFloorMissed!),
+            ),
+          ),
+          // The last page asked again for new replies.
+          BlocListener<ThreadBloc, ThreadState>(
+            listenWhen: (prev, curr) => prev.newRepliesSerial != curr.newRepliesSerial,
+            listener: (context, state) => showSnackBar(
+              context: context,
+              message: state.newRepliesCount > 0
+                  ? context.t.threadPage.newRepliesLoaded(count: state.newRepliesCount)
+                  : context.t.threadPage.noNewReplies,
+            ),
+          ),
           BlocListener<ReplyBloc, ReplyState>(
             listenWhen: (prev, curr) => prev.status != curr.status,
             listener: (context, state) {
@@ -964,8 +1291,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         ],
         child: BlocBuilder<ThreadBloc, ThreadState>(
           builder: (context, state) {
-            // Update jump page state.
-            context.read<JumpPageCubit>().setPageInfo(totalPages: state.totalPages, currentPage: state.currentPage);
+            // Update jump page state: the page in view is the list's to tell, from the first page of new floors on.
+            final jumpPage = context.read<JumpPageCubit>()..setPageInfo(totalPages: state.totalPages);
+            if (state.status == ThreadStatus.success && state.generation != _pageInfoGeneration) {
+              _pageInfoGeneration = state.generation;
+              jumpPage.setPageInfo(currentPage: state.firstPage);
+            }
             // The text scale in effect: the system font size times the app's own scale (appTextScaler).
             final textScaleExtraBreadHeight = math.max<double>(
               0,
@@ -1035,8 +1366,17 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
               onBackToTop: () async {
                 _appBarCollapser.show();
+                final bloc = context.read<ThreadBloc>();
+                // Pages above the floors on screen are not loaded (or were dropped): open the thread at its start.
+                if (bloc.state.canLoadPrevious || !(_postListKey.currentState?.startsAtThreadTop ?? true)) {
+                  bloc.add(const ThreadJumpPageRequested(1));
+                  return;
+                }
+                if (!_listScrollController.hasClients) {
+                  return;
+                }
                 await _listScrollController.animateTo(
-                  0,
+                  _listScrollController.position.minScrollExtent,
                   curve: Curves.ease,
                   duration: const Duration(milliseconds: 500),
                 );
@@ -1066,6 +1406,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                       icon: Icons.forward_to_inbox_outlined,
                       description: context.t.threadPage.shareToFriend.title,
                       onSelected: () async => shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                    ),
+                  // Floor numbers are where the floors are only when every author's floors are listed.
+                  if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
+                    MenuCustomItem(
+                      icon: Icons.format_list_numbered_outlined,
+                      description: context.t.threadPage.jumpToFloor.menu,
+                      onSelected: () async => _askJumpToFloor(context, state),
                     ),
                   MenuCustomItem(
                     icon: Icons.numbers_outlined,
@@ -1161,4 +1508,132 @@ class _AuthorLookupFailure extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Asks for a floor of the thread to go to ([max] floors when known).
+class _JumpToFloorDialog extends StatefulWidget {
+  const _JumpToFloorDialog({required this.max});
+
+  final int? max;
+
+  @override
+  State<_JumpToFloorDialog> createState() => _JumpToFloorDialogState();
+}
+
+class _JumpToFloorDialogState extends State<_JumpToFloorDialog> {
+  final _controller = TextEditingController();
+  bool _invalid = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final floor = int.tryParse(_controller.text.trim());
+    if (floor == null || floor < 1) {
+      setState(() => _invalid = true);
+      return;
+    }
+    Navigator.of(context).pop(floor);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.threadPage.jumpToFloor;
+    return AlertDialog(
+      title: Text(tr.title),
+      content: TextField(
+        key: const ValueKey('jump-to-floor-field'),
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        textInputAction: TextInputAction.go,
+        decoration: InputDecoration(
+          labelText: tr.label,
+          hintText: widget.max == null ? null : tr.hint(max: widget.max!),
+          errorText: _invalid ? tr.invalid : null,
+          prefixText: '#',
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
+        TextButton(key: const ValueKey('jump-to-floor-go'), onPressed: _submit, child: Text(tr.go)),
+      ],
+    );
+  }
+}
+
+/// Offers to go on reading where it stopped last time, floating above the floors (it moves none of them).
+class _ResumeBanner extends StatelessWidget {
+  const _ResumeBanner({required this.floor, required this.onResume, required this.onClose});
+
+  final int floor;
+
+  final VoidCallback onResume;
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.threadPage.resume;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const ValueKey('thread-resume-banner'),
+      elevation: 3,
+      color: colorScheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(appInnerRadius * 2),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+        child: Row(
+          children: [
+            Icon(Icons.bookmark_outline, size: 20, color: colorScheme.onSecondaryContainer),
+            sizedBoxW8H8,
+            Expanded(
+              child: Text(
+                tr.message(floor: floor),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSecondaryContainer),
+              ),
+            ),
+            TextButton(key: const ValueKey('thread-resume-go'), onPressed: onResume, child: Text(tr.action)),
+            IconButton(
+              key: const ValueKey('thread-resume-close'),
+              tooltip: tr.close,
+              icon: const Icon(Icons.close),
+              color: colorScheme.onSecondaryContainer,
+              onPressed: onClose,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// [post], or for a hot reply the closest floor of the thread around it in [posts]: the next one, else the one
+/// before it: the floor the reading is at when a hot reply is at the top of the list.
+@visibleForTesting
+Post readFloorAround(List<Post> posts, Post post) {
+  if (!post.hot) {
+    return post;
+  }
+  final at = posts.indexOf(post);
+  if (at < 0) {
+    return post;
+  }
+  for (var i = at + 1; i < posts.length; i++) {
+    if (!posts[i].hot) {
+      return posts[i];
+    }
+  }
+  for (var i = at - 1; i >= 0; i--) {
+    if (!posts[i].hot) {
+      return posts[i];
+    }
+  }
+  return post;
 }

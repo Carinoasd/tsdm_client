@@ -98,7 +98,9 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/utils/app_text_scale.dart';
 import 'package:tsdm_client/utils/image_file_name.dart';
-import 'package:tsdm_client/widgets/load_more_failed_footer.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
@@ -671,25 +673,28 @@ void main() {
   });
 
   group('5. the image cache', () {
-    test('is looked up by key, also in a large table', () {
-      final entries = {
-        for (var i = 0; i < 150000; i++)
-          'https://img.example/$i.png': ImageEntity(
-            url: 'https://img.example/$i.png',
-            fileName: '$i',
-            lastCachedTime: DateTime(2026),
-            lastUsedTime: DateTime(2026),
-          ),
-      };
-      final provider = StorageProvider(db, {}, entries);
+    test('is looked up by key, also in a large table', () async {
+      // Since the cold start work the table is never read whole: a row is looked up by its url in the table.
+      await db.batch(
+        (b) => b.insertAll(db.image, [
+          for (var i = 0; i < 150000; i++)
+            ImageCompanion.insert(
+              url: 'https://img.example/$i.png',
+              fileName: '$i',
+              lastCachedTime: DateTime(2026),
+              lastUsedTime: DateTime(2026),
+            ),
+        ]),
+      );
+      final provider = StorageProvider(db, {}, {});
       final watch = Stopwatch()..start();
       for (var i = 0; i < 2000; i++) {
-        expect(provider.getImageCacheSync('https://img.example/${149999 - i}.png')?.fileName, '${149999 - i}');
+        expect((await provider.getImageCache('https://img.example/${149999 - i}.png'))?.fileName, '${149999 - i}');
       }
       watch.stop();
-      expect(provider.getImageCacheSync('https://img.example/none.png'), isNull);
-      // Walking the table for every lookup took seconds here.
-      expect(watch.elapsedMilliseconds, lessThan(500));
+      expect(await provider.getImageCache('https://img.example/none.png'), isNull);
+      // Walking the table for every lookup took seconds here (minutes for 2000 lookups of the table).
+      expect(watch.elapsedMilliseconds, lessThan(5000));
     });
   });
 
@@ -766,11 +771,18 @@ void main() {
       await tester.pumpWidget(
         app(
           MaterialApp(
-            home: Scaffold(body: LoadMoreFailedFooter(onRetry: () => retried++)),
+            home: Scaffold(
+              body: ListFooter(
+                status: ListFooterStatus.failed,
+                failure: LoadFailure(LoadFailureKind.noNetwork),
+                onRetry: () => retried++,
+              ),
+            ),
           ),
         ),
       );
-      expect(find.text(t.general.loadMoreFailed), findsOneWidget);
+      // The shared end of the lists (test_244): the failure with its reason, and the retry.
+      expect(find.text(t.loadState.footer.failed(reason: t.loadState.failure.noNetwork.title)), findsOneWidget);
       await tester.tap(find.text(t.general.retry));
       expect(retried, 1);
     });
@@ -808,18 +820,23 @@ void main() {
       await tester.tap(find.byIcon(Icons.search_outlined));
       await _settle(tester);
       expect(searches, 1);
-      expect(find.text(t.searchPage.result.rateLimited(seconds: 20)), findsOneWidget);
-      final retry = find.byKey(const ValueKey('search-retry'));
+      // The shared failure view (test_244): the limit in words, the forum's own message, a countdown on the retry.
+      expect(find.text(t.loadState.failure.rateLimited.title), findsOneWidget);
+      expect(find.text(t.loadState.failure.rateLimited.hintSeconds(seconds: 20)), findsOneWidget);
+      expect(find.text('抱歉，您在 20 秒内只能进行一次搜索'), findsOneWidget);
+      final retry = find.byKey(failureRetryKey);
       expect(tester.widget<FilledButton>(retry).onPressed, isNull, reason: 'not before the forum takes it');
-      expect(find.text(t.searchPage.result.retryIn(seconds: 20)), findsOneWidget);
+      expect(find.text(t.loadState.retryIn(seconds: 20)), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
-      expect(find.text(t.searchPage.result.retryIn(seconds: 15)), findsOneWidget);
+      expect(find.text(t.loadState.retryIn(seconds: 15)), findsOneWidget);
       await tester.pump(const Duration(seconds: 16));
       expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
       forum.answer = (r) {
         searches++;
         return _html('<div id="messagetext"><p>没有找到匹配结果</p></div>');
       };
+      await tester.ensureVisible(retry);
+      await tester.pump();
       await tester.tap(retry);
       await _settle(tester);
       expect(searches, 2, reason: 'the retry asks the same search again');
@@ -843,11 +860,13 @@ void main() {
       await tester.pumpWidget(app(const MaterialApp(home: MyThreadPage())));
       await tester.pumpAndSettle();
       expect(find.text(t.general.retry), findsOneWidget);
-      expect(find.text(t.general.noData), findsNothing);
+      expect(find.text(t.myThreadPage.threadTab.empty), findsNothing);
+      // What failed, in words (test_244).
+      expect(find.text(t.loadState.failure.noNetwork.title), findsOneWidget);
       failing = false;
       await tester.tap(find.text(t.general.retry));
       await tester.pumpAndSettle();
-      expect(find.text(t.general.noData), findsOneWidget, reason: 'an empty list once it loaded');
+      expect(find.text(t.myThreadPage.threadTab.empty), findsOneWidget, reason: 'an empty list once it loaded');
     });
   });
 
@@ -933,12 +952,14 @@ void main() {
         return _html(_threadPage([for (var i = 1; i <= 3; i++) page * 10 + i], page: page, pages: 3));
       };
       await _pumpThread(tester, app);
-      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)))
-        ..add(const ThreadLoadMoreRequested(2));
-      await tester.pumpAndSettle();
-      expect(bloc.state.currentPage, 2);
-      // The page in view is page 1 again.
+      // The pages after are asked for before the end is reached (reading progress round): three short pages are all
+      // on screen at once.
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)));
+      expect(bloc.state.currentPage, 3);
+      // The page in view is page 1 again: asking for page 2 asks nothing, it is on screen.
       BlocProvider.of<JumpPageCubit>(tester.element(find.byType(PostList))).setPageInfo(currentPage: 1);
+      bloc.add(const ThreadLoadMoreRequested(2));
+      await tester.pumpAndSettle();
       await tester.drag(find.byType(PostList), const Offset(0, -6000));
       await tester.pumpAndSettle();
       await tester.drag(find.byType(PostList), const Offset(0, -400));
@@ -1450,7 +1471,12 @@ void main() {
       expect(bloc.state.currentPage, 2);
       final position = tester.widget<PostList>(find.byType(PostList)).scrollController.position;
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(position.pixels, 0, reason: 'a jump starts at the top, not on the last floor of the page');
+      // The start of the list: its zero offset is at the first floor, the title above it (reading progress round).
+      expect(
+        position.pixels,
+        position.minScrollExtent,
+        reason: 'a jump starts at the top, not on the last floor of the page',
+      );
       await _unpump(tester);
     });
 
@@ -1575,7 +1601,12 @@ void main() {
       for (var i = 0; i < 2; i++) {
         bloc.add(MyThreadRefreshThreadRequested());
         await _settle(tester);
-        expect(find.text(t.general.failedToLoad), findsOneWidget, reason: 'refresh ${i + 1}');
+        // The reason with the failure (test_244).
+        expect(
+          find.text(t.loadState.refreshFailed(reason: t.loadState.failure.noNetwork.title)),
+          findsOneWidget,
+          reason: 'refresh ${i + 1}',
+        );
         ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).removeCurrentSnackBar();
         await tester.pumpAndSettle();
       }
@@ -1690,15 +1721,15 @@ void main() {
     });
 
     test(
-      'the clearing of outdated images stays off by default (it blocks the homepage); a saved choice stays',
+      'the clean up of the image cache is on by default again, in the background (cold start); a saved choice stays',
       () async {
-        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isFalse);
-        expect(settings.currentSettings.enableAutoClearImageCache, isFalse);
-        await settings.setValue(SettingsKeys.enableAutoClearImageCache, true);
+        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isTrue);
+        expect(settings.currentSettings.enableAutoClearImageCache, isTrue);
+        await settings.setValue(SettingsKeys.enableAutoClearImageCache, false);
         final again = SettingsRepository(storage);
         await again.init();
         addTearDown(again.dispose);
-        expect(again.currentSettings.enableAutoClearImageCache, isTrue);
+        expect(again.currentSettings.enableAutoClearImageCache, isFalse);
       },
     );
   });

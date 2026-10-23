@@ -183,7 +183,9 @@ class _PokemonEquipmentPageState extends State<PokemonEquipmentPage> {
         child: _loading
             ? const CenteredCircularIndicator()
             : _failed || data == null
-            ? Center(child: TextButton(onPressed: _load, child: Text(context.t.general.retry)))
+            ? Center(
+                child: TextButton(onPressed: _load, child: Text(context.t.general.retry)),
+              )
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [

@@ -14,10 +14,13 @@ import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
+import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
+import 'package:tsdm_client/features/thread_preview/widgets/thread_preview_section.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -29,7 +32,8 @@ import 'package:tsdm_client/widgets/quoted_text.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-typedef _ThreadInfo = (IconData, String);
+/// An item of the info row: its icon, its text, and a highlighted text after it (the replies since the last visit).
+typedef _ThreadInfo = (IconData, String, String?);
 
 /// All actions used in the context menu.
 ///
@@ -40,6 +44,7 @@ class _CardLayout extends StatelessWidget {
   const _CardLayout({
     required this.threadID,
     required this.title,
+    this.preview,
     this.forum,
     this.author,
     this.publishTime,
@@ -56,10 +61,14 @@ class _CardLayout extends StatelessWidget {
     this.disableTap = false,
     this.isRecentThread = false,
     this.replied = false,
+    this.progress,
   });
 
   final String threadID;
   final String title;
+
+  /// The excerpt and the thumbnail of the first floor (the forum's app API, plugin 3.1.0), under the title.
+  final ThreadPreview? preview;
   final String? forum;
   final ThreadType? threadType;
   final User? author;
@@ -78,6 +87,10 @@ class _CardLayout extends StatelessWidget {
 
   /// The current account replied in this thread (local mark, issue #21): a small reply icon in the trailing row.
   final bool replied;
+
+  /// Where the current account stopped reading this thread, null when it never read it: the title is dimmed and the
+  /// replies posted since its last visit are told ("+N" after the reply count).
+  final ReadingProgress? progress;
 
   Card _wrapWithCard(BuildContext context, Widget child) => Card(
     margin: EdgeInsets.zero,
@@ -169,13 +182,14 @@ class _CardLayout extends StatelessWidget {
       false => null,
     };
 
+    final newReplies = progress?.newRepliesOf(replyCount) ?? 0;
     final infoList = <_ThreadInfo>[
-      if (replyCount != null) (Icons.forum_outlined, '$replyCount'),
-      if (viewCount != null) (Icons.bar_chart_outlined, '$viewCount'),
-      if (showLastReplyAuthor && lastReplyAuthor != null) (Icons.person_outline, lastReplyAuthor!.name),
-      if (latestReplyTime != null) (Icons.timelapse_outlined, latestReplyTime!.elapsedTillNow(context)),
-      if ((price ?? 0) > 0) (FontAwesomeIcons.coins, '$price'),
-      if ((privilege ?? 0) > 0) (Icons.feedback_outlined, '$privilege'),
+      if (replyCount != null) (Icons.forum_outlined, '$replyCount', newReplies > 0 ? '+$newReplies' : null),
+      if (viewCount != null) (Icons.bar_chart_outlined, '$viewCount', null),
+      if (showLastReplyAuthor && lastReplyAuthor != null) (Icons.person_outline, lastReplyAuthor!.name, null),
+      if (latestReplyTime != null) (Icons.timelapse_outlined, latestReplyTime!.elapsedTillNow(context), null),
+      if ((price ?? 0) > 0) (FontAwesomeIcons.coins, '$price', null),
+      if ((privilege ?? 0) > 0) (Icons.feedback_outlined, '$privilege', null),
     ];
 
     if (infoList.isEmpty) {
@@ -198,10 +212,10 @@ class _CardLayout extends StatelessWidget {
                             Icon(e.$1, size: smallIconSize, color: infoColor),
                             sizedBoxW4H4,
                             Expanded(
-                              child: Text(
-                                e.$2,
+                              child: _infoText(
+                                context,
+                                e,
                                 style: TextStyle(fontSize: smallTextSize, color: infoColor),
-                                maxLines: 1,
                                 overflow: TextOverflow.clip,
                               ),
                             ),
@@ -227,10 +241,10 @@ class _CardLayout extends StatelessWidget {
                   (e) => [
                     Icon(e.$1, size: smallIconSize, color: infoColor),
                     sizedBoxW4H4,
-                    Text(
-                      e.$2,
+                    _infoText(
+                      context,
+                      e,
                       style: TextStyle(fontSize: smallTextSize, color: infoColor),
-                      maxLines: 1,
                     ),
                     sizedBoxW12H12,
                   ],
@@ -241,6 +255,31 @@ class _CardLayout extends StatelessWidget {
         ),
       );
     }
+  }
+
+  /// The text of [info], its highlighted part (new replies) after it in the primary color.
+  Widget _infoText(BuildContext context, _ThreadInfo info, {required TextStyle style, TextOverflow? overflow}) {
+    final highlighted = info.$3;
+    if (highlighted == null) {
+      return Text(info.$2, style: style, maxLines: 1, overflow: overflow);
+    }
+    final count = int.tryParse(highlighted.substring(1)) ?? 0;
+    return Text.rich(
+      TextSpan(
+        text: info.$2,
+        children: [
+          TextSpan(
+            text: ' $highlighted',
+            style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+      key: const ValueKey('thread-card-new-replies'),
+      style: style,
+      maxLines: 1,
+      overflow: overflow,
+      semanticsLabel: '${info.$2}, ${context.t.threadCard.newReplies(count: count)}',
+    );
   }
 
   Widget _buildCardTitle(BuildContext context, SettingsState state) {
@@ -373,6 +412,9 @@ class _CardLayout extends StatelessWidget {
     final infoRowAlignCenter = state.settingsMap.threadCardInfoRowAlignCenter;
     final showLastReplyAuthor = state.settingsMap.threadCardShowLastReplyAuthor;
     final highlightInfoRow = state.settingsMap.threadCardHighlightInfoRow;
+    final showExcerpt = state.settingsMap.threadCardShowExcerpt;
+    final thumbnailMode = state.settingsMap.threadThumbnailMode;
+    final externalImages = state.settingsMap.threadCardExternalThumbnails;
 
     return _wrapWithCard(
       context,
@@ -386,21 +428,38 @@ class _CardLayout extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  // The thread title leads the card, as in the homepage guide; forum set colors and weights stay.
+                  // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
+                  // thread read before is dimmed, as visited links are.
                   child: Text(
                     title,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: css?.color,
-                      fontWeight: css?.fontWeight ?? FontWeight.w500,
-                      height: 1.45,
+                    style: visitedTitleStyle(
+                      context,
+                      Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: css?.color,
+                        fontWeight: css?.fontWeight ?? FontWeight.w500,
+                        height: 1.45,
+                      ),
+                      visited: progress != null,
                     ),
                   ),
                 ),
               ],
             ),
           ),
+          if (ThreadPreviewSection.shows(
+            preview,
+            showExcerpt: showExcerpt,
+            thumbnailMode: thumbnailMode,
+            externalImages: externalImages,
+          ))
+            ThreadPreviewSection(
+              preview!,
+              showExcerpt: showExcerpt,
+              thumbnailMode: thumbnailMode,
+              externalImages: externalImages,
+            ),
           if (quotedMessage != null)
             Padding(
               padding: edgeInsetsL16R16B12,
@@ -428,7 +487,10 @@ class _CardLayout extends StatelessWidget {
             pm.threadCardShowLastReplyAuthor != cm.threadCardShowLastReplyAuthor ||
             pm.threadCardHighlightRecentThread != cm.threadCardHighlightRecentThread ||
             pm.threadCardHighlightAuthorName != cm.threadCardHighlightAuthorName ||
-            pm.threadCardHighlightInfoRow != cm.threadCardHighlightInfoRow;
+            pm.threadCardHighlightInfoRow != cm.threadCardHighlightInfoRow ||
+            pm.threadCardShowExcerpt != cm.threadCardShowExcerpt ||
+            pm.threadCardThumbnailMode != cm.threadCardThumbnailMode ||
+            pm.threadCardExternalThumbnails != cm.threadCardExternalThumbnails;
       },
       builder: _buildContent,
     );
@@ -456,6 +518,7 @@ class NormalThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID,
       title: thread.title,
+      preview: thread.preview,
       author: thread.author,
       publishTime: thread.publishDate,
       threadType: thread.threadType,
@@ -470,6 +533,7 @@ class NormalThreadCard extends StatelessWidget {
       disableTap: disableTap,
       isRecentThread: thread.isRecentThread,
       replied: isThreadReplied(context, thread.threadID),
+      progress: readingProgressOf(context, thread.threadID),
     );
   }
 }
@@ -491,9 +555,11 @@ class SearchedThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: '${thread.threadID}',
       title: thread.title,
+      preview: thread.preview,
       forum: thread.forumName,
       author: thread.author,
       publishTime: thread.publishTime,
+      progress: readingProgressOf(context, '${thread.threadID}'),
     );
   }
 }
@@ -511,6 +577,7 @@ class MyThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID,
       title: thread.title,
+      preview: thread.preview,
       forum: thread.forumName,
       stateSet: thread.stateSet,
       // The date as the forum prints it (its wall clock); the info row tells the same time relative to now.
@@ -520,6 +587,7 @@ class MyThreadCard extends StatelessWidget {
       latestReplyTime: thread.latestReplyTime,
       replyCount: thread.replyCount,
       viewCount: thread.viewCount,
+      progress: readingProgressOf(context, thread.threadID),
     );
   }
 }
@@ -534,6 +602,7 @@ class LatestThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showExcerpt = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardShowExcerpt);
     ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
     if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
       return const SizedBox.shrink();
@@ -541,11 +610,27 @@ class LatestThreadCard extends StatelessWidget {
     return _CardLayout(
       threadID: thread.threadID!,
       title: thread.title!,
+      preview: thread.preview,
       author: thread.latestReplyAuthor,
       // FIXME: Do not use thread type to represent forum.
       threadType: ThreadType(name: thread.forumName!, url: thread.forumUrl!),
       publishTime: thread.latestReplyTime,
-      quotedMessage: thread.quotedMessage,
+      // The forum's own excerpt of a search row goes with the excerpts setting; a reply quoted always shows.
+      quotedMessage: thread.quoteIsExcerpt && !showExcerpt ? null : thread.quotedMessage,
+      progress: readingProgressOf(context, thread.threadID),
     );
   }
 }
+
+/// [style] of a thread title, dimmed when the thread was [visited] (read before by the current account), as visited
+/// links are: its own color (a forum may color a title) at a lower opacity.
+TextStyle? visitedTitleStyle(BuildContext context, TextStyle? style, {required bool visited}) {
+  if (!visited) {
+    return style;
+  }
+  final color = style?.color ?? DefaultTextStyle.of(context).style.color ?? Theme.of(context).colorScheme.onSurface;
+  return (style ?? const TextStyle()).copyWith(color: color.withValues(alpha: color.a * visitedTitleOpacity));
+}
+
+/// Opacity of the title of a thread read before, see [visitedTitleStyle].
+const visitedTitleOpacity = 0.6;

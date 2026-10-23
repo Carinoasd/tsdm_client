@@ -13,6 +13,10 @@ enum ReplyStatus {
 
   /// Reply failed.
   failure,
+
+  /// The forum asks for a captcha or a security question ([ReplyState.secCheck]) before it takes the reply: nothing was
+  /// sent, the editor asks the user and sends again with the answers ([ReplyVerificationAnswered]).
+  verification,
 }
 
 /// State of reply.
@@ -31,6 +35,9 @@ class ReplyState with ReplyStateMappable {
     this.postedPid = '',
     this.postedPage = 0,
     this.browserUrl,
+    this.secCheck,
+    this.wrongAnswer = false,
+    this.retryAt,
   });
 
   /// Current usage of reply.
@@ -75,6 +82,16 @@ class ReplyState with ReplyStateMappable {
   /// security question, or the reply form has fields the app cannot fill): nothing was sent. Null otherwise.
   final String? browserUrl;
 
+  /// What the forum asks for ([ReplyStatus.verification]), with the ids the answers go with; null otherwise.
+  final SecCheck? secCheck;
+
+  /// The answers sent last were not taken ([ReplyStatus.verification]).
+  final bool wrongAnswer;
+
+  /// When the forum takes the next post, after it refused the last one as too soon after the previous
+  /// ([ReplyStatus.failure], `post_flood_ctrl`); null otherwise.
+  final DateTime? retryAt;
+
   /// Copy with, but make the `replyParameters` to null.
   ReplyState copyWithNullReplyParameters() {
     return ReplyState(
@@ -86,6 +103,10 @@ class ReplyState with ReplyStateMappable {
       maybeSent: maybeSent,
       postedPid: postedPid,
       postedPage: postedPage,
+      browserUrl: browserUrl,
+      secCheck: secCheck,
+      wrongAnswer: wrongAnswer,
+      retryAt: retryAt,
     );
   }
 }

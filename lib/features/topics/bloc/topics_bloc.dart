@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/forum/utils/group.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'topics_bloc.mapper.dart';
@@ -98,30 +99,43 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
   ({int uid, ForumGroup panel})? _pagePanel;
 
   Future<void> _onTopicsLoadRequested(TopicsLoadRequested event, Emitter<TopicsState> emit) async {
-    emit(state.copyWith(status: TopicsStatus.loading));
+    emit(state.copyWith(status: TopicsStatus.loading, failure: null));
     final pageEither = await _forumHomeRepository.fetchTopicPage().run();
     if (pageEither.isLeft()) {
-      handle(pageEither.unwrapErr());
-      emit(state.copyWith(status: TopicsStatus.failed));
+      final e = pageEither.unwrapErr();
+      handle(e);
+      emit(state.copyWith(status: TopicsStatus.failed, failure: LoadFailure.of(e)));
       return;
     }
     _emitParsed(pageEither.unwrap(), emit, own: true);
   }
 
   Future<void> _onTopicsRefreshRequested(TopicsRefreshRequested event, Emitter<TopicsState> emit) async {
+    // A refresh the user asked for keeps the groups on screen while it runs, and when it fails (the page says so).
+    final shown = state.status.isSuccess && state.forumGroupList.isNotEmpty;
     if (!event.silent) {
-      emit(state.copyWith(status: TopicsStatus.loading));
+      emit(
+        shown
+            ? state.copyWith(refreshing: true, failure: null)
+            : state.copyWith(status: TopicsStatus.loading, failure: null),
+      );
     }
 
     final pageEither = await _forumHomeRepository.fetchTopicPage(force: true).run();
     if (pageEither.isLeft()) {
-      handle(pageEither.unwrapErr());
-      if (!event.silent || !state.status.isSuccess) {
-        emit(state.copyWith(status: TopicsStatus.failed));
+      final e = pageEither.unwrapErr();
+      handle(e);
+      if (!event.silent && shown) {
+        emit(state.copyWith(refreshing: false, failure: LoadFailure.of(e)));
+      } else if (!event.silent || !state.status.isSuccess) {
+        emit(state.copyWith(status: TopicsStatus.failed, refreshing: false, failure: LoadFailure.of(e)));
       }
       return;
     }
-    _emitParsed(pageEither.unwrap(), emit, own: true);
+    if (!_emitParsed(pageEither.unwrap(), emit, own: true) && !event.silent && state.refreshing) {
+      // The page belonged to another account and is asked again silently: the pull itself is over.
+      emit(state.copyWith(refreshing: false));
+    }
   }
 
   void _onTopicsTabSelected(TopicsTabSelected event, Emitter<TopicsState> emit) {
@@ -220,7 +234,12 @@ class TopicsBloc extends Bloc<TopicsEvent, TopicsState> with LoggerMixin {
     if (trusted) {
       _favoriteRepository.seedForumFavorites(uid: seedUid, fids: favorites.map((e) => '$e'));
     }
-    return state.copyWith(status: TopicsStatus.success, forumGroupList: forumGroupList);
+    return state.copyWith(
+      status: TopicsStatus.success,
+      forumGroupList: forumGroupList,
+      refreshing: false,
+      failure: null,
+    );
   }
 
   /// The [groups] of the structured [page] served to the current user [uid], with the "我收藏的版块" panel of a plugin

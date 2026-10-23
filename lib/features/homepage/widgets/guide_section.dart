@@ -5,13 +5,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/homepage/cubit/guide_index_cubit.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_index_repository.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Opens the full guide list page ([ScreenPaths.latestThread]) for [url], titled [title].
@@ -25,6 +29,10 @@ Future<void> _openGuideList(BuildContext context, String url, String title) asyn
 /// 更多 button opens the full list page of the selected module and 抢沙发, which the page only offers in its nav row,
 /// opens its list page. The section owns its [GuideIndexCubit]: the homepage rebuilds this widget after every refresh,
 /// so the page is fetched again together with the rest of the homepage.
+///
+/// Without a [repository] the section takes the guide from the app's [GuideFeed] when there is one: the request the
+/// homepage asked together with its own page, and the modules saved for the account at the last start, shown while
+/// the guide is asked again.
 class GuideSection extends StatelessWidget {
   /// Constructor.
   const GuideSection({this.maxCount = 10, this.repository, super.key});
@@ -37,9 +45,14 @@ class GuideSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final feed = repository == null ? context.readOrNull<GuideFeed>() : null;
     return BlocProvider(
       create: (_) {
-        final cubit = GuideIndexCubit(repository ?? const GuideIndexRepository());
+        final cubit = GuideIndexCubit(
+          repository ?? const GuideIndexRepository(),
+          feed: feed,
+          saved: feed?.savedModules,
+        );
         unawaited(cubit.load());
         return cubit;
       },
@@ -75,13 +88,24 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
     final selected = matching.isNotEmpty ? matching.first : (modules.isNotEmpty ? modules.first : null);
 
     final Widget body;
+    final retry = ListTile(
+      leading: const Icon(Icons.refresh_outlined),
+      title: Text(tr.failed),
+      onTap: () async => context.read<GuideIndexCubit>().load(),
+    );
     if ((state.status == GuideIndexStatus.initial || state.status == GuideIndexStatus.loading) && modules.isEmpty) {
       body = const Padding(padding: edgeInsetsL12T12R12B12, child: CenteredCircularIndicator());
+    } else if (state.status == GuideIndexStatus.failure && selected == null) {
+      body = retry;
     } else if (state.status == GuideIndexStatus.failure) {
-      body = ListTile(
-        leading: const Icon(Icons.refresh_outlined),
-        title: Text(tr.failed),
-        onTap: () async => context.read<GuideIndexCubit>().load(),
+      // The modules saved at the last start stay when asking for them again failed.
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GuideModuleList(selected!, maxCount: widget.maxCount),
+          retry,
+        ],
       );
     } else if (selected == null) {
       body = Padding(
@@ -217,10 +241,15 @@ class _GuideItemTile extends StatelessWidget {
               item.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyLarge?.copyWith(
-                color: item.highlighted ? colorScheme.error : null,
-                fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
-                height: 1.45,
+              // A thread read before is dimmed, as in the thread lists.
+              style: visitedTitleStyle(
+                context,
+                textTheme.bodyLarge?.copyWith(
+                  color: item.highlighted ? colorScheme.error : null,
+                  fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
+                  height: 1.45,
+                ),
+                visited: readingProgressOf(context, item.tid) != null,
               ),
             ),
             sizedBoxW4H4,

@@ -43,7 +43,6 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/utils/image_actions.dart';
-import 'package:tsdm_client/features/image/utils/image_network.dart';
 import 'package:tsdm_client/features/image/utils/image_sizes.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
@@ -71,6 +70,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
@@ -270,7 +270,7 @@ void main() {
       );
     await settings.init();
     ImageSizes.clear();
-    ImageNetwork.reset();
+    NetworkUsage.reset();
     debugCanShareImageFiles = true;
   });
 
@@ -1192,13 +1192,13 @@ void main() {
 
     testWidgets('Wi-Fi only: loads on a network that is not metered, waits for a tap on a metered one', (tester) async {
       server.serve(_a, 300, 200);
-      ImageNetwork.check = () async => false;
+      NetworkUsage.check = () async => false;
       await pumpFloor(tester, const MunchedHtml('<img src="$_a" />'), autoLoad: PostImageAutoLoad.wifiOnly);
       expect(find.byKey(const ValueKey('post-image-tap-to-load')), findsOneWidget);
       expect(server.requests, isEmpty);
 
-      ImageNetwork.reset();
-      ImageNetwork.check = () async => true;
+      NetworkUsage.reset();
+      NetworkUsage.check = () async => true;
       await pumpFloor(
         tester,
         const MunchedHtml('<img src="$_a" />'),

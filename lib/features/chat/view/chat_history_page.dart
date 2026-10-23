@@ -1,4 +1,3 @@
-import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -11,10 +10,11 @@ import 'package:tsdm_client/features/chat/widgets/chat_message_card.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/reply_bar/bloc/reply_bloc.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
@@ -40,45 +40,47 @@ final class ChatHistoryPage extends StatefulWidget {
 }
 
 final class _ChatHistoryPageState extends State<ChatHistoryPage> {
-  late final EasyRefreshController _refreshController;
   final _scrollController = ScrollController();
   final _replyBarController = ReplyBarController();
 
   Widget _buildContent(BuildContext context, ChatHistoryState state) {
     final messages = state.messages;
-    final messageList = EasyRefresh(
-      scrollBehaviorBuilder: (physics) => ERScrollBehavior(physics).copyWith(physics: physics, scrollbars: false),
-      controller: _refreshController,
-      scrollController: _scrollController,
-      footer: const MaterialFooter(),
-      onLoad: () async {
-        if (!mounted) {
-          return;
-        }
-        // Try load
-        if (state.previousPage == null) {
-          _refreshController.finishLoad(IndicatorResult.noMore);
-          showNoMoreSnackBar(context);
-          return;
-        }
-        context.read<ChatHistoryBloc>().add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: state.previousPage));
-      },
-      // Bubbles centered at a readable width; the list keeps the full width for scrolling and loading older pages.
-      child: AppCenteredList(
-        maxWidth: appReadingMaxWidth,
-        builder: (context, side, _) => ListView.builder(
-          // Reverse the list view and data received from server to let scroll
-          // position keep the same after new pages of data.
-          // See `messages` in `ChatHistoryState` for details.
-          reverse: true,
-          shrinkWrap: true,
-          controller: _scrollController,
-          padding: side.copyWith(top: 8, bottom: 8),
-          itemCount: messages.length,
-          itemBuilder: (context, index) => ChatMessageCard(messages[index]),
-        ),
-      ),
-    );
+    final tr = context.t.chatHistoryPage;
+    final bloc = context.read<ChatHistoryBloc>();
+    void loadEarlier() => bloc.add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: state.previousPage));
+    // Bubbles centered at a readable width; the list keeps the full width for scrolling and loading older pages.
+    final Widget messageList = messages.isEmpty
+        ? AppStateView(icon: Icons.history_outlined, message: tr.empty)
+        : AppCenteredList(
+            maxWidth: appReadingMaxWidth,
+            builder: (context, side, _) => ListView.builder(
+              // Reverse the list view and data received from server to let scroll
+              // position keep the same after new pages of data.
+              // See `messages` in `ChatHistoryState` for details.
+              reverse: true,
+              shrinkWrap: true,
+              controller: _scrollController,
+              padding: side.copyWith(top: 8, bottom: 8),
+              // The end of the reversed list (its top) is the earlier messages: built when it comes near, it asks the
+              // page before.
+              itemCount: messages.length + 1,
+              itemBuilder: (context, index) => index < messages.length
+                  ? ChatMessageCard(messages[index])
+                  : ListFooter(
+                      status: listFooterStatus(
+                        hasMore: state.previousPage != null,
+                        loading: state.status == ChatHistoryStatus.loadingMore,
+                        failed: state.loadMoreFailed,
+                      ),
+                      itemCount: messages.length,
+                      failure: state.failure,
+                      loadingText: tr.loadingOlder,
+                      noMoreText: tr.noOlder,
+                      onLoadMore: loadEarlier,
+                      onRetry: loadEarlier,
+                    ),
+            ),
+          );
 
     // Only the messages keep the side safe area: the reply bar pads the insets itself so its background reaches the
     // screen edges in landscape.
@@ -101,7 +103,6 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
   @override
   void initState() {
     super.initState();
-    _refreshController = EasyRefreshController(controlFinishLoad: true);
     _markConversationRead();
   }
 
@@ -119,7 +120,6 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
 
   @override
   void dispose() {
-    _refreshController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -139,11 +139,25 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
       ],
       child: MultiBlocListener(
         listeners: [
+          // A reload of the latest page that failed keeps the messages on screen and says so (an earlier page that
+          // failed is told at the top of the list).
           BlocListener<ChatHistoryBloc, ChatHistoryState>(
+            listenWhen: (prev, curr) =>
+                prev.status == ChatHistoryStatus.loading &&
+                curr.status == ChatHistoryStatus.success &&
+                !curr.loadMoreFailed &&
+                curr.failure != null,
             listener: (context, state) {
-              if (state.status == ChatHistoryStatus.success) {
-                _refreshController.finishLoad();
-              }
+              final bloc = context.read<ChatHistoryBloc>();
+              showRefreshFailedSnackBar(
+                context,
+                state.failure,
+                onRetry: () {
+                  if (!bloc.isClosed) {
+                    bloc.add(ChatHistoryLoadHistoryRequested(uid: widget.uid, page: null));
+                  }
+                },
+              );
             },
           ),
           BlocListener<ReplyBloc, ReplyState>(
@@ -197,9 +211,9 @@ final class _ChatHistoryPageState extends State<ChatHistoryPage> {
               ChatHistoryStatus.loadingMore => _buildContent(context, state),
               ChatHistoryStatus.failure => SafeArea(
                 bottom: false,
-                child: buildRetryButton(
-                  context,
-                  () => context.read<ChatHistoryBloc>().add(
+                child: FailureView(
+                  failure: state.failure,
+                  onRetry: () => context.read<ChatHistoryBloc>().add(
                     ChatHistoryLoadHistoryRequested(uid: widget.uid, page: state.pageNumber),
                   ),
                 ),

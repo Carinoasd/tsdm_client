@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -38,6 +39,8 @@ import 'package:tsdm_client/features/notification/repository/notification_reposi
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
+import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/points_changes_cubit.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
@@ -55,6 +58,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_trim.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
@@ -226,6 +230,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     // arrives before the resume; a resume with no tap line only says the app came to front without a tap reaching
     // it, whatever brought it there (#14).
     debug('app lifecycle: ${state.name}');
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.detached) &&
+        getIt.isRegistered<StorageProvider>()) {
+      // The times cached images were shown wait in memory for a batch: write them before the app may be killed.
+      unawaited(getIt.get<StorageProvider>().flushImageCacheUsedTimes());
+    }
     if (state == AppLifecycleState.resumed) {
       unawaited(logActiveLocalNotifications());
       _logViewMetrics('resumed', always: true);
@@ -288,6 +299,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           create: (_) => ForumHomeRepository(),
           dispose: (repo) async => repo.dispose(),
         ),
+        // The guide of the homepage, asked together with the homepage and saved per account for the next start.
+        RepositoryProvider<GuideFeed>(create: (_) => GuideFeed()),
         RepositoryProvider<FavoriteRepository>(
           create: (_) => FavoriteRepository(),
           dispose: (repo) async => repo.dispose(),
@@ -322,6 +335,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 translations: t,
                 info: done.latest!,
                 account: LocalNoticeAccount(uid: done.uid, username: done.username, named: done.named),
+                hideContent: getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
               ),
             ),
             dispose: (others) async => others.dispose(),
@@ -491,6 +505,15 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             create: (context) => RepliedThreadCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
             lazy: false,
           ),
+          // Where the current account stopped reading the threads it visited: the thread lists mark them, the thread
+          // page goes on from there. Not lazy, so the first list shows the marks.
+          BlocProvider(
+            create: (context) => ReadingProgressCubit(
+              store: StorageReadingProgressStore(getIt()),
+              authenticationRepository: context.repo(),
+            ),
+            lazy: false,
+          ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use
           // expires while the app runs (issue #25).
           BlocProvider(
@@ -502,16 +525,22 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           ),
           BlocProvider(
             create: (context) {
-              final settings = context.read<SettingsBloc>().state.settingsMap;
-
               final cubit = InitCubit();
               // We intend to delete legacy files asynchronously, so do not wait it.
               unawaited(cubit.deleteV0LegacyData());
-              if (settings.enableAutoClearImageCache) {
-                unawaited(cubit.autoClearImageCache(Duration(seconds: settings.autoClearImageCacheDuration)));
-              } else {
-                cubit.skipAutoClearImageCache();
-              }
+              // In the background long after the first frame, with the settings of that moment; the homepage no
+              // longer waits for it.
+              cubit.scheduleImageCacheTrim(() {
+                final now = getIt.get<SettingsRepository>().currentSettings;
+                if (!now.enableAutoClearImageCache) {
+                  return null;
+                }
+                return ImageCacheLimits(
+                  maxAge: now.autoClearImageCacheDuration > 0
+                      ? Duration(seconds: now.autoClearImageCacheDuration)
+                      : null,
+                );
+              });
               unawaited(cubit.autoClearFilePickerCache());
               return cubit;
             },

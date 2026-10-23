@@ -12,15 +12,15 @@ import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/topics/bloc/topics_bloc.dart';
 import 'package:tsdm_client/features/topics/widgets/group_moderators_row.dart';
+import 'package:tsdm_client/features/topics/widgets/topics_placeholder.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
-import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 
 /// Widest the rows of the topics page grow on desktop windows, shared with every forum list: [forumCardListMaxWidth].
 const double topicsPageMaxWidth = forumCardListMaxWidth;
@@ -130,7 +130,9 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
       );
     }).toList();
 
-    _refreshController.finishRefresh();
+    if (!state.refreshing) {
+      _refreshController.finishRefresh();
+    }
 
     return EasyRefresh(
       key: const ValueKey('success'),
@@ -188,24 +190,41 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
         authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
         favoriteRepository: RepositoryProvider.of<FavoriteRepository>(context),
       )..add(TopicsLoadRequested()),
-      child: BlocListener<TopicsBloc, TopicsState>(
-        // 监听状态，一旦成功拿到数据，就安全更新缓存
-        listenWhen: (prev, curr) => curr.status == TopicsStatus.success,
-        listener: (context, state) {
-          _currentGroups = state.forumGroupList;
-        },
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<TopicsBloc, TopicsState>(
+            // 监听状态，一旦成功拿到数据，就安全更新缓存
+            listenWhen: (prev, curr) => curr.status == TopicsStatus.success,
+            listener: (context, state) {
+              _currentGroups = state.forumGroupList;
+            },
+          ),
+          // A refresh that failed keeps the groups on screen and says so.
+          BlocListener<TopicsBloc, TopicsState>(
+            listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
+            listener: (context, state) {
+              final bloc = context.read<TopicsBloc>();
+              showRefreshFailedSnackBar(
+                context,
+                state.failure,
+                onRetry: () {
+                  if (!bloc.isClosed) {
+                    bloc.add(const TopicsRefreshRequested());
+                  }
+                },
+              );
+            },
+          ),
+        ],
         child: BlocBuilder<TopicsBloc, TopicsState>(
           builder: (context, state) {
             final body = switch (state.status) {
-              TopicsStatus.loading || TopicsStatus.initial => EasyRefresh(
-                key: const ValueKey('loading'),
-                controller: _refreshController,
-                header: const MaterialHeader(),
-                child: const CenteredCircularIndicator(),
-              ),
-              TopicsStatus.failed => buildRetryButton(
-                context,
-                () => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
+              // The shape of the forum list to come instead of a spinner over the whole page.
+              TopicsStatus.loading || TopicsStatus.initial => const TopicsPlaceholder(key: ValueKey('loading')),
+              TopicsStatus.failed => FailureView(
+                key: const ValueKey('failed'),
+                failure: state.failure,
+                onRetry: () => context.read<TopicsBloc>().add(const TopicsRefreshRequested()),
               ),
               TopicsStatus.success when state.forumGroupList.isNotEmpty => _buildContent(context, state),
               TopicsStatus.success => NeedLoginPage(

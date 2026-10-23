@@ -7,8 +7,9 @@ import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_hist
 import 'package:tsdm_client/features/thread_visit_history/widgets/thread_visit_history_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/tips.dart';
 
@@ -124,13 +125,22 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
           final body = switch (state.status) {
             ThreadVisitHistoryStatus.initial ||
             ThreadVisitHistoryStatus.loadingData => const CenteredCircularIndicator(),
+            // No history at all says what gets in it; no history for the account chosen offers all the accounts.
             ThreadVisitHistoryStatus.savingData || ThreadVisitHistoryStatus.success => _Body(
               history,
               emptyText: _selectedUid == null ? tr.empty : tr.emptyForAccount,
+              emptyDetail: _selectedUid == null ? tr.emptyHint : null,
+              emptyAction: _selectedUid == null
+                  ? null
+                  : FilledButton.tonalIcon(
+                      icon: const Icon(Icons.filter_list_off),
+                      label: Text(tr.showAllAccounts),
+                      onPressed: () => _select(null, accounts),
+                    ),
             ),
-            ThreadVisitHistoryStatus.failure => buildRetryButton(
-              context,
-              () => context.read<ThreadVisitHistoryBloc>().add(const ThreadVisitHistoryFetchAllRequested()),
+            ThreadVisitHistoryStatus.failure => FailureView(
+              onRetry: () => context.read<ThreadVisitHistoryBloc>().add(const ThreadVisitHistoryFetchAllRequested()),
+              failure: LoadFailure(LoadFailureKind.unknown),
             ),
           };
 
@@ -157,12 +167,18 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
 }
 
 class _Body extends StatefulWidget {
-  const _Body(this.models, {required this.emptyText});
+  const _Body(this.models, {required this.emptyText, this.emptyDetail, this.emptyAction});
 
   final List<ThreadVisitHistoryModel> models;
 
   /// Hint shown instead of the list when [models] is empty.
   final String emptyText;
+
+  /// Second line of the hint of an empty list.
+  final String? emptyDetail;
+
+  /// Action of the hint of an empty list.
+  final Widget? emptyAction;
 
   @override
   State<_Body> createState() => _BodyState();
@@ -200,7 +216,12 @@ class _BodyState extends State<_Body> {
             padding: edgeInsetsL12T4R12,
             children: [
               sizedBoxW32H32,
-              AppStateView(icon: Icons.history_outlined, message: widget.emptyText),
+              AppStateView(
+                icon: Icons.history_outlined,
+                message: widget.emptyText,
+                detail: widget.emptyDetail,
+                action: widget.emptyAction,
+              ),
             ],
           );
         }

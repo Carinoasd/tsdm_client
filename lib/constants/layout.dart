@@ -227,7 +227,8 @@ enum WindowSize {
   /// Extra large size.
   ///
   /// [1600, +infinity)
-  extraLarge('EXTRA_LARGE', 1600, double.infinity);
+  extraLarge('EXTRA_LARGE', 1600, double.infinity)
+  ;
 
   const WindowSize(this.name, this.start, this.end) : assert(start < end, 'start MUST less than end');
 

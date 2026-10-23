@@ -162,20 +162,99 @@
     "now": "刚刚",
     "settings": "设置",
     "openInBrowser": "在浏览器中打开",
-    "close": "关闭",
-    "loadMoreFailed": "加载更多失败"
+    "close": "关闭"
+  },
+  "loadState": {
+    "loading": "正在加载…",
+    "failure": {
+      "noNetwork": {
+        "title": "连不上论坛",
+        "hint": "请检查网络连接后再试一次。"
+      },
+      "connectionLost": {
+        "title": "连接中断了",
+        "hint": "网络可能不稳定，请再试一次。"
+      },
+      "timeout": {
+        "title": "论坛响应超时",
+        "hint": "论坛或网络比较慢，请稍后再试。"
+      },
+      "rateLimited": {
+        "title": "操作太频繁，论坛暂时不接受",
+        "hint": "请稍等一下再试。",
+        "hintSeconds": "请在 ${seconds: int} 秒后再试。"
+      },
+      "server": {
+        "title": "论坛服务器出了问题",
+        "hint": "通常过一会儿就会恢复，请稍后再试。"
+      },
+      "badStatus": {
+        "title": "论坛返回了错误",
+        "hint": "请稍后再试；一直失败的话，可以展开下方的详细信息反馈。"
+      },
+      "challenge": {
+        "title": "网站要求浏览器验证",
+        "hint": "请稍后再试，或在浏览器中打开论坛。"
+      },
+      "closed": {
+        "title": "论坛维护中或暂时关闭",
+        "hint": "请稍后再来。"
+      },
+      "needLogin": {
+        "title": "登录后才能查看",
+        "hint": "论坛只对已登录的会员显示这里的内容。"
+      },
+      "noPermission": {
+        "title": "没有权限查看",
+        "hint": "当前账号没有权限，可以换个账号试试。"
+      },
+      "accountChanged": {
+        "title": "账号已切换",
+        "hint": "请为当前账号重新加载此页。"
+      },
+      "unknown": {
+        "title": "加载失败",
+        "hint": "请再试一次；一直失败的话，可以展开下方的详细信息反馈。"
+      }
+    },
+    "details": "详细信息",
+    "hideDetails": "收起详细信息",
+    "copyDetails": "复制详细信息",
+    "retryIn": "${seconds: int} 秒后再试",
+    "refreshFailed": "刷新失败：${reason}",
+    "footer": {
+      "loading": "正在加载更多…",
+      "failed": "加载更多失败：${reason}"
+    }
   },
   "navigation": {
     "homepage": "主页",
     "topics": "版块",
     "activities": "活动",
     "notice": "通知",
-    "profile": "我的",
-    "moreSection": "更多功能",
-    "titleShop": "称号商店",
-    "medalCenter": "勋章中心",
-    "bank": "银行",
+    "me": "我的",
     "settings": "设置"
+  },
+  "mePage": {
+    "title": "我的",
+    "mine": "我的账号",
+    "services": "论坛服务",
+    "app": "应用",
+    "switchAccount": "切换账号",
+    "inUse": "使用中",
+    "uid": "UID ${uid}",
+    "guestTitle": "尚未登录",
+    "guestDetail": "登录后可以签到、收藏帖子、查看通知与私信。",
+    "entries": {
+      "myThreads": "我的帖子",
+      "favorites": "收藏",
+      "history": "浏览记录",
+      "drafts": "论坛草稿",
+      "localDrafts": "本机草稿",
+      "messages": "私信",
+      "friends": "好友",
+      "points": "积分"
+    }
   },
   "home": {
     "confirmExit": "再按一次以退出"
@@ -200,6 +279,11 @@
       "failed": "加载失败，点击重试",
       "empty": "暂时还没有帖子"
     },
+    "saved": {
+      "updating": "显示 ${time} 的首页，正在更新…",
+      "failed": "更新失败，显示的是 ${time} 的首页",
+      "retry": "重试"
+    },
     "forumStatus": {
       "today": "今日",
       "yesterday": "昨日",
@@ -215,7 +299,13 @@
     "forumActivity": "论坛动态",
     "guideTitle": "论坛导读",
     "tools": "我的工具",
-    "supportNote": "完全自愿，不支持也能使用全部功能"
+    "supportNote": "完全自愿，不支持也能使用全部功能",
+    "guest": {
+      "title": "登录看更多",
+      "detail": "登录后可以签到、领取每日红包、收藏帖子，查看通知与私信，也能进入只对会员开放的版块。",
+      "forums": "版块入口",
+      "allForums": "全部版块"
+    }
   },
   "medalTitleHub": {
     "title": "勋章与称号",
@@ -281,6 +371,27 @@
         "highlightRecentThread": "高亮显示近期发布的帖子",
         "highlightAuthorName": "高亮帖子作者的用户名",
         "highlightInfoRow": "高亮显示帖子信息",
+        "listPreview": {
+          "title": "列表预览",
+          "note": "摘要与缩略图由论坛提供；论坛尚未支持时，列表只显示标题。需要权限才能看的内容不会出现在预览里。",
+          "showExcerpt": {
+            "title": "列表显示摘要",
+            "detail": "在标题下方显示首楼开头的两行文字"
+          },
+          "thumbnail": {
+            "title": "列表显示缩略图",
+            "always": "总是",
+            "alwaysDetail": "使用移动数据时也显示，但只载入论坛做好的小缩略图；原图只在 Wi-Fi 下载入",
+            "wifiOnly": "仅 Wi-Fi",
+            "wifiOnlyDetail": "连接 Wi-Fi 或其他不计流量的网络时才显示",
+            "never": "关闭",
+            "neverDetail": "列表不显示图片"
+          },
+          "externalImages": {
+            "title": "列表也载入外站图片",
+            "detail": "关闭时缩略图只用论坛自己的附件。外站图片一载入，图片所在的网站就会知道谁滑过了这个帖子（网页上要点进帖子才会载入），所以默认不在列表载入。"
+          }
+        },
         "example": {
           "title": "TV动画《魔法禁书目录》第四季制作决定！",
           "author": "茵蒂克丝",
@@ -409,6 +520,10 @@
         "detail": "App 的自动同步（电脑版缩到托盘时也算）与安卓的后台消息接收也检查此设备上其他已登录的账号，各自用自己的登录；通知会标出账号，点通知时先切换到该账号再打开通知页",
         "seenNote": "检查其他账号时，论坛会把它们的提醒标成已读（网页上的红点会消失），和打开通知页一样"
       },
+      "notificationHideContent": {
+        "title": "通知不显示内容",
+        "detail": "系统通知只显示账号与新消息数量，不显示是谁、做了什么和消息内容"
+      },
       "notificationPermission": {
         "title": "通知权限",
         "detail": "自动同步需要此权限才能把新提醒、消息和公共消息显示为系统通知",
@@ -452,6 +567,13 @@
         "detail": "点击帖子页面中的楼层时如何响应",
         "adaptiveTapOpenContextMenu": "长按或右击时打开菜单",
         "tapToReply": "点击楼层时将当前楼层设为回复目标"
+      },
+      "threadOpenPosition": {
+        "title": "打开看过的帖子时",
+        "detail": "从列表打开看过第一屏以后的帖子时，是否回到上次看到的地方",
+        "fromStart": "从头开始",
+        "ask": "询问（显示「继续」）",
+        "resume": "自动续读"
       }
     },
     "checkinSection": {
@@ -814,13 +936,15 @@
     },
     "threadTab": {
       "title": "帖子",
-      "noThread": "没有帖子",
+      "noThread": "这个版块还没有帖子",
       "threadType": "分类",
       "threadSpecialType": "特殊分类",
       "threadDateline": "活跃时间",
       "threadOrder": "排序",
       "threadDigested": "加精",
-      "threadRecommended": "推荐"
+      "threadRecommended": "推荐",
+      "noFilteredThread": "没有符合筛选条件的帖子",
+      "clearFilter": "清除筛选"
     },
     "subredditTab": {
       "title": "子版块",
@@ -828,6 +952,14 @@
     },
     "tooltip": {
       "fab": "发布新帖"
+    },
+    "newThread": {
+      "label": "发帖",
+      "guestTitle": "登录后才能发帖",
+      "guestMessage": "发表主题需要账号。请先登录，再回到这个版块发帖。",
+      "noPermissionTitle": "可能无法在此版块发帖",
+      "noPermissionMessage": "论坛显示你目前的用户组可能没有发帖权限。版块与会员也有各自的权限设置，你仍可以打开编辑器，由论坛判断能否发表。",
+      "openAnyway": "仍要打开编辑器"
     },
     "copyFid": "复制fid（${fid: String}）",
     "favorite": {
@@ -892,6 +1024,29 @@
       "message": "分享帖子：${title}\n${url}",
       "sent": "已发送给 ${name}",
       "failed": "发送失败：${err}"
+    },
+    "pageDivider": "第 ${page: int} 页",
+    "loadingPage": "正在加载第 ${page: int} 页…",
+    "loadPage": "加载第 ${page: int} 页",
+    "pageLoadFailed": "第 ${page: int} 页加载失败",
+    "floorCount": "共 ${count: int} 楼",
+    "loadNewReplies": "加载新回复",
+    "newRepliesFailed": "新回复加载失败",
+    "newRepliesLoaded": "已加载 ${count: int} 条新回复",
+    "noNewReplies": "没有新的回复",
+    "jumpToFloor": {
+      "menu": "跳到楼层…",
+      "title": "跳到楼层",
+      "label": "楼层",
+      "hint": "1 至 ${max: int}",
+      "go": "跳转",
+      "invalid": "请输入 1 以上的楼层",
+      "missed": "没有第 ${floor: int} 楼，已跳到最接近的楼层"
+    },
+    "resume": {
+      "message": "上次看到第 ${floor: int} 楼",
+      "action": "继续",
+      "close": "关闭"
     }
   },
   "topicsPage": {
@@ -899,6 +1054,7 @@
   },
   "noticePage": {
     "title": "通知",
+    "guestHint": "登录后可以查看提醒、私人消息与公共消息。",
     "appBar": {
       "unread": "未读",
       "unreadDetail": "只显示未读",
@@ -954,8 +1110,67 @@
         "recent": "刚同步过，沿用已存的结果；未读 ${unreadNotice}/${unreadPm}/${unreadBm}",
         "notAuthed": "登录已失效，请重新登录",
         "rateLimited": "论坛限制了请求频率（429），请稍后再试",
-        "failed": "失败：${message}"
+        "failed": "失败：${message}",
+        "open": "切换到此账号并查看通知"
       }
+    },
+    "kind": {
+      "reply": "回复",
+      "quote": "引用",
+      "mention": "提到了你",
+      "rate": "评分",
+      "comment": "点评",
+      "friend": "好友",
+      "friendRequest": "好友请求",
+      "poke": "打招呼",
+      "wall": "留言",
+      "moderation": "管理操作",
+      "post": "帖子",
+      "reward": "悬赏",
+      "activity": "活动",
+      "medal": "勋章",
+      "magic": "道具",
+      "system": "系统",
+      "manage": "待处理",
+      "generic": "提醒"
+    },
+    "action": {
+      "reply": "${user} 回复了你的帖子",
+      "quote": "${user} 引用了你的帖子",
+      "mention": "${user} 提到了你",
+      "rate": "${user} 给你的帖子评分",
+      "comment": "${user} 点评了你的帖子",
+      "friend": "${user} 和你成为了好友",
+      "friendRequest": "${user} 请求加你为好友",
+      "poke": "${user} 向你打招呼",
+      "wall": "${user} 在留言板给你留言"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "${n} 分钟前",
+      "hoursAgo": "${n} 小时前",
+      "yesterdayAt": "昨天 ${time}",
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
+    "quickReply": "快速回复",
+    "markAllRead": "全部已读",
+    "markAllReadDone": "已全部标为已读",
+    "markAllReadFailed": "标记已读失败，请稍后再试",
+    "search": {
+      "tooltip": "搜索通知",
+      "hint": "在已同步的通知中查找",
+      "close": "关闭搜索"
+    },
+    "empty": {
+      "notice": "还没有提醒",
+      "personalMessage": "还没有私人消息",
+      "broadcastMessage": "还没有公共消息",
+      "unreadNotice": "没有未读提醒",
+      "unreadPersonalMessage": "没有未读私人消息",
+      "unreadBroadcastMessage": "没有未读公共消息",
+      "search": "没有符合“${keyword}”的内容"
     }
   },
   "noticeSearchPage": {
@@ -989,21 +1204,21 @@
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
-      "noData": "没有数据",
+      "noData": "没有找到相关帖子",
       "hint": "输入关键字、作者或论坛 id 后搜索",
-      "failed": "搜索失败：$message",
-      "rateLimited": "论坛限制每 $seconds 秒只能搜索一次",
-      "retryIn": "$seconds 秒后再试",
-      "retry": "再试一次"
+      "noDataHint": "换个关键字试试。",
+      "noDataFiltered": "限定了作者或版块，试试放宽限制。"
     }
   },
   "myThreadPage": {
     "title": "我的帖子",
     "threadTab": {
-      "title": "主题"
+      "title": "主题",
+      "empty": "你还没有发表过主题"
     },
     "replyTab": {
-      "title": "回复"
+      "title": "回复",
+      "empty": "你还没有回复过帖子"
     },
     "forum": "分区"
   },
@@ -1011,7 +1226,9 @@
     "title": "${name} 的帖子",
     "titleUnknown": "TA的帖子",
     "blocked": "你已屏蔽此用户（本机），其主题与回复不显示。",
-    "notList": "论坛没有显示此会员的帖子列表。"
+    "notList": "论坛没有显示此会员的帖子列表。",
+    "emptyThread": "TA 还没有发表主题",
+    "emptyReply": "TA 还没有回复"
   },
   "favoritePage": {
     "title": "收藏",
@@ -1019,6 +1236,8 @@
     "forumTab": "版块",
     "empty": "还没有收藏",
     "emptyForum": "还没有收藏的版块",
+    "emptyHint": "在帖子页的菜单选择「收藏」，帖子就会出现在这里。",
+    "emptyForumHint": "在版块页的菜单选择「收藏本版」，版块就会出现在这里。",
     "remove": "取消收藏",
     "removeConfirm": "确定要取消收藏「${title}」吗？",
     "removed": "已取消收藏",
@@ -1030,6 +1249,8 @@
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "还没有好友",
+    "emptyHint": "在会员的个人资料页点「加好友」就能发送好友请求。",
+    "emptyOther": "TA 的好友列表是空的",
     "credits": "积分 ${count}",
     "sendMessage": "发送消息",
     "addFriend": {
@@ -1123,7 +1344,8 @@
     "title": "积分统计",
     "statisticsTab": {
       "title": "我的积分",
-      "recentChangelog": "近期积分记录"
+      "recentChangelog": "近期积分记录",
+      "emptyRecent": "近期没有积分变动"
     },
     "changelogTab": {
       "title": "积分记录",
@@ -1133,7 +1355,9 @@
       "dateRange": "日期范围",
       "query": "查询",
       "showFilterTip": "显示筛选条件",
-      "hideFilterTip": "隐藏筛选条件"
+      "hideFilterTip": "隐藏筛选条件",
+      "empty": "还没有积分记录",
+      "emptyFiltered": "没有符合查询条件的记录"
     }
   },
   "postEditPage": {
@@ -1169,7 +1393,9 @@
       "discard": "舍弃",
       "saveDraft": "存草稿",
       "keepEditing": "继续编辑",
-      "sending": "仍在发送，离开后无法得知结果，确定离开？"
+      "sending": "仍在发送，离开后无法得知结果，确定离开？",
+      "messageLocal": "当前的内容还没有发出，已保存为本机草稿。",
+      "keepDraft": "保留草稿并离开"
     },
     "threadPublish": {
       "title": "发布新帖",
@@ -1207,13 +1433,19 @@
       "pasteQuillDelta": "粘贴Quill Delta",
       "exportQuillDelta": "导出Quill Delta",
       "importQuillDelta": "导入Quill Delta"
-    }
+    },
+    "titleCount": "${count: int} / ${max: int}",
+    "bodyCount": "正文 ${count: int} / ${max: int} 字节",
+    "bodyCountNoMax": "正文 ${count: int} 字节"
   },
   "chatHistoryPage": {
     "title": "交谈记录",
     "info": "和 $user ($count 条)",
     "success": "发送成功",
-    "failed": "发送失败：$message"
+    "failed": "发送失败：$message",
+    "empty": "还没有和 TA 的交谈记录",
+    "loadingOlder": "正在加载更早的消息…",
+    "noOlder": "没有更早的消息了"
   },
   "chatPage": {
     "title": "聊天",
@@ -1226,7 +1458,8 @@
     "viewChatHistoryTip": "查看历史聊天",
     "failedNetwork": "发送失败：网络不可用，请检查网络后重试",
     "maybeSent": "发送结果不明：可能已发出，请刷新确认后再决定是否重发",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "empty": "还没有消息，在下方发送第一条吧。"
   },
   "imageDetailPage": {
     "title": "图片详情",
@@ -1507,7 +1740,9 @@
     "emoji": {
       "title": "表情",
       "downloading": "正在下载表情（大约10MB内容），这可能需要一些时间。。。",
-      "loadingAssets": "正在加载已打包的表情。。。"
+      "loadingAssets": "正在加载已打包的表情。。。",
+      "recent": "最近使用",
+      "noRecent": "用过的表情会出现在这里"
     },
     "url": {
       "title": "插入链接",
@@ -1614,9 +1849,12 @@
     "accountWithUid": "$username（UID $uid）",
     "empty": "还没有浏览记录",
     "emptyForAccount": "这个账号没有浏览记录",
+    "emptyHint": "打开过的帖子会记录在这里，只保存在这台设备上。",
+    "showAllAccounts": "显示全部账号",
     "entryTooltip": "帖子浏览记录",
     "title": "帖子浏览记录",
-    "localOnlyTip": "仅记录本机的浏览记录，在网页端或其他机器上可能会有所不同"
+    "localOnlyTip": "仅记录本机的浏览记录，在网页端或其他机器上可能会有所不同",
+    "readTo": "看到第 ${floor: int} 楼"
   },
   "openInAppPage": {
     "title": "打开页面",
@@ -1691,7 +1929,16 @@
         "notice": "收到了${noticeCount: int}条提醒，${pmCount: int}条私信，${bmCount: int}条公共消息\n[提醒]${msg: String}",
         "pm": "收到了${noticeCount: int}条提醒，${pmCount: int}条私信，${bmCount: int}条公共消息\n[私信]${user: String}：${msg: String}",
         "bm": "收到了${noticeCount: int}条提醒，${pmCount: int}条私信，${bmCount: int}条公共消息\n[公共消息]${msg: String}"
-      }
+      },
+      "noticeTitle": "新提醒",
+      "pmFrom": "${user} 发来私信",
+      "bmTitle": "公共消息",
+      "noticeCount": "${n} 条提醒",
+      "pmCount": "${n} 条私信",
+      "bmCount": "${n} 条公共消息",
+      "pmLine": "${user}：${msg}",
+      "bmLine": "[公共消息] ${msg}",
+      "more": "还有 ${n} 条"
     }
   },
   "backgroundService": {
@@ -1932,17 +2179,34 @@
       "original": "原数据"
     },
     "total": "总评分",
-    "showTotalRatePointsTip": "显示总评分"
+    "showTotalRatePointsTip": "显示总评分",
+    "empty": "这一楼还没有人评分"
   },
   "replyBar": {
     "notReplyToFloorTip": "不回复该楼层（改为回复楼主）",
     "expandToolbarTip": "展开工具栏",
-    "collapseToolbarTip": "收起工具栏"
+    "collapseToolbarTip": "收起工具栏",
+    "emojiTip": "表情",
+    "keyboardTip": "键盘",
+    "maximizeTip": "展开成全页编辑",
+    "restoreSizeTip": "缩回小编辑框",
+    "quoteLoading": "引用这一楼",
+    "quoteOf": "引用：$header",
+    "quoteRemove": "不引用",
+    "quoteRemoved": "不引用原文（仍会通知该楼作者）",
+    "quoteAdd": "引用",
+    "lengthCount": "${count: int} / ${max: int} 字节",
+    "lengthCountNoMax": "${count: int} 字节",
+    "tooShort": "太短：至少 ${min: int} 字节，引用不计（目前 ${count: int}）",
+    "tooLong": "太长：最多 ${max: int} 字节（目前 ${count: int}）",
+    "floodWait": "论坛要再等 ${seconds: int} 秒才接受下一次发表"
   },
   "workaroundRedirect": "查看对话",
   "threadCard": {
+    "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
-    "replied": "已回复"
+    "replied": "已回复",
+    "newReplies": "上次看过之后有 ${count: int} 条新回复"
   },
   "medalCenter": {
     "title": "勋章中心",
@@ -2589,7 +2853,8 @@
     "switched": "已切换到 ${username}",
     "switchBusy": "正在同步通知，请稍后再试",
     "moreAccounts": "另外 ${count} 个账号",
-    "replyBusy": "正在发送回复，发送完成后再切换账号"
+    "replyBusy": "正在发送回复，发送完成后再切换账号",
+    "unread": "${count} 条未读"
   },
   "specialThread": {
     "refused": "论坛没有接受这次操作。",
@@ -2722,5 +2987,56 @@
       "openHint": "购买、数量与运费在浏览器的商品页办理。"
     },
     "already": "之前已经完成。"
+  },
+  "localDraft": {
+    "title": "本机草稿",
+    "details": "还没发出的回复、私信、新帖与编辑，保存在这台设备上",
+    "offer": "有未发出的草稿（${time}）",
+    "restore": "恢复",
+    "discard": "舍弃",
+    "emoji": "[表情]",
+    "empty": "没有本机草稿。写到一半的内容会保存在这里，发出后自动删除。",
+    "needLogin": "登录后可以查看这个账号的草稿。",
+    "deleteAll": "全部删除",
+    "deleteAllConfirm": "删除这个账号的所有本机草稿？删除后无法恢复。",
+    "delete": "删除",
+    "deleted": "草稿已删除",
+    "copy": "复制内容",
+    "open": "前往",
+    "older": "较早的版本",
+    "kind": {
+      "threadReply": "回复主题",
+      "floorReply": "回复楼层",
+      "message": "私信",
+      "newThread": "发新帖",
+      "edit": "编辑"
+    },
+    "thread": "主题 ${tid}",
+    "forum": "版块 ${fid}",
+    "member": "会员 ${uid}",
+    "post": "帖子 ${pid}",
+    "savedAt": "保存于 ${time}",
+    "offerMaybeSent": "可能已发出，请先确认（${time}）",
+    "maybeSent": "可能已发出，请先确认",
+    "restoreEditTitle": "恢复这份草稿？",
+    "restoreEditMessage": "草稿保存于 ${time}。恢复会取代现在载入的帖子内容，之后若在论坛上改过，发出时较新的内容会被盖掉。"
+  },
+  "secCheck": {
+    "title": "请完成验证",
+    "message": "论坛要求完成以下验证才会接受这次发表。",
+    "captcha": "验证码",
+    "captchaHint": "输入图中的字符",
+    "refresh": "换一个",
+    "question": "问题",
+    "answer": "答案",
+    "loadFailed": "加载失败，点击重试",
+    "unsupported": "App 无法显示这种验证，请在浏览器中继续。",
+    "wrongAnswer": "论坛没有接受刚才的答案，请重新输入。",
+    "invalidCaptcha": "验证码不正确，已换一张",
+    "invalidAnswer": "答案不正确",
+    "empty": "请填写",
+    "confirm": "发送",
+    "openBrowser": "在浏览器中打开",
+    "cancelled": "没有发出：论坛要求填写验证码或回答安全提问"
   }
 }

@@ -16,14 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.45.0 (2026-10-22)
+## Latest update: 1.46.0 (2026-10-23)
 
-- Tables in posts are laid out like on the website: merged cells spanning columns and rows display correctly; column widths follow the content, short fields such as names, numbers and dates stay on one line while long text wraps; tables scroll sideways only when they really don't fit; images in tables scale to the cell width instead of stretching the table.
-- Buttons placed by the post author show their text as on the website; empty collapsed sections still show their title; broken script, style and iframe content no longer prints its source code.
-- Recent releases: post content displayed as on the website (no more missing text), wider line and paragraph spacing, and the author's styling shown and kept readable in dark mode.
-- Android build number 151, installs over earlier releases and test builds.
+- Notification center: icons by type and the other member's avatar, tap a card to jump to that floor, quick reply to replies, quotes and mentions; relative times, "Mark all read" and notification search; system notifications say who did what.
+- Posting, replying, editing, rating, reporting, buying, switching user groups and editing your profile now go through the forum API; captchas and security questions can be completed inside the app, and nothing is sent twice on a flaky network. A member's threads and replies open inside the app.
+- Leaving the post editor asks whether to save a draft; "Last reply" opens the last floor; text size follows the system font size; new installs no longer ask for notification permission on first launch; Bilibili video cards, scroll hints on wide tables, white text on background images and other display fixes.
+- Some features need forum API plugin 3.1.0 and fall back to the previous behaviour on older plugins. Android build number 152, installs over earlier releases and test builds.
 
-[Download 1.45.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.45.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.46.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.46.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

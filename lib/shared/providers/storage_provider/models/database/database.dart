@@ -34,7 +34,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -231,6 +231,53 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
           }
         }
         info('migrating database schema from 14 to 15... ok!');
+      },
+      from15To16: (m, schema) async {
+        info('migrating database schema from 15 to 16...');
+        // Author name, `from_id` and `from_idtype` of the notices, for the notice cards and the system notifications.
+        // Each column is added only when missing, see from13To14.
+        final existing = (await schema.database.customSelect('PRAGMA table_info(notice)').get())
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        for (final column in [schema.notice.author, schema.notice.fromId, schema.notice.fromIdType]) {
+          if (existing.contains(column.name)) {
+            continue;
+          }
+          try {
+            await m.addColumn(schema.notice, column);
+          } on Object catch (e) {
+            // Added by the other connection between the check and here.
+            if (!'$e'.contains('duplicate column name')) {
+              rethrow;
+            }
+            info('notice.${column.name} added by another connection');
+          }
+        }
+        info('migrating database schema from 15 to 16... ok!');
+      },
+      from16To17: (m, schema) async {
+        info('migrating database schema from 16 to 17...');
+        // Where the reading of each visited thread stopped, kept with its visit. Each column is added only when
+        // missing, see from13To14.
+        final existing = (await schema.database.customSelect('PRAGMA table_info(thread_visit_history)').get())
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        final table = schema.threadVisitHistory;
+        for (final column in [table.lastPage, table.lastPid, table.lastFloor, table.seenReplies]) {
+          if (existing.contains(column.name)) {
+            continue;
+          }
+          try {
+            await m.addColumn(table, column);
+          } on Object catch (e) {
+            // Added by the other connection between the check and here.
+            if (!'$e'.contains('duplicate column name')) {
+              rethrow;
+            }
+            info('thread_visit_history.${column.name} added by another connection');
+          }
+        }
+        info('migrating database schema from 16 to 17... ok!');
       },
     ),
   );

@@ -376,6 +376,45 @@ final class CookieProvider with LoggerMixin implements Storage {
     }
   }
 
+  /// Remove every cookie whose name [test] accepts from what this provider holds (the JSON documents of the jar:
+  /// domain, path, name, or path, name for a host-only cookie), and store the rest; nothing is stored when none
+  /// matched. The jars built from now on read what is left.
+  Future<void> dropCookiesWhere(bool Function(String name) test) async {
+    final held = session;
+    var changed = false;
+    Object? strip(Object? node) {
+      if (node is Map) {
+        final out = <String, Object?>{};
+        for (final entry in node.entries) {
+          final key = '${entry.key}';
+          // A cookie is a name and its serialized value, under its path (and domain).
+          if (entry.value is String && test(key)) {
+            changed = true;
+            continue;
+          }
+          out[key] = strip(entry.value);
+        }
+        return out;
+      }
+      return node;
+    }
+
+    final out = <String, String>{};
+    for (final MapEntry(:key, :value) in _cookieMap.entries) {
+      try {
+        final decoded = jsonDecode(value);
+        out[key] = decoded is Map ? jsonEncode(strip(decoded)) : value;
+      } on FormatException {
+        out[key] = value;
+      }
+    }
+    if (!changed) {
+      return;
+    }
+    _cookieMap = out;
+    await _syncCookie(held: held);
+  }
+
   @override
   Future<void> deleteAll(List<String> keys) async {
     _cookieMap.clear();

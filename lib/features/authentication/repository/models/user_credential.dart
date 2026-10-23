@@ -9,7 +9,8 @@ enum LoginField {
   email,
 
   /// Uid
-  uid;
+  uid
+  ;
 
   @override
   String toString() {

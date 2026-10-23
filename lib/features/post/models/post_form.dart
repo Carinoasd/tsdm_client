@@ -2,6 +2,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 
 /// The first `schema` of a post form answer: plugin 2.9.0 answers the forms of a new thread, a reply (the page and the
 /// reply window) and an edit as structured fields (`type: post`) when they are asked in the JSON mode
@@ -427,9 +428,13 @@ final class PostForm {
     return max is num ? max.toInt() : null;
   }
 
-  /// Whether the forum asks this account for a captcha or a security question to post the form (`seccheck`), which
-  /// only the website shows; the plugin lists it in [unsupported] too.
+  /// Whether the forum asks this account for a captcha or a security question to post the form (`seccheck`); the plugin
+  /// lists it in [unsupported] too. The app answers them itself when the form names their ids ([secCheck]).
   bool get asksVerification => json['seccheck'] is Map || unsupported.contains('seccheck');
+
+  /// What the form asks for (`seccheck`), with the ids the answers go with; null when it asks nothing, or does not say
+  /// what (an answer without the `seccheck` block).
+  SecCheck? get secCheck => SecCheck.fromJson(json['seccheck']);
 
   /// Why the plugin says the app should leave the form to the website (`jsoneditor`, `threadplugin`, `threadsort`,
   /// `seccheck`, `editorhook`); empty when there is no reason.
@@ -522,7 +527,8 @@ final class PostForm {
   }
 
   /// What the app's editor of [expectedAction] (`newthread` for a new ordinary thread, `edit`, `reply`) can do with
-  /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question;
+  /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question without telling
+  /// what ([secCheck] null; with it the editor asks the user, `seccheck` is no reason to leave the form then);
   /// [PostFormSupport.unsupported] for a form the plugin says to leave to the website ([unsupported]: another editor,
   /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields]),
   /// a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
@@ -530,7 +536,8 @@ final class PostForm {
   /// allowing special threads only), the first post of a special thread, a post of a trade thread (its goods), as
   /// the web page parser decides.
   PostFormSupport editorSupport(String expectedAction) {
-    if (asksVerification) {
+    final check = secCheck;
+    if (asksVerification && check == null) {
       return PostFormSupport.verification;
     }
     final ordinary = switch (expectedAction) {
@@ -541,7 +548,7 @@ final class PostForm {
     };
     if (!ordinary ||
         action != expectedAction ||
-        unsupported.isNotEmpty ||
+        unsupported.any((e) => e != 'seccheck' || check == null) ||
         hookFields.isNotEmpty ||
         schedulesPublication ||
         message == null ||

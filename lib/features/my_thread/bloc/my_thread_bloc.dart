@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
 import 'package:tsdm_client/features/my_thread/utils/my_thread_page_parser.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 part 'my_thread_bloc.mapper.dart';
@@ -32,6 +33,13 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
 
   final MyThreadRepository _myThreadRepository;
 
+  /// Bumped by every load of the first page of the thread tab: a next page asked for the list before is dropped
+  /// instead of being added to the new one.
+  int _threadGeneration = 0;
+
+  /// Bumped by every load of the first page of the reply tab, see [_threadGeneration].
+  int _replyGeneration = 0;
+
   Future<void> _onMyThreadLoadInitialDataRequested(MyThreadLoadInitialDataRequested event, MyThreadEmitter emit) async {
     // Only emit loading state when loading initial data.
     emit(
@@ -45,8 +53,14 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         threadLoadMoreFailed: false,
         replyFailed: false,
         replyLoadMoreFailed: false,
+        loadingMoreThread: false,
+        loadingMoreReply: false,
+        threadFailure: null,
+        replyFailure: null,
       ),
     );
+    _threadGeneration++;
+    _replyGeneration++;
     final data = await Future.wait([
       _myThreadRepository.fetchPage(myThreadThreadUrl).run(),
       _myThreadRepository.fetchPage(myThreadReplyUrl).run(),
@@ -60,7 +74,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
       case Left(value: final e):
         handle(e);
         error('failed to load the thread tab of my thread page: $e');
-        next = next.copyWith(threadFailed: true);
+        next = next.copyWith(threadFailed: true, threadFailure: LoadFailure.of(e));
     }
     switch (data[1]) {
       case Right(value: final v):
@@ -69,7 +83,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
       case Left(value: final e):
         handle(e);
         error('failed to load the reply tab of my thread page: $e');
-        next = next.copyWith(replyFailed: true);
+        next = next.copyWith(replyFailed: true, replyFailure: LoadFailure.of(e));
     }
     if (next.threadFailed && next.replyFailed) {
       next = next.copyWith(status: MyThreadStatus.failed);
@@ -78,24 +92,31 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
   }
 
   Future<void> _onMyThreadLoadMoreThreadRequested(MyThreadLoadMoreThreadRequested event, MyThreadEmitter emit) async {
-    // Do nothing because this part should be avoided by ui.
-    if (state.nextThreadPageUrl == null) {
+    // Nothing more, or already on its way: the end of the list may ask more than once.
+    if (state.nextThreadPageUrl == null || state.loadingMoreThread || state.refreshingThread) {
       return;
     }
     final url = state.nextThreadPageUrl!;
-    if (state.threadLoadMoreFailed) {
-      emit(state.copyWith(threadLoadMoreFailed: false));
-    }
+    final generation = _threadGeneration;
+    emit(state.copyWith(threadLoadMoreFailed: false, loadingMoreThread: true));
     await _myThreadRepository
         .fetchPage(url)
         .match(
           (e) {
             handle(e);
             error('failed to load next page of thread tab: $e');
+            if (generation != _threadGeneration) {
+              return;
+            }
             // The threads loaded before stay on screen.
-            emit(state.copyWith(threadLoadMoreFailed: true));
+            emit(
+              state.copyWith(threadLoadMoreFailed: true, loadingMoreThread: false, threadFailure: LoadFailure.of(e)),
+            );
           },
           (v) {
+            if (generation != _threadGeneration) {
+              return;
+            }
             final (threadList, nextThreadPageUrl) = _parseThreadPage(v, url);
             emit(
               state.copyWith(
@@ -104,6 +125,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 threadPageNumber: state.threadPageNumber + 1,
                 nextThreadPageUrl: nextThreadPageUrl,
                 threadLoadMoreFailed: false,
+                loadingMoreThread: false,
+                threadFailure: null,
               ),
             );
           },
@@ -112,24 +135,29 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
   }
 
   Future<void> _onMyThreadLoadMoreReplyRequested(MyThreadLoadMoreReplyRequested event, MyThreadEmitter emit) async {
-    // Do nothing because this part should be avoided by ui.
-    if (state.nextReplyPageUrl == null) {
+    // Nothing more, or already on its way: the end of the list may ask more than once.
+    if (state.nextReplyPageUrl == null || state.loadingMoreReply || state.refreshingReply) {
       return;
     }
     final url = state.nextReplyPageUrl!;
-    if (state.replyLoadMoreFailed) {
-      emit(state.copyWith(replyLoadMoreFailed: false));
-    }
+    final generation = _replyGeneration;
+    emit(state.copyWith(replyLoadMoreFailed: false, loadingMoreReply: true));
     await _myThreadRepository
         .fetchPage(url)
         .match(
           (e) {
             handle(e);
             error('failed to load next page of reply tab: $e');
+            if (generation != _replyGeneration) {
+              return;
+            }
             // The replies loaded before stay on screen.
-            emit(state.copyWith(replyLoadMoreFailed: true));
+            emit(state.copyWith(replyLoadMoreFailed: true, loadingMoreReply: false, replyFailure: LoadFailure.of(e)));
           },
           (v) {
+            if (generation != _replyGeneration) {
+              return;
+            }
             final (replyList, nextReplyPageUrl) = _parseReplyPage(v, url);
             emit(
               state.copyWith(
@@ -138,6 +166,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 replyPageNumber: state.replyPageNumber + 1,
                 nextReplyPageUrl: nextReplyPageUrl,
                 replyLoadMoreFailed: false,
+                loadingMoreReply: false,
+                replyFailure: null,
               ),
             );
           },
@@ -146,7 +176,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
   }
 
   Future<void> _onMyThreadRefreshThreadRequested(MyThreadRefreshThreadRequested event, MyThreadEmitter emit) async {
-    emit(state.copyWith(refreshingThread: true));
+    _threadGeneration++;
+    emit(state.copyWith(refreshingThread: true, loadingMoreThread: false));
     await _myThreadRepository
         .fetchPage(myThreadThreadUrl)
         .match(
@@ -154,7 +185,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
             handle(e);
             error('failed to refresh thread tab: $e');
             // The threads shown before stay; an empty tab offers the retry.
-            emit(state.copyWith(refreshingThread: false, threadFailed: true));
+            emit(state.copyWith(refreshingThread: false, threadFailed: true, threadFailure: LoadFailure.of(e)));
           },
           (v) {
             final (threadList, nextThreadPageUrl) = _parseThreadPage(v, myThreadThreadUrl);
@@ -167,6 +198,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 refreshingThread: false,
                 threadFailed: false,
                 threadLoadMoreFailed: false,
+                threadFailure: null,
               ),
             );
           },
@@ -175,7 +207,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
   }
 
   Future<void> _onMyThreadRefreshReplyRequested(MyThreadRefreshReplyRequested event, MyThreadEmitter emit) async {
-    emit(state.copyWith(refreshingReply: true));
+    _replyGeneration++;
+    emit(state.copyWith(refreshingReply: true, loadingMoreReply: false));
     await _myThreadRepository
         .fetchPage(myThreadReplyUrl)
         .match(
@@ -183,7 +216,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
             handle(e);
             error('failed to refresh reply tab: $e');
             // The replies shown before stay; an empty tab offers the retry.
-            emit(state.copyWith(refreshingReply: false, replyFailed: true));
+            emit(state.copyWith(refreshingReply: false, replyFailed: true, replyFailure: LoadFailure.of(e)));
           },
           (v) {
             final (replyList, nextReplyPageUrl) = _parseReplyPage(v, myThreadReplyUrl);
@@ -196,6 +229,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 refreshingReply: false,
                 replyFailed: false,
                 replyLoadMoreFailed: false,
+                replyFailure: null,
               ),
             );
           },

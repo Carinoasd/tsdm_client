@@ -126,13 +126,13 @@ class ScreenPaths {
   static const String editUserProfile = '/editUserProfile';
 
   /// App settings page.
+  ///
+  /// A page opened above the home shell (from the "me" tab and the menus of the list pages); it was a tab of the shell
+  /// before the "me" tab took its place.
   static const settings = NestedPath._('/settings');
 
-  /// App settings page with root navigator key.
-  ///
-  /// Due to https://github.com/flutter/flutter/issues/140586 it's impossible to navigate to another page outside the
-  /// shell route, copy a root route level page as workaround.
-  static const rootSettings = '/rootSettings';
+  /// The "me" tab of the home shell: the account in use, its pages, the settings and about the app.
+  static const String me = '/me';
 
   /// Settings page for thread card appearance.
   static const settingsThreadAppearance = NestedPath._('threadAppearance', settings);
@@ -160,10 +160,17 @@ class ScreenPaths {
   /// is usually specified by the original source (in url).
   static const String threadV1 = '/thread/v1';
 
-  /// Notice page.
+  /// Notice page, the notifications tab of the home shell.
   ///
   /// Show all notice and private messages on current user.
   static const String notice = '/notice';
+
+  /// The notice page opened above a page on top of the home shell (a thread being read, a form): a notification tap or
+  /// the bell there pushes it, and back returns to that page. With the shell alone the [notice] tab is shown instead.
+  ///
+  /// A page of the home shell cannot be pushed (https://github.com/flutter/flutter/issues/140586): this is a copy of
+  /// the tab at the root level, the same page without the navigation bar.
+  static const String rootNotice = '/rootNotice';
 
   /// Search notice.
   static const String noticeSearch = '/noticeSearch';
@@ -294,6 +301,9 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page listing the drafts kept on this device for the current account.
+  static const String localDrafts = '/localDrafts';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 
@@ -365,6 +375,9 @@ class DialogPaths {
   /// Dialog to let user select all pages in thread could jump to.
   static const String jumpPage = '/dialog/jumpPage';
 
+  /// Dialog to ask for a floor of the thread to go to.
+  static const String jumpToFloor = '/dialog/jumpToFloor';
+
   /// Dialog to let user picker a font.
   static const String fontPicker = '/dialog/fontPicker';
 
@@ -413,6 +426,9 @@ class DialogPaths {
   /// Bottom sheet to let user pick emoji.
   static const String emojiPicker = '/dialog/emojiPicker';
 
+  /// Dialog to answer the captcha or the security question the forum asks before taking a post.
+  static const String secCheck = '/dialog/secCheck';
+
   /// Bottom sheet provide options to clear cache.
   static const String clearCache = '/dialog/clearCache';
 
@@ -425,8 +441,14 @@ class DialogPaths {
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
 
+  /// Dialog to select when the thread lists show the thumbnails of the threads.
+  static const String selectThreadThumbnailMode = '/dialog/selectThreadThumbnailMode';
+
   /// Dialog to let user select the interaction mode on thread floors.
   static const String selectThreadFloorInteractionMode = '/dialog/selectThreadFloorInteractionMode';
+
+  /// Dialog to select where a thread read before opens from a list.
+  static const String selectThreadOpenPosition = '/dialog/selectThreadOpenPosition';
 
   /// Dialog to edit user profile.
   static const String editUserProfile = '/dialog/editUserProfile';

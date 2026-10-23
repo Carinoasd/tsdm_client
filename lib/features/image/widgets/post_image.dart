@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
-import 'package:tsdm_client/features/image/utils/image_network.dart';
 import 'package:tsdm_client/features/image/utils/image_sizes.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -14,6 +13,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
@@ -204,22 +204,22 @@ class _PostImageState extends State<PostImage> {
       _autoLoad = autoLoad;
       _listenToNetwork();
     } else if (autoLoad == PostImageAutoLoad.wifiOnly) {
-      ImageNetwork.refreshIfStale();
+      NetworkUsage.refreshIfStale();
     }
   }
 
-  /// Listening to [ImageNetwork] (the pictures load by themselves on Wi-Fi only).
+  /// Listening to [NetworkUsage] (the pictures load by themselves on Wi-Fi only).
   bool _listening = false;
 
   void _listenToNetwork() {
     if (_autoLoad == PostImageAutoLoad.wifiOnly) {
-      ImageNetwork.refreshIfStale();
+      NetworkUsage.refreshIfStale();
       if (!_listening) {
-        ImageNetwork.unmetered.addListener(_onNetworkCost);
+        NetworkUsage.unmetered.addListener(_onNetworkCost);
         _listening = true;
       }
     } else if (_listening) {
-      ImageNetwork.unmetered.removeListener(_onNetworkCost);
+      NetworkUsage.unmetered.removeListener(_onNetworkCost);
       _listening = false;
     }
   }
@@ -234,7 +234,7 @@ class _PostImageState extends State<PostImage> {
   void dispose() {
     _floor?._remove(this);
     if (_listening) {
-      ImageNetwork.unmetered.removeListener(_onNetworkCost);
+      NetworkUsage.unmetered.removeListener(_onNetworkCost);
     }
     super.dispose();
   }
@@ -247,7 +247,7 @@ class _PostImageState extends State<PostImage> {
     return switch (_autoLoad) {
       PostImageAutoLoad.always => true,
       PostImageAutoLoad.never => false,
-      PostImageAutoLoad.wifiOnly => ImageNetwork.unmetered.value,
+      PostImageAutoLoad.wifiOnly => NetworkUsage.unmetered.value,
     };
   }
 

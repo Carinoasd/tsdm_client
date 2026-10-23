@@ -1,16 +1,17 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 
-/// Pages the app may close on its own: when a notification tap goes back to the notice page already open, or when the
-/// home button leaves the notification pages (GitHub #117).
+/// Pages the app may close on its own: when a notification tap goes back to the notice page already open or to the
+/// notifications tab of the home shell, or when the home button leaves the notification pages (GitHub #117).
 ///
 /// Only pages for reading: what they show is fetched again when opened again. Any other page may hold a form the user
 /// is filling in, and closing it would throw the input away, so the navigation leaves it open instead. The reply bar on
 /// some of these pages is checked through [RouteDrafts].
 const quietlyClosablePages = <String>{
-  ScreenPaths.notice,
+  ScreenPaths.rootNotice,
   ScreenPaths.reply,
   ScreenPaths.broadcastMessageDetail,
   ScreenPaths.chat,
@@ -116,7 +117,27 @@ bool returnToPage(GoRouter router, String name) {
 ///
 /// Pages that cannot be closed quietly stay: the closing stops on the first one, which is then on top, and false is
 /// returned so the caller can tell why the homepage did not show.
-bool returnToHome(GoRouter router) {
+bool returnToHome(GoRouter router) => returnToShellTab(router, ScreenPaths.homepage);
+
+/// Whether the home shell of [router] is the only page, so one of its tabs is what the user looks at and another tab can
+/// be shown in its place ([returnToShellTab]).
+///
+/// False when a page is open above the shell (reading a thread, a form): a notification tap pushes the notice page
+/// above it instead, and back returns to it. False too when a dialog or sheet is open ([hasPopup]).
+bool isOnShell(GoRouter router, {required bool hasPopup}) {
+  if (hasPopup) {
+    return false;
+  }
+  final matches = router.routerDelegate.currentConfiguration.matches;
+  final pages = _rootNavigator(router)?.widget.pages ?? const <Page<dynamic>>[];
+  return matches.isNotEmpty && matches.first is ShellRouteMatch && pages.length == 1;
+}
+
+/// Close the pages above the home shell of [router] and show its tab at [path], one of the shell's tab paths.
+///
+/// Pages that cannot be closed quietly stay: the closing stops on the first one, which is then on top, and false is
+/// returned so the caller can tell why the tab did not show.
+bool returnToShellTab(GoRouter router, String path) {
   final navigator = _rootNavigator(router);
   if (navigator == null) {
     return false;
@@ -135,21 +156,17 @@ bool returnToHome(GoRouter router) {
   if (!reachedFirst || matches.isEmpty || matches.first is! ShellRouteMatch) {
     return false;
   }
-  router.goNamed(ScreenPaths.homepage);
+  router.goNamed(path);
   return true;
 }
 
+/// Path of the home shell tab [tab].
+String homeTabPath(HomeTab tab) => switch (tab) {
+  HomeTab.home => ScreenPaths.homepage,
+  HomeTab.topic => ScreenPaths.topic,
+  HomeTab.notice => ScreenPaths.notice,
+  HomeTab.me => ScreenPaths.me,
+};
+
 /// The home tab showing [location], `null` when it is not a page of the home shell.
-HomeTab? homeTabOfLocation(String? location) {
-  if (location == ScreenPaths.homepage) {
-    return HomeTab.home;
-  }
-  if (location == ScreenPaths.topic) {
-    return HomeTab.topic;
-  }
-  final settings = ScreenPaths.settings.fullPath;
-  if (location != null && (location == settings || location.startsWith('$settings/'))) {
-    return HomeTab.settings;
-  }
-  return null;
-}
+HomeTab? homeTabOfLocation(String? location) => HomeTab.values.firstWhereOrNull((tab) => homeTabPath(tab) == location);

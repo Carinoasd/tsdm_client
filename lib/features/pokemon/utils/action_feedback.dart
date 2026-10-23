@@ -36,8 +36,7 @@ bool battleAlreadyOverMessage(String? message) =>
     message != null && (message.contains('不在战斗中') || message.contains('No active battle'));
 
 /// Whether [error] is the "battle was already over" failure.
-bool battleAlreadyOverError(Object? error) =>
-    error is PokemonApiException && battleAlreadyOverMessage(error.message);
+bool battleAlreadyOverError(Object? error) => error is PokemonApiException && battleAlreadyOverMessage(error.message);
 
 /// User-facing text for a pokemon api failure.
 ///
@@ -45,7 +44,9 @@ bool battleAlreadyOverError(Object? error) =>
 /// decode errors) becomes a generic network hint, so no raw exception text like `<unknown error>` reaches the user.
 String pokemonErrorText(BuildContext context, Object error) => error is PokemonApiException
     // The login guard's own code is more reliable than its text (the plugin does not send codes for its other errors).
-    ? (error.code == 401 ? context.t.pokemon.loginRequired : pokemonMessageHint(context, error.message ?? context.t.pokemon.actionFailed))
+    ? (error.code == 401
+          ? context.t.pokemon.loginRequired
+          : pokemonMessageHint(context, error.message ?? context.t.pokemon.actionFailed))
     : context.t.general.networkError;
 
 /// Localize the plugin's error texts, and rewrite the ones the player needs an explanation for.

@@ -16,7 +16,9 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 /// notification; the bell of the app bars, the "notifications" item of their menu and of the profile page's menu still
 /// pushed the page by themselves. They all go through [openNoticePageInApp] now.
 ///
-/// The router is shaped like the app's (see regression 113): pages pushed on the root navigator, page name = path.
+/// The router is shaped like the app's (see regression 113): pages pushed on the root navigator, page name = path. It
+/// has no home shell, so the notice page here is the one opened above other pages (`ScreenPaths.rootNotice`); the
+/// notifications tab of the shell is covered by regression 113.
 
 /// A reading page with the two controls of the app bars: the bell and the menu item.
 class _ThreadPage extends StatefulWidget {
@@ -70,7 +72,10 @@ class _ThreadPageState extends State<_ThreadPage> {
 GoRoute _appRoute(String path, Widget Function(GoRouterState state) builder) => GoRoute(
   path: path,
   name: path,
-  pageBuilder: (_, state) => MaterialPage<void>(name: path, child: Scaffold(body: builder(state))),
+  pageBuilder: (_, state) => MaterialPage<void>(
+    name: path,
+    child: Scaffold(body: builder(state)),
+  ),
 );
 
 void main() {
@@ -90,7 +95,7 @@ void main() {
       observers: [popups],
       routes: [
         _appRoute(ScreenPaths.homepage, (_) => const Text('home')),
-        _appRoute(ScreenPaths.notice, (_) => const Text('notice')),
+        _appRoute(ScreenPaths.rootNotice, (_) => const Text('notice')),
         _appRoute(ScreenPaths.threadV1, (state) => _ThreadPage('thread ${state.uri.queryParameters['tid']}', popups)),
         // Not a reading page: may hold what the user typed, never closed by the app.
         _appRoute(ScreenPaths.search, (_) => const Text('search')),
@@ -103,7 +108,7 @@ void main() {
 
   List<String?> stack() => router.routerDelegate.navigatorKey.currentState!.widget.pages.map((p) => p.name).toList();
 
-  int noticePages() => stack().where((name) => name == ScreenPaths.notice).length;
+  int noticePages() => stack().where((name) => name == ScreenPaths.rootNotice).length;
 
   Future<void> push(WidgetTester tester, String name, {String? tid}) async {
     unawaited(router.pushNamed(name, queryParameters: {'tid': ?tid}));
@@ -117,13 +122,13 @@ void main() {
 
   testWidgets('notice -> thread -> bell, many times: one notice page, the notice page on top', (tester) async {
     await pumpApp(tester);
-    await push(tester, ScreenPaths.notice);
+    await push(tester, ScreenPaths.rootNotice);
     for (var i = 0; i < 5; i++) {
       await push(tester, ScreenPaths.threadV1, tid: '$i');
       expect(find.text('thread $i'), findsOneWidget);
       await tapBell(tester);
       expect(noticePages(), 1, reason: 'bell $i must not stack another notice page');
-      expect(stack(), [ScreenPaths.homepage, ScreenPaths.notice]);
+      expect(stack(), [ScreenPaths.homepage, ScreenPaths.rootNotice]);
       expect(find.text('notice'), findsOneWidget);
     }
     // Back from the notice page reached again goes home, not through a pile of pages.
@@ -134,7 +139,7 @@ void main() {
 
   testWidgets('the menu item: back to the open notice page (the menu closed before the item runs)', (tester) async {
     await pumpApp(tester);
-    await push(tester, ScreenPaths.notice);
+    await push(tester, ScreenPaths.rootNotice);
     await push(tester, ScreenPaths.threadV1, tid: '1');
     await push(tester, ScreenPaths.threadV1, tid: '2');
     await tester.tap(find.byKey(const Key('menu')));
@@ -142,7 +147,7 @@ void main() {
     expect(popups.hasPopupRoute, isTrue);
     await tester.tap(find.text('notifications'));
     await tester.pumpAndSettle();
-    expect(stack(), [ScreenPaths.homepage, ScreenPaths.notice]);
+    expect(stack(), [ScreenPaths.homepage, ScreenPaths.rootNotice]);
     expect(popups.hasPopupRoute, isFalse);
   });
 
@@ -150,35 +155,35 @@ void main() {
     await pumpApp(tester);
     await push(tester, ScreenPaths.threadV1, tid: '1');
     await tapBell(tester);
-    expect(stack(), [ScreenPaths.homepage, ScreenPaths.threadV1, ScreenPaths.notice]);
+    expect(stack(), [ScreenPaths.homepage, ScreenPaths.threadV1, ScreenPaths.rootNotice]);
   });
 
   testWidgets('a thread with a reply being written stays: a notice page is pushed over it', (tester) async {
     await pumpApp(tester);
-    await push(tester, ScreenPaths.notice);
+    await push(tester, ScreenPaths.rootNotice);
     await push(tester, ScreenPaths.threadV1, tid: '1');
     _ThreadPageState.drafts['thread 1'] = true;
     await tapBell(tester);
-    expect(stack(), [ScreenPaths.homepage, ScreenPaths.notice, ScreenPaths.threadV1, ScreenPaths.notice]);
+    expect(stack(), [ScreenPaths.homepage, ScreenPaths.rootNotice, ScreenPaths.threadV1, ScreenPaths.rootNotice]);
   });
 
   testWidgets('a page that may hold a form in between stays: a notice page is pushed', (tester) async {
     await pumpApp(tester);
-    await push(tester, ScreenPaths.notice);
+    await push(tester, ScreenPaths.rootNotice);
     await push(tester, ScreenPaths.search);
     await push(tester, ScreenPaths.threadV1, tid: '1');
     await tapBell(tester);
     expect(stack(), [
       ScreenPaths.homepage,
-      ScreenPaths.notice,
+      ScreenPaths.rootNotice,
       ScreenPaths.search,
       ScreenPaths.threadV1,
-      ScreenPaths.notice,
+      ScreenPaths.rootNotice,
     ]);
   });
 
   test('no control pushes the notice page by itself: every way in goes through tap.dart', () {
-    final pushes = RegExp(r'(push|go|pushReplacement|replace)Named\(\s*ScreenPaths\.notice\s*[,)]');
+    final pushes = RegExp(r'(push|go|pushReplacement|replace)Named\(\s*ScreenPaths\.(notice|rootNotice)\s*[,)]');
     final offenders = <String>[];
     for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart') || file.path.endsWith('local_notice/tap.dart')) {

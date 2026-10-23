@@ -37,6 +37,10 @@ final class MyThreadState with MyThreadStateMappable {
     this.threadLoadMoreFailed = false,
     this.replyFailed = false,
     this.replyLoadMoreFailed = false,
+    this.loadingMoreThread = false,
+    this.loadingMoreReply = false,
+    this.threadFailure,
+    this.replyFailure,
   });
 
   /// Status.
@@ -78,4 +82,16 @@ final class MyThreadState with MyThreadStateMappable {
 
   /// Loading the next page of the reply tab failed last time, see [threadLoadMoreFailed].
   final bool replyLoadMoreFailed;
+
+  /// The next page of the thread tab is on its way.
+  final bool loadingMoreThread;
+
+  /// The next page of the reply tab is on its way.
+  final bool loadingMoreReply;
+
+  /// Why the last load of the thread tab failed ([threadFailed], [threadLoadMoreFailed]), null once one succeeded.
+  final LoadFailure? threadFailure;
+
+  /// Why the last load of the reply tab failed ([replyFailed], [replyLoadMoreFailed]), null once one succeeded.
+  final LoadFailure? replyFailure;
 }

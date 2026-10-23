@@ -9,6 +9,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/utils/switch_account.dart';
+import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -74,6 +75,13 @@ class _UserOperationDialogState extends State<UserOperationDialog> with LoggerMi
   int? _switchingUid;
 
   bool get _switching => _switchingUid != null;
+
+  /// Unread notifications of the other accounts, by uid, counted once per dialog from what is stored for them: the
+  /// in-app sync of the other accounts and the background service store their results like the account in use.
+  final _unread = <int, Future<int>>{};
+
+  Future<int> _unreadOf(int uid) =>
+      _unread[uid] ??= countUnreadNotificationTotal(storage: getIt.get<StorageProvider>(), uid: uid);
 
   @override
   void initState() {
@@ -172,7 +180,7 @@ class _UserOperationDialogState extends State<UserOperationDialog> with LoggerMi
             ? sizedCircularProgressIndicator
             : expired
             ? const Icon(Icons.login_outlined)
-            : null,
+            : _UnreadCount(key: ValueKey('quick-switch-unread-${user.uid}'), count: _unreadOf(user.uid!)),
         // A dead login cannot be switched to; logging in again is the way, like on the manage accounts page.
         onTap: () async => expired ? _loginAgain(user) : _switchTo(user),
       );
@@ -292,4 +300,27 @@ class _UserOperationDialogState extends State<UserOperationDialog> with LoggerMi
       ),
     );
   }
+}
+
+/// The number of unread notifications of an account in the account list, nothing while counting or with none.
+class _UnreadCount extends StatelessWidget {
+  const _UnreadCount({required this.count, super.key});
+
+  final Future<int> count;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<int>(
+    future: count,
+    builder: (context, snapshot) {
+      final n = snapshot.data ?? 0;
+      if (n <= 0) {
+        return const SizedBox.shrink();
+      }
+      return Semantics(
+        label: context.t.currentAccount.unread(count: n),
+        excludeSemantics: true,
+        child: Badge(label: Text(n > 99 ? '99+' : '$n'), largeSize: 20),
+      );
+    },
+  );
 }

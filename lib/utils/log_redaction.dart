@@ -15,9 +15,9 @@ final _headerRe = RegExp(
 );
 
 /// Discuz! session cookies (`Ystv_2132_auth=...`), also when printed as map entries (`Ystv_2132_auth: ...`), form
-/// hashes, passwords and generic token names.
+/// hashes, passwords, generic token names, and the account ids and activity stamps (`uid`, `touid`, `ulastactivity`).
 final _tokenRe = RegExp(
-  r"""(?<key>\b(?:\w+_)?(?:auth|saltkey|sid|token|session|password|passwd|pwd|formhash)\b["']?\s*[:=]\s*)(?<value>"[^"]*"|'[^']*'|[^&;,\s}\]]+)""",
+  r"""(?<key>\b(?:\w+_)?(?:auth|saltkey|sid|token|session|password|passwd|pwd|formhash|uid|touid|hash|ulastactivity)\b["']?\s*[:=]\s*)(?<value>"[^"]*"|'[^']*'|[^&;,\s}\]]+)""",
   caseSensitive: false,
 );
 

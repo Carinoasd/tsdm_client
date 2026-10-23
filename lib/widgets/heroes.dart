@@ -64,6 +64,14 @@ final class HeroUserAvatar extends StatefulWidget {
 class _HeroUserAvatarState extends State<HeroUserAvatar> {
   bool hasError = false;
 
+  /// The avatar was not there when this widget asked (not cached yet, loading, failed): the image shown may be the
+  /// placeholder, so it is loaded again once the avatar is cached.
+  bool _missed = false;
+
+  /// Bumped when the avatar is loaded again: the circle is painted anew, which asks the image again (an evicted image
+  /// is asked again only when painted, and nothing else of the circle changes then).
+  int _loads = 0;
+
   StreamSubscription<ImageCacheResponse>? imageCacheSub;
 
   Future<void> onImageCachedResponse(ImageCacheResponse resp) async {
@@ -72,26 +80,32 @@ class _HeroUserAvatarState extends State<HeroUserAvatar> {
     }
 
     switch (resp) {
-      case ImageCacheSuccessResponse():
-        // Now the image is cached, load image data.
+      case ImageCacheSuccessResponse() || ImageCacheStatusResponse(status: ImageCacheStatus2.cached):
+        // Now the image is cached.
         if (hasError) {
           setState(() => hasError = false);
         }
-        await widget._imageProvider.evict();
+        // Loaded again from the cache only when it was missing before (here, or anywhere the placeholder was loaded
+        // for it). Evicted at every answer, every avatar was decoded again each time its floor was built, and the
+        // decoded image shared by the other floors of the same author with it (the floors are built again when
+        // scrolled back to).
+        if (_missed || widget._imageProvider.loadedAsPlaceholder) {
+          _missed = false;
+          await widget._imageProvider.evict();
+          if (mounted) {
+            setState(() => _loads++);
+          }
+        }
       case ImageCacheLoadingResponse() || ImageCacheStatusResponse(status: ImageCacheStatus2.loading):
+        _missed = true;
         if (hasError) {
           setState(() => hasError = false);
         }
       case ImageCacheFailedResponse() || ImageCacheStatusResponse(status: ImageCacheStatus2.notCached):
+        _missed = true;
         if (!hasError) {
           setState(() => hasError = true);
         }
-      case ImageCacheStatusResponse(status: ImageCacheStatus2.cached):
-        // Now the image is cached, load image data.
-        if (hasError) {
-          setState(() => hasError = false);
-        }
-        await widget._imageProvider.evict();
     }
   }
 
@@ -120,6 +134,7 @@ class _HeroUserAvatarState extends State<HeroUserAvatar> {
   Widget build(BuildContext context) {
     final Widget avatar;
     avatar = CircleAvatar(
+      key: ValueKey(_loads),
       backgroundImage: widget._imageProvider,
       maxRadius: widget.maxRadius,
       minRadius: widget.minRadius,

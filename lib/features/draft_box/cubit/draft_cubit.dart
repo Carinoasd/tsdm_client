@@ -70,10 +70,16 @@ class DraftCubit extends Cubit<DraftState> {
       return;
     }
     final previous = more ? state.entries : <DraftEntry>[];
+    // A refresh keeps the rows of this account on screen while it runs and when it fails; they are replaced, not
+    // merged, once it succeeds.
+    final own = state.uid == uid;
+    final shown = more || !own ? previous : state.entries;
+    final shownNext = more || own ? state.nextPage : null;
     final page = more ? state.nextPage! : 1;
     final repo = more ? _loaded! : repository();
+    final previousRepo = _loaded;
     _loaded = repo;
-    emit(DraftState(uid: uid, entries: previous, nextPage: more ? page : null, loading: true));
+    emit(DraftState(uid: uid, entries: shown, nextPage: shownNext, loading: true));
     try {
       final result = await repo.load(uid, page: page);
       if (!_current(generation, uid)) return;
@@ -84,7 +90,11 @@ class DraftCubit extends Cubit<DraftState> {
       emit(DraftState(uid: uid, entries: List.unmodifiable(merged.values), nextPage: result.nextPage));
     } on Object {
       if (_current(generation, uid)) {
-        emit(DraftState(uid: uid, entries: previous, nextPage: more ? page : null, failed: true));
+        if (!more && shown.isNotEmpty) {
+          // The rows kept were read by the repository that loaded them: it opens them and goes on with their list.
+          _loaded = previousRepo;
+        }
+        emit(DraftState(uid: uid, entries: shown, nextPage: more ? page : shownNext, failed: true));
       }
     }
   }

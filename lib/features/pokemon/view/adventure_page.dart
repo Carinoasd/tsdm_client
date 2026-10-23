@@ -203,7 +203,12 @@ class _AdventurePageState extends State<AdventurePage> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr.empty)))],
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text(tr.empty)),
+            ),
+          ],
         ),
       );
     } else {
@@ -304,8 +309,11 @@ class _AdventurePageState extends State<AdventurePage> {
     physics: const AlwaysScrollableScrollPhysics(),
     padding: const EdgeInsets.all(8),
     itemCount: maps.length,
-    itemBuilder: (context, index) =>
-        _MapCard(map: maps[index], trainerLevel: _cache.activePokemonLevel, onTap: () => unawaited(_openMap(maps[index]))),
+    itemBuilder: (context, index) => _MapCard(
+      map: maps[index],
+      trainerLevel: _cache.activePokemonLevel,
+      onTap: () => unawaited(_openMap(maps[index])),
+    ),
   );
 }
 
@@ -489,8 +497,7 @@ class _MapDetailSheetState extends State<_MapDetailSheet> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    for (final p in map.wildPokemons)
-                      Chip(visualDensity: VisualDensity.compact, label: Text(p.name)),
+                    for (final p in map.wildPokemons) Chip(visualDensity: VisualDensity.compact, label: Text(p.name)),
                   ],
                 ),
               ),
