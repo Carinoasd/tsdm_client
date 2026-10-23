@@ -115,13 +115,32 @@ Iterable<(TextSpan, TextStyle)> _spans(WidgetTester tester) sync* {
 
 TextStyle _style(WidgetTester tester, String text) => _span(tester, text).$2;
 
-/// The plain text of the rich text showing [text], a run of line breaks as one.
-String _lines(WidgetTester tester, String text) => find
-    .byType(RichText)
-    .evaluate()
-    .map((e) => (e.widget as RichText).text.toPlainText(includeSemanticsLabels: false))
-    .lastWhere((e) => e.contains(text))
-    .replaceAll(RegExp('\n+'), '\n');
+/// The text of the rich text showing [text] as written: the gaps between paragraphs left out, a widget as U+FFFC.
+String _raw(WidgetTester tester, String text) {
+  String plain(InlineSpan span) {
+    final buffer = StringBuffer();
+    void visit(InlineSpan s) {
+      if (s is ParagraphGapSpan) {
+        return;
+      }
+      if (s is TextSpan) {
+        buffer.write(s.text ?? '');
+        (s.children ?? const <InlineSpan>[]).forEach(visit);
+      } else if (s is PlaceholderSpan) {
+        buffer.write('\uFFFC');
+      }
+    }
+
+    visit(span);
+    return buffer.toString();
+  }
+
+  return find
+      .byType(RichText)
+      .evaluate()
+      .map((e) => plain((e.widget as RichText).text))
+      .lastWhere((e) => e.contains(text));
+}
 
 /// Whether any rich text shows [text].
 bool _shows(WidgetTester tester, String text) => find
@@ -210,7 +229,8 @@ void main() {
       expect(players.single.site, 'Bilibili');
       expect(players.single.kind, PostMediaKind.video);
       // The last thing of the message, on a line of its own after its last line.
-      expect(_lines(tester, '最后一行'), endsWith('最后一行\n\uFFFC'));
+      // A line of its own after the last line, no empty line between.
+      expect(_raw(tester, '最后一行'), endsWith('最后一行\n\uFFFC'));
     });
 
     testWidgets('a url in the text too, its punctuation left out', (tester) async {
@@ -348,7 +368,7 @@ void main() {
       );
       await tester.pump();
       expect(_players(tester).single.url.toString(), '$video/?p=2');
-      expect(_lines(tester, '下一行'), endsWith('下一行\n\uFFFC'));
+      expect(_raw(tester, '下一行'), endsWith('下一行\n\uFFFC'));
       // Without a video, no player.
       final none = decidePostBbcode(_apiFloor('没有视频', '没有视频')) as PostBbcodeRender;
       expect(none.nodes.whereType<BbVideo>(), isEmpty);
@@ -483,6 +503,11 @@ void main() {
             '<font color="white">白字</font></td></tr></table>',
       ),
       (
+        'a light cell over the picture of its own table',
+        '<table background="https://example.com/dark.jpg"><tr><td style="background-color: rgba(255, 255, 255, 0.6)">'
+            '<span style="color: white">白字</span></td></tr></table>',
+      ),
+      (
         'a light color the picture around shows through',
         '<div style="background: url(https://example.com/dark.jpg)"><div style="background-color: rgba(255, 251, 242, 0.8)">'
             '<span style="color: white; text-shadow: 0 0 4px red">白字</span></div></div>',
@@ -558,9 +583,9 @@ void main() {
       );
       await seedImages(tester, html);
       await _pump(tester, html);
-      expect(_lines(tester, '小标题'), contains('前\n小标题\n后\n大字\n尾\n'));
+      expect(_raw(tester, '小标题'), contains('前\n小标题\n后\n大字\n尾\n'));
       // The link out of the forum has its mark before it.
-      expect(_lines(tester, '小标题'), contains('尾\n\uFFFC链接块\n连\n弹性\n行内块末\n行内样式\n完\n\uFFFC\n图后'));
+      expect(_raw(tester, '小标题'), contains('尾\n\uFFFC链接块\n连\n弹性\n行内块末\n行内样式\n完\n\uFFFC\n图后'));
       // What it is otherwise is kept: bold, a link.
       expect(_style(tester, '大字').fontWeight, FontWeight.w600);
       final link = _spans(tester).where((e) => e.$1.text?.contains('链接块') ?? false);
@@ -596,6 +621,23 @@ void main() {
       expect(_shows(tester, '又出现'), isTrue);
       expect(_shows(tester, '子藏'), isFalse);
       expect(_shows(tester, '孙见'), isTrue);
+    });
+
+    testWidgets('hidden by the style sheet but shown by it on what the app does not see: stays shown', (tester) async {
+      await _pump(
+        tester,
+        _inPost(
+          '<style>.c { display: none } #t:checked + .c { display: block } .s span { display: none }'
+          ' .s:hover span { display: inline } .gone { display: none } .gone2 { display: none } [data-x] .other {'
+          ' display: block }</style>'
+          '<input type="checkbox" id="t" /><div class="c">勾选后显示</div><div class="s">悬停<span>悬停显示</span></div>'
+          '<div class="gone">一直藏着</div><div class="gone2">也藏着</div>',
+        ),
+      );
+      expect(_shows(tester, '勾选后显示'), isTrue);
+      expect(_shows(tester, '悬停显示'), isTrue);
+      expect(_shows(tester, '一直藏着'), isFalse);
+      expect(_shows(tester, '也藏着'), isFalse);
     });
 
     testWidgets(':nth-child(), :nth-of-type() and their first and last forms', (tester) async {
@@ -745,14 +787,16 @@ void main() {
           '<font face="微软雅黑">雅黑字</font><span style="font-family: \'Microsoft YaHei\', serif">首选雅黑</span>'
           '<span style="font-family: sans-serif">无衬线</span>'
           '<font face="宋体">外层<font face="黑体">内层黑体</font>回到</font>'
-          '<style>.song { font-family: SimSun }</style><span class="song">样式表宋体</span>',
+          '<style>.song { font-family: SimSun }</style><span class="song">样式表宋体</span>'
+          // A `<pre>` is in its monospace font, not in the font named around it.
+          '<font face="宋体"><pre>等宽代码</pre></font>',
         ),
       );
       for (final text in ['仿宋字', '楷体字', '宋体字', '中宋字', '明體字', '西文衬线', '思源衬线', '外层', '回到', '样式表宋体']) {
         expect(_style(tester, text).fontFamily, serifFontFamily, reason: text);
         expect(_style(tester, text).fontFamilyFallback, serifFontFamilyFallback, reason: text);
       }
-      for (final text in ['雅黑字', '首选雅黑', '无衬线', '内层黑体']) {
+      for (final text in ['雅黑字', '首选雅黑', '无衬线', '内层黑体', '等宽代码']) {
         expect(_style(tester, text).fontFamily, isNot(serifFontFamily), reason: text);
       }
     });

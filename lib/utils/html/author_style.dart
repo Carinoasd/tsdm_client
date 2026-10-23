@@ -1029,6 +1029,20 @@ final class _Selector {
     }
   }
 
+  /// The subject of the selector [text] the app does not understand, without its pseudo-classes and pseudo-elements
+  /// (`.answer` of `#open:checked + .answer`, `span` of `.box:hover span`); null when it has no tag, id or class.
+  static _Compound? subjectOf(String text) {
+    final parts = text.trim().split(_anyCombinatorRe);
+    final last = parts.isEmpty ? '' : parts.last;
+    if (last.isEmpty || last.length > 200) {
+      return null;
+    }
+    return _Compound.parse(last.replaceAll(_pseudoRe, ''));
+  }
+
+  static final _anyCombinatorRe = RegExp(r'\s*[\s>+~]\s*');
+  static final _pseudoRe = RegExp(r'::?[a-zA-Z-]+(?:\([^()]*\))?');
+
   /// A compound: a run of anything but white space, combinators and brackets, the argument of a pseudo-class in its
   /// parentheses (`:nth-child(2n + 1)`) taken with it. [_Compound.parse] says whether it is one the app understands.
   static final _compoundRe = RegExp(r'(?:[^\s>+~()\[\]*,]|\([^()]*\))+');
@@ -1094,7 +1108,7 @@ const _matchBudget = Duration(milliseconds: 250);
 /// The style sheets a piece of html is shown with: the forum's ([_forumStyleSheet], [_postStyleSheet] for a post's
 /// content) and its own `<style>` elements, read once.
 final class AuthorStyleSheets {
-  AuthorStyleSheets._(this._rules, this._variables) {
+  AuthorStyleSheets._(this._rules, this._variables, [this._reveals = const []]) {
     for (final rule in _rules) {
       final selector = rule.selector;
       final key = selector.subject.key;
@@ -1184,16 +1198,23 @@ final class AuthorStyleSheets {
       }
     }
     final rules = <_Rule>[];
+    final reveals = <_Compound>[];
     var order = 0;
     for (final (prelude, declarations) in parsed) {
+      final shows = declarations.any((d) => d.property == 'display' && d.value.trim().toLowerCase() != 'none');
       for (final text in prelude.split(',').take(32)) {
         final selector = _Selector.parse(text);
         if (selector != null && rules.length < _maxRules) {
           rules.add(_Rule(selector, declarations, order++));
+        } else if (selector == null && shows && reveals.length < _maxRules) {
+          // Shown on something the app does not see (`:hover`, `:checked`, `+`): see [_reveals].
+          if (_Selector.subjectOf(text) case final subject?) {
+            reveals.add(subject);
+          }
         }
       }
     }
-    return late() ? null : AuthorStyleSheets._(rules, variables);
+    return late() ? null : AuthorStyleSheets._(rules, variables, reveals);
   }
 
   /// No rules: the html has no style sheet of its own, and is not given the forum's.
@@ -1285,6 +1306,12 @@ final class AuthorStyleSheets {
 
   final List<_Rule> _rules;
   final Map<String, String> _variables;
+
+  /// What the style sheets show (a `display` other than `none`) by a selector the app does not understand, the
+  /// subject of each without its pseudo-classes: what a post shows on a hover, on a checked box, after another element
+  /// (`#open:checked + .answer { display: block }`). The app sees none of those: an element of them that the sheets
+  /// hide (`.answer { display: none }`) stays shown, as before the app read `display`; hidden, it was lost for good.
+  final List<_Compound> _reveals;
 
   /// Rules of one compound, by the key of their subject ([_Compound.key]).
   final Map<String, List<_Rule>> _plain = {};
@@ -1441,6 +1468,13 @@ final class AuthorStyler {
           style.declare(d.property, d.value);
         }
       }
+    }
+    if (style.display == 'none' &&
+        _sheets._reveals.isNotEmpty &&
+        !own.any((d) => d.property == 'display') &&
+        _sheets._reveals.any((c) => c.matchesKeys(_keysOf(element)))) {
+      // Hidden by the sheets, shown by them on something the app does not see ([AuthorStyleSheets._reveals]).
+      style.display = null;
     }
     return style.isEmpty ? null : style;
   }

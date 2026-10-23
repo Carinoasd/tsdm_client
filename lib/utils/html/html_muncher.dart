@@ -991,7 +991,7 @@ final class _Muncher with LoggerMixin {
   };
 
   static final _hiddenStyleRe = RegExp(
-    r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\b',
+    r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*(hidden|collapse))\b',
     caseSensitive: false,
   );
 
@@ -1598,10 +1598,18 @@ final class _Muncher with LoggerMixin {
   /// the block around it shows through (`rgba(255, 251, 242, 0.8)` in a block with a picture) is on that picture,
   /// which the app does not show: it is a picture too. Before, it was taken over the white of the page, white text on
   /// the picture was white on a light block (and hidden on purpose in a dark theme).
-  ({Color? color})? _seenOnBehind(({Color? color})? background) {
+  ///
+  /// What it is on is [behind] when given (the background of a row under its cell, both still to be pushed), else the
+  /// block it is in.
+  ({Color? color})? _seenOnBehind(({Color? color})? background, {({Color? color})? behind}) {
     final color = background?.color;
-    final behind = state.blockBackgroundStack.lastOrNull;
-    if (color != null && color.a < _opaqueAlpha && behind != null && behind.color == null) {
+    final under =
+        behind ??
+        switch (state.blockBackgroundStack.lastOrNull) {
+          final _Behind e => (color: e.color),
+          null => null,
+        };
+    if (color != null && color.a < _opaqueAlpha && under != null && under.color == null) {
       return (color: null);
     }
     return background;
@@ -2377,9 +2385,15 @@ final class _Muncher with LoggerMixin {
 
   /// <code>xxx</code> tags. Mainly for github.com
   List<InlineSpan>? _buildCode(uh.Element element) {
-    state.fontSizeStack.add(_appFontSize(FontSize.size2.value()));
+    // A size of its own, not one of `<font size>` sized again in another font ([_takeFontFamily]).
+    final keyword = state.fontSizeKeyword;
+    state
+      ..fontSizeStack.add(_appFontSize(FontSize.size2.value()))
+      ..fontSizeKeyword = null;
     final ret = _munchOwnBlock(() => _munch(element));
-    state.fontSizeStack.removeLast();
+    state
+      ..fontSizeStack.removeLast()
+      ..fontSizeKeyword = keyword;
     if (ret == null) {
       return null;
     }
@@ -2483,8 +2497,10 @@ final class _Muncher with LoggerMixin {
     if (!alreadyInPre) {
       state.inPre = true;
     }
-    // In the monospace font of the web page's `<pre>` and `<textarea>`, until the author names another: the size of a
-    // `<font size>` around it is the size it has in that font.
+    // In the monospace font of the web page's `<pre>` and `<textarea>`, until the author names another: not in a font
+    // named around it, and the size of a `<font size>` around it is the size it has in that font.
+    final family = state.fontFamily;
+    state.fontFamily = null;
     if (!monospace) {
       state.monospace = true;
       if (state.fontSizeKeyword case final keyword?) {
@@ -2497,6 +2513,7 @@ final class _Muncher with LoggerMixin {
     }
     state
       ..monospace = monospace
+      ..fontFamily = family
       ..fontSizeStack.removeRange(sizes, state.fontSizeStack.length);
     return ret;
   }
@@ -2832,12 +2849,12 @@ final class _Muncher with LoggerMixin {
       final cell = cellsOf(tr).firstOrNull;
       // The innermost background is the one seen: the cell's over the row's over the table's. A picture there hides the
       // colors under it (`<table bgcolor="#ffe0b3"><tr background="…">`): the block has no background the app shows.
-      final backgrounds = [
-        if (cell != null) _blockBackgroundOf(cell, _styleOf(cell)),
-        _blockBackgroundOf(tr, _styleOf(tr)),
-        _blockBackgroundOf(element, _styleOf(element)),
-      ].nonNulls;
-      final background = _seenOnBehind(backgrounds.firstOrNull);
+      ({Color? color})? background;
+      for (final e in [element, tr, ?cell]) {
+        if (_blockBackgroundOf(e, _styleOf(e)) case final own?) {
+          background = _seenOnBehind(own, behind: background);
+        }
+      }
       final align =
           (cell == null ? null : _styleAlign(cell) ?? _blockAlign(cell)) ?? _styleAlign(tr) ?? _styleAlign(element);
       if (background == null && align == null) {
