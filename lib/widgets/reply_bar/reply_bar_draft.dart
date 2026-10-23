@@ -76,6 +76,9 @@ final class _ReplyDraftSession {
   /// The target of the reply being sent.
   _ReplyDraftTarget? _sending;
 
+  /// Sending what the bar holds failed after the request left: kept marked as maybe sent until it is sent.
+  bool _maybeSent = false;
+
   /// Text the bar holds that is not this draft's: the text just sent (cleared right after), the text written for
   /// another account before a switch (shown on, never kept for this account). Nothing is kept while the bar holds it.
   String? _ignoredBody;
@@ -170,6 +173,7 @@ final class _ReplyDraftSession {
         replyAction: target.replyAction,
         hint: target.hint,
         quote: target.quote,
+        maybeSent: _maybeSent,
       ),
     );
   }
@@ -209,8 +213,15 @@ final class _ReplyDraftSession {
     _target = next;
     revision.value++;
     if (previous != null && previous.uid != next.uid) {
-      // Another account: the text written for the previous one stays shown, it is not this account's draft.
+      // Another account: the text written for the previous one stays shown, it is not this account's draft; what the
+      // reply windows told the previous account is not this one's either.
       _ignoredBody = content.body;
+      _asked.clear();
+      _infos.clear();
+      _failedAt.clear();
+    }
+    if (previous != null && !next.sameDraft(previous)) {
+      _maybeSent = false;
     }
     final moves = previous != null && previous.uid == next.uid && content.body.trim().isNotEmpty;
     final key = next.key;
@@ -275,15 +286,17 @@ final class _ReplyDraftSession {
   /// The reply is sent now: its draft is the one of the target now.
   void sending() => _sending = _target;
 
-  /// The reply bloc changed to [status]: nothing is written while the reply is sent; once it was stored, the draft is
-  /// gone (the bloc deleted it) and nothing is written for it until the user writes again.
-  void onReplyStatus(ReplyStatus status) {
+  /// The reply bloc changed to [state]: nothing is written while the reply is sent; once it was stored, the draft is
+  /// gone (the bloc deleted it) and nothing is written for it until the user writes again. A reply that may have reached the forum ([ReplyState.maybeSent]) marks the draft.
+  void onReplyStatus(ReplyState state) {
+    final status = state.status;
     switch (status) {
       case ReplyStatus.loading:
         saver.pause();
       case ReplyStatus.success:
         final sent = _sending ?? _target;
         _sending = null;
+        _maybeSent = false;
         _ignoredBody = content.body;
         _collapsedBody = '';
         _collapsedDelta = null;
@@ -294,6 +307,9 @@ final class _ReplyDraftSession {
       case ReplyStatus.failure || ReplyStatus.verification || ReplyStatus.initial:
         if (status != ReplyStatus.verification) {
           _sending = null;
+        }
+        if (status == ReplyStatus.failure && state.maybeSent) {
+          _maybeSent = true;
         }
         saver.resume();
     }

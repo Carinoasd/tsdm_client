@@ -68,12 +68,17 @@ final class DraftAutosaver implements DraftFlusher {
   }
 
   /// Write what the editor holds and stop until [attach]ed again (the editor left the screen).
+  ///
+  /// While the content is being sent ([pause]) nothing more is written: it was written when sending began, and what
+  /// the bloc does with it once the answer comes (deleted when stored) stands.
   void detach() {
     if (!_attached) {
       return;
     }
+    if (!_paused) {
+      flush();
+    }
     _paused = false;
-    flush();
     _attached = false;
     _timer?.cancel();
     _timer = null;
@@ -89,7 +94,8 @@ final class DraftAutosaver implements DraftFlusher {
 
   static String _id(int uid, LocalDraftKey key) => '$uid|${key.value}';
 
-  static String _signature(LocalDraft draft) => '${draft.subject ?? ''}\u0000${draft.body}\u0000${draft.delta ?? ''}';
+  static String _signature(LocalDraft draft) =>
+      '${draft.subject ?? ''}\u0000${draft.body}\u0000${draft.delta ?? ''}\u0000${draft.maybeSent}';
 
   /// The text changed: write it once [interval] passed (the changes of that time together).
   void changed() {
@@ -103,7 +109,12 @@ final class DraftAutosaver implements DraftFlusher {
   }
 
   /// Stop writing while the content is being sent ([resume] after the answer).
+  ///
+  /// What the editor holds is written first: the page may go while the reply is on its way.
   void pause() {
+    if (!_paused) {
+      flush();
+    }
     _timer?.cancel();
     _timer = null;
     _paused = true;
@@ -158,6 +169,7 @@ final class DraftAutosaver implements DraftFlusher {
       quote: draft.quote,
       title: draft.title,
       typeId: draft.typeId,
+      maybeSent: draft.maybeSent,
     );
     final signature = _signature(saved);
     if (_written[id] == signature || _sent[id] == signature) {
@@ -197,7 +209,11 @@ final class DraftAutosaver implements DraftFlusher {
       // Written once the offer below is known.
       scheduleMicrotask(flush);
     }
-    final stored = drafts.where((e) => !e.key.isBackup && test(e.key)).firstOrNull;
+    // A draft opened from the list comes first, also one kept aside.
+    final preferred = store.takePreferred(uid, test);
+    final stored = preferred != null
+        ? drafts.where((e) => e.key == preferred).firstOrNull
+        : drafts.where((e) => !e.key.isBackup && test(e.key)).firstOrNull;
     if (stored == null || _disposed) {
       return;
     }

@@ -19,7 +19,7 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 /// user cancels.
 ///
 /// The image and the question are asked from the forum when the dialog opens (and again when the user asks for another
-/// one); an answer is checked with the forum before the dialog closes, a wrong one gets a new image or question.
+/// one); an answer is checked with the forum before the dialog closes, a wrong one gets a new image or a new question.
 /// [wrongAnswer] says the previous answer was not taken. A check the app cannot show offers [browserUrl], the page to
 /// continue on.
 Future<SecCheckAnswer?> showSecCheckDialog(
@@ -156,6 +156,8 @@ class _SecCheckDialogState extends State<SecCheckDialog> with LoggerMixin {
         if (answerOk == false) {
           _answerError = tr.invalidAnswer;
           _answer.clear();
+          // Another question: the forum lets an answer be checked a few times only.
+          _loadQuestion();
         }
       });
       return;

@@ -60,6 +60,27 @@ final class LocalDraftStore with LoggerMixin {
   /// The drafts of each account read so far, by key.
   final _accounts = <int, Map<String, LocalDraft>>{};
 
+  /// Accounts removed from the device ([forget]): a late write of an editor still open is refused, until the account
+  /// reads its drafts again (it logged in again).
+  final _forgotten = <int>{};
+
+  /// A draft the list asked the editor of its target to offer next ([preferNext]), by account.
+  final _preferred = <int, LocalDraftKey>{};
+
+  /// Let the next editor of the target of [key] for [uid] offer that very draft (a draft kept aside, opened from the
+  /// list) instead of the newest one of the target.
+  void preferNext(int uid, LocalDraftKey key) => _preferred[uid] = key;
+
+  /// The draft asked for by [preferNext] when [test] accepts its target, taken (asked once).
+  LocalDraftKey? takePreferred(int uid, bool Function(LocalDraftKey key) test) {
+    final key = _preferred[uid];
+    if (key == null || !test(key.target)) {
+      return null;
+    }
+    _preferred.remove(uid);
+    return key;
+  }
+
   /// The end of the queue, null before the first read or write (made then, in the zone of its caller).
   Future<void>? _queue;
 
@@ -133,9 +154,12 @@ final class LocalDraftStore with LoggerMixin {
           }
         } else {
           warning('local drafts: file of uid $uid not read (another format or account)');
+          await _files.keepAside(uid);
         }
       } on Object catch (e) {
         warning('local drafts: file of uid $uid unreadable: $e');
+        // Kept beside, not written over by the next draft.
+        await _files.keepAside(uid);
       }
     }
     return _accounts[uid] = drafts;
@@ -160,11 +184,14 @@ final class LocalDraftStore with LoggerMixin {
 
   static bool _valid(int uid) => uid > 0;
 
+  bool _writable(int uid) => _valid(uid) && !_forgotten.contains(uid);
+
   /// The draft of [uid] for [key], null when there is none.
   Future<LocalDraft?> load(int uid, LocalDraftKey key) async {
     if (!_valid(uid)) {
       return null;
     }
+    _forgotten.remove(uid);
     return _run('read', null, () async => (await _draftsOf(uid))[key.value]);
   }
 
@@ -173,6 +200,7 @@ final class LocalDraftStore with LoggerMixin {
     if (!_valid(uid)) {
       return const [];
     }
+    _forgotten.remove(uid);
     return _run(
       'list',
       const [],
@@ -182,7 +210,7 @@ final class LocalDraftStore with LoggerMixin {
 
   /// Keep [draft] as the draft of [uid] for its key, replacing the one there.
   void save(int uid, LocalDraft draft) {
-    if (!_valid(uid)) {
+    if (!_writable(uid)) {
       return;
     }
     unawaited(
@@ -204,7 +232,7 @@ final class LocalDraftStore with LoggerMixin {
 
   /// Delete the draft of [uid] for [key].
   void delete(int uid, LocalDraftKey key) {
-    if (!_valid(uid)) {
+    if (!_writable(uid)) {
       return;
     }
     unawaited(
@@ -217,9 +245,27 @@ final class LocalDraftStore with LoggerMixin {
     );
   }
 
+  /// Mark the draft of [uid] for [key] as maybe sent ([LocalDraft.maybeSent]): sending it failed after the request
+  /// left.
+  void markMaybeSent(int uid, LocalDraftKey key) {
+    if (!_writable(uid)) {
+      return;
+    }
+    unawaited(
+      _run('mark ${key.value}', null, () async {
+        final drafts = await _draftsOf(uid);
+        final draft = drafts[key.value];
+        if (draft != null && !draft.maybeSent) {
+          drafts[key.value] = draft.copyWith(maybeSent: true);
+          await _write(uid, drafts);
+        }
+      }),
+    );
+  }
+
   /// Delete every draft of [uid].
   void deleteAll(int uid) {
-    if (!_valid(uid)) {
+    if (!_writable(uid)) {
       return;
     }
     unawaited(
@@ -236,6 +282,8 @@ final class LocalDraftStore with LoggerMixin {
     if (!_valid(uid)) {
       return;
     }
+    _forgotten.add(uid);
+    _preferred.remove(uid);
     unawaited(
       _run('forget account', null, () async {
         _accounts.remove(uid);
@@ -263,6 +311,9 @@ abstract interface class _DraftFiles {
   Future<void> write(int uid, String text);
 
   Future<void> delete(int uid);
+
+  /// Keep the file of [uid] aside (`.bad`): it could not be read.
+  Future<void> keepAside(int uid);
 }
 
 /// `<uid>.json` in a directory, each write into a temporary file renamed over the old one.
@@ -298,6 +349,14 @@ final class _DirectoryDraftFiles implements _DraftFiles {
       await file.delete();
     }
   }
+
+  @override
+  Future<void> keepAside(int uid) async {
+    final file = await _fileOf(uid);
+    if (file.existsSync()) {
+      await file.rename('${file.path}.bad');
+    }
+  }
 }
 
 /// The files in memory.
@@ -312,4 +371,7 @@ final class _MemoryDraftFiles implements _DraftFiles {
 
   @override
   Future<void> delete(int uid) async => _files.remove(uid);
+
+  @override
+  Future<void> keepAside(int uid) async => _files.remove(uid);
 }

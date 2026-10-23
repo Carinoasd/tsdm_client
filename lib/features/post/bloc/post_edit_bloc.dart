@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/local_draft/repository/local_draft_store.da
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/repository/sec_check_repository.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -215,6 +216,9 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                 ),
               )
               .run();
+    if (result case Left(:final value)) {
+      _markMaybeSent(value, event.draftKey);
+    }
     if (!_active(emit)) {
       _submitting = false;
       return;
@@ -260,7 +264,25 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
 
   /// The failed upload of [error]: the forum's reason, or what it asks before taking the post ([SecCheck]: the page asks
   /// the user and sends again; none known, the website).
+  /// Whether the post may have been taken although [error] came back: the request left and no answer came, or one
+  /// that could not be read.
+  static bool _mayHaveSent(AppException error) =>
+      error is! PostEditFailedToUploadResult &&
+      error is! PostVerificationRequiredException &&
+      error is! IdentityChangedException &&
+      !isNoNetworkFailure(error);
+
+  /// The local draft of [draftKey] says it may have been sent ([_mayHaveSent]), also for a page closed meanwhile.
+  void _markMaybeSent(AppException error, String? draftKey) {
+    final uid = _repo.ownerUid;
+    final key = draftKey == null ? null : LocalDraftKey.parse(draftKey);
+    if (_mayHaveSent(error) && uid != null && key != null) {
+      LocalDraftStore.app?.markMaybeSent(uid, key);
+    }
+  }
+
   PostEditState _uploadFailed(AppException error) => state.copyWith(
+    maybeSent: _mayHaveSent(error),
     status: PostEditStatus.failedToUpload,
     errorText: error is PostEditFailedToUploadResult ? error.errorText : null,
     needsBrowser: error is PostVerificationRequiredException && error.check == null,
@@ -305,9 +327,16 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
               )
               .run()
         : await _repo.postThread(info, verification: event.verification, told: told).run();
-    if (tidEither.isRight()) {
-      // Taken: whatever the page does now (it may be gone), the local draft goes.
-      _taken(event.draftKey);
+    if (event.verification != null) {
+      // Posted with the answers: the forum is done with the cookies of the checks.
+      await clearSecCheckCookies();
+    }
+    switch (tidEither) {
+      case Right():
+        // Taken: whatever the page does now (it may be gone), the local draft goes.
+        _taken(event.draftKey);
+      case Left(:final value):
+        _markMaybeSent(value, event.draftKey);
     }
     if (!_active(emit)) {
       _submitting = false;

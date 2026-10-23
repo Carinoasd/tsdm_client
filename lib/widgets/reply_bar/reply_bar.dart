@@ -411,7 +411,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
       // parameters refreshed after the thread reloaded) must keep the text and the pending floor target.
       listenWhen: (prev, curr) => prev.status != curr.status,
       listener: (context, state) {
-        _drafts.onReplyStatus(state.status);
+        _drafts.onReplyStatus(state);
         // Clear the outer controller text.
         if (state.status == ReplyStatus.success) {
           controller.clear();

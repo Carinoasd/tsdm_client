@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
+import 'package:tsdm_client/features/post/repository/sec_check_repository.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -121,6 +122,10 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
           verification: event.verification,
         )
         .run();
+    if (event.verification != null) {
+      // Posted with the answers: the forum is done with the cookies of the checks.
+      await clearSecCheckCookies();
+    }
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
       if (err is ReplyNeedsVerificationException) {
@@ -130,6 +135,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       }
       handle(err);
       emit(_failed(err, uid: event.draftUid));
+      _markMaybeSent(event);
       return;
     }
     _sent(event);
@@ -147,6 +153,10 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
           verification: event.verification,
         )
         .run();
+    if (event.verification != null) {
+      // Posted with the answers: the forum is done with the cookies of the checks.
+      await clearSecCheckCookies();
+    }
     if (ret.isLeft()) {
       final err = ret.unwrapErr();
       if (err is ReplyNeedsVerificationException) {
@@ -156,6 +166,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       }
       handle(err);
       emit(_failed(err, uid: event.draftUid));
+      _markMaybeSent(event);
       return;
     }
     _sent(event);
@@ -211,10 +222,23 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
   /// counts from now.
   void _sent(_DraftedReply event) {
     final uid = event.draftUid ?? _authenticationRepository?.currentUser?.uid;
-    FloodControl.notePosted(uid);
+    // The forum's interval is between posts in threads; a private message does not count.
+    if (event is ReplyToThreadRequested || event is ReplyToPostRequested) {
+      FloodControl.notePosted(uid);
+    }
     final key = event.draftKey == null ? null : LocalDraftKey.parse(event.draftKey!);
     if (uid != null && key != null) {
       LocalDraftStore.app?.delete(uid, key);
+    }
+  }
+
+  /// The reply or message of [event] may have reached the forum ([ReplyState.maybeSent]): its local draft says so,
+  /// also for a page closed meanwhile.
+  void _markMaybeSent(_DraftedReply event) {
+    final uid = event.draftUid;
+    final key = event.draftKey == null ? null : LocalDraftKey.parse(event.draftKey!);
+    if (state.maybeSent && uid != null && key != null) {
+      LocalDraftStore.app?.markMaybeSent(uid, key);
     }
   }
 
@@ -317,6 +341,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       }
       // Every failure is told (a network one used to be dropped: no reason, no hint, and the editor closed).
       emit(_failed(err, uid: event.draftUid));
+      _markMaybeSent(event);
       return;
     }
     _sent(event);
@@ -334,6 +359,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       }
       // Every failure is told, see the chat history.
       emit(_failed(err, uid: event.draftUid));
+      _markMaybeSent(event);
       return;
     }
     _sent(event);

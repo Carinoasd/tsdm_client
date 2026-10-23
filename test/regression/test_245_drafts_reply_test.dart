@@ -47,6 +47,7 @@ import 'package:tsdm_client/features/local_draft/repository/local_draft_store.da
 import 'package:tsdm_client/features/local_draft/utils/draft_autosaver.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_text.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
+import 'package:tsdm_client/features/local_draft/widgets/draft_offer_banner.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
@@ -402,7 +403,7 @@ void main() {
           'secqaa_hash': 'qSA1',
           'modid': 'forum::post',
         }),
-        const SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSA1', secqaaHash: 'qSA1'),
+        const SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSAapp', secqaaHash: 'qSAapp'),
       );
       expect(SecCheck.fromJson(null), isNull);
       expect(SecCheck.fromJson({'seccode': 0, 'secqaa': 0}), isNull);
@@ -415,8 +416,8 @@ void main() {
         const SecCheck(
           seccode: true,
           secqaa: true,
-          seccodeHash: 'cSAx1',
-          secqaaHash: 'qSAx1',
+          seccodeHash: 'cSAapp',
+          secqaaHash: 'qSAapp',
           modid: 'forum::viewthread',
         ),
       );
@@ -462,7 +463,7 @@ void main() {
   group('E. the replies with the checks', () {
     test('the quick reply asks first, then goes with the answers', () async {
       forum.answer = (r) => _xml(_replyStored);
-      const check = SecCheck(seccode: true, seccodeHash: 'cSA0000', modid: 'forum::viewthread');
+      const check = SecCheck(seccode: true, seccodeHash: 'cSAapp', modid: 'forum::viewthread');
       final parameters = _parameters.copyWith(verification: true, secCheck: check);
       final bloc = ReplyBloc(replyRepository: const ReplyRepository());
       addTearDown(bloc.close);
@@ -474,7 +475,7 @@ void main() {
       bloc.add(const ReplyVerificationAnswered(SecCheckAnswer(check: check, seccode: 'AB12')));
       await stored;
       final body = Uri.splitQueryString(forum.posts.single.body);
-      expect(body['seccodehash'], 'cSA0000');
+      expect(body['seccodehash'], 'cSAapp');
       expect(body['seccodemodid'], 'forum::viewthread');
       expect(body['seccodeverify'], 'AB12');
     });
@@ -512,7 +513,7 @@ void main() {
         {'mod': 'secqaa', 'action': 'update'} => _xml('<root><![CDATA[1 + 2 = ?]]></root>'),
         _ => throw StateError('unexpected ${r.uri}'),
       };
-      const check = SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSA1', secqaaHash: 'qSA1');
+      const check = SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSAapp', secqaaHash: 'qSAapp');
       const repository = SecCheckRepository();
       expect((await repository.fetchCaptcha(check).run()).isRight(), isTrue);
       expect((await repository.fetchQuestion(check).run()).getOrElse((_) => ''), '1 + 2 = ?');
@@ -774,7 +775,7 @@ void main() {
         {'mod': 'seccode'} => _image(),
         _ => _xml(_replyStored),
       };
-      const check = SecCheck(seccode: true, seccodeHash: 'cSA0000', modid: 'forum::viewthread');
+      const check = SecCheck(seccode: true, seccodeHash: 'cSAapp', modid: 'forum::viewthread');
       await pumpBar(tester, parameters: _parameters.copyWith(verification: true, secCheck: check));
       controller.setHintText('回覆');
       await tester.pumpAndSettle();
@@ -907,7 +908,7 @@ void main() {
           .run();
       expect(answered.isRight(), isTrue);
       expect(bodies.single['seccodeverify'], 'AB12');
-      expect(bodies.single['seccodehash'], 'cSA0000');
+      expect(bodies.single['seccodehash'], 'cSAapp');
     });
 
     test('an edit is never checked by the forum: the form tells none', () {
@@ -959,6 +960,158 @@ void main() {
       expect((await _wait(tester, drafts.list(31))).map((e) => e.key.value), ['thread:7']);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
+  group('I. review follow-ups', () {
+    String domains({bool check = true}) => jsonEncode({
+      'www.tsdm39.com': {
+        '/': {
+          'Ystv_2132_auth': 'Ystv_2132_auth=a;_crt=1',
+          'Ystv_2132_saltkey': 'Ystv_2132_saltkey=b;_crt=1',
+          if (check) 'Ystv_2132_seccodecSAapp': 'Ystv_2132_seccodecSAapp=c;_crt=1',
+          if (check) 'Ystv_2132_secqaaqSAapp': 'Ystv_2132_secqaaqSAapp=d;_crt=1',
+        },
+      },
+    });
+
+    test('M1. the checks always use the app\'s ids; their cookies go once the post with the answers went', () async {
+      expect(SecCheck.fromJson({'seccode': 1, 'seccode_hash': 'cSAxyz123'})?.seccodeHash, SecCheck.appSeccodeHash);
+      expect(SecCheck.generated(secqaa: true).secqaaHash, SecCheck.appSecqaaHash);
+      expect(isSecCheckCookie('Ystv_2132_seccodecSAapp'), isTrue);
+      expect(isSecCheckCookie('Ystv_2132_secqaaqSAA1x'), isTrue);
+      expect(isSecCheckCookie('Ystv_2132_auth'), isFalse);
+      final cookie = CookieProvider(_alice, {'.domains': domains()});
+      await getIt.unregister<CookieProvider>();
+      getIt.registerSingleton<CookieProvider>(cookie);
+      forum.answer = (r) => _xml(_replyStored);
+      const check = SecCheck(seccode: true, seccodeHash: 'cSAapp', modid: 'forum::viewthread');
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      final stored = bloc.stream.firstWhere((s) => s.status == ReplyStatus.success);
+      bloc.add(
+        ReplyToThreadRequested(
+          replyParameters: _parameters.copyWith(verification: true, secCheck: check),
+          replyMessage: '回覆回覆回覆',
+          verification: const SecCheckAnswer(check: check, seccode: 'AB12'),
+        ),
+      );
+      await stored;
+      final left = jsonDecode((await cookie.read('.domains'))!) as Map<String, dynamic>;
+      final names = ((left['www.tsdm39.com'] as Map)['/'] as Map).keys;
+      expect(names, ['Ystv_2132_auth', 'Ystv_2132_saltkey']);
+    });
+
+    test('M2. a reply that may have reached the forum: its draft says so, also with the page gone', () async {
+      forum.answer = (r) => throw DioException(requestOptions: RequestOptions(), type: DioExceptionType.receiveTimeout);
+      final key = LocalDraftKey.threadReply('9600001');
+      drafts.save(31, LocalDraft(key: key, body: '送出中的回覆', updatedAt: DateTime(2026)));
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      final failed = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+      bloc.add(
+        ReplyToThreadRequested(
+          replyParameters: _parameters,
+          replyMessage: '送出中的回覆',
+          draftUid: 31,
+          draftKey: key.value,
+        ),
+      );
+      expect((await failed).maybeSent, isTrue);
+      await drafts.pendingWrites;
+      expect((await drafts.load(31, key))?.maybeSent, isTrue);
+      expect(
+        LocalDraft.fromJson(key, jsonDecode(jsonEncode((await drafts.load(31, key))!.toJson())))!.maybeSent,
+        isTrue,
+      );
+    });
+
+    testWidgets('M2. the offer and the list say "may have been sent"', (tester) async {
+      final banner = DraftOfferBanner(
+        draft: LocalDraft(
+          key: LocalDraftKey.threadReply('1'),
+          body: 'x',
+          updatedAt: DateTime(2026, 10, 23, 14, 5),
+          maybeSent: true,
+        ),
+        onRestore: () {},
+        onDiscard: () {},
+      );
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(home: Scaffold(body: banner)),
+        ),
+      );
+      expect(find.text(t.localDraft.offerMaybeSent(time: '2026-10-23 14:05')), findsOneWidget);
+    });
+
+    test('L1. sending: written when it starts, nothing more when the editor goes meanwhile', () async {
+      final key = LocalDraftKey.threadReply('9600001');
+      var text = '送出的內容';
+      final saver = DraftAutosaver(
+        read: () => (uid: 31, key: key, draft: LocalDraft(key: key, body: text, updatedAt: DateTime.now())),
+      )..attach();
+      addTearDown(saver.dispose);
+      saver.pause();
+      await drafts.pendingWrites;
+      expect((await drafts.load(31, key))?.body, '送出的內容');
+      // The bloc deleted it (stored); the page goes before the answer reached it: not written back.
+      drafts.delete(31, key);
+      text = '送出的內容';
+      saver.detach();
+      await drafts.pendingWrites;
+      expect(await drafts.load(31, key), isNull);
+    });
+
+    test('L3. an account removed: a late write of an editor still open is refused, until it reads again', () async {
+      final key = LocalDraftKey.newThread('7');
+      drafts
+        ..forget(31)
+        ..save(31, LocalDraft(key: key, body: 'late', updatedAt: DateTime(2026)));
+      await drafts.pendingWrites;
+      expect(await drafts.list(31), isEmpty);
+      drafts.save(31, LocalDraft(key: key, body: 'again', updatedAt: DateTime(2026)));
+      expect((await drafts.load(31, key))?.body, 'again');
+    });
+
+    test('L5. a draft kept aside, opened from the list: offered by its target', () async {
+      final key = LocalDraftKey.newThread('7');
+      final aside = key.backupAt(1700000000000);
+      drafts
+        ..save(31, LocalDraft(key: key, body: '新的', updatedAt: DateTime(2026, 10, 2)))
+        ..save(31, LocalDraft(key: aside, body: '較早', updatedAt: DateTime(2026, 10, 1)))
+        ..preferNext(31, aside);
+      final saver = DraftAutosaver(read: () => (uid: 31, key: key, draft: null))..attach();
+      addTearDown(saver.dispose);
+      await saver.offerStored(31, (k) => k == key);
+      expect(saver.offer.value?.draft.body, '較早');
+      await saver.offerStored(31, (k) => k == key);
+      expect(saver.offer.value?.draft.body, '新的', reason: 'asked once');
+    });
+
+    test('L6. a private message does not count as a post for the forum\'s interval', () async {
+      forum.answer = (r) =>
+          _xml('<?xml version="1.0" encoding="utf-8"?><root><![CDATA[succeedhandle_pmsend(\'\', \'\');]]></root>');
+      final now = DateTime(2026, 10, 23, 12);
+      FloodControl.now = () => now;
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      final sent = bloc.stream.firstWhere((s) => s.status == ReplyStatus.success);
+      bloc.add(const ReplyChatRequested('1000', {'message': 'hi'}, draftUid: 31));
+      await sent;
+      FloodControl.now = () => now.add(const Duration(seconds: 5));
+      expect(FloodControl.retryAt(31, 15), now.add(const Duration(seconds: 20)), reason: 'from now, no post known');
+    });
+
+    test('L7. a file that cannot be read is kept aside, not written over', () async {
+      final files = LocalDraftStore(directory: () async => Directory('${tmp.path}/bad'));
+      Directory('${tmp.path}/bad').createSync(recursive: true);
+      File('${tmp.path}/bad/31.json').writeAsStringSync('{not json');
+      expect(await files.list(31), isEmpty);
+      files.save(31, LocalDraft(key: LocalDraftKey.newThread('7'), body: 'x', updatedAt: DateTime(2026)));
+      await files.pendingWrites;
+      expect(File('${tmp.path}/bad/31.json.bad').readAsStringSync(), '{not json');
+      expect(File('${tmp.path}/bad/31.json').existsSync(), isTrue);
     });
   });
 
@@ -1141,7 +1294,7 @@ void main() {
               child: TextButton(
                 onPressed: () => showSecCheckDialog(
                   context,
-                  const SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSA1', secqaaHash: 'qSA1'),
+                  const SecCheck(seccode: true, secqaa: true, seccodeHash: 'cSAapp', secqaaHash: 'qSAapp'),
                 ),
                 child: const Text('open'),
               ),

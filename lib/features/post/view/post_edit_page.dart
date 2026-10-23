@@ -15,6 +15,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
@@ -281,6 +282,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// The dialog asking for the captcha or the security question is up.
   bool _verifying = false;
 
+  /// Sending failed after the request left: the local draft is marked as maybe sent.
+  bool _draftMaybeSent = false;
+
   /// The form tells the forum's size limits of the post: its size is shown while it changes.
   bool _bodyCounted = false;
 
@@ -307,6 +311,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         tid: widget.tid,
         title: _draftTitle,
         typeId: threadType?.typeID,
+        maybeSent: _draftMaybeSent,
       ),
     );
   }
@@ -323,7 +328,25 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }
 
   /// Put the offered draft into the editor: its title, its post and its thread type.
-  void _restoreDraft(PostEditState state) {
+  ///
+  /// The draft of an edit is put over the post as loaded now: asked first, with the time the draft was saved (the post
+  /// may have been edited on the forum since).
+  Future<void> _restoreDraft(PostEditState state) async {
+    final offered = _drafts.offer.value?.draft;
+    if (offered == null) {
+      return;
+    }
+    if (offered.key.kind == LocalDraftKind.edit) {
+      final tr = context.t.localDraft;
+      final ok = await showQuestionDialog(
+        context: context,
+        title: tr.restoreEditTitle,
+        message: tr.restoreEditMessage(time: offered.updatedAt.yyyyMMDDHHMM()),
+      );
+      if (!(ok ?? false) || !mounted) {
+        return;
+      }
+    }
     final draft = _drafts.takeOffer();
     if (draft == null) {
       return;
@@ -1219,7 +1242,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       padding: horizontal.add(edgeInsetsT12),
                       child: DraftOfferBanner(
                         draft: offer.draft,
-                        onRestore: () => _restoreDraft(state),
+                        onRestore: () async => _restoreDraft(state),
                         onDiscard: _drafts.discardOffer,
                       ),
                     ),
@@ -1289,6 +1312,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     if (state.status == PostEditStatus.failedToUpload) {
+      if (state.maybeSent) {
+        _draftMaybeSent = true;
+        _drafts.flush();
+      }
       // Sent too soon after the previous post: the send buttons count down the forum's interval.
       if (floodControlSeconds(state.errorText) case final seconds?) {
         _waitForFlood(seconds);

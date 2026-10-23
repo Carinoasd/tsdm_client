@@ -2827,7 +2827,11 @@
     "forum": "Forum ${fid}",
     "member": "Member ${uid}",
     "post": "Post ${pid}",
-    "savedAt": "Saved ${time}"
+    "savedAt": "Saved ${time}",
+    "offerMaybeSent": "May have been sent, check first (${time})",
+    "maybeSent": "May have been sent, check first",
+    "restoreEditTitle": "Restore this draft?",
+    "restoreEditMessage": "The draft was saved ${time}. Restoring puts it in place of the post as loaded now: anything edited on the forum since then would be overwritten when you send."
   },
   "secCheck": {
     "title": "Verification",

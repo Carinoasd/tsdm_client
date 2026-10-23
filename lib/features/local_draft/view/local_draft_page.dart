@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_text.dart';
@@ -40,13 +41,29 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
   Map<String, String> _threadTitles = const {};
 
   StreamSubscription<int>? _changes;
+  StreamSubscription<AuthStatus>? _auth;
 
   LocalDraftStore? get _store => LocalDraftStore.app;
 
   @override
   void initState() {
     super.initState();
-    _uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    final auth = context.read<AuthenticationRepository>();
+    _uid = auth.effectiveCurrentUid;
+    // Another account in use: its drafts, never the previous one's.
+    _auth = auth.status.listen((_) {
+      final uid = auth.effectiveCurrentUid;
+      if (uid == _uid || !mounted) {
+        return;
+      }
+      setState(() {
+        _uid = uid;
+        _drafts = null;
+        _threadTitles = const {};
+      });
+      unawaited(_load());
+      unawaited(_loadThreadTitles());
+    });
     _changes = _store?.changes.listen((uid) {
       if (uid == _uid) {
         unawaited(_load());
@@ -59,6 +76,7 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
   @override
   void dispose() {
     unawaited(_changes?.cancel());
+    unawaited(_auth?.cancel());
     super.dispose();
   }
 
@@ -120,6 +138,11 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
   /// Open the page the draft was written on: its editor offers the draft there.
   Future<void> _open(BuildContext context, LocalDraft draft) async {
     final key = draft.key;
+    // The editor of the target offers this very draft, also one kept aside.
+    final uid = _uid;
+    if (uid != null) {
+      _store?.preferNext(uid, key);
+    }
     switch (key.kind) {
       case LocalDraftKind.threadReply:
         await context.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': key.tid});
@@ -230,8 +253,11 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
                   [
                     tr.savedAt(time: draft.updatedAt.yyyyMMDDHHMM()),
                     if (draft.key.isBackup) tr.older,
+                    if (draft.maybeSent) tr.maybeSent,
                   ].join(' · '),
-                  style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                  style: textTheme.labelSmall?.copyWith(
+                    color: draft.maybeSent ? colorScheme.error : colorScheme.outline,
+                  ),
                 ),
               ],
             ),

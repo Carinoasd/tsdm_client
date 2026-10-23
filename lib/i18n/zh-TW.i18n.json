@@ -2827,7 +2827,11 @@
     "forum": "版塊 ${fid}",
     "member": "會員 ${uid}",
     "post": "帖子 ${pid}",
-    "savedAt": "保存於 ${time}"
+    "savedAt": "保存於 ${time}",
+    "offerMaybeSent": "可能已送出，請先確認（${time}）",
+    "maybeSent": "可能已送出，請先確認",
+    "restoreEditTitle": "恢復這份草稿？",
+    "restoreEditMessage": "草稿保存於 ${time}。恢復會取代現在載入的帖子內容，之後若在論壇上改過，送出時較新的內容會被蓋掉。"
   },
   "secCheck": {
     "title": "請完成驗證",

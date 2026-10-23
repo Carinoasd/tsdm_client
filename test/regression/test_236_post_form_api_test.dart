@@ -571,7 +571,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         )!;
         expect(listed.asksVerification, isTrue, reason: name);
         // The ids are told: the editor asks the user (`seccheck` is no reason to leave the form any more).
-        expect(listed.secCheck?.seccodeHash, 'cSA0000', reason: name);
+        expect(listed.secCheck?.seccodeHash, 'cSAapp', reason: name);
         expect(
           listed.editorSupport(listed.action),
           name == 'newthread_poll' ? PostFormSupport.unsupported : PostFormSupport.supported,
@@ -915,7 +915,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       expect(harness.posts, hasLength(1));
     });
 
-    test("a captcha: edited here with the ids to answer; the web page's too; no ids, the website", () async {
+    test("a captcha: edited here, answered with the app's ids; the web page's too", () async {
       final seccheck = _Harness(
         page: (_) => _with('newthread', {
           'seccheck': {
@@ -930,7 +930,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       );
       final bloc = await _load(seccheck, const ThreadPubFetchInfoRequested(fid: '7'));
       expect(bloc.state.status, PostEditStatus.editing);
-      expect(bloc.state.content!.secCheck, const SecCheck(secqaa: true, secqaaHash: 'qSA0000'));
+      expect(bloc.state.content!.secCheck, const SecCheck(secqaa: true, secqaaHash: 'qSAapp'));
       expect(bloc.canSubmit, isTrue);
 
       const challenge =
@@ -939,11 +939,11 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       final page = _Harness(page: (_) => draftEditForm(extra: challenge, uid: 31));
       final pageBloc = await _load(page, const ThreadPubFetchInfoRequested(fid: '4'));
       expect(pageBloc.state.status, PostEditStatus.editing);
-      expect(pageBloc.state.content!.secCheck, const SecCheck(seccode: true, seccodeHash: 'cSA0000'));
-      // A field without the id of its check: the website.
+      expect(pageBloc.state.content!.secCheck, const SecCheck(seccode: true, seccodeHash: 'cSAapp'));
+      // A field printed by another theme: the app's own id all the same.
       final unnamed = _Harness(page: (_) => draftEditForm(extra: '<input name="secanswer" value="">', uid: 31));
       final unnamedBloc = await _load(unnamed, const ThreadPubFetchInfoRequested(fid: '4'));
-      expect(unnamedBloc.state.status, PostEditStatus.verificationRequired);
+      expect(unnamedBloc.state.content!.secCheck, const SecCheck(secqaa: true, secqaaHash: 'qSAapp'));
       expect(documentAsksVerification(parseHtmlDocument(draftEditForm(extra: challenge))), isTrue);
       expect(documentAsksVerification(parseHtmlDocument(draftEditForm())), isFalse);
       expect(
@@ -1311,7 +1311,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
           failure,
           verification
               ? isA<ReplyNeedsVerificationException>()
-                    .having((e) => e.check.seccodeHash, 'id', 'cSA0000')
+                    .having((e) => e.check.seccodeHash, 'id', 'cSAapp')
                     .having((e) => e.url, 'url', '$baseUrl/$_replyAction')
               : isA<ReplyNeedsBrowserException>()
                     .having((e) => e.verification, 'verification', isFalse)
@@ -1334,7 +1334,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         isA<ReplyNeedsVerificationException>().having(
           (e) => e.check,
           'check',
-          const SecCheck(secqaa: true, secqaaHash: 'qSA0000'),
+          const SecCheck(secqaa: true, secqaaHash: 'qSAapp'),
         ),
       );
       expect(forum.requests.map((r) => r.method), ['GET']);
@@ -1669,7 +1669,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
             .having(
               (e) => e.check,
               'check',
-              const SecCheck(seccode: true, seccodeHash: 'cSA0000', modid: 'forum::viewthread'),
+              const SecCheck(seccode: true, seccodeHash: 'cSAapp', modid: 'forum::viewthread'),
             )
             .having((e) => e.url, 'url', '$homePage?mod=post&action=reply&fid=${parameters.fid}&tid=${parameters.tid}'),
       );

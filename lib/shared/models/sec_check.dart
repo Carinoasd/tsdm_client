@@ -9,11 +9,14 @@ final _updateSecQaaRe = RegExp(r'''updatesecqaa\(\s*['"](\w+)['"]''');
 /// What the forum asks before it takes a post (Discuz `seccheck`): a captcha ([seccode]), a security question
 /// ([secqaa]) or both, and the ids the answers go with.
 ///
-/// Each check has an id (`idhash`: `c…` for the captcha, `q…` for the question). The forum keeps the expected answer
-/// under that id (a cookie of the session and a row of its own) when the image or the question is asked, and finds it
-/// again by the id posted with the answer (`seccodehash`, `secqaahash`), so the image or question must be asked with
-/// the id the answer is posted with. [modid] names the page the check belongs to (`forum::post` for the post forms and
-/// the reply window, `forum::viewthread` for the quick reply); it matters to a captcha of a plugin only.
+/// Each check has an id (`idhash`). The forum keeps the expected answer under that id (a row of its own and a cookie
+/// `<prefix>seccode<id>` / `<prefix>secqaa<id>` of the session, kept without an end) when the image or the question
+/// is asked, and finds it again by the id posted with the answer (`seccodehash`, `secqaahash`). It takes any word as an
+/// id: the app always uses its own ([appSeccodeHash], [appSecqaaHash]), never the page's (`c`/`q` and a part random
+/// per page), so the session keeps one cookie of each however often it is asked (a cookie per id piled up until the
+/// requests of the account grew too large), and they are dropped once the post went (`clearSecCheckCookies`).
+/// [modid] names the page the check belongs to (`forum::post` for the post forms and the reply window,
+/// `forum::viewthread` for the quick reply); it matters to a captcha of a plugin only.
 @MappableClass()
 final class SecCheck with SecCheckMappable {
   /// Constructor.
@@ -25,19 +28,20 @@ final class SecCheck with SecCheckMappable {
     this.modid = postModid,
   });
 
-  /// The checks of a form refused for them when posted (a site asking by the number of posts or their interval decides
-  /// only then, and the form told no ids): ids of the app's own, unique enough for the session (the forum takes any
-  /// word as an id, see [SecCheck]).
-  factory SecCheck.generated({bool seccode = false, bool secqaa = false, String modid = postModid}) {
-    final stamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-    return SecCheck(
-      seccode: seccode,
-      secqaa: secqaa,
-      seccodeHash: seccode ? 'cSA$stamp' : '',
-      secqaaHash: secqaa ? 'qSA$stamp' : '',
-      modid: modid,
-    );
-  }
+  /// The checks [seccode] and [secqaa] with the app's ids.
+  factory SecCheck.generated({bool seccode = false, bool secqaa = false, String modid = postModid}) => SecCheck(
+    seccode: seccode,
+    secqaa: secqaa,
+    seccodeHash: seccode ? appSeccodeHash : '',
+    secqaaHash: secqaa ? appSecqaaHash : '',
+    modid: modid,
+  );
+
+  /// The id of the captcha the app asks and answers.
+  static const appSeccodeHash = 'cSAapp';
+
+  /// The id of the security question the app asks and answers.
+  static const appSecqaaHash = 'qSAapp';
 
   /// The checks of the post forms and the reply window.
   static const postModid = 'forum::post';
@@ -46,8 +50,8 @@ final class SecCheck with SecCheckMappable {
   static const viewthreadModid = 'forum::viewthread';
 
   /// The checks of the forum's app API answer [json] (`seccheck` of a post form, schema 16; `reply.seccheck` of a thread
-  /// page, plugin 2.9.1): `{"seccode":1,"secqaa":0,"seccode_hash":"cS…","secqaa_hash":null,"modid":"forum::post"}`.
-  /// Null when it asks for nothing; a check asked without an id gets one of its own ([SecCheck.generated]).
+  /// page, plugin 2.9.1): `{"seccode":1,"secqaa":0,"seccode_hash":"cS…","secqaa_hash":null,"modid":"forum::post"}`,
+  /// with the app's ids. Null when it asks for nothing.
   static SecCheck? fromJson(Object? json, {String modid = postModid}) {
     if (json is! Map<String, dynamic>) {
       return null;
@@ -57,56 +61,40 @@ final class SecCheck with SecCheckMappable {
     if (!seccode && !secqaa) {
       return null;
     }
-    String? hash(String key) {
-      final value = json[key];
-      return value is String && _hashRe.hasMatch(value) ? value : null;
-    }
-
     final named = json['modid'];
-    final generated = SecCheck.generated(
+    return SecCheck.generated(
       seccode: seccode,
       secqaa: secqaa,
       modid: named is String && RegExp(r'^[\w:]+$').hasMatch(named) ? named : modid,
     );
-    return generated.copyWith(
-      seccodeHash: seccode ? hash('seccode_hash') ?? generated.seccodeHash : '',
-      secqaaHash: secqaa ? hash('secqaa_hash') ?? generated.secqaaHash : '',
-    );
   }
 
-  /// The checks of the web page form [scope] (a post form, the reply window, the quick reply form): the placeholders the
-  /// forum's `seccheck` template prints (`span#seccode_<id>`, `span#secqaa_<id>`, filled by the page script
-  /// `updateseccode('<id>', …, '<modid>')` / `updatesecqaa('<id>')`), or the fields as another theme may print them
-  /// (`seccodehash`, `secqaahash`). Null when the form asks for nothing, or for a check whose id it does not tell.
+  /// The checks of the web page form [scope] (a post form, the reply window, the quick reply form), with the app's ids:
+  /// the placeholders the forum's `seccheck` template prints (`span#seccode_<id>`, `span#secqaa_<id>`, filled by the
+  /// page script `updateseccode('<id>', …, '<modid>')` / `updatesecqaa('<id>')`), or the fields as another theme may
+  /// print them (`seccodeverify`, `secanswer`). Null when the form asks for nothing.
   static SecCheck? fromElement(uh.Element? scope, {String modid = postModid}) {
     if (scope == null) {
       return null;
     }
     final scripts = scope.querySelectorAll('script').map((e) => e.text ?? '').join('\n');
-    String? placeholder(String prefix) {
-      final id = scope.querySelector('[id^="$prefix"]')?.id.substring(prefix.length);
-      return id != null && _hashRe.hasMatch(id) ? id : null;
-    }
-
-    String? field(String name) {
-      final value = scope.querySelector('input[name="$name"]')?.attributes['value'];
-      return value != null && _hashRe.hasMatch(value) ? value : null;
-    }
-
     final codeScript = _updateSecCodeRe.firstMatch(scripts);
-    final seccodeHash = placeholder('seccode_') ?? codeScript?.group(1) ?? field('seccodehash');
-    final secqaaHash = placeholder('secqaa_') ?? _updateSecQaaRe.firstMatch(scripts)?.group(1) ?? field('secqaahash');
-    final asksCode = seccodeHash != null || scope.querySelector('[name="seccodeverify"]') != null;
-    final asksQaa = secqaaHash != null || scope.querySelector('[name="secanswer"]') != null;
-    if ((!asksCode && !asksQaa) || (asksCode && seccodeHash == null) || (asksQaa && secqaaHash == null)) {
+    final asksCode =
+        scope.querySelector('[id^="seccode_"]') != null ||
+        codeScript != null ||
+        scope.querySelector('[name="seccodehash"], [name="seccodeverify"]') != null;
+    final asksQaa =
+        scope.querySelector('[id^="secqaa_"]') != null ||
+        _updateSecQaaRe.hasMatch(scripts) ||
+        scope.querySelector('[name="secqaahash"], [name="secanswer"]') != null;
+    if (!asksCode && !asksQaa) {
       return null;
     }
-    return SecCheck(
+    final named = scope.querySelector('input[name="seccodemodid"]')?.attributes['value'];
+    return SecCheck.generated(
       seccode: asksCode,
       secqaa: asksQaa,
-      seccodeHash: seccodeHash ?? '',
-      secqaaHash: secqaaHash ?? '',
-      modid: codeScript?.group(2) ?? field('seccodemodid') ?? modid,
+      modid: codeScript?.group(2) ?? (named != null && _hashRe.hasMatch(named.replaceAll(':', '')) ? named : modid),
     );
   }
 

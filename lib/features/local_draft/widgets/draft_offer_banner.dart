@@ -44,7 +44,9 @@ class DraftOfferBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  tr.offer(time: draft.updatedAt.yyyyMMDDHHMM()),
+                  draft.maybeSent
+                      ? tr.offerMaybeSent(time: draft.updatedAt.yyyyMMDDHHMM())
+                      : tr.offer(time: draft.updatedAt.yyyyMMDDHHMM()),
                   style: textTheme.labelLarge?.copyWith(color: foreground, fontWeight: FontWeight.bold),
                 ),
                 if (hint != null && hint.isNotEmpty)

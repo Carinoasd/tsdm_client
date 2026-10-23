@@ -140,6 +140,7 @@ final class LocalDraft {
     this.quote = true,
     this.title,
     this.typeId,
+    this.maybeSent = false,
   });
 
   /// The draft written as [json] under [key], null when it is not one.
@@ -166,6 +167,7 @@ final class LocalDraft {
       quote: json['quote'] != false,
       title: text('title'),
       typeId: text('typeId'),
+      maybeSent: json['maybeSent'] == true,
     );
   }
 
@@ -205,6 +207,10 @@ final class LocalDraft {
   /// The thread type chosen for a new thread, when one was.
   final String? typeId;
 
+  /// Sending it failed after the request left (no answer came): the forum may have taken it, the user should look
+  /// before sending it again.
+  final bool maybeSent;
+
   /// Whether nothing was written: no title and no post.
   bool get isEmpty => body.trim().isEmpty && (subject?.trim().isEmpty ?? true);
 
@@ -213,8 +219,11 @@ final class LocalDraft {
       other != null && other.body == body && (other.subject ?? '') == (subject ?? '') && other.delta == delta;
 
   /// This draft under [key].
-  LocalDraft withKey(LocalDraftKey key) => LocalDraft(
-    key: key,
+  LocalDraft withKey(LocalDraftKey key) => copyWith(key: key);
+
+  /// This draft with [key], or marked [maybeSent].
+  LocalDraft copyWith({LocalDraftKey? key, bool? maybeSent}) => LocalDraft(
+    key: key ?? this.key,
     body: body,
     updatedAt: updatedAt,
     delta: delta,
@@ -226,6 +235,7 @@ final class LocalDraft {
     quote: quote,
     title: title,
     typeId: typeId,
+    maybeSent: maybeSent ?? this.maybeSent,
   );
 
   /// The draft as written in the file (its key is the name it is written under).
@@ -241,6 +251,7 @@ final class LocalDraft {
     if (!quote) 'quote': false,
     'title': ?title,
     'typeId': ?typeId,
+    if (maybeSent) 'maybeSent': true,
   };
 
   @override

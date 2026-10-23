@@ -56,6 +56,7 @@ final class PostEditState with PostEditStateMappable {
     this.needsBrowser = false,
     this.secCheck,
     this.wrongAnswer = false,
+    this.maybeSent = false,
   });
 
   /// Status.
@@ -91,4 +92,7 @@ final class PostEditState with PostEditStateMappable {
 
   /// The answers sent last were not taken ([secCheck]).
   final bool wrongAnswer;
+
+  /// The post failed after the request left ([PostEditStatus.failedToUpload]): the forum may have taken it.
+  final bool maybeSent;
 }

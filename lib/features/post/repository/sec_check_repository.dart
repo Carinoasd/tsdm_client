@@ -7,12 +7,30 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
 
 /// The `src` of the captcha image in the script the forum answers for it (`misc.php?mod=seccode&action=update`).
 final _captchaSrcRe = RegExp(r'''src=\\?["'](misc\.php\?mod=seccode[^"'\\]*)\\?["']''');
+
+/// Whether the cookie [name] is one the forum keeps the answer of a check in (`<prefix>seccode<id>`,
+/// `<prefix>secqaa<id>`).
+bool isSecCheckCookie(String name) => RegExp(r'_sec(?:code|qaa)\w*$').hasMatch(name);
+
+/// Drop the cookies of the checks from the session of the account in use: the forum sets one per id asked and never
+/// ends it, nor needs it once the post with the answers went (it deleted the row the cookie points to).
+Future<void> clearSecCheckCookies() async {
+  if (!getIt.isRegistered<CookieProvider>()) {
+    return;
+  }
+  try {
+    await getIt.get<CookieProvider>().dropCookiesWhere(isSecCheckCookie);
+  } on Object catch (e) {
+    talker.warning('failed to drop the cookies of the checks: $e');
+  }
+}
 
 /// Asks the forum for the captcha and the security question of a [SecCheck], and checks an answer, as the forum's own
 /// page script does (`updateseccode`, `updatesecqaa`, `checksec`), with the account's session: the forum keeps the
