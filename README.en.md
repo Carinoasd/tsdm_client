@@ -16,14 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.47.0 (2026-10-23)
+## Latest update: 1.48.0 (2026-10-23)
 
-- Faster start-up: the home page and the guide show the last loaded content first and then refresh; the image cache is looked up on demand, and automatic cleanup is on by default and runs in the background.
-- Lists show a two-line excerpt and thumbnails of the first post (needs plugin 3.1.0; can be limited to Wi-Fi or turned off); replies, private messages, new threads and edits are saved as local drafts; the reply box keeps an emoji panel; captchas can be filled in inside the app.
-- Continuous reading loads the next page as you scroll and remembers which floor you reached in each thread; the bottom bar is now "Home / Forums / Notifications / Me" with a new "Me" page.
-- Load errors explain the cause, lists load more at the bottom automatically, and skeletons show on first load. Android build number 153, installs over earlier releases and test builds.
+- Post image gallery: tap an image to open a full-screen gallery, swipe through every image of the same floor, pinch or double-tap to zoom, swipe down to close; long-press an image to save, share, copy its URL or open it in the browser.
+- Images show loading progress and can be retried on failure, and reserve their height before loading so the layout no longer jumps; new setting "Load images in posts automatically": always / Wi-Fi only / never.
+- Fixed the notification quick reply wrongly showing "thread closed" and saving it as a draft, the "back to home" button on the reply page, and the oversized gap above the keyboard (#235). Android build number 154, installs over earlier releases and test builds.
 
-[Download 1.47.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.47.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.48.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
