@@ -38,7 +38,7 @@ void main() {
     points = PointsChangesCubit();
     updates = UpdateCubit();
     location = RootLocationCubit();
-    init = InitCubit()..skipAutoClearImageCache();
+    init = InitCubit();
     rewards.clear();
     subscription = points.stream.where((value) => value != PointsChangesValue.empty).listen(rewards.add);
   });

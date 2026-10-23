@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
-import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/points/stream.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
@@ -144,14 +143,23 @@ void main() {
     await settings.setValue(SettingsKeys.autoCheckin, false);
     await settings.setValue(SettingsKeys.autoDailyRedPacket, true);
     final reward = pointsChangesStream.stream.first;
+    final replaced = home.pageReplacements.first;
     final result = await home.fetchHomePage().run();
     expect(result.isRight(), isTrue);
-    expect(await reward.timeout(const Duration(seconds: 3)), '0D0D2D0D0D0D0D0D0D1000');
+    // The page is answered before the rewards (cold start): they run in the background and replace it.
     result.fold((_) => fail('homepage should remain available'), (page) {
       final doc = (page as ForumHomeWebPage).document;
-      expect(doc.querySelector('#balance')?.text, '17');
-      expect(parseDailyRedPacketConfig(doc), isNull);
+      expect(doc.querySelector('#balance')?.text, '10');
+      expect(parseDailyRedPacketConfig(doc), isNotNull);
     });
+    await home.dailyRewardsDone;
+    expect(await reward.timeout(const Duration(seconds: 3)), '0D0D2D0D0D0D0D0D0D1000');
+    final replacement = await replaced;
+    expect(identical(replacement.previous, result.toNullable()), isTrue);
+    final doc = (replacement.page as ForumHomeWebPage).document;
+    expect(doc.querySelector('#balance')?.text, '17');
+    expect(parseDailyRedPacketConfig(doc), isNull);
+    expect(identical(home.getCache(), replacement.page), isTrue);
     expect(adapter.requests.map((e) => e.$1), ['/forum.php', '/home.php', '/plugin.php', '/forum.php']);
     expect(adapter.requests[2].$3, 'formhash=XXXXXXXX');
     await home.fetchHomePage().run();
@@ -174,27 +182,43 @@ void main() {
     final result = await home.fetchHomePage().run();
     expect(result.isRight(), isTrue);
     result.fold((_) => fail('homepage failed'), (page) => expect(page.dailyRedPacket, isNotNull));
+    await home.dailyRewardsDone;
     expect(adapter.homeCalls, 1);
+    expect(home.getCache()?.dailyRedPacket, isNotNull);
   });
 
   test('failed best-effort reload preserves fetched homepage', () async {
     adapter.reloadFails = true;
-    expect((await home.fetchHomePage().run()).isRight(), isTrue);
+    final page = (await home.fetchHomePage().run()).toNullable();
+    expect(page, isNotNull);
+    await home.dailyRewardsDone;
     expect(home.hasCache(), isTrue);
+    expect(identical(home.getCache(), page), isTrue);
   });
 
   test('unexpected reload response preserves fetched homepage', () async {
     adapter.reloadMalformed = true;
-    expect((await home.fetchHomePage().run()).isRight(), isTrue);
+    final page = (await home.fetchHomePage().run()).toNullable();
+    expect(page, isNotNull);
+    await home.dailyRewardsDone;
     expect(home.hasCache(), isTrue);
+    expect(identical(home.getCache(), page), isTrue);
   });
 
   test('switching accounts during visit does not claim or cache old account page', () async {
     await settings.setValue(SettingsKeys.autoDailyRedPacket, true);
     adapter.onVisit = () => cookie.updateUserInfo(const UserLoginInfo(uid: 1001, username: 'Bob'));
+    final replacements = <Object>[];
+    final sub = home.pageReplacements.listen(replacements.add);
+    addTearDown(sub.cancel);
+    // The page is answered before the visit (cold start): it was served to Alice, the account in use then.
     final result = await home.fetchHomePage().run();
-    result.fold((error) => expect(error, isA<IdentityChangedException>()), (_) => fail('stale page published'));
-    expect(adapter.requests.where((e) => e.$2 == 'POST'), isEmpty);
-    expect(home.hasCache(), isFalse);
+    expect(result.toNullable()?.servedUid, 1000);
+    await home.dailyRewardsDone;
+    expect(adapter.requests.where((e) => e.$2 == 'POST'), isEmpty, reason: 'nothing claimed for Bob or Alice');
+    expect(adapter.homeCalls, 1, reason: 'no reload for the previous account');
+    expect(replacements, isEmpty);
+    expect(home.hasCache(), isFalse, reason: "Alice's page is never handed to Bob");
+    expect(home.getCache(), isNull);
   });
 }

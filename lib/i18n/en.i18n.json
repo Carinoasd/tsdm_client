@@ -200,6 +200,11 @@
       "failed": "Failed to load, tap to retry",
       "empty": "No threads yet"
     },
+    "saved": {
+      "updating": "Showing the homepage of ${time}, updating…",
+      "failed": "Could not update, showing the homepage of ${time}",
+      "retry": "Retry"
+    },
     "forumStatus": {
       "today": "Today",
       "yesterday": "Yesterday",

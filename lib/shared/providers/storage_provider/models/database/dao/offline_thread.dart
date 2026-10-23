@@ -113,6 +113,17 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
   /// reads every body at once.
   Future<List<OfflineThreadEntity>> selectAll() async => select(offlineThread).get();
 
+  /// Up to [limit] bodies of saved pages after the row [afterRowId] in row order, with their row ids: for the clean up
+  /// of the image cache, which keeps the pictures of the saved pages. Read a few at a time, never every body at once.
+  Future<List<({int rowId, String body})>> selectBodiesAfter(int afterRowId, int limit) async {
+    final rows = await customSelect(
+      'SELECT rowid AS r, body FROM offline_thread WHERE rowid > ?1 ORDER BY rowid LIMIT ?2',
+      variables: [Variable.withInt(afterRowId), Variable.withInt(limit)],
+      readsFrom: {offlineThread},
+    ).get();
+    return rows.map((r) => (rowId: r.read<int>('r'), body: r.read<String>('body'))).toList();
+  }
+
   /// Delete every saved page of thread [tid] for user [uid].
   Future<int> deleteThread({required int uid, required int tid}) async =>
       (delete(offlineThread)..where((e) => e.uid.equals(uid) & e.tid.equals(tid))).go();

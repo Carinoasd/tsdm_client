@@ -196,11 +196,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Detect system proxy settings when app startup and use the detected value.
   useDetectedProxyWhenStartup<bool>(name: 'useDetectedProxyWhenStartup', type: bool, defaultValue: false),
 
-  /// Auto clear outdated image cache.
+  /// Auto clear the image cache: the images not shown for [autoClearImageCacheDuration] and the least recently shown
+  /// ones beyond the size of the cache (`ImageCacheLimits`), the pictures of the offline thread pages kept.
   ///
-  /// Default is disabled, to match the old behavior: the clearing runs before the homepage shows and is slow on a
-  /// large cache.
-  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: false),
+  /// On by default: the clean up runs in the background long after the first frame and never holds the homepage
+  /// (`InitCubit.scheduleImageCacheTrim`). A value saved before (on or off) stays what it was.
+  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: true),
 
   /// Duration of an image cache considered as outdated for auto clear, in seconds.
   ///
