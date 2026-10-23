@@ -141,7 +141,7 @@ Widget munchElement(
 }) {
   final muncher = _Muncher(context, parseLockedWithPurchase: parseLockedWithPurchase, options: options)
     .._root = rootElement;
-  muncher._sheets = AuthorStyleSheets.of(rootElement, postContent: muncher.typography != null);
+  muncher._sheets = AuthorStyleSheets.of(rootElement, postContent: muncher.postContent);
 
   // Undo Cloudflare's email obfuscation first, so addresses read and tap like the author wrote them.
   rewriteCloudflareEmails(rootElement);
@@ -191,6 +191,9 @@ typedef _MunchStyle = ({
   List<_Behind> blockBackgroundStack,
   List<List<Shadow>> shadowStack,
   List<double> fontSizeStack,
+  String? fontFamily,
+  bool monospace,
+  FontSize? fontSizeKeyword,
   double? textIndent,
   bool tinyText,
   int? linkDepth,
@@ -317,6 +320,18 @@ class _MunchState {
   /// Use as a stack because only the latest size works on font.
   final fontSizeStack = <double>[];
 
+  /// The font family the text is shown in: null for the theme's, [serifFontFamily] for a serif font the author named
+  /// (`<font face="仿宋">`, `font-family: 楷体`; see [AuthorFontFamily]).
+  String? fontFamily;
+
+  /// The text is in the monospace font of a `<pre>` (its font not set to another by the author): a `<font size>` in it
+  /// is sized as a browser sizes its monospace font, from 13px for medium instead of 16px.
+  bool monospace = false;
+
+  /// The `<font size>` the size of the text is, null for a size of another kind: when the text changes to or from the
+  /// monospace font, a browser sizes it again in the new font ([monospace]).
+  FontSize? fontSizeKeyword;
+
   /// The indent of the first line of the blocks (`text-indent`, inherited as css does), in pixels.
   double? textIndent;
 
@@ -366,6 +381,9 @@ class _MunchState {
     blockBackgroundStack: List.of(blockBackgroundStack),
     shadowStack: List.of(shadowStack),
     fontSizeStack: List.of(fontSizeStack),
+    fontFamily: fontFamily,
+    monospace: monospace,
+    fontSizeKeyword: fontSizeKeyword,
     textIndent: textIndent,
     tinyText: tinyText,
     linkDepth: linkDepth,
@@ -399,6 +417,9 @@ class _MunchState {
     fontSizeStack
       ..clear()
       ..addAll(saved.fontSizeStack);
+    fontFamily = saved.fontFamily;
+    monospace = saved.monospace;
+    fontSizeKeyword = saved.fontSizeKeyword;
     textIndent = saved.textIndent;
     tinyText = saved.tinyText;
     linkDepth = saved.linkDepth;
@@ -419,7 +440,8 @@ class _MunchState {
 final class _Muncher with LoggerMixin {
   /// Constructor.
   _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options})
-    : typography = PostTypographyScope.maybeOf(context);
+    : typography = PostTypographyScope.maybeOf(context),
+      postContent = PostTypographyScope.isPostContent(context);
 
   /// Context to build widget when munching.
   final BuildContext context;
@@ -427,6 +449,9 @@ final class _Muncher with LoggerMixin {
   /// How a post's content is laid out (line height, paragraphs); null for html that is not a post's content (a notice,
   /// a message, a profile), laid out as the body text.
   final PostTypography? typography;
+
+  /// The html is a post's content ([PostTypographyScope.postContent]), not only laid out as one ([typography]).
+  final bool postContent;
 
   /// Text spans of preformatted text (`<pre>`): their lines are kept as they are ([layOutParagraphs]).
   final _keptLines = Set<InlineSpan>.identity();
@@ -602,6 +627,9 @@ final class _Muncher with LoggerMixin {
 
   /// Put the [style] of [element] in the state: what its text is shown with.
   void _applyStyle(uh.Element element, AuthorStyle style) {
+    if (style.fontFamily case final families?) {
+      _takeFontFamily(families);
+    }
     // The background first: the element's own color is given on it (see [_buildTextStyle]).
     if (style.background case final background? when !_blockBackgroundElements.contains(_nameOf(element))) {
       state.backgroundColorStack.add(_behind(background));
@@ -612,7 +640,8 @@ final class _Muncher with LoggerMixin {
       final px = size.em ? size.value * outer : _appFontSize(size.value);
       state
         ..tinyText = px <= _appFontSize(_hiddenFontSize)
-        ..fontSizeStack.add(px.clamp(_appFontSize(minWebFontSize), _appFontSize(maxWebFontSize)));
+        ..fontSizeStack.add(px.clamp(_appFontSize(minWebFontSize), _appFontSize(maxWebFontSize)))
+        ..fontSizeKeyword = null;
     }
     if (style.color case final color?) {
       if (identical(element, _link)) {
@@ -936,6 +965,31 @@ final class _Muncher with LoggerMixin {
       element.classes.contains('jammer') ||
       _hiddenStyleRe.hasMatch(element.attributes['style'] ?? '');
 
+  /// Whether [element] is not shown on the web page ([_isHidden]), also when the style sheets of the post hide it
+  /// (`.answer { display: none }`): before, only its own `style` was read for it.
+  bool _hidden(uh.Element element) => _isHidden(element) || _styleOf(element)?.display == 'none';
+
+  /// Whether the style of [element], an element of the web page laid out in its line (a `<span>`, a `<small>`, a link,
+  /// an image), makes it a block (`display: block`, `flex`…): it takes lines of its own. Before, such an element stayed
+  /// in the line, and the headings a post's style sheet set on lines of their own ran together with the text after
+  /// them.
+  bool _displaysBlock(uh.Element element, String localName) =>
+      _blockableElements.contains(localName) && (_styleOf(element)?.displaysBlock ?? false);
+
+  /// Elements of the web page laid out in a line that a style can make blocks of ([_displaysBlock]).
+  static const Set<String> _blockableElements = {
+    ..._inlineElements,
+    'img',
+    'abbr',
+    'q',
+    'mark',
+    'kbd',
+    'samp',
+    'var',
+    'dfn',
+    'tt',
+  };
+
   static final _hiddenStyleRe = RegExp(
     r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\b',
     caseSensitive: false,
@@ -982,7 +1036,7 @@ final class _Muncher with LoggerMixin {
     }
     final hidden = <String, uh.Element>{};
     for (final e in root.querySelectorAll('[id]')) {
-      if (_isHidden(e) && _canFold(e) && !_showsNothing(e)) {
+      if (_hidden(e) && _canFold(e) && !_showsNothing(e)) {
         hidden.putIfAbsent(e.id, () => e);
       }
     }
@@ -1097,12 +1151,12 @@ final class _Muncher with LoggerMixin {
   }
 
   /// The text [element] shows, white space collapsed: what is hidden in it left out.
-  static String _visibleText(uh.Element element) {
+  String _visibleText(uh.Element element) {
     final buffer = StringBuffer();
     void visit(uh.Node node) {
       for (final child in node.nodes) {
         if (child is uh.Element) {
-          if (_isHidden(child) || _invisibleElements.contains(_nameOf(child))) {
+          if (_hidden(child) || _invisibleElements.contains(_nameOf(child))) {
             continue;
           }
           if (child.localName == 'br') {
@@ -1122,17 +1176,17 @@ final class _Muncher with LoggerMixin {
 
   /// Whether the first thing [node] shows is a line break (`<br>`, also inside inline elements): true; something else:
   /// false; nothing: null.
-  static bool? _firstIsLineBreak(uh.Node node) {
+  bool? _firstIsLineBreak(uh.Node node) {
     for (final child in node.nodes) {
       if (child is uh.Element) {
         final name = _nameOf(child);
         if (name == 'br') {
           return true;
         }
-        if (_invisibleElements.contains(name) || _isHidden(child)) {
+        if (_invisibleElements.contains(name) || _hidden(child)) {
           continue;
         }
-        if (!_inlineElements.contains(name)) {
+        if (!_inlineElements.contains(name) || _displaysBlock(child, name)) {
           return false;
         }
         final first = _firstIsLineBreak(child);
@@ -1234,7 +1288,7 @@ final class _Muncher with LoggerMixin {
 
           // Skip invisible nodes, but a fold the post made itself (shown by a click on another element) and the
           // element shown as its title.
-          if (_isHidden(element)) {
+          if (_hidden(element)) {
             return _buildFold(element);
           }
           if (_isFoldTitle(element)) {
@@ -1258,7 +1312,14 @@ final class _Muncher with LoggerMixin {
           List<InlineSpan>? span;
           try {
             debugBeforeMunchElement?.call(node);
-            span = _buildElement(node, localName);
+            span = _displaysBlock(node, localName)
+                // An element of a line made a block by its style: lines of its own, what it is otherwise kept (a
+                // link, bold text, an image).
+                ? _munchBlock(node, deferBreak: false, () => _endingLine(_buildElement(node, localName)))
+                : _buildElement(node, localName);
+            if (postContent && node.id.startsWith('postmessage_')) {
+              span = _withVideoCard(node, span);
+            }
           } on Object catch (e, st) {
             _restore(snapshot);
             if (_sourceElements.contains(localName)) {
@@ -1431,19 +1492,49 @@ final class _Muncher with LoggerMixin {
     return [WidgetSpan(child: state.tableDepth > 0 ? PostTableImage(child: image) : image)];
   }
 
-  /// `<font>`: the color and the size of its attributes; its `style` ([_styled]) over them. Its `face` is not taken:
-  /// the app has none of the fonts posts name.
+  /// `<font>`: the color, the font and the size of its attributes; its `style` ([_styled]) over them. Of its `face`,
+  /// only a serif font is shown, in the system's serif font ([AuthorFontFamily]): the app has none of the fonts posts
+  /// name.
   List<InlineSpan>? _buildFont(uh.Element element) {
     final hasColor = _tryPushColor(element);
-    final hasFontSize = _tryPushFontSize(element);
+    final family = state.fontFamily;
+    final monospace = state.monospace;
+    final keyword = state.fontSizeKeyword;
+    final sizes = state.fontSizeStack.length;
+    // The face before the size: a size in a monospace font is not one in the face that replaces it.
+    if (element.attributes['face'] case final face?) {
+      _takeFontFamily(face);
+    }
+    _tryPushFontSize(element);
     final ret = _munch(element);
     if (hasColor) {
       state.colorStack.removeLast();
     }
-    if (hasFontSize) {
-      state.fontSizeStack.removeLast();
-    }
+    state
+      ..fontSizeStack.removeRange(sizes, state.fontSizeStack.length)
+      ..fontFamily = family
+      ..monospace = monospace
+      ..fontSizeKeyword = keyword;
     return ret;
+  }
+
+  /// The fonts [families] the author named (a `face`, a `font-family`) taken for the text ([AuthorFontFamily]): a serif
+  /// font is shown in the system's serif font, any other in the theme's. Text of a `<font size>` going to or from the
+  /// monospace font of a `<pre>` takes the size the keyword has in the new font, as in a browser:
+  /// `<pre><font size="5"><font face="黑体">` is 24px, not 20px. The size is pushed on the stack of sizes.
+  void _takeFontFamily(String families) {
+    if (families.trim().isEmpty) {
+      return;
+    }
+    final family = AuthorFontFamily.of(families);
+    final monospace = family == AuthorFontFamily.monospace;
+    final resize = monospace != state.monospace;
+    state
+      ..fontFamily = family == AuthorFontFamily.serif ? serifFontFamily : null
+      ..monospace = monospace;
+    if (state.fontSizeKeyword case final keyword? when resize) {
+      state.fontSizeStack.add(_keywordFontSize(keyword));
+    }
   }
 
   List<InlineSpan>? _buildStrong(uh.Element element) {
@@ -1483,19 +1574,41 @@ final class _Muncher with LoggerMixin {
 
   /// The background the author gave the block [element] with [style]: its style's (`background-color`, a color in
   /// `background`), else its `bgcolor` (a table, a row, a cell: `[table=98%,pink]`). Its color is null when it is a
-  /// picture (`background: url(…)`, a gradient), which the app does not show. Null when it has none.
+  /// picture (`background: url(…)`, a gradient, the `background` attribute of a table), which the app does not show:
+  /// the block has no background of the author, its text is made readable on what is under it
+  /// ([AuthorColors.text]). Null when it has none.
+  ///
+  /// A picture is painted over the color of its block: a color given with it (`background: #ffe0b3 url(…)`, a
+  /// `bgcolor` beside the `background` attribute) is not what the text is on. Before, that color was taken for the
+  /// background, and the white text written for a dark picture was white on a light block.
   ({Color? color})? _blockBackgroundOf(uh.Element element, AuthorStyle? style) {
+    if (style?.backgroundPicture ?? (element.attributes['background']?.trim().isNotEmpty ?? false)) {
+      return (color: null);
+    }
     if (style?.background case final color?) {
       return (color: color);
     }
     if (parseLegacyColor(element.attributes['bgcolor']) case final color?) {
       return (color: color);
     }
-    if ((style?.backgroundPicture ?? false) || (element.attributes['background']?.trim().isNotEmpty ?? false)) {
-      return (color: null);
-    }
     return null;
   }
+
+  /// The background of a block [background] ([_blockBackgroundOf]) as it is seen where it is: a color the picture of
+  /// the block around it shows through (`rgba(255, 251, 242, 0.8)` in a block with a picture) is on that picture,
+  /// which the app does not show: it is a picture too. Before, it was taken over the white of the page, white text on
+  /// the picture was white on a light block (and hidden on purpose in a dark theme).
+  ({Color? color})? _seenOnBehind(({Color? color})? background) {
+    final color = background?.color;
+    final behind = state.blockBackgroundStack.lastOrNull;
+    if (color != null && color.a < _opaqueAlpha && behind != null && behind.color == null) {
+      return (color: null);
+    }
+    return background;
+  }
+
+  /// A background at least this opaque hides what is under it.
+  static const _opaqueAlpha = 0.95;
 
   /// The alignment the style of [element] gives its lines, a justified one as one aligned left (see
   /// [_munchStyledBlock]).
@@ -1523,7 +1636,7 @@ final class _Muncher with LoggerMixin {
     } else {
       align = _blockAlign(element) ?? defaultAlign;
     }
-    return _munchAligned(element, align, munch, background: _blockBackgroundOf(element, style));
+    return _munchAligned(element, align, munch, background: _seenOnBehind(_blockBackgroundOf(element, style)));
   }
 
   /// Munch [element] with [munch] and lay the result out with [align], on [background].
@@ -1992,7 +2105,7 @@ final class _Muncher with LoggerMixin {
   }
 
   /// Whether a link to [url] has a mark before it ([postLinkHasMark] in a post's content).
-  bool _marksLink(String url) => typography == null || postLinkHasMark(url);
+  bool _marksLink(String url) => !postContent || postLinkHasMark(url);
 
   List<InlineSpan>? _buildA(uh.Element element) {
     if (!element.attributes.containsKey('href') || !options.renderUrl) {
@@ -2026,7 +2139,7 @@ final class _Muncher with LoggerMixin {
       ..linkDepth = state.colorStack.length
       ..linkOrder = _behindCount
       ..linkColor = null
-      ..linkUnderline = typography != null;
+      ..linkUnderline = postContent;
     final List<InlineSpan>? ret;
     try {
       ret = _munch(element);
@@ -2159,7 +2272,10 @@ final class _Muncher with LoggerMixin {
   List<InlineSpan>? _munchHeading(uh.Element element, double fontSize) {
     final line = _lineState();
     final breakBefore = !state.atLineStart || state.pendingBreak;
-    state.fontSizeStack.add(_appFontSize(fontSize));
+    final keyword = state.fontSizeKeyword;
+    state
+      ..fontSizeStack.add(_appFontSize(fontSize))
+      ..fontSizeKeyword = null;
     _lineBroken();
     _headingDepth += 1;
     final List<InlineSpan>? ret;
@@ -2168,12 +2284,16 @@ final class _Muncher with LoggerMixin {
     } finally {
       _headingDepth -= 1;
     }
-    state.fontSizeStack.removeLast();
+    state
+      ..fontSizeStack.removeLast()
+      ..fontSizeKeyword = keyword;
     if (ret == null) {
       _restoreLine(line);
       return null;
     }
-    return [if (breakBefore) emptySpan, ...ret, emptySpan];
+    // A heading whose content ends its line itself (with a block, `<h1>…<span style="display: block">…</span></h1>`)
+    // is not followed by an empty line.
+    return [if (breakBefore) emptySpan, ...ret, if (!_endsLine(ret)) emptySpan];
   }
 
   List<InlineSpan>? _buildH4(uh.Element element) => _munchHeading(element, FontSize.size3.value());
@@ -2358,13 +2478,26 @@ final class _Muncher with LoggerMixin {
   List<InlineSpan>? _buildPre(uh.Element element) {
     // Avoid reset parent's inPre state.
     final alreadyInPre = state.inPre;
+    final monospace = state.monospace;
+    final sizes = state.fontSizeStack.length;
     if (!alreadyInPre) {
       state.inPre = true;
+    }
+    // In the monospace font of the web page's `<pre>` and `<textarea>`, until the author names another: the size of a
+    // `<font size>` around it is the size it has in that font.
+    if (!monospace) {
+      state.monospace = true;
+      if (state.fontSizeKeyword case final keyword?) {
+        state.fontSizeStack.add(_keywordFontSize(keyword));
+      }
     }
     final ret = _munchStyledBlock(element, _munch);
     if (!alreadyInPre) {
       state.inPre = false;
     }
+    state
+      ..monospace = monospace
+      ..fontSizeStack.removeRange(sizes, state.fontSizeStack.length);
     return ret;
   }
 
@@ -2444,6 +2577,22 @@ final class _Muncher with LoggerMixin {
     return [textWidgetSpan(PostMediaCard(media))];
   }
 
+  /// [content], the message of a floor [message] (`td#postmessage_PID`), with the card of the video of bilibili it
+  /// links at its end, a line of its own, where the web page shows the player of the forum's videohub plugin
+  /// ([PostMedia.bilibiliVideoOf]). Before, the link was all there was: nothing said it was a video to play.
+  List<InlineSpan>? _withVideoCard(uh.Element message, List<InlineSpan>? content) {
+    if (content == null || content.isEmpty) {
+      return content;
+    }
+    final video = PostMedia.bilibiliVideoOf(message, isHidden: _hidden);
+    if (video == null) {
+      return content;
+    }
+    // A little apart from the last line of the message.
+    final card = Padding(padding: const EdgeInsets.only(top: 4), child: PostMediaCard(video));
+    return [..._endingLine(content)!, textWidgetSpan(card), emptySpan];
+  }
+
   /// The place of the player of `[media]` (`div.media_container`, filled by the script after its `div.media` on the
   /// web page, above the link to open it in a new window): the card of the player there, a line of its own.
   List<InlineSpan>? _buildMediaContainer(uh.Element element) {
@@ -2479,9 +2628,14 @@ final class _Muncher with LoggerMixin {
   /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.
   List<InlineSpan>? _munchScaled(uh.Element element, double scale) {
     final size = state.fontSizeStack.lastOrNull ?? Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
-    state.fontSizeStack.add(size * scale);
+    final keyword = state.fontSizeKeyword;
+    state
+      ..fontSizeStack.add(size * scale)
+      ..fontSizeKeyword = null;
     final ret = _munch(element);
-    state.fontSizeStack.removeLast();
+    state
+      ..fontSizeStack.removeLast()
+      ..fontSizeKeyword = keyword;
     return ret;
   }
 
@@ -2676,13 +2830,14 @@ final class _Muncher with LoggerMixin {
       // alignment of its cell.
       final tr = allTr.single;
       final cell = cellsOf(tr).firstOrNull;
-      // The innermost color is the one seen: the cell's over the row's over the table's.
+      // The innermost background is the one seen: the cell's over the row's over the table's. A picture there hides the
+      // colors under it (`<table bgcolor="#ffe0b3"><tr background="…">`): the block has no background the app shows.
       final backgrounds = [
         if (cell != null) _blockBackgroundOf(cell, _styleOf(cell)),
         _blockBackgroundOf(tr, _styleOf(tr)),
         _blockBackgroundOf(element, _styleOf(element)),
       ].nonNulls;
-      final background = backgrounds.firstWhereOrNull((e) => e.color != null) ?? backgrounds.firstOrNull;
+      final background = _seenOnBehind(backgrounds.firstOrNull);
       final align =
           (cell == null ? null : _styleAlign(cell) ?? _blockAlign(cell)) ?? _styleAlign(tr) ?? _styleAlign(element);
       if (background == null && align == null) {
@@ -2708,7 +2863,7 @@ final class _Muncher with LoggerMixin {
     final cells = <PostTableCell>[];
     // The background of each row (its own: the table's is under the whole table, `[table=98%,pink]`).
     final rowBackgrounds = <Color?>[];
-    final tableBackground = _blockBackgroundOf(element, _styleOf(element));
+    final tableBackground = _seenOnBehind(_blockBackgroundOf(element, _styleOf(element)));
     // The last row each column is taken until by a cell spanning rows above.
     final takenUntil = <int, int>{};
     state.tableDepth += 1;
@@ -2717,7 +2872,7 @@ final class _Muncher with LoggerMixin {
     }
     for (final (y, tr) in allTr.indexed) {
       var x = 0;
-      final rowBackground = _blockBackgroundOf(tr, _styleOf(tr));
+      final rowBackground = _seenOnBehind(_blockBackgroundOf(tr, _styleOf(tr)));
       rowBackgrounds.add(
         switch (rowBackground) {
           (color: final Color color) => _colors.background(color),
@@ -2742,22 +2897,25 @@ final class _Muncher with LoggerMixin {
           // `rowspan="0"`: to the last row.
           final rowspan = (rowspanAttr == 0 ? allTr.length - y : rowspanAttr).clamp(1, allTr.length - y);
           final cellStyle = _styleOf(cell);
-          final cellBackground = _blockBackgroundOf(cell, cellStyle);
+          final cellBackground = _seenOnBehind(_blockBackgroundOf(cell, cellStyle));
           if (cellBackground != null) {
             state.blockBackgroundStack.add(_behind(cellBackground.color));
           }
           // Header cells (`th`) are cells too, in bold, in their place in the row. The line break a cell's content
           // ends with (a `<br>`, a block at its end) ends its last line, it does not add an empty line below it.
-          final List<InlineSpan>? content;
+          final List<InlineSpan>? munched;
           try {
-            content = _withoutTrailingLineBreak(
-              _munchOwnBlock(() => cell.localName == 'th' ? _buildTh(cell) : _buildTd(cell)),
-            );
+            munched = _munchOwnBlock(() => cell.localName == 'th' ? _buildTh(cell) : _buildTd(cell));
           } finally {
             if (cellBackground != null) {
               state.blockBackgroundStack.removeLast();
             }
           }
+          final content = _withoutTrailingLineBreak(munched);
+          // A cell holding a line break only (`<td><br></td>`, the blank rows parting the groups of a gallery) is a
+          // line of text high on the web page. Its line break gone, it was as high as an empty text (a little lower
+          // than a line of the post), its line was not seen: the line is kept, in the style of the text there.
+          final blankLine = (munched?.isNotEmpty ?? false) && (content?.isEmpty ?? true);
           if (rowspan > 1) {
             for (var spanned = x; spanned < x + colspan; spanned++) {
               takenUntil[spanned] = y + rowspan - 1;
@@ -2779,7 +2937,14 @@ final class _Muncher with LoggerMixin {
               },
               width: _tableLength(cell),
               verticalAlign: _cellAlign(cell) ?? _cellAlign(tr) ?? PostTableCellAlign.middle,
-              child: Text.rich(TextSpan(children: content), textAlign: align),
+              child: Text.rich(
+                TextSpan(children: content),
+                textAlign: align,
+                strutStyle: switch (blankLine ? _buildTextStyle() : null) {
+                  final TextStyle style => StrutStyle.fromTextStyle(style, forceStrutHeight: true),
+                  null => null,
+                },
+              ),
             ),
           );
           x += colspan;
@@ -2912,10 +3077,20 @@ final class _Muncher with LoggerMixin {
   bool _tryPushFontSize(uh.Element element) {
     final fontSize = FontSize.fromString(element.attributes['size']);
     if (fontSize.isValid) {
-      state.fontSizeStack.add(_appFontSize(fontSize.value()));
+      state
+        ..fontSizeStack.add(_keywordFontSize(fontSize))
+        ..fontSizeKeyword = fontSize;
     }
     return fontSize.isValid;
   }
+
+  /// The size of a `<font size>` [size] where the text is: in the monospace font of a `<pre>`, a browser sizes the
+  /// keywords from its monospace size, `[size=5]` is 20px there, not 24px.
+  double _keywordFontSize(FontSize size) =>
+      _appFontSize(state.monospace ? size.value() * _monospaceFontScale : size.value());
+
+  /// A browser's monospace font size (13px for `medium`) to its other fonts' (16px).
+  static const double _monospaceFontScale = 13 / 16;
 
   /// [spans], the content of a rich text of a post (the post, a spoiler, an aligned block), laid out in paragraphs with
   /// [typography] ([layOutParagraphs]). Not in a table, whose cells keep their lines together, nor outside a post.
@@ -2993,6 +3168,8 @@ final class _Muncher with LoggerMixin {
       fontStyle: state.italic ? FontStyle.italic : null,
       decorationThickness: state.underline || state.lineThrough || !linkUnderline ? 1.5 : 1,
       shadows: shadows,
+      fontFamily: state.fontFamily,
+      fontFamilyFallback: state.fontFamily == null ? null : serifFontFamilyFallback,
     );
 
     return style;

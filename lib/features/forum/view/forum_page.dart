@@ -31,6 +31,7 @@ import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/list_app_bar/list_app_bar.dart';
+import 'package:tsdm_client/widgets/post_layout_html.dart';
 
 const _tabsCount = 3;
 const _pinnedTabIndex = 0;
@@ -254,7 +255,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                       icon: Icons.gavel_outlined,
                       padding: const EdgeInsets.only(bottom: 8),
                     ),
-                    munchElement(context, state.rulesElement!),
+                    // Laid out for reading as a post is: the rules are long text.
+                    PostLayoutHtml(state.rulesElement!),
                   ],
                 ),
               );

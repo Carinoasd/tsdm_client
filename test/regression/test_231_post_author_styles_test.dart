@@ -406,7 +406,7 @@ void main() {
           '.wrap s { color: var(--missing, #654321) }'
           '@media (max-width: 600px) { .wrap span { color: #ff0000 } }'
           '@keyframes spin { from { color: red } to { color: blue } }'
-          '.wrap > b, .wrap:hover b, * { color: #ff0000 }'
+          '.wrap + b, .wrap:hover b, * { color: #ff0000 }'
           '.v .w .x .y .z { color: #ff0000 } [title] { color: #ff0000 } .wrap::before { color: #ff0000 }'
           '.good, .wrap >> bad { font-weight: bold }'
           '</style>'

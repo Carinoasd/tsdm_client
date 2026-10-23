@@ -45,6 +45,7 @@ import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/medal_group_view.dart';
 import 'package:tsdm_client/widgets/notice_button.dart';
 import 'package:tsdm_client/widgets/obscure_list_tile.dart';
+import 'package:tsdm_client/widgets/post_layout_html.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
@@ -767,8 +768,9 @@ class _ProfilePageState extends State<ProfilePage> {
           title: introductionContent != null ? tr.introduction : tr.signature,
           icon: Icons.notes_outlined,
           children: [
+            // A self introduction laid out for reading as a post is: it can be long text.
             if (introductionContent != null)
-              AppInsetBlock(padding: edgeInsetsL12T12R12B12, child: munchElement(context, introductionContent)),
+              AppInsetBlock(padding: edgeInsetsL12T12R12B12, child: PostLayoutHtml(introductionContent)),
             if (introductionContent != null && signatureContent != null)
               AppSectionHeader(tr.signature, icon: Icons.draw_outlined, padding: EdgeInsets.zero),
             if (signatureContent != null)
