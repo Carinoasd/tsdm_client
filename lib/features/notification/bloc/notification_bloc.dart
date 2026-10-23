@@ -691,6 +691,19 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
   }
 
   Future<void> _onMarkAllReadRequested(_Emit emit, Completer<bool>? done) async {
+    // [done] always ends: false when nothing was written or the write failed, the page says so.
+    try {
+      await _markAllRead(emit, done);
+    } on Object catch (e, st) {
+      error('failed to mark all notifications as read: $e');
+      handleRaw(e, st);
+      if (done != null && !done.isCompleted) {
+        done.complete(false);
+      }
+    }
+  }
+
+  Future<void> _markAllRead(_Emit emit, Completer<bool>? done) async {
     final uid = _authRepo.currentUser?.uid;
     if (uid == null) {
       error('intend to mark all notifications as read but uid not found');
@@ -698,11 +711,17 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       return;
     }
     for (final type in NotificationType.values) {
-      await _storageProvider.markTypeAsRead(notificationType: type, uid: uid, alreadyRead: true).run();
+      final written = await _storageProvider.markTypeAsRead(notificationType: type, uid: uid, alreadyRead: true).run();
+      if (written.isLeft()) {
+        error('failed to mark all ${type.name} as read');
+        done?.complete(false);
+        return;
+      }
     }
     if (_authRepo.currentUser?.uid != uid) {
+      // Written for the account it was asked for; the lists on screen are another one's now.
       debug('Async gap meets uid changes, do NOT update state.');
-      done?.complete(false);
+      done?.complete(true);
       return;
     }
     await _publishUnreadCounts(uid);

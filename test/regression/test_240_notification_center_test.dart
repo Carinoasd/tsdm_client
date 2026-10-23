@@ -363,6 +363,33 @@ void main() {
       expect(notices.map((e) => (e?.fromId, e?.fromIdType)).toSet(), {(null, null)}, reason: 'not on the page');
     });
 
+    test('the unread count of another account uses the window of the badge', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final storage = StorageProvider(db, {}, {});
+      // 501 notices: the oldest one unread, out of the newest 500 the badge counts.
+      await storage
+          .saveNotification(
+            uid: 1001,
+            notificationGroup: NotificationGroup(
+              noticeList: [
+                for (var id = 1; id <= 501; id++)
+                  NoticeEntity(uid: 1001, nid: id, timestamp: 1000 + id, data: 'n', alreadyRead: id != 1),
+                const NoticeEntity(uid: 1001, nid: 600, timestamp: 9999, data: 'n'),
+              ],
+              personalMessageList: const [],
+              broadcastMessageList: const [
+                BroadcastMessageEntity(uid: 1001, timestamp: 1, data: 'b', pmid: 1, alreadyRead: false),
+              ],
+            ),
+          )
+          .run();
+      final badge = await countUnreadNotification(storage: storage, uid: 1001);
+      final total = await countUnreadNotificationTotal(storage: storage, uid: 1001);
+      expect(total, badge.notice + badge.personalMessage + badge.broadcastMessage);
+      expect(total, 2, reason: 'the newest notice (no read state counts as unread) and the broadcast message');
+    });
+
     test('a copy from the notice page keeps the API fields of the same revision only', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -1021,6 +1048,27 @@ void main() {
         isEmpty,
         reason: 'nothing of Bob marked read as Alice',
       );
+      // A reply or a post being sent (or another switch running): nothing is opened, the editor stays on top.
+      for (final busy in [SwitchAccountResult.replyBusy, SwitchAccountResult.alreadySwitching]) {
+        if (router.canPop()) {
+          router.pop();
+        }
+        await _settle(tester);
+        final before = router.state.uri.path;
+        ({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action})? held;
+        unawaited(
+          openNoticePageOfAccount(
+            home,
+            uid: 1001,
+            target: const LocalNoticeTarget(peerUid: 2001),
+            switchTo: (_, _) async => busy,
+          ).then((e) => held = e),
+        );
+        await _settle(tester);
+        expect((held?.step, held?.action), (LocalNoticeAccountStep.notSwitched, null), reason: busy.name);
+        expect(router.state.uri.path, before, reason: busy.name);
+      }
+
       // Switched: the item opens as Bob.
       ({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action})? switched;
       unawaited(

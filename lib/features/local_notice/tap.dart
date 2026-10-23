@@ -160,7 +160,9 @@ Future<SwitchAccountResult> _switchLikeTheMenu(BuildContext context, UserLoginIn
 ///   (`AuthenticationRepository.loginWithServedUser`).
 /// * Another switch while the lists are awaited (the avatar menu) wins: the notice page is not opened.
 /// * The switch does not happen: nothing is opened, the notice page would show the account in use and not the one the
-///   notification is about.
+///   notification is about. For a [target] whose switch failed or was held by the sync, the notice page of the account
+///   in use is opened instead (never the target); a reply or a post being sent, another switch, or a switch given up
+///   open nothing.
 /// * An account no longer on this device: nothing is opened, a toast says so.
 ///
 /// Returns what was done about the account, and, when the notice page was asked for, the page that was on top before
@@ -211,8 +213,12 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   final result = await (switchTo ?? _switchLikeTheMenu)(context, account);
   if (result != SwitchAccountResult.switched || !context.mounted) {
     // An item of a single new notification: the notice page of the account in use instead, never the item, which
-    // belongs to the other account.
-    if (target != null && context.mounted) {
+    // belongs to the other account. Only when the switch failed or the sync held it: while a reply or a post is being
+    // sent (or another switch runs, or this one was given up) nothing is opened, a page pushed over the editor would
+    // be the one its "sent" closes.
+    if (target != null &&
+        context.mounted &&
+        (result == SwitchAccountResult.failed || result == SwitchAccountResult.syncBusy)) {
       talker.info('notification of another account: not switched (${result.name}), notice page opened instead');
       return open(LocalNoticeAccountStep.notSwitched, loggedIn: true, direct: false);
     }

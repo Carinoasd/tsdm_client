@@ -45,29 +45,40 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
   /// the peer of every unread conversation and the number of unread broadcast messages. A notice or a broadcast
   /// message without a read state counts as unread, as everywhere else.
   Future<({List<int?> noticeAuthors, List<int> personalMessagePeers, int broadcastMessages})> unreadOf(int uid) async {
+    // The same window as the lists the unread badge is counted from ([selectNoticeSince] and the others): the newest
+    // rows of each table, at most [_noticeFetchMaxCountLimit], so both counts agree.
     final noticeAuthors =
         await (selectOnly(notice)
-              ..addColumns([notice.authorId])
-              ..where(notice.uid.equals(uid) & (notice.alreadyRead.isNull() | notice.alreadyRead.equals(false))))
-            .map((row) => row.read(notice.authorId))
+              ..addColumns([notice.authorId, notice.alreadyRead])
+              ..where(notice.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: notice.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => (read: row.read(notice.alreadyRead) ?? false, author: row.read(notice.authorId)))
             .get();
     final peers =
         await (selectOnly(personalMessage)
-              ..addColumns([personalMessage.peerUid])
-              ..where(personalMessage.uid.equals(uid) & personalMessage.alreadyRead.equals(false)))
-            .map((row) => row.read(personalMessage.peerUid)!)
+              ..addColumns([personalMessage.peerUid, personalMessage.alreadyRead])
+              ..where(personalMessage.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: personalMessage.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => row.read(personalMessage.alreadyRead)! ? null : row.read(personalMessage.peerUid))
             .get();
-    final count = broadcastMessage.pmid.count();
-    final broadcastMessages =
+    final broadcasts =
         await (selectOnly(broadcastMessage)
-              ..addColumns([count])
-              ..where(
-                broadcastMessage.uid.equals(uid) &
-                    (broadcastMessage.alreadyRead.isNull() | broadcastMessage.alreadyRead.equals(false)),
-              ))
-            .map((row) => row.read(count) ?? 0)
-            .getSingle();
-    return (noticeAuthors: noticeAuthors, personalMessagePeers: peers, broadcastMessages: broadcastMessages);
+              ..addColumns([broadcastMessage.alreadyRead])
+              ..where(broadcastMessage.uid.equals(uid))
+              ..orderBy([OrderingTerm(expression: broadcastMessage.timestamp, mode: OrderingMode.desc)])
+              ..limit(_noticeFetchMaxCountLimit))
+            .map((row) => row.read(broadcastMessage.alreadyRead) ?? false)
+            .get();
+    return (
+      noticeAuthors: [
+        for (final e in noticeAuthors)
+          if (!e.read) e.author,
+      ],
+      personalMessagePeers: [for (final p in peers) ?p],
+      broadcastMessages: broadcasts.where((read) => !read).length,
+    );
   }
 
   /// Insert notice [message] into table [notice], or replace the stored copy unless that one is newer.

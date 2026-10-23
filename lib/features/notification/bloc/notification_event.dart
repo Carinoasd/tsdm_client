@@ -71,8 +71,8 @@ final class NotificationMarkAllReadRequested extends NotificationEvent with Noti
   /// Constructor.
   const NotificationMarkAllReadRequested({this.done});
 
-  /// Completed once the marks are written (true) or nothing was written (false: no account, or another account is in
-  /// use by then): the page says "done" only then.
+  /// Completed once the marks are written (true), or with false when nothing was written (no account) or the write
+  /// failed: the page says "done" or "failed" only then.
   final Completer<bool>? done;
 }
 

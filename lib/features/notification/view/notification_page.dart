@@ -370,9 +370,10 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                     onPressed: () async {
                       final done = Completer<bool>();
                       context.read<NotificationBloc>().add(NotificationMarkAllReadRequested(done: done));
-                      // Said once the marks are written, not before.
-                      if (await done.future && context.mounted) {
-                        showSnackBar(context: context, message: tr.markAllReadDone);
+                      // Said once the marks are written, not before; a write that failed says so.
+                      final written = await done.future;
+                      if (context.mounted) {
+                        showSnackBar(context: context, message: written ? tr.markAllReadDone : tr.markAllReadFailed);
                       }
                     },
                   ),

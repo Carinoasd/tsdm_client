@@ -411,7 +411,7 @@
       },
       "notificationHideContent": {
         "title": "Hide notification content",
-        "detail": "System notifications only show how many new items there are, not who did what nor the message text"
+        "detail": "System notifications only show the account and how many new items there are, not who did what nor the message text"
       },
       "notificationPermission": {
         "title": "Notification permission",
@@ -998,6 +998,7 @@
     "quickReply": "Quick reply",
     "markAllRead": "Mark all as read",
     "markAllReadDone": "All marked as read",
+    "markAllReadFailed": "Could not mark them as read, try again later",
     "search": {
       "tooltip": "Search notifications",
       "hint": "Find in the synced notifications",
