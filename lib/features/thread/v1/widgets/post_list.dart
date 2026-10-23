@@ -357,13 +357,8 @@ class PostListState extends State<PostList> with LoggerMixin {
     if (notification.depth != 0) {
       return false;
     }
-    if (notification is ScrollUpdateNotification && (notification.scrollDelta ?? 0) < 0) {
-      if (notification.dragDetails != null || _scrolledUp) {
-        _scrolledUp = true;
-      }
-    } else if (notification is OverscrollNotification &&
-        notification.overscroll < 0 &&
-        notification.dragDetails != null) {
+    // The user scrolling towards the start of the floors (a drag, a fling, a mouse wheel), not the list placing itself.
+    if (notification is UserScrollNotification && notification.direction == ScrollDirection.forward) {
       _scrolledUp = true;
     }
     _scheduleCheck();

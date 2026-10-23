@@ -862,7 +862,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                           initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
                               ?.parseToInt(),
                           scrollController: _listScrollController,
-                          // Posts of locally blocked users become placeholders in place, the floors keep their positions.
+                          // Posts of locally blocked users become placeholders in place, the floors keep their
+                          // positions.
                           widgetBuilder: (context, post) => BlockAwarePost(
                             post: post,
                             postList: state.postList,

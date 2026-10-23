@@ -66,8 +66,8 @@ final class FloorLayout {
   /// A new generation, or floors without any floor in common with the ones laid out, start over: every floor below the
   /// opening place. Otherwise the floors laid out stay where they are (with the floor of the same key, which may have
   /// changed), the ones no longer there become empty slots (removed at the far ends), and the new ones go above the
-  /// first floor (to the top of [above]) or after the last one (to the end of [below]); a new floor between two laid out
-  /// ones (a floor the forum did not show before) goes right after the one before it.
+  /// first floor (to the top of [above]) or after the last one (to the end of [below]); a new floor between two laid
+  /// out ones (a floor the forum did not show before) goes right after the one before it.
   void layOut(List<Post> posts, int generation) {
     final keys = keysOf(posts);
     final byKey = {for (final (i, key) in keys.indexed) key: posts[i]};

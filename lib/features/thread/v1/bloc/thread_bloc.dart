@@ -275,8 +275,8 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
                 return;
               }
               if (v.postList.isNotEmpty && v.currentPage != state.firstPage - 1) {
-                // Not the page before the first one any more (the floors on screen moved meanwhile, or the forum answered
-                // another page): nothing goes above them.
+                // Not the page before the first one any more (the floors on screen moved meanwhile, or the forum
+                // answered another page): nothing goes above them.
                 debug('drop previous page ${v.currentPage}, the first page on screen is ${state.firstPage}');
                 emit(state.copyWith(previousStatus: ThreadEdgeStatus.idle));
                 return;
