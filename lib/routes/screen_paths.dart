@@ -464,6 +464,9 @@ class DialogPaths {
 
   /// Dialog inputting pokemon related text (rename or buy quantity).
   static const String pokemonInput = '/dialog/pokemonInput';
+
+  /// Dialog to select when the pictures of the posts load by themselves.
+  static const String selectPostImageAutoLoad = '/dialog/selectPostImageAutoLoad';
 }
 
 /// Route path for a screen.

@@ -1,10 +1,5 @@
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:fpdart/fpdart.dart' show None, Some;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
@@ -14,15 +9,10 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
 import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
 import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
+import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
-import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
-import 'package:tsdm_client/utils/image_file_name.dart';
-import 'package:tsdm_client/utils/platform.dart';
-import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
@@ -146,18 +136,26 @@ Future<T?> showCustomBottomSheet<T>({
 ///
 /// All available actions:
 ///
-/// * Open image in full page.
-/// * Copy image url.
+/// * Open image in full page ([onCheckDetail]: the gallery of its floor at this picture; the picture alone when null).
+/// * Save the image, share it (the file, not its url), copy its url, open it in the browser.
 /// * Jump to related href url (optional).
-/// * Reload image.
+/// * Reload image, save it to the user's images.
+/// * Its cache statistics ([onShowStatistics], the gallery).
 ///
 /// [showCheckDetail] is false when the sheet is opened from the full page viewer itself.
+///
+/// [shownUrl] is the picture shown where the sheet was opened ([imageUrl] when null; a floor shows the thumbnail of an
+/// attachment): the preview, only read from the cache (nothing is downloaded for it), and what "reload" loads again.
 Future<void> showImageActionBottomSheet({
   required BuildContext context,
   required String imageUrl,
   String? hrefUrl,
+  String? shownUrl,
   bool showCheckDetail = true,
+  VoidCallback? onCheckDetail,
+  VoidCallback? onShowStatistics,
 }) async {
+  final shown = shownUrl ?? imageUrl;
   final tr = context.t.imageBottomSheet;
 
   await showCustomBottomSheet<void>(
@@ -172,7 +170,7 @@ Future<void> showImageActionBottomSheet({
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 100),
-              child: NetworkIndicatorImage(imageUrl),
+              child: NetworkIndicatorImage(shown, cacheOnly: true),
             ),
           ),
         ),
@@ -184,11 +182,39 @@ Future<void> showImageActionBottomSheet({
           leading: const Icon(Icons.fullscreen_outlined),
           title: Text(tr.checkDetail),
           onTap: () async {
+            if (onCheckDetail != null) {
+              context.pop();
+              onCheckDetail();
+              return;
+            }
             await context.pushNamed(ScreenPaths.imageDetail, pathParameters: {'imageUrl': imageUrl});
             if (context.mounted) {
               context.pop();
             }
           },
+        ),
+      ListTile(
+        leading: const Icon(Icons.save_outlined),
+        title: Text(tr.saveImage),
+        onTap: () async {
+          final saved = await saveImageOf(context, imageUrl);
+          if (saved != null && context.mounted) {
+            context.pop();
+          }
+        },
+      ),
+      if (canShareImageFiles)
+        Builder(
+          builder: (context) => ListTile(
+            leading: const Icon(Icons.share_outlined),
+            title: Text(tr.shareImage),
+            onTap: () async {
+              final shared = await shareImageOf(context, imageUrl, origin: shareOriginOf(context));
+              if (shared && context.mounted) {
+                context.pop();
+              }
+            },
+          ),
         ),
       ListTile(
         leading: const Icon(Icons.copy_outlined),
@@ -202,15 +228,10 @@ Future<void> showImageActionBottomSheet({
         },
       ),
       ListTile(
-        leading: const Icon(Icons.refresh_outlined),
-        title: Text(tr.reloadImage),
-        onTap: () => context.read<ImageCacheTriggerCubit>().updateImageCache(imageUrl, force: true),
-      ),
-      ListTile(
-        leading: const Icon(Icons.collections_bookmark_outlined),
-        title: Text(tr.saveAsSticker),
+        leading: const Icon(Icons.open_in_browser_outlined),
+        title: Text(tr.openInBrowser),
         onTap: () async {
-          await saveImageAsCustomImage(context, imageUrl);
+          await openImageInBrowser(context, imageUrl);
           if (context.mounted) {
             context.pop();
           }
@@ -229,55 +250,29 @@ Future<void> showImageActionBottomSheet({
           },
         ),
       ListTile(
-        leading: const Icon(Icons.save_outlined),
-        title: Text(tr.saveImage),
+        leading: const Icon(Icons.refresh_outlined),
+        title: Text(tr.reloadImage),
+        onTap: () => context.read<ImageCacheTriggerCubit>().updateImageCache(shown, force: true),
+      ),
+      ListTile(
+        leading: const Icon(Icons.collections_bookmark_outlined),
+        title: Text(tr.saveAsSticker),
         onTap: () async {
-          final imageProvider = getIt.get<ImageCacheProvider>();
-          switch (await imageProvider.getOrMakeCache(ImageCacheGeneralRequest(imageUrl))) {
-            case None():
-              {
-                if (context.mounted) {
-                  showSnackBar(context: context, message: tr.failedToSaveImage);
-                }
-              }
-            case Some<Uint8List>(value: final data):
-              {
-                // The extension of the type the image is, not the url's (an attachment url ends with "forum.php").
-                final fileName = imageFileNameOf(imageUrl, data);
-                if (isDesktop) {
-                  // On desktop platforms, `saveFiles` only return the selected path.
-                  final filePath = await FilePicker.platform.saveFile(dialogTitle: tr.saveImage, fileName: fileName);
-                  if (filePath == null) {
-                    return;
-                  }
-
-                  await File(filePath).writeAsBytes(data, flush: true);
-                  if (context.mounted) {
-                    context.pop();
-                    showSnackBar(
-                      context: context,
-                      message: tr.imageSaved(filePath: filePath),
-                    );
-                  }
-                } else {
-                  // Mobile in one step.
-                  final filePath = await FilePicker.platform.saveFile(
-                    dialogTitle: tr.saveImage,
-                    fileName: fileName,
-                    bytes: data,
-                  );
-                  if (filePath != null && context.mounted) {
-                    context.pop();
-                    showSnackBar(
-                      context: context,
-                      message: tr.imageSaved(filePath: filePath),
-                    );
-                  }
-                }
-              }
+          await saveImageAsCustomImage(context, imageUrl);
+          if (context.mounted) {
+            context.pop();
           }
         },
       ),
+      if (onShowStatistics != null)
+        ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: Text(context.t.imageDetailPage.statistics),
+          onTap: () {
+            context.pop();
+            onShowStatistics();
+          },
+        ),
     ],
   );
 }

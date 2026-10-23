@@ -9,9 +9,14 @@ class PopupRouteObserver extends NavigatorObserver {
   /// Keep tracking popups below other routes until they are actually removed.
   bool get hasPopupRoute => _popupRoutes.isNotEmpty;
 
+  /// The route pushed last (told before the page below it hears of it, see `routeObserver`).
+  Route<dynamic>? get lastPushed => _lastPushed;
+  Route<dynamic>? _lastPushed;
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
+    _lastPushed = route;
     if (route is PopupRoute<dynamic>) {
       _popupRoutes.add(route);
     }

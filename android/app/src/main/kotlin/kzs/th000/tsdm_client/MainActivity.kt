@@ -9,6 +9,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
@@ -25,6 +26,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Response
+import java.io.ByteArrayOutputStream
 
 class MainActivity: FlutterActivity() {
     companion object {
@@ -45,6 +48,12 @@ class MainActivity: FlutterActivity() {
         const val HTTP_POST_MULTIPART = "postMultipart"
         const val HTTP_POST_JSON = "postJson"
 
+        /** Called on Dart while a GET that carried a `progressId` downloads: how much of its body arrived. */
+        const val HTTP_PROGRESS = "progress"
+
+        /** Largest buffer allocated up front for a body read with its progress; a larger body grows it as it comes. */
+        const val PREALLOCATED_BODY_MAX = 8L * 1024 * 1024
+
         /** Window size events sent to Dart, see `lib/utils/window_events.dart` (GitHub #28). */
         const val WINDOW_CHANNEL = "kzs.th000.tsdm_client/windowChannel"
 
@@ -54,6 +63,7 @@ class MainActivity: FlutterActivity() {
     }
 
     private var windowChannel: MethodChannel? = null
+    private var httpChannel: MethodChannel? = null
     private var mainChannel: MethodChannel? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var flutterViewWatched = false
@@ -80,8 +90,8 @@ class MainActivity: FlutterActivity() {
             it.setMethodCallHandler { call, result -> handleMainChannelCall(call, result) }
         }
         watchNetwork()
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL)
-            .setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) }
+        httpChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL)
+            .apply { setMethodCallHandler{ call, result -> handleHttpChannelCall(call, result) } }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL)
             .setMethodCallHandler { call, result -> handleUpdateChannelCall(call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INTERACTIVE_HTML_CHANNEL)
@@ -382,18 +392,47 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    /**
+     * The body of [resp], read in pieces with Dart told how much of it arrived (at most every 100 ms): the GET carried
+     * a `progressId`, an image whose loading shows its progress. `total` is -1 when the server did not tell the size.
+     */
+    private fun readReportingProgress(resp: Response, id: Int): ByteArray {
+        val body = resp.body
+        val total = body.contentLength()
+        val out = ByteArrayOutputStream(if (total in 1..PREALLOCATED_BODY_MAX) total.toInt() else 256 * 1024)
+        val buffer = ByteArray(16 * 1024)
+        var received = 0L
+        var reportedAt = 0L
+        body.byteStream().use { input ->
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                out.write(buffer, 0, count)
+                received += count
+                val now = SystemClock.uptimeMillis()
+                if (now - reportedAt >= 100) {
+                    reportedAt = now
+                    val args = mapOf("id" to id, "received" to received, "total" to total)
+                    runOnUiThread { httpChannel?.invokeMethod(HTTP_PROGRESS, args) }
+                }
+            }
+        }
+        return out.toByteArray()
+    }
+
     private fun handleHttpChannelCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             HTTP_GET -> {
                 val url = call.argument<String>("url")!!
                 val headers = call.argument<HashMap<String, String>>("headers")!!
                 val singleAttempt = call.argument<Boolean>("singleAttempt") ?: false
+                val progressId = call.argument<Int>("progressId")
                 CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                     try {
                         val resp = HttpClient.get(url, headers, singleAttempt = singleAttempt)
                         val statusCode = resp.code
                         val headers = HashMap(resp.headers.toMultimap())
-                        val body = resp.body.bytes()
+                        val body = if (progressId == null) resp.body.bytes() else readReportingProgress(resp, progressId)
                         val isRedirect = resp.isRedirect
                         result.success(buildResponse(statusCode, headers, body, isRedirect))
                     } catch (e: Exception) {

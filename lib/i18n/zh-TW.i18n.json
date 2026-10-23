@@ -555,6 +555,13 @@
         "title": "捲動時收起頂欄",
         "detail": "在貼文頁往下捲時收起頂欄與導覽路徑，往上捲時再出現"
       },
+      "postImageAutoLoad": {
+        "title": "貼文圖片自動載入",
+        "detail": "只影響貼文樓層裡的圖片：不自動載入的圖片顯示佔位，點擊才載入；已快取的圖片照常顯示",
+        "always": "總是",
+        "wifiOnly": "僅 Wi-Fi",
+        "never": "不自動（點擊載入）"
+      },
       "threadFloorInteractionMode": {
         "title": "貼文樓層互動方式",
         "detail": "點擊貼文頁面中的樓層時如何回應",
@@ -1469,6 +1476,12 @@
     "usage": "用途",
     "fitToScreen": "適應螢幕"
   },
+  "imageGallery": {
+    "counter": "${index: int} / ${total: int}",
+    "percent": "${value: int}%",
+    "failedTapToRetry": "載入失敗，點擊重試",
+    "tapToLoad": "點擊載入圖片"
+  },
   "forumCard": {
     "links": "連結",
     "subForums": "子版塊",
@@ -1805,7 +1818,11 @@
     "saveImage": "儲存圖片",
     "imageSaved": "圖片已儲存至 ${filePath: String}",
     "failedToSaveImage": "無法儲存圖片",
-    "saveAsSticker": "存到我的圖片"
+    "saveAsSticker": "存到我的圖片",
+    "shareImage": "分享圖片",
+    "failedToShareImage": "無法分享圖片",
+    "openInBrowser": "用瀏覽器開啟",
+    "failedToOpenInBrowser": "無法開啟瀏覽器"
   },
   "init": {
     "v1DeleteLegacyData": {

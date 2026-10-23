@@ -5,6 +5,8 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/image/models/gallery_image.dart';
+import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
@@ -98,12 +100,13 @@ class _PostBbcodeBodyState extends State<PostBbcodeBody> with LoggerMixin {
     final decision = _decision ??= _decide();
     return switch (decision) {
       PostBbcodeFallback() => MunchedHtml(widget.post.data),
+      // The pictures of the three parts in this order in the floor's gallery, whichever is built first.
       PostBbcodeRender(:final nodes, :final htmlBefore, :final htmlAfter) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (htmlBefore.isNotEmpty) MunchedHtml(htmlBefore),
-          PostBbcodeView(nodes),
-          if (htmlAfter.isNotEmpty) MunchedHtml(htmlAfter),
+          if (htmlBefore.isNotEmpty) PostImagePart(part: 0, child: MunchedHtml(htmlBefore)),
+          PostImagePart(part: 1, child: PostBbcodeView(nodes)),
+          if (htmlAfter.isNotEmpty) PostImagePart(part: 2, child: MunchedHtml(htmlAfter)),
         ],
       ),
     };
@@ -265,7 +268,9 @@ final class _SpanBuilder {
               ),
             ],
     BbSmiley(:final smiley) => [_image(smiley.url, link: link)],
-    BbImage(:final url, :final width, :final height) => [_image(url, width: width, height: height, link: link)],
+    BbImage(:final url, :final width, :final height) => [
+      _image(url, width: width, height: height, link: link, picture: true),
+    ],
     BbAttachment(:final attachment) => _attachment(attachment, link: link),
     BbLink(:final href, :final children, :final auto) => _link(href, children, auto: auto),
     BbQuote() || BbCodeBlock() || BbSpoiler() || BbList() || BbAlign() || BbDivider() || BbVideo() => [_block(node)],
@@ -401,7 +406,19 @@ final class _SpanBuilder {
     ];
   }
 
-  InlineSpan _image(String url, {int? width, int? height, String? link}) {
+  /// Pictures of the post built so far: the place of the next one in the floor's gallery ([PostImage.order]).
+  int _imageOrder = 0;
+
+  /// [url] shown at most [width] by [height], in a link to [link]. A [picture] of the post (not a smiley, an icon)
+  /// opens the floor's gallery ([PostImage]); [attachment]: the floor's attachment it is, with its size and thumbnail.
+  InlineSpan _image(
+    String url, {
+    int? width,
+    int? height,
+    String? link,
+    bool picture = false,
+    PostAttachment? attachment,
+  }) {
     if (tmpImpellerWorkaroundUrls.contains(url)) {
       // The "back to the quoted floor" arrow of old quotes, the same button the html renderer shows for it.
       return WidgetSpan(
@@ -419,9 +436,32 @@ final class _SpanBuilder {
         ),
       );
     }
+    final declaredWidth = width?.toDouble();
+    final declaredHeight = height?.toDouble();
+    if (picture && !isForumStaticImage(url) && !isSmallImage(width: declaredWidth, height: declaredHeight)) {
+      final thumbnail = attachment == null || attachment.thumb.isEmpty || attachment.thumb == url
+          ? null
+          : attachment.thumb;
+      return WidgetSpan(
+        child: PostImage(
+          GalleryImage(
+            url,
+            floorUrl: thumbnail,
+            width: attachment != null && attachment.width > 0 ? attachment.width : null,
+            height: attachment != null && attachment.height > 0 ? attachment.height : null,
+            fileSize: attachment != null && attachment.filesize > 0 ? attachment.filesize : null,
+            linkUrl: link,
+          ),
+          order: _imageOrder++,
+          declaredWidth: declaredWidth,
+          declaredHeight: declaredHeight,
+        ),
+      );
+    }
     return _networkImage(url, width: width, height: height, link: link);
   }
 
+  /// A smiley or an icon: the image sheet as before (save it as a sticker).
   InlineSpan _networkImage(String url, {int? width, int? height, String? link}) => WidgetSpan(
     child: GestureDetector(
       onTap: () async => showImageActionBottomSheet(context: context, imageUrl: url, hrefUrl: link),
@@ -441,7 +481,15 @@ final class _SpanBuilder {
       return [_placeholder(Icons.lock_outline, '${attachment.filename}\n${tr.attachmentLocked}')];
     }
     if (attachment.isImage) {
-      return [_image(attachment.url, width: attachment.width > 0 ? attachment.width : null, link: link)];
+      return [
+        _image(
+          attachment.url,
+          width: attachment.width > 0 ? attachment.width : null,
+          link: link,
+          picture: true,
+          attachment: attachment,
+        ),
+      ];
     }
     final colorScheme = Theme.of(context).colorScheme;
     final download = attachment.download;

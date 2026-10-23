@@ -308,6 +308,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// notice page): those never ask again, only turning the auto sync or the background service on in the settings
   /// does.
   notificationPermissionPrompted<bool>(name: 'notificationPermissionPrompted', type: bool, defaultValue: false),
+
+  /// When the pictures of the posts load by themselves, the index of a `PostImageAutoLoad`: always (the default), only
+  /// on a network that is not metered, or never (each loads when tapped).
+  postImageAutoLoad<int>(name: 'postImageAutoLoad', type: int, defaultValue: 0),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});
