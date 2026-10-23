@@ -26,7 +26,8 @@ enum LoginResult {
   /// Unknown result.
   ///
   /// Treat as login failed.
-  unknown;
+  unknown
+  ;
 
   factory LoginResult.fromLoginMessageNode(uh.Element messageNode) {
     final message = messageNode.querySelector('div#messagetext > p')?.nodes.firstOrNull?.text;

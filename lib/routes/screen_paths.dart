@@ -294,6 +294,9 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page listing the drafts kept on this device for the current account.
+  static const String localDrafts = '/localDrafts';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 
@@ -412,6 +415,9 @@ class DialogPaths {
 
   /// Bottom sheet to let user pick emoji.
   static const String emojiPicker = '/dialog/emojiPicker';
+
+  /// Dialog to answer the captcha or the security question the forum asks before taking a post.
+  static const String secCheck = '/dialog/secCheck';
 
   /// Bottom sheet provide options to clear cache.
   static const String clearCache = '/dialog/clearCache';

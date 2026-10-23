@@ -13,6 +13,7 @@ import 'package:sqlite3/common.dart' show SqliteException;
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart';
@@ -242,11 +243,13 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications and the pages saved for the next start ([SavedAnswerStore]).
+  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
+  /// the drafts its editors kept ([LocalDraftStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
     // The pages saved to show at the next start (the homepage, the guide) were served to the account.
     SavedAnswerStore.app?.forget(uid);
+    LocalDraftStore.app?.forget(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);

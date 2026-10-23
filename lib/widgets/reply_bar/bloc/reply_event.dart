@@ -46,13 +46,16 @@ final class ReplyThreadClosed extends ReplyEvent with ReplyThreadClosedMappable 
 
 /// User required to reply to another post.
 @MappableClass()
-final class ReplyToPostRequested extends ReplyEvent with ReplyToPostRequestedMappable {
+final class ReplyToPostRequested extends ReplyEvent with ReplyToPostRequestedMappable implements _DraftedReply {
   /// Constructor.
   const ReplyToPostRequested({
     required this.replyParameters,
     required this.replyAction,
     required this.replyMessage,
     this.stand,
+    this.verification,
+    this.draftUid,
+    this.draftKey,
   }) : super();
 
   /// Parameters used in posting the reply data.
@@ -66,13 +69,29 @@ final class ReplyToPostRequested extends ReplyEvent with ReplyToPostRequestedMap
 
   /// The side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative); null for any other thread.
   final int? stand;
+
+  /// The answers to the captcha or the security question the forum asks, null when none was asked yet.
+  final SecCheckAnswer? verification;
+
+  @override
+  final int? draftUid;
+
+  @override
+  final String? draftKey;
 }
 
 /// User required to reply to a thread.
 @MappableClass()
-final class ReplyToThreadRequested extends ReplyEvent with ReplyToThreadRequestedMappable {
+final class ReplyToThreadRequested extends ReplyEvent with ReplyToThreadRequestedMappable implements _DraftedReply {
   /// Constructor.
-  const ReplyToThreadRequested({required this.replyParameters, required this.replyMessage, this.stand}) : super();
+  const ReplyToThreadRequested({
+    required this.replyParameters,
+    required this.replyMessage,
+    this.stand,
+    this.verification,
+    this.draftUid,
+    this.draftKey,
+  }) : super();
 
   /// Parameters used in posting the reply data.
   final ReplyParameters replyParameters;
@@ -82,6 +101,33 @@ final class ReplyToThreadRequested extends ReplyEvent with ReplyToThreadRequeste
 
   /// The side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative); null for any other thread.
   final int? stand;
+
+  /// The answers to the captcha or the security question the forum asks, null when none was asked yet.
+  final SecCheckAnswer? verification;
+
+  @override
+  final int? draftUid;
+
+  @override
+  final String? draftKey;
+}
+
+/// The user answered the captcha or the security question the forum asked for ([ReplyStatus.verification]): the reply
+/// goes again with [answer].
+@MappableClass()
+final class ReplyVerificationAnswered extends ReplyEvent with ReplyVerificationAnsweredMappable {
+  /// Constructor.
+  const ReplyVerificationAnswered(this.answer);
+
+  /// The answers.
+  final SecCheckAnswer answer;
+}
+
+/// The user did not answer the captcha or the security question the forum asked for: the reply was not sent.
+@MappableClass()
+final class ReplyVerificationCancelled extends ReplyEvent with ReplyVerificationCancelledMappable {
+  /// Constructor.
+  const ReplyVerificationCancelled();
 }
 
 /// This event is used to reset the state of flag needClearText in state.
@@ -93,9 +139,17 @@ final class ReplyResetClearTextStateTriggered extends ReplyEvent with ReplyReset
 
 /// Reply in chat history page.
 @MappableClass()
-final class ReplyChatHistoryRequested extends ReplyEvent with ReplyChatHistoryRequestedMappable {
+final class ReplyChatHistoryRequested extends ReplyEvent
+    with ReplyChatHistoryRequestedMappable
+    implements _DraftedReply {
   /// Constructor.
-  const ReplyChatHistoryRequested({required this.targetUrl, required this.formHash, required this.message});
+  const ReplyChatHistoryRequested({
+    required this.targetUrl,
+    required this.formHash,
+    required this.message,
+    this.draftUid,
+    this.draftKey,
+  });
 
   /// Url to post form data.
   final String targetUrl;
@@ -105,17 +159,38 @@ final class ReplyChatHistoryRequested extends ReplyEvent with ReplyChatHistoryRe
 
   /// Message content.
   final String message;
+
+  @override
+  final int? draftUid;
+
+  @override
+  final String? draftKey;
 }
 
 /// Requested to send message in chat page.
 @MappableClass()
-final class ReplyChatRequested extends ReplyEvent with ReplyChatRequestedMappable {
+final class ReplyChatRequested extends ReplyEvent with ReplyChatRequestedMappable implements _DraftedReply {
   /// Constructor.
-  const ReplyChatRequested(this.touid, this.formData);
+  const ReplyChatRequested(this.touid, this.formData, {this.draftUid, this.draftKey});
 
   /// Query parameter used in url to post message to server.
   final String touid;
 
   /// Form data used in post request to send message to server.
   final Map<String, String> formData;
+
+  @override
+  final int? draftUid;
+
+  @override
+  final String? draftKey;
+}
+
+/// A reply or a message written in an editor whose local draft goes once it is sent.
+abstract interface class _DraftedReply {
+  /// The account the local draft belongs to, null when there is none.
+  int? get draftUid;
+
+  /// The key of the local draft (`LocalDraftKey.value`), null when there is none.
+  String? get draftKey;
 }

@@ -190,6 +190,7 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
           viewerUid: uid > 0 ? uid : null,
           // Plugin 2.9.1: the quick reply asks for a captcha or a security question (`reply.seccheck`).
           verification: reply['seccheck'] is Map,
+          secCheck: SecCheck.fromJson(reply['seccheck'], modid: SecCheck.viewthreadModid),
         )
       : null;
 

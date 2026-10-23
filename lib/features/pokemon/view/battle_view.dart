@@ -7,7 +7,9 @@ class _NeedLogin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: TextButton(onPressed: onRetry, child: Text(context.t.battle.loginRequired)));
+    return Center(
+      child: TextButton(onPressed: onRetry, child: Text(context.t.battle.loginRequired)),
+    );
   }
 }
 
@@ -304,60 +306,66 @@ class _Fighter extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.pokemon;
     final ratio = maxHp <= 0 ? 0.0 : (hp / maxHp).clamp(0.0, 1.0);
-    final color = ratio > 0.5 ? Colors.green : ratio > 0.2 ? Colors.orange : Colors.red;
+    final color = ratio > 0.5
+        ? Colors.green
+        : ratio > 0.2
+        ? Colors.orange
+        : Colors.red;
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: spriteSize * 2.6),
       child: Column(
         children: [
           if (boss) Chip(visualDensity: VisualDensity.compact, label: Text(context.t.battle.boss)),
           CachedImage(image, width: spriteSize, height: spriteSize, fit: BoxFit.contain),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: name.isEmpty ? tr.level(level: level) : '$name · ${tr.level(level: level)}'),
-              if (shiny)
-                const WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(Icons.auto_awesome, size: 14, color: Colors.amber),
-                  ),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: name.isEmpty ? tr.level(level: level) : '$name · ${tr.level(level: level)}',
                 ),
-              if (gender == 0 || gender == 1)
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 2),
-                    child: Text(
-                      gender == 0 ? '♂' : '♀',
-                      style: TextStyle(color: gender == 0 ? Colors.blue : Colors.pink, fontWeight: FontWeight.bold),
+                if (shiny)
+                  const WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.auto_awesome, size: 14, color: Colors.amber),
                     ),
                   ),
-                ),
-            ],
+                if (gender == 0 || gender == 1)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Text(
+                        gender == 0 ? '♂' : '♀',
+                        style: TextStyle(color: gender == 0 ? Colors.blue : Colors.pink, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  minHeight: 8,
-                  color: color,
-                  backgroundColor: color.withValues(alpha: 0.2),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 8,
+                    color: color,
+                    backgroundColor: color.withValues(alpha: 0.2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text('${tr.hp} $hp/$maxHp', style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
+              const SizedBox(width: 8),
+              Text('${tr.hp} $hp/$maxHp', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ],
       ),
     );

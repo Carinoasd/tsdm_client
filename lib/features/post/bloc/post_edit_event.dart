@@ -44,6 +44,7 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
     required this.save,
     required this.perm,
     required this.price,
+    this.draftKey,
   }) : super();
 
   /// Form hash.
@@ -100,6 +101,9 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
 
   /// Optional thread price.
   final int? price;
+
+  /// The key of the local draft of the editor (`LocalDraftKey.value`), deleted once the edit was taken.
+  final String? draftKey;
 }
 
 /// Fetch required info for publishing, including form hash, post time and more.
@@ -116,8 +120,14 @@ final class ThreadPubFetchInfoRequested extends PostEditEvent with ThreadPubFetc
 @MappableClass()
 final class ThreadPubPostThread extends PostEditEvent with ThreadPubPostThreadMappable {
   /// Constructor.
-  const ThreadPubPostThread(this.info);
+  const ThreadPubPostThread(this.info, {this.verification, this.draftKey});
 
   /// All info to post in body.
   final ThreadPublishInfo info;
+
+  /// The answers to the captcha or the security question the forum asks, null when none is asked (yet).
+  final SecCheckAnswer? verification;
+
+  /// The key of the local draft of the editor (`LocalDraftKey.value`), deleted once the thread was taken.
+  final String? draftKey;
 }

@@ -319,7 +319,9 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
         child: _loading
             ? const CenteredCircularIndicator()
             : _failed
-            ? Center(child: TextButton(onPressed: _load, child: Text(context.t.general.retry)))
+            ? Center(
+                child: TextButton(onPressed: _load, child: Text(context.t.general.retry)),
+              )
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -347,7 +349,9 @@ class _PokemonDetailPageState extends State<PokemonDetailPage> {
                   const SizedBox(height: 4),
                   LinearProgressIndicator(value: pokemon.expProgress),
                   const SizedBox(height: 8),
-                  Text('${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)} · ${tr.affection}: ${pokemon.affection}'),
+                  Text(
+                    '${tr.state}: ${pokemonStateText(context, pokemon.state, pokemon.stateText)} · ${tr.affection}: ${pokemon.affection}',
+                  ),
                   Text('${tr.hp} ${pokemon.hp}/${pokemon.maxHp}'),
                   if (stats != null) ...[
                     const SizedBox(height: 16),

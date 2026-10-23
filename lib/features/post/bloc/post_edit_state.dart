@@ -54,6 +54,9 @@ final class PostEditState with PostEditStateMappable {
     this.threadPublishInfo,
     this.redirectTid,
     this.needsBrowser = false,
+    this.secCheck,
+    this.wrongAnswer = false,
+    this.maybeSent = false,
   });
 
   /// Status.
@@ -82,4 +85,14 @@ final class PostEditState with PostEditStateMappable {
   /// The forum refused the post because it asks for a captcha or a security question the app cannot show
   /// ([PostEditStatus.failedToUpload]): nothing was posted, the content stays to continue on the website.
   final bool needsBrowser;
+
+  /// The forum refused the post for the captcha or the security question it asks ([PostEditStatus.failedToUpload]):
+  /// what to answer before posting again (the editor asks the user and sends again). Null otherwise.
+  final SecCheck? secCheck;
+
+  /// The answers sent last were not taken ([secCheck]).
+  final bool wrongAnswer;
+
+  /// The post failed after the request left ([PostEditStatus.failedToUpload]): the forum may have taken it.
+  final bool maybeSent;
 }

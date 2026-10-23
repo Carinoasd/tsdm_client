@@ -217,7 +217,8 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   }
 
   /// Use skill [skillId].
-  Future<BattleActionResult> useSkill(int skillId) => _runAction(() => _repository.turn(state.scene!.battleId, skillId));
+  Future<BattleActionResult> useSkill(int skillId) =>
+      _runAction(() => _repository.turn(state.scene!.battleId, skillId));
 
   /// Flee the battle.
   Future<BattleActionResult> flee() => _runAction(() => _repository.flee(state.scene!.battleId));
@@ -302,8 +303,7 @@ class BattleCubit extends Cubit<BattleState> with LoggerMixin {
   ///
   /// The scene does not carry the pet's state, so the abnormal states are left to the refusal-and-retry path of [start].
   static bool _scenePetNeedsHealing(BattleScene scene) =>
-      scene.myPokemon.hp < scene.myPokemon.maxHp ||
-      scene.myPokemon.skills.any((skill) => skill.pp < skill.maxPp);
+      scene.myPokemon.hp < scene.myPokemon.maxHp || scene.myPokemon.skills.any((skill) => skill.pp < skill.maxPp);
 
   /// Handle the app coming back to the foreground.
   ///
