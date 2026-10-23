@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/search/repository/search_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -23,11 +24,37 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
     on<SearchJumpPageRequested>(_onSearchJumpPageRequested);
     on<SearchGotoNextPageRequested>(_onSearchGotoNextPageRequested);
     on<SearchGotoPreviousPageRequested>(_onSearchGotoPreviousPageRequested);
+    on<SearchRetryRequested>(_onSearchRetryRequested);
   }
 
   final SearchRepository _searchRepository;
 
+  /// The last search asked (a new one or another page of it), asked again by [SearchRetryRequested].
+  SearchEvent? _lastEvent;
+
+  Future<void> _onSearchRetryRequested(SearchRetryRequested event, SearchEmitter emit) async {
+    final last = _lastEvent;
+    if (last != null) {
+      add(last);
+    }
+  }
+
+  /// The state of a search that failed with [e]: the forum's own words when it gave any, and how long to wait when
+  /// the search came too early ([searchRateLimitSeconds]).
+  SearchState _failedState(AppException? e) {
+    final message = e is ServerRespondedErrorException ? e.message : null;
+    return state.copyWith(
+      status: SearchStatus.failed,
+      hasPreviousPage: false,
+      hasNextPage: false,
+      failedMessage: message,
+      retryAfterSeconds: message == null ? null : searchRateLimitSeconds(message),
+      failedAt: DateTime.now(),
+    );
+  }
+
   Future<void> _onSearchRequested(SearchRequested event, SearchEmitter emit) async {
+    _lastEvent = event;
     emit(state.copyWith(status: SearchStatus.loading, hasPreviousPage: false, hasNextPage: false));
     await await _searchRepository
         .searchWithParameters(
@@ -41,7 +68,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           (e) {
             handle(e);
             error('failed to search: $e');
-            emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+            emit(_failedState(e));
           },
           (searchResult) async {
             emit(
@@ -63,8 +90,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
   }
 
   Future<void> _onSearchJumpPageRequested(SearchJumpPageRequested event, SearchEmitter emit) async {
+    _lastEvent = event;
     if (state.keyword == null) {
-      emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+      emit(_failedState(null));
       return;
     }
 
@@ -75,7 +103,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           (e) {
             handle(e);
             error('failed to search: $e');
-            emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+            emit(_failedState(e));
           },
           (searchResult) async {
             emit(
@@ -93,6 +121,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
   }
 
   Future<void> _onSearchGotoNextPageRequested(SearchGotoNextPageRequested event, SearchEmitter emit) async {
+    _lastEvent = event;
     emit(state.copyWith(status: SearchStatus.loading, hasPreviousPage: false, hasNextPage: false));
     await await _searchRepository
         .searchWithParameters(keyword: state.keyword!, fid: state.fid, uid: state.uid, pageNumber: state.pageNumber + 1)
@@ -100,7 +129,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           (e) {
             handle(e);
             error('failed to search: $e');
-            emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+            emit(_failedState(e));
           },
           (searchResult) async {
             emit(
@@ -118,8 +147,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
   }
 
   Future<void> _onSearchGotoPreviousPageRequested(SearchGotoPreviousPageRequested event, SearchEmitter emit) async {
+    _lastEvent = event;
     if (state.pageNumber <= 1) {
-      emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+      emit(_failedState(null));
       return;
     }
 
@@ -130,7 +160,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           (e) {
             handle(e);
             error('failed to search: $e');
-            emit(state.copyWith(status: SearchStatus.failed, hasPreviousPage: false, hasNextPage: false));
+            emit(_failedState(e));
           },
           (searchResult) async {
             emit(

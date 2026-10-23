@@ -184,10 +184,29 @@ final class _ChatPageState extends State<ChatPage> {
                 // Show the message just sent: fetch the dialog again and end on its newest message (GitHub #76).
                 _revealLatestAfterReload = true;
                 context.read<ChatBloc>().add(ChatFetchHistoryRequested(widget.uid));
-              } else if (state.status == ReplyStatus.failure && state.failedReason != null) {
+              } else if (state.status == ReplyStatus.failure) {
+                // Every failure is told, and the editor stays open with the message for another try.
+                final chatBloc = context.read<ChatBloc>();
                 showSnackBar(
                   context: context,
-                  message: tr.failed(message: state.failedReason!),
+                  message: state.maybeSent
+                      ? tr.maybeSent
+                      : state.networkFailure
+                      ? tr.failedNetwork
+                      : tr.failed(message: state.failedReason ?? ''),
+                  // The keyboard stays up and this page does not resize for it: lift the hint above it.
+                  bottomInset: MediaQuery.viewInsetsOf(context).bottom,
+                  // The message may be in the dialog already: look before sending it again.
+                  action: state.maybeSent
+                      ? SnackBarAction(
+                          label: tr.refresh,
+                          onPressed: () {
+                            if (chatBloc.isClosed) return;
+                            _revealLatestAfterReload = true;
+                            chatBloc.add(ChatFetchHistoryRequested(widget.uid));
+                          },
+                        )
+                      : null,
                 );
               }
             },

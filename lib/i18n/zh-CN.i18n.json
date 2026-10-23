@@ -144,6 +144,7 @@
     "noPermission": "没有权限查看该内容",
     "needLoginToSeeThisPage": "登录后才能访问此页面",
     "needLogin": "请先登录",
+    "accountChangedRetry": "账号已切换，请重新打开此页。",
     "pleaseWait": "请稍候",
     "loadFailedAndRetry": "加载失败，正在重试",
     "noData": "没有数据",
@@ -161,7 +162,8 @@
     "now": "刚刚",
     "settings": "设置",
     "openInBrowser": "在浏览器中打开",
-    "close": "关闭"
+    "close": "关闭",
+    "loadMoreFailed": "加载更多失败"
   },
   "navigation": {
     "homepage": "主页",
@@ -413,7 +415,13 @@
         "granted": "已允许",
         "denied": "未允许",
         "permanentlyDenied": "已永久拒绝",
-        "openSettingsTip": "系统不再弹出权限对话框。请打开应用设置页，在那里开启通知后再回来。"
+        "openSettingsTip": "系统不再弹出权限对话框。请打开应用设置页，在那里开启通知后再回来。",
+        "promptTitle": "允许通知？",
+        "promptMessage": "开启后，新的提醒、私信和公共消息会显示为系统通知。接下来系统会询问是否允许通知；之后也可以在“设置 → 通知权限”中更改。",
+        "promptAllow": "继续",
+        "promptLater": "以后再说",
+        "promptSettingsMessage": "通知权限已被拒绝或在系统里关闭，系统不会再询问。要收到通知，请到应用设置页开启。",
+        "promptOpenSettings": "打开设置"
       },
       "ignoreBatteryOptimizations": {
         "title": "忽略电池优化",
@@ -429,8 +437,8 @@
         }
       },
       "collapseAppBarWhenScroll": {
-        "title": "滑动时收起AppBar",
-        "detail": "分区和帖子页面中收起"
+        "title": "滚动时收起顶栏",
+        "detail": "在帖子页向下滚动时收起顶栏和导航路径，向上滚动时再出现"
       },
       "threadFloorInteractionMode": {
         "title": "帖子楼层交互方式",
@@ -835,6 +843,11 @@
     "replySuccess": "回复成功",
     "replyFailed": "回复失败：$err",
     "replyFailedNetwork": "回复失败：网络不可用，请检查网络后重试",
+    "replyMaybeSent": "回复结果不明：可能已发出，请刷新确认后再决定是否重发",
+    "refreshToCheck": "刷新",
+    "replyCheckFiltered": "当前只看某位作者的楼层，你的回复可能不在列表里",
+    "lastFloorReached": "已到最后一楼",
+    "firstFloorReached": "已到最早一楼",
     "replyNeedsVerification": "这个版块回复需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中回复。",
     "replyNeedsBrowser": "这个回复表单有 App 暂不支持的栏位，请在浏览器中回复。",
     "replyInBrowser": "在浏览器中回复",
@@ -1027,7 +1040,12 @@
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
-      "noData": "没有数据"
+      "noData": "没有数据",
+      "hint": "输入关键字、作者或论坛 id 后搜索",
+      "failed": "搜索失败：$message",
+      "rateLimited": "论坛限制每 $seconds 秒只能搜索一次",
+      "retryIn": "$seconds 秒后再试",
+      "retry": "再试一次"
     }
   },
   "myThreadPage": {
@@ -1148,6 +1166,8 @@
     "onlyAllowIntegers": "只允许整数",
     "failedToRate": "评分失败",
     "scoreTodayRemaining": "今日剩余 $score",
+    "overTodayRemaining": "超过今日剩余 $score",
+    "selfDeduct": "评分将扣除您的同类积分",
     "fillWithTemplate": "使用模板填充"
   },
   "pointsPage": {
@@ -1194,6 +1214,14 @@
     },
     "editSuccess": "编辑成功",
     "saveAsDraft": "保存草稿",
+    "leaveDialog": {
+      "title": "要离开编辑吗？",
+      "message": "当前的内容还没有发出。",
+      "discard": "舍弃",
+      "saveDraft": "存草稿",
+      "keepEditing": "继续编辑",
+      "sending": "仍在发送，离开后无法得知结果，确定离开？"
+    },
     "threadPublish": {
       "title": "发布新帖",
       "warningBeforePost": {
@@ -1246,7 +1274,10 @@
     "online": "[在线]",
     "offline": "[离线]",
     "viewUserSpaceTip": "查看用户资料",
-    "viewChatHistoryTip": "查看历史聊天"
+    "viewChatHistoryTip": "查看历史聊天",
+    "failedNetwork": "发送失败：网络不可用，请检查网络后重试",
+    "maybeSent": "发送结果不明：可能已发出，请刷新确认后再决定是否重发",
+    "refresh": "刷新"
   },
   "imageDetailPage": {
     "title": "图片详情",
@@ -2210,6 +2241,9 @@
     "save": "保存资料",
     "saveSuccess": "保存成功",
     "saveFailed": "保存失败",
+    "saveFailedReason": "保存失败：$reason",
+    "fieldRefused": "论坛不接受“$field”的内容",
+    "fieldNotOffered": "“$field”的值不在论坛的选项里",
     "visibility": {
       "title": "隐私",
       "public": "公开",

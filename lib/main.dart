@@ -123,13 +123,9 @@ Future<void> _boot(List<String> args) async {
     await deleteLegacyLocalNoticeChannel();
     // A tap on the notification while the app was not running: park the payload for the home page (#14).
     await rememberNotificationLaunch();
-    if (autoSyncNoticeSeconds > 0) {
-      // Android 13+ runtime permission; `null` means the platform plugin was not resolved.
-      final granted = await flnp
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-      talker.info('boot notification permission granted=$granted');
-    }
+    // The notification permission (Android 13+) is not asked here any more: awaited before `runApp`, a new install
+    // showed the system dialog over a blank screen. It is asked with a card explaining it after a login, on the first
+    // visit of the notice page, or when the sync is turned on in the settings (askNotificationPermission).
     // Background message service (#80): the same controller the settings page uses, so a change made there queues
     // behind the boot start. Optional, so a failure here is logged and never stops the boot.
     try {

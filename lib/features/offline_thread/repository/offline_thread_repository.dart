@@ -198,6 +198,25 @@ class OfflineThreadRepository with LoggerMixin {
     }
   }
 
+  /// The saved page of the thread of [key] (same account, order and author) with the highest page number, whatever
+  /// the page of [key]; null when none (or when reading failed). For a page asked past the last one on purpose
+  /// (`goto=lastpost`), saved under the page the forum answered.
+  Future<OfflineThreadPage?> loadLast(OfflineThreadKey key) async {
+    try {
+      final entity = await _store.fetchLastOfflineThreadPage(
+        uid: key.uid,
+        tid: key.tid,
+        orderType: key.orderType,
+        authorId: key.authorId,
+      );
+      return entity == null ? null : (body: entity.body, savedAt: entity.savedAt);
+    } on Object catch (e, st) {
+      error('offline threads: failed to read the last page of $key: $e');
+      handleRaw(e, st);
+      return null;
+    }
+  }
+
   /// Size of every saved page in bytes.
   Future<int> size() async => _store.offlineThreadsSize();
 

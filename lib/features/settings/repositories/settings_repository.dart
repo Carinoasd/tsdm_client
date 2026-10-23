@@ -167,6 +167,7 @@ final class SettingsRepository with LoggerMixin {
       offlineThreadsLimit: s.extract(_SK.offlineThreadsLimit),
       enableAppPostRenderer: s.extract(_SK.enableAppPostRenderer),
       homepagePinnedGroup: s.extract(_SK.homepagePinnedGroup),
+      notificationPermissionPrompted: s.extract(_SK.notificationPermissionPrompted),
     );
   }
 

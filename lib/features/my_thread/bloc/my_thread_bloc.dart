@@ -41,33 +41,40 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         replyList: [],
         refreshingThread: true,
         refreshingReply: true,
+        threadFailed: false,
+        threadLoadMoreFailed: false,
+        replyFailed: false,
+        replyLoadMoreFailed: false,
       ),
     );
     final data = await Future.wait([
       _myThreadRepository.fetchPage(myThreadThreadUrl).run(),
       _myThreadRepository.fetchPage(myThreadReplyUrl).run(),
     ]);
-    switch ((data[0], data[1])) {
-      case (Right(value: final v1), Right(value: final v2)):
-        final (threadList, threadNextPageUrl) = _parseThreadPage(v1, myThreadThreadUrl);
-        final (replyList, replyNextPageUrl) = _parseReplyPage(v2, myThreadReplyUrl);
-        emit(
-          state.copyWith(
-            status: MyThreadStatus.success,
-            threadList: threadList,
-            threadPageNumber: 1,
-            nextThreadPageUrl: threadNextPageUrl,
-            replyList: replyList,
-            replyPageNumber: 1,
-            nextReplyPageUrl: replyNextPageUrl,
-            refreshingThread: false,
-            refreshingReply: false,
-          ),
-        );
-      default:
-        error('failed to initial my thread page data: ${data[0]}/${data[1]}');
-        emit(state.copyWith(status: MyThreadStatus.failed, refreshingThread: false, refreshingReply: false));
+    // Each tab on its own: one that failed offers its retry, the other one shows what it got.
+    var next = state.copyWith(status: MyThreadStatus.success, refreshingThread: false, refreshingReply: false);
+    switch (data[0]) {
+      case Right(value: final v):
+        final (threadList, threadNextPageUrl) = _parseThreadPage(v, myThreadThreadUrl);
+        next = next.copyWith(threadList: threadList, threadPageNumber: 1, nextThreadPageUrl: threadNextPageUrl);
+      case Left(value: final e):
+        handle(e);
+        error('failed to load the thread tab of my thread page: $e');
+        next = next.copyWith(threadFailed: true);
     }
+    switch (data[1]) {
+      case Right(value: final v):
+        final (replyList, replyNextPageUrl) = _parseReplyPage(v, myThreadReplyUrl);
+        next = next.copyWith(replyList: replyList, replyPageNumber: 1, nextReplyPageUrl: replyNextPageUrl);
+      case Left(value: final e):
+        handle(e);
+        error('failed to load the reply tab of my thread page: $e');
+        next = next.copyWith(replyFailed: true);
+    }
+    if (next.threadFailed && next.replyFailed) {
+      next = next.copyWith(status: MyThreadStatus.failed);
+    }
+    emit(next);
   }
 
   Future<void> _onMyThreadLoadMoreThreadRequested(MyThreadLoadMoreThreadRequested event, MyThreadEmitter emit) async {
@@ -76,13 +83,17 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
       return;
     }
     final url = state.nextThreadPageUrl!;
+    if (state.threadLoadMoreFailed) {
+      emit(state.copyWith(threadLoadMoreFailed: false));
+    }
     await _myThreadRepository
         .fetchPage(url)
         .match(
           (e) {
             handle(e);
             error('failed to load next page of thread tab: $e');
-            emit(state.copyWith(status: MyThreadStatus.failed));
+            // The threads loaded before stay on screen.
+            emit(state.copyWith(threadLoadMoreFailed: true));
           },
           (v) {
             final (threadList, nextThreadPageUrl) = _parseThreadPage(v, url);
@@ -92,6 +103,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 threadList: [...state.threadList, ...threadList],
                 threadPageNumber: state.threadPageNumber + 1,
                 nextThreadPageUrl: nextThreadPageUrl,
+                threadLoadMoreFailed: false,
               ),
             );
           },
@@ -105,13 +117,17 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
       return;
     }
     final url = state.nextReplyPageUrl!;
+    if (state.replyLoadMoreFailed) {
+      emit(state.copyWith(replyLoadMoreFailed: false));
+    }
     await _myThreadRepository
         .fetchPage(url)
         .match(
           (e) {
             handle(e);
             error('failed to load next page of reply tab: $e');
-            emit(state.copyWith(status: MyThreadStatus.failed));
+            // The replies loaded before stay on screen.
+            emit(state.copyWith(replyLoadMoreFailed: true));
           },
           (v) {
             final (replyList, nextReplyPageUrl) = _parseReplyPage(v, url);
@@ -121,6 +137,7 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 replyList: [...state.replyList, ...replyList],
                 replyPageNumber: state.replyPageNumber + 1,
                 nextReplyPageUrl: nextReplyPageUrl,
+                replyLoadMoreFailed: false,
               ),
             );
           },
@@ -135,8 +152,9 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         .match(
           (e) {
             handle(e);
-            error('failed to load next page of thread tab: $e');
-            emit(state.copyWith(status: MyThreadStatus.failed, refreshingThread: false));
+            error('failed to refresh thread tab: $e');
+            // The threads shown before stay; an empty tab offers the retry.
+            emit(state.copyWith(refreshingThread: false, threadFailed: true));
           },
           (v) {
             final (threadList, nextThreadPageUrl) = _parseThreadPage(v, myThreadThreadUrl);
@@ -147,6 +165,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 threadPageNumber: 1,
                 nextThreadPageUrl: nextThreadPageUrl,
                 refreshingThread: false,
+                threadFailed: false,
+                threadLoadMoreFailed: false,
               ),
             );
           },
@@ -161,8 +181,9 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         .match(
           (e) {
             handle(e);
-            error('failed to load next page of reply tab: $e');
-            emit(state.copyWith(status: MyThreadStatus.failed, refreshingReply: false));
+            error('failed to refresh reply tab: $e');
+            // The replies shown before stay; an empty tab offers the retry.
+            emit(state.copyWith(refreshingReply: false, replyFailed: true));
           },
           (v) {
             final (replyList, nextReplyPageUrl) = _parseReplyPage(v, myThreadReplyUrl);
@@ -173,6 +194,8 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
                 replyPageNumber: 1,
                 nextReplyPageUrl: nextReplyPageUrl,
                 refreshingReply: false,
+                replyFailed: false,
+                replyLoadMoreFailed: false,
               ),
             );
           },
@@ -180,7 +203,6 @@ final class MyThreadBloc extends Bloc<MyThreadEvent, MyThreadState> with LoggerM
         .run();
   }
 
-  /// The thread list and the next page url of the thread page [answer] fetched from [url] ([myThreadPageOf]).
   (List<MyThread>, String? nextPageUrl) _parseThreadPage(TsdmAppPageAnswer answer, String url) =>
       myThreadPageOf(answer, url, reply: false);
 

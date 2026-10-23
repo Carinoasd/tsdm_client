@@ -470,7 +470,10 @@ class StorageProvider with LoggerMixin {
   /*            image cache           */
 
   /// Get the image cache for image from [url].
-  ImageEntity? getImageCacheSync(String url) => _imageCache.entries.firstWhereOrNull((e) => e.key == url)?.value;
+  ///
+  /// A lookup by key: the table holds every cached image (a hundred thousand rows are no exception), and walking it
+  /// for every image shown slowed the first frame down.
+  ImageEntity? getImageCacheSync(String url) => _imageCache[url];
 
   /// Get user avatar cache info on [username].
   Future<UserAvatarEntity?> getUserAvatarEntityCache({required String username, required String? imageUrl}) async =>
@@ -805,6 +808,30 @@ class StorageProvider with LoggerMixin {
         uid: uid,
         tid: tid,
         page: page,
+        orderType: orderType,
+        authorId: authorId,
+        time: usedAt ?? DateTime.now(),
+      );
+    }
+    return entity;
+  }
+
+  /// The saved page with the highest page number for the rest of the key ([OfflineThreadDao.selectLastPage]), null
+  /// when none; a page found is marked used at [usedAt].
+  Future<OfflineThreadEntity?> fetchLastOfflineThreadPage({
+    required int uid,
+    required int tid,
+    required int orderType,
+    required int authorId,
+    DateTime? usedAt,
+  }) async {
+    final dao = OfflineThreadDao(_db);
+    final entity = await dao.selectLastPage(uid: uid, tid: tid, orderType: orderType, authorId: authorId);
+    if (entity != null) {
+      await dao.touch(
+        uid: uid,
+        tid: tid,
+        page: entity.page,
         orderType: orderType,
         authorId: authorId,
         time: usedAt ?? DateTime.now(),

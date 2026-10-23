@@ -43,10 +43,15 @@ class ForumState with ForumStateMappable {
     this.filterOrderList = const [],
     this.filterDatelineList = const [],
     this.pollOfferUid,
+    this.loadMoreFailed = false,
   });
 
   /// Account the latest loaded page offered a poll creation link to; cleared while loading or on failure.
   final int? pollOfferUid;
+
+  /// The last page asked to go on with the list failed: the threads loaded before it stay ([status] is success), the
+  /// end of the list tells the failure and retries ([ForumRetryRequested]).
+  final bool loadMoreFailed;
 
   /// Page status.
   final ForumStatus status;

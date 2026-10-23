@@ -8,6 +8,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/bloc/authentication_bloc.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/authentication/widgets/captcha_image.dart';
+import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -352,6 +353,8 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
           }
           // Same reason as the pause above: the auto sync resumes only when the holder that paused it resumes.
           context.read<AutoNotificationCubit>().resume('login');
+          // Now that there is an account to notify for: the card explaining the notification permission, once.
+          askNotificationPermissionAfterLogin();
         } else if (state.status == AuthenticationStatus.failure) {
           // The bloc owns form refresh; listeners must not start duplicate sessions.
           verifyCodeController.clear();

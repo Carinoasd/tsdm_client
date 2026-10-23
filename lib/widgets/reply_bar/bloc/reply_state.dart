@@ -27,6 +27,7 @@ class ReplyState with ReplyStateMappable {
     this.replyTypes = ReplyTypes.thread,
     this.failedReason,
     this.networkFailure = false,
+    this.maybeSent = false,
     this.postedPid = '',
     this.postedPage = 0,
     this.browserUrl,
@@ -59,6 +60,11 @@ class ReplyState with ReplyStateMappable {
   /// fixed network hint instead of the raw exception text.
   final bool networkFailure;
 
+  /// The last failure came after the request left ([networkFailure] without
+  /// [isNoNetworkFailure]: a timeout while waiting for the answer, a connection dropped): the forum may have stored
+  /// the reply or the message, so the UI asks to refresh and check before sending it again, never to just retry.
+  final bool maybeSent;
+
   /// Id of the post created by the last successful reply, empty when the server did not tell.
   final String postedPid;
 
@@ -77,6 +83,7 @@ class ReplyState with ReplyStateMappable {
       needClearText: needClearText,
       failedReason: failedReason,
       networkFailure: networkFailure,
+      maybeSent: maybeSent,
       postedPid: postedPid,
       postedPage: postedPage,
     );

@@ -7,8 +7,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
+import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -189,6 +191,15 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     _broadcastMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _tabController = TabController(vsync: this, length: 3);
     _searchController = TextEditingController();
+    // The first visit of the notice page: the card explaining the notification permission, once.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await askNotificationPermission(
+        context,
+        trigger: NotificationPermissionTrigger.noticePage,
+        loggedIn: context.readOrNull<AuthenticationRepository>()?.currentUser != null,
+      );
+    });
   }
 
   @override

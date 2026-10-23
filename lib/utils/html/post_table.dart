@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -1065,12 +1066,20 @@ class _RenderPostTableImage extends RenderProxyBox {
 ///
 /// The view only takes horizontal drags, and only when the table is wider than it: a vertical drag on the table
 /// scrolls the page.
+///
+/// The table fades out at an edge it scrolls further past ([fadeWidth]), the right one first: before, a table cut at the
+/// edge of the screen looked whole, nothing said that there was more of it to the right. The fade narrows as the
+/// table nears its end and is gone there. It only changes how the table is painted, in any theme (the table itself
+/// fades, not a color painted over it): what is under it is still tapped.
 class PostTableScrollView extends StatelessWidget {
   /// Constructor.
   const PostTableScrollView({required this.child, super.key});
 
   /// The table.
   final Widget child;
+
+  /// How wide the table fades out at an edge it scrolls further past.
+  static const double fadeWidth = 28;
 
   // Its own physics, not those of the page around it (a pull to refresh): it only scrolls sideways, to its ends.
   @override
@@ -1224,10 +1233,12 @@ class _RenderTableViewport extends RenderBox
   bool get _overflows => child != null && child!.size.width > size.width;
 
   final _clipRectLayer = LayerHandle<ClipRectLayer>();
+  final _fadeLayer = LayerHandle<ShaderMaskLayer>();
 
   @override
   void dispose() {
     _clipRectLayer.layer = null;
+    _fadeLayer.layer = null;
     super.dispose();
   }
 
@@ -1239,18 +1250,46 @@ class _RenderTableViewport extends RenderBox
     }
     final paintOffset = _paintOffset;
     void paintContents(PaintingContext context, Offset offset) => context.paintChild(child, offset + paintOffset);
-    if (_overflows || paintOffset.dx != 0) {
-      _clipRectLayer.layer = context.pushClipRect(
-        needsCompositing,
-        offset,
-        Offset.zero & size,
-        paintContents,
-        oldLayer: _clipRectLayer.layer,
-      );
-    } else {
-      _clipRectLayer.layer = null;
-      paintContents(context, offset);
+    void paintClipped(PaintingContext context, Offset offset) {
+      if (_overflows || paintOffset.dx != 0) {
+        _clipRectLayer.layer = context.pushClipRect(
+          needsCompositing,
+          offset,
+          Offset.zero & size,
+          paintContents,
+          oldLayer: _clipRectLayer.layer,
+        );
+      } else {
+        _clipRectLayer.layer = null;
+        paintContents(context, offset);
+      }
     }
+
+    // The table fades out at an edge it scrolls further past, less as it nears its end there (see
+    // [PostTableScrollView]).
+    final scrolled = this.offset.hasPixels ? this.offset.pixels : 0.0;
+    final width = size.width;
+    final fades = _overflows && width > 0;
+    final fade = math.min(PostTableScrollView.fadeWidth, width / 4);
+    final start = fades ? (scrolled.clamp(0.0, fade) / width) : 0.0;
+    final end = fades ? ((_maxScrollExtent - scrolled).clamp(0.0, fade) / width) : 0.0;
+    if (start <= 0 && end <= 0) {
+      _fadeLayer.layer = null;
+      paintClipped(context, offset);
+      return;
+    }
+    const opaque = Color(0xFF000000);
+    const clear = Color(0x00000000);
+    final layer = (_fadeLayer.layer ??= ShaderMaskLayer())
+      ..shader = ui.Gradient.linear(
+        Offset.zero,
+        Offset(width, 0),
+        [if (start > 0) clear, opaque, opaque, if (end > 0) clear],
+        [if (start > 0) 0, start, 1 - end, if (end > 0) 1],
+      )
+      ..maskRect = offset & size
+      ..blendMode = BlendMode.dstIn;
+    context.pushLayer(layer, paintClipped, offset);
   }
 
   @override
