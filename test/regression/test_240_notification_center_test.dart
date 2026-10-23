@@ -801,7 +801,7 @@ void main() {
             ScreenPaths.reply,
             ScreenPaths.chatHistory,
             ScreenPaths.profile,
-            ScreenPaths.notice,
+            ScreenPaths.rootNotice,
           ])
             GoRoute(path: path, name: path, builder: (_, s) => page(s)),
         ],
@@ -1010,7 +1010,7 @@ void main() {
       final noAccount = await openNoticePageOfAccount(home, uid: null, target: const LocalNoticeTarget(peerUid: 1001));
       await _settle(tester);
       expect(noAccount.action, LocalNoticeTapAction.openNoticePage);
-      expect(router.state.uri.path, ScreenPaths.notice);
+      expect(router.state.uri.path, ScreenPaths.rootNotice);
       router.pop();
       await _settle(tester);
 
@@ -1039,7 +1039,7 @@ void main() {
       await _settle(tester);
       expect(switches, [1001]);
       expect((other?.step, other?.action), (LocalNoticeAccountStep.notSwitched, LocalNoticeTapAction.openNoticePage));
-      expect(router.state.uri.path, ScreenPaths.notice);
+      expect(router.state.uri.path, ScreenPaths.rootNotice);
       expect(
         notifications.events.whereType<NotificationMarkReadRequested>().where(
           (e) =>

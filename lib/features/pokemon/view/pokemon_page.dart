@@ -182,7 +182,11 @@ class _PokemonPageState extends State<PokemonPage> with WidgetsBindingObserver, 
                   child: Text(tr.loginRequired),
                 ),
               ),
-              PokemonStatus.failure => buildRetryButton(context, () => unawaited(_cubit.load()), message: tr.failedToLoad),
+              PokemonStatus.failure => buildRetryButton(
+                context,
+                () => unawaited(_cubit.load()),
+                message: tr.failedToLoad,
+              ),
               // The tabs are the app's main scrolling surfaces, so keep their content clear of the system bars.
               PokemonStatus.success => const SafeArea(
                 child: TabBarView(children: [MyPokemonTab(), PokemonCenterTab(), InventoryTab(), ShopTab()]),

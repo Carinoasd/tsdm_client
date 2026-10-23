@@ -22,14 +22,21 @@ class GuideIndexRepository {
   /// the homepage reads this page on every launch. Plugin 2.4.0 answers the page as structured fields (`schema: 7`,
   /// [guideApiAnswerOf]), from which the modules are built ([guideModulesFromApi]); an older plugin answers the web
   /// page, which parses as before ([parseGuideIndex]).
-  AsyncEither<List<GuideModule>> fetchGuideIndex() => getIt
+  AsyncEither<List<GuideModule>> fetchGuideIndex() => fetchGuideIndexAnswer().map((e) => e.modules);
+
+  /// [fetchGuideIndex] with the structured answer the modules were built from (null for the web page of an older
+  /// plugin): the answer the homepage keeps for the next start (`GuideFeed`).
+  AsyncEither<GuideIndexAnswer> fetchGuideIndexAnswer() => getIt
       .get<NetClientProvider>()
       .get(withTsdmAppJson(guideIndexUrl))
       .mapHttpPageAnswer(guideApiAnswerOf)
       .map(
         (answer) => switch (answer) {
-          TsdmAppWebPage(:final document) => parseGuideIndex(document),
-          TsdmAppStructuredPage(:final json) => guideModulesFromApi(json),
+          TsdmAppWebPage(:final document) => (modules: parseGuideIndex(document), json: null),
+          TsdmAppStructuredPage(:final json) => (modules: guideModulesFromApi(json), json: json),
         },
       );
 }
+
+/// The modules of the guide index page and the structured answer they were built from, null for a web page.
+typedef GuideIndexAnswer = ({List<GuideModule> modules, Map<String, dynamic>? json});

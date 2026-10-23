@@ -56,6 +56,9 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentLineHeight = PostTypography.defaultLineHeight,
     this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
     this.threadContentSplitLongParagraphs = false,
+    this.threadCardShowExcerpt = true,
+    this.threadCardThumbnailMode = 1,
+    this.threadCardExternalThumbnails = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
     this.notificationPermissionPrompted = false,
@@ -67,6 +70,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
     this.homepagePinnedGroup = '',
+    this.threadOpenPosition = 1,
   });
 
   final String netClientAccept;
@@ -96,6 +100,20 @@ class SettingsMap with SettingsMapMappable {
   final bool threadCardHighlightRecentThread;
   final bool threadCardHighlightAuthorName;
   final bool threadCardHighlightInfoRow;
+
+  /// Whether the thread lists show the excerpt of the first floor. Not required: backups from older versions lack it.
+  final bool threadCardShowExcerpt;
+
+  /// When the thread lists show a thumbnail, the index of a [ThreadThumbnailMode]. Not required: backups from older
+  /// versions lack it.
+  final int threadCardThumbnailMode;
+
+  /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
+  /// versions lack it.
+  final bool threadCardExternalThumbnails;
+
+  /// When the thread lists show a thumbnail.
+  ThreadThumbnailMode get threadThumbnailMode => ThreadThumbnailMode.fromIndex(threadCardThumbnailMode);
   final String netClientProxy;
   final bool netClientUseProxy;
   final bool autoCheckin;
@@ -125,6 +143,12 @@ class SettingsMap with SettingsMapMappable {
   final bool collapseAppBarWhenScroll;
   final bool notificationPermissionPrompted;
   final ThreadFloorInteractionMode threadFloorInteractionMode;
+
+  /// Index of a [ThreadOpenPosition]. Not required: backups from older versions lack it.
+  final int threadOpenPosition;
+
+  /// Where a thread read before opens from a list.
+  ThreadOpenPosition get openPosition => ThreadOpenPosition.fromIndex(threadOpenPosition);
   final double textScaleFactor;
   final double threadContentScale;
 
@@ -199,6 +223,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadCardHighlightRecentThread => copyWith(threadCardHighlightRecentThread: value as bool?),
       SettingsKeys.threadCardHighlightAuthorName => copyWith(threadCardHighlightAuthorName: value as bool?),
       SettingsKeys.threadCardHighlightInfoRow => copyWith(threadCardHighlightInfoRow: value as bool?),
+      SettingsKeys.threadCardShowExcerpt => copyWith(threadCardShowExcerpt: value as bool?),
+      SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
+      SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
       SettingsKeys.netClientUseProxy => copyWith(netClientUseProxy: value as bool?),
       SettingsKeys.autoCheckin => copyWith(autoCheckin: value as bool?),
@@ -219,6 +246,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableAutoClearImageCache => copyWith(enableAutoClearImageCache: value as bool?),
       SettingsKeys.autoClearImageCacheDuration => copyWith(autoClearImageCacheDuration: value as int?),
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
+      SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadFloorInteractionMode => copyWith(
         threadFloorInteractionMode: value as ThreadFloorInteractionMode?,
       ),

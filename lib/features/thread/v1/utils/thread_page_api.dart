@@ -50,7 +50,8 @@ Map<String, dynamic>? threadApiAnswerOf(Object? data) {
 ///   group linked as `forum.php?gid=`, a forum as `forum.php?mod=forumdisplay&fid=`), the thread itself not among
 ///   them, as the page's breadcrumb parser leaves them;
 /// * `page` / `pages` are the pagination the forum printed (`page` clamped to the last page as the forum does when
-///   asked past it; the `pages` of the forum's own order, which a reversed or author-only request keeps);
+///   asked past it; the `pages` of the forum's own order, which a reversed or author-only request keeps), `ppp` the
+///   floors per page of the account and `thread.replies` the replies the pages are counted from;
 /// * `reply.allowed` (the thread takes a reply), `reply.fastpost` (the fast reply form is printed) and
 ///   `reply.fastpost_allowed` (the form has its textarea: a newbie, an account without avatar… have `allowed` 1 but
 ///   no textarea) tell a member whether the thread is closed (`threadClosed`), as the page parser reads the form and
@@ -190,6 +191,7 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
           viewerUid: uid > 0 ? uid : null,
           // Plugin 2.9.1: the quick reply asks for a captcha or a security question (`reply.seccheck`).
           verification: reply['seccheck'] is Map,
+          secCheck: SecCheck.fromJson(reply['seccheck'], modid: SecCheck.viewthreadModid),
         )
       : null;
 
@@ -247,6 +249,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     replyCount: thread['allreplies'] is num ? _int(thread['allreplies']) : _int(thread['replies']),
     special: special,
     authorUid: _int(thread['authorid']) > 0 ? _int(thread['authorid']) : null,
+    postsPerPage: _int(json['ppp']) > 0 ? _int(json['ppp']) : null,
+    paginationReplies: thread['replies'] is num ? _int(thread['replies']) : null,
     // The order the floors came in: the one asked, or the thread's own when none was (its author set it).
     newestFirst: _int(json['ordertype']) == 1,
   );

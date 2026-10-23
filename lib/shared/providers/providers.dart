@@ -1,4 +1,6 @@
 import 'package:system_network_proxy/system_network_proxy.dart';
+import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -10,6 +12,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/connection.dart' as conn;
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
@@ -43,9 +46,9 @@ Future<void> initProviders() async {
   // ignore: undefined_function
   final db = AppDatabase(conn.connect());
   final preloadedCookie = await preloadCookie(db);
-  final preloadedImageCache = await preloadImageCache(db);
-
-  final storageProvider = StorageProvider(db, preloadedCookie, preloadedImageCache);
+  // The image cache table is not read here any more: rows are looked up by their url when an image is shown. Read
+  // whole before the first frame, a large table (150 000 rows) doubled the time to it.
+  final storageProvider = StorageProvider.forApp(db, preloadedCookie);
 
   final settingsRepo = SettingsRepository(storageProvider);
   await settingsRepo.init();
@@ -62,8 +65,13 @@ Future<void> initProviders() async {
     ..registerFactory(NetClientProvider.buildNoCookie, instanceName: ServiceKeys.noCookie)
     ..registerSingleton(NetErrorSaver())
     ..registerSingleton(AdventureCache())
+    // The last homepage and guide of each account, shown at the next start while they are asked again.
+    ..registerSingleton(SavedAnswerStore())
     // One write queue for every thread page, the settings and the cache sheet.
-    ..registerSingleton(OfflineThreadRepository());
+    ..registerSingleton(OfflineThreadRepository())
+    // The drafts the editors did not send, a file per account; the emojis used lately.
+    ..registerSingleton(LocalDraftStore())
+    ..registerSingleton(RecentEmojiStore());
   await getIt.allReady();
 
   getIt.registerSingleton(

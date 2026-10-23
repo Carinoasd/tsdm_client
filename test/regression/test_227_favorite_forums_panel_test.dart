@@ -791,8 +791,10 @@ void main() {
         );
         final repo = ForumHomeRepository();
         addTearDown(repo.dispose);
-        final page = _right(await repo.fetchHomePage().run());
-        expect(page.dailyRedPacket, isNull, reason: 'claimed, the page fetched again');
+        _right(await repo.fetchHomePage().run());
+        // The claim and the reload run after the page was answered (cold start).
+        await repo.dailyRewardsDone;
+        expect(repo.getCache()?.dailyRedPacket, isNull, reason: 'claimed, the page fetched again');
         expect(forum.homepage, hasLength(2));
         expect(forum.withDocument, isEmpty);
       },

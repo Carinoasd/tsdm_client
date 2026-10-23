@@ -17,6 +17,7 @@ class ReplyParameters with ReplyParametersMappable {
     this.debateStand,
     this.viewerUid,
     this.verification = false,
+    this.secCheck,
   });
 
   /// Forum id.
@@ -52,4 +53,9 @@ class ReplyParameters with ReplyParametersMappable {
   /// page). The quick reply is then not sent from the app. False when the page does not tell, which does not mean the
   /// forum will not ask when the reply is posted (a site asking by the number of posts or their interval decides then).
   final bool verification;
+
+  /// What the quick reply asks for, with the ids its answers go with, when the thread page told them ([verification]
+  /// with the ids: `reply.seccheck` of plugin 2.9.1, the placeholders of the web page): the app asks them before
+  /// sending. Null when nothing is asked, or the page did not tell the ids (the reply then needs the website).
+  final SecCheck? secCheck;
 }

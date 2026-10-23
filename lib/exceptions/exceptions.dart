@@ -257,12 +257,28 @@ final class PostEditFailedToUploadResult extends AppException with PostEditFaile
   final String errorText;
 }
 
-/// The forum refused a post form because it asks for a captcha or a security question the app cannot show
-/// (`submit_seccode_invalid`, `submit_secqaa_invalid`): nothing was posted, continue on the website.
+/// The forum refused a post form because it asks for a captcha or a security question (`submit_seccode_invalid`,
+/// `submit_secqaa_invalid`: none was sent, or the answer was wrong): nothing was posted. [check] is what to answer
+/// before posting again, null when the app cannot tell (continue on the website).
 @MappableClass()
 final class PostVerificationRequiredException extends AppException with PostVerificationRequiredExceptionMappable {
   /// Constructor.
-  PostVerificationRequiredException() : super(message: 'post needs a captcha or a security question');
+  PostVerificationRequiredException({this.check, this.wrongAnswer = false})
+    : super(message: 'post needs a captcha or a security question');
+
+  /// What to answer, with the ids the answers go with.
+  final SecCheck? check;
+
+  /// An answer was posted and the forum did not take it.
+  final bool wrongAnswer;
+}
+
+/// The forum asks for a check the app cannot show (a captcha of a plugin, a sound or Flash captcha): continue on the
+/// website.
+@MappableClass()
+final class SecCheckUnsupportedException extends AppException with SecCheckUnsupportedExceptionMappable {
+  /// Constructor.
+  SecCheckUnsupportedException() : super(message: 'unsupported captcha');
 }
 
 /// Failed to parse purchase info because the parameter in
@@ -418,6 +434,25 @@ final class ReplyNeedsBrowserException extends AppException with ReplyNeedsBrows
 
   /// The forum asks for a captcha or a security question.
   final bool verification;
+}
+
+/// The forum asks for a captcha or a security question to take the reply ([check], with the ids the answers go with):
+/// the reply window or the thread page said so, or the forum refused the reply for it ([wrongAnswer]: an answer was
+/// sent and not taken). Nothing was posted; the reply goes again with the answers.
+@MappableClass()
+final class ReplyNeedsVerificationException extends AppException with ReplyNeedsVerificationExceptionMappable {
+  /// Constructor.
+  ReplyNeedsVerificationException({required this.check, required this.url, this.wrongAnswer = false})
+    : super(message: 'reply needs a captcha or a security question');
+
+  /// What to answer.
+  final SecCheck check;
+
+  /// The page to reply on in the browser, for a check the app cannot show.
+  final String url;
+
+  /// An answer was sent and the forum did not take it.
+  final bool wrongAnswer;
 }
 
 /// Reply to a post, but no successful result found in response.

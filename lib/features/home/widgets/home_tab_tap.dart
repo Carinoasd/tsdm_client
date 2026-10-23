@@ -33,34 +33,28 @@ final class HomeTabDoubleTapDetector {
 
 /// Handle a tap on destination [index] of [items].
 ///
-/// Tabs: a double tap asks the page of that tab to scroll to top (or refresh when already there) through
+/// A double tap asks the page of that tab to scroll to top (or refresh when already there) through
 /// [scrollToTopStream] with the index of the [HomeTab], instead of routing a second time; any other tap switches to the
 /// tab.
-///
-/// Other destinations push their page above the shell (the back button returns to the selected tab); the second tap of
-/// a double tap is dropped so a quick double tap opens one page, not two. A page needing an account opens the login page
-/// when there is none.
 void _onHomeDestinationSelected(
   BuildContext context,
   HomeTabDoubleTapDetector detector,
   List<_NavigationItem> items,
   int index,
 ) {
-  final item = items[index];
-  final doubleTap = detector.tap(index);
-  final tab = item.tab;
-  if (tab == null) {
-    if (doubleTap) {
-      return;
-    }
-    final loggedIn = context.readOrNull<AuthenticationRepository>()?.currentUser != null;
-    unawaited(context.pushNamed(item.needLogin && !loggedIn ? ScreenPaths.login : item.targetPath));
-    return;
-  }
-  if (doubleTap) {
+  final tab = items[index].tab;
+  if (detector.tap(index)) {
     scrollToTopStream.add(ScrollToTopEvent(tab.index));
     return;
   }
-  context.read<HomeCubit>().setTab(tab);
-  context.goNamed(item.targetPath);
+  showHomeTab(context, tab);
+}
+
+/// Show the tab [tab] of the home shell from [context], a page of the shell: the navigation follows at once.
+///
+/// For the entries of a tab leading to another one (the private messages of the "me" tab, all forums from the
+/// homepage); the pages opened above the shell stay where they are.
+void showHomeTab(BuildContext context, HomeTab tab) {
+  context.readOrNull<HomeCubit>()?.setTab(tab);
+  context.goNamed(homeTabPath(tab));
 }

@@ -253,6 +253,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
       normalThreadList: allNormalThread,
       canLoadMore: page.canLoadMore,
       needLogin: page.needLogin,
+      postAllowed: page.postAllowed,
       havePermission: page.havePermission,
       permissionDeniedMessage: page.permissionDeniedMessage,
       currentPage: page.currentPage ?? pageNumber,

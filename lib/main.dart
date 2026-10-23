@@ -119,21 +119,27 @@ Future<void> _boot(List<String> args) async {
       onDidReceiveNotificationResponse: onLocalNotificationOpened,
     );
     // The first channel had default importance and Android never lets the app raise it: drop it so the
-    // high-importance replacement is the only one left in the system notification settings (#13).
-    await deleteLegacyLocalNoticeChannel();
+    // high-importance replacement is the only one left in the system notification settings (#13). Nothing before the
+    // first frame needs it gone.
+    unawaited(deleteLegacyLocalNoticeChannel());
     // A tap on the notification while the app was not running: park the payload for the home page (#14).
     await rememberNotificationLaunch();
     // The notification permission (Android 13+) is not asked here any more: awaited before `runApp`, a new install
     // showed the system dialog over a blank screen. It is asked with a card explaining it after a login, on the first
     // visit of the notice page, or when the sync is turned on in the settings (askNotificationPermission).
     // Background message service (#80): the same controller the settings page uses, so a change made there queues
-    // behind the boot start. Optional, so a failure here is logged and never stops the boot.
-    try {
-      final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
-      talker.info('boot background sync service: ${result.name}');
-    } on Object catch (e, st) {
-      talker.handle(e, st, 'background sync service init failed, continuing boot');
-    }
+    // behind the boot start (the request is queued at once, before anything else can ask). Not waited for: starting
+    // the service polls the plugin every 200 ms until it runs, all of it before the first frame. Optional, so a
+    // failure here is logged and never stops the boot.
+    unawaited(
+      getIt
+          .get<BackgroundSyncController>()
+          .applySettings(getIt.get<SettingsRepository>())
+          .then(
+            (result) => talker.info('boot background sync service: ${result.name}'),
+            onError: (Object e, StackTrace st) => talker.handle(e, st, 'background sync service init failed'),
+          ),
+    );
   }
 
   // Windows notification initialization.

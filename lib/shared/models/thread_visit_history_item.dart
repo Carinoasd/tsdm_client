@@ -13,6 +13,8 @@ final class ThreadVisitHistoryModel with ThreadVisitHistoryModelMappable {
     required this.forumId,
     required this.forumName,
     required this.visitTime,
+    this.lastFloor,
+    this.lastPage,
   });
 
   /// User id of who visited the thread.
@@ -35,4 +37,10 @@ final class ThreadVisitHistoryModel with ThreadVisitHistoryModelMappable {
 
   /// Last visit time.
   final DateTime visitTime;
+
+  /// The floor at the top of the thread page when the reading stopped, null when not known.
+  final int? lastFloor;
+
+  /// The page (oldest floor first) of [lastFloor], null when not known.
+  final int? lastPage;
 }

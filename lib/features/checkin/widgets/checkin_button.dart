@@ -26,6 +26,12 @@ class CheckinButton extends StatelessWidget {
   /// Show a filled button with this label instead of an icon button, e.g. on the homepage greeting card.
   final String? label;
 
+  /// The check-in result told last.
+  ///
+  /// Every button gets the same state from the app's [CheckinBloc], and several can be built at once (the homepage and
+  /// the "me" tab stay alive in the home shell): only the first one to tell a result does, the result showed twice.
+  static CheckinState? _told;
+
   /// The filled button used when [label] is set.
   Widget _buildLabeled(BuildContext context, {required Widget icon, required VoidCallback? onPressed}) =>
       FilledButton.icon(
@@ -47,13 +53,18 @@ class CheckinButton extends StatelessWidget {
     final tr = context.t.profilePage.checkin;
     return BlocListener<CheckinBloc, CheckinState>(
       listener: (context, state) async {
+        if (identical(state, _told)) {
+          return;
+        }
         if (state is CheckinStateSuccess) {
+          _told = state;
           return showSnackBar(
             context: context,
             message: tr.success(msg: state.message),
           );
         }
         if (state is CheckinStateFailed && enableSnackBar) {
+          _told = state;
           await _showCheckinFailedSnackBar(context, state.result);
         }
       },

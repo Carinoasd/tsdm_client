@@ -15,10 +15,11 @@ final class CustomImageDao extends DatabaseAccessor<AppDatabase> with _$CustomIm
       );
       return existing.id;
     }
-    final last = await (select(customImage)
-          ..orderBy([(e) => OrderingTerm.desc(e.sortOrder)])
-          ..limit(1))
-        .getSingleOrNull();
+    final last =
+        await (select(customImage)
+              ..orderBy([(e) => OrderingTerm.desc(e.sortOrder)])
+              ..limit(1))
+            .getSingleOrNull();
     return into(customImage).insert(
       CustomImageCompanion(
         name: Value(name),

@@ -11,6 +11,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
+import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -18,7 +19,9 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_sync_all_cubit.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
 import 'package:tsdm_client/features/notification/utils/relative_time.dart';
+import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -37,9 +40,17 @@ import 'package:universal_html/parsing.dart';
 enum _Actions { markAllNoticeAsRead, markAllPersonalMessageAsRead, markAllBroadcastMessageAsRead, syncAllAccounts }
 
 /// Notice page, shows Notice and PrivateMessage of current user.
+///
+/// The notifications tab of the home shell ([asTab]), and the same page opened above other pages when those cannot be
+/// closed to show the tab (`ScreenPaths.rootNotice`). Without an account it says the notifications need a login and
+/// offers one.
 class NotificationPage extends StatefulWidget {
   /// Constructor.
-  const NotificationPage({super.key});
+  const NotificationPage({this.asTab = false, super.key});
+
+  /// Shown as the notifications tab of the home shell: the navigation is under it, the page has no "back to the
+  /// homepage" button, and a double tap on its tab scrolls the list in view to top.
+  final bool asTab;
 
   @override
   State<NotificationPage> createState() => _NotificationPageState();
@@ -50,6 +61,14 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
   late final EasyRefreshController _personalMessageRefreshController;
   late final EasyRefreshController _broadcastMessageRefreshController;
   late final TabController _tabController;
+
+  /// Scroll controllers of the three tabs, for the double tap on the notifications tab of the navigation.
+  final _noticeScrollController = ScrollController();
+  final _personalMessageScrollController = ScrollController();
+  final _broadcastMessageScrollController = ScrollController();
+
+  /// Double taps on the notifications tab of the navigation, while this page is that tab.
+  StreamSubscription<ScrollToTopEvent>? _scrollToTopSub;
 
   /// Flag indicating only show unread messages or not
   bool onlyShowUnread = false;
@@ -95,6 +114,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
   Widget _buildTab(
     BuildContext context, {
     required EasyRefreshController controller,
+    required ScrollController scrollController,
     required List<int> timestamps,
     required IconData emptyIcon,
     required String empty,
@@ -117,6 +137,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     }
     return EasyRefresh.builder(
       controller: controller,
+      scrollController: scrollController,
       header: const MaterialHeader(),
       onRefresh: () => context.read<NotificationBloc>().add(const NotificationUpdateAllRequested(bypassGate: true)),
       childBuilder: (context, physics) => timestamps.isEmpty
@@ -126,6 +147,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
             )
           : AppCenteredList(
               builder: (context, side, _) => ListView.builder(
+                controller: scrollController,
                 physics: physics,
                 padding: side.copyWith(top: 4, bottom: 12).add(context.safePadding()),
                 itemCount: rows.length,
@@ -201,10 +223,34 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     _noticeRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _personalMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _broadcastMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
-    _tabController = TabController(vsync: this, length: 3);
+    // A tab another page asked for (the private messages entry of the "me" tab) before this page was built.
+    final requested = noticePageTabRequest.value;
+    noticePageTabRequest.value = null;
+    _tabController = TabController(vsync: this, length: 3, initialIndex: requested?.index ?? 0);
+    noticePageTabRequest.addListener(_onTabRequested);
+    if (widget.asTab) {
+      _scrollToTopSub = scrollToTopStream.stream.listen(_onScrollToTop);
+    }
     _searchController = TextEditingController();
-    // The time offset of the account in use, stored by its last sync, for the relative times.
-    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    _accountUid = _uidInUse(context, listen: false);
+    _setUpForAccount(_accountUid);
+  }
+
+  /// The account the page shows, set up by [_setUpForAccount].
+  int? _accountUid;
+
+  /// The account in use: the stored one counts before the homepage verified it, as the navigation shows it.
+  int? _uidInUse(BuildContext context, {bool listen = true}) {
+    final account = watchCurrentAccount(context, listen: listen);
+    if (account != null) {
+      return account.user?.uid;
+    }
+    return context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+  }
+
+  /// What the page reads for the account [uid]: the time offset its last sync stored, for the relative times, and the
+  /// card explaining the notification permission on the first visit with an account (asked once).
+  void _setUpForAccount(int? uid) {
     if (uid != null && getIt.isRegistered<StorageProvider>()) {
       unawaited(
         NotificationTimeOffsets.load(getIt.get<StorageProvider>(), uid).then((_) {
@@ -214,22 +260,99 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         }),
       );
     }
-    // The first visit of the notice page: the card explaining the notification permission, once.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await askNotificationPermission(
         context,
         trigger: NotificationPermissionTrigger.noticePage,
-        loggedIn: context.readOrNull<AuthenticationRepository>()?.currentUser != null,
+        loggedIn: uid != null,
       );
     });
   }
 
+  /// Another account is in use: the search and the "unread only" filter were the previous one's.
+  void _onAccountChanged(int? uid) {
+    _accountUid = uid;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _query = '';
+        onlyShowUnread = false;
+      });
+      _searchController.clear();
+      _setUpForAccount(uid);
+    });
+  }
+
+  /// Show the tab another page asked for while this page is built ([noticePageTabRequest]).
+  void _onTabRequested() {
+    final requested = noticePageTabRequest.value;
+    if (requested == null || !mounted) {
+      return;
+    }
+    noticePageTabRequest.value = null;
+    _tabController.animateTo(requested.index);
+  }
+
+  /// A double tap on the notifications tab of the navigation: the list in view goes to top, or is refreshed when it is
+  /// there already, like the other tabs (#99).
+  void _onScrollToTop(ScrollToTopEvent event) {
+    if (event.tabIndex != HomeTab.notice.index || !mounted) {
+      return;
+    }
+    final (scroll, refresh) = switch (_tabController.index) {
+      0 => (_noticeScrollController, _noticeRefreshController),
+      1 => (_personalMessageScrollController, _personalMessageRefreshController),
+      _ => (_broadcastMessageScrollController, _broadcastMessageRefreshController),
+    };
+    if (scroll.hasClients && scroll.offset > 0) {
+      unawaited(scroll.animateTo(0, duration: duration200, curve: Curves.easeInOut));
+    } else if (context.read<NotificationBloc>().state.status == NotificationStatus.success) {
+      unawaited(refresh.callRefresh());
+    }
+  }
+
+  /// Whether an account is in use: the stored one counts before the homepage verified it, as the "me" tab shows it.
+  bool _loggedIn(BuildContext context) {
+    final account = watchCurrentAccount(context);
+    if (account != null) {
+      return account.user != null;
+    }
+    return context.readOrNull<AuthenticationRepository>()?.currentUser != null;
+  }
+
+  /// The page without an account: the notifications need a login.
+  Widget _buildGuest(BuildContext context) {
+    final tr = context.t.noticePage;
+    return Scaffold(
+      appBar: AppBar(title: Text(tr.title)),
+      body: SafeArea(
+        bottom: false,
+        child: AppStateView(
+          key: const ValueKey('notice-page-guest'),
+          icon: Icons.notifications_none_outlined,
+          message: tr.guestHint,
+          action: FilledButton.icon(
+            icon: const Icon(Icons.login_outlined),
+            label: Text(context.t.loginPage.login),
+            onPressed: () async => context.pushNamed(ScreenPaths.login),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    noticePageTabRequest.removeListener(_onTabRequested);
+    unawaited(_scrollToTopSub?.cancel());
     _noticeRefreshController.dispose();
     _personalMessageRefreshController.dispose();
     _broadcastMessageRefreshController.dispose();
+    _noticeScrollController.dispose();
+    _personalMessageScrollController.dispose();
+    _broadcastMessageScrollController.dispose();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -237,6 +360,27 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final uid = _uidInUse(context);
+    if (uid != _accountUid) {
+      _onAccountChanged(uid);
+    }
+    if (!_loggedIn(context)) {
+      return _buildGuest(context);
+    }
+    // Back closes the search first, before the tab goes back to the homepage or the page closes.
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (!_searching) {
+          return false;
+        }
+        _toggleSearch();
+        return true;
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final tr = context.t.noticePage;
     return BlocListener<NotificationBloc, NotificationState>(
       listener: (context, state) {
@@ -318,6 +462,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                 _buildTab(
                   context,
                   controller: _noticeRefreshController,
+                  scrollController: _noticeScrollController,
                   timestamps: shownNotices.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.notifications_none_outlined,
                   empty: emptyOf(emptyTr.notice, emptyTr.unreadNotice),
@@ -327,6 +472,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                 _buildTab(
                   context,
                   controller: _personalMessageRefreshController,
+                  scrollController: _personalMessageScrollController,
                   timestamps: shownPms.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.forum_outlined,
                   empty: emptyOf(emptyTr.personalMessage, emptyTr.unreadPersonalMessage),
@@ -336,6 +482,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                 _buildTab(
                   context,
                   controller: _broadcastMessageRefreshController,
+                  scrollController: _broadcastMessageScrollController,
                   timestamps: shownBms.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.campaign_outlined,
                   empty: emptyOf(emptyTr.broadcastMessage, emptyTr.unreadBroadcastMessage),
@@ -377,7 +524,8 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                       }
                     },
                   ),
-                if (!_searching) const BackToHomeButton(),
+                // The tab has the navigation under it: the homepage is one tap away there.
+                if (!_searching && !widget.asTab) const BackToHomeButton(),
                 if (!_searching)
                   IconButton(
                     icon: const Icon(Icons.block_outlined),

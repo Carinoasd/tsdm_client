@@ -53,6 +53,8 @@ final class HomepageState with HomepageStateMappable {
     this.formHash,
     this.checkingDailyRedPacket = false,
     this.failure,
+    this.savedAt,
+    this.refreshFailed = false,
   });
 
   /// Why the homepage failed to load ([HomepageStatus.failure]).
@@ -97,4 +99,12 @@ final class HomepageState with HomepageStateMappable {
   /// A check of the daily red packet alone ([HomepageDailyRedPacketCheckRequested]) is running; the rest of the page
   /// stays as it is.
   final bool checkingDailyRedPacket;
+
+  /// When the page shown was saved, null when it is the page fetched now: the homepage saved for the account at the
+  /// last start shows at once while the page is asked again (stale-while-revalidate), with nothing to act on that
+  /// needs a fresh page (the daily red packet, the form hash).
+  final DateTime? savedAt;
+
+  /// Asking the page again failed while the saved page ([savedAt]) shows: it stays, with a retry.
+  final bool refreshFailed;
 }

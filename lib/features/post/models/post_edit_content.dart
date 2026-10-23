@@ -99,6 +99,7 @@ final class PostEditContent with PostEditContentMappable {
     this.tags = '',
     this.canSaveDraft = false,
     this.postForm,
+    this.secCheck,
   });
 
   /// Build the content from the post form [form] of the forum's app API (plugin 2.9.0, [PostForm]): the same fields
@@ -160,6 +161,7 @@ final class PostEditContent with PostEditContentMappable {
       tags: form.tagsInput?.value ?? '',
       canSaveDraft: form.canSaveDraft,
       postForm: form.json,
+      secCheck: form.secCheck,
     );
   }
 
@@ -474,6 +476,17 @@ final class PostEditContent with PostEditContentMappable {
   /// back with the member's edits ([PostForm.bodyWith]); null for content parsed from the web page, which is posted
   /// as it always was.
   final Map<String, dynamic>? postForm;
+
+  /// What the forum asks before it takes the post (a captcha, a security question), with the ids the answers go
+  /// with; the editor asks the user before sending. Null when nothing is asked (or it is only asked when posting).
+  final SecCheck? secCheck;
+
+  /// The forum's size limits of the post ([PostForm.messageMin], [PostForm.messageMax]), null for the web page, which
+  /// tells none.
+  MessageLimits? get messageLimits => switch (form) {
+    final PostForm form => MessageLimits.of(form),
+    null => null,
+  };
 
   /// The post form of [postForm], null for content parsed from the web page.
   PostForm? get form => switch (postForm) {

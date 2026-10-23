@@ -119,8 +119,7 @@ final class AdventureCache {
   /// Key identifying [scene]'s battle in [_finishedBattles].
   ///
   /// `battleId` is empty in the end-of-battle responses, so the map, the opponent and the player's pokemon are used.
-  static String battleKey(BattleScene scene) =>
-      '${scene.mapId}-${scene.wildPokemon.id}-${scene.myPokemon.instanceId}';
+  static String battleKey(BattleScene scene) => '${scene.mapId}-${scene.wildPokemon.id}-${scene.myPokemon.instanceId}';
 
   /// Remember that [scene]'s battle is over.
   void markBattleFinished(BattleScene scene) {
@@ -148,8 +147,7 @@ final class AdventureCache {
   static const keyClassicMode = 'pokemon.adventureClassic';
 
   /// Whether the player last chose the flat classic map list (instead of the world map / region view).
-  Future<bool> isClassicMode() async =>
-      (await getIt.get<StorageProvider>().getString(keyClassicMode)) == 'true';
+  Future<bool> isClassicMode() async => (await getIt.get<StorageProvider>().getString(keyClassicMode)) == 'true';
 
   /// Remember the chosen map list mode.
   Future<void> setClassicMode({required bool classic}) =>

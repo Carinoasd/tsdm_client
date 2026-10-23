@@ -26,22 +26,19 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
       indicatorShape: _navigationIndicatorShape,
       labelType: NavigationRailLabelType.all,
       destinations: [
-        for (final (i, e) in barItems.indexed)
+        for (final e in barItems)
           NavigationRailDestination(
             icon: _destinationIcon(e),
             selectedIcon: _destinationIcon(e, selected: true),
             label: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            // A gap marks the "more" group: the rail has no room for the section header of the drawer.
-            padding: i > 0 && e.group != barItems[i - 1].group ? const EdgeInsets.only(top: _railGroupGap) : null,
           ),
       ],
       selectedIndex: _selectedIndexOf(barItems, context.watch<HomeCubit>().state.tab),
       onDestinationSelected: (index) => _onHomeDestinationSelected(context, _doubleTap, barItems, index),
     );
 
-    // NavigationRail does not scroll: nine destinations overflow a short window (landscape phone, small tablet, large
-    // text). It gets the window height, or the height its destinations really need when that is more, inside a scroll
-    // view. The height is measured (intrinsic height of the rail), not estimated: a generous estimate left empty room
+    // NavigationRail does not scroll: its destinations can overflow a short window (landscape phone with large text).
+    // It gets the window height, or the height its destinations really need when that is more, inside a scroll view. The height is measured (intrinsic height of the rail), not estimated: a generous estimate left empty room
     // at the end, and the last destination stopped half clipped at the top of the scroll area (feedback 110).
     //
     // The top and bottom insets (status bar, gesture bar) stay outside of the scroll view as bands of the rail color:
@@ -72,6 +69,3 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
     );
   }
 }
-
-/// Gap before the first destination of the "more" group in the rail.
-const _railGroupGap = 16.0;

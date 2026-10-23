@@ -74,7 +74,8 @@ enum ShopCategory {
   equipment(5),
 
   /// Pokemon for sale.
-  pet(null, isPet: true);
+  pet(null, isPet: true)
+  ;
 
   const ShopCategory(this.type, {this.isPet = false});
 
@@ -296,9 +297,7 @@ class PokemonCubit extends Cubit<PokemonState> {
       _pendingStatusBar = null;
       // Put the switch back to whatever the server still has.
       await refreshProfile();
-      return error is PokemonApiException && error.code == 401
-          ? StatusBarOutcome.notLoggedIn
-          : StatusBarOutcome.failed;
+      return error is PokemonApiException && error.code == 401 ? StatusBarOutcome.notLoggedIn : StatusBarOutcome.failed;
     }
     final data = result.fold((_) => const <String, dynamic>{}, (value) => value);
     // Hiding must be confirmed by the answer; refreshing is what the request itself does.
@@ -690,5 +689,7 @@ class PokemonCubit extends Cubit<PokemonState> {
   String? _messageOf(AppException e) => e is PokemonApiException ? e.message : null;
 
   bool _isNeedLogin(Either<AppException, Object?> e) =>
-      e is Left<AppException, Object?> && e.value is PokemonApiException && (e.value as PokemonApiException).code == 401;
+      e is Left<AppException, Object?> &&
+      e.value is PokemonApiException &&
+      (e.value as PokemonApiException).code == 401;
 }

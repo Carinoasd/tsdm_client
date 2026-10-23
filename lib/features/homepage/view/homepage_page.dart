@@ -15,11 +15,12 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
+import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
+import 'package:tsdm_client/features/homepage/widgets/guest_home.dart';
 import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
 import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart';
 import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
-import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
@@ -32,7 +33,6 @@ import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
-import 'package:tsdm_client/widgets/notice_button.dart';
 
 const _showFabOffset = 100;
 
@@ -130,7 +130,9 @@ class _HomepagePageState extends State<HomepagePage> {
   }
 
   Widget? _buildFloatingActionButton(BuildContext context, HomepageState state) {
-    if (state.status != HomepageStatus.success || !_fabVisible) {
+    // The page of a guest scrolls as well.
+    final scrolls = state.status == HomepageStatus.success || state.status == HomepageStatus.needLogin;
+    if (!scrolls || !_fabVisible) {
       return null;
     }
     return FloatingActionButton(
@@ -186,8 +188,9 @@ class _HomepagePageState extends State<HomepagePage> {
         : PinSection(state.pinnedThreadGroupList);
     // The guide owns the fetch of the guide index page. It keeps its place in the tree (first child of the main
     // column's Expanded, found by key among its siblings) in every layout, so a window resize or a rotation moves the
-    // loaded guide instead of fetching it again.
-    const guide = GuideSection(key: ValueKey('homepage-guide'));
+    // loaded guide instead of fetching it again. Keyed by the account too: the page saved for an account shows at once
+    // after a switch, and the guide of the previous one must not stay in it.
+    final guide = GuideSection(key: ValueKey('homepage-guide-${state.loggedUserInfo?.username}'));
     const support = HomeSupportCard();
 
     List<Widget> spaced(List<Widget?> children, double gap) => [
@@ -253,9 +256,64 @@ class _HomepagePageState extends State<HomepagePage> {
     );
   }
 
+  /// The homepage without an account: what a login adds (with the login), the support entry, the forums and the guide,
+  /// all of them public; arranged for [width] like the page of an account ([homeLayoutFor]).
+  Widget _buildGuestDashboard(BuildContext context, double width) {
+    final layout = homeLayoutFor(width, Theme.of(context).platform);
+    final login = HomeGuestCard(compact: layout == HomeLayout.compact);
+    const support = HomeSupportCard();
+    const forums = HomeForumEntriesCard();
+    const guide = GuideSection(key: ValueKey('homepage-guest-guide'));
+    final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
+    List<Widget> spaced(List<Widget> children) => [
+      for (final (i, child) in children.indexed) ...[if (i > 0) SizedBox(height: gap), child],
+    ];
+    if (layout != HomeLayout.wide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: spaced([login, support, forums, guide]),
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([login, forums, guide])),
+        ),
+        const SizedBox(width: 24),
+        const SizedBox(width: _railWidth, child: support),
+      ],
+    );
+  }
+
+  /// [_buildGuestDashboard] in the scroll view of the page, with its pull to refresh.
+  Widget _buildGuest(BuildContext context) => EasyRefresh.builder(
+    key: const ValueKey('guest'),
+    scrollController: _scrollController,
+    controller: _refreshController,
+    header: const MaterialHeader(),
+    onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
+    childBuilder: (context, physics) => LayoutBuilder(
+      builder: (context, constraints) => ListView(
+        physics: physics,
+        controller: _scrollController,
+        padding: edgeInsetsL12T12R12.add(context.safePadding()),
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+              child: _buildGuestDashboard(context, math.min(constraints.maxWidth - 24, _maxContentWidth)),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   /// Actions of the homepage app bar, [width] wide.
   ///
-  /// Search, the check-in of a failed load, the notice button and the account always stay in the bar. The pokemon
+  /// Search, the check-in of a failed load and the account always stay in the bar; the notifications are a tab of the
+  /// navigation, with their unread count, and have no button here any more. The pokemon
   /// centre, the activities of a failed load and the support entry go into a "more" menu, in this order, when the bar
   /// would leave its title too little room (a 320dp phone, large text); a 360dp phone keeps them all in the bar. The
   /// menu takes the place of at least two of them, otherwise it saves nothing.
@@ -286,7 +344,7 @@ class _HomepagePageState extends State<HomepagePage> {
     );
 
     final foldable = [if (username != null) pokemon, if (showDailyActionsInBar) activities, support];
-    final fixedCount = 1 + (username == null ? 0 : (showDailyActionsInBar ? 3 : 2));
+    final fixedCount = 1 + (username == null ? 0 : (showDailyActionsInBar ? 2 : 1));
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final slots = ((width - _appBarTitleRoom * textScale - _appBarEndGap) / _appBarActionWidth).floor();
     final missing = fixedCount + foldable.length - slots;
@@ -306,7 +364,6 @@ class _HomepagePageState extends State<HomepagePage> {
       ?button(support),
       if (username != null) ...[
         if (showDailyActionsInBar) const CheckinButton(enableSnackBar: true),
-        const NoticeButton(),
         ?button(pokemon),
         IconButton(
           icon: SizedBox(
@@ -380,6 +437,7 @@ class _HomepagePageState extends State<HomepagePage> {
         authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
         forumHomeRepository: RepositoryProvider.of<ForumHomeRepository>(context),
         profileRepository: RepositoryProvider.of<ProfileRepository>(context),
+        guideFeed: context.readOrNull<GuideFeed>(),
       )..add(HomepageLoadRequested()),
       child: MultiBlocListener(
         listeners: [
@@ -394,7 +452,11 @@ class _HomepagePageState extends State<HomepagePage> {
             },
           ),
           BlocListener<HomepageBloc, HomepageState>(
-            listenWhen: (prev, curr) => prev.status == HomepageStatus.loading && curr.status == HomepageStatus.success,
+            // A page fetched now, after a load, a refresh or the page saved at the last start; not the saved page.
+            listenWhen: (prev, curr) =>
+                curr.status == HomepageStatus.success &&
+                curr.savedAt == null &&
+                (prev.status != HomepageStatus.success || prev.savedAt != null),
             listener: (context, state) {
               // The header notice count is a raw forum total and the personal message flag an aggregate without
               // sender: merge them only while nothing can be hidden or muted locally, otherwise keep the filtered
@@ -425,11 +487,8 @@ class _HomepagePageState extends State<HomepagePage> {
                 // The shape of the homepage to come instead of a spinner over the whole page.
                 child: const HomepagePlaceholder(),
               ),
-              HomepageStatus.needLogin => NeedLoginPage(
-                backUri: GoRouterState.of(context).uri,
-                needPop: true,
-                popCallback: (context) => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
-              ),
+              // What the forum shows to everyone instead of a login wall.
+              HomepageStatus.needLogin => _buildGuest(context),
               // What went wrong (the failed request of the homepage) and what to do, the details folded away.
               HomepageStatus.failure => FailureView(
                 key: const ValueKey('failure'),
@@ -448,6 +507,17 @@ class _HomepagePageState extends State<HomepagePage> {
                     controller: _scrollController,
                     padding: edgeInsetsL12T12R12.add(context.safePadding()),
                     children: [
+                      if (state.savedAt case final savedAt?)
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                            child: _SavedPageNote(
+                              savedAt: savedAt,
+                              failed: state.refreshFailed,
+                              onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                            ),
+                          ),
+                        ),
                       Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: _maxContentWidth),
@@ -486,6 +556,50 @@ class _HomepagePageState extends State<HomepagePage> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// What the homepage says while it shows the page saved at the last start ([HomepageState.savedAt]): when that page
+/// is from and that it is being updated, or that updating failed, with a retry. A plain line above the cards: the
+/// page is usable meanwhile.
+class _SavedPageNote extends StatelessWidget {
+  const _SavedPageNote({required this.savedAt, required this.failed, required this.onRetry});
+
+  final DateTime savedAt;
+  final bool failed;
+  final VoidCallback onRetry;
+
+  String _time() {
+    final now = DateTime.now();
+    String two(int v) => '$v'.padLeft(2, '0');
+    final clock = '${two(savedAt.hour)}:${two(savedAt.minute)}';
+    return savedAt.year == now.year && savedAt.month == now.month && savedAt.day == now.day
+        ? clock
+        : '${two(savedAt.month)}-${two(savedAt.day)} $clock';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.homepage.saved;
+    final colorScheme = Theme.of(context).colorScheme;
+    final time = _time();
+    return Padding(
+      key: const ValueKey('homepage-saved-note'),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(failed ? Icons.sync_problem_outlined : Icons.sync_outlined, size: 16, color: colorScheme.outline),
+          sizedBoxW8H8,
+          Expanded(
+            child: Text(
+              failed ? tr.failed(time: time) : tr.updating(time: time),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+            ),
+          ),
+          if (failed) TextButton(onPressed: onRetry, child: Text(tr.retry)),
+        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
@@ -12,10 +13,12 @@ import 'package:sqlite3/common.dart' show SqliteException;
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// A time to fetch notice or save notice.
@@ -87,20 +90,29 @@ Future<Map<UserLoginInfo, Cookie>> preloadCookie(AppDatabase db) async {
   return Map.fromEntries(mappedCookie);
 }
 
-/// Load all image cache info from database without any dependency except [db].
-///
-/// Only use this function to preload cookie before initializing
-/// [StorageProvider].
-Future<Map<String, ImageEntity>> preloadImageCache(AppDatabase db) async {
-  final allImageCache = await ImageDao(db).selectAll();
-  final mappedImageCache = allImageCache.map((e) => MapEntry(e.url, e));
-  return Map.fromEntries(mappedImageCache);
-}
+/// One row of the image cache as its clean up reads it (`ImageCacheProvider.trimCache`).
+typedef ImageCacheRowRef = ({String url, String fileName, DateTime lastUsedTime});
 
 /// [StorageProvider] should be used by other providers.
 class StorageProvider with LoggerMixin {
   /// Constructor.
-  StorageProvider(this._db, this._cookieCache, this._imageCache);
+  ///
+  /// [imageCache] seeds the image cache rows kept in memory (tests); the table itself is never read whole, see
+  /// [getImageCache]. The times images were shown are written when [markImageCacheUsed] finds them waiting long
+  /// enough, or by [flushImageCacheUsedTimes].
+  StorageProvider(this._db, this._cookieCache, [Map<String, ImageEntity>? imageCache])
+    : _imageUsedTimeFlushDelay = null {
+    imageCache?.values.forEach(_rememberImage);
+  }
+
+  /// The app's provider: like [StorageProvider.new], and the times images were shown are also written
+  /// [usedTimeFlushDelay] after the first one that waits ([imageUsedTimeFlushInterval]), when no other image is shown
+  /// meanwhile.
+  StorageProvider.forApp(
+    this._db,
+    this._cookieCache, {
+    @visibleForTesting Duration usedTimeFlushDelay = imageUsedTimeFlushInterval,
+  }) : _imageUsedTimeFlushDelay = usedTimeFlushDelay;
 
   /// Reload the cookie cache from the database.
   ///
@@ -123,12 +135,30 @@ class StorageProvider with LoggerMixin {
   /// MUST update during cookie setter calls.
   final Map<UserLoginInfo, Cookie> _cookieCache;
 
-  /// All image cache cached in memory.
-  ///
-  /// Access this field to avoid disk IO and make it synchronous.
+  /// Image cache rows read or written lately, the least recently used first: at most [imageCacheMemoryCapacity].
   ///
   /// MUST update during image cache setter calls.
-  Map<String, ImageEntity> _imageCache;
+  final _imageCache = <String, ImageEntity>{};
+
+  /// Bumped by every write of the image cache table through this provider: a row read from the table while one ran
+  /// may be stale and stays out of [_imageCache].
+  int _imageWrites = 0;
+
+  /// The times images were shown that are not written yet, by url ([markImageCacheUsed]).
+  final _pendingImageUsedTimes = <String, DateTime>{};
+
+  /// When the waiting times of [_pendingImageUsedTimes] were last handed to the table.
+  DateTime _imageUsedTimesFlushedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Writes of [_pendingImageUsedTimes], one after another.
+  Future<void> _imageUsedTimeWrites = Future<void>.value();
+
+  final Duration? _imageUsedTimeFlushDelay;
+  Timer? _imageUsedTimeFlushTimer;
+
+  /// Urls of the image cache shown, cached or removed since [beginImageCacheTouchLog], null when no log runs: the clean
+  /// up of the cache never deletes one of them.
+  Set<String>? _imageTouchLog;
 
   /// Get the stream of all users in storage.
   Stream<List<UserLoginInfo>> allUsersStream() {
@@ -213,9 +243,13 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages and the times it was polled for notifications.
+  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
+  /// the drafts its editors kept ([LocalDraftStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
+    // The pages saved to show at the next start (the homepage, the guide) were served to the account.
+    SavedAnswerStore.app?.forget(uid);
+    LocalDraftStore.app?.forget(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);
@@ -469,11 +503,57 @@ class StorageProvider with LoggerMixin {
 
   /*            image cache           */
 
-  /// Get the image cache for image from [url].
+  /// How many image cache rows are kept in memory at most.
+  static const imageCacheMemoryCapacity = 1000;
+
+  /// How long the times images were shown wait in memory at most before [markImageCacheUsed] writes them.
+  static const imageUsedTimeFlushInterval = Duration(seconds: 5);
+
+  /// How many times of shown images wait in memory at most before [markImageCacheUsed] writes them.
+  static const imageUsedTimeFlushBatch = 200;
+
+  /// How many image cache rows are kept in memory now.
+  @visibleForTesting
+  int get imageCacheMemoryCount => _imageCache.length;
+
+  void _rememberImage(ImageEntity entity) {
+    _imageCache
+      ..remove(entity.url)
+      ..[entity.url] = entity;
+    while (_imageCache.length > imageCacheMemoryCapacity) {
+      _imageCache.remove(_imageCache.keys.first);
+    }
+  }
+
+  void _forgetImage(String url) {
+    _imageCache.remove(url);
+    _pendingImageUsedTimes.remove(url);
+  }
+
+  /// The image cache row of [url], null when the image is not cached: from memory when it was read or written lately,
+  /// otherwise looked up by its key in the table.
   ///
-  /// A lookup by key: the table holds every cached image (a hundred thousand rows are no exception), and walking it
-  /// for every image shown slowed the first frame down.
-  ImageEntity? getImageCacheSync(String url) => _imageCache[url];
+  /// The table is never read whole: it holds every image ever cached (a hundred thousand rows are no exception), and
+  /// reading it before the first frame slowed the start down (0.46 to 0.90 s with 150 000 rows).
+  Future<ImageEntity?> getImageCache(String url) async {
+    final cached = _imageCache.remove(url);
+    if (cached != null) {
+      _imageCache[url] = cached;
+      return cached;
+    }
+    final writes = _imageWrites;
+    final row = await ImageDao(_db).selectImageByUrl(url);
+    if (row == null) {
+      return null;
+    }
+    final shown = _pendingImageUsedTimes[url];
+    final entity = shown != null && shown.isAfter(row.lastUsedTime) ? row.copyWith(lastUsedTime: shown) : row;
+    // A write of the table while the row was read: what was read may be stale, it stays out of memory.
+    if (writes == _imageWrites) {
+      _rememberImage(entity);
+    }
+    return entity;
+  }
 
   /// Get user avatar cache info on [username].
   Future<UserAvatarEntity?> getUserAvatarEntityCache({required String username, required String? imageUrl}) async =>
@@ -487,11 +567,17 @@ class StorageProvider with LoggerMixin {
     DateTime? lastUsedTime,
   }) async {
     final now = DateTime.now();
-    _imageCache[url] = ImageEntity(
-      url: url,
-      fileName: fileName,
-      lastCachedTime: lastCacheTime ?? now,
-      lastUsedTime: lastUsedTime ?? now,
+    _imageWrites++;
+    _imageTouchLog?.add(url);
+    // Written with the row below.
+    _pendingImageUsedTimes.remove(url);
+    _rememberImage(
+      ImageEntity(
+        url: url,
+        fileName: fileName,
+        lastCachedTime: lastCacheTime ?? now,
+        lastUsedTime: lastUsedTime ?? now,
+      ),
     );
     await ImageDao(_db).upsertImageCache(
       ImageCompanion(
@@ -503,29 +589,104 @@ class StorageProvider with LoggerMixin {
     );
   }
 
-  /// Insert or update cache info, only update last used time.
-  Future<void> updateImageCacheUsedTime(String url) async {
+  /// Record that the cached image of [url] is shown now.
+  ///
+  /// The row in memory is updated at once; the table gets the time with the next batch: when this finds the waiting
+  /// times older than [imageUsedTimeFlushInterval] or [imageUsedTimeFlushBatch] of them, after the flush delay of the
+  /// app's provider, or when the app goes to the background ([flushImageCacheUsedTimes]). Writing the time of every
+  /// image shown at once took a read and a write of the table for each one.
+  void markImageCacheUsed(String url) {
     final now = DateTime.now();
-    if (_imageCache.containsKey(url)) {
-      _imageCache[url] = _imageCache[url]!.copyWith(lastUsedTime: now);
+    final cached = _imageCache.remove(url);
+    if (cached != null) {
+      _imageCache[url] = cached.copyWith(lastUsedTime: now);
     }
-    await ImageDao(_db).updateImageCache(url: url, lastUsedTime: now);
+    _imageTouchLog?.add(url);
+    _pendingImageUsedTimes[url] = now;
+    if (_pendingImageUsedTimes.length >= imageUsedTimeFlushBatch ||
+        now.difference(_imageUsedTimesFlushedAt) >= imageUsedTimeFlushInterval) {
+      unawaited(flushImageCacheUsedTimes());
+    } else if (_imageUsedTimeFlushDelay != null) {
+      _imageUsedTimeFlushTimer ??= Timer(_imageUsedTimeFlushDelay, () {
+        _imageUsedTimeFlushTimer = null;
+        unawaited(flushImageCacheUsedTimes());
+      });
+    }
+  }
+
+  /// Write the times of the shown images still waiting in memory ([markImageCacheUsed]); completes when every write
+  /// handed over so far is done. A failed write is logged, the times are lost (the images only look older).
+  Future<void> flushImageCacheUsedTimes() {
+    _imageUsedTimeFlushTimer?.cancel();
+    _imageUsedTimeFlushTimer = null;
+    if (_pendingImageUsedTimes.isNotEmpty) {
+      final batch = Map.of(_pendingImageUsedTimes);
+      _pendingImageUsedTimes.clear();
+      _imageUsedTimesFlushedAt = DateTime.now();
+      _imageUsedTimeWrites = _imageUsedTimeWrites.then((_) async {
+        try {
+          await ImageDao(_db).updateLastUsedTimes(batch);
+        } on Object catch (e, st) {
+          error('failed to write the used times of ${batch.length} cached images: $e');
+          handleRaw(e, st);
+        }
+      });
+    }
+    return _imageUsedTimeWrites;
   }
 
   /// Clear all image cache in database.
   Future<void> clearImageCache() async {
+    _imageWrites++;
     _imageCache.clear();
+    _pendingImageUsedTimes.clear();
     await ImageDao(_db).deleteAll();
   }
 
-  /// Clear all image cache have a older not-used-time then [dateTime].
-  ///
-  /// Return all deleted image cache entity.
-  Future<List<ImageEntity>> clearImageCacheOutdated(DateTime dateTime) async {
-    final deletedCache = await ImageDao(_db).deleteByLastUsedDuration(dateTime);
-    _imageCache = await preloadImageCache(_db);
-    return deletedCache;
+  /// Start recording the urls of the image cache shown, cached again or removed, for its clean up: a row that one of
+  /// them touched after the clean up read the table is never deleted ([deleteImageCacheRows]).
+  void beginImageCacheTouchLog() => _imageTouchLog = <String>{};
+
+  /// Stop the record started by [beginImageCacheTouchLog].
+  void endImageCacheTouchLog() => _imageTouchLog = null;
+
+  /// The urls recorded since [beginImageCacheTouchLog] (none when no record runs).
+  Set<String> get touchedImageUrls => _imageTouchLog ?? const {};
+
+  /// Number of rows of the image cache.
+  Future<int> countImageCache() => ImageDao(_db).countAll();
+
+  /// Number of rows of the image cache last used at [time] or before.
+  Future<int> countImageCacheUsedNoLaterThan(DateTime time) => ImageDao(_db).countUsedNoLaterThan(time);
+
+  /// Up to [limit] rows of the image cache after [afterUrl] in url order (from the first one when null).
+  Future<List<ImageCacheRowRef>> imageCacheRowsAfter(String? afterUrl, int limit) =>
+      ImageDao(_db).selectPageAfter(afterUrl, limit);
+
+  /// Delete the image cache rows of [urls] still last used at [usedNoLaterThan] or before, but the ones touched since
+  /// [beginImageCacheTouchLog]; returns how many were deleted. Only the deleted rows leave the rows in memory.
+  Future<int> deleteImageCacheRows(List<String> urls, {required DateTime usedNoLaterThan}) async {
+    final touched = _imageTouchLog;
+    final targets = touched == null ? urls : urls.where((e) => !touched.contains(e)).toList();
+    if (targets.isEmpty) {
+      return 0;
+    }
+    _imageWrites++;
+    final deleted = await ImageDao(_db).deleteUrlsUsedNoLaterThan(targets, usedNoLaterThan);
+    for (final row in deleted) {
+      _forgetImage(row.url);
+    }
+    return deleted.length;
   }
+
+  /// What the clean up of the image cache keeps besides the pictures of the offline thread pages: the image stickers
+  /// of the user (urls) and the avatars of the accounts saved on this device (cache file names).
+  Future<({Set<String> urls, Set<String> fileNames})> imageCacheKeepers() => ImageDao(_db).selectKeepers();
+
+  /// Up to [limit] bodies of the offline thread pages after the row [afterRowId], with their row ids, for the clean up
+  /// of the image cache (it keeps their pictures).
+  Future<List<({int rowId, String body})>> offlineThreadBodiesAfter(int afterRowId, int limit) =>
+      OfflineThreadDao(_db).selectBodiesAfter(afterRowId, limit);
 
   /*             settings             */
 
@@ -645,6 +806,27 @@ class StorageProvider with LoggerMixin {
       forumName: Value(forumName),
       visitTime: Value(visitTime),
     ),
+  );
+
+  /// The threads user [uid] visited (by tid) with where the reading stopped, again whenever it changes.
+  Stream<Map<int, ({int? page, int? pid, int? floor, int? seenReplies})>> watchThreadVisitProgress(int uid) =>
+      ThreadVisitHistoryDao(_db).watchProgressByUid(uid);
+
+  /// Keep where user [uid] stopped reading thread [tid] on its visit record; nothing when the visit is not recorded.
+  Future<void> updateThreadVisitProgress({
+    required int uid,
+    required int tid,
+    required int? page,
+    required int? pid,
+    required int? floor,
+    required int? seenReplies,
+  }) async => ThreadVisitHistoryDao(_db).updateProgress(
+    uid: uid,
+    tid: tid,
+    page: page,
+    pid: pid,
+    floor: floor,
+    seenReplies: seenReplies,
   );
 
   /// Delete thread visit history with [uid] and [tid].

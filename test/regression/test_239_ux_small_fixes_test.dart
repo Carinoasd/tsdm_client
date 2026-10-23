@@ -673,25 +673,28 @@ void main() {
   });
 
   group('5. the image cache', () {
-    test('is looked up by key, also in a large table', () {
-      final entries = {
-        for (var i = 0; i < 150000; i++)
-          'https://img.example/$i.png': ImageEntity(
-            url: 'https://img.example/$i.png',
-            fileName: '$i',
-            lastCachedTime: DateTime(2026),
-            lastUsedTime: DateTime(2026),
-          ),
-      };
-      final provider = StorageProvider(db, {}, entries);
+    test('is looked up by key, also in a large table', () async {
+      // Since the cold start work the table is never read whole: a row is looked up by its url in the table.
+      await db.batch(
+        (b) => b.insertAll(db.image, [
+          for (var i = 0; i < 150000; i++)
+            ImageCompanion.insert(
+              url: 'https://img.example/$i.png',
+              fileName: '$i',
+              lastCachedTime: DateTime(2026),
+              lastUsedTime: DateTime(2026),
+            ),
+        ]),
+      );
+      final provider = StorageProvider(db, {}, {});
       final watch = Stopwatch()..start();
       for (var i = 0; i < 2000; i++) {
-        expect(provider.getImageCacheSync('https://img.example/${149999 - i}.png')?.fileName, '${149999 - i}');
+        expect((await provider.getImageCache('https://img.example/${149999 - i}.png'))?.fileName, '${149999 - i}');
       }
       watch.stop();
-      expect(provider.getImageCacheSync('https://img.example/none.png'), isNull);
-      // Walking the table for every lookup took seconds here.
-      expect(watch.elapsedMilliseconds, lessThan(500));
+      expect(await provider.getImageCache('https://img.example/none.png'), isNull);
+      // Walking the table for every lookup took seconds here (minutes for 2000 lookups of the table).
+      expect(watch.elapsedMilliseconds, lessThan(5000));
     });
   });
 
@@ -949,12 +952,14 @@ void main() {
         return _html(_threadPage([for (var i = 1; i <= 3; i++) page * 10 + i], page: page, pages: 3));
       };
       await _pumpThread(tester, app);
-      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)))
-        ..add(const ThreadLoadMoreRequested(2));
-      await tester.pumpAndSettle();
-      expect(bloc.state.currentPage, 2);
-      // The page in view is page 1 again.
+      // The pages after are asked for before the end is reached (reading progress round): three short pages are all
+      // on screen at once.
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)));
+      expect(bloc.state.currentPage, 3);
+      // The page in view is page 1 again: asking for page 2 asks nothing, it is on screen.
       BlocProvider.of<JumpPageCubit>(tester.element(find.byType(PostList))).setPageInfo(currentPage: 1);
+      bloc.add(const ThreadLoadMoreRequested(2));
+      await tester.pumpAndSettle();
       await tester.drag(find.byType(PostList), const Offset(0, -6000));
       await tester.pumpAndSettle();
       await tester.drag(find.byType(PostList), const Offset(0, -400));
@@ -1466,7 +1471,12 @@ void main() {
       expect(bloc.state.currentPage, 2);
       final position = tester.widget<PostList>(find.byType(PostList)).scrollController.position;
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(position.pixels, 0, reason: 'a jump starts at the top, not on the last floor of the page');
+      // The start of the list: its zero offset is at the first floor, the title above it (reading progress round).
+      expect(
+        position.pixels,
+        position.minScrollExtent,
+        reason: 'a jump starts at the top, not on the last floor of the page',
+      );
       await _unpump(tester);
     });
 
@@ -1711,15 +1721,15 @@ void main() {
     });
 
     test(
-      'the clearing of outdated images stays off by default (it blocks the homepage); a saved choice stays',
+      'the clean up of the image cache is on by default again, in the background (cold start); a saved choice stays',
       () async {
-        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isFalse);
-        expect(settings.currentSettings.enableAutoClearImageCache, isFalse);
-        await settings.setValue(SettingsKeys.enableAutoClearImageCache, true);
+        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isTrue);
+        expect(settings.currentSettings.enableAutoClearImageCache, isTrue);
+        await settings.setValue(SettingsKeys.enableAutoClearImageCache, false);
         final again = SettingsRepository(storage);
         await again.init();
         addTearDown(again.dispose);
-        expect(again.currentSettings.enableAutoClearImageCache, isTrue);
+        expect(again.currentSettings.enableAutoClearImageCache, isFalse);
       },
     );
   });

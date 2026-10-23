@@ -111,7 +111,9 @@ class PostCard extends StatefulWidget {
   State<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin, LoggerMixin {
+/// Not kept alive off screen: a floor is built again when scrolled back to (its content munched once, see
+/// [MunchedHtml]). Every floor of a long thread used to stay alive with its images and layers, 1.5 GB for 31 pages.
+class _PostCardState extends State<PostCard> with LoggerMixin {
   Future<void> _rateCallback() async {
     await context.pushNamed(
       ScreenPaths.ratePost,
@@ -559,8 +561,6 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
   // FIXME: Fix rebuild when interacting with widgets inside.
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -612,10 +612,6 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
       ],
     );
   }
-
-  // Add mixin and return true to avoid post list shaking when scrolling.
-  @override
-  bool get wantKeepAlive => true;
 }
 
 /// The content of a floor the forum's app API gives nothing of ([Post.isSpoofed]): a neutral line, not an empty floor.

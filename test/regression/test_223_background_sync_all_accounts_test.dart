@@ -1998,8 +1998,8 @@ void main() {
             builder: (_, _) => const Scaffold(body: Center(child: Text('home'))),
           ),
           GoRoute(
-            path: ScreenPaths.notice,
-            name: ScreenPaths.notice,
+            path: ScreenPaths.rootNotice,
+            name: ScreenPaths.rootNotice,
             builder: (context, _) {
               _log.add('notice page as ${auth.currentUser?.uid}');
               final state = context.read<NotificationBloc>().state;

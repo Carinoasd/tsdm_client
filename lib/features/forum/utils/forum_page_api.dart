@@ -54,6 +54,8 @@ Map<String, dynamic>? forumApiAnswerOf(Object? data) {
 ///   each with its "everything" entry first (`specialtype` only lists the special threads the forum allows, which can
 ///   be none: the entry alone then).
 /// * `forum.allow_poll` with the answer's `uid` is the poll offer (a guest, `uid` 0, is never offered one).
+/// * `forum.allow_post` is whether the account may post a thread; unknown for a guest (`uid` 0), who needs an account
+///   first, and for an answer without the field.
 ForumPageData forumPageFromApi(Map<String, dynamic> json, String fid) {
   if (json['ok'] != 1) {
     final needLogin = json['login'] == 1;
@@ -146,6 +148,7 @@ ForumPageData forumPageFromApi(Map<String, dynamic> json, String fid) {
     filterOrderList: filterOrderList,
     filterDatelineList: filterDatelineList,
     pollOfferUid: _int(forum['allow_poll']) == 1 && uid > 0 ? uid : null,
+    postAllowed: uid > 0 && forum.containsKey('allow_post') ? _int(forum['allow_post']) == 1 : null,
   );
 }
 

@@ -53,6 +53,16 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
   /// Get the image url.
   String get url => imageUrl;
 
+  /// Avatars loaded as the placeholder (not available then): the image cache holds the placeholder for them. Oldest
+  /// first, at most [_maxPlaceholders].
+  static final _placeholders = <CachedImageProvider>{};
+
+  static const _maxPlaceholders = 512;
+
+  /// Whether this avatar was loaded as the placeholder last time: once it is cached, the image cache must let it go
+  /// for it to show (see `HeroUserAvatar`).
+  bool get loadedAsPlaceholder => _placeholders.contains(this);
+
   Future<Option<Uint8List>> _onImageError() async {
     final req = switch (usage) {
       ImageUsageInfoOther() => ImageCacheGeneralRequest(imageUrl),
@@ -75,7 +85,22 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
     final chunkEvents = StreamController<ImageChunkEvent>();
 
     return MultiFrameImageStreamCompleter(
-      codec: _loadAsync(key, chunkEvents, decode: decode),
+      codec: _loadAsync(key, chunkEvents, decode: decode).then((result) {
+        // The image cache holds the placeholder for this avatar from now on, until it is evicted and loaded again.
+        if (result.placeholder) {
+          _placeholders.add(key);
+          // A long run offline would remember every avatar it met: the oldest go, and their placeholder with them from
+          // the image cache (forgotten but still cached, it would show for good): loaded again when shown next.
+          if (_placeholders.length > _maxPlaceholders) {
+            final oldest = _placeholders.first;
+            _placeholders.remove(oldest);
+            PaintingBinding.instance.imageCache.evict(oldest);
+          }
+        } else {
+          _placeholders.remove(key);
+        }
+        return result.codec;
+      }),
       chunkEvents: chunkEvents.stream,
       scale: key.scale,
       debugLabel: key.url,
@@ -86,7 +111,8 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
     );
   }
 
-  Future<ui.Codec> _loadAsync(
+  /// The codec of the image, and whether it is the placeholder shown instead of an avatar not available.
+  Future<({ui.Codec codec, bool placeholder})> _loadAsync(
     CachedImageProvider key,
     StreamController<ImageChunkEvent> chunkEvents, {
     required ImageDecoderCallback decode,
@@ -95,7 +121,12 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
       assert(key == this, 'check instance in load async');
       if (usage is! ImageUsageInfoUserAvatar && imageUrl.isEmpty) {
         // error('failed to make $usage: empty url');
-        return await ui.instantiateImageCodecFromBuffer(await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath));
+        return (
+          codec: await ui.instantiateImageCodecFromBuffer(
+            await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath),
+          ),
+          placeholder: false,
+        );
       }
       final f = switch (usage) {
         ImageUsageInfoOther() => getIt.get<ImageCacheProvider>().getOrMakeCache(ImageCacheGeneralRequest(imageUrl)),
@@ -109,11 +140,14 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
         () => f,
       ).orElse<Uint8List>(() => TaskOption(_onImageError)).run()) {
         case Some(:final value):
-          return decode(await ui.ImmutableBuffer.fromUint8List(value));
+          return (codec: await decode(await ui.ImmutableBuffer.fromUint8List(value)), placeholder: false);
         case None():
           if (usage is ImageUsageInfoUserAvatar) {
-            return await ui.instantiateImageCodecFromBuffer(
-              await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath),
+            return (
+              codec: await ui.instantiateImageCodecFromBuffer(
+                await ui.ImmutableBuffer.fromAsset(assetPlaceholderImagePath),
+              ),
+              placeholder: true,
             );
           } else {
             return Future.error('failed to load image for $imageUrl');

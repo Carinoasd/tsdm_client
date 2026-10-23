@@ -37,6 +37,7 @@ class ForumState with ForumStateMappable {
     this.havePermission = true,
     this.permissionDeniedMessage,
     this.needLogin = false,
+    this.postAllowed,
     this.filterState = const FilterState(),
     this.filterTypeList = const [],
     this.filterSpecialTypeList = const [],
@@ -118,6 +119,9 @@ class ForumState with ForumStateMappable {
   ///
   /// Only works when no user logged.
   final bool needLogin;
+
+  /// Whether the account in use may post a thread here, as the latest page told; null when it did not tell.
+  final bool? postAllowed;
 
   /// State of thread filter.
   final FilterState filterState;
