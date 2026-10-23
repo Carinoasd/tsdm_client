@@ -55,6 +55,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_trim.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
@@ -226,6 +227,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     // arrives before the resume; a resume with no tap line only says the app came to front without a tap reaching
     // it, whatever brought it there (#14).
     debug('app lifecycle: ${state.name}');
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.detached) &&
+        getIt.isRegistered<StorageProvider>()) {
+      // The times cached images were shown wait in memory for a batch: write them before the app may be killed.
+      unawaited(getIt.get<StorageProvider>().flushImageCacheUsedTimes());
+    }
     if (state == AppLifecycleState.resumed) {
       unawaited(logActiveLocalNotifications());
       _logViewMetrics('resumed', always: true);
@@ -509,9 +517,14 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               // We intend to delete legacy files asynchronously, so do not wait it.
               unawaited(cubit.deleteV0LegacyData());
               if (settings.enableAutoClearImageCache) {
-                unawaited(cubit.autoClearImageCache(Duration(seconds: settings.autoClearImageCacheDuration)));
-              } else {
-                cubit.skipAutoClearImageCache();
+                // In the background long after the first frame; the homepage no longer waits for it.
+                cubit.scheduleImageCacheTrim(
+                  ImageCacheLimits(
+                    maxAge: settings.autoClearImageCacheDuration > 0
+                        ? Duration(seconds: settings.autoClearImageCacheDuration)
+                        : null,
+                  ),
+                );
               }
               unawaited(cubit.autoClearFilePickerCache());
               return cubit;

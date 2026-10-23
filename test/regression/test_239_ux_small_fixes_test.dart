@@ -671,25 +671,28 @@ void main() {
   });
 
   group('5. the image cache', () {
-    test('is looked up by key, also in a large table', () {
-      final entries = {
-        for (var i = 0; i < 150000; i++)
-          'https://img.example/$i.png': ImageEntity(
-            url: 'https://img.example/$i.png',
-            fileName: '$i',
-            lastCachedTime: DateTime(2026),
-            lastUsedTime: DateTime(2026),
-          ),
-      };
-      final provider = StorageProvider(db, {}, entries);
+    test('is looked up by key, also in a large table', () async {
+      // Since the cold start work the table is never read whole: a row is looked up by its url in the table.
+      await db.batch(
+        (b) => b.insertAll(db.image, [
+          for (var i = 0; i < 150000; i++)
+            ImageCompanion.insert(
+              url: 'https://img.example/$i.png',
+              fileName: '$i',
+              lastCachedTime: DateTime(2026),
+              lastUsedTime: DateTime(2026),
+            ),
+        ]),
+      );
+      final provider = StorageProvider(db, {}, {});
       final watch = Stopwatch()..start();
       for (var i = 0; i < 2000; i++) {
-        expect(provider.getImageCacheSync('https://img.example/${149999 - i}.png')?.fileName, '${149999 - i}');
+        expect((await provider.getImageCache('https://img.example/${149999 - i}.png'))?.fileName, '${149999 - i}');
       }
       watch.stop();
-      expect(provider.getImageCacheSync('https://img.example/none.png'), isNull);
-      // Walking the table for every lookup took seconds here.
-      expect(watch.elapsedMilliseconds, lessThan(500));
+      expect(await provider.getImageCache('https://img.example/none.png'), isNull);
+      // Walking the table for every lookup took seconds here (minutes for 2000 lookups of the table).
+      expect(watch.elapsedMilliseconds, lessThan(5000));
     });
   });
 
@@ -1690,15 +1693,15 @@ void main() {
     });
 
     test(
-      'the clearing of outdated images stays off by default (it blocks the homepage); a saved choice stays',
+      'the clean up of the image cache is on by default again, in the background (cold start); a saved choice stays',
       () async {
-        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isFalse);
-        expect(settings.currentSettings.enableAutoClearImageCache, isFalse);
-        await settings.setValue(SettingsKeys.enableAutoClearImageCache, true);
+        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isTrue);
+        expect(settings.currentSettings.enableAutoClearImageCache, isTrue);
+        await settings.setValue(SettingsKeys.enableAutoClearImageCache, false);
         final again = SettingsRepository(storage);
         await again.init();
         addTearDown(again.dispose);
-        expect(again.currentSettings.enableAutoClearImageCache, isTrue);
+        expect(again.currentSettings.enableAutoClearImageCache, isFalse);
       },
     );
   });

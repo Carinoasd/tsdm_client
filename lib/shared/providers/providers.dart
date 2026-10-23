@@ -43,9 +43,9 @@ Future<void> initProviders() async {
   // ignore: undefined_function
   final db = AppDatabase(conn.connect());
   final preloadedCookie = await preloadCookie(db);
-  final preloadedImageCache = await preloadImageCache(db);
-
-  final storageProvider = StorageProvider(db, preloadedCookie, preloadedImageCache);
+  // The image cache table is not read here any more: rows are looked up by their url when an image is shown. Read
+  // whole before the first frame, a large table (150 000 rows) doubled the time to it.
+  final storageProvider = StorageProvider.forApp(db, preloadedCookie);
 
   final settingsRepo = SettingsRepository(storageProvider);
   await settingsRepo.init();
