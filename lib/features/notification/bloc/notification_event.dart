@@ -69,7 +69,11 @@ final class NotificationMarkTypeReadRequested extends NotificationEvent with Not
 @MappableClass()
 final class NotificationMarkAllReadRequested extends NotificationEvent with NotificationMarkAllReadRequestedMappable {
   /// Constructor.
-  const NotificationMarkAllReadRequested();
+  const NotificationMarkAllReadRequested({this.done});
+
+  /// Completed once the marks are written (true) or nothing was written (false: no account, or another account is in
+  /// use by then): the page says "done" only then.
+  final Completer<bool>? done;
 }
 
 /// Internal event.

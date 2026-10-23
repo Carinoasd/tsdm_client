@@ -32,6 +32,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -44,6 +45,7 @@ import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
+import 'package:tsdm_client/features/multi_user/utils/switch_account.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
@@ -77,9 +79,27 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 const _bob = UserLoginInfo(username: 'Bob', uid: 1001);
 
 /// The device's "now" of every relative time here: 2026-10-23 15:00.
+///
+/// The member's wall clock (offset 8), read as the device's local time like every stored notification time.
 final _now = DateTime(2026, 10, 23, 15);
 
+/// The device's clock at [_now]: the same moment, whatever the zone the test runs in.
+final _deviceNow = DateTime.utc(2026, 10, 23, 7);
+
+/// A stored time (the member's wall clock read as local time) in seconds.
 int _secondsAt(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
+
+/// The real time (a `dateline` of the forum) when the wall clock of a member at +8 shows [wall].
+int _apiSeconds(DateTime wall) =>
+    DateTime.utc(
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute,
+      wall.second,
+    ).subtract(const Duration(hours: 8)).millisecondsSinceEpoch ~/
+    1000;
 
 /// Notes of the forum (`home_notification.note`), one per kind, with made-up users and threads.
 const _replyNote =
@@ -130,7 +150,7 @@ Map<String, Object?> _api(
   'author': author,
   'note': note,
   'text': '',
-  'dateline': dateline ?? _secondsAt(_now.subtract(const Duration(minutes: 3))),
+  'dateline': dateline ?? _apiSeconds(_now.subtract(const Duration(minutes: 3))),
   'from_id': fromId,
   'from_idtype': fromIdType,
   'from_num': 1,
@@ -229,7 +249,7 @@ List<NoticeV2> _sampleNotices() => [
       author: 'Carol',
       fromId: 5001,
       fromIdType: 'post',
-      dateline: _secondsAt(_now.subtract(const Duration(minutes: 3))),
+      dateline: _apiSeconds(_now.subtract(const Duration(minutes: 3))),
     ),
   ),
   _fromApi(
@@ -241,7 +261,7 @@ List<NoticeV2> _sampleNotices() => [
       author: 'Dave',
       fromId: 5002,
       fromIdType: 'at',
-      dateline: _secondsAt(_now.subtract(const Duration(hours: 2))),
+      dateline: _apiSeconds(_now.subtract(const Duration(hours: 2))),
     ),
   ),
   _fromApi(
@@ -252,7 +272,7 @@ List<NoticeV2> _sampleNotices() => [
       authorId: 2003,
       author: 'Erin',
       fromIdType: 'rate',
-      dateline: _secondsAt(DateTime(2026, 10, 22, 12, 30)),
+      dateline: _apiSeconds(DateTime(2026, 10, 22, 12, 30)),
       unread: false,
     ),
   ),
@@ -265,7 +285,7 @@ List<NoticeV2> _sampleNotices() => [
       author: 'Frank',
       fromId: 2004,
       fromIdType: 'friendrequest',
-      dateline: _secondsAt(DateTime(2026, 10, 22, 9, 5)),
+      dateline: _apiSeconds(DateTime(2026, 10, 22, 9, 5)),
       unread: false,
     ),
   ),
@@ -276,7 +296,7 @@ List<NoticeV2> _sampleNotices() => [
       type: 'system',
       authorId: 0,
       fromIdType: 'modthreads',
-      dateline: _secondsAt(DateTime(2026, 10, 20, 18, 40)),
+      dateline: _apiSeconds(DateTime(2026, 10, 20, 18, 40)),
       unread: false,
     ),
   ),
@@ -310,6 +330,21 @@ void main() {
       // An older plugin without `author`: the name of the author's link, as the page reads it.
       final old = _fromApi(_api(3, _replyNote, type: 'post', authorId: 2001)..remove('author'));
       expect(old.author, 'Carol');
+    });
+
+    test('the author is the user the body links for authorid, not the `author` column', () {
+      // A reply held for moderation is announced by the moderator's request: authorid is the replier, the column is
+      // the moderator's name.
+      final moderated = _fromApi(
+        _api(1, _replyNote, type: 'post', authorId: 2001, author: 'Moderator', fromId: 5001, fromIdType: 'post'),
+      );
+      expect((moderated.authorId, moderated.author), (2001, 'Carol'));
+      expect(NoticeInfo.of(moderated).author, 'Carol');
+      // A row stored by the first version with the column's name: the body wins as well.
+      expect(NoticeInfo.of(moderated.copyWith(author: 'Moderator')).author, 'Carol');
+      // The column is only used when the body links no such user.
+      final noLink = _fromApi(_api(2, _medalNote, type: 'medal', authorId: 2008, author: 'Ivy'));
+      expect(noLink.author, 'Ivy');
     });
 
     test('the notice page reads the author from the link of the author only', () {
@@ -439,16 +474,36 @@ void main() {
       final old = NoticeInfo.of(notices[5]);
       expect((old.kind, old.target), (NoticeKind.generic, null));
       expect(noticeKindRepliable(reply.kind) && noticeKindRepliable(at.kind), isTrue);
-      expect(noticeKindRepliable(NoticeKind.rate) || noticeKindRepliable(NoticeKind.system), isFalse);
+      expect(
+        noticeKindRepliable(NoticeKind.rate) ||
+            noticeKindRepliable(NoticeKind.system) ||
+            noticeKindRepliable(NoticeKind.comment),
+        isFalse,
+        reason: 'a comment links the own floor',
+      );
     });
   });
 
   group('relative time', () {
+    test('"now" is the member\'s wall clock, like the stored times', () {
+      // The device at New York or Tokyo: the same moment, the same member clock.
+      expect(memberNowOf(_deviceNow, 8), _now);
+      expect(memberNowOf(_deviceNow, 9), _now.add(const Duration(hours: 1)));
+      expect(memberNowOf(_deviceNow, -5), DateTime(2026, 10, 23, 2));
+      // A notice of 3 minutes ago for a member at +8, stored the way the API path stores it.
+      final stored = DateTime.fromMillisecondsSinceEpoch(
+        apiTimeOf(_deviceNow.subtract(const Duration(minutes: 3)).millisecondsSinceEpoch ~/ 1000, 8) * 1000,
+      );
+      expect(_now.difference(stored), const Duration(minutes: 3));
+      expect(NotificationTimeOffsets.of(null), 8);
+    });
+
     test('just now, minutes, hours, yesterday, this year, before', () async {
       final tr = await AppLocale.zhCn.build();
       String at(DateTime t) => relativeTimeOf(tr, t, now: _now);
       expect(at(_now.subtract(const Duration(seconds: 30))), '刚刚');
-      expect(at(_now.add(const Duration(minutes: 2))), '刚刚', reason: 'ahead of the device clock');
+      expect(at(_now.add(const Duration(minutes: 2))), '刚刚', reason: 'a few minutes ahead of the device clock');
+      expect(at(_now.add(const Duration(minutes: 30))), '10-23 15:30', reason: 'further ahead: the time itself');
       expect(at(_now.subtract(const Duration(minutes: 3))), '3 分钟前');
       expect(at(_now.subtract(const Duration(hours: 2, minutes: 10))), '2 小时前');
       expect(at(DateTime(2026, 10, 22, 12, 30)), '昨天 12:30');
@@ -502,8 +557,12 @@ void main() {
       expect(content.title, 'Carol 回复了你的帖子');
       expect(content.body, '《合成主题 甲》');
       expect(content.lines, isEmpty, reason: 'one item: no list');
-      expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: null), reason: 'the account in use');
+      // Not every account is announced, the payload still names the account: the item is that account's.
+      expect(content.id, localNoticeId);
+      expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: 1000));
       expect(LocalNoticeKeys.parseTarget(content.payload), const LocalNoticeTarget(nid: 1, tid: 5001, pid: 7001));
+      // Without an account (the test notification of the settings page) there is no target.
+      expect(LocalNoticeKeys.parseTarget(localNotificationContentOf(tr, info).payload), isNull);
 
       // Every account announced: the account first, its own payload.
       final named = localNotificationContentOf(
@@ -516,20 +575,72 @@ void main() {
       expect(LocalNoticeKeys.parseTarget(named.payload)?.pid, 7001);
 
       // A mention quotes the post.
-      final at = localNotificationContentOf(tr, autoSyncInfoOf(empty.copyWith(noticeList: [_sampleNotices()[1]]))!);
+      const alice = LocalNoticeAccount(uid: 1000);
+      final at = localNotificationContentOf(
+        tr,
+        autoSyncInfoOf(empty.copyWith(noticeList: [_sampleNotices()[1]]))!,
+        account: alice,
+      );
       expect((at.title, at.body), ('Dave 提到了你', '《合成主题 乙》 @Alice 一起来看看这个'));
 
       // A system notice: the forum's own sentence.
-      final system = localNotificationContentOf(tr, autoSyncInfoOf(empty.copyWith(noticeList: [_sampleNotices()[4]]))!);
+      final system = localNotificationContentOf(
+        tr,
+        autoSyncInfoOf(empty.copyWith(noticeList: [_sampleNotices()[4]]))!,
+        account: alice,
+      );
       expect((system.title, system.body), ('新提醒', '您发表的主题 合成主题 戊 已由管理团队 审核通过！'));
       expect(LocalNoticeKeys.parseTarget(system.payload), const LocalNoticeTarget(nid: 5, tid: 5005));
     });
 
     test('a single private message names the sender and opens the conversation', () {
       final info = autoSyncInfoOf(empty.copyWith(personalMessageList: [pm(100, 'Bob', '今晚一起看番吗', 1001)]))!;
-      final content = localNotificationContentOf(tr, info);
+      final content = localNotificationContentOf(tr, info, account: const LocalNoticeAccount(uid: 1000));
       expect((content.title, content.body), ('Bob 发来私信', '今晚一起看番吗'));
+      expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: 1000));
       expect(LocalNoticeKeys.parseTarget(content.payload), const LocalNoticeTarget(peerUid: 1001));
+    });
+
+    test('content hidden: the counts only, no list; the account still named; private on the lock screen', () {
+      final notices = _sampleNotices();
+      final one = autoSyncInfoOf(empty.copyWith(noticeList: [notices[0]]))!;
+      final hidden = localNotificationContentOf(
+        tr,
+        one,
+        account: const LocalNoticeAccount(uid: 1000, username: 'Alice', named: true),
+        hideContent: true,
+      );
+      expect((hidden.title, hidden.body), ('[Alice] 新消息', '1 条提醒'));
+      expect(hidden.lines, isEmpty);
+      final several = localNotificationContentOf(
+        tr,
+        autoSyncInfoOf(
+          empty.copyWith(
+            noticeList: [notices[0], notices[1]],
+            personalMessageList: [pm(100, 'Bob', '在吗', 1001)],
+          ),
+        )!,
+        hideContent: true,
+      );
+      expect((several.title, several.body, several.summary), ('新消息', '2 条提醒 · 1 条私信', null));
+      expect(several.lines, isEmpty);
+      expect(several.body, isNot(contains('Bob')));
+
+      final details = buildLocalNotificationDetails(channelName: 'c', channelDescription: 'd', ticker: 't');
+      expect(details.android?.visibility, NotificationVisibility.private);
+
+      // A long thread title is cut.
+      final long = _fromApi(
+        _api(
+          9,
+          _replyNote.replaceAll('合成主题 甲', '很长的合成主题' * 8),
+          type: 'post',
+          authorId: 2001,
+          fromIdType: 'post',
+        ),
+      );
+      final content = localNotificationContentOf(tr, autoSyncInfoOf(empty.copyWith(noticeList: [long]))!);
+      expect(content.body.length, lessThanOrEqualTo(24 + 3 + 2), reason: '《…》 around at most 24 characters and "..."');
     });
 
     test('several items: listed newest first with the counts; a tap opens the notice page', () {
@@ -563,7 +674,16 @@ void main() {
       expect(LocalNoticeKeys.parseOpenNotification(payload), (uid: 1000));
       expect(LocalNoticeKeys.parseTarget(payload), target);
       expect(LocalNoticeKeys.parseTarget('openNotification#peer=7'), const LocalNoticeTarget(peerUid: 7));
-      for (final bad in ['openNotification', 'openNotification#x=1', 'openNotification#pid=-1', 'other#pid=3', null]) {
+      for (final bad in [
+        'openNotification',
+        'openNotification#x=1',
+        'openNotification#pid=-1',
+        'other#pid=3',
+        // A malformed percent encoding (a crafted intent) throws an ArgumentError inside the parser.
+        'openNotification:1000#tid=%zz',
+        'openNotification:1000#tid=%E0%A4%A',
+        null,
+      ]) {
         expect(LocalNoticeKeys.parseTarget(bad), isNull, reason: '$bad');
       }
       expect(LocalNoticeKeys.parseOpenNotification('other#pid=3'), isNull);
@@ -581,7 +701,7 @@ void main() {
     late NotificationStateCubit counts;
 
     setUp(() async {
-      notificationCardClock = () => _now;
+      notificationCardClock = () => _deviceNow;
       db = AppDatabase(NativeDatabase.memory());
       storage = StorageProvider(db, {}, {});
       settings = SettingsRepository(storage);
@@ -649,7 +769,13 @@ void main() {
       final router = GoRouter(
         routes: [
           GoRoute(path: '/', builder: (_, _) => home ?? const NotificationPage()),
-          for (final path in [ScreenPaths.threadV1, ScreenPaths.reply, ScreenPaths.chatHistory, ScreenPaths.profile])
+          for (final path in [
+            ScreenPaths.threadV1,
+            ScreenPaths.reply,
+            ScreenPaths.chatHistory,
+            ScreenPaths.profile,
+            ScreenPaths.notice,
+          ])
             GoRoute(path: path, name: path, builder: (_, s) => page(s)),
         ],
       );
@@ -755,6 +881,30 @@ void main() {
       expect(router.state.uri.queryParameters['pid'], '7001');
     });
 
+    testWidgets('a list out of time order is grouped once per day', (tester) async {
+      await open(
+        tester,
+        state: NotificationState(
+          status: NotificationStatus.success,
+          ownerUid: 1000,
+          broadcastMessageList: [
+            // Delivered now, stamped with the time it was written (#154): listed first.
+            BroadcastMessageV2(timestamp: _secondsAt(_now.subtract(const Duration(days: 3))), data: 'old', pmid: 1),
+            BroadcastMessageV2(timestamp: _secondsAt(_now.subtract(const Duration(hours: 1))), data: 'today', pmid: 2),
+            BroadcastMessageV2(timestamp: _secondsAt(_now.subtract(const Duration(days: 5))), data: 'older', pmid: 3),
+          ],
+        ),
+      );
+      await tester.tap(find.text('公共消息'));
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('notice-day-earlier')), findsOneWidget);
+      expect(find.byKey(const ValueKey('notice-day-today')), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.textContaining('today', findRichText: true)).dy,
+        lessThan(tester.getTopLeft(find.textContaining('old', findRichText: true).first).dy),
+      );
+    });
+
     testWidgets('mark all as read, search and the empty states', (tester) async {
       final (_, notifications) = await open(tester);
       await tester.tap(find.byKey(const ValueKey('notice-mark-all-read')));
@@ -826,6 +976,73 @@ void main() {
       await _settle(tester);
       expect((result.step, result.action), (LocalNoticeAccountStep.current, LocalNoticeTapAction.openTarget));
       expect(router.state.uri.queryParameters['pid'], '7002');
+      router.pop();
+      await _settle(tester);
+
+      // A target naming no account (not a payload of this version) is never opened: the notice page instead.
+      final noAccount = await openNoticePageOfAccount(home, uid: null, target: const LocalNoticeTarget(peerUid: 1001));
+      await _settle(tester);
+      expect(noAccount.action, LocalNoticeTapAction.openNoticePage);
+      expect(router.state.uri.path, ScreenPaths.notice);
+      router.pop();
+      await _settle(tester);
+
+      // An item of another account (Bob's message, Alice in use): switched first; when the switch does not happen the
+      // notice page of the account in use opens, never Bob's conversation as Alice.
+      await tester.runAsync(
+        () => storage.saveCookie(
+          username: 'Bob',
+          uid: 1001,
+          cookie: {'.index': '["$baseHost"]', baseHost: '{"/":{"Ystv_2132_auth":"Ystv_2132_auth=bob; Path=/;_crt=1"}}'},
+        ),
+      );
+      final switches = <int?>[];
+      ({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action})? other;
+      unawaited(
+        openNoticePageOfAccount(
+          home,
+          uid: 1001,
+          target: const LocalNoticeTarget(peerUid: 2001),
+          switchTo: (_, account) async {
+            switches.add(account.uid);
+            return SwitchAccountResult.failed;
+          },
+        ).then((e) => other = e),
+      );
+      await _settle(tester);
+      expect(switches, [1001]);
+      expect((other?.step, other?.action), (LocalNoticeAccountStep.notSwitched, LocalNoticeTapAction.openNoticePage));
+      expect(router.state.uri.path, ScreenPaths.notice);
+      expect(
+        notifications.events.whereType<NotificationMarkReadRequested>().where(
+          (e) =>
+              e.recordMark is RecordMarkPersonalMessage && (e.recordMark as RecordMarkPersonalMessage).peerUid == 2001,
+        ),
+        isEmpty,
+        reason: 'nothing of Bob marked read as Alice',
+      );
+      // Switched: the item opens as Bob.
+      ({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action})? switched;
+      unawaited(
+        openNoticePageOfAccount(
+          home,
+          uid: 1001,
+          target: const LocalNoticeTarget(peerUid: 2001),
+          reloadTimeout: Duration.zero,
+          switchTo: (_, account) async {
+            auth.currentUser = _bob;
+            return SwitchAccountResult.switched;
+          },
+        ).then((e) => switched = e),
+      );
+      await _settle(tester);
+      expect((switched?.step, switched?.action), (LocalNoticeAccountStep.switched, LocalNoticeTapAction.openTarget));
+      expect(router.state.uri.path, '/chat/history/2001');
+      expect(
+        notifications.events.whereType<NotificationMarkReadRequested>().last.recordMark,
+        const RecordMarkPersonalMessage(uid: 1001, peerUid: 2001, alreadyRead: true),
+      );
+      auth.currentUser = _alice;
     });
 
     testWidgets('the avatar menu shows the unread notifications of the other accounts', (tester) async {
@@ -932,7 +1149,7 @@ void main() {
     late NotificationStateCubit counts;
 
     setUp(() async {
-      notificationCardClock = () => _now;
+      notificationCardClock = () => _deviceNow;
       db = AppDatabase(NativeDatabase.memory());
       storage = StorageProvider(db, {}, {});
       settings = SettingsRepository(storage);

@@ -147,7 +147,8 @@ Future<SwitchAccountResult> _switchLikeTheMenu(BuildContext context, UserLoginIn
 /// the test notification of the settings page): the account in use.
 ///
 /// With a [target] (a notification of a single new item) the page it names is opened instead of the notice page, once
-/// the account is the right one, by the same rules ([openLocalNoticeTarget]).
+/// the account is the right one, by the same rules ([openLocalNoticeTarget]); when the switch does not happen the
+/// notice page of the account in use is opened instead, never the target. A target without [uid] is not opened.
 ///
 /// * The account in use, no account named, or nobody logged in: [openNoticePageForTap] right away, as before.
 /// * Another account saved on this device: switch to it right away, the same way as the avatar menu's quick switch
@@ -176,8 +177,9 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   ({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}) open(
     LocalNoticeAccountStep step, {
     required bool loggedIn,
+    bool direct = true,
   }) {
-    if (target != null && loggedIn && openLocalNoticeTarget(context, target)) {
+    if (direct && target != null && loggedIn && openLocalNoticeTarget(context, target)) {
       return (step: step, top: routerTopLocation(GoRouter.of(context)), action: LocalNoticeTapAction.openTarget);
     }
     final (:top, :action) = openNoticePageForTap(
@@ -194,7 +196,8 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   // homepage fetch verified the login, and `currentUser` is still null at that point (#14).
   final current = auth.effectiveCurrentUid;
   if (uid == null || current == null || uid == current) {
-    return open(LocalNoticeAccountStep.current, loggedIn: current != null);
+    // A target is only opened for the account it names: never for a payload without one.
+    return open(LocalNoticeAccountStep.current, loggedIn: current != null, direct: uid != null);
   }
   talker.info('notification of another account tapped: uid ${"$uid".obscured(4)}, switching to it first');
   final account = (await getIt.get<StorageProvider>().getAllUsers()).firstWhereOrNull((e) => e.uid == uid);
@@ -207,6 +210,12 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   }
   final result = await (switchTo ?? _switchLikeTheMenu)(context, account);
   if (result != SwitchAccountResult.switched || !context.mounted) {
+    // An item of a single new notification: the notice page of the account in use instead, never the item, which
+    // belongs to the other account.
+    if (target != null && context.mounted) {
+      talker.info('notification of another account: not switched (${result.name}), notice page opened instead');
+      return open(LocalNoticeAccountStep.notSwitched, loggedIn: true, direct: false);
+    }
     talker.info('notification of another account: not switched (${result.name}), notice page not opened');
     return notOpened;
   }

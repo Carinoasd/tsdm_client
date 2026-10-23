@@ -409,6 +409,10 @@
         "detail": "The app's auto sync (also while the desktop app is in the tray) and the Android background message service also check the other accounts logged in on this device, each with its own login; new notices are announced under the account's name, and tapping one switches to that account before opening the notice page",
         "seenNote": "Checking the other accounts marks their notices read on the website (the red dot goes away), as opening the notice page would"
       },
+      "notificationHideContent": {
+        "title": "Hide notification content",
+        "detail": "System notifications only show how many new items there are, not who did what nor the message text"
+      },
       "notificationPermission": {
         "title": "Notification permission",
         "detail": "Required by auto sync to show new notices, messages and broadcasts as system notifications",

@@ -688,7 +688,10 @@ class _NotificationCardShell extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     // Timestamp in second.
     final time = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-    final relative = relativeTimeOf(context.t, time, now: notificationCardClock());
+    // "Now" on the member's wall clock, like the stored times.
+    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    final now = memberNowOf(notificationCardClock(), NotificationTimeOffsets.of(uid));
+    final relative = relativeTimeOf(context.t, time, now: now);
     return AppSurface(
       onTap: onTap,
       color: highlight

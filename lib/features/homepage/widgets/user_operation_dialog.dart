@@ -80,10 +80,8 @@ class _UserOperationDialogState extends State<UserOperationDialog> with LoggerMi
   /// in-app sync of the other accounts and the background service store their results like the account in use.
   final _unread = <int, Future<int>>{};
 
-  Future<int> _unreadOf(int uid) => _unread[uid] ??= countUnreadNotification(
-    storage: getIt.get<StorageProvider>(),
-    uid: uid,
-  ).then((e) => e.notice + e.personalMessage + e.broadcastMessage);
+  Future<int> _unreadOf(int uid) =>
+      _unread[uid] ??= countUnreadNotificationTotal(storage: getIt.get<StorageProvider>(), uid: uid);
 
   @override
   void initState() {

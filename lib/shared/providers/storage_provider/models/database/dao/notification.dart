@@ -41,6 +41,35 @@ final class NotificationDao extends DatabaseAccessor<AppDatabase> with _$Notific
         .get();
   }
 
+  /// What the unread counts of user [uid] are made of, without reading the bodies: the author of every unread notice,
+  /// the peer of every unread conversation and the number of unread broadcast messages. A notice or a broadcast
+  /// message without a read state counts as unread, as everywhere else.
+  Future<({List<int?> noticeAuthors, List<int> personalMessagePeers, int broadcastMessages})> unreadOf(int uid) async {
+    final noticeAuthors =
+        await (selectOnly(notice)
+              ..addColumns([notice.authorId])
+              ..where(notice.uid.equals(uid) & (notice.alreadyRead.isNull() | notice.alreadyRead.equals(false))))
+            .map((row) => row.read(notice.authorId))
+            .get();
+    final peers =
+        await (selectOnly(personalMessage)
+              ..addColumns([personalMessage.peerUid])
+              ..where(personalMessage.uid.equals(uid) & personalMessage.alreadyRead.equals(false)))
+            .map((row) => row.read(personalMessage.peerUid)!)
+            .get();
+    final count = broadcastMessage.pmid.count();
+    final broadcastMessages =
+        await (selectOnly(broadcastMessage)
+              ..addColumns([count])
+              ..where(
+                broadcastMessage.uid.equals(uid) &
+                    (broadcastMessage.alreadyRead.isNull() | broadcastMessage.alreadyRead.equals(false)),
+              ))
+            .map((row) => row.read(count) ?? 0)
+            .getSingle();
+    return (noticeAuthors: noticeAuthors, personalMessagePeers: peers, broadcastMessages: broadcastMessages);
+  }
+
   /// Insert notice [message] into table [notice], or replace the stored copy unless that one is newer.
   ///
   /// A notice keeps its nid when Discuz merges a later reply into it and bumps its time. A response that was sent

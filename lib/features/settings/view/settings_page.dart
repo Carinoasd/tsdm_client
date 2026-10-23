@@ -691,6 +691,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             value: state.settingsMap.backgroundSyncAllAccounts,
             onChanged: (v) async => _toggleBackgroundSyncAllAccounts(context, enable: v),
           ),
+        // What the system notifications show, on the lock screen too.
+        if (autoSyncPostsNotifications)
+          SectionSwitchListTile(
+            key: const ValueKey('notification-hide-content'),
+            secondary: const Icon(Icons.visibility_off_outlined),
+            title: Text(tr.notificationHideContent.title),
+            subtitle: Text(tr.notificationHideContent.detail),
+            value: state.settingsMap.notificationHideContent,
+            onChanged: (v) async => getIt.get<SettingsRepository>().setValue(SettingsKeys.notificationHideContent, v),
+          ),
       ],
     );
   }

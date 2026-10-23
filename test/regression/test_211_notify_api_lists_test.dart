@@ -407,10 +407,8 @@ String _rawNote(String page, int id) => RegExp(
 int _secondsOf(DateTime local) => local.millisecondsSinceEpoch ~/ 1000;
 
 /// [notice] without what only the forum's app API gives (`from_id`, `from_idtype`): the notice page does not print
-/// them. The author is the API's `author`; the page reads the name of the author's link (the synthetic notes name
-/// another user than the synthetic `author`), so it is left out with [withoutAuthor].
-NoticeV2? _pageView(NoticeV2? notice, {bool withoutAuthor = false}) =>
-    notice?.copyWith(fromId: null, fromIdType: null, author: withoutAuthor ? null : notice.author);
+/// them.
+NoticeV2? _pageView(NoticeV2? notice) => notice?.copyWith(fromId: null, fromIdType: null);
 
 void main() {
   setUpAll(() {
@@ -439,10 +437,12 @@ void main() {
           _notice(id, _secondsOf(at), unread: unread, authorId: author, type: type, note: _rawNote(page, id)),
           timeOffset: 8,
         );
-        expect(_pageView(fromApi, withoutAuthor: true), _pageView(fromPage, withoutAuthor: true), reason: file);
+        expect(_pageView(fromApi), fromPage, reason: file);
         expect((fromApi!.ignoreType, fromApi.authorId), (type, author), reason: file);
-        expect((fromApi.author, fromApi.fromId, fromApi.fromIdType), ('Peer', 5, 'post'), reason: 'the API fields');
-        expect(fromPage!.author, isNotEmpty, reason: 'the name of the author link, $file');
+        // The author is the name of the author's link in the body, as on the page: the synthetic `author` column
+        // ('Peer') names another user, as the forum's column does for a reply approved by a moderator.
+        expect(fromApi.author, allOf(isNotEmpty, isNot('Peer'), fromPage.author), reason: file);
+        expect((fromApi.fromId, fromApi.fromIdType), (5, 'post'), reason: 'the API fields');
         expect(fromApi.data, contains('href="$baseUrl/home.php?mod=space'), reason: 'absolute urls, $file');
         expect(fromApi.data, isNot(contains('href="home.php')), reason: file);
       }

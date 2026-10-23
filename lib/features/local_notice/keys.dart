@@ -38,7 +38,9 @@ class LocalNoticeKeys {
     final Map<String, String> query;
     try {
       query = Uri.splitQueryString(payload.substring(i + 1));
-    } on FormatException {
+      // A malformed percent encoding throws an ArgumentError, not only a FormatException: anything that is not a payload
+      // of this app (a crafted intent) is no target.
+    } on Object {
       return null;
     }
     int? id(String key) {

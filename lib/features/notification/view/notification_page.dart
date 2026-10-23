@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,6 +24,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -70,13 +72,21 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         : (parseHtmlDocument('<html><body>$html</body></html>').body?.text ?? html),
   );
 
-  /// Whether one of [texts] contains the search text, ignoring case; true when not searching.
-  bool _matches(Iterable<String?> texts) {
+  /// Whether one of [texts] contains the search text, ignoring case; the texts are only built while searching.
+  bool _matches(Iterable<String?> Function() texts) {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) {
       return true;
     }
-    return texts.any((e) => e != null && e.toLowerCase().contains(q));
+    return texts().any((e) => e != null && e.toLowerCase().contains(q));
+  }
+
+  /// [list] newest first by [timeOf], the order among the same time kept: the day groups need it, and a broadcast
+  /// message carries the time it was written, not when it came (#154).
+  static List<T> _newestFirst<T>(Iterable<T> list, int Function(T) timeOf) {
+    final sorted = list.toList();
+    mergeSort<T>(sorted, compare: (a, b) => timeOf(b).compareTo(timeOf(a)));
+    return sorted;
   }
 
   /// One tab of the page: a centered list of the cards built by [itemBuilder] for the notifications at [timestamps]
@@ -91,7 +101,9 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     required IndexedWidgetBuilder itemBuilder,
   }) {
     final tr = context.t;
-    final now = notificationCardClock();
+    // The member's wall clock, like the stored times (see [NotificationTimeOffsets]).
+    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    final now = memberNowOf(notificationCardClock(), NotificationTimeOffsets.of(uid));
     // Rows of the list: a group title (the day) or the index of a card.
     final rows = <Object>[];
     NotificationDay? day;
@@ -191,6 +203,17 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
     _broadcastMessageRefreshController = EasyRefreshController(controlFinishLoad: true, controlFinishRefresh: true);
     _tabController = TabController(vsync: this, length: 3);
     _searchController = TextEditingController();
+    // The time offset of the account in use, stored by its last sync, for the relative times.
+    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    if (uid != null && getIt.isRegistered<StorageProvider>()) {
+      unawaited(
+        NotificationTimeOffsets.load(getIt.get<StorageProvider>(), uid).then((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        }),
+      );
+    }
     // The first visit of the notice page: the card explaining the notification permission, once.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -253,9 +276,15 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           };
           // The search filters by what the cards show: the text of a notice and its author, the peer and the summary
           // of a conversation, the summary of a broadcast message.
-          final shownNotices = n.where((e) => _matches([_plainTextOf(e.data, notice: true), e.author])).toList();
-          final shownPms = pm.where((e) => _matches([e.peerUsername, _plainTextOf(e.data)])).toList();
-          final shownBms = bm.where((e) => _matches([_plainTextOf(e.data)])).toList();
+          final shownNotices = _newestFirst(
+            n.where((e) => _matches(() => [_plainTextOf(e.data, notice: true), e.author])),
+            (e) => e.timestamp,
+          );
+          final shownPms = _newestFirst(
+            pm.where((e) => _matches(() => [e.peerUsername, _plainTextOf(e.data)])),
+            (e) => e.timestamp,
+          );
+          final shownBms = _newestFirst(bm.where((e) => _matches(() => [_plainTextOf(e.data)])), (e) => e.timestamp);
           final emptyTr = tr.empty;
           String emptyOf(String all, String unread) =>
               _query.trim().isNotEmpty ? emptyTr.search(keyword: _query.trim()) : (onlyShowUnread ? unread : all);
@@ -324,22 +353,27 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
             appBar: AppBar(
               title: _searching ? _buildSearchField(context) : Text(tr.title),
               actions: [
-                if (state.status == NotificationStatus.success)
+                if (state.status == NotificationStatus.success && !foreign)
                   IconButton(
                     key: const ValueKey('notice-search'),
                     icon: Icon(_searching ? Icons.close : Icons.search_outlined),
                     tooltip: _searching ? tr.search.close : tr.search.tooltip,
                     onPressed: _toggleSearch,
                   ),
-                if (state.status == NotificationStatus.success && !_searching) _buildUnreadFilterButton(context),
-                if (state.status == NotificationStatus.success && !_searching)
+                if (state.status == NotificationStatus.success && !foreign && !_searching)
+                  _buildUnreadFilterButton(context),
+                if (state.status == NotificationStatus.success && !foreign && !_searching)
                   IconButton(
                     key: const ValueKey('notice-mark-all-read'),
                     icon: const Icon(Icons.done_all_outlined),
                     tooltip: tr.markAllRead,
-                    onPressed: () {
-                      context.read<NotificationBloc>().add(const NotificationMarkAllReadRequested());
-                      showSnackBar(context: context, message: tr.markAllReadDone);
+                    onPressed: () async {
+                      final done = Completer<bool>();
+                      context.read<NotificationBloc>().add(NotificationMarkAllReadRequested(done: done));
+                      // Said once the marks are written, not before.
+                      if (await done.future && context.mounted) {
+                        showSnackBar(context: context, message: tr.markAllReadDone);
+                      }
                     },
                   ),
                 if (!_searching) const BackToHomeButton(),

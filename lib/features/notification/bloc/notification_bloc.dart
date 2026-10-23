@@ -309,6 +309,17 @@ NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
   fromIdType: e.fromIdType,
 );
 
+/// The number of unread notifications of [uid] in [storage], the same rules as [countUnreadNotification] (blocked
+/// authors and muted peers left out) without reading the notification bodies: for the account list of the avatar
+/// menu, an account at a time.
+Future<int> countUnreadNotificationTotal({required StorageProvider storage, required int uid}) async {
+  final unread = await storage.unreadNotificationOf(uid);
+  final blocked = await noticeBlockListOf(storage, uid);
+  return unread.noticeAuthors.where((e) => !isBlockedNoticeAuthor(e, blocked)).length +
+      unread.personalMessagePeers.where((e) => !isMutedPersonalMessagePeer(e, blocked)).length +
+      unread.broadcastMessages;
+}
+
 /// Recount the unread notifications of [uid] from [storage].
 ///
 /// Storage is the source of truth of the unread badge; this is what `NotificationBloc` publishes for the current
@@ -369,7 +380,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
           markType,
           markAsRead: markAsRead,
         ),
-        NotificationMarkAllReadRequested() => _onMarkAllReadRequested(emit),
+        NotificationMarkAllReadRequested(:final done) => _onMarkAllReadRequested(emit, done),
         NotificationDeleteNoticeRequested(:final uid, :final nid) => _onDeleteNotice(emit, uid: uid, nid: nid),
         NotificationDeletePersonalMessageRequested(:final uid, :final peerUid) => _onDeletePersonalMessage(
           emit,
@@ -679,10 +690,11 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     }
   }
 
-  Future<void> _onMarkAllReadRequested(_Emit emit) async {
+  Future<void> _onMarkAllReadRequested(_Emit emit, Completer<bool>? done) async {
     final uid = _authRepo.currentUser?.uid;
     if (uid == null) {
       error('intend to mark all notifications as read but uid not found');
+      done?.complete(false);
       return;
     }
     for (final type in NotificationType.values) {
@@ -690,20 +702,26 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     }
     if (_authRepo.currentUser?.uid != uid) {
       debug('Async gap meets uid changes, do NOT update state.');
+      done?.complete(false);
       return;
     }
     await _publishUnreadCounts(uid);
-    emit(
-      state.copyWith(
-        noticeList: state.noticeList.map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true)).toList(),
-        personalMessageList: state.personalMessageList
-            .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
-            .toList(),
-        broadcastMessageList: state.broadcastMessageList
-            .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
-            .toList(),
-      ),
-    );
+    // The lists on screen are another account's (switched, its lists not in yet): they are rebuilt for the new one,
+    // nothing to update in place.
+    if (state.ownerUid == null || state.ownerUid == uid) {
+      emit(
+        state.copyWith(
+          noticeList: state.noticeList.map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true)).toList(),
+          personalMessageList: state.personalMessageList
+              .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+              .toList(),
+          broadcastMessageList: state.broadcastMessageList
+              .map((e) => e.alreadyRead ? e : e.copyWith(alreadyRead: true))
+              .toList(),
+        ),
+      );
+    }
+    done?.complete(true);
   }
 
   Future<void> _onRecordFetchTimeRequested(DateTime time) async {

@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -84,14 +86,20 @@ typedef LocalNotificationContent = ({
 /// ([LocalNoticeKeys.openNotification]).
 ///
 /// A notification of a single new item also carries what it is about ([LocalNoticeKeys.withTarget]): the floor of the
-/// notice, the conversation of the message. A tap opens that instead of the notice page, as the same account.
+/// notice, the conversation of the message, and always the account it is about, named or not. A tap opens that
+/// instead of the notice page, as that account: switching to it first when another one is in use by then (an item of
+/// one account must never be opened, nor marked read, as another one). Without an [account] there is no target.
+///
+/// With [hideContent] (`SettingsKeys.notificationHideContent`) the notification only says how many new items came:
+/// the plain title (naming the account when [LocalNoticeAccount.named]), the counts, no list.
 LocalNotificationContent localNotificationContentOf(
   Translations translations,
   NotificationAutoSyncInfo info, {
   LocalNoticeAccount? account,
+  bool hideContent = false,
 }) {
   final tr = translations.localNotification;
-  final head = _headOf(translations, info);
+  final head = hideContent ? (title: null, body: _countsOf(translations, info)) : _headOf(translations, info);
   final named = account != null && account.named;
   final username = account?.username;
   final String title;
@@ -101,20 +109,25 @@ LocalNotificationContent localNotificationContentOf(
     title = head.title ?? tr.notice.title;
   }
   final base = named ? LocalNoticeKeys.openNotificationOf(account.uid) : LocalNoticeKeys.openNotification;
-  final target = info.total == 1 ? _targetOf(info) : null;
-  final several = info.total > 1 && info.lines.isNotEmpty;
+  final target = info.total == 1 && account != null ? _targetOf(info) : null;
+  final several = !hideContent && info.total > 1 && info.lines.isNotEmpty;
   final counts = _countsOf(translations, info);
   return (
     id: named ? localNoticeIdOf(account.uid) : localNoticeId,
     title: title,
     body: several ? '${head.body}\n$counts' : head.body,
-    payload: target == null ? base : LocalNoticeKeys.withTarget(base, target),
+    payload: target == null
+        ? base
+        : LocalNoticeKeys.withTarget(LocalNoticeKeys.openNotificationOf(account!.uid), target),
     lines: several ? [for (final line in info.lines) _lineOf(translations, line)] : const [],
     summary: several
         ? (info.total > info.lines.length ? '$counts · ${tr.notice.more(n: info.total - info.lines.length)}' : counts)
         : null,
   );
 }
+
+/// Longest thread title written in a notification, in characters.
+const _threadTitleLength = 24;
 
 /// Title (null for the old generic one) and body of the notification of [info].
 ({String? title, String body}) _headOf(Translations translations, NotificationAutoSyncInfo info) {
@@ -155,7 +168,10 @@ LocalNotificationContent localNotificationContentOf(
         // The forum's text already says who did what.
         return (title: tr.noticeTitle, body: msg);
       }
-      final detail = [if (threadTitle != null) '《$threadTitle》', ?quote].join(' ');
+      final detail = [
+        if (threadTitle != null) '《${threadTitle.truncate(_threadTitleLength, ellipsis: true)}》',
+        ?quote,
+      ].join(' ');
       return (title: action, body: detail.isEmpty ? msg : detail);
   }
 }
@@ -265,6 +281,9 @@ NotificationDetails buildLocalNotificationDetails({
     ticker: ticker,
     importance: Importance.high,
     priority: Priority.high,
+    // Said once instead of left to the device's default: on a locked screen the content shows only where the user
+    // allows private content of notifications; `SettingsKeys.notificationHideContent` keeps it out everywhere.
+    visibility: NotificationVisibility.private,
     // Several new items are listed one per line when expanded; a single one shows its whole text.
     styleInformation: lines.isNotEmpty
         ? InboxStyleInformation(lines, contentTitle: title, summaryText: summary)
@@ -323,7 +342,15 @@ Future<void> showLocalNotification(
     talker.info(
       'push local notification id=$id channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
     );
-    await showLocalNotificationWith(plugin: flnp, translations: translations, info: info, account: account);
+    await showLocalNotificationWith(
+      plugin: flnp,
+      translations: translations,
+      info: info,
+      account: account,
+      hideContent:
+          getIt.isRegistered<SettingsRepository>() &&
+          getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
+    );
   } on Exception catch (e, st) {
     talker.handle(e, st, 'push local notification failed: ');
   }
@@ -340,9 +367,10 @@ Future<void> showLocalNotificationWith({
   required Translations translations,
   required NotificationAutoSyncInfo info,
   LocalNoticeAccount? account,
+  bool hideContent = false,
 }) async {
   final tr = translations.localNotification;
-  final content = localNotificationContentOf(translations, info, account: account);
+  final content = localNotificationContentOf(translations, info, account: account, hideContent: hideContent);
   final nd = buildLocalNotificationDetails(
     channelName: tr.channelName,
     channelDescription: tr.channelDesc,

@@ -204,9 +204,10 @@ String? noticeActionOf(Translations tr, NoticeKind kind, String? author) {
   };
 }
 
-/// Whether a notice of [kind] can be answered with a reply to the floor it links.
+/// Whether a notice of [kind] can be answered with a reply to the floor it links. A comment (点评) links the user's
+/// own floor: a reply to it would answer oneself.
 bool noticeKindRepliable(NoticeKind kind) =>
-    kind == NoticeKind.reply || kind == NoticeKind.quote || kind == NoticeKind.mention || kind == NoticeKind.comment;
+    kind == NoticeKind.reply || kind == NoticeKind.quote || kind == NoticeKind.mention;
 
 /// The page a notice opens: the floor of its first "find post" link, else the thread of its first thread link.
 @immutable
@@ -254,7 +255,10 @@ final class NoticeInfo {
     final authorId = notice.authorId != null && notice.authorId! > 0 ? notice.authorId : null;
     return NoticeInfo._(
       kind: noticeKindOf(type: notice.ignoreType, fromIdType: notice.fromIdType, target: target, body: notice.data),
-      author: notice.author ?? (body == null ? null : Notice.parseAuthorName(body, authorId)),
+      // The author's link in the body first: a stored `author` of the app API may name the moderator, see
+      // `Notice.toV2FromApi`.
+      author:
+          (body == null ? null : Notice.parseAuthorName(body, authorId)) ?? (authorId == null ? null : notice.author),
       authorId: authorId,
       target: target,
       threadTitle: body == null ? null : _threadTitleOf(body),

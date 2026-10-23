@@ -284,11 +284,13 @@ class Notice with NoticeMappable {
       alreadyRead: json['new'] == 0,
       ignoreType: target?.type,
       authorId: target?.authorId,
-      // The forum fills `author` for a notice of a user only; a system notice has an empty one. An older plugin
-      // without the field: the name of the author's link in the body, as the notice page path reads it.
-      author: author is String && author.trim().isNotEmpty && (target?.authorId ?? 0) > 0
-          ? author.trim()
-          : parseAuthorName(element.querySelector('dd.ntc_body'), target?.authorId),
+      // The name of the author's link in the body first, as the notice page path reads it: the forum writes the
+      // `author` column with the name of whoever made the request, which is not always the author (a reply held for
+      // moderation is announced by the moderator's request, `authorid` is still the replier). The column is only
+      // taken when the body links no such user; a system notice (author 0) has none.
+      author:
+          parseAuthorName(element.querySelector('dd.ntc_body'), target?.authorId) ??
+          (author is String && author.trim().isNotEmpty && (target?.authorId ?? 0) > 0 ? author.trim() : null),
       fromId: fromId is int && fromId > 0 ? fromId : null,
       fromIdType: fromIdType is String && fromIdType.isNotEmpty ? fromIdType : null,
     );
