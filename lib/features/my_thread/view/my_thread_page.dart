@@ -80,7 +80,11 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
                 itemBuilder: (context, index) => index < items.length
                     ? MyThreadCard(items[index])
                     : ListFooter(
-                        status: listFooterStatus(hasMore: hasMore, loading: loadingMore, failed: loadMoreFailed),
+                        status: listFooterStatus(
+                          hasMore: hasMore,
+                          loading: loadingMore || refreshing,
+                          failed: loadMoreFailed,
+                        ),
                         itemCount: items.length,
                         failure: failure,
                         onLoadMore: onLoadMore,

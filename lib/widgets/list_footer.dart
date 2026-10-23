@@ -1,11 +1,19 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 
 /// Key of the retry button of a [ListFooter].
 const ValueKey<String> listFooterRetryKey = ValueKey('list-footer-retry');
+
+/// Key of the login button of a [ListFooter] whose next page asked to log in.
+const ValueKey<String> listFooterLoginKey = ValueKey('list-footer-login');
 
 /// What the end of a paged list shows ([ListFooter]).
 enum ListFooterStatus {
@@ -83,6 +91,43 @@ class _ListFooterState extends State<ListFooter> {
   /// Asked the next page for the current status and item count.
   bool _asked = false;
 
+  /// Counts down the wait a failure of too many requests asks for, before the retry.
+  Timer? _timer;
+  int _waitLeft = 0;
+
+  void _startCountdown() {
+    _timer?.cancel();
+    _timer = null;
+    final failure = widget.failure;
+    _waitLeft = widget.status == ListFooterStatus.failed && failure != null ? failureWaitLeft(failure) : 0;
+    if (_waitLeft <= 0) {
+      return;
+    }
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _waitLeft = math.max(0, _waitLeft - 1));
+      if (_waitLeft <= 0) {
+        timer.cancel();
+      }
+    });
+  }
+
+  Future<void> _login() async {
+    await context.pushNamed(ScreenPaths.login);
+    if (mounted) {
+      widget.onRetry?.call();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   void _askIfNeeded() {
     if (widget.status != ListFooterStatus.more || _asked || widget.onLoadMore == null) {
       return;
@@ -100,6 +145,7 @@ class _ListFooterState extends State<ListFooter> {
   void initState() {
     super.initState();
     _askIfNeeded();
+    _startCountdown();
   }
 
   @override
@@ -108,6 +154,9 @@ class _ListFooterState extends State<ListFooter> {
     if (oldWidget.status != widget.status || oldWidget.itemCount != widget.itemCount) {
       _asked = false;
     }
+    if (oldWidget.status != widget.status || !identical(oldWidget.failure, widget.failure)) {
+      _startCountdown();
+    }
     _askIfNeeded();
   }
 
@@ -115,7 +164,8 @@ class _ListFooterState extends State<ListFooter> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final quiet = textTheme.bodySmall?.copyWith(color: colorScheme.outline);
+    // The variant text color keeps a contrast of 4.5:1 on the surfaces, the outline color does not.
+    final quiet = textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
     final Widget child;
     switch (widget.status) {
       case ListFooterStatus.more || ListFooterStatus.loading:
@@ -139,9 +189,16 @@ class _ListFooterState extends State<ListFooter> {
         child = Row(
           children: [
             line,
-            Padding(
-              padding: edgeInsetsL12R12,
-              child: Text(widget.noMoreText ?? context.t.general.noMoreData, style: quiet),
+            Flexible(
+              flex: 3,
+              child: Padding(
+                padding: edgeInsetsL12R12,
+                child: Text(
+                  widget.noMoreText ?? context.t.general.noMoreData,
+                  style: quiet,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
             line,
           ],
@@ -158,12 +215,20 @@ class _ListFooterState extends State<ListFooter> {
               context.t.loadState.footer.failed(reason: reason),
               style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
             ),
-            if (widget.onRetry != null)
+            // A failure asking to log in offers the login; too many requests wait before the retry.
+            if (widget.failure?.kind == LoadFailureKind.needLogin)
+              TextButton.icon(
+                key: listFooterLoginKey,
+                icon: const Icon(Icons.login_outlined),
+                label: Text(context.t.loginPage.login),
+                onPressed: _login,
+              )
+            else if (widget.onRetry != null)
               TextButton.icon(
                 key: listFooterRetryKey,
                 icon: const Icon(Icons.refresh_outlined),
-                label: Text(context.t.general.retry),
-                onPressed: widget.onRetry,
+                label: Text(_waitLeft > 0 ? context.t.loadState.retryIn(seconds: _waitLeft) : context.t.general.retry),
+                onPressed: _waitLeft > 0 ? null : widget.onRetry,
               ),
           ],
         );

@@ -249,6 +249,9 @@ final class _MyThreads extends MyThreadRepository {
 /// Search results: page N of 3 holds the threads N and N + 1.
 final class _Searches extends SearchRepository {
   bool failing = false;
+
+  /// Holds back the answers while set.
+  Completer<void>? hold;
   final pages = <int>[];
 
   @override
@@ -261,6 +264,7 @@ final class _Searches extends SearchRepository {
   }) => AsyncEither(() async {
     final page = pageNumber < 1 ? 1 : pageNumber;
     pages.add(page);
+    await hold?.future;
     if (failing) return left(HttpHandshakeFailedException('offline', connectionFailed: true));
     return right(
       SearchResult(
@@ -1072,6 +1076,222 @@ void main() {
       await settle(tester);
       expect(find.text(t.favoritePage.empty), findsOneWidget);
       expect(find.text(t.favoritePage.emptyHint), findsOneWidget);
+    });
+  });
+
+  group('review fixes', () {
+    ResponseBody json(String name) => ResponseBody.fromString(
+      File('test/data/tsdmapp/$name').readAsStringSync(),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json; charset=utf-8'],
+      },
+    );
+    Never offline(RequestOptions o) => throw DioException.connectionError(requestOptions: o, reason: 'offline');
+
+    test('a refresh while a next page is on its way: the page is dropped, the list can go on after it', () async {
+      final repository = _Forums(pages: 5);
+      final bloc = ForumBloc(fid: '7', forumRepository: repository)..add(const ForumLoadMoreRequested(1));
+      addTearDown(bloc.close);
+      await bloc.stream.firstWhere((s) => s.status == ForumStatus.success);
+      final hold = repository.hold = Completer();
+      bloc.add(const ForumLoadMoreRequested(2));
+      await bloc.stream.firstWhere((s) => s.loadingMore);
+      bloc.add(ForumRefreshRequested());
+      final refreshing = await bloc.stream.firstWhere((s) => s.refreshing);
+      expect(refreshing.loadingMore, isFalse);
+      repository.hold = null;
+      hold.complete();
+      await bloc.stream.firstWhere((s) => !s.refreshing);
+      bloc.add(const ForumLoadMoreRequested(2));
+      final more = await bloc.stream.firstWhere((s) => s.currentPage == 2);
+      expect(more.normalThreadList, hasLength(4));
+    });
+
+    testWidgets('the end of the list asks again once a refresh is over', (tester) async {
+      var asked = 0;
+      Widget footer(ListFooterStatus status) => ListFooter(status: status, itemCount: 2, onLoadMore: () => asked++);
+      Future<void> pumpStatus(ListFooterStatus status) async {
+        await tester.pumpWidget(app(MaterialApp(home: Scaffold(body: footer(status)))));
+        await tester.pump();
+      }
+
+      await pumpStatus(ListFooterStatus.more);
+      expect(asked, 1);
+      // The page shows the end loading while it refreshes (loadingMore || refreshing), then more again.
+      await pumpStatus(listFooterStatus(hasMore: true, loading: true));
+      await pumpStatus(ListFooterStatus.more);
+      expect(asked, 2, reason: 'not stuck on a request the refresh dropped');
+    });
+
+    test('favorites: a refresh clears a next page that was on its way', () async {
+      var mode = 'ok';
+      final hold = Completer<void>();
+      forum.answer = (o) async {
+        if (mode == 'hold') {
+          mode = 'fail';
+          await hold.future;
+          return json('favorite_v8_thread.json');
+        }
+        if (mode == 'fail') return offline(o);
+        return json('favorite_v8_thread.json');
+      };
+      final repository = FavoriteRepository();
+      addTearDown(repository.dispose);
+      final bloc = FavoriteBloc(
+        favoriteRepository: repository,
+        authenticationRepository: AuthenticationRepository(user: _alice),
+      )..add(const FavoriteLoadRequested());
+      addTearDown(bloc.close);
+      await bloc.stream.firstWhere((s) => s.status == FavoriteStatus.success);
+      mode = 'hold';
+      bloc.add(const FavoriteLoadMoreRequested());
+      await bloc.stream.firstWhere((s) => s.loadingMore);
+      bloc.add(const FavoriteRefreshRequested());
+      final failed = await bloc.stream.firstWhere((s) => !s.refreshing && s.failure != null);
+      expect((failed.loadingMore, failed.loadMoreFailed), (false, false));
+      hold.complete();
+      mode = 'ok';
+      bloc.add(const FavoriteLoadMoreRequested());
+      final more = await bloc.stream.firstWhere((s) => s.pageNumber == 2);
+      expect(more.loadingMore, isFalse);
+    });
+
+    test("the forum's messages: a feature or a board closed, a mail activation", () {
+      for (final (message, kind) in [
+        ('抱歉，论坛搜索功能已关闭', LoadFailureKind.forumMessage),
+        ('本版块已关闭', LoadFailureKind.forumMessage),
+        ('注册后需要登录邮箱激活', LoadFailureKind.forumMessage),
+        ('抱歉，站点已关闭，请稍后访问', LoadFailureKind.closed),
+        ('论坛升级中', LoadFailureKind.closed),
+        ('系统繁忙，请稍后再试', LoadFailureKind.forumMessage),
+      ]) {
+        expect(forumMessageKind(message), kind, reason: message);
+      }
+    });
+
+    test('no answer for another reason than the connection is no "connection lost"', () {
+      expect(_told(_dio(DioExceptionType.unknown, error: const FormatException('bad'))).kind, LoadFailureKind.unknown);
+      expect(_told(_dio(DioExceptionType.cancel)).kind, LoadFailureKind.unknown);
+    });
+
+    test('Retry-After: seconds or an HTTP date, at most five minutes', () {
+      final now = DateTime.utc(2026, 10, 23, 8);
+      expect(retryAfterSecondsOf('120', now: now), 120);
+      expect(retryAfterSecondsOf(HttpDate.format(now.add(const Duration(seconds: 90))), now: now), 90);
+      expect(retryAfterSecondsOf('86400', now: now), isNull);
+      expect(retryAfterSecondsOf('soon', now: now), isNull);
+    });
+
+    test('the details leave the account ids and activity stamps out', () {
+      final failure = LoadFailure.of(
+        HttpHandshakeFailedException('GET forum.php?uid=31&touid=36&hash=abcd ulastactivity=9b1aXYZ', statusCode: 500),
+      );
+      expect(failure.details, isNot(contains('31')));
+      expect(failure.details, isNot(contains('9b1aXYZ')));
+      expect(failure.details, isNot(contains('abcd')));
+    });
+
+    testWidgets('the end of a list: a login asked offers the login, too many requests wait before the retry', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        app(
+          MaterialApp(
+            home: Scaffold(
+              body: ListFooter(
+                status: ListFooterStatus.failed,
+                failure: LoadFailure(LoadFailureKind.needLogin),
+                onRetry: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byKey(listFooterLoginKey), findsOneWidget);
+      expect(find.byKey(listFooterRetryKey), findsNothing);
+      var retried = 0;
+      await tester.pumpWidget(
+        app(
+          MaterialApp(
+            home: Scaffold(
+              body: ListFooter(
+                key: UniqueKey(),
+                status: ListFooterStatus.failed,
+                failure: LoadFailure(LoadFailureKind.rateLimited, retryAfterSeconds: 2),
+                onRetry: () => retried++,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text(t.loadState.retryIn(seconds: 2)), findsOneWidget);
+      await tester.tap(find.byKey(listFooterRetryKey));
+      expect(retried, 0);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(listFooterRetryKey));
+      expect(retried, 1);
+    });
+
+    testWidgets('the end of a list fits a small phone with large text', (tester) async {
+      tester.view
+        ..physicalSize = const Size(320, 640)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      for (final scale in [1.3, 2.0, 3.0]) {
+        for (final status in ListFooterStatus.values) {
+          await tester.pumpWidget(
+            app(
+              MaterialApp(
+                home: MediaQuery(
+                  data: MediaQueryData(size: const Size(320, 640), textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    body: ListView(
+                      children: [
+                        ListFooter(
+                          status: status,
+                          noMoreText: 'No earlier messages',
+                          loadingText: 'Loading earlier messages…',
+                          failure: LoadFailure(LoadFailureKind.server, statusCode: 503),
+                          onRetry: () {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(tester.takeException(), isNull, reason: '$status x$scale');
+        }
+      }
+    });
+
+    test('a conversation: an earlier page that does not lead further back ends the list', () async {
+      forum.answer = (o) => json('pm_v11_view_p2.json');
+      final bloc = ChatHistoryBloc(const ChatRepository())
+        ..add(const ChatHistoryLoadHistoryRequested(uid: '36', page: null));
+      addTearDown(bloc.close);
+      await bloc.stream.firstWhere((s) => s.status == ChatHistoryStatus.success);
+      bloc.add(const ChatHistoryLoadHistoryRequested(uid: '36', page: 2));
+      final next = await bloc.stream.firstWhere((s) => s.status == ChatHistoryStatus.success);
+      expect(next.previousPage, isNull, reason: 'the forum answered page 3 again: no request for page 2 forever');
+    });
+
+    test('search: an older search answering late does not replace the newer one', () async {
+      final repository = _Searches();
+      final bloc = SearchBloc(searchRepository: repository);
+      addTearDown(bloc.close);
+      final hold = repository.hold = Completer();
+      bloc.add(const SearchRequested(keyword: 'old', fid: '0', uid: '0', pageNumer: 1));
+      await Future<void>.delayed(Duration.zero);
+      repository.hold = null;
+      bloc.add(const SearchRequested(keyword: 'new', fid: '0', uid: '0', pageNumer: 2));
+      await bloc.stream.firstWhere((s) => s.status == SearchStatus.success);
+      hold.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect((bloc.state.keyword, bloc.state.searchResult?.currentPage), ('new', 2));
     });
   });
 

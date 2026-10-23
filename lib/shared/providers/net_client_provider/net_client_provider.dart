@@ -54,6 +54,11 @@ AppException mapException(Object error, StackTrace st) {
           (error.type == DioExceptionType.sendTimeout ||
               error.type == DioExceptionType.receiveTimeout ||
               error.error is RequestTimedOutException),
+      connectionLost:
+          response == null &&
+          error.error is IOException &&
+          error.error is! HostUnreachableException &&
+          error.error is! RequestTimedOutException,
     );
   }
   return HttpRequestFailedException(null);

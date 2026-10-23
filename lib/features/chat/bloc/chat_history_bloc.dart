@@ -71,7 +71,11 @@ final class ChatHistoryBloc extends Bloc<ChatHistoryEvent, ChatHistoryState> wit
         user: User(username: info.username),
         messageCount: info.messageCount,
         pageNumber: page,
-        previousPage: info.previousPage,
+        // An earlier page must lead further back: a forum answering another page (past its first, the latest one)
+        // would be asked for the same page again and again.
+        previousPage: page != null && info.previousPage != null && info.previousPage! >= page
+            ? null
+            : info.previousPage,
         nextPage: info.nextPage,
         sendTarget: info.sendTarget,
         // Loading an earlier page appends it; loading the latest page again (first load, or the reload after a

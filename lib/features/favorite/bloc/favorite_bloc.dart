@@ -50,16 +50,16 @@ final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerM
       emit(state.copyWith(status: FavoriteStatus.needLogin));
       return;
     }
-    emit(state.copyWith(status: FavoriteStatus.loading, failure: null, loadMoreFailed: false));
+    emit(state.copyWith(status: FavoriteStatus.loading, failure: null, loadingMore: false, loadMoreFailed: false));
     await _loadFirstPage(emit);
   }
 
   Future<void> _onRefreshRequested(FavoriteRefreshRequested event, FavoriteEmitter emit) async {
     if (_uid == null) {
-      emit(state.copyWith(status: FavoriteStatus.needLogin, refreshing: false));
+      emit(state.copyWith(status: FavoriteStatus.needLogin, refreshing: false, loadingMore: false));
       return;
     }
-    emit(state.copyWith(refreshing: true, failure: null));
+    emit(state.copyWith(refreshing: true, loadingMore: false, loadMoreFailed: false, failure: null));
     await _loadFirstPage(emit);
   }
 
@@ -81,7 +81,7 @@ final class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> with LoggerM
         emit(state.copyWith(status: FavoriteStatus.failure, refreshing: false, failure: LoadFailure.of(value)));
       case Right(:final value):
         if (value.needLogin) {
-          emit(state.copyWith(status: FavoriteStatus.needLogin, refreshing: false));
+          emit(state.copyWith(status: FavoriteStatus.needLogin, refreshing: false, loadingMore: false));
           return;
         }
         final uid = _uid;

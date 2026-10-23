@@ -125,6 +125,7 @@ final class HttpHandshakeFailedException extends AppException with HttpHandshake
     this.headers,
     this.connectionFailed = false,
     this.timedOut = false,
+    this.connectionLost = false,
   }) : super(message: message);
 
   /// Optional status code.
@@ -142,6 +143,10 @@ final class HttpHandshakeFailedException extends AppException with HttpHandshake
   /// The forum was reached but its answer did not come in time: dio's send and receive timeouts, the Android channel's
   /// read or write timeout (`RequestTimedOutException`). A connect that timed out is a [connectionFailed] instead.
   final bool timedOut;
+
+  /// The connection to the forum failed after it was made, with no answer: reset, closed, a failed TLS handshake
+  /// (an `IOException` of the socket, the Android channel's `RequestDroppedException`).
+  final bool connectionLost;
 }
 
 /// Whether [e] means the forum could not be reached at all ([HttpHandshakeFailedException.connectionFailed]): not an

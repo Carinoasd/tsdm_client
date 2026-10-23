@@ -42,6 +42,19 @@ final class RequestTimedOutException implements IOException {
   String toString() => 'RequestTimedOutException: $message';
 }
 
+/// The connection to the host failed after it was made, without an answer: reset, closed, a failed TLS handshake
+/// (`KT_HTTP_ERROR` of the Android channel, other than a timeout).
+final class RequestDroppedException implements IOException {
+  /// Constructor.
+  const RequestDroppedException(this.message);
+
+  /// What the platform said.
+  final String message;
+
+  @override
+  String toString() => 'RequestDroppedException: $message';
+}
+
 /// The method channel for [KotlinHttpClient].
 abstract class _AndroidHttpMethodChannel {
   static const _httpChannel = MethodChannel('kzs.th000.tsdm_client/httpChannel');
@@ -59,14 +72,15 @@ abstract class _AndroidHttpMethodChannel {
   /// [e] as the failure the caller sees: [HostUnreachableException] when the host was not reached at all
   /// ([_unreachable]), so a post that never left is told apart from one that may have reached the forum (a reply
   /// failed after the connect may be stored); [RequestTimedOutException] when the answer did not come in time (still
-  /// a request that may have reached the forum); null for every other failure, a failed request without status.
+  /// a request that may have reached the forum), [RequestDroppedException] for any other failure of the channel; null
+  /// for an unknown code, a failed request without status.
   static IOException? _failureOf(PlatformException e) {
     if (e.code == _unreachable) {
       return HostUnreachableException('${e.details ?? e.message ?? 'host unreachable'}');
     }
     final details = '${e.details ?? ''}';
-    if (e.code == _error && _timeoutRe.hasMatch(details)) {
-      return RequestTimedOutException(details);
+    if (e.code == _error) {
+      return _timeoutRe.hasMatch(details) ? RequestTimedOutException(details) : RequestDroppedException(details);
     }
     return null;
   }

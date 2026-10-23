@@ -176,7 +176,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
                       : ListFooter(
                           status: listFooterStatus(
                             hasMore: state.currentPage < state.totalPages,
-                            loading: state.loadingMore,
+                            loading: state.loadingMore || state.refreshing,
                             failed: state.loadMoreFailed,
                           ),
                           itemCount: state.fullChangelog.length,

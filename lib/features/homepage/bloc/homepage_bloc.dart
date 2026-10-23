@@ -22,6 +22,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -198,6 +199,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     // A request dropped: the account or its session changed while it was on its way (a login with the password of
     // the same account too, which reloads nothing by itself).
     var identityChanged = false;
+    AppException? failed;
     final asked = _askedAs();
     _loadedFor = asked.uid;
     final respList = (await Future.wait([
@@ -211,6 +213,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         } else if (e case IdentityChangedException()) {
           identityChanged = true;
         } else {
+          failed ??= e;
           handle(e);
         }
       }).run(),
@@ -221,6 +224,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
           case IdentityChangedException():
             identityChanged = true;
           default:
+            failed ??= e;
             handle(e);
         }
       }).run(),
@@ -239,7 +243,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         emit(state.copyWith(status: HomepageStatus.needLogin));
         return;
       } else {
-        emit(state.copyWith(status: HomepageStatus.failure));
+        emit(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(failed)));
         return;
       }
     }
@@ -272,7 +276,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       case Left(:final value):
         handle(value);
         debug('failed to fetch dom: $value');
-        emit(state.copyWith(status: HomepageStatus.failure));
+        emit(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(value)));
       case Right(:final value):
         if (!await _recordAccountOf(value, asked: asked, generation: generation)) {
           return;
@@ -293,7 +297,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         }
         if (d2.isLeft()) {
           handle(d2.unwrapErr());
-          emit(state.copyWith(status: HomepageStatus.failure));
+          emit(state.copyWith(status: HomepageStatus.failure, failure: LoadFailure.of(d2.unwrapErr())));
           return;
         }
         final avatarUrl = d2.unwrap().avatarUrl;

@@ -433,6 +433,7 @@ class _HomepagePageState extends State<HomepagePage> {
               // What went wrong (the failed request of the homepage) and what to do, the details folded away.
               HomepageStatus.failure => FailureView(
                 key: const ValueKey('failure'),
+                failure: state.failure,
                 onRetry: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
               ),
               HomepageStatus.success => EasyRefresh.builder(

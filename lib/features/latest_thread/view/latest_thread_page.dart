@@ -65,7 +65,7 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
                     : ListFooter(
                         status: listFooterStatus(
                           hasMore: state.nextPageUrl != null,
-                          loading: state.loadingMore,
+                          loading: state.loadingMore || state.refreshing,
                           failed: state.loadMoreFailed,
                         ),
                         itemCount: state.threadList.length,

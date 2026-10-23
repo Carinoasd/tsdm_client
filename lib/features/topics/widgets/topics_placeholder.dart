@@ -27,14 +27,14 @@ class TopicsPlaceholder extends StatelessWidget {
               ? const Padding(
                   padding: edgeInsetsT4B4,
                   child: LoadingShimmer(
-                    child: Row(
+                    // Wraps on a narrow window instead of overflowing.
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         SkeletonBlock(width: 72, height: 28, radius: 14),
-                        sizedBoxW8H8,
                         SkeletonBlock(width: 72, height: 28, radius: 14),
-                        sizedBoxW8H8,
                         SkeletonBlock(width: 72, height: 28, radius: 14),
-                        sizedBoxW8H8,
                         SkeletonBlock(width: 56, height: 28, radius: 14),
                       ],
                     ),

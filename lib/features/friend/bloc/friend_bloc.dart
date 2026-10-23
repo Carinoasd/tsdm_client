@@ -37,12 +37,12 @@ final class FriendBloc extends Bloc<FriendEvent, FriendState> with LoggerMixin {
   int _generation = 0;
 
   Future<void> _onLoadRequested(FriendLoadRequested event, FriendEmitter emit) async {
-    emit(state.copyWith(status: FriendStatus.loading, failure: null, loadMoreFailed: false));
+    emit(state.copyWith(status: FriendStatus.loading, failure: null, loadingMore: false, loadMoreFailed: false));
     await _loadFirstPage(emit);
   }
 
   Future<void> _onRefreshRequested(FriendRefreshRequested event, FriendEmitter emit) async {
-    emit(state.copyWith(refreshing: true, failure: null));
+    emit(state.copyWith(refreshing: true, loadingMore: false, loadMoreFailed: false, failure: null));
     await _loadFirstPage(emit);
   }
 
@@ -64,7 +64,7 @@ final class FriendBloc extends Bloc<FriendEvent, FriendState> with LoggerMixin {
         emit(state.copyWith(status: FriendStatus.failure, refreshing: false, failure: LoadFailure.of(value)));
       case Right(:final value):
         if (value.needLogin) {
-          emit(state.copyWith(status: FriendStatus.needLogin, refreshing: false));
+          emit(state.copyWith(status: FriendStatus.needLogin, refreshing: false, loadingMore: false));
           return;
         }
         if (value.message != null) {
@@ -75,6 +75,7 @@ final class FriendBloc extends Bloc<FriendEvent, FriendState> with LoggerMixin {
               message: value.message,
               ownerName: value.ownerName,
               refreshing: false,
+              loadingMore: false,
             ),
           );
           return;

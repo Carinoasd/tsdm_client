@@ -165,7 +165,7 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                     : ListFooter(
                         status: listFooterStatus(
                           hasMore: list.nextPageUrl != null,
-                          loading: list.loadingMore,
+                          loading: list.loadingMore || list.refreshing,
                           failed: list.loadMoreFailed,
                         ),
                         itemCount: list.items.length,

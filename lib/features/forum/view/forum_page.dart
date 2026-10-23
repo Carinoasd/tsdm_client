@@ -358,7 +358,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                   : ListFooter(
                       status: listFooterStatus(
                         hasMore: state.canLoadMore && state.currentPage < state.totalPages,
-                        loading: state.loadingMore,
+                        loading: state.loadingMore || state.refreshing,
                         failed: state.loadMoreFailed,
                       ),
                       itemCount: normalThreadList.length,

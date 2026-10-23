@@ -78,7 +78,11 @@ final class LoadFailure {
           return LoadFailure(LoadFailureKind.timeout, details: details);
         }
         if (statusCode == null) {
-          return LoadFailure(LoadFailureKind.connectionLost, details: details);
+          // Dropped after the connect, or failed without an answer for another reason the app cannot name.
+          return LoadFailure(
+            e.connectionLost ? LoadFailureKind.connectionLost : LoadFailureKind.unknown,
+            details: details,
+          );
         }
         final challenged = headers?.value('cf-mitigated')?.toLowerCase() == 'challenge';
         return LoadFailure._ofStatus(
@@ -141,7 +145,7 @@ final class LoadFailure {
       return LoadFailure(
         LoadFailureKind.rateLimited,
         statusCode: status,
-        retryAfterSeconds: int.tryParse(retryAfter?.trim() ?? ''),
+        retryAfterSeconds: retryAfterSecondsOf(retryAfter),
         details: details,
       );
     }
@@ -199,9 +203,11 @@ final _rateLimitedRe = RegExp(
   caseSensitive: false,
 );
 
+// The site itself closed: "站点已关闭", "本站暂时关闭", "论坛升级中", "维护中"; not a feature or a board of it that is
+// closed ("搜索功能已关闭", "本版块已关闭").
 final _closedRe = RegExp(
-  '(站点|站點|网站|網站|论坛|論壇|本站|系统|系統).{0,8}([关關][闭閉]|[维維][护護]|升[级級])|'
-  '[暂暫][时時][关關][闭閉]|[维維][护護]中|maintenance|board.?closed|site.{0,8}closed',
+  '(站点|站點|网站|網站|论坛|論壇|本站)(已|已经|已經|暂时|暫時|正在)?([关關][闭閉]|[维維][护護]|升[级級])|'
+  '[维維][护護]中|maintenance|board.?closed|site (is )?closed',
   caseSensitive: false,
 );
 
@@ -217,6 +223,8 @@ final _noPermissionRe = RegExp(
   caseSensitive: false,
 );
 
+final _activationRe = RegExp('激活|activat', caseSensitive: false);
+
 /// What the forum's [message] (shown instead of a page) is about: too frequent, closed, log in first, no permission,
 /// else [LoadFailureKind.forumMessage].
 LoadFailureKind forumMessageKind(String message) {
@@ -226,7 +234,8 @@ LoadFailureKind forumMessageKind(String message) {
   if (_closedRe.hasMatch(message)) {
     return LoadFailureKind.closed;
   }
-  if (_needLoginRe.hasMatch(message)) {
+  // "登录邮箱激活" asks to activate the account by mail, not to log in.
+  if (_needLoginRe.hasMatch(message) && !_activationRe.hasMatch(message)) {
     return LoadFailureKind.needLogin;
   }
   if (_noPermissionRe.hasMatch(message)) {
@@ -240,3 +249,28 @@ final _waitSecondsRe = RegExp(r'(\d+)\s*秒');
 /// Seconds the forum's "too frequent" [message] asks to wait ("您在 20 秒内只能进行一次搜索", "两次发表间隔少于 15 秒"),
 /// null when it names none.
 int? forumMessageWaitSeconds(String message) => int.tryParse(_waitSecondsRe.firstMatch(message)?.group(1) ?? '');
+
+/// Longest wait of a `Retry-After` header the app counts down; a longer one is told without the seconds.
+const maxRetryAfterSeconds = 300;
+
+/// The seconds of a `Retry-After` header [value]: its seconds, or the time to its HTTP date (RFC 9110); null when there
+/// is none, it cannot be read, or it is longer than [maxRetryAfterSeconds].
+int? retryAfterSecondsOf(String? value, {DateTime? now}) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  var seconds = int.tryParse(text);
+  if (seconds == null) {
+    // A date it cannot read is no wait (dart:io throws an HttpException for it).
+    try {
+      seconds = HttpDate.parse(text).difference(now ?? DateTime.now()).inSeconds;
+    } on Exception {
+      return null;
+    }
+  }
+  if (seconds <= 0) {
+    return 0;
+  }
+  return seconds > maxRetryAfterSeconds ? null : seconds;
+}

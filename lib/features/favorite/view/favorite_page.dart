@@ -136,7 +136,7 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
                 return ListFooter(
                   status: listFooterStatus(
                     hasMore: state.nextPageUrl != null,
-                    loading: state.loadingMore,
+                    loading: state.loadingMore || state.refreshing,
                     failed: state.loadMoreFailed,
                   ),
                   itemCount: state.items.length,

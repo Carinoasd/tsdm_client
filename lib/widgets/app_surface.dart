@@ -312,7 +312,7 @@ class AppStateView extends StatelessWidget {
             Text(
               detail!,
               textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
           if (action != null) ...[sizedBoxW16H16, action!],
