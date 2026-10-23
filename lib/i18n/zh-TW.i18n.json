@@ -418,7 +418,9 @@
         "promptTitle": "允許通知？",
         "promptMessage": "開啟後，新的提醒、私信和公共訊息會顯示為系統通知。接下來系統會詢問是否允許通知；之後也可以在「設定 → 通知權限」更改。",
         "promptAllow": "繼續",
-        "promptLater": "以後再說"
+        "promptLater": "以後再說",
+        "promptSettingsMessage": "通知權限已被拒絕或在系統裡關閉，系統不會再詢問。要收到通知，請到 App 設定頁開啟。",
+        "promptOpenSettings": "開啟設定"
       },
       "ignoreBatteryOptimizations": {
         "title": "忽略電池最佳化",
@@ -842,7 +844,9 @@
     "replyFailedNetwork": "回覆失敗：網路不可用，請檢查網路後重試",
     "replyMaybeSent": "回覆結果不明：可能已送出，請重新整理確認後再決定是否重送",
     "refreshToCheck": "重新整理",
+    "replyCheckFiltered": "目前只看某位作者的樓層，你的回覆可能不在列表裡",
     "lastFloorReached": "已到最後一樓",
+    "firstFloorReached": "已到最早一樓",
     "replyNeedsVerification": "這個版塊回覆需要填寫驗證碼或回答安全提問，App 暫不支援，請在瀏覽器中回覆。",
     "replyNeedsBrowser": "這個回覆表單有 App 暫不支援的欄位，請在瀏覽器中回覆。",
     "replyInBrowser": "在瀏覽器中回覆",
@@ -850,7 +854,7 @@
     "operationLog": {
       "title": "操作記錄"
     },
-    "softCloseHint": "帖子已关闭，回复前请注意",
+    "softCloseHint": "貼文已關閉，回覆前請注意",
     "offlineBanner": "離線內容（${time: String} 保存）",
     "statistics": "${view: int} 查看 ${reply: int} 回覆",
     "threadInfo": {
@@ -1154,7 +1158,8 @@
       "message": "目前的內容還沒有送出。",
       "discard": "捨棄",
       "saveDraft": "存草稿",
-      "keepEditing": "繼續編輯"
+      "keepEditing": "繼續編輯",
+      "sending": "送出中，請稍候"
     },
     "threadPublish": {
       "title": "發布新帖",
@@ -1186,11 +1191,11 @@
       "typesTip": "BBCode格式只保存正文；Quill Delta既保存正文也保存帖子的設定",
       "copyBBCode": "複製BBCode",
       "pasteBBCode": "貼上BBCode",
-      "exportBBCode": "匯出BBCode",
+      "exportBBCode": "匯出 BBCode",
       "importBBCode": "匯入 BBCode",
       "copyQuilllDelta": "複製Quill Delta",
       "pasteQuillDelta": "貼上Quill Delta",
-      "exportQuillDelta": "導出Quill Delta",
+      "exportQuillDelta": "匯出 Quill Delta",
       "importQuillDelta": "匯入 Quill Delta"
     }
   },

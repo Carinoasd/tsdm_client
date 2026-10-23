@@ -54,6 +54,10 @@ class AppBarCollapser {
   /// Whether the bar hides at all (the `collapseAppBarWhenScroll` setting); when false it is always shown.
   bool enabled = true;
 
+  /// Height of the bar: a list that scrolls no farther than that keeps the bar (hiding it would only make room that
+  /// the list cannot fill, and the bar would come and go at every drag).
+  double barHeight = 0;
+
   /// Show the whole bar.
   void show() {
     if (controller.value < 1 && controller.status != AnimationStatus.forward) {
@@ -82,7 +86,10 @@ class AppBarCollapser {
       switch (notification.direction) {
         case ScrollDirection.reverse:
           // The finger moves up: the list goes down to later floors.
-          hide();
+          final metrics = notification.metrics;
+          if (metrics.maxScrollExtent - metrics.minScrollExtent > barHeight) {
+            hide();
+          }
         case ScrollDirection.forward:
           show();
         case ScrollDirection.idle:

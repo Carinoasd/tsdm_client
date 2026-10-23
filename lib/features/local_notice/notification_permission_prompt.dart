@@ -74,6 +74,15 @@ Future<bool> askNotificationPermission(
     if (!context.mounted) {
       return false;
     }
+    if (status.isPermanentlyDenied) {
+      // The system will not ask any more (denied twice, or switched off in the system settings): only the app settings
+      // page turns notifications on, the card leads there instead of announcing a system dialog.
+      final open = await showNotificationPermissionCard(context, openSettings: true);
+      if (open) {
+        await permissions.requestNotification();
+      }
+      return false;
+    }
     final allow = await showNotificationPermissionCard(context);
     if (once) {
       // Shown once, whatever the answer: the settings page keeps the way to ask again.
@@ -85,6 +94,13 @@ Future<bool> askNotificationPermission(
     }
     await permissions.requestNotification(openSettingsWhenPermanentlyDenied: false);
     talker.info('notification permission asked ($trigger): ${permissions.state.notification}');
+    if ((permissions.state.notification?.isPermanentlyDenied ?? false) && context.mounted) {
+      // No system dialog came (notifications switched off in the system settings, or denied twice before): the app
+      // settings page is the only way left.
+      if (await showNotificationPermissionCard(context, openSettings: true)) {
+        await permissions.requestNotification();
+      }
+    }
     return true;
   } finally {
     if (cubit == null) {
@@ -106,8 +122,9 @@ void askNotificationPermissionAfterLogin() {
 }
 
 /// The card explaining the notification permission before the system asks for it; true to go on to the system
-/// dialog.
-Future<bool> showNotificationPermissionCard(BuildContext context) async {
+/// dialog. With [openSettings] the system asks no more: the card says so and leads to the app settings page (true to
+/// open it).
+Future<bool> showNotificationPermissionCard(BuildContext context, {bool openSettings = false}) async {
   final allow = await showDialog<bool>(
     context: context,
     builder: (context) {
@@ -116,7 +133,7 @@ Future<bool> showNotificationPermissionCard(BuildContext context) async {
         DialogPaths.question,
         CustomAlertDialog.sync(
           title: AppDialogTitle(icon: Icons.notifications_active_outlined, title: tr.promptTitle),
-          content: Text(tr.promptMessage),
+          content: Text(openSettings ? tr.promptSettingsMessage : tr.promptMessage),
           actions: [
             TextButton(
               key: const ValueKey('notification-permission-later'),
@@ -126,7 +143,7 @@ Future<bool> showNotificationPermissionCard(BuildContext context) async {
             FilledButton(
               key: const ValueKey('notification-permission-allow'),
               onPressed: () => Navigator.pop(context, true),
-              child: Text(tr.promptAllow),
+              child: Text(openSettings ? tr.promptOpenSettings : tr.promptAllow),
             ),
           ],
         ),

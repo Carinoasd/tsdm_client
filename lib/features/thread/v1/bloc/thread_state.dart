@@ -48,6 +48,7 @@ class ThreadState with ThreadStateMappable {
     this.replyCount,
     this.offlineSavedAt,
     this.floorsUid,
+    this.newestFirst = false,
   });
 
   /// Status.
@@ -178,4 +179,8 @@ class ThreadState with ThreadStateMappable {
   /// The account the floors on screen were loaded for (null: a guest). A load for another account that fails never
   /// puts them back on screen, nor appends to them.
   final int? floorsUid;
+
+  /// The last page loaded came in the newest first order ([ThreadPageInfo.newestFirst]): asked so, or the order the
+  /// thread's author set.
+  final bool newestFirst;
 }

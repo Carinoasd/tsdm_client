@@ -729,20 +729,27 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     return TextScaler.linear(math.min(globalScale * threadScale, threadContentMaxTextScale));
   }
 
-  /// Reload the floors where a reply that may have been stored would be: the first page of a thread shown newest
-  /// first, its last page otherwise (the page after it, when the reply opened a new one, loads from there).
+  /// Reload the floors where a reply that may have been stored would be, and land on the newest floor: the first page
+  /// of a thread shown newest first, otherwise its last page (asked past it: the reply may have opened a new one) on
+  /// its last floor ([_landOnLastPost]). With the floors of one author only, the reply may not be among them: said.
   void _reloadToCheckReply() {
     final threadBloc = _threadBloc;
     if (!mounted || threadBloc == null || threadBloc.isClosed) {
       return;
     }
     final threadState = threadBloc.state;
+    if (threadState.onlyVisibleUid != null) {
+      showSnackBar(context: context, message: context.t.threadPage.replyCheckFiltered);
+    }
     final newestFirst =
-        threadState.exactOrder == 1 || (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
+        threadState.newestFirst ||
+        threadState.exactOrder == 1 ||
+        (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
     if (newestFirst) {
       threadBloc.add(ThreadRefreshRequested());
     } else {
-      threadBloc.add(ThreadJumpPageRequested(threadState.totalPages));
+      _landOnLastPost = true;
+      threadBloc.add(const ThreadJumpPageRequested(lastPageAsked, pageFallback: 1));
     }
   }
 
@@ -762,7 +769,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           popCallback: (context) {
             // Reloads by itself after its login: the reload kept for when this page shows again would be a second.
             _reloadWhenShown = false;
-            context.read<ThreadBloc>().add(ThreadRefreshRequested());
+            // Still opening on the last floor: its page again, not the first one.
+            context.read<ThreadBloc>().add(_landOnLastPost ? _retryLoad(state) : ThreadRefreshRequested());
           },
         ),
       );
@@ -885,10 +893,18 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
-                if (_landOnLastPost) {
+                // Not on a page without floors (a message, no permission): a later load (after logging in) still
+                // lands on the last floor.
+                if (_landOnLastPost && state.postList.isNotEmpty) {
                   _landOnLastPost = false;
-                  // Read by the post list built for this state, see [_scrollToPidOnReload].
-                  _scrollToPidOnReload = state.postList.lastOrNull?.postID;
+                  if (!state.newestFirst) {
+                    // Read by the post list built for this state, see [_scrollToPidOnReload].
+                    _scrollToPidOnReload = state.postList.lastOrNull?.postID;
+                  } else if (state.currentPage != 1) {
+                    // Its author shows the thread newest first: the last floor is at the top of the first page, the
+                    // page past the last one holds the oldest floors.
+                    context.read<ThreadBloc>().add(const ThreadJumpPageRequested(1));
+                  }
                 }
               }
             },
@@ -1053,6 +1069,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 ],
               ],
             );
+            _appBarCollapser.barHeight = appBar.preferredSize.height;
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
             // The content's text-scale override must not restore the outer status-bar padding.
             final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));

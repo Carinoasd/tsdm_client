@@ -206,6 +206,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
           tid: state.tid,
           pid: state.pid,
           pageNumber: event.pageNumber,
+          pageFallback: event.pageFallback,
           onlyVisibleUid: state.onlyVisibleUid,
           reverseOrder: state.reverseOrder,
           exactOrder: state.exactOrder,
@@ -406,6 +407,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
       replyCount: info.replyCount,
       offlineSavedAt: offlineSavedAt,
       floorsUid: uid,
+      newestFirst: info.newestFirst,
     );
 
     return threadState;

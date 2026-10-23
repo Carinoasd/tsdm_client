@@ -194,9 +194,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// Auto clear outdated image cache.
   ///
-  /// On by default: the cache table is read whole at start, and one that only grew slowed the first frame down. A
-  /// value saved before (on or off) stays what it was.
-  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: true),
+  /// Default is disabled, to match the old behavior: the clearing runs before the homepage shows and is slow on a
+  /// large cache.
+  enableAutoClearImageCache<bool>(name: 'enableAutoClearImageCache', type: bool, defaultValue: false),
 
   /// Duration of an image cache considered as outdated for auto clear, in seconds.
   ///

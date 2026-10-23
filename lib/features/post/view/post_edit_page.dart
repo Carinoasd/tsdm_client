@@ -265,6 +265,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     final bloc = context.read<PostEditBloc>();
+    if (bloc.state.status == PostEditStatus.uploading || _confirming) {
+      // Sending (or about to): leaving now would hide whether it was stored.
+      showSnackBar(context: context, message: context.t.postEditPage.leaveDialog.sending);
+      return;
+    }
     final editing =
         bloc.state.content != null &&
         (bloc.state.status == PostEditStatus.editing || bloc.state.status == PostEditStatus.failedToUpload);

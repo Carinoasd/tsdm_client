@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
@@ -200,6 +201,15 @@ class _PostListState extends State<PostList> with LoggerMixin {
     }
   }
 
+  /// Whether the floors are shown newest first: asked so (the reverse order), or the thread's author set it.
+  bool _newestFirst(BuildContext context) {
+    final state = context.readOrNull<ThreadBloc>()?.state;
+    if (state == null) {
+      return false;
+    }
+    return state.newestFirst || state.exactOrder == 1 || (state.exactOrder == null && (state.reverseOrder ?? false));
+  }
+
   @override
   void dispose() {
     _holdTimer?.cancel();
@@ -321,7 +331,7 @@ class _PostListState extends State<PostList> with LoggerMixin {
               ),
               _buildPostList(),
               if (!widget.canLoadMore && widget.postList.isNotEmpty)
-                const SliverToBoxAdapter(child: _LastFloorFooter()),
+                SliverToBoxAdapter(child: _LastFloorFooter(newestFirst: _newestFirst(context))),
             ],
           ),
         );
@@ -332,7 +342,10 @@ class _PostListState extends State<PostList> with LoggerMixin {
 
 /// The end of the floors on the last page of the thread.
 class _LastFloorFooter extends StatelessWidget {
-  const _LastFloorFooter();
+  const _LastFloorFooter({required this.newestFirst});
+
+  /// The floors are shown newest first.
+  final bool newestFirst;
 
   @override
   Widget build(BuildContext context) {
@@ -347,8 +360,9 @@ class _LastFloorFooter extends StatelessWidget {
           sizedBoxW4H4,
           Flexible(
             child: Text(
-              // The global translations: they need no TranslationProvider above the list.
-              t.threadPage.lastFloorReached,
+              // The global translations: they need no TranslationProvider above the list. Newest first, the end of
+              // the list is the oldest floor.
+              newestFirst ? t.threadPage.firstFloorReached : t.threadPage.lastFloorReached,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
             ),

@@ -137,7 +137,7 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
             showSnackBar(context: context, message: context.t.threadPage.replySuccess);
           } else if (state.status == ReplyStatus.failure) {
             final tr = context.t.threadPage;
-            final detailCubit = context.read<NotificationDetailCubit>();
+            final tid = _tid ?? state.replyParameters?.tid;
             showSnackBar(
               context: context,
               message: state.maybeSent
@@ -145,12 +145,19 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
                   : state.networkFailure
                   ? tr.replyFailedNetwork
                   : tr.replyFailed(err: state.failedReason ?? ''),
-              // The reply may be on the forum already: look before sending it again.
-              action: state.maybeSent
+              // The reply may be on the forum already: look before sending it again, on the last floor of the thread
+              // (fetching this notice again shows only the floor it is about).
+              action: state.maybeSent && tid != null
                   ? SnackBarAction(
                       label: tr.refreshToCheck,
                       onPressed: () {
-                        if (!detailCubit.isClosed) unawaited(detailCubit.fetchDetail(widget.url));
+                        if (!mounted) return;
+                        unawaited(
+                          context.pushNamed(
+                            ScreenPaths.threadV1,
+                            queryParameters: {'tid': tid, 'lastPost': '1', 'overrideReverseOrder': 'false'},
+                          ),
+                        );
                       },
                     )
                   : replyInBrowserAction(context, state.browserUrl),

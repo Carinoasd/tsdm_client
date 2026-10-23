@@ -418,7 +418,9 @@
         "promptTitle": "Allow notifications?",
         "promptMessage": "New notices, private messages and broadcast messages are then shown as system notifications. The system asks for the permission next; you can change it later in Settings → Notification permission.",
         "promptAllow": "Continue",
-        "promptLater": "Not now"
+        "promptLater": "Not now",
+        "promptSettingsMessage": "Notifications are denied or switched off in the system, which will not ask again. Turn them on in the app settings page to get notifications.",
+        "promptOpenSettings": "Open settings"
       },
       "ignoreBatteryOptimizations": {
         "title": "Ignore battery optimizations",
@@ -842,7 +844,9 @@
     "replyFailedNetwork": "Failed to reply: the network is unreachable, check the connection and retry",
     "replyMaybeSent": "The reply may have been sent: refresh to check before sending it again",
     "refreshToCheck": "Refresh",
+    "replyCheckFiltered": "Only one author's floors are shown: your reply may not be among them",
     "lastFloorReached": "This is the last floor",
+    "firstFloorReached": "This is the oldest floor",
     "replyNeedsVerification": "This forum asks for a captcha or a security question to reply, which the app cannot show yet. Reply in your browser.",
     "replyNeedsBrowser": "This reply form has fields the app cannot fill yet. Reply in your browser.",
     "replyInBrowser": "Reply in browser",
@@ -1154,7 +1158,8 @@
       "message": "The content has not been sent yet.",
       "discard": "Discard",
       "saveDraft": "Save draft",
-      "keepEditing": "Keep editing"
+      "keepEditing": "Keep editing",
+      "sending": "Sending, please wait"
     },
     "threadPublish": {
       "title": "Post New Thread",

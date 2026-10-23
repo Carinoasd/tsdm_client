@@ -161,10 +161,10 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
         ),
       ],
       child: BlocConsumer<MyThreadBloc, MyThreadState>(
-        // A refresh that failed with the list on screen keeps the list: say it failed.
+        // A refresh that failed with the list on screen keeps the list: say it failed, every time it ends so.
         listenWhen: (prev, curr) =>
-            (!prev.threadFailed && curr.threadFailed && curr.threadList.isNotEmpty) ||
-            (!prev.replyFailed && curr.replyFailed && curr.replyList.isNotEmpty),
+            (prev.refreshingThread && !curr.refreshingThread && curr.threadFailed && curr.threadList.isNotEmpty) ||
+            (prev.refreshingReply && !curr.refreshingReply && curr.replyFailed && curr.replyList.isNotEmpty),
         listener: (context, state) => showFailedToLoadSnackBar(context),
         builder: (context, state) {
           return Scaffold(

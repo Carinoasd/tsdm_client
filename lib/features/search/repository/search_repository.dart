@@ -32,14 +32,15 @@ Map<String, String> buildSearchQuery({
 /// 您在 20 秒内只能进行一次搜索" (the site's `searchctrl`, 20 seconds on TSDM) gives its seconds, "搜索过于频繁" and the
 /// site's searches per minute limit ("每分钟系统最多响应搜索请求") 20 and 60. Null for any other message.
 int? searchRateLimitSeconds(String message) {
-  final seconds = RegExp(r'(\d+)\s*秒内只能进行一次搜索').firstMatch(message)?.group(1);
+  // The forum's language pack may be simplified or traditional Chinese.
+  final seconds = RegExp(r'(\d+)\s*秒[内內]只能[进進]行一次搜[索尋]').firstMatch(message)?.group(1);
   if (seconds != null) {
     return int.tryParse(seconds);
   }
-  if (message.contains('每分钟') && message.contains('搜索')) {
+  if (RegExp('每分[钟鐘]').hasMatch(message) && RegExp('搜[索尋]').hasMatch(message)) {
     return 60;
   }
-  if (message.contains('过于频繁') || message.contains('只能进行一次搜索')) {
+  if (RegExp('[过過]于频繁|[过過]於頻繁|只能[进進]行一次搜[索尋]').hasMatch(message)) {
     return 20;
   }
   return null;

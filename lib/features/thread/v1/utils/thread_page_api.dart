@@ -247,6 +247,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     replyCount: thread['allreplies'] is num ? _int(thread['allreplies']) : _int(thread['replies']),
     special: special,
     authorUid: _int(thread['authorid']) > 0 ? _int(thread['authorid']) : null,
+    // The order the floors came in: the one asked, or the thread's own when none was (its author set it).
+    newestFirst: _int(json['ordertype']) == 1,
   );
 }
 

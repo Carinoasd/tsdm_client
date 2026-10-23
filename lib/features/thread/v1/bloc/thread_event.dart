@@ -30,10 +30,13 @@ final class ThreadLoadMoreRequested extends ThreadEvent with ThreadLoadMoreReque
 @MappableClass()
 final class ThreadJumpPageRequested extends ThreadEvent with ThreadJumpPageRequestedMappable {
   /// Constructor.
-  const ThreadJumpPageRequested(this.pageNumber) : super();
+  const ThreadJumpPageRequested(this.pageNumber, {this.pageFallback}) : super();
 
   /// Page number to jump to.
   final int pageNumber;
+
+  /// The page the answer is when it does not tell its page, see [ThreadLoadMoreRequested.pageFallback].
+  final int? pageFallback;
 }
 
 /// Mark thread as closed or not.

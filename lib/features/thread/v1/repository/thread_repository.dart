@@ -201,6 +201,10 @@ class ThreadRepository {
           pageFallback: pageFallback,
           readViewer: offline != null && uid != null,
         );
+        if (read case Right(value: final v) when askedTid != null && v.page.currentPage != pageNumber) {
+          // The url to copy, share or open names the page the forum answered (its last page for a page past it).
+          _threadUrl = _threadUrl?.replaceFirst(RegExp(r'&page=\d+$'), '&page=${v.page.currentPage}');
+        }
         if (read case Right(value: final v) when offline != null && uid != null) {
           final page = v.page;
           final pageTid = askedTid ?? int.tryParse(page.tid ?? '');
@@ -214,7 +218,11 @@ class ThreadRepository {
                 OfflineThreadKey(
                   uid: uid,
                   tid: pageTid,
-                  page: askedTid != null ? pageNumber : page.currentPage,
+                  // Asked past the last page on purpose (`goto=lastpost`, with a fallback page), the forum answered
+                  // its last page: kept as that page.
+                  page: askedTid != null && (pageFallback == null || pageNumber <= page.totalPages)
+                      ? pageNumber
+                      : page.currentPage,
                   orderType: orderType,
                   authorId: authorId,
                 ),
@@ -237,7 +245,8 @@ class ThreadRepository {
   }) {
     final api = threadApiAnswerOf(data);
     if (api != null) {
-      return right((page: threadPageFromApi(api, pageNumber), viewerUid: threadApiViewerUid(api)));
+      // A message answer tells no page: the fallback, not a page asked past the last one on purpose.
+      return right((page: threadPageFromApi(api, pageFallback ?? pageNumber), viewerUid: threadApiViewerUid(api)));
     }
     // An answer without a page is a failed request, not a thread without posts (see tsdmAppAnswerWithoutPage); the
     // antitheft interceptor asked the web page again for one already.

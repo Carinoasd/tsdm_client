@@ -418,7 +418,9 @@
         "promptTitle": "允许通知？",
         "promptMessage": "开启后，新的提醒、私信和公共消息会显示为系统通知。接下来系统会询问是否允许通知；之后也可以在“设置 → 通知权限”中更改。",
         "promptAllow": "继续",
-        "promptLater": "以后再说"
+        "promptLater": "以后再说",
+        "promptSettingsMessage": "通知权限已被拒绝或在系统里关闭，系统不会再询问。要收到通知，请到应用设置页开启。",
+        "promptOpenSettings": "打开设置"
       },
       "ignoreBatteryOptimizations": {
         "title": "忽略电池优化",
@@ -842,7 +844,9 @@
     "replyFailedNetwork": "回复失败：网络不可用，请检查网络后重试",
     "replyMaybeSent": "回复结果不明：可能已发出，请刷新确认后再决定是否重发",
     "refreshToCheck": "刷新",
+    "replyCheckFiltered": "当前只看某位作者的楼层，你的回复可能不在列表里",
     "lastFloorReached": "已到最后一楼",
+    "firstFloorReached": "已到最早一楼",
     "replyNeedsVerification": "这个版块回复需要填写验证码或回答安全提问，App 暂不支持，请在浏览器中回复。",
     "replyNeedsBrowser": "这个回复表单有 App 暂不支持的栏位，请在浏览器中回复。",
     "replyInBrowser": "在浏览器中回复",
@@ -1154,7 +1158,8 @@
       "message": "当前的内容还没有发出。",
       "discard": "舍弃",
       "saveDraft": "存草稿",
-      "keepEditing": "继续编辑"
+      "keepEditing": "继续编辑",
+      "sending": "发送中，请稍候"
     },
     "threadPublish": {
       "title": "发布新帖",

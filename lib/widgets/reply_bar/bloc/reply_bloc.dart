@@ -145,11 +145,17 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
     browserUrl: null,
   );
 
+  /// Whether an answer with HTTP [statusCode] may come after the forum stored the post: a server error (5xx, the
+  /// forum may have failed after writing) or a redirect (3xx: the forum goes on to the new post after storing it, and
+  /// a post sent once does not follow it). A client error (4xx) refused the request before anything was stored.
+  static bool _mayHaveStored(int? statusCode) =>
+      statusCode != null && (statusCode >= 500 || (statusCode >= 300 && statusCode < 400));
+
   /// Failure state for [e]: the server's own words when it gave any, the HTTP status when a broken answer came
   /// back, or the network flag when nothing came back at all (offline, DNS failure, timeout).
   ///
-  /// Nothing came back but the request left ([isNoNetworkFailure] tells the forum was never reached): the forum may
-  /// have stored it ([ReplyState.maybeSent]). The posts are sent once (`singleAttempt`), never again by the transport.
+  /// Nothing came back but the request left ([isNoNetworkFailure] tells the forum was never reached), or a server
+  /// error or a redirect came back ([_mayHaveStored]): the forum may have stored it ([ReplyState.maybeSent]). The posts are sent once (`singleAttempt`), never again by the transport.
   ///
   /// A reply that needs the website ([ReplyNeedsBrowserException]: a captcha or a security question, fields the app
   /// cannot fill) says so and names the page to reply on ([ReplyState.browserUrl]); nothing was sent.
@@ -165,7 +171,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
       status: ReplyStatus.failure,
       failedReason: 'HTTP $statusCode',
       networkFailure: false,
-      maybeSent: false,
+      maybeSent: _mayHaveStored(statusCode),
       browserUrl: null,
     ),
     ReplyNeedsBrowserException(:final url, :final verification) => state.copyWith(

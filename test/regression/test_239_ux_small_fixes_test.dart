@@ -23,11 +23,11 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' hide State;
@@ -56,7 +56,10 @@ import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.d
 import 'package:tsdm_client/features/my_thread/view/my_thread_page.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
+import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
+import 'package:tsdm_client/features/notification/view/notification_detail_page.dart';
+import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/view/post_edit_page.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
@@ -68,9 +71,12 @@ import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
+import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
+import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -81,7 +87,7 @@ import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_pr
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart'
-    show singleAttemptHttpRequestKey;
+    show KotlinHttpClient, KotlinHttpClientAdapter, singleAttemptHttpRequestKey;
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
@@ -116,7 +122,7 @@ _Answer _throws(DioExceptionType type) => (body: '', status: 0, contentType: '',
 final class _Forum implements HttpClientAdapter {
   _Forum(this.answer);
 
-  _Answer Function(_Request request) answer;
+  FutureOr<_Answer> Function(_Request request) answer;
   final requests = <_Request>[];
 
   @override
@@ -136,7 +142,7 @@ final class _Forum implements HttpClientAdapter {
       singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
     );
     requests.add(request);
-    final a = answer(request);
+    final a = await answer(request);
     if (a.error case final DioExceptionType type) {
       throw DioException(requestOptions: options, type: type, message: 'fake ${type.name}');
     }
@@ -165,6 +171,18 @@ final class _OfflineAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// A platform scaler that grows small text more than large text, as Android 14 does.
+final class _NonlinearScaler extends TextScaler {
+  const _NonlinearScaler();
+
+  @override
+  double scale(double fontSize) => fontSize * (fontSize < 20 ? 1.3 : 1.1);
+
+  @override
+  @Deprecated('Use scale instead.')
+  double get textScaleFactor => 1.3;
 }
 
 final class _Notifications extends Fake implements NotificationBloc {
@@ -205,11 +223,19 @@ final class _Gateway implements AndroidPermissionGateway {
     return answer;
   }
 
-  @override
-  Future<bool> openSettings() async => true;
+  int settingsOpened = 0;
+
+  /// Whether the system would still show its dialog (false: switched off in the system settings).
+  bool rationale = true;
 
   @override
-  Future<bool> shouldShowRationale(Permission permission) async => true;
+  Future<bool> openSettings() async {
+    settingsOpened++;
+    return true;
+  }
+
+  @override
+  Future<bool> shouldShowRationale(Permission permission) async => rationale;
 }
 
 String _floor(int pid, {int? floor}) =>
@@ -543,6 +569,11 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pumpAndSettle();
       expect(pages, before + 1, reason: 'the floors are loaded again to check');
+      expect(
+        forum.requests.last.uri.queryParameters['page'],
+        '$lastPageAsked',
+        reason: 'the last page, which a new reply may have opened',
+      );
       await _unpump(tester);
     });
   });
@@ -663,9 +694,21 @@ void main() {
     test('the system font size times the app scale, within the limits', () {
       expect(appTextScaler(TextScaler.noScaling, 1).scale(10), 10);
       expect(appTextScaler(const TextScaler.linear(1.3), 1).scale(10), closeTo(13, 1e-9), reason: 'was 10');
-      expect(appTextScaler(const TextScaler.linear(1.3), 1.2).scale(10), closeTo(15.6, 1e-9));
+      expect(appTextScaler(const TextScaler.linear(1.1), 1.2).scale(10), closeTo(13.2, 1e-9));
+      // An app scale raised before to make up for the system font: not twice as large, the old limit holds.
+      expect(appMaxTextScale, 1.5);
+      expect(appTextScaler(const TextScaler.linear(1.3), 1.3).scale(10), closeTo(15, 1e-9));
       expect(appTextScaler(const TextScaler.linear(2), 1.5).scale(10), closeTo(10 * appMaxTextScale, 1e-9));
       expect(appTextScaler(const TextScaler.linear(0.85), 0.7).scale(10), closeTo(10 * appMinTextScale, 1e-9));
+    });
+
+    test('the nonlinear scaling of the platform (Android 14) is kept', () {
+      // Small text grows by 30 %, large text by 10 %.
+      const system = _NonlinearScaler();
+      final scaler = appTextScaler(system, 1.1);
+      expect(scaler.scale(10), closeTo(10 * 1.3 * 1.1, 1e-9));
+      expect(scaler.scale(30), closeTo(30 * 1.1 * 1.1, 1e-9), reason: 'not the linear factor of the body text');
+      expect(appTextScaler(system, 1.1), appTextScaler(system, 1.1));
     });
 
     testWidgets('a large system font: the breadcrumbs of the thread page grow with it, nothing overflows', (
@@ -737,6 +780,10 @@ void main() {
       expect(searchRateLimitSeconds('抱歉，您的搜索过于频繁'), 20);
       expect(searchRateLimitSeconds('抱歉，站点设置每分钟系统最多响应搜索请求 10 次，请稍候再试'), 60);
       expect(searchRateLimitSeconds('抱歉，您所在的用户组没有搜索权限'), isNull);
+      // A forum in traditional Chinese.
+      expect(searchRateLimitSeconds('抱歉，您在 20 秒內只能進行一次搜尋'), 20);
+      expect(searchRateLimitSeconds('抱歉，您的搜尋過於頻繁'), 20);
+      expect(searchRateLimitSeconds('抱歉，站點設置每分鐘系統最多響應搜索請求 10 次，請稍候再試'), 60);
     });
 
     testWidgets('before a search: a hint, not "no data"', (tester) async {
@@ -1061,7 +1108,7 @@ void main() {
   group('15. wording and the app bar of the thread page', () {
     test('zh-TW reads right', () {
       final zhTw = File('lib/i18n/zh-TW.i18n.json').readAsStringSync();
-      for (final wrong in ['顯示顯示', '視窗劇中', 'BBCode parser', '。。。', '導入', '論壇卡可跳轉']) {
+      for (final wrong in ['顯示顯示', '視窗劇中', 'BBCode parser', '。。。', '導入', '導出', '論壇卡可跳轉', '帖子已关闭']) {
         expect(zhTw, isNot(contains(wrong)), reason: wrong);
       }
       expect(t.settingsPage.advancedSection.importData.title, '匯入資料');
@@ -1097,6 +1144,344 @@ void main() {
     });
   });
 
+  group('review follow-ups', () {
+    const sendTimeout = DioExceptionType.receiveTimeout;
+
+    Future<ReplyState> replyFailing(FutureOr<_Answer> Function(_Request) answer) async {
+      forum.answer = answer;
+      final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+      addTearDown(bloc.close);
+      final done = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+      bloc.add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+      return done;
+    }
+
+    test('M1. a server error or a redirect may come after the reply was stored, a client error not', () async {
+      expect((await replyFailing((r) => _html('', status: 502))).maybeSent, isTrue);
+      expect((await replyFailing((r) => _html('', status: 500))).maybeSent, isTrue);
+      expect((await replyFailing((r) => _html('', status: 302))).maybeSent, isTrue);
+      expect((await replyFailing((r) => _html('', status: 403))).maybeSent, isFalse);
+      expect((await replyFailing((r) => _html('', status: 404))).maybeSent, isFalse);
+    });
+
+    group('M2. the Android client', () {
+      const channel = MethodChannel('kzs.th000.tsdm_client/httpChannel');
+      late List<MethodCall> calls;
+
+      void platformFails(String code) {
+        calls = [];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+          call,
+        ) async {
+          calls.add(call);
+          throw PlatformException(code: code, message: 'failed', details: 'socket');
+        });
+        addTearDown(
+          () =>
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null),
+        );
+        // The reply goes through the Android client, as in the app.
+        getIt.registerFactory<NetClientProvider>(
+          () => NetClientProvider.buildNoCookie(
+            dio: Dio(BaseOptions(baseUrl: baseUrl))
+              ..httpClientAdapter = KotlinHttpClientAdapter(KotlinHttpClient(android: true)),
+          ),
+        );
+      }
+
+      setUp(() async => getIt.unregister<NetClientProvider>());
+
+      test('a reply that never reached the forum: not sent', () async {
+        platformFails('KT_HTTP_UNREACHABLE');
+        final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+        addTearDown(bloc.close);
+        final done = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+        bloc.add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+        final state = await done;
+        expect(calls.single.method, 'postForm');
+        expect((calls.single.arguments as Map)['singleAttempt'], isTrue);
+        expect(state.networkFailure, isTrue);
+        expect(state.maybeSent, isFalse, reason: 'used to say "may have been sent" for no network at all');
+      });
+
+      test('a reply that failed after the connect: may have been sent', () async {
+        platformFails('KT_HTTP_ERROR');
+        final bloc = ReplyBloc(replyRepository: const ReplyRepository());
+        addTearDown(bloc.close);
+        final done = bloc.stream.firstWhere((s) => s.status == ReplyStatus.failure);
+        bloc.add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+        expect((await done).maybeSent, isTrue);
+      });
+
+      test('the Kotlin side tells an unreachable host for every POST', () {
+        final source = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/MainActivity.kt').readAsStringSync();
+        expect(source, isNot(contains('result.error("KT_HTTP_ERROR"')));
+        expect(RegExp(r'result\.error\(HttpClient\.errorCode\(e\)').allMatches(source), hasLength(4));
+      });
+    });
+
+    testWidgets('M3. the notice page: "refresh to check" opens the last floor of the thread', (tester) async {
+      forum.answer = (r) => r.method == 'POST' ? _throws(sendTimeout) : _html(_threadPage([1, 2]));
+      Map<String, String>? opened;
+      await _pumpRoutes(
+        tester,
+        app,
+        home: const NoticeDetailPage(
+          url: '$baseUrl/forum.php?mod=redirect&goto=findpost&pid=2&ptid=1264975',
+          noticeType: NoticeType.reply,
+        ),
+        routes: [
+          GoRoute(
+            path: ScreenPaths.threadV1,
+            name: ScreenPaths.threadV1,
+            builder: (_, state) {
+              opened = state.uri.queryParameters;
+              return const Text('thread page');
+            },
+          ),
+        ],
+      );
+      BlocProvider.of<ReplyBloc>(
+        tester.element(find.byType(ReplyBar)),
+      ).add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+      await _settle(tester);
+      await tester.tap(find.text(t.threadPage.refreshToCheck));
+      await tester.pumpAndSettle();
+      expect(opened, {'tid': '1264975', 'lastPost': '1', 'overrideReverseOrder': 'false'});
+      await _unpump(tester);
+    });
+
+    testWidgets('M4. the last floor of a thread the forum refuses: page 1, not the page asked', (tester) async {
+      forum.answer = (r) => _json({
+        'ok': 0,
+        'api': 1,
+        'uid': 31,
+        'error': 'message',
+        'login': 0,
+        'type': 'thread',
+        'schema': 3,
+        'message': '抱歉，您没有权限访问该版块',
+      });
+      await _pumpThread(tester, app, lastPost: true);
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(Scaffold).last));
+      expect(bloc.state.currentPage, 1);
+      expect(bloc.state.totalPages, 1);
+      expect(find.textContaining('$lastPageAsked'), findsNothing);
+      await _unpump(tester);
+    });
+
+    testWidgets('M5. leaving the editor while it sends: told to wait', (tester) async {
+      final form = jsonDecode(File('test/data/tsdmapp/post_v16_newthread.json').readAsStringSync()) as Object;
+      final held = Completer<_Answer>();
+      forum.answer = (r) => r.method == 'POST' ? held.future : _json(form);
+      final auth = AuthenticationRepository(user: _alice);
+      addTearDown(auth.dispose);
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const Scaffold(body: Text('below the editor')),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (_, _) => const PostEditPage(editType: PostEditType.newThread, fid: '7', tid: null, pid: null),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        app(
+          MaterialApp.router(routerConfig: router, scaffoldMessengerKey: snackbarKey),
+          auth: auth,
+        ),
+      );
+      unawaited(router.push('/edit'));
+      await _settle(tester);
+      final bloc = BlocProvider.of<PostEditBloc>(
+        tester.element(find.descendant(of: find.byType(PostEditPage), matching: find.byType(Scaffold)).first),
+      );
+      final content = bloc.state.content!;
+      bloc.add(
+        ThreadPubPostThread(
+          ThreadPublishInfo(
+            formHash: content.formHash,
+            postTime: content.postTime,
+            delAttachOp: '0',
+            wysiwyg: '0',
+            fid: '7',
+            threadType: null,
+            checkbox: '0',
+            subject: '標題',
+            message: '內文內文內文內文內文',
+            perm: null,
+            price: null,
+            save: '',
+            options: const [],
+          ),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+      expect(bloc.state.status, PostEditStatus.uploading);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text(t.postEditPage.leaveDialog.sending), findsOneWidget);
+      expect(find.byType(PostEditPage), findsOneWidget, reason: 'used to leave while sending');
+      held.complete(_json({'ok': 0, 'api': 1, 'error': 'message', 'message': 'x'}));
+      await _settle(tester);
+      await _unpump(tester);
+    });
+
+    Map<String, dynamic> reversed({required int Function(int asked) page, required int pages}) {
+      final json = jsonDecode(File('test/data/tsdmapp/thread_v3_long_reverse.json').readAsStringSync());
+      final map = json as Map<String, dynamic>
+        ..['page'] = page(0)
+        ..['pages'] = pages;
+      // No images here: the medals and avatars of the authors are not part of these tests.
+      for (final post in (map['posts'] as List).cast<Map<String, dynamic>>()) {
+        post
+          ..['author_html'] = ''
+          ..['avatar'] = ''
+          ..['signature_html'] = '';
+      }
+      return map;
+    }
+
+    testWidgets('L1. a thread its author shows newest first: the last floor is on the first page', (tester) async {
+      final asked = <String?>[];
+      forum.answer = (r) {
+        final page = int.tryParse(r.uri.queryParameters['page'] ?? '') ?? 1;
+        asked.add('$page');
+        return _json(reversed(page: (_) => page > 31 ? 31 : page, pages: 31));
+      };
+      await _pumpThread(tester, app, lastPost: true);
+      expect(asked, ['$lastPageAsked', '1']);
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)));
+      expect(bloc.state.currentPage, 1);
+      expect(bloc.state.newestFirst, isTrue);
+      await _unpump(tester);
+    });
+
+    testWidgets('L2. the url to copy names the page the forum answered', (tester) async {
+      forum.answer = (r) => _html(_threadPage([21, 22], page: 3, pages: 3));
+      await _pumpThread(tester, app, lastPost: true);
+      final repository = RepositoryProvider.of<ThreadRepository>(tester.element(find.byType(PostList)));
+      expect(repository.threadUrl, endsWith('&page=3'));
+      expect(repository.threadUrl, isNot(contains('$lastPageAsked')));
+      await _unpump(tester);
+    });
+
+    testWidgets('L4. newest first, the end of the list is the oldest floor', (tester) async {
+      forum.answer = (r) => _json(reversed(page: (_) => 1, pages: 1));
+      await _pumpThread(tester, app);
+      await tester.drag(find.byType(PostList), const Offset(0, -20000));
+      await tester.pumpAndSettle();
+      expect(find.text(t.threadPage.firstFloorReached), findsOneWidget);
+      expect(find.text(t.threadPage.lastFloorReached), findsNothing);
+      await _unpump(tester);
+    });
+
+    testWidgets('L5. a list hardly longer than the screen keeps the app bar', (tester) async {
+      forum.answer = (r) => _html(_threadPage([1]));
+      await _pumpThread(tester, app);
+      final full = tester.getSize(find.byType(CollapsingAppBar)).height;
+      await tester.drag(find.byType(PostList), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(CollapsingAppBar)).height, full);
+      await _unpump(tester);
+    });
+
+    testWidgets('L6. "refresh to check" with one author only says the reply may not be shown', (tester) async {
+      forum.answer = (r) => r.method == 'POST' ? _throws(sendTimeout) : _html(_threadPage([1, 2]));
+      await _pumpThread(tester, app, onlyVisibleUid: '1000');
+      BlocProvider.of<ReplyBloc>(
+        tester.element(find.byType(ReplyBar)),
+      ).add(const ReplyToThreadRequested(replyParameters: _replyParameters, replyMessage: 'hi'));
+      await _settle(tester);
+      await tester.tap(find.text(t.threadPage.refreshToCheck));
+      // After the snack bar of the failure goes.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text(t.threadPage.replyCheckFiltered), findsOneWidget);
+      await _settle(tester);
+      await _unpump(tester);
+    });
+
+    testWidgets('L8. my threads: every failed refresh of a list on screen is told', (tester) async {
+      Object json(String name) =>
+          jsonDecode(File('test/data/tsdmapp/mythread_v9_$name.json').readAsStringSync()) as Object;
+      var failing = false;
+      forum.answer = (r) => failing
+          ? _throws(DioExceptionType.connectionError)
+          : _json(json(r.uri.queryParameters['type'] == 'reply' ? 'reply' : 'thread'));
+      await tester.pumpWidget(app(MaterialApp(scaffoldMessengerKey: snackbarKey, home: const MyThreadPage())));
+      await _settle(tester);
+      failing = true;
+      final bloc = BlocProvider.of<MyThreadBloc>(tester.element(find.byType(Scaffold).first));
+      for (var i = 0; i < 2; i++) {
+        bloc.add(MyThreadRefreshThreadRequested());
+        await _settle(tester);
+        expect(find.text(t.general.failedToLoad), findsOneWidget, reason: 'refresh ${i + 1}');
+        ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).removeCurrentSnackBar();
+        await tester.pumpAndSettle();
+      }
+    });
+
+    group('L9. the notification permission the system asks no more', () {
+      Future<BuildContext> pumpContext(WidgetTester tester) async {
+        await tester.pumpWidget(app(const MaterialApp(home: Scaffold(body: Text('page')))));
+        return tester.element(find.text('page'));
+      }
+
+      testWidgets('permanently denied: the card leads to the app settings', (tester) async {
+        final context = await pumpContext(tester);
+        final gateway = _Gateway(PermissionStatus.permanentlyDenied);
+        final asked = askNotificationPermission(
+          context,
+          trigger: NotificationPermissionTrigger.settings,
+          loggedIn: true,
+          gateway: gateway,
+          enabled: true,
+        );
+        await tester.pumpAndSettle();
+        final tr = t.settingsPage.behaviorSection.notificationPermission;
+        expect(find.text(tr.promptSettingsMessage), findsOneWidget);
+        expect(find.text(tr.promptMessage), findsNothing, reason: 'no system dialog comes');
+        await tester.tap(find.text(tr.promptOpenSettings));
+        await tester.pumpAndSettle();
+        await asked;
+        expect(gateway.settingsOpened, 1);
+        expect(gateway.requests, 0);
+      });
+
+      testWidgets('switched off in the system: no dialog came, the card leads to the app settings', (tester) async {
+        final context = await pumpContext(tester);
+        final gateway = _Gateway(PermissionStatus.denied)
+          ..answer = PermissionStatus.denied
+          ..rationale = false;
+        final asked = askNotificationPermission(
+          context,
+          trigger: NotificationPermissionTrigger.login,
+          loggedIn: true,
+          gateway: gateway,
+          enabled: true,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('notification-permission-allow')));
+        await tester.pumpAndSettle();
+        final tr = t.settingsPage.behaviorSection.notificationPermission;
+        expect(find.text(tr.promptSettingsMessage), findsOneWidget);
+        await tester.tap(find.text(tr.promptOpenSettings));
+        await tester.pumpAndSettle();
+        await asked;
+        expect(gateway.settingsOpened, 1);
+      });
+    });
+  });
+
   group('the image cache by default', () {
     test('an avatar answering 404 is not asked again in this run; a reload asks', () async {
       final adapter = _Forum((r) => _html('', status: 404));
@@ -1111,6 +1496,24 @@ void main() {
       expect(adapter.requests, hasLength(2));
     });
 
+    test('an avatar answering 404 is asked again after a while: one uploaded since shows', () async {
+      var now = DateTime(2026, 10, 23, 12);
+      ImageCacheProvider.clock = () => now;
+      addTearDown(() => ImageCacheProvider.clock = DateTime.now);
+      final adapter = _Forum((r) => _html('', status: 404));
+      final provider = ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = adapter));
+      addTearDown(provider.dispose);
+      const request = ImageCacheUserAvatarRequest(username: 'Bob', imageUrl: 'https://img.example/avatar/1000.jpg');
+      await provider.getOrMakeCache(request);
+      now = now.add(const Duration(minutes: 9));
+      await provider.getOrMakeCache(request);
+      expect(adapter.requests, hasLength(1));
+      now = now.add(const Duration(minutes: 2));
+      expect(provider.isKnownMissingAvatar(request.imageUrl), isFalse);
+      await provider.getOrMakeCache(request);
+      expect(adapter.requests, hasLength(2));
+    });
+
     test('an avatar that failed otherwise (offline) is asked again', () async {
       final adapter = _Forum((r) => _throws(DioExceptionType.connectionError));
       final provider = ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = adapter));
@@ -1121,15 +1524,18 @@ void main() {
       expect(adapter.requests, hasLength(2));
     });
 
-    test('outdated images are cleaned up by default; a saved choice stays', () async {
-      expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isTrue);
-      expect(settings.currentSettings.enableAutoClearImageCache, isTrue);
-      await settings.setValue(SettingsKeys.enableAutoClearImageCache, false);
-      final again = SettingsRepository(storage);
-      await again.init();
-      addTearDown(again.dispose);
-      expect(again.currentSettings.enableAutoClearImageCache, isFalse);
-    });
+    test(
+      'the clearing of outdated images stays off by default (it blocks the homepage); a saved choice stays',
+      () async {
+        expect(SettingsKeys.enableAutoClearImageCache.defaultValue, isFalse);
+        expect(settings.currentSettings.enableAutoClearImageCache, isFalse);
+        await settings.setValue(SettingsKeys.enableAutoClearImageCache, true);
+        final again = SettingsRepository(storage);
+        await again.init();
+        addTearDown(again.dispose);
+        expect(again.currentSettings.enableAutoClearImageCache, isTrue);
+      },
+    );
   });
 }
 
@@ -1159,30 +1565,46 @@ Future<void> _pumpThread(
   Widget Function(Widget child, {AuthenticationRepository? auth}) app, {
   bool lastPost = false,
   double textScale = 1,
+  String? onlyVisibleUid,
+}) => _pumpRoutes(
+  tester,
+  app,
+  home: ThreadPage(
+    threadID: '1264975',
+    findPostID: null,
+    pageNumber: '1',
+    overrideReverseOrder: false,
+    overrideWithExactOrder: null,
+    lastPost: lastPost,
+    onlyVisibleUid: onlyVisibleUid,
+  ),
+  textScale: textScale,
+);
+
+/// Pump [home] at `/` under the providers of the app, with [routes] beside it, settled.
+Future<void> _pumpRoutes(
+  WidgetTester tester,
+  Widget Function(Widget child, {AuthenticationRepository? auth}) app, {
+  required Widget home,
+  List<RouteBase> routes = const [],
+  double textScale = 1,
 }) async {
   final auth = AuthenticationRepository(user: _alice);
   final blocks = UserBlockRepository(getIt.get<StorageProvider>());
   final info = NotificationInfoRepository();
   final counts = NotificationStateCubit(info);
   final cubit = UserBlockCubit(repository: blocks, currentUid: () => _alice.uid, authStatus: auth.status);
+  final history = ThreadVisitHistoryBloc(ThreadVisitHistoryRepo(getIt.get<StorageProvider>()));
   final router = GoRouter(
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, _) => ThreadPage(
-          threadID: '1264975',
-          findPostID: null,
-          pageNumber: '1',
-          overrideReverseOrder: false,
-          overrideWithExactOrder: null,
-          lastPost: lastPost,
-        ),
-      ),
+      GoRoute(path: '/', builder: (_, _) => home),
+      ...routes,
     ],
   );
   addTearDown(() async {
     router.dispose();
     await cubit.close();
+    await history.close();
     await info.dispose();
     await counts.close();
     await blocks.dispose();
@@ -1195,6 +1617,7 @@ Future<void> _pumpThread(
         child: MultiBlocProvider(
           providers: [
             BlocProvider<UserBlockCubit>.value(value: cubit),
+            BlocProvider<ThreadVisitHistoryBloc>.value(value: history),
             BlocProvider<NotificationBloc>.value(
               value: _Notifications(const NotificationState(status: NotificationStatus.success)),
             ),

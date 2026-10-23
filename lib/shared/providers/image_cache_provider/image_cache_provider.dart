@@ -104,10 +104,18 @@ final class ImageCacheProvider with LoggerMixin {
   /// cached for the user at that moment, so a new avatar is never hidden behind an old one.
   final _avatarWithoutFile = <String, String>{};
 
-  /// Avatar urls the server answered 404 for, with no avatar cached for the user to show instead: not asked again
-  /// until the app restarts (or the image is reloaded on purpose, `force`). Every card of such an author asked the
-  /// server again on every build, and a thread list is full of authors without an uploaded avatar.
-  final _missingAvatarUrls = <String>{};
+  /// Avatar urls the server answered 404 for, with no avatar cached for the user to show instead, and when: not asked
+  /// again for [missingAvatarTtl] (nor before the image is reloaded on purpose, `force`). Every card of such an author
+  /// asked the server again on every build, and a thread list is full of authors without an uploaded avatar; an author
+  /// who uploads one later shows it after the time is over.
+  final _missingAvatarUrls = <String, DateTime>{};
+
+  /// How long an avatar answering 404 is not asked again.
+  static const missingAvatarTtl = Duration(minutes: 10);
+
+  /// Source of the current time, for [missingAvatarTtl].
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
 
   /// Whether [e] is the server's 404 for an image.
   static bool _isNotFound(Object e) => switch (e) {
@@ -116,9 +124,18 @@ final class ImageCacheProvider with LoggerMixin {
     _ => false,
   };
 
-  /// Whether the avatar at [url] answered 404 before in this run (see [_missingAvatarUrls]).
-  @visibleForTesting
-  bool isKnownMissingAvatar(String url) => _missingAvatarUrls.contains(url);
+  /// Whether the avatar at [url] answered 404 less than [missingAvatarTtl] ago (see [_missingAvatarUrls]).
+  bool isKnownMissingAvatar(String url) {
+    final since = _missingAvatarUrls[url];
+    if (since == null) {
+      return false;
+    }
+    if (clock().difference(since) < missingAvatarTtl) {
+      return true;
+    }
+    _missingAvatarUrls.remove(url);
+    return false;
+  }
 
   /// The avatar cached for [username] when [imageUrl] is known to have no file on the server.
   ///
@@ -252,7 +269,7 @@ final class ImageCacheProvider with LoggerMixin {
       }
     }
 
-    if (req is ImageCacheUserAvatarRequest && !force && _missingAvatarUrls.contains(imageUrl)) {
+    if (req is ImageCacheUserAvatarRequest && !force && isKnownMissingAvatar(imageUrl)) {
       // The server has no file there (404 earlier in this run) and the user has no avatar cached either.
       _controller.add(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
@@ -355,7 +372,7 @@ final class ImageCacheProvider with LoggerMixin {
         }
       }
       if (req is ImageCacheUserAvatarRequest && _isNotFound(e)) {
-        _missingAvatarUrls.add(imageUrl);
+        _missingAvatarUrls[imageUrl] = clock();
       }
       _controller.add(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
