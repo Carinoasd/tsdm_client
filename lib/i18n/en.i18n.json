@@ -2056,8 +2056,7 @@
     "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
     "replied": "Replied",
-    "newReplies": "${count: int} new replies since your last visit",
-    "visited": "Read"
+    "newReplies": "${count: int} new replies since your last visit"
   },
   "medalCenter": {
     "title": "Medal centre",

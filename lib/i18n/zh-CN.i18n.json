@@ -2056,8 +2056,7 @@
     "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
     "replied": "已回复",
-    "newReplies": "上次看过之后有 ${count: int} 条新回复",
-    "visited": "看过"
+    "newReplies": "上次看过之后有 ${count: int} 条新回复"
   },
   "medalCenter": {
     "title": "勋章中心",

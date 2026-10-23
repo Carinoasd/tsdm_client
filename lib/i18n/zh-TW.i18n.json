@@ -478,7 +478,7 @@
       },
       "threadOpenPosition": {
         "title": "打開看過的貼文時",
-        "detail": "從列表打開看過第一頁畫面以後的貼文時，是否回到上次看到的地方",
+        "detail": "從列表打開讀過第一個畫面以後的貼文時，是否回到上次看到的地方",
         "fromStart": "從頭開始",
         "ask": "詢問（顯示「繼續」）",
         "resume": "自動續讀"
@@ -2056,8 +2056,7 @@
     "previewImages": "${count: int} 張圖片",
     "viewInfo": "查看貼文資訊",
     "replied": "已回覆",
-    "newReplies": "上次看過之後有 ${count: int} 則新回覆",
-    "visited": "看過"
+    "newReplies": "上次看過之後有 ${count: int} 則新回覆"
   },
   "medalCenter": {
     "title": "勳章中心",
