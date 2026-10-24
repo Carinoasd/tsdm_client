@@ -19,6 +19,7 @@
 ## Latest update: 1.48.2 (2026-10-24)
 
 - Fixed moderators being sent to the browser when editing a thread's first post or posting a new thread: other plugins' fields in the form (scheduling, tags) are now posted as the web page serves them (#239).
+- Fixed «My credits» dropping credit logs other plugins wrote, and empty avatars or images being cached and failing to show for good.
 - 1.48.1: replies to thread-plugin threads (such as newcomer check-in or red-packet threads) are no longer sent to the browser (#239).
 - Android build number 156, installs over earlier releases and test builds.
 
