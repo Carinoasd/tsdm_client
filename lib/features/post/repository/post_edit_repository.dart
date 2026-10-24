@@ -144,6 +144,21 @@ final class PostEditRepository with LoggerMixin {
       final form = PostForm.fromJson(json);
       if (form == null) return right(PostEditFormRefused(tsdmAppText(json['message'])));
       TsdmAppApi.notePostForm();
+      if (form.hookFields.isEmpty) return right(PostEditFormApi(form));
+      // Other plugins' fields (a moderator's scheduling panel, a forum's tags): the API names them only, so the web
+      // page of the form gives their values, posted back as the website would (PostForm.hookValues); a page that
+      // cannot leaves the form to the website.
+      switch (await fetchData(url).run()) {
+        case Left(value: final IdentityChangedException e):
+          return left(e);
+        case Left(:final value):
+          warning('post form: the web page for the fields of other plugins failed: $value');
+        case Right(value: final document):
+          if (hookValuesOf(document, form.hookFields) case final values?) {
+            return right(PostEditFormApi(form.withHookValues(values)));
+          }
+          warning('post form: fields of other plugins not on the web page: ${form.hookFields}');
+      }
       return right(PostEditFormApi(form));
     }
     if (tsdmAppAnswerJson(response.data) == null) {
