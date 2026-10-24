@@ -546,9 +546,19 @@ final class PostForm {
       'reply' => true,
       _ => false,
     };
+    // The forum prints a thread plugin's fields only on a new thread and on the edit of its first post (newthread.php,
+    // editpost.php `$isfirstpost && $specialextra`): a reply to such a thread or the edit of another of its posts has
+    // none, though plugins before 3.2.0 list `threadplugin` for them too (#239).
+    final threadPluginFields = expectedAction == 'newthread' || (expectedAction == 'edit' && first);
     if (!ordinary ||
         action != expectedAction ||
-        unsupported.any((e) => e != 'seccheck' || check == null) ||
+        unsupported.any(
+          (e) => switch (e) {
+            'seccheck' => check == null,
+            'threadplugin' => threadPluginFields,
+            _ => true,
+          },
+        ) ||
         hookFields.isNotEmpty ||
         schedulesPublication ||
         message == null ||
