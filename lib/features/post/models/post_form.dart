@@ -3,6 +3,7 @@ import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:universal_html/html.dart' as uh;
 
 /// The first `schema` of a post form answer: plugin 2.9.0 answers the forms of a new thread, a reply (the page and the
 /// reply window) and an edit as structured fields (`type: post`) when they are asked in the JSON mode
@@ -444,19 +445,43 @@ final class PostForm {
   }
 
   /// Field names other plugins printed into the form through its hooks (`hook_fields`): their values are not given
-  /// and their meaning is unknown, some are required, so such a form is left to the website.
+  /// and their meaning is unknown, some are required, so they are posted back as the web page serves them
+  /// ([hookValues]); a form whose web page could not give them is left to the website.
   List<String> get hookFields => [
     for (final hook in tsdmAppList(json['hook_fields']))
       if (hook['names'] is List) ...(hook['names'] as List).whereType<String>(),
   ];
 
+  /// The fields of [hookFields] as the browser posts them from the web page of this form when the member changes
+  /// nothing ([hookValuesOf], [withHookValues]); null when they were not read. Kept in [json] under the app's own key
+  /// [hookValuesKey], so the form rebuilt from its answer still carries them.
+  List<(String, String)>? get hookValues => switch (json[hookValuesKey]) {
+    final List<dynamic> pairs => [
+      for (final pair in pairs)
+        if (pair case [final String name, final String value]) (name, value),
+    ],
+    _ => null,
+  };
+
+  /// This form with [values] read for its [hookFields] from the web page ([hookValuesOf]).
+  PostForm withHookValues(List<(String, String)> values) => PostForm._({
+    ...json,
+    hookValuesKey: [
+      for (final (name, value) in values) [name, value],
+    ],
+  });
+
+  /// The key of [hookValues] in [json]: the app's, never one of the plugin's.
+  static const hookValuesKey = 'app_hook_values';
+
   /// The body the browser posts for this form as served, in the order of the plugin's rule (its README, «App 怎麼送出»):
   /// `submit.fields`, the title and the post, the type selector (none when `locked`), the debate side, the read
   /// permission, the price, the tags, the group selector, the options, the inputs of every block (`replycredit`,
   /// `rushreply`, `cronpublish`, `poll`, `trade`, `reward`, `activity`, `debate`) — a checkbox only when checked and
-  /// not disabled — and the fields of the attachments (`attach.fields`). Blocks the app does not edit go back as
-  /// served: the rush settings, the reply rewards, the scheduled publication and the descriptions of the attachments
-  /// would otherwise be changed or cleared.
+  /// not disabled — the fields of the attachments (`attach.fields`) and the fields other plugins printed, as the web
+  /// page serves them ([hookValues]). Blocks the app does not edit go back as served: the rush settings, the reply
+  /// rewards, the scheduled publication, the descriptions of the attachments and another plugin's values (the tags of
+  /// a thread a forms plugin keeps, cleared when its fields are missing) would otherwise be changed or cleared.
   PostFormBody body() {
     final body = PostFormBody(submitFields.entries.map((e) => (e.key, e.value)));
     if (subject case final String subject) {
@@ -492,6 +517,7 @@ final class PostForm {
         body.add(key, v);
       }
     }
+    body.addAll(hookValues ?? const []);
     return body;
   }
 
@@ -530,8 +556,8 @@ final class PostForm {
   /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question without telling
   /// what ([secCheck] null; with it the editor asks the user, `seccheck` is no reason to leave the form then);
   /// [PostFormSupport.unsupported] for a form the plugin says to leave to the website ([unsupported]: another editor,
-  /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields]),
-  /// a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
+  /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields])
+  /// the web page did not give ([hookValues] null), a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
   /// whose body a map cannot carry ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
   /// allowing special threads only), the first post of a special thread, a post of a trade thread (its goods), as
   /// the web page parser decides.
@@ -559,7 +585,7 @@ final class PostForm {
             _ => true,
           },
         ) ||
-        hookFields.isNotEmpty ||
+        (hookFields.isNotEmpty && hookValues == null) ||
         schedulesPublication ||
         message == null ||
         submitUrl == null ||
@@ -568,6 +594,62 @@ final class PostForm {
     }
     return PostFormSupport.supported;
   }
+}
+
+/// The fields named [names] (a post form's [PostForm.hookFields]: other plugins' fields the app's API does not give
+/// the values of) as the browser posts them from [document], the web page of the same form, when the member presses
+/// the button right away: the controls of `form#postform` in page order, a disabled one never, a checkbox or a radio
+/// button only when checked (`on` without a value), a select's last selected option or else its first, a textarea's
+/// text; buttons and files are not posted.
+///
+/// Null when a name is no control of that form (a field a script builds, or one outside the form): the app cannot
+/// post the form as the website would.
+List<(String, String)>? hookValuesOf(uh.Document document, List<String> names) {
+  final form = document.querySelector('form#postform');
+  if (form == null) {
+    return null;
+  }
+  final wanted = names.toSet();
+  final controls = form
+      .querySelectorAll('input[name], select[name], textarea[name]')
+      .where((e) => wanted.contains(e.attributes['name']))
+      .toList();
+  if (!wanted.every((name) => controls.any((e) => e.attributes['name'] == name))) {
+    return null;
+  }
+  final values = <(String, String)>[];
+  for (final control in controls) {
+    final name = control.attributes['name']!;
+    if (control.attributes.containsKey('disabled')) {
+      continue;
+    }
+    switch (control.localName) {
+      case 'input':
+        final type = (control.attributes['type'] ?? 'text').toLowerCase();
+        if (const ['submit', 'button', 'image', 'reset', 'file'].contains(type)) {
+          continue;
+        }
+        if (type == 'checkbox' || type == 'radio') {
+          if (control.attributes.containsKey('checked')) {
+            values.add((name, control.attributes['value'] ?? 'on'));
+          }
+        } else {
+          values.add((name, control.attributes['value'] ?? ''));
+        }
+      case 'select':
+        final options = control.querySelectorAll('option');
+        String valueOf(uh.Element option) => option.attributes['value'] ?? (option.text ?? '').trim();
+        if (control.attributes.containsKey('multiple')) {
+          values.addAll(options.where((o) => o.attributes.containsKey('selected')).map((o) => (name, valueOf(o))));
+        } else if (options.isNotEmpty) {
+          final chosen = options.lastWhere((o) => o.attributes.containsKey('selected'), orElse: () => options.first);
+          values.add((name, valueOf(chosen)));
+        }
+      case 'textarea':
+        values.add((name, control.text ?? ''));
+    }
+  }
+  return values;
 }
 
 String? _text(Object? value) => switch (value) {

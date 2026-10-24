@@ -753,7 +753,8 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
 
   group('E. the editor (PostEditRepository, PostEditBloc)', () {
     test('asks the form in the JSON mode and takes the structured form', () async {
-      final harness = _Harness(page: (_) => _json('edit_first'));
+      // No fields of other plugins: their values come from the web page (test_261), a second request.
+      final harness = _Harness(page: (_) => _unhooked('edit_first'));
       final answer = _right(await harness.repo.fetchForm(_editUrl).run());
       expect(answer, isA<PostEditFormApi>());
       expect(harness.gets.single, withTsdmAppJson(_editUrl));
