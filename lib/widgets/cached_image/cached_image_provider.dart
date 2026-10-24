@@ -182,7 +182,8 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
       // });
       // FIXME: Handle all exceptions.
       // error('CachedImageProvider caught error: $e');
-      throw StateError('failed to render image: $e');
+      // The url in the line: a decode failure ("Invalid image data") names no image by itself in an exported log.
+      throw StateError('failed to render image $imageUrl: $e');
     } finally {
       await chunkEvents.close();
     }

@@ -37,7 +37,8 @@ class PointsChange with PointsChangeMappable {
   /// Operation type of this change.
   final String operation;
 
-  /// Url to show the filter result of same type operation in points changelog.
+  /// Url to show the filter result of same type operation in points changelog; empty for a log another plugin wrote,
+  /// which names no operation.
   final String operationFilterUrl;
 
   /// Map of the changes in different attr types with their names and values.
@@ -168,13 +169,14 @@ class PointsChange with PointsChangeMappable {
     // Drop the "points after change" column on X5.
     final tdList = allTd.length == 5 ? [allTd[0], allTd[1], allTd[3], allTd[4]] : allTd.toList();
 
-    final operation = tdList[0].querySelector('a')?.innerText;
-    final operationFilterUrl = tdList[0].querySelector('a')?.attributes['href'];
-    if (operation == null || operationFilterUrl == null) {
-      talker.error(
-        'failed to build PointsChange: operation=$operation, '
-        'operationFilterUrl=$operationFilterUrl',
-      );
+    // An operation of the forum links to the log filtered by it; a log another plugin wrote (a game's reward, a
+    // check-in) names no operation and the page prints its title as plain text (`$value['title']`), as the plugin's
+    // structured rows give it ([fromApi]: no filter url).
+    final link = tdList[0].querySelector('a');
+    final operation = (link?.innerText ?? tdList[0].innerText).trim();
+    final operationFilterUrl = link?.attributes['href'] ?? '';
+    if (operation.isEmpty) {
+      talker.error('failed to build PointsChange: no operation');
       return null;
     }
     final attrNameList = <String>[];

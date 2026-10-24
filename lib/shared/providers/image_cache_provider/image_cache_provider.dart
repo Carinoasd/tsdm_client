@@ -189,7 +189,10 @@ final class ImageCacheProvider with LoggerMixin {
   /// clearing the cache directory): the image is then fetched again.
   Future<Uint8List?> _readCacheFile(File file) async {
     try {
-      return await file.readAsBytes();
+      final data = await file.readAsBytes();
+      // An empty file is no image (an empty answer saved by an earlier version): read as not cached, so it is asked
+      // again instead of failing to decode every time it shows.
+      return data.isEmpty ? null : data;
     } on FileSystemException catch (e) {
       warning('cached image file can not be read: ${e.message}');
       return null;
@@ -393,6 +396,11 @@ final class ImageCacheProvider with LoggerMixin {
       } else {
         imageData = resp.data as Uint8List;
       }
+      if (imageData.isEmpty) {
+        // A zero-byte file on the server (some avatars answer 200 with nothing), or an avif without a frame: no
+        // image, never cached, or every later load would fail to decode it without asking again.
+        throw const _EmptyImageException();
+      }
 
       final usage = switch (req) {
         ImageCacheGeneralRequest() => const ImageUsageInfoOther(),
@@ -423,7 +431,7 @@ final class ImageCacheProvider with LoggerMixin {
           return Option.of(value);
         }
       }
-      if (req is ImageCacheUserAvatarRequest && _isNotFound(e)) {
+      if (req is ImageCacheUserAvatarRequest && (_isNotFound(e) || e is _EmptyImageException)) {
         _missingAvatarUrls[imageUrl] = clock();
       }
       _controller.add(ImageCacheFailedResponse(imageId, respType));
@@ -960,4 +968,12 @@ final class ImageCacheProvider with LoggerMixin {
       ).statSync().size.withSizeHint(),
     );
   }
+}
+
+/// An image request answered with no bytes: a zero-byte file on the server, or an avif image without a frame.
+final class _EmptyImageException implements Exception {
+  const _EmptyImageException();
+
+  @override
+  String toString() => 'empty image';
 }
