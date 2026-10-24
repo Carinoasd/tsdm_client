@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.48.0 (2026-10-23)
+## Latest update: 1.48.1 (2026-10-24)
 
-- Post image gallery: tap an image to open a full-screen gallery, swipe through every image of the same floor, pinch or double-tap to zoom, swipe down to close; long-press an image to save, share, copy its URL or open it in the browser.
-- Images show loading progress and can be retried on failure, and reserve their height before loading so the layout no longer jumps; new setting "Load images in posts automatically": always / Wi-Fi only / never.
-- Fixed the notification quick reply wrongly showing "thread closed" and saving it as a draft, the "back to home" button on the reply page, and the oversized gap above the keyboard (#235). Android build number 154, installs over earlier releases and test builds.
+- Fixed replies to thread-plugin threads (such as newcomer check-in or red-packet threads) being sent to the browser; editing a floor other than the first of such a thread also works in the app (#239).
+- 1.48.0: post image gallery (swipe through every image of a floor, zoom, long-press to save or share), image loading progress with retry, and the new setting "Load images in posts automatically".
+- Android build number 155, installs over earlier releases and test builds.
 
-[Download 1.48.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.48.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

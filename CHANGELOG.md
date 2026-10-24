@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.48.1] - 2026-10-24
+
+### Fixed
+
+- 修复回复主题插件帖（例如新人报到帖、红包帖）时提示「这个回复表单有 App 暂不支持的栏位，请在浏览器中回复」、只能用浏览器回复的问题；编辑这类帖子一楼以外的楼层也能在 App 内完成（#239）。
+
 ## [1.48.0] - 2026-10-23
 
 ### Added
