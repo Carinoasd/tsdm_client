@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.48.1 (2026-10-24)
+## Latest update: 1.48.2 (2026-10-24)
 
-- Fixed replies to thread-plugin threads (such as newcomer check-in or red-packet threads) being sent to the browser; editing a floor other than the first of such a thread also works in the app (#239).
-- 1.48.0: post image gallery (swipe through every image of a floor, zoom, long-press to save or share), image loading progress with retry, and the new setting "Load images in posts automatically".
-- Android build number 155, installs over earlier releases and test builds.
+- Fixed moderators being sent to the browser when editing a thread's first post or posting a new thread: other plugins' fields in the form (scheduling, tags) are now posted as the web page serves them (#239).
+- 1.48.1: replies to thread-plugin threads (such as newcomer check-in or red-packet threads) are no longer sent to the browser (#239).
+- Android build number 156, installs over earlier releases and test builds.
 
-[Download 1.48.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.1) · [Full changelog](./CHANGELOG.md)
+[Download 1.48.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.2) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
