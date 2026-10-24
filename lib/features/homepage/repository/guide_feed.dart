@@ -118,7 +118,7 @@ final class GuideFeed with LoggerMixin {
     if (saved == null || store == null) {
       return null;
     }
-    if (store.forgetCountOf(key) != saved.forgotten || DateTime.now().difference(saved.savedAt) > store.maxAge) {
+    if (store.forgetCountOf(key) != saved.forgotten || store.now().difference(saved.savedAt) > store.maxAge) {
       _saved.remove(key);
       return null;
     }

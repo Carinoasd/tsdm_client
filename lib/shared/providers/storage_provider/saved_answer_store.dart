@@ -56,6 +56,9 @@ final class SavedAnswerStore with LoggerMixin {
   /// How old a saved answer may be to be shown.
   final Duration maxAge;
 
+  /// The store's clock, the one [maxAge] is measured with.
+  DateTime now() => _now();
+
   final Future<Directory> Function() _directory;
   final DateTime Function() _now;
 
