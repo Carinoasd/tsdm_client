@@ -141,10 +141,33 @@ void main() {
           ('s3', 'text value'),
           ('s4', '1'),
           ('s4', '3'),
-          ('t', 'first line\nsecond'),
+          ('t', 'first line\r\nsecond'),
         ]);
       },
     );
+
+    test('a select as the browser: a disabled option is never posted, a list box only its selected options', () {
+      const form =
+          '<select name="p1"><option value="" disabled>请选择</option><option value="a">A</option></select>'
+          '<select name="p2"><option value="" disabled selected>请选择</option><option value="b">B</option></select>'
+          '<select name="p3" size="4"><option value="x">X</option><option value="y">Y</option></select>'
+          '<select name="p4" multiple><option value="1" selected disabled>1</option><option value="2" selected>2</option>'
+          '</select>'
+          '<select name="p5"><option value="z" disabled>Z</option></select>';
+      expect(read(form, ['p1', 'p2', 'p3', 'p4', 'p5']), [('p1', 'a'), ('p4', '2')]);
+    });
+
+    test('a disabled fieldset disables its controls; the form attribute decides the form', () {
+      const form =
+          '<fieldset disabled><div><input name="f1" value="1"></div></fieldset>'
+          '<fieldset><input name="f2" value="2"></fieldset>'
+          '<input name="f3" value="3" form="otherform">';
+      expect(read(form, ['f1', 'f2']), [('f2', '2')]);
+      // Given to another form: not a control of this one.
+      expect(read(form, ['f3']), isNull);
+      // Outside the form but given to it.
+      expect(read('', ['f4'], outside: '<input name="f4" value="4" form="postform">'), [('f4', '4')]);
+    });
 
     test('disabled controls, buttons and files are not posted', () {
       const form =
@@ -247,6 +270,15 @@ void main() {
       ]) {
         expect(state.offersBrowser, isFalse, reason: '$state');
       }
+      // Sent too soon after the previous post: the editor counts the interval down itself.
+      expect(
+        PostEditState(
+          status: PostEditStatus.failedToUpload,
+          content: content(_json('newthread_hook')),
+          errorText: '抱歉，您两次发表间隔少于 15 秒，请稍候再发表',
+        ).offersBrowser,
+        isFalse,
+      );
       // A captcha the app cannot show still offers it, whatever the form.
       expect(const PostEditState(status: PostEditStatus.failedToUpload, needsBrowser: true).offersBrowser, isTrue);
     });

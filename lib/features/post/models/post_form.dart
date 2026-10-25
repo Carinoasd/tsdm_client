@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
@@ -598,9 +599,12 @@ final class PostForm {
 
 /// The fields named [names] (a post form's [PostForm.hookFields]: other plugins' fields the app's API does not give
 /// the values of) as the browser posts them from [document], the web page of the same form, when the member presses
-/// the button right away: the controls of `form#postform` in page order, a disabled one never, a checkbox or a radio
-/// button only when checked (`on` without a value), a select's last selected option or else its first, a textarea's
-/// text; buttons and files are not posted.
+/// the button right away: the controls of `form#postform` (those inside it not given to another form by a `form`
+/// attribute, and those outside it given to it) in page order; a disabled one never, nor one inside a disabled
+/// fieldset; a checkbox or a radio button only when checked (`on` without a value); a select's last selected option,
+/// nothing when that option is disabled, else its first option not disabled — a list box (`multiple`, or a size above
+/// one) only its selected options not disabled; a textarea's text with its line breaks as CRLF; buttons and files are
+/// not posted.
 ///
 /// Null when a name is no control of that form (a field a script builds, or one outside the form): the app cannot
 /// post the form as the website would.
@@ -610,17 +614,34 @@ List<(String, String)>? hookValuesOf(uh.Document document, List<String> names) {
     return null;
   }
   final wanted = names.toSet();
-  final controls = form
+  bool ofForm(uh.Element e) {
+    final owner = e.attributes['form'];
+    return owner == null ? form.contains(e) : owner == 'postform';
+  }
+
+  final controls = document
       .querySelectorAll('input[name], select[name], textarea[name]')
-      .where((e) => wanted.contains(e.attributes['name']))
+      .where((e) => wanted.contains(e.attributes['name']) && ofForm(e))
       .toList();
   if (!wanted.every((name) => controls.any((e) => e.attributes['name'] == name))) {
     return null;
   }
+  bool disabled(uh.Element e) {
+    if (e.attributes.containsKey('disabled')) {
+      return true;
+    }
+    for (var p = e.parent; p != null; p = p.parent) {
+      if (p.localName == 'fieldset' && p.attributes.containsKey('disabled')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   final values = <(String, String)>[];
   for (final control in controls) {
     final name = control.attributes['name']!;
-    if (control.attributes.containsKey('disabled')) {
+    if (disabled(control)) {
       continue;
     }
     switch (control.localName) {
@@ -638,15 +659,22 @@ List<(String, String)>? hookValuesOf(uh.Document document, List<String> names) {
         }
       case 'select':
         final options = control.querySelectorAll('option');
-        String valueOf(uh.Element option) => option.attributes['value'] ?? (option.text ?? '').trim();
-        if (control.attributes.containsKey('multiple')) {
-          values.addAll(options.where((o) => o.attributes.containsKey('selected')).map((o) => (name, valueOf(o))));
-        } else if (options.isNotEmpty) {
-          final chosen = options.lastWhere((o) => o.attributes.containsKey('selected'), orElse: () => options.first);
-          values.add((name, valueOf(chosen)));
+        bool off(uh.Element o) => o.attributes.containsKey('disabled');
+        bool selected(uh.Element o) => o.attributes.containsKey('selected');
+        String valueOf(uh.Element o) => o.attributes['value'] ?? (o.text ?? '').trim();
+        final listBox =
+            control.attributes.containsKey('multiple') || (int.tryParse(control.attributes['size'] ?? '') ?? 0) > 1;
+        if (listBox) {
+          values.addAll(options.where((o) => selected(o) && !off(o)).map((o) => (name, valueOf(o))));
+        } else if (options.lastWhereOrNull(selected) case final chosen?) {
+          if (!off(chosen)) {
+            values.add((name, valueOf(chosen)));
+          }
+        } else if (options.firstWhereOrNull((o) => !off(o)) case final first?) {
+          values.add((name, valueOf(first)));
         }
       case 'textarea':
-        values.add((name, control.text ?? ''));
+        values.add((name, (control.text ?? '').replaceAll('\r\n', '\n').replaceAll('\n', '\r\n')));
     }
   }
   return values;

@@ -98,10 +98,12 @@ final class PostEditState with PostEditStateMappable {
 
   /// Whether the refusal is better answered on the website ([PostEditStatus.failedToUpload]): a captcha the app cannot
   /// show ([needsBrowser]), or the forum's reason while the form carries fields of other plugins the editor does not
-  /// show and posts as served — a forum's required tag left empty on a new thread ("本版发帖要填写分类标签…").
+  /// show and posts as served — a forum's required tag left empty on a new thread ("本版发帖要填写分类标签…"); not
+  /// the forum's interval between two posts, which the editor counts down itself.
   bool get offersBrowser =>
       needsBrowser ||
       (status == PostEditStatus.failedToUpload &&
           (errorText?.isNotEmpty ?? false) &&
+          floodControlSeconds(errorText) == null &&
           (content?.form?.hookFields.isNotEmpty ?? false));
 }
