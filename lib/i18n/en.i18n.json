@@ -1598,6 +1598,7 @@
     }
   },
   "postCard": {
+    "fromApp": "From the TSDM app",
     "contentUnavailable": "This floor's content can not be shown",
     "bbcode": {
       "attachmentLocked": "Not available to you: to buy, no permission, or log in first"
