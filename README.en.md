@@ -16,14 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.48.2 (2026-10-24)
+## Latest update: 1.49.0 (2026-10-25)
 
-- Fixed moderators being sent to the browser when editing a thread's first post or posting a new thread: other plugins' fields in the form (scheduling, tags) are now posted as the web page serves them (#239).
-- Fixed «My credits» dropping credit logs other plugins wrote, and empty avatars or images being cached and failing to show for good.
-- 1.48.1: replies to thread-plugin threads (such as newcomer check-in or red-packet threads) are no longer sent to the browser (#239).
-- Android build number 156, installs over earlier releases and test builds.
+- Floors posted, replied or edited from the app show "From the TSDM app" after their time, as on the web page (recorded from forum API plugin 3.3.0).
+- When the forum refuses a post over another plugin's field the browser is offered; emoji no longer cache empty files; other plugins' form fields are posted more like the browser.
+- Android build number 157, installs over earlier releases and test builds.
 
-[Download 1.48.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.48.2) · [Full changelog](./CHANGELOG.md)
+[Download 1.49.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
