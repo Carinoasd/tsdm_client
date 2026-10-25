@@ -242,6 +242,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                   [
                     if (userGroup != null && userGroup.isNotEmpty) userGroup,
                     if (publishTime != null) publishTime.yyyyMMDDHHMMSS(),
+                    // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
+                    if (widget.post.fromApp) context.t.postCard.fromApp,
                   ].join(' · '),
                   style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
                 ),

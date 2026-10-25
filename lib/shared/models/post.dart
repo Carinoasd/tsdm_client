@@ -86,6 +86,7 @@ class Post with PostMappable {
     this.avatarBlocked = false,
     this.hot = false,
     this.hotFloor,
+    this.fromApp = false,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -108,7 +109,8 @@ class Post with PostMappable {
   /// * `position` as the floor number (the forum's -1 of a hot reply gives none), `share_url` as the share link;
   ///   `hot` (plugin 2.8.2) marks a hot reply, which the page prints "推荐" for, with the floor it really is
   ///   (`hot_position`, 0 when it cannot be worked out); `avatar_blocked` (plugin 2.8.2) is the "头像被屏蔽" the
-  ///   page prints in place of the avatar, which the answer then gives empty;
+  ///   page prints in place of the avatar, which the answer then gives empty; `from_app` (plugin 3.3.0) marks a floor
+  ///   posted, replied or edited from the app ([fromApp]);
   /// * `lastedit` as the last edit (the name and the time text the page prints; none when either is empty);
   /// * the purchase lock of the first floor of a paid thread not yet bought ([pay], `thread.pay`, `need_pay` 1), the
   ///   other locks stay in the content for the renderer, as on the web page;
@@ -271,6 +273,7 @@ class Post with PostMappable {
       avatarBlocked: avatarBlocked,
       hot: hot,
       hotFloor: hot && _apiInt(p['hot_position']) > 0 ? _apiInt(p['hot_position']) : null,
+      fromApp: _apiInt(p['from_app']) == 1,
     );
   }
 
@@ -457,6 +460,10 @@ class Post with PostMappable {
   /// one by one (keeps no floor positions); it gives 0 when it cannot (posted in the same second as another floor,
   /// floors the viewer cannot see, reply counts that do not add up), as does the web page, which never tells it.
   final int? hotFloor;
+
+  /// The floor was posted, replied or edited from the app: the forum's app API (plugin 3.3.0) records it (`from_app`,
+  /// on the web page "来自天使动漫App"). Floors sent before the plugin recorded them are not marked.
+  final bool fromApp;
 
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).
   int? get shownFloor => postFloor ?? hotFloor;
@@ -704,6 +711,8 @@ class Post with PostMappable {
       ),
       avatarBlocked: avatarBlocked,
       hot: hot,
+      // The forum's app API (plugin 3.3.0) prints "来自天使动漫App" for a floor sent from the app (its own span).
+      fromApp: element.querySelector('#tsdmappfrom$postID') != null,
     );
   }
 

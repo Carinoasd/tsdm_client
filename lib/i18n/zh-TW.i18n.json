@@ -1598,6 +1598,7 @@
     }
   },
   "postCard": {
+    "fromApp": "來自天使動漫App",
     "contentUnavailable": "此樓內容無法顯示",
     "bbcode": {
       "attachmentLocked": "無法查看：需要購買、權限不足或要先登入"
