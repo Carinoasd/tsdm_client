@@ -22,6 +22,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
@@ -221,6 +222,33 @@ void main() {
       final harness = _Harness(api: _json('edit_first'), web: _page(_tagFields, uid: 32));
       final answer = await harness.repo.fetchForm(_editUrl).run();
       expect(answer.getLeft().toNullable(), isA<IdentityChangedException>());
+    });
+  });
+
+  group('D. a refusal the website can answer', () {
+    PostEditContent content(Map<String, dynamic> json) => PostEditContent.fromPostForm(PostForm.fromJson(json)!)!;
+    const tagRefusal = '本版发帖要填写分类标签「专辑」（在发帖页最上方）。';
+
+    test('the forum refuses a form with fields of other plugins the editor does not show: the browser is offered', () {
+      final state = PostEditState(
+        status: PostEditStatus.failedToUpload,
+        content: content(_json('newthread_hook')),
+        errorText: tagRefusal,
+      );
+      expect(state.offersBrowser, isTrue);
+    });
+
+    test('not for a form without such fields, nor without the reason, nor before a refusal', () {
+      final unhooked = _json('newthread_hook')..['hook_fields'] = <Object?>[];
+      for (final state in [
+        PostEditState(status: PostEditStatus.failedToUpload, content: content(unhooked), errorText: tagRefusal),
+        PostEditState(status: PostEditStatus.failedToUpload, content: content(_json('newthread_hook'))),
+        PostEditState(status: PostEditStatus.editing, content: content(_json('newthread_hook')), errorText: tagRefusal),
+      ]) {
+        expect(state.offersBrowser, isFalse, reason: '$state');
+      }
+      // A captcha the app cannot show still offers it, whatever the form.
+      expect(const PostEditState(status: PostEditStatus.failedToUpload, needsBrowser: true).offersBrowser, isTrue);
     });
   });
 }

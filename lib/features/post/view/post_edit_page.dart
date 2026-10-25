@@ -1330,7 +1330,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                   (widget.editType.isEditingPost
                       ? context.t.draftBox.editUnconfirmed
                       : context.t.draftBox.submitUnconfirmed),
-        action: state.needsBrowser
+        // Also when other plugins' fields of the form (not shown here) are what the forum asks for.
+        action: state.offersBrowser
             ? SnackBarAction(label: context.t.draftBox.openBrowser, onPressed: () async => _openBrowser(context))
             : null,
       );
