@@ -6,7 +6,7 @@
 ///    whose recent changes were all such rows saw an empty list;
 /// 2. an image answered with no bytes (some avatars on the forum are zero-byte files answering 200) was cached and then
 ///    failed to decode every time it showed ("Invalid image data"), never asked again; an empty file an earlier version
-///    cached is read as not cached and loaded again.
+///    cached is read as not cached and loaded again. The emoji cache, a cache of its own, the same (a review of 1.48.2).
 library;
 
 import 'dart:io';
@@ -175,6 +175,27 @@ void main() {
       expect(got, isA<None>());
       expect(provider.isKnownMissingAvatar(url), isTrue, reason: 'not asked again by every card');
       expect(fileOf(url).existsSync(), isFalse);
+    });
+
+    test('an emoji answered with no bytes is not cached either; an empty emoji file is no emoji', () async {
+      await provider.updateEmojiCache('9', 'empty', const []);
+      expect(provider.hasEmojiCacheFile('9', 'empty'), isFalse, reason: 'asked again');
+      await provider.updateEmojiCache('9', 'full', jpeg);
+      expect(provider.hasEmojiCacheFile('9', 'full'), isTrue);
+      expect(await provider.getEmojiCache('9', 'full'), jpeg);
+      // An empty file an earlier version wrote.
+      final file =
+          Directory(tmp.path)
+              .listSync(recursive: true)
+              .whereType<File>()
+              .singleWhere(
+                (f) => f.path.endsWith('/9_full.jpg'),
+              )
+            ..writeAsBytesSync(const []);
+      expect(file.lengthSync(), 0);
+      expect(provider.hasEmojiCacheFile('9', 'full'), isFalse);
+      expect(await provider.getEmojiCache('9', 'full'), isNull);
+      expect(provider.getEmojiCacheSync('9', 'full'), isNull);
     });
 
     test('an empty file an earlier version cached is read as not cached and loaded again', () async {

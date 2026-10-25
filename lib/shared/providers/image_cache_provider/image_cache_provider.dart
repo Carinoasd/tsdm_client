@@ -860,7 +860,8 @@ final class ImageCacheProvider with LoggerMixin {
   /// Check have the cache file for emoji with [groupId] and [id].
   bool hasEmojiCacheFile(String groupId, String id) {
     final cachePath = _formatEmojiCachePath(groupId, id);
-    return cachePath != null && File(cachePath).existsSync();
+    // An empty file is no emoji (an empty answer saved by an earlier version): not cached, asked again.
+    return cachePath != null && File(cachePath).existsSync() && File(cachePath).lengthSync() > 0;
   }
 
   /// Try get the emoji cache from raw bbcode.
@@ -900,7 +901,8 @@ final class ImageCacheProvider with LoggerMixin {
       warning('$cacheFile cache file not exists');
       return null;
     }
-    return cacheFile.readAsBytes();
+    final data = await cacheFile.readAsBytes();
+    return data.isEmpty ? null : data;
   }
 
   /// Get the cached file of emoji with specified [groupId] and [id].
@@ -914,7 +916,8 @@ final class ImageCacheProvider with LoggerMixin {
       warning('$cacheFile cache file not exists');
       return null;
     }
-    return cacheFile.readAsBytesSync();
+    final data = cacheFile.readAsBytesSync();
+    return data.isEmpty ? null : data;
   }
 
   /// Clear all emoji cache files.
@@ -926,6 +929,11 @@ final class ImageCacheProvider with LoggerMixin {
 
   /// Update emoji cache.
   Future<void> updateEmojiCache(String groupId, String id, List<int> imageData) async {
+    if (imageData.isEmpty) {
+      // As for images: an empty answer is no emoji, never cached (it would fail to decode every time it shows).
+      warning('refuse to cache an empty emoji $groupId/$id');
+      return;
+    }
     final fileName = _formatEmojiCachePath(groupId, id);
     if (fileName == null) {
       warning('refuse to cache emoji with unsafe id (${groupId.length}/${id.length} chars)');
