@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.49.0（2026-10-25）
+## 最新更新：1.49.1（2026-10-26）
 
-- 帖子樓層顯示「來自天使動漫App」：用 App 發帖、回覆或編輯的樓層，在發表時間後面標出來（論壇接口插件 3.3.0 起記錄）。
-- 論壇因其他插件的欄位拒絕送出時可以改用瀏覽器繼續；表情包不再快取空檔；發帖表單的插件欄位送出規則更完整。
-- Android 建置編號為 157，可直接覆蓋之前的正式版與測試版。
+- 社區銀行可以支取定期存款：先顯示論壇確認頁的說明，再輸入銀行密碼；不能支取時顯示原因。
+- 1.49.0：用 App 發帖、回覆或編輯的樓層顯示「來自天使動漫App」。
+- Android 建置編號為 158，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.49.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.0) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.49.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.1) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

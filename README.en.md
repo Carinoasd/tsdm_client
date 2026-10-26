@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.49.0 (2026-10-25)
+## Latest update: 1.49.1 (2026-10-26)
 
-- Floors posted, replied or edited from the app show "From the TSDM app" after their time, as on the web page (recorded from forum API plugin 3.3.0).
-- When the forum refuses a post over another plugin's field the browser is offered; emoji no longer cache empty files; other plugins' form fields are posted more like the browser.
-- Android build number 157, installs over earlier releases and test builds.
+- Term deposits can be withdrawn in the community bank: the forum's confirmation notice is shown before the bank password; a reason it gives instead (such as not yet due) is shown.
+- 1.49.0: floors posted, replied or edited from the app show "From the TSDM app".
+- Android build number 158, installs over earlier releases and test builds.
 
-[Download 1.49.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.49.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
