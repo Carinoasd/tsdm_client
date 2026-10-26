@@ -419,7 +419,40 @@ class BankCubit extends Cubit<BankState> {
           fresh.feeRate != expected.feeRate) {
         throw const FormatException('Bank service or terms changed before confirmation');
       }
-      final currentForm = matches.single..body(values);
+      var currentForm = matches.single..body(values);
+      if (currentForm.confirmUrl != null) {
+        // The record's link only opens the forum's confirmation page: send the form that page serves, if it is the
+        // one for this record. A reason the page gives instead (not due, already withdrawn) is shown and nothing sent.
+        final page = await repo.fetchConfirmation(currentForm, uid);
+        if (!_current(generation, uid)) return;
+        if (page.unavailable.isNotEmpty) {
+          _loadedRepository = repo;
+          emit(
+            BankState(
+              uid: uid,
+              banks: snapshot.banks,
+              bank: bank,
+              service: service,
+              serviceData: BankServiceData(
+                service: fresh.service,
+                blocks: fresh.blocks,
+                forms: fresh.forms,
+                currency: fresh.currency,
+                walletBalance: fresh.walletBalance,
+                unavailable: page.unavailable,
+                unsupportedForms: fresh.unsupportedForms,
+                hasNext: fresh.hasNext,
+                feeRate: fresh.feeRate,
+              ),
+              servicePage: snapshot.servicePage,
+              unconfirmed: snapshot.unconfirmed,
+            ),
+          );
+          return;
+        }
+        currentForm = (currentForm.confirmedBy(page) ?? (throw const FormatException('Bank confirmation page changed')))
+          ..body(values);
+      }
       attempted = true;
       try {
         await repo.submitService(currentForm, values);
