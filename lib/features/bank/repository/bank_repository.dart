@@ -65,6 +65,13 @@ class BankRepository {
         page: page,
       );
 
+  /// Reads the forum's confirmation page a record links to (a term withdrawal); nothing is sent.
+  Future<BankServiceData> fetchConfirmation(BankServiceForm form, int uid) async {
+    final url = form.confirmUrl;
+    if (url == null) throw const FormatException('No bank confirmation page');
+    return parseBankService(await _fetch(url, uid), form.service, bankId: form.bankId);
+  }
+
   /// Submit one freshly validated service form. Transport never retries it.
   Future<void> submitService(BankServiceForm form, Map<String, String> values) async {
     await postForm(form.action, form.body(values));
