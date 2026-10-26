@@ -711,8 +711,10 @@ class Post with PostMappable {
       ),
       avatarBlocked: avatarBlocked,
       hot: hot,
-      // The forum's app API (plugin 3.3.0) prints "来自天使动漫App" for a floor sent from the app (its own span).
-      fromApp: element.querySelector('#tsdmappfrom$postID') != null,
+      // The forum's app API (plugin 3.3.0) prints "来自天使动漫App" for a floor sent from the app (its own span), in
+      // the floor's header (`div.pti`, the first one: the hook every desktop template has there); one the message
+      // holds (a forum allowing HTML) is not it.
+      fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
     );
   }
 
