@@ -22,6 +22,8 @@ final class BankState {
     this.service,
     this.serviceData,
     this.servicePage = 1,
+    this.reply = '',
+    this.serviceChanged = false,
   });
 
   /// Available banks for this account.
@@ -71,6 +73,14 @@ final class BankState {
 
   /// Current page of the selected service.
   final int servicePage;
+
+  /// The forum's reply to the transaction just sent (「银行密码错误，请返回修改。」…), as it wrote it; it confirms
+  /// nothing ([unconfirmed] stays). Only the state the transaction ends in carries it.
+  final String reply;
+
+  /// The service page changed before sending (terms, the record, the confirmation page): nothing was sent, the
+  /// page as it is now is shown.
+  final bool serviceChanged;
 }
 
 /// Serializes transactions and discards obsolete account/bank completions.
@@ -258,6 +268,7 @@ class BankCubit extends Cubit<BankState> {
       ),
     );
     var attempted = false;
+    var reply = '';
     try {
       final fresh = await repo.fetchSavings(bank.id, uid);
       if (!_current(generation, uid)) return;
@@ -267,7 +278,7 @@ class BankCubit extends Cubit<BankState> {
       }
       attempted = true;
       try {
-        await repo.submit(form, operation, amount, password);
+        reply = await repo.submit(form, operation, amount, password);
       } on Object {
         // The server could already have accepted it. Never repeat the POST.
       }
@@ -292,6 +303,7 @@ class BankCubit extends Cubit<BankState> {
           logs: logs,
           logsFailed: logsFailed,
           unconfirmed: true,
+          reply: reply,
         ),
       );
     } on Object {
@@ -303,6 +315,7 @@ class BankCubit extends Cubit<BankState> {
             bank: bank,
             failed: true,
             unconfirmed: attempted || snapshot.unconfirmed,
+            reply: reply,
           ),
         );
       }
@@ -377,7 +390,8 @@ class BankCubit extends Cubit<BankState> {
       _loadedRepository != null;
 
   /// Reads the confirmation page a record links to (a term withdrawal) before its dialog, nothing sent: the page's own
-  /// notice, or the reason it gives instead (not due, already withdrawn). Throws if the page serves another form.
+  /// notice, or the reason the forum gives instead (the record is gone, the account frozen, the bank closed). Throws a
+  /// [FormatException] if the page serves another form, the read's own error if it fails.
   Future<({String notice, String reason})?> readConfirmation(BankServiceData expected, BankServiceForm form) async {
     if (form.confirmUrl == null || !isCurrentService(expected, form)) return null;
     final page = await _loadedRepository!.fetchConfirmation(form, state.uid!);
@@ -421,56 +435,57 @@ class BankCubit extends Cubit<BankState> {
       ),
     );
     var attempted = false;
+    var reply = '';
     try {
       final fresh = await repo.fetchService(service, uid, bankId: bank.id, page: snapshot.servicePage);
       if (!_current(generation, uid)) return;
+      // Nothing is sent: the page as it is now, with the forum's reason or the note that it changed.
+      void showFresh({String reason = '', bool changed = false}) {
+        _loadedRepository = repo;
+        emit(
+          BankState(
+            uid: uid,
+            banks: snapshot.banks,
+            bank: bank,
+            service: service,
+            serviceData: reason.isEmpty ? fresh : fresh.withUnavailable(reason),
+            servicePage: snapshot.servicePage,
+            unconfirmed: snapshot.unconfirmed,
+            serviceChanged: changed,
+          ),
+        );
+      }
+
       final matches = fresh.forms.where(form.matches).toList();
       if (matches.length != 1 ||
           fresh.currency != expected.currency ||
           fresh.confirmationTerms != expected.confirmationTerms ||
           fresh.feeRate != expected.feeRate) {
-        throw const FormatException('Bank service or terms changed before confirmation');
+        // The record, the terms or the fee changed (a term deposit's interest once it is due): reread, not failed.
+        showFresh(changed: true);
+        return;
       }
       var currentForm = matches.single..body(values);
       if (currentForm.confirmUrl != null) {
         // The record's link only opens the forum's confirmation page: send the form that page serves, if it is the
-        // one for this record. A reason the page gives instead (not due, already withdrawn) is shown and nothing sent.
+        // one for this record and says what the user was shown. A reason the forum gives instead (the record is gone,
+        // the account frozen) is shown.
         final page = await repo.fetchConfirmation(currentForm, uid);
         if (!_current(generation, uid)) return;
         if (page.unavailable.isNotEmpty) {
-          _loadedRepository = repo;
-          emit(
-            BankState(
-              uid: uid,
-              banks: snapshot.banks,
-              bank: bank,
-              service: service,
-              serviceData: BankServiceData(
-                service: fresh.service,
-                blocks: fresh.blocks,
-                forms: fresh.forms,
-                currency: fresh.currency,
-                walletBalance: fresh.walletBalance,
-                unavailable: page.unavailable,
-                unsupportedForms: fresh.unsupportedForms,
-                hasNext: fresh.hasNext,
-                feeRate: fresh.feeRate,
-              ),
-              servicePage: snapshot.servicePage,
-              unconfirmed: snapshot.unconfirmed,
-            ),
-          );
+          showFresh(reason: page.unavailable);
           return;
         }
         final served = currentForm.confirmedBy(page);
         if (served == null || (notice != null && served.context != notice)) {
-          throw const FormatException('Bank confirmation page changed');
+          showFresh(changed: true);
+          return;
         }
         currentForm = served..body(values);
       }
       attempted = true;
       try {
-        await repo.submitService(currentForm, values);
+        reply = await repo.submitService(currentForm, values);
       } on Object {
         // The server may already have accepted the action. Never send it twice.
       }
@@ -500,6 +515,7 @@ class BankCubit extends Cubit<BankState> {
           serviceData: data,
           servicePage: snapshot.servicePage,
           unconfirmed: true,
+          reply: reply,
         ),
       );
     } on Object {
@@ -513,6 +529,7 @@ class BankCubit extends Cubit<BankState> {
             servicePage: snapshot.servicePage,
             failed: true,
             unconfirmed: attempted || snapshot.unconfirmed,
+            reply: reply,
           ),
         );
       }

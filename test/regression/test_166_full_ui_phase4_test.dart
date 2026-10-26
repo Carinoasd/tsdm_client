@@ -76,8 +76,9 @@ class _BankRepository extends BankRepository {
   );
 
   @override
-  Future<void> submit(BankTransactionForm form, BankOperation operation, String amount, String password) async {
+  Future<String> submit(BankTransactionForm form, BankOperation operation, String amount, String password) async {
     submissions.add(amount);
+    return '';
   }
 }
 

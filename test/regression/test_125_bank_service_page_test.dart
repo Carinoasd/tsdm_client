@@ -51,9 +51,10 @@ class _Repository extends BankRepository {
   }
 
   @override
-  Future<void> submitService(BankServiceForm form, Map<String, String> values) async {
+  Future<String> submitService(BankServiceForm form, Map<String, String> values) async {
     submissions.add(form.body(values));
     if (pending case final wait?) await wait.future;
+    return '';
   }
 }
 

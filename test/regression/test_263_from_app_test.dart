@@ -2,7 +2,8 @@
 /// "来自天使动漫App" beside their time: the app shows the same in the floor's header.
 ///
 /// 1. the structured thread page: `from_app` 1 marks the floor ([Post.fromApp]), 0 or absent (an older plugin) not;
-/// 2. the web page (an older plugin, or the page read instead): the plugin's own span `#tsdmappfrom<pid>` in the floor;
+/// 2. the web page (an older plugin, or the page read instead): the plugin's own span `#tsdmappfrom<pid>` in the floor's
+///    header, not one the message holds;
 /// 3. the floor's card shows it after the time.
 ///
 /// Fixtures only; nothing is sent.
@@ -94,16 +95,32 @@ void main() {
   });
 
   group('2. the web page', () {
-    test("the plugin's span in the floor marks it; a page without it does not", () {
-      final html = draftThread(draft: false, secondPost: true);
-      final marked = html.replaceFirst(
-        '<em id="authorposton457">发表于 2026-09-01 12:00:00</em>',
-        '<em id="authorposton457">发表于 2026-09-01 12:00:00</em>$_span',
+    // A floor as the site prints it: the hook sits at the end of the header's `div.authi` (in `div.pti`), the
+    // message further down in `td.t_f`.
+    final floor = File('test/data/thread_hot_reply_x5.html').readAsStringSync();
+    const header = '只看该作者</a>\n</div>';
+    const span = '<span class="xg1 tsdmapp-from" id="tsdmappfrom77994723">来自天使动漫App</span>';
+    bool fromApp(String html) =>
+        Post.fromPostNode(parseHtmlDocument(html).querySelector('div#post_77994723')!, 1)!.fromApp;
+
+    test("the plugin's span in the floor's header marks it; a page without it does not", () {
+      expect(floor, contains(header));
+      expect(fromApp(floor.replaceFirst(header, '只看该作者</a>\n$span</div>')), isTrue);
+      expect(fromApp(floor), isFalse);
+    });
+
+    test('the same span in the message (a forum allowing HTML) does not', () {
+      expect(fromApp(floor.replaceFirst('热门回复的内文', '$span热门回复的内文')), isFalse);
+      expect(fromApp(floor.replaceFirst('热门回复的内文', '<div class="pti">$span</div>热门回复的内文')), isFalse);
+    });
+
+    test('the whole thread page: only the floor whose header has it', () {
+      final html = draftThread(draft: false, secondPost: true).replaceFirst(
+        '<em id="authorposton457">发表于 2026-09-01 12:00:00</em></div>',
+        '<em id="authorposton457">发表于 2026-09-01 12:00:00</em></div><div class="pti">$_span</div>',
       );
-      expect(marked, contains(_span));
-      final posts = parseThreadDocument(parseHtmlDocument(marked), 1).postList;
+      final posts = parseThreadDocument(parseHtmlDocument(html), 1).postList;
       expect({for (final p in posts) p.postID: p.fromApp}, {'456': false, '457': true});
-      expect(parseThreadDocument(parseHtmlDocument(html), 1).postList.every((p) => !p.fromApp), isTrue);
     });
   });
 

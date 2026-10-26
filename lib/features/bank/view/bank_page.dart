@@ -36,6 +36,9 @@ class _BankPageState extends State<BankPage> {
   StreamSubscription<AuthStatus>? _authSubscription;
   bool _dialogOpen = false;
 
+  /// The record whose confirmation page is being read (a term withdrawal): its button shows the wait.
+  BankServiceForm? _reading;
+
   @override
   void initState() {
     super.initState();
@@ -114,15 +117,22 @@ class _BankPageState extends State<BankPage> {
       String? notice;
       if (form.confirmUrl != null) {
         // A term withdrawal: the forum's confirmation page is read first, so its notice is shown before anything is
-        // entered, and a reason it gives instead (not due, already withdrawn) ends here.
+        // entered, and a reason the forum gives instead (the record is gone, the account frozen) ends here.
         final ({String notice, String reason})? page;
+        setState(() => _reading = form);
         try {
           page = await controller.readConfirmation(data, form);
-        } on Object {
+        } on Object catch (e) {
+          // A page the app cannot take is not a failed read: the website is the way then, a retry otherwise.
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.t.bank.unsupported)));
+            final tr = context.t.bank;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e is FormatException ? tr.unsupported : tr.confirmLoadFailed)));
           }
           return;
+        } finally {
+          if (mounted) setState(() => _reading = null);
         }
         if (!mounted || page == null || !identical(controller, _cubit) || !controller.isCurrentService(data, form)) {
           return;
@@ -278,7 +288,20 @@ class _BankPageState extends State<BankPage> {
                   ],
                   FilledButton(
                     onPressed: disabled ? null : () => _serviceTransaction(data, form),
-                    child: Text(_serviceActionTitle(context, form), textAlign: TextAlign.center),
+                    child: identical(form, _reading)
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox.square(
+                                key: ValueKey('bank-service-reading'),
+                                dimension: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              sizedBoxW8H8,
+                              Flexible(child: Text(_serviceActionTitle(context, form), textAlign: TextAlign.center)),
+                            ],
+                          )
+                        : Text(_serviceActionTitle(context, form), textAlign: TextAlign.center),
                   ),
                 ],
               ),
@@ -301,6 +324,10 @@ class _BankPageState extends State<BankPage> {
                 ],
               ),
             ),
+          ],
+          if (data.webOnlyRecords) ...[
+            sizedBoxW12H12,
+            AppNoticeBanner(message: tr.loanWebOnly, icon: Icons.open_in_browser_outlined),
           ],
           if (data.unsupportedForms) ...[
             sizedBoxW12H12,
@@ -544,6 +571,11 @@ class _BankPageState extends State<BankPage> {
                           padding: EdgeInsets.only(bottom: appSurfaceGapCompact),
                           child: LinearProgressIndicator(),
                         ),
+                      if (state.serviceChanged)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: appSurfaceGap),
+                          child: AppNoticeBanner(message: tr.serviceChanged, tone: AppNoticeTone.warning),
+                        ),
                       if (state.unconfirmed)
                         Padding(
                           padding: const EdgeInsets.only(bottom: appSurfaceGap),
@@ -551,6 +583,16 @@ class _BankPageState extends State<BankPage> {
                             message: tr.unconfirmed,
                             tone: AppNoticeTone.warning,
                             icon: Icons.help_outline,
+                          ),
+                        ),
+                      if (state.reply.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: appSurfaceGap),
+                          child: AppNoticeBanner(
+                            key: const ValueKey('bank-reply'),
+                            message: tr.forumReply(message: state.reply),
+                            icon: Icons.forum_outlined,
+                            selectable: true,
                           ),
                         ),
                       if (state.loginRequired)

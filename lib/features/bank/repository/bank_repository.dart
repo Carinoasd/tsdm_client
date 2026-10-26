@@ -72,14 +72,14 @@ class BankRepository {
     return parseBankService(await _fetch(url, uid), form.service, bankId: form.bankId);
   }
 
-  /// Submit one freshly validated service form. Transport never retries it.
-  Future<void> submitService(BankServiceForm form, Map<String, String> values) async {
-    await postForm(form.action, form.body(values));
-  }
+  /// Submit one freshly validated service form. Transport never retries it. Answers the forum's reply
+  /// ([bankReplyOf]).
+  Future<String> submitService(BankServiceForm form, Map<String, String> values) async =>
+      bankReplyOf(parseHtmlDocument(await postForm(form.action, form.body(values))));
 
   /// A response, including HTTP 200, is not evidence that a transaction succeeded.
-  /// The caller must show an unconfirmed result and refresh via GET only.
-  Future<void> submit(BankTransactionForm form, BankOperation operation, String amount, String password) async {
-    await postForm(form.action, form.body(operation, amount, password));
-  }
+  /// The caller must show an unconfirmed result and refresh via GET only. Answers the forum's reply ([bankReplyOf]),
+  /// shown as it is.
+  Future<String> submit(BankTransactionForm form, BankOperation operation, String amount, String password) async =>
+      bankReplyOf(parseHtmlDocument(await postForm(form.action, form.body(operation, amount, password))));
 }

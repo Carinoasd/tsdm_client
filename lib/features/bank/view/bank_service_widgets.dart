@@ -171,6 +171,7 @@ String _serviceActionTitle(BuildContext context, BankServiceForm form) {
     BankService.hall => '${tr.openAccount} · ${form.label}',
     BankService.interest => tr.settleInterest,
     BankService.term when form.operation == 'in' => tr.termDeposit,
+    BankService.term when form.confirmUrl != null => tr.termWithdraw,
     BankService.remittance => tr.remittance,
     BankService.loans when form.operation == 'try' => tr.loanApply,
     BankService.account when form.operation == 'cg' => tr.changePassword,

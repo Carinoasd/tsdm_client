@@ -224,6 +224,7 @@ final class BankServiceData {
     this.walletBalance = '',
     this.unavailable = '',
     this.unsupportedForms = false,
+    this.webOnlyRecords = false,
     this.hasNext = false,
     this.feeRate,
   });
@@ -249,6 +250,10 @@ final class BankServiceData {
   /// At least one form or executable record link cannot be rendered safely.
   final bool unsupportedForms;
 
+  /// Loan records whose repayment or cancellation the forum runs on the link itself, with no confirmation page:
+  /// left to the website, where they are one click.
+  final bool webOnlyRecords;
+
   /// A verified next-page link in the same bank/service.
   final bool hasNext;
 
@@ -257,6 +262,20 @@ final class BankServiceData {
 
   /// Terms and records rechecked before submitting a stale confirmation.
   String get confirmationTerms => blocks.map((block) => block.text).join('\n');
+
+  /// This page with the reason the forum gave instead of a record's confirmation page.
+  BankServiceData withUnavailable(String reason) => BankServiceData(
+    service: service,
+    blocks: blocks,
+    forms: forms,
+    currency: currency,
+    walletBalance: walletBalance,
+    unavailable: reason,
+    unsupportedForms: unsupportedForms,
+    webOnlyRecords: webOnlyRecords,
+    hasNext: hasNext,
+    feeRate: feeRate,
+  );
 
   /// Exact ceiling calculation matching the forum's displayed fee rule.
   String? estimatedFee(String amount) {
@@ -428,16 +447,29 @@ BankServiceForm? _termWithdrawal(uh.Element link, int bankId) {
   );
 }
 
+/// The text of the forum's message page (`#messagetext`), without the link to go on.
+String _messageText(uh.Element message) {
+  final copy = message.clone(true) as uh.Element;
+  for (final link in copy.querySelectorAll('a')) {
+    link.remove();
+  }
+  return _text(copy);
+}
+
+/// The forum's reply to a transaction: the text of the message page it answered (the bank's 「恭喜您，操作成功。」,
+/// 「银行密码错误，请返回修改。」…), empty for any other answer. Shown as the forum wrote it; it confirms nothing.
+String bankReplyOf(uh.Document document) {
+  final message = document.querySelector('#messagetext');
+  final text = message == null ? '' : _messageText(message);
+  return text.length > 200 ? '${text.substring(0, 200)}…' : text;
+}
+
 /// Parse service content and actual server forms without running any page scripts.
 BankServiceData parseBankService(uh.Document document, BankService service, {int? bankId, int page = 1}) {
   final request = Uri.parse(bankServiceUrl(service, bankId: bankId, page: page));
   final message = document.querySelector('#messagetext');
   if (message != null) {
-    final copy = message.clone(true) as uh.Element;
-    for (final link in copy.querySelectorAll('a')) {
-      link.remove();
-    }
-    final reason = _text(copy);
+    final reason = _messageText(message);
     if (reason.isEmpty) throw const FormatException('Empty bank response');
     return BankServiceData(service: service, blocks: const [], unavailable: reason);
   }
@@ -478,6 +510,7 @@ BankServiceData parseBankService(uh.Document document, BankService service, {int
   final currency = _text(wallet?.querySelector('font')).replaceFirst(RegExp(r'\s*[:：]\s*$'), '');
   final forms = <BankServiceForm>[];
   var unsupported = false;
+  var webOnly = false;
   if (!service.global) {
     for (final form
         in document.querySelectorAll('form').where((form) => form.querySelector('[name="banksubmit"]') != null)) {
@@ -492,17 +525,22 @@ BankServiceData parseBankService(uh.Document document, BankService service, {int
     for (final link in roots.expand((root) => root.querySelectorAll('a'))) {
       final href = link.attributes['href'] ?? '';
       final uri = _pluginUri(href);
-      // JavaScript or state-changing links cannot be treated as read-only navigation. A term record's withdrawal link
-      // only opens the forum's confirmation page and becomes that form; any other operation link (a loan's repayment
-      // runs on the link itself) is left to the website.
+      // JavaScript or state-changing links cannot be treated as read-only navigation. The record operations are
+      // links: a term record's withdrawal only opens the forum's confirmation page and becomes that form; a loan's
+      // repayment and cancellation run on the link itself and are left to the website. A link elsewhere (a bank's
+      // notice is the manager's BBCode) is only text here.
       if (href.startsWith('javascript:') || link.attributes.containsKey('onclick')) {
         unsupported = true;
       } else if (uri != null && uri.queryParameters.containsKey('op')) {
-        final withdrawal = service == BankService.term ? _termWithdrawal(link, bankId!) : null;
-        if (withdrawal == null || currency.isEmpty) {
-          unsupported = true;
-        } else {
-          forms.add(withdrawal);
+        if (service == BankService.loans) {
+          webOnly = true;
+        } else if (service == BankService.term) {
+          final withdrawal = _termWithdrawal(link, bankId!);
+          if (withdrawal == null || currency.isEmpty) {
+            unsupported = true;
+          } else {
+            forms.add(withdrawal);
+          }
         }
       }
     }
@@ -533,6 +571,7 @@ BankServiceData parseBankService(uh.Document document, BankService service, {int
     currency: currency,
     walletBalance: _text(wallet?.querySelector('span > b')),
     unsupportedForms: unsupported,
+    webOnlyRecords: webOnly,
     hasNext: hasNext,
     feeRate: feeRate,
   );
