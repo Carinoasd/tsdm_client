@@ -5,16 +5,21 @@
 /// 1. the record's link becomes its withdrawal, with the record's text; a link of another bank, operation or a loan's
 ///    repayment (run on the link itself) is left to the website;
 /// 2. withdrawing reads the confirmation page and sends the form it serves, once; a reason the page gives instead
-///    or a form for another record sends nothing.
+///    or a form for another record sends nothing;
+/// 3. the page reads the confirmation page before the dialog: its notice is shown with the record, a reason it gives
+///    instead ends there.
 ///
 /// Synthetic pages after the bank plugin's own templates; nothing is sent.
 library;
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/bank/cubit/bank_cubit.dart';
 import 'package:tsdm_client/features/bank/models/bank_data.dart';
 import 'package:tsdm_client/features/bank/repository/bank_repository.dart';
+import 'package:tsdm_client/features/bank/view/bank_page.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -183,6 +188,24 @@ void main() {
       expect(controller.state.unconfirmed, isFalse);
     });
 
+    test('the notice read before the dialog is the one checked when sending', () async {
+      final controller = await cubit();
+      final data = controller.state.serviceData!;
+      final form = data.forms.singleWhere((form) => form.hidden['noid'] == '7');
+      final page = await controller.readConfirmation(data, form);
+      expect(page, (notice: '确定要支取这笔定期存款吗？', reason: ''));
+      expect(posts, isEmpty);
+      confirmation = (noid) => _confirmation(noid).replaceFirst('确定要支取', '提前支取不计利息，确定要支取');
+      await controller.submitService(
+        expected: data,
+        form: form,
+        values: {'bankpass': 'synthetic-password'},
+        notice: page!.notice,
+      );
+      expect(posts, isEmpty);
+      expect(controller.state.failed, isTrue);
+    });
+
     test('a page for another record, bank or with another field sends nothing', () async {
       for (final page in [
         (int noid) => _confirmation(noid + 1),
@@ -197,6 +220,73 @@ void main() {
         expect(controller.state.failed, isTrue);
         expect(controller.state.unconfirmed, isFalse);
       }
+    });
+  });
+
+  group('3. the page', () {
+    late List<Map<String, String>> posts;
+    late String Function(int noid) confirmation;
+
+    Future<void> pump(WidgetTester tester) async {
+      await LocaleSettings.setLocale(AppLocale.en);
+      final repo = BankRepository(
+        getPage: (url) async {
+          final query = Uri.parse(url).queryParameters;
+          if (query['action'] != 'fix') return bankDirectoryFixture();
+          if (query['op'] == 'out') return confirmation(int.parse(query['noid']!));
+          return bankServiceFixture(BankService.term, records: _record(7));
+        },
+        postForm: (url, body) async {
+          posts.add(Map.of(body));
+          return '';
+        },
+      );
+      final cubit = BankCubit(currentUid: () => 1000, repository: () => repo);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(home: BankPage(controller: cubit)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('bank-1')));
+      await tester.pumpAndSettle();
+      await cubit.loadService(BankService.term);
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(FilledButton, '支取');
+      await tester.scrollUntilVisible(action, 160, scrollable: find.byType(Scrollable).first);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+    }
+
+    setUp(() {
+      posts = [];
+      confirmation = _confirmation;
+    });
+
+    testWidgets("the page's notice is shown with the record, then the form it serves is sent", (tester) async {
+      await pump(tester);
+      final dialog = find.byType(AlertDialog);
+      expect(find.descendant(of: dialog, matching: find.textContaining('存款数目: 100')), findsOneWidget);
+      expect(find.descendant(of: dialog, matching: find.text('确定要支取这笔定期存款吗？')), findsOneWidget);
+      await tester.enterText(find.byKey(const ValueKey('bank-input-bankpass')), 'synthetic-password');
+      await tester.tap(find.byKey(const ValueKey('bank-service-continue')));
+      await tester.pumpAndSettle();
+      expect(posts, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('bank-service-confirm')));
+      await tester.pumpAndSettle();
+      expect(posts.single['noid'], '7');
+      expect(posts.single['op'], 'out');
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a reason the page gives instead is shown, without a password field', (tester) async {
+      confirmation = (_) => bankDocument('<div id="messagetext"><p>这笔定期存款尚未到期</p></div>');
+      await pump(tester);
+      expect(find.descendant(of: find.byType(AlertDialog), matching: find.textContaining('尚未到期')), findsOneWidget);
+      expect(find.byKey(const ValueKey('bank-input-bankpass')), findsNothing);
+      expect(posts, isEmpty);
+      await tester.pumpWidget(const SizedBox());
     });
   });
 }

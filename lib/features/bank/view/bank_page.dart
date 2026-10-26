@@ -111,15 +111,52 @@ class _BankPageState extends State<BankPage> {
     final bankName = controller.state.bank!.name;
     setState(() => _dialogOpen = true);
     try {
+      String? notice;
+      if (form.confirmUrl != null) {
+        // A term withdrawal: the forum's confirmation page is read first, so its notice is shown before anything is
+        // entered, and a reason it gives instead (not due, already withdrawn) ends here.
+        final ({String notice, String reason})? page;
+        try {
+          page = await controller.readConfirmation(data, form);
+        } on Object {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.t.bank.unsupported)));
+          }
+          return;
+        }
+        if (!mounted || page == null || !identical(controller, _cubit) || !controller.isCurrentService(data, form)) {
+          return;
+        }
+        if (page.reason.isNotEmpty) {
+          final reason = page.reason;
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(_serviceActionTitle(context, form)),
+              content: AppNoticeBanner(message: reason, tone: AppNoticeTone.warning, selectable: true),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(context.t.bank.cancel))],
+            ),
+          );
+          return;
+        }
+        notice = page.notice;
+      }
+      if (!mounted) return;
       final values = await showDialog<Map<String, String>>(
         context: context,
-        builder: (context) => _BankServiceDialog(controller: controller, data: data, form: form, bankName: bankName),
+        builder: (context) => _BankServiceDialog(
+          controller: controller,
+          data: data,
+          form: form,
+          bankName: bankName,
+          notice: notice ?? '',
+        ),
       );
       if (!mounted || values == null || !identical(controller, _cubit) || !controller.isCurrentService(data, form)) {
         return;
       }
       try {
-        await controller.submitService(expected: data, form: form, values: values);
+        await controller.submitService(expected: data, form: form, values: values, notice: notice);
       } finally {
         values.clear();
       }

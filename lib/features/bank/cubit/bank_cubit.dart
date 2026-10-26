@@ -376,11 +376,23 @@ class BankCubit extends Cubit<BankState> {
       state.bank?.id == form.bankId &&
       _loadedRepository != null;
 
-  /// Revalidate the specific record/form and terms, then issue at most one POST.
+  /// Reads the confirmation page a record links to (a term withdrawal) before its dialog, nothing sent: the page's own
+  /// notice, or the reason it gives instead (not due, already withdrawn). Throws if the page serves another form.
+  Future<({String notice, String reason})?> readConfirmation(BankServiceData expected, BankServiceForm form) async {
+    if (form.confirmUrl == null || !isCurrentService(expected, form)) return null;
+    final page = await _loadedRepository!.fetchConfirmation(form, state.uid!);
+    if (page.unavailable.isNotEmpty) return (notice: '', reason: page.unavailable);
+    final served = form.confirmedBy(page) ?? (throw const FormatException('Bank confirmation page changed'));
+    return (notice: served.context, reason: '');
+  }
+
+  /// Revalidate the specific record/form and terms, then issue at most one POST. [notice] is the confirmation page's
+  /// notice the user was shown ([readConfirmation]): a page saying otherwise by now sends nothing.
   Future<void> submitService({
     required BankServiceData expected,
     required BankServiceForm form,
     required Map<String, String> values,
+    String? notice,
   }) async {
     if (!isCurrentService(expected, form)) return;
     try {
@@ -450,8 +462,11 @@ class BankCubit extends Cubit<BankState> {
           );
           return;
         }
-        currentForm = (currentForm.confirmedBy(page) ?? (throw const FormatException('Bank confirmation page changed')))
-          ..body(values);
+        final served = currentForm.confirmedBy(page);
+        if (served == null || (notice != null && served.context != notice)) {
+          throw const FormatException('Bank confirmation page changed');
+        }
+        currentForm = served..body(values);
       }
       attempted = true;
       try {

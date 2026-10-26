@@ -277,6 +277,16 @@ String _serviceText(uh.Element element) {
   return _text(copy);
 }
 
+/// The text a confirmation form shows around its fields (the withdrawal page's own notice), without the password's
+/// label.
+String _formNotice(uh.Element form) {
+  final copy = form.clone(true) as uh.Element;
+  for (final node in copy.querySelectorAll('script, style, input, button, select, textarea')) {
+    node.remove();
+  }
+  return _text(copy).replaceFirst(RegExp(r'\s*[^\s。！？!?]*密[码碼]\s*[:：]?\s*$'), '');
+}
+
 BankServiceForm? _serviceForm(uh.Element form, BankService service, int bankId) {
   final uri = _pluginUri(form.attributes['action']);
   if (form.attributes['method']?.toLowerCase() != 'post' ||
@@ -348,7 +358,11 @@ BankServiceForm? _serviceForm(uh.Element form, BankService service, int bankId) 
   while (record != null && record.localName != 'tr') {
     record = record.parent;
   }
-  final context = service == BankService.interest ? _text(form) : _serviceText(record ?? form.parent ?? form);
+  final context = service == BankService.interest
+      ? _text(form)
+      : service == BankService.term && operation == 'out' && hidden.containsKey('noid')
+      ? _formNotice(form)
+      : _serviceText(record ?? form.parent ?? form);
   if (expectedInputs == null) {
     // Record operations are offered only by an actual, labelled record form. No guessed IDs/ops.
     if (!{BankService.term, BankService.loans}.contains(service) ||
