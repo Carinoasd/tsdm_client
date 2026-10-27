@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:tsdm_client/widgets/scroll_travel.dart';
 
 /// The app bar [child] of a page, shown in part: [shown] of its height, 1 the whole bar, 0 none of it (the status bar
 /// area above it stays, in the bar's colors).
@@ -45,28 +45,20 @@ class CollapsingAppBar extends StatelessWidget implements PreferredSizeWidget {
 /// Fed with the scroll notifications of the list ([onNotification]); only the list itself counts (depth 0, vertical):
 /// a code block or a table scrolled sideways in a floor never moves the bar.
 ///
-/// The bar follows the distance scrolled, not the direction a drag starts in: a screen that loses and finds the finger
-/// again, or a thumb that wobbles, scrolls a few pixels each way and used to pull the bar out and in at every turn.
-/// Now the list has to travel [threshold] in one direction since it last turned before the bar follows.
+/// The bar follows the distance scrolled ([ScrollTravel]), not the direction a drag starts in: a screen that loses and
+/// finds the finger again, or a thumb that wobbles, scrolls a few pixels each way and used to pull the bar out and in
+/// at every turn. The list placing itself (a jump to a floor, back to the reading position) never moves the bar.
 class AppBarCollapser {
   /// Constructor.
   AppBarCollapser(this.controller);
 
-  /// How far the list travels in one direction before the bar follows, in logical pixels: about the height of the
-  /// bar, well past the jitter of a flaky touch screen, short enough that a real scroll up shows the bar at once.
-  static const double threshold = 56;
+  /// How far the list travels in one direction before the bar follows, in logical pixels.
+  static const double threshold = ScrollTravel.defaultThreshold;
 
   /// The shown part of the bar.
   final AnimationController controller;
 
-  /// Distance the list travelled in the direction it last moved: positive down the list (to later floors), negative
-  /// up. Starts over when the list turns.
-  double _travel = 0;
-
-  /// Whether the user is scrolling the list (a drag, the fling after it), as the list told last. The list placing
-  /// itself (a jump to a floor, back to the reading position, a page loaded above) is not the user and never moves
-  /// the bar, as before.
-  bool _userScrolling = false;
+  final _travel = ScrollTravel();
 
   /// Whether the bar hides at all (the `collapseAppBarWhenScroll` setting); when false it is always shown.
   bool enabled = true;
@@ -95,40 +87,27 @@ class AppBarCollapser {
       return false;
     }
     if (!enabled) {
-      _travel = 0;
+      _travel.reset();
       show();
-      return false;
-    }
-    if (notification is UserScrollNotification) {
-      _userScrolling = notification.direction != ScrollDirection.idle;
-      return false;
-    }
-    if (notification is! ScrollUpdateNotification) {
       return false;
     }
     final metrics = notification.metrics;
-    if (metrics.pixels <= metrics.minScrollExtent) {
+    if (notification is ScrollUpdateNotification && metrics.pixels <= metrics.minScrollExtent) {
       // Back at the top of the list (a drag, a fling, back to top): the bar too, however it got there.
-      _travel = 0;
+      _travel.reset();
       show();
       return false;
     }
-    if (!_userScrolling) {
-      return false;
-    }
-    // Positive: the list goes down to later floors (the finger moves up). A turn starts the travel over.
-    final delta = notification.scrollDelta ?? 0;
-    if (delta == 0) {
-      return false;
-    }
-    _travel = _travel.sign == delta.sign ? _travel + delta : delta;
-    if (_travel >= threshold) {
-      // A list that scrolls no farther than the bar keeps it (see [barHeight]).
-      if (metrics.maxScrollExtent - metrics.minScrollExtent > barHeight) {
-        hide();
-      }
-    } else if (_travel <= -threshold) {
-      show();
+    switch (_travel.onNotification(notification)) {
+      case ScrollTravelDirection.down:
+        // A list that scrolls no farther than the bar keeps it (see [barHeight]).
+        if (metrics.maxScrollExtent - metrics.minScrollExtent > barHeight) {
+          hide();
+        }
+      case ScrollTravelDirection.up:
+        show();
+      case null:
+        break;
     }
     return false;
   }

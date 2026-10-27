@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -33,6 +32,7 @@ import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
+import 'package:tsdm_client/widgets/scroll_travel.dart';
 
 const _showFabOffset = 100;
 
@@ -108,25 +108,34 @@ class _HomepagePageState extends State<HomepagePage> {
 
   bool _fabVisible = false;
 
+  /// How far the page scrolled since it last turned, for [_fabVisible].
+  final _fabTravel = ScrollTravel();
+
   // 状态缓存：initState 里的双击事件监听拿不到 build 中创建的 HomepageBloc，靠 BlocListener 更新
   HomepageStatus _lastStatus = HomepageStatus.initial;
 
-  bool _handleScrollNotification(UserScrollNotification notification) {
+  bool _handleScrollNotification(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) {
       return false;
     }
+    // Near the top there is nothing to go back to. Farther down the button comes once the page scrolled up some way
+    // and goes once scrolled down as far, so a flaky touch does not show and hide it at every turn (ScrollTravel).
     if (notification.metrics.pixels <= _showFabOffset) {
+      _fabTravel.reset();
       if (_fabVisible) {
         setState(() => _fabVisible = false);
       }
-      return true;
+      return false;
     }
-    if (notification.direction == ScrollDirection.forward && !_fabVisible) {
-      setState(() => _fabVisible = true);
-    } else if (notification.direction == ScrollDirection.reverse && _fabVisible) {
-      setState(() => _fabVisible = false);
+    switch (_fabTravel.onNotification(notification)) {
+      case ScrollTravelDirection.up when !_fabVisible:
+        setState(() => _fabVisible = true);
+      case ScrollTravelDirection.down when _fabVisible:
+        setState(() => _fabVisible = false);
+      case _:
+        break;
     }
-    return true;
+    return false;
   }
 
   Widget? _buildFloatingActionButton(BuildContext context, HomepageState state) {
@@ -546,7 +555,7 @@ class _HomepagePageState extends State<HomepagePage> {
                   left: false,
                   top: false,
                   bottom: false,
-                  child: NotificationListener<UserScrollNotification>(
+                  child: NotificationListener<ScrollNotification>(
                     onNotification: _handleScrollNotification,
                     child: AnimatedSwitcher(duration: duration200, child: body),
                   ),

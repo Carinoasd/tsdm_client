@@ -1,6 +1,5 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -33,6 +32,7 @@ import 'package:tsdm_client/widgets/list_app_bar/list_app_bar.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
 import 'package:tsdm_client/widgets/post_layout_html.dart';
+import 'package:tsdm_client/widgets/scroll_travel.dart';
 
 const _tabsCount = 3;
 const _pinnedTabIndex = 0;
@@ -89,6 +89,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
 
   /// The post button shows its label; scrolling the list down folds it to its icon, scrolling up unfolds it.
   bool _fabExtended = true;
+
+  /// How far the list scrolled since it last turned, for [_fabExtended].
+  final _fabTravel = ScrollTravel();
 
   /// The bloc of this page, created by the provider in [build]. Created again for another account (see
   /// [AccountReloadScope]); the new one keeps the filter of this one.
@@ -549,22 +552,21 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       ..addListener(_updateFabVisibilityByTabIndex);
   }
 
-  bool _onBodyScrollNotification(UserScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) {
-      return false;
-    }
-
-    // Fold the post button while scrolling down, unfold it when scrolling up: it stays in reach. Nothing to do on the
-    // tabs without it.
+  bool _onBodyScrollNotification(ScrollNotification notification) {
+    // Fold the post button once the list scrolled down some way, unfold it once scrolled up as far: it stays in reach,
+    // and a flaky touch does not fold and unfold it at every turn (ScrollTravel). Nothing to do on the tabs without it.
     if (!_fabVisible) {
       return false;
     }
-    if (notification.direction == ScrollDirection.forward && !_fabExtended) {
-      setState(() => _fabExtended = true);
-    } else if (notification.direction == ScrollDirection.reverse && _fabExtended) {
-      setState(() => _fabExtended = false);
+    switch (_fabTravel.onNotification(notification)) {
+      case ScrollTravelDirection.up when !_fabExtended:
+        setState(() => _fabExtended = true);
+      case ScrollTravelDirection.down when _fabExtended:
+        setState(() => _fabExtended = false);
+      case _:
+        break;
     }
-    return true;
+    return false;
   }
 
   @override
@@ -668,7 +670,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             return Scaffold(
               // appBar: PreferredSize(preferredSize: const Size.fromHeight(145), child: _buildListAppBar(context, state)),
               appBar: _buildListAppBar(context, state),
-              body: NotificationListener<UserScrollNotification>(
+              body: NotificationListener<ScrollNotification>(
                 onNotification: _onBodyScrollNotification,
                 child: SafeArea(bottom: false, child: _buildBody(context, state)),
               ),
