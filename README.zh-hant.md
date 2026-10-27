@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.49.1（2026-10-26）
+## 最新更新：1.49.2（2026-10-27）
 
-- 社區銀行可以支取定期存款：先顯示論壇確認頁的說明，再輸入銀行密碼；不能支取時顯示原因。
-- 1.49.0：用 App 發帖、回覆或編輯的樓層顯示「來自天使動漫App」。
-- Android 建置編號為 158，可直接覆蓋之前的正式版與測試版。
+- 帖子頁頂欄改成捲過一段距離才收起或彈出，觸控不穩時不再反覆抽動。
+- 社區銀行讀取支取確認頁失敗時區分網路問題與不支援的頁面；貸款操作提示到網頁辦理；送出後顯示論壇的回覆。
+- Android 建置編號為 159，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.49.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.1) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.49.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.2) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

@@ -16,13 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.49.1 (2026-10-26)
+## Latest update: 1.49.2 (2026-10-27)
 
-- Term deposits can be withdrawn in the community bank: the forum's confirmation notice is shown before the bank password; a reason it gives instead (such as not yet due) is shown.
-- 1.49.0: floors posted, replied or edited from the app show "From the TSDM app".
-- Android build number 158, installs over earlier releases and test builds.
+- The thread page's app bar hides and shows after the list scrolled some way, so a flaky touch no longer makes it flicker.
+- The community bank tells a network failure from an unsupported page when loading the withdrawal confirmation; loan actions point to the web page; the forum's reply is shown after a submit.
+- Android build number 159, installs over earlier releases and test builds.
 
-[Download 1.49.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.1) · [Full changelog](./CHANGELOG.md)
+[Download 1.49.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.49.2) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
