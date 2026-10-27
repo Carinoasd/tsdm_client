@@ -1148,6 +1148,38 @@ void main() {
       expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, HomeTab.topic.index);
     });
 
+    testWidgets('"back to top" comes once scrolled up some way and goes once scrolled down as far', (tester) async {
+      await app.pump(tester, initial: ScreenPaths.homepage, tab: _realTab);
+      final list = find.byType(Scrollable).first;
+      final button = find.widgetWithIcon(FloatingActionButton, Icons.arrow_upward_outlined);
+      expect(button, findsNothing, reason: 'at the top');
+      await tester.drag(list, const Offset(0, -800));
+      await _settle(tester);
+      expect(button, findsNothing, reason: 'scrolled down');
+      await tester.drag(list, const Offset(0, 40));
+      await _settle(tester, rounds: 2);
+      expect(button, findsNothing, reason: 'not far enough up');
+      await tester.drag(list, const Offset(0, 100));
+      await _settle(tester, rounds: 2);
+      expect(button, findsOneWidget);
+      // A flaky touch: a few pixels each way.
+      for (var i = 0; i < 6; i++) {
+        await tester.drag(list, const Offset(0, -40));
+        await tester.drag(list, const Offset(0, 40));
+        await _settle(tester, rounds: 2);
+      }
+      expect(button, findsOneWidget, reason: 'still there');
+      await tester.drag(list, const Offset(0, -300));
+      // The button goes with a short animation.
+      await _settle(tester);
+      expect(button, findsNothing);
+      await tester.drag(list, const Offset(0, 100));
+      await _settle(tester, rounds: 2);
+      await tester.tap(button);
+      await _settle(tester);
+      expect(button, findsNothing, reason: 'back at the top');
+    });
+
     testWidgets('the login button opens the login page', (tester) async {
       await app.pump(tester, initial: ScreenPaths.homepage, tab: _realTab);
       await tester.tap(find.byKey(const ValueKey('homepage-guest-login')));
@@ -1203,6 +1235,26 @@ void main() {
         await tester.tap(button());
         await _settle(tester, rounds: 4);
         expect(app.top, '/editPost/0/11');
+      });
+
+      testWidgets('a few pixels each way (a flaky touch) leave the button folded or unfolded as it is', (tester) async {
+        await openForum(tester);
+        final list = find.byType(CustomScrollView).first;
+        for (var i = 0; i < 6; i++) {
+          await tester.drag(list, const Offset(0, -40));
+          await tester.drag(list, const Offset(0, 40));
+          await _settle(tester, rounds: 2);
+        }
+        expect(extended(tester), isTrue, reason: 'still unfolded');
+        await tester.drag(list, const Offset(0, -300));
+        await _settle(tester, rounds: 2);
+        expect(extended(tester), isFalse);
+        for (var i = 0; i < 6; i++) {
+          await tester.drag(list, const Offset(0, 40));
+          await tester.drag(list, const Offset(0, -40));
+          await _settle(tester, rounds: 2);
+        }
+        expect(extended(tester), isFalse, reason: 'still folded');
       });
 
       testWidgets('the page says the account may not post: told, the editor still offered', (tester) async {
