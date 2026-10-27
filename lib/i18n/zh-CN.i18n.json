@@ -773,12 +773,13 @@
         "reward": "可在「梦幻天使X」与「梦幻天使Y」之间选择"
       },
       "claimTitle": "领取方式",
-      "claim": "付款时在支付宝的备注里写上你的论坛用户名（或 UID），奖励会发到这个账号，不用另外私信。",
+      "claim": "付款时在支付宝的备注里写上你的论坛用户名（或 UID），付款后再私信我一声，附上金额和你的论坛账号，我确认后把奖励发到这个账号。",
       "account": "你的论坛账号：${username}（UID ${uid}）",
       "accountNoUid": "你的论坛账号：${username}",
       "copyUsername": "复制用户名",
       "usernameCopied": "已复制用户名，付款时贴到备注里即可。",
-      "notLoggedIn": "请在备注里写上你的论坛用户名。",
+      "notLoggedIn": "请在备注和私信里写上你的论坛用户名。",
+      "messageMe": "私信我",
       "viewAnnouncement": "查看论坛公告"
     },
     "title": "关于",

@@ -773,12 +773,13 @@
         "reward": "a choice between 「梦幻天使X」 and 「梦幻天使Y」"
       },
       "claimTitle": "How to claim",
-      "claim": "when paying, write your forum username (or UID) in the Alipay note. The rewards go to that account, no private message needed.",
+      "claim": "when paying, write your forum username (or UID) in the Alipay note, then send me a private message with the amount and your forum account; once confirmed, the rewards go to that account.",
       "account": "Your forum account: ${username} (UID ${uid})",
       "accountNoUid": "Your forum account: ${username}",
       "copyUsername": "Copy username",
       "usernameCopied": "Username copied. Paste it into the payment note.",
-      "notLoggedIn": "Write your forum username in the payment note.",
+      "notLoggedIn": "Write your forum username in the payment note and in the message.",
+      "messageMe": "Message me",
       "viewAnnouncement": "View the forum announcement"
     },
     "title": "About",

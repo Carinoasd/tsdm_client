@@ -91,6 +91,16 @@ void main() {
     });
   }
 
+  testWidgets('the "message me" button and the claim text ask for a private message to the maintainer', (tester) async {
+    await open(tester, locale: AppLocale.zhTw);
+    expect(find.textContaining('私訊我一聲'), findsOneWidget);
+    final button = find.widgetWithText(FilledButton, t.aboutPage.forumReward.messageMe);
+    await tester.ensureVisible(button);
+    expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+    expect(SupportDevelopmentDialog.maintainerUid, '2042122');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('feature request opens the feedback form and keeps the donation dialog available', (tester) async {
     await open(tester);
     final request = find.widgetWithText(OutlinedButton, t.aboutPage.featureRequestAction);
