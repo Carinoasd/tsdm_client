@@ -773,12 +773,13 @@
         "reward": "可在「夢幻天使X」與「夢幻天使Y」之間選擇"
       },
       "claimTitle": "領取方式",
-      "claim": "付款時在支付寶的備註裡寫上你的論壇使用者名稱（或 UID），獎勵會發到這個帳號，不用另外私訊。",
+      "claim": "付款時在支付寶的備註裡寫上你的論壇使用者名稱（或 UID），付款後再私訊我一聲，附上金額和你的論壇帳號，我確認後把獎勵發到這個帳號。",
       "account": "你的論壇帳號：${username}（UID ${uid}）",
       "accountNoUid": "你的論壇帳號：${username}",
       "copyUsername": "複製使用者名稱",
       "usernameCopied": "已複製使用者名稱，付款時貼到備註裡即可。",
-      "notLoggedIn": "請在備註裡寫上你的論壇使用者名稱。",
+      "notLoggedIn": "請在備註和私訊裡寫上你的論壇使用者名稱。",
+      "messageMe": "私訊我",
       "viewAnnouncement": "查看論壇公告"
     },
     "title": "關於",

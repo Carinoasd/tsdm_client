@@ -10,6 +10,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -30,6 +31,12 @@ class SupportDevelopmentDialog extends StatefulWidget {
 
   /// The forum announcement 「支援天使，重建经费征集」: donations to this app get its rewards too, on the same terms.
   static const forumRewardUrl = '$baseUrl/forum.php?mod=viewthread&tid=1266879';
+
+  /// The maintainer's forum account the sponsor messages after paying (the rewards are handed out by hand).
+  static const maintainerUid = '2042122';
+
+  /// The maintainer's forum username, shown as the chat's title.
+  static const maintainerUsername = '大和啦';
 
   @override
   State<SupportDevelopmentDialog> createState() => _SupportDevelopmentDialogState();
@@ -114,6 +121,21 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
       route.screenPath,
       pathParameters: route.pathParameters,
       queryParameters: route.queryParameters,
+    );
+  }
+
+  /// Open a private message to the maintainer in place of this dialog (same reason as the announcement).
+  Future<void> _messageMaintainer() async {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) {
+      error('can not open the chat with the maintainer: no router');
+      return;
+    }
+    Navigator.of(context).pop();
+    await router.pushNamed(
+      ScreenPaths.chat,
+      pathParameters: {'uid': SupportDevelopmentDialog.maintainerUid},
+      extra: <String, dynamic>{'username': SupportDevelopmentDialog.maintainerUsername},
     );
   }
 
@@ -223,6 +245,12 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
           sizedBoxW8H8,
           accountRow,
           const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: _messageMaintainer,
+            icon: const Icon(Icons.email_outlined),
+            label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr.messageMe, maxLines: 1)),
+          ),
+          sizedBoxW8H8,
           OutlinedButton.icon(
             onPressed: _openForumRewardAnnouncement,
             icon: const Icon(Icons.campaign_outlined),
