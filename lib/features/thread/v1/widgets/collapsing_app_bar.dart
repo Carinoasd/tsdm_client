@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// The app bar [child] of a page, shown in part: [shown] of its height, 1 the whole bar, 0 none of it (the status bar
 /// area above it stays, in the bar's colors).
@@ -62,6 +63,11 @@ class AppBarCollapser {
   /// up. Starts over when the list turns.
   double _travel = 0;
 
+  /// Whether the user is scrolling the list (a drag, the fling after it), as the list told last. The list placing
+  /// itself (a jump to a floor, back to the reading position, a page loaded above) is not the user and never moves
+  /// the bar, as before.
+  bool _userScrolling = false;
+
   /// Whether the bar hides at all (the `collapseAppBarWhenScroll` setting); when false it is always shown.
   bool enabled = true;
 
@@ -93,6 +99,10 @@ class AppBarCollapser {
       show();
       return false;
     }
+    if (notification is UserScrollNotification) {
+      _userScrolling = notification.direction != ScrollDirection.idle;
+      return false;
+    }
     if (notification is! ScrollUpdateNotification) {
       return false;
     }
@@ -101,6 +111,9 @@ class AppBarCollapser {
       // Back at the top of the list (a drag, a fling, back to top): the bar too, however it got there.
       _travel = 0;
       show();
+      return false;
+    }
+    if (!_userScrolling) {
       return false;
     }
     // Positive: the list goes down to later floors (the finger moves up). A turn starts the travel over.

@@ -25,8 +25,15 @@ void main() {
     devicePixelRatio: 1,
   );
 
-  /// The list moved by [delta] (positive: down to later floors).
-  void scroll(double delta, {double maxScrollExtent = 4000, Axis axis = Axis.vertical}) {
+  /// A drag starts in [direction], as the list tells before it moves.
+  void dragStarts(ScrollDirection direction) {
+    collapser.onNotification(UserScrollNotification(metrics: metrics(), context: context, direction: direction));
+  }
+
+  /// The list moved by [delta] (positive: down to later floors): by the user (a drag told first, as the list tells
+  /// it), or the list placing itself ([user] false: no drag, the list is idle to the user).
+  void scroll(double delta, {double maxScrollExtent = 4000, Axis axis = Axis.vertical, bool user = true}) {
+    dragStarts(user ? (delta > 0 ? ScrollDirection.reverse : ScrollDirection.forward) : ScrollDirection.idle);
     pixels = (pixels + delta).clamp(0, maxScrollExtent);
     collapser.onNotification(
       ScrollUpdateNotification(
@@ -35,11 +42,6 @@ void main() {
         scrollDelta: delta,
       ),
     );
-  }
-
-  /// A drag starts in [direction], as the list tells before it moves.
-  void dragStarts(ScrollDirection direction) {
-    collapser.onNotification(UserScrollNotification(metrics: metrics(), context: context, direction: direction));
   }
 
   /// A page to take the context of; the collapser of a bar of 100 that is shown.
@@ -109,11 +111,20 @@ void main() {
     expectStatus(AnimationStatus.reverse);
   });
 
+  testWidgets('the list placing itself (a jump to a floor) never hides the bar', (tester) async {
+    await ready(tester);
+    scroll(300, user: false);
+    expectStatus(AnimationStatus.completed, reason: 'a jump down the list');
+    controller.value = 0;
+    scroll(-300, user: false);
+    expectStatus(AnimationStatus.dismissed, reason: 'a jump up the list');
+  });
+
   testWidgets('the top of the list shows the bar however it got there', (tester) async {
     await ready(tester);
     controller.value = 0;
     pixels = 10;
-    scroll(-10);
+    scroll(-10, user: false);
     expectStatus(AnimationStatus.forward);
   });
 
