@@ -47,7 +47,9 @@ import 'package:universal_html/parsing.dart';
 /// 4. a blocked author offers "unblock"; without a block list provided the block chip is left out and nothing throws;
 /// 5. blocking asks first, then the chip turns into "unblock" and the list of the account has the author; a floor
 ///    behind [BlockAwarePost] turns into the placeholder under the open dialog, and closing the dialog throws nothing;
-/// 6. on a 360 wide phone (content 204 wide, Traditional Chinese, 1.0 scale) the chips take two rows at most.
+/// 6. on a 360 wide phone (content 204 wide, Traditional Chinese, 1.0 scale) the chips take two rows at most;
+/// 7. without any account in use the lists stay and friend and block are left out; a floor with neither uid nor name
+///    gets no action row at all.
 ///
 /// Synthetic accounts and pages only: no network, no login, nothing is sent.
 Translations get tr => LocaleSettings.instance.currentTranslations;
@@ -424,6 +426,36 @@ void main() {
     await _settle(tester);
     expect((await tester.runAsync(() => blocks.load(2000)))!.isBlocked(_author), isFalse);
     expect(find.byTooltip(tr.userBlock.block), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no account in use: the lists stay, friend and block are left out', (tester) async {
+    await openDialog(tester, reader: null, withBlocks: true);
+    expect(action('threads'), findsOneWidget);
+    expect(action('replies'), findsOneWidget);
+    expect(find.text(tr.postCard.profileDialog.memberThreads), findsOneWidget);
+    expect(action('friend'), findsNothing, reason: 'nobody to add the friend to');
+    expect(action('block'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('neither uid nor name: no action row, the info section comes first', (tester) async {
+    final post = _post();
+    await openDialog(
+      tester,
+      reader: 2000,
+      withBlocks: true,
+      post: post.copyWith(
+        userBriefProfile: post.userBriefProfile!.copyWith(uid: '', username: ''),
+      ),
+    );
+    for (final key in ['threads', 'replies', 'friend', 'block']) {
+      expect(action(key), findsNothing, reason: key);
+    }
+    final dialog = find.byType(SingleChildScrollView).last;
+    final info = find.text(tr.postCard.profileDialog.tabName.info);
+    // The info header sits at the top of the dialog body: no empty block and no separator above it.
+    expect(tester.getTopLeft(info).dy - tester.getTopLeft(dialog).dy, lessThan(12), reason: "the header padding only");
     expect(tester.takeException(), isNull);
   });
 
