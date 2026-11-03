@@ -19,6 +19,7 @@ import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -704,6 +705,21 @@ void main() {
       await tester.tap(find.text('button'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
       expect((buttonTaps, taps), (1, 1));
+    });
+
+    testWidgets('the floors carry no tap action for a screen reader; the button keeps its own', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpGestures(tester);
+      final gestures = find.byType(ThreadReadingGestures);
+      final detector = find.descendant(of: gestures, matching: find.byType(GestureDetector)).first;
+      expect(tester.widget<GestureDetector>(detector).excludeFromSemantics, isTrue);
+      expect(
+        tester.getSemantics(find.text('row 3')).getSemanticsData().hasAction(SemanticsAction.tap),
+        isFalse,
+        reason: 'the row is no button',
+      );
+      expect(tester.getSemantics(find.text('button')).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      semantics.dispose();
     });
 
     testWidgets('a button keeps its tap; a tap that stops a fling is no tap', (tester) async {

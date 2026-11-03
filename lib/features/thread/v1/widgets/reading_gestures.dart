@@ -203,6 +203,8 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     child: NotificationListener<ScrollNotification>(
       onNotification: _onNotification,
       child: GestureDetector(
+        // A screen reader's tap carries no device kind and would do nothing: the floors are no button to it.
+        excludeFromSemantics: true,
         onTapDown: widget.onTap == null ? null : _onTapDown,
         onTap: widget.onTap == null ? null : _onTap,
         child: widget.child,
