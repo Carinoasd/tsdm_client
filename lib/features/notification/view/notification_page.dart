@@ -388,7 +388,15 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         if (state.status == NotificationStatus.success &&
             (state.ownerUid == null || inUse == null || state.ownerUid == inUse)) {
           final blocked = currentBlockList(context, listen: false);
-          final n = state.noticeList.where((e) => !e.alreadyRead && !isBlockedNoticeAuthor(e.authorId, blocked)).length;
+          final keywords = currentKeywordBlockList(context, listen: false);
+          final n = state.noticeList
+              .where(
+                (e) =>
+                    !e.alreadyRead &&
+                    !isBlockedNoticeAuthor(e.authorId, blocked) &&
+                    !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+              )
+              .length;
           // Conversations with locally blocked users stay listed below but are muted: they do not count in the badge.
           final pm = state.personalMessageList
               .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))
@@ -409,7 +417,10 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           final foreign = state.ownerUid != null && inUse != null && state.ownerUid != inUse;
           // Notices of locally blocked users stay stored (and keep their read state) but are not listed.
           final blocked = currentBlockList(context);
-          final noticeList = state.noticeList.where((e) => !isBlockedNoticeAuthor(e.authorId, blocked));
+          final keywords = currentKeywordBlockList(context);
+          final noticeList = state.noticeList.where(
+            (e) => !isBlockedNoticeAuthor(e.authorId, blocked) && !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+          );
           final (n, pm, bm) = switch (onlyShowUnread) {
             true => (
               noticeList.where((e) => !e.alreadyRead),

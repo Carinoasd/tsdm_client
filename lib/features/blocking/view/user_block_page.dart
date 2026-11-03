@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/cubit/keyword_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
+import 'package:tsdm_client/features/blocking/repository/keyword_block_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/notice_ignore_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/notice_ignore_actions.dart';
@@ -336,8 +339,10 @@ class _UserBlockPageState extends State<UserBlockPage> {
                   ],
                 ),
               ),
+              // 2. Keywords on this device.
+              const _KeywordSection(),
               const SizedBox(height: appSurfaceGap),
-              // 2. The forum's blacklist has its own page: it lives in the forum account, unlike the list above.
+              // 3. The forum's blacklist has its own page: it lives in the forum account, unlike the list above.
               AppSurface(
                 key: const ValueKey('website-blocklist-entry'),
                 onTap: () async => context.pushNamed(ScreenPaths.websiteBlocklist),
@@ -367,7 +372,7 @@ class _UserBlockPageState extends State<UserBlockPage> {
                 ),
               ),
               const SizedBox(height: appSurfaceGap),
-              // 3. Notice rules saved in the forum account.
+              // 4. Notice rules saved in the forum account.
               AppSurface(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -488,6 +493,226 @@ class _EmptyLine extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The local keyword list of the current account: add, remove, and whether each one also hides floors.
+///
+/// Not shown when no [KeywordBlockCubit] is provided (isolated widget tests of the page).
+class _KeywordSection extends StatefulWidget {
+  const _KeywordSection();
+
+  @override
+  State<_KeywordSection> createState() => _KeywordSectionState();
+}
+
+class _KeywordSectionState extends State<_KeywordSection> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String? _failureText(KeywordBlockResult result) {
+    final tr = context.t.userBlock;
+    return switch (result) {
+      KeywordBlockResult.ok || KeywordBlockResult.empty || KeywordBlockResult.notFound => null,
+      KeywordBlockResult.tooLong => tr.keyword.tooLong(max: KeywordBlockRepository.maxLength),
+      KeywordBlockResult.duplicate => tr.keyword.duplicate,
+      KeywordBlockResult.limitReached => tr.keyword.limitReached(max: KeywordBlockRepository.maxCount),
+      KeywordBlockResult.invalid => tr.invalid,
+      KeywordBlockResult.accountChanged => tr.accountChanged,
+      KeywordBlockResult.storageError => tr.keyword.storageError,
+    };
+  }
+
+  Future<void> _report(Future<KeywordBlockResult> change, {VoidCallback? onOk}) async {
+    final result = await change;
+    if (!mounted) {
+      return;
+    }
+    if (result == KeywordBlockResult.ok) {
+      onOk?.call();
+    }
+    final message = _failureText(result);
+    if (message != null) {
+      showSnackBar(context: context, message: message);
+    }
+  }
+
+  Future<void> _add() async {
+    final cubit = context.read<KeywordBlockCubit>();
+    final text = _controller.text;
+    if (normalizeBlockedKeyword(text).isEmpty) {
+      return;
+    }
+    await _report(cubit.add(text, expectedOwner: cubit.owner), onOk: _controller.clear);
+  }
+
+  Widget _buildList(BuildContext context, KeywordBlockList list) {
+    final tr = context.t.userBlock;
+    switch (list.status) {
+      case UserBlockListStatus.loading when list.ownerUid != null:
+        return const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator());
+      case UserBlockListStatus.failed:
+        return AppNoticeBanner(
+          message: tr.keyword.loadFailed,
+          tone: AppNoticeTone.error,
+          actions: [
+            TextButton.icon(
+              onPressed: () async => context.read<KeywordBlockCubit>().reload(),
+              icon: const Icon(Icons.refresh),
+              label: Text(context.t.general.retry),
+            ),
+          ],
+        );
+      case UserBlockListStatus.loading || UserBlockListStatus.ready:
+        break;
+    }
+    if (list.ownerUid == null) {
+      return AppNoticeBanner(message: tr.invalid, icon: Icons.login);
+    }
+    if (list.keywords.isEmpty) {
+      return _EmptyLine(icon: Icons.filter_alt_off_outlined, text: tr.keyword.empty);
+    }
+    final cubit = context.read<KeywordBlockCubit>();
+    return Column(
+      children: [
+        for (final (index, k) in list.keywords.indexed) ...[
+          if (index > 0) sizedBoxW8H8,
+          _KeywordRow(
+            key: ValueKey('keyword-${k.key}'),
+            keyword: k,
+            onAppliesToPostsChanged: (value) async =>
+                _report(cubit.setAppliesToPosts(k.keyword, value: value, expectedOwner: cubit.owner)),
+            onRemove: () async => _report(cubit.remove(k.keyword, expectedOwner: cubit.owner)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      context.read<KeywordBlockCubit>();
+    } on ProviderNotFoundException {
+      return const SizedBox.shrink();
+    }
+    final tr = context.t.userBlock.keyword;
+    final enabled = context.select<KeywordBlockCubit, bool>(
+      (c) => c.state.ownerUid != null && c.state.status == UserBlockListStatus.ready,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: appSurfaceGap),
+      child: AppSurface(
+        key: const ValueKey('keyword-block-section'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppSectionHeader(tr.title, icon: Icons.filter_alt_outlined, padding: const EdgeInsets.only(bottom: 8)),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('keyword-input'),
+                    controller: _controller,
+                    enabled: enabled,
+                    inputFormatters: [LengthLimitingTextInputFormatter(KeywordBlockRepository.maxLength)],
+                    decoration: InputDecoration(labelText: tr.inputLabel, isDense: true),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) async => _add(),
+                  ),
+                ),
+                sizedBoxW8H8,
+                FilledButton.tonal(
+                  key: const ValueKey('keyword-add'),
+                  onPressed: enabled ? _add : null,
+                  child: Text(tr.add),
+                ),
+              ],
+            ),
+            sizedBoxW12H12,
+            BlocBuilder<KeywordBlockCubit, KeywordBlockList>(builder: _buildList),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One blocked keyword: the keyword, whether it also hides floors, and its removal.
+///
+/// The switch moves under the keyword when the row is too narrow for everything (small phones, large fonts).
+class _KeywordRow extends StatelessWidget {
+  const _KeywordRow({
+    required this.keyword,
+    required this.onAppliesToPostsChanged,
+    required this.onRemove,
+    super.key,
+  });
+
+  final BlockedKeyword keyword;
+  final ValueChanged<bool> onAppliesToPostsChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.userBlock.keyword;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final title = Text(keyword.keyword, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600));
+    final label = Text(tr.appliesToPosts, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant));
+    final toggle = Switch(value: keyword.appliesToPosts, onChanged: onAppliesToPostsChanged);
+    final remove = IconButton(
+      icon: const Icon(Icons.delete_outline),
+      tooltip: tr.remove,
+      onPressed: onRemove,
+    );
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(appInnerRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 400 * MediaQuery.textScalerOf(context).scale(1);
+            if (wide) {
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  label,
+                  sizedBoxW8H8,
+                  toggle,
+                  remove,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: title),
+                    remove,
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(child: label),
+                    toggle,
+                    const SizedBox(width: 4),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -345,6 +345,27 @@ String? _threadTitleOf(uh.Element body) {
   return null;
 }
 
+/// Title of the thread the notice [data] (its html) names, null when it names none; see [NoticeInfo.threadTitle].
+///
+/// Remembered for the last notices asked: lists and counts filter the same notices again and again.
+String? noticeThreadTitleOfHtml(String data) {
+  if (_threadTitles.containsKey(data)) {
+    final title = _threadTitles.remove(data);
+    _threadTitles[data] = title;
+    return title;
+  }
+  final body = parseHtmlDocument('<html><body>$data</body></html>').body;
+  final title = body == null ? null : _threadTitleOf(body);
+  _threadTitles[data] = title;
+  while (_threadTitles.length > _threadTitleCapacity) {
+    _threadTitles.remove(_threadTitles.keys.first);
+  }
+  return title;
+}
+
+const _threadTitleCapacity = 1024;
+final _threadTitles = <String, String?>{};
+
 /// Quoted text of [body]: the block quote (mention, rate, moderation) or the summary (a reviewed reply).
 String? _quoteOf(uh.Element body) {
   final node = body.querySelector('blockquote') ?? body.querySelector('p.summary');

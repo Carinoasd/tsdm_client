@@ -2628,6 +2628,20 @@
     "goBack": "返回",
     "blockedAt": "屏蔽於 ${time}",
     "noticeHidden": "已隱藏：來自已屏蔽用戶的提醒",
+    "keyword": {
+      "title": "屏蔽關鍵字",
+      "inputLabel": "關鍵字",
+      "add": "新增",
+      "remove": "刪除",
+      "empty": "沒有屏蔽關鍵字",
+      "appliesToPosts": "也隱藏樓層內文",
+      "postPlaceholder": "已隱藏：含屏蔽關鍵字的內容",
+      "duplicate": "已在清單中",
+      "tooLong": "關鍵字最多 ${max} 字",
+      "limitReached": "最多 ${max} 個關鍵字",
+      "loadFailed": "無法讀取屏蔽關鍵字",
+      "storageError": "無法讀寫屏蔽關鍵字，未做任何修改"
+    },
     "website": {
       "entry": "網站黑名單（論壇）",
       "entryHint": "論壇自己的黑名單，儲存在論壇帳號中；在獨立頁面管理。",

@@ -12,7 +12,9 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
 import 'package:tsdm_client/features/background_sync/other_accounts_auto_sync.dart';
+import 'package:tsdm_client/features/blocking/cubit/keyword_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/keyword_block_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_failure_listener.dart';
 import 'package:tsdm_client/features/cache/bloc/image_cache_trigger_cubit.dart';
@@ -294,6 +296,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           create: (_) => UserBlockRepository(getIt.get<StorageProvider>()),
           dispose: (repo) async => repo.dispose(),
         ),
+        RepositoryProvider<KeywordBlockRepository>(
+          create: (_) => KeywordBlockRepository(getIt.get<StorageProvider>()),
+          dispose: (repo) async => repo.dispose(),
+        ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(
           create: (_) => ForumHomeRepository(),
@@ -392,6 +398,25 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               final auth = context.repo<AuthenticationRepository>();
               final notificationBloc = context.read<NotificationBloc>();
               return UserBlockCubit(
+                repository: context.repo(),
+                currentUid: () => auth.effectiveCurrentUid,
+                authStatus: auth.status,
+                onListChanged: () {
+                  if (!notificationBloc.isClosed) {
+                    notificationBloc.add(NotificationReloadFromStorageRequested());
+                  }
+                },
+              );
+            },
+            lazy: false,
+          ),
+          // Local keyword list of the current account, kept in memory for filtering; a change recounts the notices
+          // like a change of the block list.
+          BlocProvider(
+            create: (context) {
+              final auth = context.repo<AuthenticationRepository>();
+              final notificationBloc = context.read<NotificationBloc>();
+              return KeywordBlockCubit(
                 repository: context.repo(),
                 currentUid: () => auth.effectiveCurrentUid,
                 authStatus: auth.status,

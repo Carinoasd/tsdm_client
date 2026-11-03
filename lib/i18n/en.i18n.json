@@ -2628,6 +2628,20 @@
     "goBack": "Back",
     "blockedAt": "Blocked at ${time}",
     "noticeHidden": "Hidden: notice from a user you blocked",
+    "keyword": {
+      "title": "Blocked keywords",
+      "inputLabel": "Keyword",
+      "add": "Add",
+      "remove": "Remove",
+      "empty": "No blocked keywords",
+      "appliesToPosts": "Hide posts too",
+      "postPlaceholder": "Hidden: content with a blocked keyword",
+      "duplicate": "Already in the list",
+      "tooLong": "A keyword has at most ${max} characters",
+      "limitReached": "At most ${max} keywords",
+      "loadFailed": "Could not read the blocked keywords",
+      "storageError": "Could not read or save the blocked keywords, nothing was changed"
+    },
     "website": {
       "entry": "Website blacklist (forum)",
       "entryHint": "The forum's own blacklist, saved in your forum account. Managed on a separate page.",

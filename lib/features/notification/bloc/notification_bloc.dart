@@ -212,7 +212,12 @@ Future<PersistedNotification> _persistFetchedNotification({
   // shows them again, the conversations stay listed) but never count as news: no system notification, no auto sync
   // hint. For notices only the author from the notice's own ignore link is used, for conversations the peer.
   final blocked = await noticeBlockListOf(storage, uid);
-  final news = withoutBlockedNotices(freshNotifications(fetched: fetched, stored: stored), blocked);
+  final keywords = await noticeKeywordListOf(storage, uid);
+  final news = withoutBlockedNotices(
+    freshNotifications(fetched: fetched, stored: stored),
+    blocked,
+    keywords: keywords,
+  );
   // A refresh the user asked for keeps every conversation of the page (GitHub #193): one older than the window the
   // fetch used is stored and listed, but it is no news.
   final fresh = window == null
@@ -312,7 +317,13 @@ NoticeV2 noticeEntityToV2(NoticeEntity e) => NoticeV2(
 /// The number of unread notifications of [uid] in [storage], the same rules as [countUnreadNotification] (blocked
 /// authors and muted peers left out) without reading the notification bodies: for the account list of the avatar
 /// menu, an account at a time.
+///
+/// An account with blocked keywords is counted from the bodies, as [countUnreadNotification] does.
 Future<int> countUnreadNotificationTotal({required StorageProvider storage, required int uid}) async {
+  if ((await noticeKeywordListOf(storage, uid)).titleKeys.isNotEmpty) {
+    final info = await countUnreadNotification(storage: storage, uid: uid);
+    return info.notice + info.personalMessage + info.broadcastMessage;
+  }
   final unread = await storage.unreadNotificationOf(uid);
   final blocked = await noticeBlockListOf(storage, uid);
   return unread.noticeAuthors.where((e) => !isBlockedNoticeAuthor(e, blocked)).length +
@@ -329,9 +340,15 @@ Future<NotificationStateInfo> countUnreadNotification({required StorageProvider 
   // Hidden notices of locally blocked users and conversations with them do not show in the badge; their read state
   // is left untouched.
   final blocked = await noticeBlockListOf(storage, uid);
+  final keywords = await noticeKeywordListOf(storage, uid);
   return NotificationStateInfo(
     notice: group.noticeList
-        .where((e) => !(e.alreadyRead ?? false) && !isBlockedNoticeAuthor(e.authorId, blocked))
+        .where(
+          (e) =>
+              !(e.alreadyRead ?? false) &&
+              !isBlockedNoticeAuthor(e.authorId, blocked) &&
+              !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+        )
         .length,
     personalMessage: group.personalMessageList
         .where((e) => !e.alreadyRead && !isMutedPersonalMessagePeer(e.peerUid, blocked))

@@ -2628,6 +2628,20 @@
     "goBack": "返回",
     "blockedAt": "屏蔽于 ${time}",
     "noticeHidden": "已隐藏：来自已屏蔽用户的提醒",
+    "keyword": {
+      "title": "屏蔽关键字",
+      "inputLabel": "关键字",
+      "add": "添加",
+      "remove": "删除",
+      "empty": "没有屏蔽关键字",
+      "appliesToPosts": "也隐藏楼层内文",
+      "postPlaceholder": "已隐藏：含屏蔽关键字的内容",
+      "duplicate": "已在列表中",
+      "tooLong": "关键字最多 ${max} 字",
+      "limitReached": "最多 ${max} 个关键字",
+      "loadFailed": "无法读取屏蔽关键字",
+      "storageError": "无法读写屏蔽关键字，未做任何修改"
+    },
     "website": {
       "entry": "网站黑名单（论坛）",
       "entryHint": "论坛自己的黑名单，保存在论坛账号中；在独立页面管理。",

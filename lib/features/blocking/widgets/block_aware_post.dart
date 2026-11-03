@@ -44,6 +44,11 @@ class BlockAwarePost extends StatelessWidget {
         failed: list.status == UserBlockListStatus.failed,
       );
     }
+    // Content of a keyword the current account blocked: the floor stays, its body and signature do not show. The
+    // first floor too, the rest of the thread stays readable.
+    if (keywordHidesPost(post, currentKeywordBlockList(context))) {
+      return KeywordBlockedPostPlaceholder(floor: post.postFloor, hot: post.hot, hotFloor: post.hotFloor);
+    }
     if (list.uids.isEmpty) {
       return builder(context, post);
     }
@@ -102,7 +107,6 @@ class BlockedPostPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.userBlock;
-    final colorScheme = Theme.of(context).colorScheme;
     final action = pending
         ? TextButton(
             onPressed: () async => context.read<UserBlockCubit>().reload(),
@@ -112,7 +116,69 @@ class BlockedPostPlaceholder extends StatelessWidget {
             onPressed: () async => unblockUser(context, uid: uid, username: username),
             child: Text(tr.unblock),
           );
-    // A muted, compact floor: the floor number keeps its place, the content is replaced by one line and one action.
+    return _PostPlaceholderCard(
+      floor: floor,
+      hot: hot,
+      hotFloor: hotFloor,
+      icon: _pendingIcon(pending: pending, failed: failed),
+      error: pending && failed,
+      text: pending ? _pendingText(tr, failed: failed) : tr.postPlaceholder,
+      action: action,
+    );
+  }
+}
+
+/// Placeholder of a post containing a keyword blocked locally.
+///
+/// Like [BlockedPostPlaceholder] it has no "show anyway" action: the content comes back by removing the keyword.
+class KeywordBlockedPostPlaceholder extends StatelessWidget {
+  /// Constructor.
+  const KeywordBlockedPostPlaceholder({this.floor, this.hot = false, this.hotFloor, super.key});
+
+  /// Floor number, kept so the floors around stay in place.
+  final int? floor;
+
+  /// A hot reply, see [BlockedPostPlaceholder.hot].
+  final bool hot;
+
+  /// The floor a [hot] reply really is, when known.
+  final int? hotFloor;
+
+  @override
+  Widget build(BuildContext context) => _PostPlaceholderCard(
+    floor: floor,
+    hot: hot,
+    hotFloor: hotFloor,
+    icon: Icons.filter_alt_off_outlined,
+    text: context.t.userBlock.keyword.postPlaceholder,
+  );
+}
+
+/// A muted, compact floor: the floor number keeps its place, the content is replaced by one line and an optional
+/// action.
+class _PostPlaceholderCard extends StatelessWidget {
+  const _PostPlaceholderCard({
+    required this.floor,
+    required this.hot,
+    required this.hotFloor,
+    required this.icon,
+    required this.text,
+    this.error = false,
+    this.action,
+  });
+
+  final int? floor;
+  final bool hot;
+  final int? hotFloor;
+  final IconData icon;
+  final String text;
+  final bool error;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final action = this.action;
     return Card(
       margin: EdgeInsets.zero,
       color: colorScheme.surfaceContainerLow,
@@ -133,24 +199,24 @@ class BlockedPostPlaceholder extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
                 ),
                 Text(
-                  pending ? _pendingText(tr, failed: failed) : tr.postPlaceholder,
+                  text,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
-                if (!besideText) Align(alignment: AlignmentDirectional.centerEnd, child: action),
+                if (action != null && !besideText) Align(alignment: AlignmentDirectional.centerEnd, child: action),
               ],
             );
             return Row(
-              crossAxisAlignment: besideText ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+              crossAxisAlignment: besideText || action == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
               children: [
                 AppIconTile(
-                  _pendingIcon(pending: pending, failed: failed),
+                  icon,
                   size: 32,
-                  color: pending && failed ? colorScheme.errorContainer : colorScheme.surfaceContainerHighest,
-                  foregroundColor: pending && failed ? colorScheme.onErrorContainer : colorScheme.outline,
+                  color: error ? colorScheme.errorContainer : colorScheme.surfaceContainerHighest,
+                  foregroundColor: error ? colorScheme.onErrorContainer : colorScheme.outline,
                 ),
                 sizedBoxW12H12,
                 Expanded(child: texts),
-                if (besideText) action,
+                if (action != null && besideText) action,
               ],
             );
           },

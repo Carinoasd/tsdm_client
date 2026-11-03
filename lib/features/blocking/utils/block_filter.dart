@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tsdm_client/features/blocking/cubit/keyword_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/keyword_block_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -34,6 +36,72 @@ UserBlockList currentBlockList(BuildContext context, {bool listen = true}) {
   } on ProviderNotFoundException {
     return const UserBlockList.empty(null);
   }
+}
+
+/// The keyword list of the current account, rebuilding the caller on change when [listen] is true.
+///
+/// A known empty list when no [KeywordBlockCubit] is provided above [context].
+KeywordBlockList currentKeywordBlockList(BuildContext context, {bool listen = true}) {
+  try {
+    return listen ? context.watch<KeywordBlockCubit>().state : context.read<KeywordBlockCubit>().state;
+  } on ProviderNotFoundException {
+    return const KeywordBlockList.empty(null);
+  }
+}
+
+/// Whether a thread titled [title] and started by [authorUid] is hidden by a keyword of the current account.
+///
+/// Threads of the current account are never hidden. Rebuilds the caller when the answer changes; false when no
+/// [KeywordBlockCubit] is provided above [context].
+bool isTitleHiddenByKeyword(BuildContext context, String? title, {String? authorUid}) {
+  if (title == null || title.isEmpty) {
+    return false;
+  }
+  try {
+    return context.select<KeywordBlockCubit, bool>((c) => c.state.hidesTitle(title, authorUid: authorUid));
+  } on ProviderNotFoundException {
+    return false;
+  }
+}
+
+/// Plain text of [html]: the text of its nodes, tags left out.
+String htmlPlainText(String html) {
+  if (html.isEmpty) {
+    return '';
+  }
+  return parseHtmlDocument('<html><body>$html</body></html>').body?.text ?? '';
+}
+
+/// Whether the floor [post] is hidden by a keyword of [list] that also applies to floors: its body or the author's
+/// signature, as plain text, contains it (ignoring case). Floors of the owner of [list] are never hidden.
+///
+/// The plain text is computed once per post and kept with it.
+bool keywordHidesPost(Post post, KeywordBlockList list) {
+  if (list.postKeys.isEmpty || list.isOwnerString(post.author.uid)) {
+    return false;
+  }
+  return list.hidesPostLowerText(_lowerPlainTextOf(post));
+}
+
+final class _PostTextMemo {
+  const _PostTextMemo(this.data, this.signature, this.lower);
+
+  final String data;
+  final String? signature;
+  final String lower;
+}
+
+final _postTexts = Expando<_PostTextMemo>('keyword post text');
+
+String _lowerPlainTextOf(Post post) {
+  final memo = _postTexts[post];
+  if (memo != null && identical(memo.data, post.data) && identical(memo.signature, post.signature)) {
+    return memo.lower;
+  }
+  // Apart so that a keyword never spans the end of the body and the start of the signature.
+  final lower = '${htmlPlainText(post.data)}\n${htmlPlainText(post.signature ?? '')}'.toLowerCase();
+  _postTexts[post] = _PostTextMemo(post.data, post.signature, lower);
+  return lower;
 }
 
 /// Parse the `pid` of a post that a quote links to, only from the forum's own `findpost` redirect.

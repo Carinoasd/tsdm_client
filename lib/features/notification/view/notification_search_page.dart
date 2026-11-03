@@ -66,8 +66,14 @@ class _NotificationSearchPageState extends State<NotificationSearchPage> {
     final trNotice = context.t.noticePage;
     // Filtered on every build (not in the snapshot): blocking or unblocking while this page is open applies at once.
     final blocked = currentBlockList(context);
+    final keywords = currentKeywordBlockList(context);
     final notices = notice!.noticeList
-        .where((e) => !isBlockedNoticeAuthor(e.authorId, blocked) && e.data.contains(_searchContent))
+        .where(
+          (e) =>
+              !isBlockedNoticeAuthor(e.authorId, blocked) &&
+              !isKeywordBlockedNotice(e.data, e.authorId, keywords) &&
+              e.data.contains(_searchContent),
+        )
         .map(NoticeCardV2.new)
         .toList();
     final personalMessages = notice!.personalMessageList
