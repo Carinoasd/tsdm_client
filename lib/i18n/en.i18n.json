@@ -1802,6 +1802,16 @@
       "siteSearch": "Search the site",
       "noSearchResult": "No user named \"${name}\" on the site"
     },
+    "quickPhrases": {
+      "title": "Quick phrases",
+      "manage": "Manage",
+      "empty": "No quick phrases yet",
+      "add": "Add phrase",
+      "edit": "Edit phrase",
+      "full": "At most ${count: int}",
+      "deleted": "Deleted",
+      "undo": "Undo"
+    },
     "customImage": {
       "tab": "My images",
       "add": "Add image",

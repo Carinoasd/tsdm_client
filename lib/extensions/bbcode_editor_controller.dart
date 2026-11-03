@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:dart_quill_delta/dart_quill_delta.dart';
@@ -40,6 +41,35 @@ extension BBCodeEditorControllerForum on BBCodeEditorController {
       });
     replaceText(position, length, delta, null);
     moveCursorToPosition(position + 1);
+  }
+
+  /// Insert [text] as it is (no BBCode is read from it) at the cursor, replacing the selection, and put the cursor
+  /// after it; at the end of the document when the editor has no cursor yet.
+  void insertTextAtCursor(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+    final end = document.length - 1;
+    final selected = selection;
+    final hasCursor = selected.baseOffset >= 0 && selected.extentOffset >= 0;
+    final position = hasCursor ? min(min(selected.baseOffset, selected.extentOffset), end) : end;
+    final length = hasCursor ? min(max(selected.baseOffset, selected.extentOffset), end) - position : 0;
+    // The text goes in as a String (not a raw Delta) so the insert rules run: a phrase of several lines keeps the quote,
+    // list or code block of the line it lands in, and a toggled inline style covers all of it. Like the package's own
+    // plain text insert, a carriage return is dropped.
+    final plain = text.replaceAll('\r', '');
+    if (plain.isEmpty) {
+      return;
+    }
+    // The package would retain the toggled inline style over the whole text and trips on a line break in it: take the
+    // style out of the insert and put it on the inserted range afterwards.
+    final toggled = toggledStyle.attributes.values.where((a) => a.isInline).toList();
+    toggledStyle = toggledStyle.removeAll(toggled.toSet());
+    replaceText(position, length, plain, null);
+    for (final attribute in toggled) {
+      formatText(position, plain.length, attribute);
+    }
+    moveCursorToPosition(position + plain.length);
   }
 
   /// Put a kept draft back: the editor's own document [delta] (Quill delta JSON) when it loads, which keeps what BBCode

@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -15,6 +16,7 @@ import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/image_dialog.dart';
+import 'package:tsdm_client/features/editor/widgets/quick_phrases_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/url_dialog.dart';
 import 'package:tsdm_client/features/editor/widgets/username_picker_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -102,6 +104,9 @@ enum EditorFeatures {
 
   /// Quote code.
   quoteBlock,
+
+  /// Quick phrases picked from the user's own list.
+  quickPhrases,
 
   /// Cut clipboard.
   cut,
@@ -443,11 +448,33 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
       child: toolbar,
     );
 
+    // The quick phrases button sits at the end of the first row: the wrapped rows below keep starting at the left edge.
+    final withPhrases = _hasFeature(EditorFeatures.quickPhrases)
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: themed),
+              IconButton(
+                key: const ValueKey('editor-quick-phrases'),
+                icon: Icon(MdiIcons.textBoxMultipleOutline),
+                tooltip: context.t.bbcodeEditor.quickPhrases.title,
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+                ),
+                onPressed: () async {
+                  await showQuickPhrases(context, bbcodeController, focusNode: editorFocusNode);
+                  afterButtonPressed?.call();
+                },
+              ),
+            ],
+          )
+        : themed;
+
     if (isMobile) {
-      return Column(mainAxisSize: MainAxisSize.min, children: [themed, sizedBoxW24H24]);
+      return Column(mainAxisSize: MainAxisSize.min, children: [withPhrases, sizedBoxW24H24]);
     }
 
-    return themed;
+    return withPhrases;
   }
 }
 

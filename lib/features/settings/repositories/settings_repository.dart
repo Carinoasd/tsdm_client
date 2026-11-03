@@ -174,6 +174,7 @@ final class SettingsRepository with LoggerMixin {
       homepagePinnedGroup: s.extract(_SK.homepagePinnedGroup),
       notificationPermissionPrompted: s.extract(_SK.notificationPermissionPrompted),
       postImageAutoLoad: s.extract(_SK.postImageAutoLoad),
+      editorQuickPhrases: s.extract(_SK.editorQuickPhrases),
     );
   }
 

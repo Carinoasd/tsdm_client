@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
+import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
@@ -242,6 +243,7 @@ final List<RouteBase> _appRoutes = [
       return FastReplyTemplateEditPage(editType, initialValue);
     },
   ),
+  AppRoute(path: ScreenPaths.quickPhrases, builder: (_) => const QuickPhrasesPage()),
   AppRoute(path: ScreenPaths.noticeSearch, builder: (_) => const NotificationSearchPage()),
   AppRoute(path: ScreenPaths.notificationSyncAll, builder: (_) => const NotificationSyncAllPage()),
   AppRoute(

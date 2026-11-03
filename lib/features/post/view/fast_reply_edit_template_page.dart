@@ -58,8 +58,10 @@ class _FastReplyTemplateEditPageState extends State<FastReplyTemplateEditPage> w
 
   final panelController = ChatBottomPanelContainerController<_BottomPanelType>();
 
+  // A template is itself a saved reply: the quick phrases stay out of it.
   final disabledFeatures = Set<EditorFeatures>.from(defaultFullScreenDisabledEditorFeatures)
-    ..remove(EditorFeatures.free);
+    ..remove(EditorFeatures.free)
+    ..add(EditorFeatures.quickPhrases);
 
   _BottomPanelType panelType = _BottomPanelType.none;
 
