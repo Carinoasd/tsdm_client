@@ -774,7 +774,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     _searchDebounce?.cancel();
     final bloc = _threadBloc;
     final pattern = threadSearchPattern(text);
-    if (!mounted || !_searching || bloc == null || pattern?.pattern == _searchPattern?.pattern) {
+    // The same words in another case find the same hits: the search goes on from the current hit.
+    if (!mounted || !_searching || bloc == null || _sameSearch(pattern, _searchPattern)) {
       return;
     }
     _searchedPages.clear();
@@ -788,6 +789,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     }
     _revealHit(_hitFromTop(hits, bloc.state.postList));
   }
+
+  /// Whether [a] and [b] search for the same words: the words in any case ([threadSearchPattern]).
+  static bool _sameSearch(RegExp? a, RegExp? b) => a?.pattern.toLowerCase() == b?.pattern.toLowerCase();
 
   /// The search field was submitted: the words typed at once, else the next hit; nothing while they are composed.
   void _onSearchSubmitted(String text) {
@@ -804,7 +808,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// The floors of [state] the search finds, in the order they are shown, the floors of blocked users and the quotes
   /// of their floors left out as on screen ([BlockAwarePost]); none while nothing is searched.
   ///
-  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]).
+  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]): the hits found are kept
+  /// ([_searchFound]), and a build reads them once, at its start, for the search bar and the floors alike.
   List<Post> _searchHits(BuildContext context, ThreadState state, {bool listen = true}) {
     final pattern = _searchPattern;
     if (!_searching || pattern == null) {
@@ -942,9 +947,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
   /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
   /// ([bottom]).
-  PreferredSizeWidget _buildSearchBar(BuildContext context, ThreadState state, PreferredSizeWidget bottom) {
+  PreferredSizeWidget _buildSearchBar(
+    BuildContext context,
+    ThreadState state,
+    PreferredSizeWidget bottom,
+    List<Post> hits,
+  ) {
     final tr = context.t.threadPage.search;
-    final hits = _searchHits(context, state);
     final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
     final side = _searchLoadSide(state);
     // Offered at the end of the hits the way the page would be added (after them, or before them).
@@ -1020,15 +1029,17 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// [hits] holds the floor keys ([floorKeyOf]) of the hits: the copy of a floor as a hot reply is not marked with
   /// the floor (it is not a hit of its own).
   ///
-  /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends.
+  /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends. The
+  /// words are marked the same in every hit, only the line tells the current one: going from hit to hit changes
+  /// nothing the content was munched from, so no floor is munched again (the marks are part of the munched content).
   Widget _markSearchHit(BuildContext context, Post post, Set<String> hits, Widget card) {
     final hit = _searchPattern != null && hits.contains(floorKeyOf(post));
     final colorScheme = Theme.of(context).colorScheme;
     final current = hit && post.postID == _searchCurrentPid;
     return SearchHighlightScope(
       pattern: hit ? _searchPattern : null,
-      background: current ? colorScheme.primary : colorScheme.primaryContainer,
-      foreground: current ? colorScheme.onPrimary : colorScheme.onPrimaryContainer,
+      background: colorScheme.primaryContainer,
+      foreground: colorScheme.onPrimaryContainer,
       child: Stack(
         // The card is laid out as without the mark.
         fit: StackFit.passthrough,
@@ -1241,9 +1252,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       ..requestFocus();
   }
 
-  Widget _buildContent(BuildContext context, ThreadState state) {
+  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
+  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
-    final searchHits = {for (final post in _searchHits(context, state)) floorKeyOf(post)};
+    final searchHits = {for (final post in hits) floorKeyOf(post)};
     if (_scrollToPidOnReload != null) {
       // Consumed by the PostList created in this build.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPidOnReload = null);
@@ -1427,7 +1439,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       : ThreadLoadMoreRequested(state.currentPage);
 
   /// Body of the page; everything but the content (which handles the insets per part) stays in the safe area.
-  Widget _buildBody(BuildContext context, ThreadState state) {
+  /// The body of the page for [state], [hits] the hits of the search ([_searchHits]).
+  Widget _buildBody(BuildContext context, ThreadState state, List<Post> hits) {
     Widget safe(Widget child) => SafeArea(bottom: false, child: child);
     if (state.needLogin) {
       return safe(
@@ -1453,13 +1466,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     return switch (state.status) {
       ThreadStatus.initial || ThreadStatus.loading => const CenteredCircularIndicator(),
       // A failed reload keeps the previous posts (see ThreadBloc); only an empty page gets the retry button.
-      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state),
+      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state, hits),
       ThreadStatus.failure => safe(
         buildRetryButton(context, () {
           context.read<ThreadBloc>().add(_retryLoad(state));
         }),
       ),
-      ThreadStatus.success => _buildContent(context, state),
+      ThreadStatus.success => _buildContent(context, state, hits),
     };
   }
 
@@ -1723,9 +1736,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
               child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
             );
+            // The hits of the search, found once for the search bar and the floors.
+            final searchHits = _searchHits(context, state);
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
             final appBar = _searching
-                ? _buildSearchBar(context, state, breadcrumbs)
+                ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
                     title: title,
                     bottom: breadcrumbs,
@@ -1811,7 +1826,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             _appBarCollapser.barHeight = appBar.preferredSize.height;
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
             // The content's text-scale override must not restore the outer status-bar padding.
-            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));
+            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state, searchHits));
             // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
             // not rebuilt.
             // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own

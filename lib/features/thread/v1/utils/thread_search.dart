@@ -1,4 +1,5 @@
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/html/hidden_content.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -18,7 +19,10 @@ final _texts = Expando<(String, String)>('thread search text');
 
 /// The text of [post] searched, read from [data] (the content as shown: the quotes of blocked users replaced, see
 /// `BlockAwarePost`; the content of the post when null): without the markup (quotes in it included; the signature is
-/// not part of it), what is hidden in it left out (jammer text, styles, scripts), and its author's name.
+/// not part of it), what is not shown in it left out as the content shows it ([HiddenContent]: hidden by an
+/// attribute, a style or the style sheets, the jammer text, scripts and styles; the content of a fold the post made
+/// itself is shown, so searched). The author's name is searched apart ([threadSearchHits]), never with the text: the
+/// words searched for are not found across the two.
 ///
 /// A line break or a block ends a word: `a<br>b` and `<div>a</div><div>b</div>` read as two words, not as `ab`.
 String threadSearchText(Post post, {String? data}) {
@@ -26,7 +30,7 @@ String threadSearchText(Post post, {String? data}) {
   if (_texts[post] case (final source, final text) when identical(source, html) || source == html) {
     return text;
   }
-  final text = _textOf(post, html);
+  final text = _textOf(html);
   _texts[post] = (html, text);
   return text;
 }
@@ -38,26 +42,25 @@ const _blocks = {
   'nav', 'ol', 'p', 'pre', 'section', 'summary', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul', //
 };
 
-String _textOf(Post post, String html) {
+String _textOf(String html) {
   final body = parseHtmlDocument(html).body;
-  final text = StringBuffer('${post.author.name}\n');
-  if (body != null) {
-    for (final hidden in body.querySelectorAll(
-      'script, style, .jammer, [style*="display:none"], [style*="display: none"]',
-    )) {
-      hidden.remove();
-    }
-    _write(body, text);
+  if (body == null) {
+    return '';
   }
+  final text = StringBuffer();
+  _write(body, text, HiddenContent.of(body, postContent: true));
   return text.toString();
 }
 
-void _write(uh.Node node, StringBuffer text) {
+void _write(uh.Node node, StringBuffer text, HiddenContent hidden) {
   for (final child in node.nodes) {
     if (child is uh.Text) {
       text.write(child.data);
     } else if (child is uh.Element) {
       final tag = child.localName.toLowerCase();
+      if (HiddenContent.invisibleElements.contains(tag) || hidden.leavesOut(child)) {
+        continue;
+      }
       if (tag == 'br') {
         text.write('\n');
         continue;
@@ -66,7 +69,7 @@ void _write(uh.Node node, StringBuffer text) {
       if (block) {
         text.write('\n');
       }
-      _write(child, text);
+      _write(child, text, hidden);
       if (block) {
         text.write('\n');
       }
@@ -74,9 +77,10 @@ void _write(uh.Node node, StringBuffer text) {
   }
 }
 
-/// The floors of [posts] (in the order shown) that [pattern] is found in, each once: a hot reply only when the floor
-/// it copies is not among [posts]; never a floor that [hidden] says is not shown. [shownData] gives the content of a
-/// post as shown (its quotes of blocked users replaced), the post's content when null.
+/// The floors of [posts] (in the order shown) that [pattern] is found in (in their text, [threadSearchText], or in
+/// their author's name), each once: a hot reply only when the floor it copies is not among [posts]; never a floor that
+/// [hidden] says is not shown. [shownData] gives the content of a post as shown (its quotes of blocked users
+/// replaced), the post's content when null.
 List<Post> threadSearchHits(
   List<Post> posts,
   RegExp pattern, {
@@ -92,7 +96,8 @@ List<Post> threadSearchHits(
     for (final post in posts)
       if (!(post.hot && floors.contains(post.postID)) &&
           !(hidden?.call(post) ?? false) &&
-          pattern.hasMatch(threadSearchText(post, data: shownData?.call(post))) &&
+          (pattern.hasMatch(post.author.name) ||
+              pattern.hasMatch(threadSearchText(post, data: shownData?.call(post)))) &&
           seen.add(post.postID))
         post,
   ];

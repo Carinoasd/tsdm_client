@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 ///
 /// Only a post's content is marked (`PostTypographyScope.postContent`), and only text that holds the whole of a
 /// match in one piece: a word split by the markup inside it (a color on half of it) is found by the search, not marked.
+///
+/// The marks are part of the munched content, which is kept across builds (`MunchedHtml`) and munched again when the
+/// [identity] changes: every hit of a search is marked in the same colors, so the floors are not munched again when
+/// the current hit moves from one to another.
 class SearchHighlightScope extends InheritedWidget {
   /// Constructor.
   const SearchHighlightScope({
