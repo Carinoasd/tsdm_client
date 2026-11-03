@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
+import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -149,7 +150,13 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     // The actions follow the account the device acts as, also before the stored session was verified (an offline
     // start, a thread opened from a link): the own floor must not offer "add friend" then.
     final accountUid = auth?.effectiveCurrentUid;
-    final isSelf = authorUid != null && authorUid == accountUid;
+    final accountName = auth?.effectiveCurrentUser?.username;
+    // A floor without a uid names the author only: then the name decides, as the member thread route does.
+    final isSelf = authorUid != null && authorUid > 0
+        ? authorUid == accountUid
+        : accountName != null &&
+              widget.profile.username.isNotEmpty &&
+              forumUsernameKey(widget.profile.username) == forumUsernameKey(accountName);
     // The title badge needs a verified current account; the uid is compared again by the badge against the title it
     // holds.
     final ownFloor = widget.secondBadge == null && authorUid != null && authorUid == auth?.currentUser?.uid;
@@ -531,7 +538,8 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
 ///
 /// Compact, and friend and block are icons only. On a phone the dialog content is about 200 wide (a 360 wide window:
 /// 204, see [briefProfileDialogContentWidth]), too narrow for the chips to wrap into two rows by themselves: there the
-/// two list chips share the first row and the actions take the second. Wider content lets the chips wrap naturally.
+/// two list chips share the first row (each at its own width, shrunk only when the row is too narrow) and the actions
+/// take the second. Wider content lets the chips wrap naturally.
 class _AuthorActions extends StatelessWidget {
   const _AuthorActions({
     required this.uid,
@@ -640,7 +648,7 @@ class _AuthorActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: 8,
       children: [
-        if (lists.isNotEmpty) Row(spacing: 8, children: lists.map((e) => Expanded(child: e)).toList()),
+        if (lists.isNotEmpty) Row(spacing: 8, children: lists.map((e) => Flexible(child: e)).toList()),
         if (actions.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: actions),
       ],
     );
