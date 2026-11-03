@@ -13,6 +13,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -111,7 +112,9 @@ String _floor(int floor) {
 <td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
 </strong><div class="authi"><a href="home.php?mod=space&amp;uid=1000" class="xi2">Bob</a></div></div>
 <div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor text<br />${'line<br />' * 6}
-</div></div></div></td>
+</div></div></div>
+<div class="pob"><em><a class="fastre" href="forum.php?mod=post&amp;action=reply&amp;fid=8&amp;tid=$_tid&amp;repquote=$pid">回复</a></em></div>
+</td>
 </tr></tbody></table></div>''';
 }
 
@@ -297,8 +300,12 @@ void main() {
         await pumpThread(tester);
         await tester.tap(floorText(1));
         await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget, reason: 'the floor took the tap: the editor for it');
         expect(appBarShown(tester), 1);
         expect(bottomBarsHeight(tester), greaterThan(0));
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
 
         // Outside the floors (the title above them) it still hides the bars.
         await tester.tap(listTitle);
@@ -336,6 +343,36 @@ void main() {
         expect(appBarShown(tester), 1);
         await leave(tester);
       });
+
+      testWidgets('replying to a floor shows the bars again', (tester) async {
+        await set(tester, SettingsKeys.threadFloorInteractionMode, ThreadFloorInteractionMode.tapToReply);
+        await pumpThread(tester);
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 0);
+        expect(bottomBarsHeight(tester), 0);
+
+        await tester.tap(floorText(1));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget, reason: 'the editor for the floor');
+        expect(appBarShown(tester), 1);
+        expect(bottomBarsHeight(tester), greaterThan(0));
+        await leave(tester);
+      });
+
+      testWidgets('no immersive reading while the editor is open', (tester) async {
+        await set(tester, SettingsKeys.threadFloorInteractionMode, ThreadFloorInteractionMode.tapToReply);
+        await pumpThread(tester);
+        await tester.tap(floorText(1));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget);
+
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1);
+        expect(bottomBarsHeight(tester), greaterThan(0));
+        await leave(tester);
+      });
     });
 
     group('swiping pages', () {
@@ -368,6 +405,20 @@ void main() {
         await leave(tester);
       });
 
+      testWidgets('on: nothing after the last page', (tester) async {
+        await set(tester, SettingsKeys.threadSwipePaging, true);
+        await pumpThread(tester);
+        await swipe(tester, const Offset(-250, 0));
+        await swipe(tester, const Offset(-250, 0));
+        expect(forum.pages, [1, 2, 3]);
+        expect(floorText(21), findsOneWidget);
+
+        await swipe(tester, const Offset(-250, 0));
+        expect(forum.pages, [1, 2, 3]);
+        expect(floorText(21), findsOneWidget);
+        await leave(tester);
+      });
+
       testWidgets('on: scrolling up and down, or askew, turns no page', (tester) async {
         await set(tester, SettingsKeys.threadSwipePaging, true);
         await pumpThread(tester);
@@ -385,11 +436,13 @@ void main() {
     late List<ThreadSwipe> swipes;
     late int taps;
     late int buttonTaps;
+    late int longPresses;
 
     Future<void> pumpGestures(WidgetTester tester) async {
       swipes = [];
       taps = 0;
       buttonTaps = 0;
+      longPresses = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -407,6 +460,11 @@ void main() {
                     ),
                   ),
                   TextButton(onPressed: () => buttonTaps++, child: const Text('button')),
+                  // A floor's menu on a long press (`AdaptiveInkResponse` on a phone).
+                  GestureDetector(
+                    onLongPressStart: (_) => longPresses++,
+                    child: const SizedBox(height: 60, child: Text('hold')),
+                  ),
                   for (var i = 0; i < 60; i++) SizedBox(height: 60, child: Text('row $i')),
                 ],
               ),
@@ -450,6 +508,41 @@ void main() {
       await second.up();
       await tester.pumpAndSettle();
       expect(swipes, isEmpty);
+    });
+
+    testWidgets('a long press is no swipe, even sliding sideways after it', (tester) async {
+      await pumpGestures(tester);
+      final hold = await tester.startGesture(tester.getCenter(find.text('hold')));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      expect(longPresses, 1);
+      await hold.moveBy(const Offset(-100, 0));
+      await hold.moveBy(const Offset(-100, 0));
+      await hold.up();
+      await tester.pumpAndSettle();
+      expect(swipes, isEmpty);
+
+      // Moving first, then a pause on the way: still a swipe.
+      final slow = await tester.startGesture(tester.getCenter(find.text('row 3')));
+      await slow.moveBy(const Offset(-40, 0));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await slow.moveBy(const Offset(-160, 0));
+      await slow.up();
+      await tester.pumpAndSettle();
+      expect(swipes, [ThreadSwipe.next]);
+    });
+
+    testWidgets('a mouse dragging is no swipe, whatever the button', (tester) async {
+      await pumpGestures(tester);
+      final y = tester.getCenter(find.text('row 3')).dy;
+      for (final buttons in [kPrimaryButton, kSecondaryButton, kMiddleMouseButton]) {
+        await tester.dragFrom(Offset(400, y), const Offset(-200, 0), kind: PointerDeviceKind.mouse, buttons: buttons);
+        await tester.pumpAndSettle();
+      }
+      expect(swipes, isEmpty);
+
+      await tester.dragFrom(Offset(400, y), const Offset(-200, 0), kind: PointerDeviceKind.stylus);
+      await tester.pumpAndSettle();
+      expect(swipes, [ThreadSwipe.next]);
     });
 
     testWidgets('a button keeps its tap; a tap that stops a fling is no tap', (tester) async {

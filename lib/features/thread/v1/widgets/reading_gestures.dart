@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -18,7 +21,8 @@ enum ThreadSwipe {
 /// * a swipe sideways ([onSwipe]): told when the finger lifted [minSwipeDistance] away sideways from where it went
 ///   down and moved at least twice as far sideways as up or down. Never for a touch that scrolled anything sideways on
 ///   its way (a table, a code block, a gallery in a floor, at its end too), that started at the edge of the screen (the
-///   back gesture of the system), or with a second finger.
+///   back gesture of the system), with a second finger, or that held still as long as a long press (a floor's menu
+///   opens: the finger then slides to its items). Only fingers and pens swipe: a mouse dragging does not.
 ///
 /// Neither competes with the gestures of the floors: the swipe is read from the pointer itself ([Listener]), the tap
 /// is the last one asked.
@@ -53,6 +57,12 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
   /// The touch of [_pointer] is no swipe whatever it does.
   bool _swipeBlocked = false;
 
+  /// The touch of [_pointer] moved past the touch slop: no long press any more.
+  bool _movedPastSlop = false;
+
+  /// Runs out when the touch of [_pointer] held still as long as a long press.
+  Timer? _longPressTimer;
+
   /// The list (the one of the floors, not one in a floor) stopped since the last frame: a finger that just went down
   /// stopped it (a fling, a scroll to a floor), the scroll end told before the finger reaches here. A list that stops
   /// by itself does so in a frame and is cleared at its end.
@@ -78,7 +88,19 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     return false;
   }
 
+  /// Fingers and pens: a mouse drag (any button) is no swipe, a mouse does not drag the list either.
+  static bool _swipesWith(PointerDeviceKind kind) =>
+      kind == PointerDeviceKind.touch ||
+      kind == PointerDeviceKind.stylus ||
+      kind == PointerDeviceKind.invertedStylus;
+
   void _onPointerDown(PointerDownEvent event) {
+    if (_pointer == null) {
+      _downStoppedList = _listJustStopped;
+    }
+    if (!_swipesWith(event.kind)) {
+      return;
+    }
     if (_pointer != null) {
       // A second finger: a pinch or the like, no swipe.
       _swipeBlocked = true;
@@ -86,18 +108,38 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     }
     _pointer = event.pointer;
     _start = event.position;
-    _downStoppedList = _listJustStopped;
     final width = MediaQuery.sizeOf(context).width;
     _swipeBlocked =
         event.position.dx < ThreadReadingGestures.edgeWidth ||
         event.position.dx > width - ThreadReadingGestures.edgeWidth;
+    _movedPastSlop = false;
+    _longPressTimer?.cancel();
+    // Held still that long, the touch is a long press (a floor's menu opens), whatever it does after.
+    _longPressTimer = Timer(kLongPressTimeout, () => _swipeBlocked = true);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer || _movedPastSlop) {
+      return;
+    }
+    if ((event.position - _start).distance > kTouchSlop) {
+      _movedPastSlop = true;
+      _longPressTimer?.cancel();
+      _longPressTimer = null;
+    }
+  }
+
+  void _endTouch() {
+    _pointer = null;
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
   }
 
   void _onPointerUp(PointerUpEvent event) {
     if (event.pointer != _pointer) {
       return;
     }
-    _pointer = null;
+    _endTouch();
     final onSwipe = widget.onSwipe;
     if (_swipeBlocked || onSwipe == null) {
       return;
@@ -110,8 +152,14 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
 
   void _onPointerCancel(PointerCancelEvent event) {
     if (event.pointer == _pointer) {
-      _pointer = null;
+      _endTouch();
     }
+  }
+
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
   }
 
   void _onTap() {
@@ -123,6 +171,7 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
   @override
   Widget build(BuildContext context) => Listener(
     onPointerDown: _onPointerDown,
+    onPointerMove: _onPointerMove,
     onPointerUp: _onPointerUp,
     onPointerCancel: _onPointerCancel,
     child: NotificationListener<ScrollNotification>(
