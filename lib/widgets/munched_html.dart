@@ -49,13 +49,15 @@ class _MunchedHtmlState extends State<MunchedHtml> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Reading these registers the dependencies, so a change lands here again and drops the kept spans.
+    final postContent = PostTypographyScope.isPostContent(context);
     final deps = _MunchDeps(
       theme: Theme.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       locale: Localizations.maybeLocaleOf(context),
       typography: PostTypographyScope.maybeOf(context),
-      postContent: PostTypographyScope.isPostContent(context),
-      highlight: SearchHighlightScope.maybeOf(context)?.identity,
+      postContent: postContent,
+      // Only a post's content is marked: a signature under the same scope does not depend on the words searched for.
+      highlight: postContent ? SearchHighlightScope.maybeOf(context)?.identity : null,
     );
     final cache = MunchCacheScope.maybeOf(context);
     if (deps != _deps || cache != _cache) {

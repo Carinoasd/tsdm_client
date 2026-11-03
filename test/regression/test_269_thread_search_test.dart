@@ -19,8 +19,10 @@ import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -32,11 +34,19 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 
 /// Search in a thread (the app bar's "search in thread"): the floors on screen are searched, their text without the
 /// markup and their authors, whatever the case; the previous and next hits go round the hits in the order shown; the
 /// hits are marked (a line at the floor's side, the words in its text) until the search is closed; pages not loaded
 /// are offered to load, and searched once they are.
+///
+/// Review follow-up: words are searched once they settle and not while composed by an input method; the search bar
+/// stays (the bar does not collapse) and is as tall as the app bar; back closes the search, not the page, and the page
+/// stays one that may be closed on its own; a page loaded for the search never drops the page read; the current hit
+/// gone (its author blocked) moves to the closest one; the hot copy of a floor is not marked; quotes of blocked users
+/// and words split by a line break are not hits; the real newest first order and one author's floors are searched in
+/// the order shown.
 ///
 /// The thread pages are synthetic (grounded in the Discuz template), no real account or network.
 const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
@@ -71,13 +81,20 @@ final class _OfflineAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-/// Serves the thread page asked for (`page=N`) from [pages].
+/// Serves the thread page asked for (`page=N`) from [pages]; asked newest first (`ordertype=1`), from [newestFirst]
+/// when set; asked for one author's floors (`authorid`), from [byAuthor] when set.
 final class _ThreadAdapter implements HttpClientAdapter {
   _ThreadAdapter(this.pages);
 
   List<String> pages;
 
+  List<String>? newestFirst;
+
+  Map<String, List<String>>? byAuthor;
+
   final asked = <int>[];
+
+  final queries = <Map<String, String>>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -86,10 +103,17 @@ final class _ThreadAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     expect(options.method, 'GET', reason: 'search tests must never perform a forum write');
-    final page = (int.tryParse(options.uri.queryParameters['page'] ?? '') ?? 1).clamp(1, pages.length);
+    final query = options.uri.queryParameters;
+    queries.add(query);
+    final served = switch ((query['ordertype'], query['authorid'])) {
+      (_, final String uid) when byAuthor?[uid] != null => byAuthor![uid]!,
+      ('1', _) when newestFirst != null => newestFirst!,
+      _ => pages,
+    };
+    final page = (int.tryParse(query['page'] ?? '') ?? 1).clamp(1, served.length);
     asked.add(page);
     return ResponseBody.fromString(
-      pages[page - 1],
+      served[page - 1],
       200,
       headers: {
         Headers.contentTypeHeader: ['text/html; charset=utf-8'],
@@ -104,16 +128,17 @@ final class _ThreadAdapter implements HttpClientAdapter {
 /// Post id of floor [floor].
 int _pid(int floor) => 9000 + floor;
 
-/// A floor, tall enough (many lines) that the list is far from its end on the first floors.
-String _floor(int floor, {String text = '', String name = 'Alice', int uid = 1000}) {
+/// A floor, tall enough (many lines) that the list is far from its end on the first floors; [hot] for its copy as a
+/// hot reply (numbered -1 by the forum).
+String _floor(int floor, {String text = '', String name = 'Alice', int uid = 1000, int lines = 30, bool hot = false}) {
   final pid = _pid(floor);
-  final lines = '<br>line' * 30;
+  final more = '<br>line' * lines;
   return '''
 <div id="post_$pid"><table><tbody><tr>
 <td class="pls"></td>
-<td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>$floor</em></a>
+<td class="plc"><div class="pi"><strong><a href="forum.php?mod=redirect&goto=findpost&pid=$pid"><em>${hot ? -1 : floor}</em></a>
 </strong><div class="authi"><a href="home.php?mod=space&amp;uid=$uid" class="xi2">$name</a></div></div>
-<div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor $text$lines</div></div></div></td>
+<div class="pct"><div class="pcb"><div class="t_f" id="postmessage_$pid">floor $floor $text$more</div></div></div></td>
 </tr></tbody></table></div>''';
 }
 
@@ -205,21 +230,32 @@ void main() {
     await db.close();
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  /// The thread page opened at [page]; [stacked] over a home page (`/`) it can be closed to.
+  Future<void> pump(
+    WidgetTester tester, {
+    int page = 1,
+    bool reverseOrder = false,
+    String? onlyVisibleUid,
+    bool stacked = false,
+  }) async {
     final info = NotificationInfoRepository();
     final counts = NotificationStateCubit(info);
     final cubit = UserBlockCubit(repository: blocks, currentUid: () => _alice.uid, authStatus: auth.status);
+    final thread = ThreadPage(
+      threadID: '1269',
+      findPostID: null,
+      pageNumber: '$page',
+      overrideReverseOrder: reverseOrder,
+      overrideWithExactOrder: null,
+      onlyVisibleUid: onlyVisibleUid,
+    );
     final router = GoRouter(
+      initialLocation: stacked ? '/thread' : '/',
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, _) => const ThreadPage(
-            threadID: '1269',
-            findPostID: null,
-            pageNumber: '1',
-            overrideReverseOrder: false,
-            overrideWithExactOrder: null,
-          ),
+          builder: (_, _) => stacked ? const Scaffold(body: Text('home')) : thread,
+          routes: [GoRoute(path: 'thread', builder: (_, _) => thread)],
         ),
       ],
     );
@@ -259,6 +295,7 @@ void main() {
   Finder hitMark(int floor) => find.byKey(ValueKey('thread-search-hit-${_pid(floor)}'));
   Finder appBarMenu() => find.descendant(of: find.byType(AppBar), matching: find.byIcon(Icons.more_vert));
   Finder loadMore() => find.byKey(const ValueKey('thread-search-load-more'));
+  bool loadMoreEnabled(WidgetTester tester) => tester.widget<IconButton>(loadMore()).onPressed != null;
 
   Future<void> openSearch(WidgetTester tester) async {
     await tester.tap(appBarMenu());
@@ -388,6 +425,32 @@ void main() {
     await holdEnds(tester);
   });
 
+  testWidgets('going from hit to hit keeps the state of the floors', (tester) async {
+    // Short floors: all of them on screen together.
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(800, 3000);
+    addTearDown(tester.view.reset);
+    adapter.pages = [
+      _threadPage([
+        for (var f = 1; f <= 8; f++)
+          _floor(f, text: f == 3 ? 'a Needle here' : (f == 6 ? 'NEEDLE again' : 'hay'), lines: 1),
+      ]),
+    ];
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    State<StatefulWidget> card(String text) =>
+        tester.state(find.ancestor(of: find.textContaining(text, findRichText: true), matching: find.byType(PostCard)));
+    final third = card('floor 3 a Needle');
+    final sixth = card('floor 6 NEEDLE');
+    await tapKey(tester, 'next');
+    expect(countText(tester), '2 / 2');
+    expect(card('floor 3 a Needle'), same(third), reason: 'the floor left is not built anew');
+    expect(card('floor 6 NEEDLE'), same(sixth), reason: 'the floor gone to is not built anew');
+    await holdEnds(tester);
+  });
+
   testWidgets('newest first, the hits go in the order shown', (tester) async {
     adapter.pages = _onePage(reversed: true);
     await pump(tester);
@@ -451,6 +514,296 @@ void main() {
     await tapKey(tester, 'next');
     expect(countText(tester), '2 / 2');
     expectAtTop(tester, 15);
+    await holdEnds(tester);
+  });
+
+  testWidgets('the words are searched once they settled for a moment, not at every key', (tester) async {
+    await pump(tester);
+    await openSearch(tester);
+    await tester.enterText(searchField(), 'needle');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(count(), findsNothing, reason: 'still typing: nothing searched yet');
+    expect(hitMark(3), findsNothing);
+    await tester.enterText(searchField(), 'needle ');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(count(), findsNothing, reason: 'every key starts the wait again');
+    await tester.pump(const Duration(milliseconds: 150));
+    await settle(tester);
+    expect(countText(tester), '1 / 4');
+    await holdEnds(tester);
+  });
+
+  testWidgets('nothing is searched while the input method composes the words', (tester) async {
+    await pump(tester);
+    await openSearch(tester);
+    await tester.showKeyboard(searchField());
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'needle',
+        selection: TextSelection.collapsed(offset: 6),
+        composing: TextRange(start: 0, end: 6),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(count(), findsNothing, reason: 'the words are not chosen yet');
+    expect(hitMark(3), findsNothing, reason: 'nothing brought into view while composing');
+    // Enter while composing chooses the words; it does not search.
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    expect(count(), findsNothing);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(text: 'needle', selection: TextSelection.collapsed(offset: 6)),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await settle(tester);
+    expect(countText(tester), '1 / 4', reason: 'searched once the words are chosen, the text unchanged');
+    expectAtTop(tester, 3);
+    await holdEnds(tester);
+  });
+
+  testWidgets('Enter goes to the next hit and the field keeps the focus', (tester) async {
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await holdEnds(tester);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await settle(tester);
+    expect(countText(tester), '2 / 4');
+    final editable = find.descendant(of: searchField(), matching: find.byType(EditableText));
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue, reason: 'still in the search field');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await settle(tester);
+    expect(countText(tester), '3 / 4');
+    await holdEnds(tester);
+  });
+
+  testWidgets('the search bar is as tall as the app bar and stays while the floors are scrolled', (tester) async {
+    await pump(tester);
+    final height = tester.getSize(find.byType(CollapsingAppBar)).height;
+    await openSearch(tester);
+    expect(tester.getSize(find.byType(CollapsingAppBar)).height, height, reason: 'the floors do not move');
+    await type(tester, 'nowhere');
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 500));
+    await settle(tester);
+    expect(tester.getSize(find.byType(CollapsingAppBar)).height, height, reason: 'the search bar does not collapse');
+    expect(tester.getRect(searchField()).top, greaterThanOrEqualTo(0));
+
+    await tapKey(tester, 'close');
+    expect(tester.getSize(find.byType(CollapsingAppBar)).height, height);
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 500));
+    await settle(tester);
+    expect(
+      tester.getSize(find.byType(CollapsingAppBar)).height,
+      lessThan(height),
+      reason: 'the app bar collapses again',
+    );
+  });
+
+  testWidgets('back closes the search first, then the page; the page may still be closed on its own', (tester) async {
+    await pump(tester, stacked: true);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await holdEnds(tester);
+    final route = ModalRoute.of(tester.element(find.byType(ThreadPage)))!;
+    expect(route.popDisposition, isNot(RoutePopDisposition.doNotPop), reason: 'no PopScope holding the page');
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(searchField(), findsNothing, reason: 'the search closed');
+    expect(find.byType(ThreadPage), findsOneWidget, reason: 'the page stays');
+    expect(hitMark(3), findsNothing);
+    await tester.binding.handlePopRoute();
+    // The page goes away over a few frames.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    await settle(tester);
+    expect(find.byType(ThreadPage), findsNothing, reason: 'then back closes the page');
+    expect(find.text('home'), findsOneWidget);
+  });
+
+  testWidgets('asked newest first, the hits go in the order the forum shows them', (tester) async {
+    final floors = [
+      for (var f = 1; f <= 10; f++)
+        _floor(f, text: f == 3 || f == 6 || f == 9 ? 'needle' : 'hay', name: f == 5 ? 'NeedleFan' : 'Alice'),
+    ];
+    // The forum keeps the first floor first and puts the latest replies after it.
+    adapter.newestFirst = [
+      _threadPage([floors.first, ...floors.skip(1).toList().reversed]),
+    ];
+    await tester.runAsync(() => settings.setValue(SettingsKeys.threadReverseOrder, true));
+    await pump(tester, reverseOrder: true);
+    expect(adapter.queries.first['ordertype'], '1');
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 4');
+    expectAtTop(tester, 9);
+    for (final floor in [6, 5, 3, 9]) {
+      await tapKey(tester, 'next');
+      expectAtTop(tester, floor);
+    }
+    await holdEnds(tester);
+  });
+
+  testWidgets("one author's floors are searched, only theirs", (tester) async {
+    adapter.byAuthor = {
+      '1000': [
+        _threadPage([
+          for (final f in [1, 3, 6, 9]) _floor(f, text: f == 1 ? 'hay' : 'needle'),
+        ]),
+      ],
+    };
+    await pump(tester, onlyVisibleUid: '1000');
+    expect(adapter.queries.first['authorid'], '1000');
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 3');
+    expectAtTop(tester, 3);
+    await tapKey(tester, 'next');
+    expectAtTop(tester, 6);
+    await tapKey(tester, 'previous');
+    await tapKey(tester, 'previous');
+    expect(countText(tester), '3 / 3');
+    expectAtTop(tester, 9);
+    await holdEnds(tester);
+  });
+
+  testWidgets('the hot copy of a floor is not marked with it', (tester) async {
+    // Tall enough for every floor to be built.
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.reset);
+    adapter.pages = [
+      _threadPage([
+        _floor(3, text: 'a Needle here', lines: 1, hot: true),
+        for (var f = 1; f <= 4; f++) _floor(f, text: f == 3 ? 'a Needle here' : 'hay', lines: 1),
+      ]),
+    ];
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 1', reason: 'the floor once');
+    await holdEnds(tester);
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 2000));
+    await settle(tester);
+    expect(find.textContaining('a Needle here', findRichText: true), findsNWidgets(2), reason: 'both built');
+    expect(hitMark(3), findsOneWidget, reason: 'the floor marked, not its copy');
+    expect(marked(tester), ['Needle'], reason: 'the words marked in the floor only');
+  });
+
+  testWidgets('the quote of a blocked user and words split by a line break are not hits', (tester) async {
+    adapter.pages = [
+      _threadPage([
+        _floor(1, text: 'hay'),
+        _floor(2, text: 'needle from Bob', name: 'Bob', uid: 3000),
+        _floor(
+          3,
+          text:
+              '<div class="quote"><blockquote><a href="forum.php?mod=redirect&amp;goto=findpost&amp;pid=${_pid(2)}'
+              '&amp;ptid=1269">Bob 发表于 2026-11-3</a><br>needle from Bob</blockquote></div>hay',
+        ),
+        _floor(4, text: 'nee<br>dle'),
+        _floor(5, text: '<div>nee</div><div>dle</div>'),
+        _floor(6, text: 'hay<br>needle'),
+      ]),
+    ];
+    await tester.runAsync(() => blocks.block(ownerUid: _alice.uid, uid: 3000, username: 'Bob'));
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 1', reason: 'only floor 6: Bob hidden, his quote replaced, nee|dle two words');
+    expectAtTop(tester, 6);
+    await holdEnds(tester);
+  });
+
+  testWidgets('the current hit gone (its author blocked) moves to the closest hit, never 0 / N', (tester) async {
+    adapter.pages = [
+      _threadPage([
+        for (var f = 1; f <= 10; f++)
+          _floor(
+            f,
+            text: f == 3 || f == 6 || f == 9 ? 'needle' : 'hay',
+            name: f == 6 ? 'Bob' : 'Alice',
+            uid: f == 6 ? 3000 : 1000,
+          ),
+      ]),
+    ];
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await tapKey(tester, 'next');
+    expect(countText(tester), '2 / 3');
+    expectAtTop(tester, 6);
+    await holdEnds(tester);
+    await tester.runAsync(() => blocks.block(ownerUid: _alice.uid, uid: 3000, username: 'Bob'));
+    await settle(tester);
+    expect(countText(tester), '2 / 2', reason: 'floor 9, the hit after the one gone');
+    await tapKey(tester, 'next');
+    expect(countText(tester), '1 / 2');
+    expectAtTop(tester, 3);
+    await holdEnds(tester);
+  });
+
+  /// A thread of [pages] pages of eight floors (far from the end: the list asks for no page of its own), the word
+  /// only in the first floor of page [hitPage].
+  List<String> windowPages(int pages, int hitPage) => [
+    for (var p = 1; p <= pages; p++)
+      _threadPage(
+        [
+          for (var f = p * 8 - 7; f <= p * 8; f++) _floor(f, text: p == hitPage && f == p * 8 - 7 ? 'needle' : 'hay'),
+        ],
+        page: p,
+        pages: pages,
+      ),
+  ];
+
+  Future<void> loadForSearch(WidgetTester tester) async {
+    expect(loadMoreEnabled(tester), isTrue);
+    await tester.tap(loadMore());
+    await settle(tester);
+  }
+
+  testWidgets('pages loaded for the search never drop the page read: the button stops instead', (tester) async {
+    adapter.pages = windowPages(12, 1);
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 1');
+    await holdEnds(tester);
+    for (var page = 2; page <= threadWindowPages; page++) {
+      await loadForSearch(tester);
+      expect(adapter.asked.last, page);
+      expect(countText(tester), '1 / 1');
+    }
+    expect(loadMore(), findsOneWidget, reason: 'pages 11 and 12 are not loaded');
+    expect(loadMoreEnabled(tester), isFalse, reason: 'page 11 would drop page 1, the page read');
+    expect(countText(tester), '1 / 1');
+    expectAtTop(tester, 1);
+    await holdEnds(tester);
+  });
+
+  testWidgets('with the window full, the pages before are loaded instead, each page once', (tester) async {
+    adapter.pages = windowPages(12, 3);
+    await pump(tester, page: 3);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    expect(countText(tester), '1 / 1');
+    await holdEnds(tester);
+    for (var page = 4; page <= 12; page++) {
+      await loadForSearch(tester);
+      expect(adapter.asked.last, page);
+    }
+    // Pages 3 to 12 on screen: the page before goes above them and drops page 12, never page 3.
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 2);
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 1, reason: 'page 12 was searched already: not loaded again');
+    expect(loadMoreEnabled(tester), isFalse, reason: 'every page searched');
+    expect(countText(tester), '1 / 1');
+    expectAtTop(tester, 17);
     await holdEnds(tester);
   });
 }

@@ -210,14 +210,22 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   final _searchController = TextEditingController();
   Timer? _searchDebounce;
 
+  /// The words typed last ([_onSearchEdited]), null while the input method composes them.
+  String? _searchTyped;
+
   /// What is searched for, once the words typed settled for a moment ([_searchDelay]); null while nothing is.
   RegExp? _searchPattern;
 
-  /// The hit brought into view last.
+  /// The current hit: the one brought into view last, or the one closest to it when it is not a hit any more
+  /// ([_currentHitAmong]); null only while nothing is found.
   String? _searchCurrentPid;
 
   /// The hits found last and what they were found in, see [_searchHits].
   ({List<Post> posts, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
+
+  /// The pages the words searched for were looked for in: a page loaded for the search ([_searchLoadSide]) is one
+  /// not looked in yet, the pages on screen being at most [threadWindowPages].
+  final _searchedPages = <int>{};
 
   /// The floor at the top of the list, as it told last ([_onTopFloorChanged]): a new search starts from there.
   String? _topPid;
@@ -718,8 +726,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   /// Back to the app bar, nothing marked any more.
   void _closeSearch() {
-    _searchDebounce?.cancel();
     _searchController.clear();
+    _searchDebounce?.cancel();
+    _searchTyped = null;
+    _searchedPages.clear();
     setState(() {
       _searching = false;
       _searchPattern = null;
@@ -728,7 +738,33 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     });
   }
 
-  void _onSearchChanged(String text) {
+  /// Back closes the search first, the page stays: only while it is the page on top (not under a dialog or a page
+  /// opened from it).
+  Future<bool> _onBackPressed() async {
+    if (!_searching || !mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      return false;
+    }
+    _closeSearch();
+    return true;
+  }
+
+  /// Whether the input method is still composing the words in [value] (a pinyin or a kana not chosen yet).
+  static bool _composing(TextEditingValue value) => value.composing.isValid && !value.composing.isCollapsed;
+
+  /// The search field changed: the words are searched for once they settled for a moment ([_searchDelay]), not
+  /// while the input method composes them.
+  void _onSearchEdited() {
+    final value = _searchController.value;
+    if (_composing(value)) {
+      _searchDebounce?.cancel();
+      _searchTyped = null;
+      return;
+    }
+    if (value.text == _searchTyped) {
+      // Only the cursor moved.
+      return;
+    }
+    final text = _searchTyped = value.text;
     _searchDebounce?.cancel();
     _searchDebounce = Timer(_searchDelay, () => _applySearch(text));
   }
@@ -741,21 +777,23 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     if (!mounted || !_searching || bloc == null || pattern?.pattern == _searchPattern?.pattern) {
       return;
     }
+    _searchedPages.clear();
     setState(() {
       _searchPattern = pattern;
       _searchCurrentPid = null;
     });
-    final posts = bloc.state.postList;
     final hits = _searchHits(context, bloc.state, listen: false);
     if (hits.isEmpty) {
       return;
     }
-    final top = posts.indexWhere((e) => e.postID == _topPid);
-    _revealHit(hits.firstWhere((e) => posts.indexOf(e) >= top, orElse: () => hits.first));
+    _revealHit(_hitFromTop(hits, bloc.state.postList));
   }
 
-  /// The search field was submitted: the words typed at once, else the next hit.
+  /// The search field was submitted: the words typed at once, else the next hit; nothing while they are composed.
   void _onSearchSubmitted(String text) {
+    if (_composing(_searchController.value)) {
+      return;
+    }
     if (_searchDebounce?.isActive ?? false) {
       _applySearch(text);
       return;
@@ -763,21 +801,84 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     _stepHit(1);
   }
 
-  /// The floors of [state] the search finds, in the order they are shown, the floors of blocked users left out; none
-  /// while nothing is searched.
+  /// The floors of [state] the search finds, in the order they are shown, the floors of blocked users and the quotes
+  /// of their floors left out as on screen ([BlockAwarePost]); none while nothing is searched.
+  ///
+  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]).
   List<Post> _searchHits(BuildContext context, ThreadState state, {bool listen = true}) {
     final pattern = _searchPattern;
     if (!_searching || pattern == null) {
       return const [];
     }
     final blocks = currentBlockList(context, listen: listen);
-    if (_searchFound case final found?
-        when identical(found.posts, state.postList) && found.pattern == pattern && identical(found.blocks, blocks)) {
+    final found = _searchFound;
+    if (found != null &&
+        identical(found.posts, state.postList) &&
+        found.pattern == pattern &&
+        identical(found.blocks, blocks)) {
       return found.hits;
     }
-    final hits = threadSearchHits(state.postList, pattern, hidden: (post) => blocks.hidesString(post.author.uid));
-    _searchFound = (posts: state.postList, pattern: pattern, blocks: blocks, hits: hits);
+    final posts = state.postList;
+    final String Function(Post post)? shownData;
+    if (blocks.uids.isEmpty) {
+      shownData = null;
+    } else {
+      final placeholder = context.t.userBlock.quotePlaceholder;
+      final authors = {for (final post in posts) post.postID: post.author.uid};
+      shownData = (post) => redactBlockedQuotesOf(
+        post,
+        blockedUids: blocks.uids,
+        authorOfPost: (pid) => int.tryParse(authors['$pid'] ?? ''),
+        placeholder: placeholder,
+      );
+    }
+    final hits = threadSearchHits(
+      posts,
+      pattern,
+      hidden: (post) => blocks.hidesString(post.author.uid),
+      shownData: shownData,
+    );
+    _searchedPages.addAll([
+      for (final post in posts)
+        if (!post.hot) post.page,
+    ]);
+    _searchCurrentPid = _currentHitAmong(hits, found?.pattern == pattern ? found?.hits : null, posts);
+    _searchFound = (posts: posts, pattern: pattern, blocks: blocks, hits: hits);
     return hits;
+  }
+
+  /// The current hit among [hits]: the same floor while it is one; when it is not any more (its page dropped, its
+  /// author blocked), the closest one of the hits before ([previous]) that still is, else the first from the floor at
+  /// the top of the list on. Never none while something is found: the count never says "0 / N".
+  String? _currentHitAmong(List<Post> hits, List<Post>? previous, List<Post> posts) {
+    if (hits.isEmpty) {
+      return null;
+    }
+    final current = _searchCurrentPid;
+    final pids = {for (final post in hits) post.postID};
+    if (current == null) {
+      return _hitFromTop(hits, posts).postID;
+    }
+    if (pids.contains(current)) {
+      return current;
+    }
+    final at = previous?.indexWhere((e) => e.postID == current) ?? -1;
+    if (previous != null && at >= 0) {
+      for (var distance = 1; distance < previous.length; distance++) {
+        for (final index in [at + distance, at - distance]) {
+          if (index >= 0 && index < previous.length && pids.contains(previous[index].postID)) {
+            return previous[index].postID;
+          }
+        }
+      }
+    }
+    return _hitFromTop(hits, posts).postID;
+  }
+
+  /// The first of [hits] from the floor at the top of the list on, else the first one.
+  Post _hitFromTop(List<Post> hits, List<Post> posts) {
+    final top = posts.indexWhere((e) => e.postID == _topPid);
+    return hits.firstWhere((hit) => posts.indexWhere((e) => identical(e, hit)) >= top, orElse: () => hits.first);
   }
 
   /// Bring the hit [step] hits after the current one into view (before it when negative), round the hits.
@@ -800,27 +901,58 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     _postListKey.currentState?.revealPost(post.postID);
   }
 
-  /// Load the page after the floors on screen (else the one before them) for the search to look in too.
+  /// Where a page loaded for the search goes: after the floors on screen (true), before them (false), or nowhere
+  /// (null). Only a page not looked in yet ([_searchedPages]) is loaded.
+  ///
+  /// With [threadWindowPages] pages on screen, a page loaded after them drops the first one and a page loaded before
+  /// them drops the last one: never the page of the current hit or of the floor at the top of the list (the floors
+  /// read), so the other side is taken, or none.
+  bool? _searchLoadSide(ThreadState state) {
+    final full = state.currentPage - state.firstPage + 1 >= threadWindowPages;
+    final kept = <int>{
+      if (full)
+        for (final post in state.postList)
+          if (post.postID == _searchCurrentPid || post.postID == _topPid) post.page,
+    };
+    if (state.canLoadMore && !_searchedPages.contains(state.currentPage + 1) && !kept.contains(state.firstPage)) {
+      return true;
+    }
+    if (state.canLoadPrevious && !_searchedPages.contains(state.firstPage - 1) && !kept.contains(state.currentPage)) {
+      return false;
+    }
+    return null;
+  }
+
+  /// Load a page for the search to look in too, where [_searchLoadSide] says.
   void _loadMoreForSearch(ThreadState state) {
     final bloc = _threadBloc;
     if (bloc == null || bloc.isClosed) {
       return;
     }
-    if (state.canLoadMore) {
-      bloc.add(ThreadLoadMoreRequested(state.currentPage + 1));
-    } else if (state.canLoadPrevious) {
-      bloc.add(const ThreadLoadPreviousRequested());
+    switch (_searchLoadSide(state)) {
+      case true:
+        bloc.add(ThreadLoadMoreRequested(state.currentPage + 1));
+      case false:
+        bloc.add(const ThreadLoadPreviousRequested());
+      case null:
+        break;
     }
   }
 
-  /// The app bar while searching: the words, where the current hit is among them, the pages not searched yet.
-  PreferredSizeWidget _buildSearchBar(BuildContext context, ThreadState state) {
+  /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
+  /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
+  /// ([bottom]).
+  PreferredSizeWidget _buildSearchBar(BuildContext context, ThreadState state, PreferredSizeWidget bottom) {
     final tr = context.t.threadPage.search;
     final hits = _searchHits(context, state);
     final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
-    final loading =
-        state.nextStatus == ThreadEdgeStatus.loading ||
-        (!state.canLoadMore && state.previousStatus == ThreadEdgeStatus.loading);
+    final side = _searchLoadSide(state);
+    // Offered at the end of the hits the way the page would be added (after them, or before them).
+    final atEdge = hits.isEmpty || (side == false ? at == 0 : at == hits.length - 1);
+    final loading = switch (side) {
+      false => state.previousStatus == ThreadEdgeStatus.loading,
+      _ => state.nextStatus == ThreadEdgeStatus.loading,
+    };
     return AppBar(
       automaticallyImplyLeading: false,
       title: TextField(
@@ -828,37 +960,39 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
         controller: _searchController,
         autofocus: true,
         textInputAction: TextInputAction.search,
-        decoration: InputDecoration(hintText: tr.hint, border: InputBorder.none),
-        onChanged: _onSearchChanged,
+        decoration: InputDecoration(
+          hintText: tr.hint,
+          border: InputBorder.none,
+          suffix: _searchPattern == null
+              ? null
+              : Text(
+                  tr.count(n: at + 1, total: hits.length),
+                  key: const ValueKey('thread-search-count'),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+        ),
+        // Enter goes to the next hit, the field keeps the focus (and the keyboard stays up).
+        onEditingComplete: () {},
         onSubmitted: _onSearchSubmitted,
       ),
       actions: [
-        if (_searchPattern != null) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              tr.count(n: at + 1, total: hits.length),
-              key: const ValueKey('thread-search-count'),
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-            ),
-          ),
-          if (state.canLoadMore || state.canLoadPrevious)
-            loading
-                ? const SizedBox.square(
-                    dimension: 48,
-                    child: Center(
-                      child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
-                  )
-                : IconButton(
-                    key: const ValueKey('thread-search-load-more'),
-                    tooltip: tr.loadMore,
-                    icon: const Icon(Icons.playlist_add),
-                    onPressed: () => _loadMoreForSearch(state),
+        if (_searchPattern != null && atEdge && (state.canLoadMore || state.canLoadPrevious))
+          loading
+              ? const SizedBox.square(
+                  dimension: 48,
+                  child: Center(
+                    child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
-        ],
+                )
+              : IconButton(
+                  key: const ValueKey('thread-search-load-more'),
+                  tooltip: tr.loadMore,
+                  icon: const Icon(Icons.playlist_add),
+                  onPressed: side == null ? null : () => _loadMoreForSearch(state),
+                ),
         IconButton(
           key: const ValueKey('thread-search-previous'),
           tooltip: tr.previous,
@@ -878,14 +1012,17 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           onPressed: _closeSearch,
         ),
       ],
+      bottom: bottom,
     );
   }
 
   /// [card] of [post], marked as a hit of the search when it is one: a line at its side, the words in its content.
+  /// [hits] holds the floor keys ([floorKeyOf]) of the hits: the copy of a floor as a hot reply is not marked with
+  /// the floor (it is not a hit of its own).
   ///
   /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends.
   Widget _markSearchHit(BuildContext context, Post post, Set<String> hits, Widget card) {
-    final hit = _searchPattern != null && hits.contains(post.postID);
+    final hit = _searchPattern != null && hits.contains(floorKeyOf(post));
     final colorScheme = Theme.of(context).colorScheme;
     final current = hit && post.postID == _searchCurrentPid;
     return SearchHighlightScope(
@@ -1106,7 +1243,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   Widget _buildContent(BuildContext context, ThreadState state) {
     final tr = context.t.threadPage;
-    final searchHits = {for (final post in _searchHits(context, state)) post.postID};
+    final searchHits = {for (final post in _searchHits(context, state)) floorKeyOf(post)};
     if (_scrollToPidOnReload != null) {
       // Consumed by the PostList created in this build.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPidOnReload = null);
@@ -1343,6 +1480,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchEdited);
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
       _takeSavedProgress(progress, atOpen: true);
@@ -1581,14 +1719,16 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 if (mounted) _appBarCollapser.show();
               });
             }
+            final breadcrumbs = PreferredSize(
+              preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
+              child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
+            );
+            // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
             final appBar = _searching
-                ? _buildSearchBar(context, state)
+                ? _buildSearchBar(context, state, breadcrumbs)
                 : ListAppBar(
                     title: title,
-                    bottom: PreferredSize(
-                      preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
-                      child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
-                    ),
+                    bottom: breadcrumbs,
                     showReverseOrderAction: true,
                     onJumpPage: (pageNumber) async {
                       if (!mounted) {
@@ -1674,17 +1814,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));
             // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
             // not rebuilt.
-            return AnimatedBuilder(
-              animation: _appBarController,
-              builder: (context, _) => PopScope(
-                // Going back closes the search first.
-                canPop: !_searching,
-                onPopInvokedWithResult: (didPop, _) {
-                  if (!didPop && _searching) {
-                    _closeSearch();
-                  }
-                },
-                child: Scaffold(
+            // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own
+            // (`canCloseQuietly`), and the back swipe still closes it.
+            return BackButtonListener(
+              onBackButtonPressed: _onBackPressed,
+              child: AnimatedBuilder(
+                animation: _appBarController,
+                builder: (context, _) => Scaffold(
                   // Required by chat_bottom_container in the reply bar.
                   resizeToAvoidBottomInset: false,
                   appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
