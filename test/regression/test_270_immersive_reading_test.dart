@@ -4,6 +4,8 @@
 ///   floor's own tap (`tapToReply`) stays the floor's; scrolling never brings the hidden app bar back;
 /// * with "左右滑动翻页" on, a swipe to the left loads the next page and one to the right the page before (nothing before
 ///   the first page); off, or scrolling up and down, it does nothing;
+/// * with the thread search open the bars stay whatever is tapped or scrolled; the search closed, the bars stay shown
+///   and follow the list again; a page swiped to is searched too;
 /// * [ThreadReadingGestures]: a swipe across something that scrolls sideways (a table in a floor), from the edge of the
 ///   screen or with two fingers is no swipe; a button keeps its tap; a tap that stops a fling is no tap.
 library;
@@ -427,6 +429,107 @@ void main() {
         await swipe(tester, const Offset(-90, -100));
         await swipe(tester, const Offset(40, 0));
         expect(forum.pages, [1]);
+        await leave(tester);
+      });
+    });
+
+    group('with the thread search', () {
+      final searchField = find.byKey(const ValueKey('thread-search-field'));
+
+      Future<void> openSearch(WidgetTester tester) async {
+        await tester.tap(find.descendant(of: find.byType(AppBar), matching: find.byIcon(Icons.more_vert)));
+        await tester.pump(const Duration(milliseconds: 500));
+        await settle(tester);
+        await tester.tap(find.text('搜索本帖'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await settle(tester);
+        expect(searchField, findsOneWidget);
+      }
+
+      Future<void> closeSearch(WidgetTester tester) async {
+        await tester.tap(find.byKey(const ValueKey('thread-search-close')));
+        await tester.pumpAndSettle();
+        expect(searchField, findsNothing);
+      }
+
+      testWidgets('searching, a tap on the floors hides no bar, nor does scrolling', (tester) async {
+        await pumpThread(tester);
+        final bottom = bottomBarsHeight(tester);
+        await openSearch(tester);
+        expect(appBarShown(tester), 1);
+        expect(bottomBarsHeight(tester), bottom);
+
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1, reason: 'the search bar cannot be hidden');
+        expect(bottomBarsHeight(tester), bottom);
+        await tester.tap(floorText(1));
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1);
+        expect(bottomBarsHeight(tester), bottom);
+
+        await tester.drag(find.byType(PostList), const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1, reason: 'the search bar stays while the floors are scrolled');
+        await leave(tester);
+      });
+
+      testWidgets('the search closed, the bars stay and follow the list again; the next tap hides them', (
+        tester,
+      ) async {
+        await pumpThread(tester);
+        final bottom = bottomBarsHeight(tester);
+        // Immersive reading first; the bars are brought back to reach the menu.
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 0);
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1);
+
+        await openSearch(tester);
+        await closeSearch(tester);
+        expect(appBarShown(tester), 1, reason: 'immersive reading is not taken up again');
+        expect(bottomBarsHeight(tester), bottom);
+
+        await tester.drag(find.byType(PostList), const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 0, reason: 'the bar follows the list, as before the search');
+        await tester.drag(find.byType(PostList), const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 1);
+
+        // Back at the top of the list, where the title is.
+        await tester.drag(find.byType(PostList), const Offset(0, 3000));
+        await tester.pumpAndSettle();
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(appBarShown(tester), 0, reason: 'immersive reading works again');
+        expect(bottomBarsHeight(tester), 0);
+        await leave(tester);
+      });
+
+      testWidgets('searching and swiping pages go together: the hits are counted on the page swiped to', (
+        tester,
+      ) async {
+        await set(tester, SettingsKeys.threadSwipePaging, true);
+        await pumpThread(tester);
+        await openSearch(tester);
+        await tester.enterText(searchField, 'floor 12');
+        await tester.pump(const Duration(milliseconds: 350));
+        await settle(tester);
+        final count = find.byKey(const ValueKey('thread-search-count'));
+        expect(tester.widget<Text>(count).data, '0 / 0', reason: 'floor 12 is on the second page');
+
+        await swipe(tester, const Offset(-250, 0));
+        expect(forum.pages, [1, 2]);
+        expect(searchField, findsOneWidget, reason: 'the search stays open over the page turned');
+        expect(appBarShown(tester), 1);
+        expect(tester.widget<Text>(count).data, '1 / 1');
+        // "Next" brings the hit into view: marked.
+        await tester.tap(find.byKey(const ValueKey('thread-search-next')));
+        await settle(tester);
+        expect(find.byKey(const ValueKey('thread-search-hit-${9700000 + 12}')), findsOneWidget);
         await leave(tester);
       });
     });
