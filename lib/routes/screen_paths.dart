@@ -270,6 +270,9 @@ class ScreenPaths {
   /// Page to view and edit fast reply templates.
   static const String fastReplyTemplate = '/fastReplyTemplate/:pick';
 
+  /// Page to arrange the quick phrases of the editors.
+  static const String quickPhrases = '/quickPhrases';
+
   /// Page to edit fast reply templates.
   static const String fastReplyTemplateEdit = '/fastReplyTemplateEdit/:editType';
 

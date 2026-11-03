@@ -70,6 +70,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
+    this.editorQuickPhrases = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
   });
@@ -192,6 +193,7 @@ class SettingsMap with SettingsMapMappable {
   /// When the pictures of the posts load by themselves, the index of a `PostImageAutoLoad`. Not required: backups from
   /// older versions lack it.
   final int postImageAutoLoad;
+  final String editorQuickPhrases;
 
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
@@ -267,6 +269,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.homepagePinnedGroup => copyWith(homepagePinnedGroup: value as String?),
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
+      SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
     };
   }
 }

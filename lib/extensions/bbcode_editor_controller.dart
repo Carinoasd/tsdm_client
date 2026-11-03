@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:dart_quill_delta/dart_quill_delta.dart';
@@ -40,6 +41,21 @@ extension BBCodeEditorControllerForum on BBCodeEditorController {
       });
     replaceText(position, length, delta, null);
     moveCursorToPosition(position + 1);
+  }
+
+  /// Insert [text] as it is (no BBCode is read from it) at the cursor, replacing the selection, and put the cursor
+  /// after it; at the end of the document when the editor has no cursor yet.
+  void insertTextAtCursor(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+    final end = document.length - 1;
+    final selected = selection;
+    final hasCursor = selected.baseOffset >= 0 && selected.extentOffset >= 0;
+    final position = hasCursor ? min(min(selected.baseOffset, selected.extentOffset), end) : end;
+    final length = hasCursor ? min(max(selected.baseOffset, selected.extentOffset), end) - position : 0;
+    replaceText(position, length, Delta()..insert(text), null);
+    moveCursorToPosition(position + text.length);
   }
 
   /// Put a kept draft back: the editor's own document [delta] (Quill delta JSON) when it loads, which keeps what BBCode

@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/image_dialog.dart';
+import 'package:tsdm_client/features/editor/widgets/quick_phrases_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/url_dialog.dart';
 import 'package:tsdm_client/features/editor/widgets/username_picker_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -102,6 +103,9 @@ enum EditorFeatures {
 
   /// Quote code.
   quoteBlock,
+
+  /// Quick phrases picked from the user's own list.
+  quickPhrases,
 
   /// Cut clipboard.
   cut,
@@ -443,11 +447,33 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
       child: toolbar,
     );
 
+    // The quick phrases button starts the toolbar like one more button of its wrapped rows.
+    final withPhrases = _hasFeature(EditorFeatures.quickPhrases)
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                key: const ValueKey('editor-quick-phrases'),
+                icon: const Icon(Icons.format_quote_outlined),
+                tooltip: context.t.bbcodeEditor.quickPhrases.title,
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+                ),
+                onPressed: () async {
+                  await showQuickPhrases(context, bbcodeController, focusNode: editorFocusNode);
+                  afterButtonPressed?.call();
+                },
+              ),
+              Expanded(child: themed),
+            ],
+          )
+        : themed;
+
     if (isMobile) {
-      return Column(mainAxisSize: MainAxisSize.min, children: [themed, sizedBoxW24H24]);
+      return Column(mainAxisSize: MainAxisSize.min, children: [withPhrases, sizedBoxW24H24]);
     }
 
-    return themed;
+    return withPhrases;
   }
 }
 
