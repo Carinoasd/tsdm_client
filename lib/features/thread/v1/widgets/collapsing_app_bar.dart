@@ -60,6 +60,11 @@ class AppBarCollapser {
 
   final _travel = ScrollTravel();
 
+  bool _held = false;
+
+  /// Whether the reader hid the bar (immersive reading, see [hold]): it stays hidden whatever the list does.
+  bool get held => _held;
+
   /// Whether the bar hides at all (the `collapseAppBarWhenScroll` setting); when false it is always shown.
   bool enabled = true;
 
@@ -67,8 +72,25 @@ class AppBarCollapser {
   /// the list cannot fill, and the bar would come and go at every drag).
   double barHeight = 0;
 
-  /// Show the whole bar.
+  /// Hide the bar and keep it hidden, through every scroll, until [release]: the reader hid it.
+  void hold() {
+    _held = true;
+    _travel.reset();
+    hide();
+  }
+
+  /// Show the bar the reader hid ([hold]); it follows the list again.
+  void release() {
+    _held = false;
+    _travel.reset();
+    show();
+  }
+
+  /// Show the whole bar; not while [held].
   void show() {
+    if (_held) {
+      return;
+    }
     if (controller.value < 1 && controller.status != AnimationStatus.forward) {
       unawaited(controller.forward());
     }
@@ -83,7 +105,7 @@ class AppBarCollapser {
 
   /// Handle the scroll [notification] of the list; never stops it.
   bool onNotification(ScrollNotification notification) {
-    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+    if (_held || notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
       return false;
     }
     if (!enabled) {

@@ -592,6 +592,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.collapseAppBarWhenScroll, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-swipe-paging'),
+          secondary: const Icon(Icons.swipe_outlined),
+          title: Text(tr.threadSwipePaging.title),
+          value: state.settingsMap.threadSwipePaging,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadSwipePaging, v)),
+        ),
         SectionListTile(
           key: const ValueKey('settings-post-image-auto-load'),
           leading: const Icon(Icons.image_outlined),

@@ -40,6 +40,7 @@ import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/reading_gestures.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -161,7 +162,7 @@ const lastPageAsked = 99999;
 /// Upper bound of the combined text scale (global text scale times thread content scale) applied to floors.
 const threadContentMaxTextScale = 3.0;
 
-class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateMixin, LoggerMixin {
+class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, LoggerMixin {
   /// Controller of thread tab.
   final _listScrollController = ThreadScrollController();
 
@@ -237,6 +238,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// `collapseAppBarWhenScroll` setting), shown again when scrolling up.
   late final AnimationController _appBarController;
   late final AppBarCollapser _appBarCollapser;
+
+  /// Immersive reading: the reader tapped the floors to hide the app bar and the reply bar, until tapped again. Only
+  /// while on this page.
+  bool _immersive = false;
+
+  /// Shown part of the reply bar (and the banner above it): hidden while [_immersive].
+  late final AnimationController _bottomBarController;
 
   /// Floor to scroll to when the thread reloads after a reply or edit. Read by the next
   /// [PostList] in its `initState` and forgotten right after, so later reloads do not jump back to it.
@@ -709,6 +717,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
   /// Scrolling of the list: the app bar follows it, and a scroll of the user's own lets the reading position go
   /// ([_heldPosition]).
+  ///
+  /// What the bar does with the scroll, the first that holds: searching, the search bar stays shown
+  /// ([AppBarCollapser.enabled] is false then, set in the build); immersive reading, the bars stay hidden
+  /// ([AppBarCollapser.held]); else the bar follows the list. The two never hold at once: opening the search ends
+  /// immersive reading ([_openSearch]) and refuses it while it lasts ([_setImmersive]).
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification is UserScrollNotification &&
         notification.direction != ScrollDirection.idle &&
@@ -719,13 +732,74 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     return _appBarCollapser.onNotification(notification);
   }
 
-  /// Search the floors on screen: the app bar turns into the search bar.
+  /// Hide the bars for immersive reading ([hidden]), or show them again. Never hidden while searching: the search bar
+  /// is the app bar then and stays shown (see [_onScrollNotification] for the order of the two).
+  void _setImmersive({required bool hidden}) {
+    if (hidden == _immersive || !mounted || (hidden && _searching)) {
+      return;
+    }
+    setState(() => _immersive = hidden);
+    if (hidden) {
+      _appBarCollapser.hold();
+      unawaited(_bottomBarController.reverse());
+    } else {
+      _appBarCollapser.release();
+      unawaited(_bottomBarController.forward());
+    }
+  }
+
+  /// A tap on the floors nothing in them took: the bars go, or come back. Not while searching (the search bar stays),
+  /// nor while a reply is being written: the tap leaves the editor.
+  void _toggleImmersive() {
+    if (_searching) {
+      return;
+    }
+    final editing =
+        _replyBarController.showingEditor ||
+        FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
+    if (editing && !_immersive) {
+      return;
+    }
+    _setImmersive(hidden: !_immersive);
+  }
+
+  /// A swipe across the floors (the `threadSwipePaging` setting): the page after the one in view, or the one before;
+  /// nothing past the first or the last page, or while a page loads.
+  void _swipePage(ThreadSwipe swipe) {
+    final bloc = _threadBloc;
+    final pages = _jumpPageCubit;
+    if (!mounted || bloc == null || bloc.isClosed || pages == null) {
+      return;
+    }
+    final state = bloc.state;
+    if (state.status != ThreadStatus.success || !pages.state.canJumpPage) {
+      return;
+    }
+    final page = pages.state.currentPage + (swipe == ThreadSwipe.next ? 1 : -1);
+    if (page < 1 || page > state.totalPages) {
+      return;
+    }
+    _heldPosition = null;
+    pages.markLoading();
+    bloc.add(ThreadJumpPageRequested(page));
+  }
+
+  /// Whether the body shows the floors of [state] (or is about to): else nothing could bring the hidden bars back.
+  static bool _showsFloors(ThreadState state) =>
+      !state.needLogin &&
+      state.havePermission &&
+      (state.status == ThreadStatus.initial || state.status == ThreadStatus.loading || state.postList.isNotEmpty);
+
+  /// Search the floors on screen: the app bar turns into the search bar. Immersive reading ends first: the bars come
+  /// back and stay while searching (a tap on the floors hides nothing then, [_toggleImmersive]).
   void _openSearch() {
+    _setImmersive(hidden: false);
     setState(() => _searching = true);
     _appBarCollapser.show();
   }
 
-  /// Back to the app bar, nothing marked any more.
+  /// Back to the app bar, nothing marked any more. The bars stay shown: immersive reading, ended when the search
+  /// opened, is not taken up again.
   void _closeSearch() {
     _searchController.clear();
     _searchDebounce?.cancel();
@@ -1123,6 +1197,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     if (_threadBloc?.state.isOffline ?? true) {
       return;
     }
+    _setImmersive(hidden: false);
     _replyBarController
       ..replyAction = null
       ..setHintText(context.t.threadPage.sendReplyHint)
@@ -1249,6 +1324,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     if (replyAction == null || (_threadBloc?.state.isOffline ?? false)) {
       return;
     }
+    _setImmersive(hidden: false);
 
     _replyBarController
       ..replyAction = replyAction
@@ -1262,6 +1338,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// Reply to the thread on side [stand] of the debate (the debate card's "加入正方／反方"): the reply bar with the side
   /// chosen, as the page's "加入" opens the reply window with it.
   void _joinDebate(int stand) {
+    _setImmersive(hidden: false);
     _replyBarController
       ..replyAction = null
       ..debateStand = stand
@@ -1272,6 +1349,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
   Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
+    final swipePaging = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadSwipePaging);
     final searchHits = {for (final post in hits) floorKeyOf(post)};
     if (_scrollToPidOnReload != null) {
       // Consumed by the PostList created in this build.
@@ -1306,7 +1384,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
           child: MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: _threadContentScaler(context)),
             child: SafeArea(
-              bottom: false,
+              // The reply bar below keeps the floors off the bottom inset (the gesture bar of the system); hidden,
+              // the floors keep off it themselves.
+              bottom: _immersive,
               // One line width for all the floors, measured in the width they have (the safe area left out), taken
               // once the width settles.
               child: PostLineWidth(
@@ -1316,55 +1396,61 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                     onNotification: _onScrollNotification,
                     child: Stack(
                       children: [
-                        PostList(
-                          key: _postListKey,
-                          threadID: state.tid ?? widget.threadID,
-                          title: state.title ?? widget.title,
-                          pageNumber: context.read<JumpPageCubit>().state.currentPage,
-                          initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
-                              ?.parseToInt(),
-                          scrollController: _listScrollController,
-                          // Posts of locally blocked users become placeholders in place, the floors keep their
-                          // positions.
-                          widgetBuilder: (context, post) => BlockAwarePost(
-                            post: post,
-                            postList: state.postList,
-                            builder: (context, post) => _markSearchHit(
-                              context,
-                              post,
-                              searchHits,
-                              PostCard(
+                        ThreadReadingGestures(
+                          onTap: _toggleImmersive,
+                          onSwipe: swipePaging ? _swipePage : null,
+                          child: PostList(
+                            key: _postListKey,
+                            threadID: state.tid ?? widget.threadID,
+                            title: state.title ?? widget.title,
+                            pageNumber: context.read<JumpPageCubit>().state.currentPage,
+                            initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
+                                ?.parseToInt(),
+                            scrollController: _listScrollController,
+                            // Posts of locally blocked users become placeholders in place, the floors keep their
+                            // positions.
+                            widgetBuilder: (context, post) => BlockAwarePost(
+                              post: post,
+                              postList: state.postList,
+                              builder: (context, post) => _markSearchHit(
+                                context,
                                 post,
-                                replyCallback: replyPostCallback,
-                                onEdited: () => _scrollToPidOnReload = post.postID,
-                                onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                                searchHits,
+                                PostCard(
+                                  post,
+                                  replyCallback: replyPostCallback,
+                                  onEdited: () => _scrollToPidOnReload = post.postID,
+                                  onJoinDebate: state.replyParameters == null || state.threadClosed
+                                      ? null
+                                      : _joinDebate,
+                                ),
                               ),
                             ),
-                          ),
-                          useDivider: true,
-                          postList: state.postList,
-                          canLoadMore: state.canLoadMore,
-                          latestModAct: state.latestModAct,
-                          generation: state.generation,
-                          firstPage: state.firstPage,
-                          lastPage: state.currentPage,
-                          nextStatus: state.nextStatus,
-                          previousStatus: state.previousStatus,
-                          scrollTargetPid: state.scrollTargetPid,
-                          scrollTargetSerial: state.scrollTargetSerial,
-                          onTopFloorChanged: _onTopFloorChanged,
-                          newestFirst: state.shownNewestFirst,
-                          endOfThread: ThreadEndCard(
-                            floors: _floorCountOf(state),
-                            status: state.nextStatus,
+                            useDivider: true,
+                            postList: state.postList,
+                            canLoadMore: state.canLoadMore,
+                            latestModAct: state.latestModAct,
+                            generation: state.generation,
+                            firstPage: state.firstPage,
+                            lastPage: state.currentPage,
+                            nextStatus: state.nextStatus,
+                            previousStatus: state.previousStatus,
+                            scrollTargetPid: state.scrollTargetPid,
+                            scrollTargetSerial: state.scrollTargetSerial,
+                            onTopFloorChanged: _onTopFloorChanged,
                             newestFirst: state.shownNewestFirst,
-                            onReply: state.replyParameters == null || state.threadClosed || state.isOffline
-                                ? null
-                                : _replyToThread,
-                            // Newest floors first, the new replies are at the top: pulled down there.
-                            onLoadNewReplies: state.shownNewestFirst || state.isOffline
-                                ? null
-                                : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
+                            endOfThread: ThreadEndCard(
+                              floors: _floorCountOf(state),
+                              status: state.nextStatus,
+                              newestFirst: state.shownNewestFirst,
+                              onReply: state.replyParameters == null || state.threadClosed || state.isOffline
+                                  ? null
+                                  : _replyToThread,
+                              // Newest floors first, the new replies are at the top: pulled down there.
+                              onLoadNewReplies: state.shownNewestFirst || state.isOffline
+                                  ? null
+                                  : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
+                            ),
                           ),
                         ),
                         // Not for one author's floors: the reading position is the whole thread's.
@@ -1392,28 +1478,47 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             ),
           ),
         ),
-        // Replies are still accepted but the thread is about to close: a banner right above the reply box, in the
-        // reading column.
-        if (state.threadSoftClosed && !state.threadClosed && !state.isOffline)
-          ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: SafeArea(
-              top: false,
-              bottom: false,
-              child: Padding(
-                padding: edgeInsetsL12T8R12,
-                child: AppContentWidth(
-                  maxWidth: appReadingMaxWidth,
-                  child: AppNoticeBanner(
-                    tone: AppNoticeTone.warning,
-                    icon: Icons.lock_clock_outlined,
-                    message: tr.softCloseHint,
-                  ),
-                ),
+        // Hidden with the app bar for immersive reading; kept built (the reply written stays).
+        AnimatedBuilder(
+          animation: _bottomBarController,
+          builder: (context, child) => ClipRect(
+            key: const ValueKey('thread-bottom-bars'),
+            child: Align(alignment: Alignment.topCenter, heightFactor: _bottomBarController.value, child: child),
+          ),
+          child: ExcludeFocus(
+            excluding: _immersive,
+            child: IgnorePointer(
+              ignoring: _immersive,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Replies are still accepted but the thread is about to close: a banner right above the reply box,
+                  // in the reading column.
+                  if (state.threadSoftClosed && !state.threadClosed && !state.isOffline)
+                    ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                      child: SafeArea(
+                        top: false,
+                        bottom: false,
+                        child: Padding(
+                          padding: edgeInsetsL12T8R12,
+                          child: AppContentWidth(
+                            maxWidth: appReadingMaxWidth,
+                            child: AppNoticeBanner(
+                              tone: AppNoticeTone.warning,
+                              icon: Icons.lock_clock_outlined,
+                              message: tr.softCloseHint,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  _buildReplyBar(context, state),
+                ],
               ),
             ),
           ),
-        _buildReplyBar(context, state),
+        ),
       ],
     );
   }
@@ -1530,6 +1635,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     // Created here, not lazily: a page that never shows the bar (a blocked thread) still disposes it.
     _appBarController = AnimationController(vsync: this, duration: duration200, value: 1);
     _appBarCollapser = AppBarCollapser(_appBarController);
+    _bottomBarController = AnimationController(vsync: this, duration: duration200, value: 1);
     _accountSub = listenAccountChanges(
       context.read<AuthenticationRepository>(),
       // Nothing to clear: the floors stay readable while logging in.
@@ -1548,6 +1654,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     unawaited(_progressWait?.cancel());
     _listScrollController.dispose();
     _appBarController.dispose();
+    _bottomBarController.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -1595,8 +1702,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 _landOnLastPost = false;
               }
               if (state.status == ThreadStatus.loading && state.postList.isEmpty) {
-                // A reload starts the floors over from the top: with the bar.
+                // A reload starts the floors over from the top: with the bar (not while immersive).
                 _appBarCollapser.show();
+              }
+              if (!_showsFloors(state)) {
+                // A message, a login, a retry instead of the floors: with its bars.
+                _setImmersive(hidden: false);
               }
 
               // Update reply parameters to reply bar.
@@ -1745,11 +1856,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   'pid=${widget.findPostID}';
             }
 
-            // The search bar stays while searching.
+            // The search bar stays while searching (the order with immersive reading: [_onScrollNotification]).
             _appBarCollapser.enabled =
                 context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll) &&
                 !_searching;
-            if (!_appBarCollapser.enabled && _appBarController.value < 1) {
+            if (!_appBarCollapser.enabled && !_appBarCollapser.held && _appBarController.value < 1) {
               // Turned off while the bar was hidden: show it again, not from inside this build.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) _appBarCollapser.show();

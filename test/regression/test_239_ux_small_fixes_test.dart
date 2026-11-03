@@ -1145,6 +1145,8 @@ void main() {
       final full = barHeight();
       expect(full, greaterThan(56));
       final gesture = await tester.startGesture(tester.getCenter(find.byType(PostList)));
+      // Past the touch slop first: the floors take taps too (immersive reading), the drag wins once past it.
+      await gesture.moveBy(const Offset(0, -20));
       await gesture.moveBy(const Offset(0, -300));
       await tester.pumpAndSettle();
       await gesture.up();

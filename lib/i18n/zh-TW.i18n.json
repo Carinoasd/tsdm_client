@@ -551,6 +551,9 @@
           "detail": "以下場景中，BBCode 解析器會把純文字的 BBCode 轉成所見即所得的內容以供編輯：\n\n1. 編輯已發佈的貼文\n2. 編輯回覆範本\n3. 插入回覆範本\n4. 展開貼文和聊天頁面底部的編輯框\n\n關閉 BBCode 解析器後，編輯時會使用純文字；遇到問題時可以把它關閉"
         }
       },
+      "threadSwipePaging": {
+        "title": "左右滑動翻頁"
+      },
       "collapseAppBarWhenScroll": {
         "title": "捲動時收起頂欄",
         "detail": "在貼文頁往下捲時收起頂欄與導覽路徑，往上捲時再出現"

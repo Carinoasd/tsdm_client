@@ -162,6 +162,7 @@ final class SettingsRepository with LoggerMixin {
       collapseAppBarWhenScroll: s.extract(_SK.collapseAppBarWhenScroll),
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       threadOpenPosition: s.extract(_SK.threadOpenPosition),
+      threadSwipePaging: s.extract(_SK.threadSwipePaging),
       textScaleFactor: s.extract(_SK.textScaleFactor),
       threadContentScale: s.extract(_SK.threadContentScale),
       threadContentLineHeight: s.extract(_SK.threadContentLineHeight),

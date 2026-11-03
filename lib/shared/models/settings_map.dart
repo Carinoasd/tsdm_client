@@ -73,6 +73,7 @@ class SettingsMap with SettingsMapMappable {
     this.editorQuickPhrases = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
+    this.threadSwipePaging = false,
   });
 
   final String netClientAccept;
@@ -148,6 +149,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// Index of a [ThreadOpenPosition]. Not required: backups from older versions lack it.
   final int threadOpenPosition;
+
+  /// Swipe the floors sideways to change pages. Not required: backups from older versions lack it.
+  final bool threadSwipePaging;
 
   /// Where a thread read before opens from a list.
   ThreadOpenPosition get openPosition => ThreadOpenPosition.fromIndex(threadOpenPosition);
@@ -257,6 +261,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.autoClearImageCacheDuration => copyWith(autoClearImageCacheDuration: value as int?),
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
+      SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
       SettingsKeys.threadFloorInteractionMode => copyWith(
         threadFloorInteractionMode: value as ThreadFloorInteractionMode?,
       ),
