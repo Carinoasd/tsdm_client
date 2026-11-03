@@ -1355,7 +1355,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           child: MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: _threadContentScaler(context)),
             child: SafeArea(
-              bottom: false,
+              // The reply bar below keeps the floors off the bottom inset (the gesture bar of the system); hidden,
+              // the floors keep off it themselves.
+              bottom: _immersive,
               // One line width for all the floors, measured in the width they have (the safe area left out), taken
               // once the width settles.
               child: PostLineWidth(
@@ -1828,7 +1830,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             _appBarCollapser.enabled =
                 context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll) &&
                 !_searching;
-            if (!_appBarCollapser.enabled && _appBarController.value < 1) {
+            if (!_appBarCollapser.enabled && !_appBarCollapser.held && _appBarController.value < 1) {
               // Turned off while the bar was hidden: show it again, not from inside this build.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) _appBarCollapser.show();

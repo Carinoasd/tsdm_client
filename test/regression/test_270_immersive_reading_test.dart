@@ -1,13 +1,15 @@
 /// Immersive reading and swiping pages on the thread page:
 ///
 /// * a tap on the floors that nothing in them takes hides the app bar and the reply bar, another one shows them; the
-///   floor's own tap (`tapToReply`) stays the floor's; scrolling never brings the hidden app bar back;
+///   floor's own tap (`tapToReply`) stays the floor's; scrolling never brings the hidden app bar back; the bars hidden,
+///   the floors keep off the bottom inset of the screen (the gesture bar of the system) themselves;
 /// * with "左右滑动翻页" on, a swipe to the left loads the next page and one to the right the page before (nothing before
 ///   the first page); off, or scrolling up and down, it does nothing;
 /// * with the thread search open the bars stay whatever is tapped or scrolled; the search closed, the bars stay shown
 ///   and follow the list again; a page swiped to is searched too;
 /// * [ThreadReadingGestures]: a swipe across something that scrolls sideways (a table in a floor), from the edge of the
-///   screen or with two fingers is no swipe; a button keeps its tap; a tap that stops a fling is no tap.
+///   screen, with two fingers or askew enough to scroll the list is no swipe; a button keeps its tap; a tap that stops
+///   a fling is no tap; a mouse click is no tap either.
 library;
 
 import 'dart:async';
@@ -346,6 +348,30 @@ void main() {
         await leave(tester);
       });
 
+      testWidgets('the bars hidden, the floors keep off the bottom inset themselves', (tester) async {
+        // A gesture bar of the system at the bottom, 40 logical pixels high (the test view is at 3 pixels per one).
+        tester.view
+          ..padding = const FakeViewPadding(bottom: 120)
+          ..viewPadding = const FakeViewPadding(bottom: 120);
+        addTearDown(tester.view.reset);
+        await pumpThread(tester);
+        final screenBottom = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        double listPaddingBottom() => MediaQuery.paddingOf(tester.element(find.byType(PostList))).bottom;
+        expect(listPaddingBottom(), 40, reason: 'the reply bar below keeps the floors off the inset');
+        expect(tester.getBottomLeft(find.byType(PostList)).dy, lessThan(screenBottom - 40));
+
+        await tester.tap(listTitle);
+        await tester.pumpAndSettle();
+        expect(bottomBarsHeight(tester), 0);
+        expect(listPaddingBottom(), 0, reason: 'the inset is taken off the floors');
+        expect(tester.getBottomLeft(find.byType(PostList)).dy, screenBottom - 40);
+
+        await tester.tap(floorText(1));
+        await tester.pumpAndSettle();
+        expect(listPaddingBottom(), 40);
+        await leave(tester);
+      });
+
       testWidgets('replying to a floor shows the bars again', (tester) async {
         await set(tester, SettingsKeys.threadFloorInteractionMode, ThreadFloorInteractionMode.tapToReply);
         await pumpThread(tester);
@@ -646,6 +672,38 @@ void main() {
       await tester.dragFrom(Offset(400, y), const Offset(-200, 0), kind: PointerDeviceKind.stylus);
       await tester.pumpAndSettle();
       expect(swipes, [ThreadSwipe.next]);
+    });
+
+    testWidgets('a drag askew that scrolled the list past the touch slop is no swipe', (tester) async {
+      await pumpGestures(tester);
+      final list = tester.state<ScrollableState>(
+        find.ancestor(of: find.text('row 3'), matching: find.byType(Scrollable)),
+      );
+      await tester.drag(find.text('row 3'), const Offset(-200, -60));
+      await tester.pumpAndSettle();
+      expect(list.position.pixels, greaterThan(kTouchSlop), reason: 'askew enough for the list: it scrolled');
+      expect(swipes, isEmpty);
+
+      // A finger wobbling a little: the list follows it (no slop of its own once the tap gives up the pointer), the
+      // swipe stands.
+      final before = list.position.pixels;
+      await tester.drag(find.text('row 3'), const Offset(-200, 10));
+      await tester.pumpAndSettle();
+      expect(before - list.position.pixels, inExclusiveRange(0, kTouchSlop), reason: 'followed the wobble');
+      expect(swipes, [ThreadSwipe.next]);
+    });
+
+    testWidgets('a mouse click is no tap, a pen\'s is; a button keeps the click', (tester) async {
+      await pumpGestures(tester);
+      await tester.tap(find.text('row 3'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(taps, 0);
+      await tester.tap(find.text('row 3'), kind: PointerDeviceKind.stylus);
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      await tester.tap(find.text('button'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect((buttonTaps, taps), (1, 1));
     });
 
     testWidgets('a button keeps its tap; a tap that stops a fling is no tap', (tester) async {

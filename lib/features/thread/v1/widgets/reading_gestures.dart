@@ -17,12 +17,15 @@ enum ThreadSwipe {
 ///
 /// * a tap that nothing in the floors takes ([onTap]): a link, a picture, a button or the floor's own tap
 ///   (`ThreadFloorInteractionMode.tapToReply`) win the tap first, as they are deeper in the tree; a long press on a
-///   floor (its menu) is no tap. A tap that stops the list moving (a fling) is not one either.
+///   floor (its menu) is no tap. A tap that stops the list moving (a fling) is not one either. Only fingers and pens
+///   tap: a mouse click does not (on a desktop the bar hidden has no system back to bring it back).
 /// * a swipe sideways ([onSwipe]): told when the finger lifted [minSwipeDistance] away sideways from where it went
 ///   down and moved at least twice as far sideways as up or down. Never for a touch that scrolled anything sideways on
-///   its way (a table, a code block, a gallery in a floor, at its end too), that started at the edge of the screen (the
-///   back gesture of the system), with a second finger, or that held still as long as a long press (a floor's menu
-///   opens: the finger then slides to its items). Only fingers and pens swipe: a mouse dragging does not.
+///   its way (a table, a code block, a gallery in a floor, at its end too), that scrolled the list itself up or down
+///   past the touch slop (a drag askew: the list follows the finger from the moment it moves, a wobble is allowed),
+///   that started at the edge of the screen (the back gesture of the system), with a second finger, or that held still
+///   as long as a long press (a floor's menu opens: the finger then slides to its items). Only fingers and pens swipe: a
+///   mouse dragging does not.
 ///
 /// Neither competes with the gestures of the floors: the swipe is read from the pointer itself ([Listener]), the tap
 /// is the last one asked.
@@ -71,10 +74,29 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
   /// The finger down now stopped the list: its tap is no tap.
   bool _downStoppedList = false;
 
+  /// What the tap being recognized is made with; null before its down.
+  PointerDeviceKind? _tapKind;
+
+  /// How far the list (the one of the floors) scrolled under the finger of [_pointer], up or down, in logical pixels.
+  double _scrolledUnderFinger = 0;
+
   bool _onNotification(ScrollNotification notification) {
     if (_pointer != null && notification.metrics.axis == Axis.horizontal) {
       // Something scrolled sideways under the finger (or tried to, past its end): that was the swipe.
       _swipeBlocked = true;
+    }
+    if (_pointer != null &&
+        notification is ScrollUpdateNotification &&
+        notification.depth == 0 &&
+        notification.metrics.axis == Axis.vertical &&
+        notification.dragDetails != null) {
+      // The list follows the finger up and down from the moment the tap below gives it up (no slop of its own, the
+      // pointer being its alone then): a swipe wobbles it a little. Scrolled further than the touch slop, the finger
+      // scrolled the list (a drag askew): no swipe on top of that.
+      _scrolledUnderFinger += notification.scrollDelta ?? 0;
+      if (_scrolledUnderFinger.abs() > kTouchSlop) {
+        _swipeBlocked = true;
+      }
     }
     if (notification is ScrollEndNotification &&
         notification.depth == 0 &&
@@ -88,17 +110,16 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     return false;
   }
 
-  /// Fingers and pens: a mouse drag (any button) is no swipe, a mouse does not drag the list either.
-  static bool _swipesWith(PointerDeviceKind kind) =>
-      kind == PointerDeviceKind.touch ||
-      kind == PointerDeviceKind.stylus ||
-      kind == PointerDeviceKind.invertedStylus;
+  /// Fingers and pens: a mouse drag (any button) is no swipe, a mouse does not drag the list either; a mouse click is
+  /// no tap.
+  static bool _touches(PointerDeviceKind kind) =>
+      kind == PointerDeviceKind.touch || kind == PointerDeviceKind.stylus || kind == PointerDeviceKind.invertedStylus;
 
   void _onPointerDown(PointerDownEvent event) {
     if (_pointer == null) {
       _downStoppedList = _listJustStopped;
     }
-    if (!_swipesWith(event.kind)) {
+    if (!_touches(event.kind)) {
       return;
     }
     if (_pointer != null) {
@@ -113,6 +134,7 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
         event.position.dx < ThreadReadingGestures.edgeWidth ||
         event.position.dx > width - ThreadReadingGestures.edgeWidth;
     _movedPastSlop = false;
+    _scrolledUnderFinger = 0;
     _longPressTimer?.cancel();
     // Held still that long, the touch is a long press (a floor's menu opens), whatever it does after.
     _longPressTimer = Timer(kLongPressTimeout, () => _swipeBlocked = true);
@@ -162,8 +184,12 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     super.dispose();
   }
 
+  void _onTapDown(TapDownDetails details) => _tapKind = details.kind;
+
   void _onTap() {
-    if (!_downStoppedList) {
+    final kind = _tapKind;
+    _tapKind = null;
+    if (!_downStoppedList && kind != null && _touches(kind)) {
       widget.onTap?.call();
     }
   }
@@ -176,7 +202,11 @@ class _ThreadReadingGesturesState extends State<ThreadReadingGestures> {
     onPointerCancel: _onPointerCancel,
     child: NotificationListener<ScrollNotification>(
       onNotification: _onNotification,
-      child: GestureDetector(onTap: widget.onTap == null ? null : _onTap, child: widget.child),
+      child: GestureDetector(
+        onTapDown: widget.onTap == null ? null : _onTapDown,
+        onTap: widget.onTap == null ? null : _onTap,
+        child: widget.child,
+      ),
     ),
   );
 }
