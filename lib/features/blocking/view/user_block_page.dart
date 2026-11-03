@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -511,6 +510,9 @@ class _KeywordSection extends StatefulWidget {
 class _KeywordSectionState extends State<_KeywordSection> {
   final _controller = TextEditingController();
 
+  /// Why the keyword typed was refused, shown on the input until it is edited.
+  String? _inputError;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -530,7 +532,7 @@ class _KeywordSectionState extends State<_KeywordSection> {
     };
   }
 
-  Future<void> _report(Future<KeywordBlockResult> change, {VoidCallback? onOk}) async {
+  Future<void> _report(Future<KeywordBlockResult> change, {VoidCallback? onOk, bool onInput = false}) async {
     final result = await change;
     if (!mounted) {
       return;
@@ -539,7 +541,15 @@ class _KeywordSectionState extends State<_KeywordSection> {
       onOk?.call();
     }
     final message = _failureText(result);
-    if (message != null) {
+    // What is wrong with the keyword typed shows on the input, everything else in a snack bar.
+    final aboutInput =
+        onInput &&
+        (result == KeywordBlockResult.tooLong ||
+            result == KeywordBlockResult.duplicate ||
+            result == KeywordBlockResult.limitReached);
+    if (aboutInput) {
+      setState(() => _inputError = message);
+    } else if (message != null) {
       showSnackBar(context: context, message: message);
     }
   }
@@ -550,7 +560,8 @@ class _KeywordSectionState extends State<_KeywordSection> {
     if (normalizeBlockedKeyword(text).isEmpty) {
       return;
     }
-    await _report(cubit.add(text, expectedOwner: cubit.owner), onOk: _controller.clear);
+    // The length is checked by the repository only (no input limit cutting the text silently).
+    await _report(cubit.add(text, expectedOwner: cubit.owner), onOk: _controller.clear, onInput: true);
   }
 
   Widget _buildList(BuildContext context, KeywordBlockList list) {
@@ -622,8 +633,12 @@ class _KeywordSectionState extends State<_KeywordSection> {
                     key: const ValueKey('keyword-input'),
                     controller: _controller,
                     enabled: enabled,
-                    inputFormatters: [LengthLimitingTextInputFormatter(KeywordBlockRepository.maxLength)],
-                    decoration: InputDecoration(labelText: tr.inputLabel, isDense: true),
+                    decoration: InputDecoration(labelText: tr.inputLabel, isDense: true, errorText: _inputError),
+                    onChanged: (_) {
+                      if (_inputError != null) {
+                        setState(() => _inputError = null);
+                      }
+                    },
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) async => _add(),
                   ),

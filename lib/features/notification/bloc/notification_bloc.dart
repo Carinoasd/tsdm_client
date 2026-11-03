@@ -347,7 +347,13 @@ Future<NotificationStateInfo> countUnreadNotification({required StorageProvider 
           (e) =>
               !(e.alreadyRead ?? false) &&
               !isBlockedNoticeAuthor(e.authorId, blocked) &&
-              !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+              !isKeywordBlockedNotice(
+                e.data,
+                e.authorId,
+                keywords,
+                type: e.ignoreType,
+                fromIdType: e.fromIdType,
+              ),
         )
         .length,
     personalMessage: group.personalMessageList

@@ -473,6 +473,7 @@ class _HomepagePageState extends State<HomepagePage> {
               final allowHint = noticeHintAllowed(
                 currentBlockList(context, listen: false),
                 currentUid: context.read<AuthenticationRepository>().effectiveCurrentUid,
+                keywords: currentKeywordBlockList(context, listen: false),
               );
               context.read<NotificationInfoRepository>().applyServerHint(
                 noticeCount: allowHint ? state.unreadNoticeCount : null,

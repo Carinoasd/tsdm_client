@@ -24,8 +24,8 @@ final class BlockedKeyword {
   /// Time of adding.
   final DateTime createdAt;
 
-  /// The keyword compared to content: lower case, see [normalizeBlockedKeyword].
-  String get key => keyword.toLowerCase();
+  /// The keyword compared to content, see [foldKeywordText].
+  String get key => foldKeywordText(keyword);
 
   /// Copy with [appliesToPosts] changed.
   BlockedKeyword withAppliesToPosts({required bool value}) =>
@@ -70,6 +70,30 @@ final class BlockedKeyword {
 /// [keyword] as saved: without the surrounding white space.
 String normalizeBlockedKeyword(String keyword) => keyword.trim();
 
+/// [text] as keywords and content are compared: full width ASCII letters, digits and signs as their half width forms
+/// (`ＡＢＣ１` as `abc1`), every run of white space other than a line break (the full width space included) as one
+/// space, and lower case.
+///
+/// Line breaks are kept: they separate the lines of a floor (see `postContentPlainText`), which a keyword never spans.
+String foldKeywordText(String text) {
+  var changed = false;
+  final folded = List<int>.of(text.codeUnits);
+  for (var i = 0; i < folded.length; i++) {
+    final c = folded[i];
+    if (c >= 0xFF01 && c <= 0xFF5E) {
+      folded[i] = c - 0xFEE0;
+      changed = true;
+    } else if (c == 0x3000) {
+      folded[i] = 0x20;
+      changed = true;
+    }
+  }
+  final half = changed ? String.fromCharCodes(folded) : text;
+  return half.replaceAll(_spacesButLineBreak, ' ').toLowerCase();
+}
+
+final _spacesButLineBreak = RegExp(r'[^\S\n]+');
+
 /// The local keyword list of one account.
 ///
 /// Unlike the user block list nothing is held back while the list is not known: no keyword hides anything then.
@@ -110,10 +134,10 @@ final class KeywordBlockList {
   /// Stored entries this version can not read, written back unchanged on every change.
   final List<String> unreadableEntries;
 
-  /// Lower case keywords matched against thread titles and notices.
+  /// Keywords matched against thread titles and notices, folded by [foldKeywordText].
   final List<String> titleKeys;
 
-  /// Lower case keywords matched against floors.
+  /// Keywords matched against floors, folded by [foldKeywordText].
   final List<String> postKeys;
 
   /// Whether the list is known.
@@ -129,20 +153,20 @@ final class KeywordBlockList {
   bool hidesTitle(String? title, {String? authorUid}) =>
       title != null && titleKeys.isNotEmpty && !isOwnerString(authorUid) && containsKeyword(title, titleKeys);
 
-  /// Whether a floor whose lower case plain text is [lowerText] is hidden.
-  bool hidesPostLowerText(String lowerText) => postKeys.any(lowerText.contains);
+  /// Whether a floor whose plain text, folded by [foldKeywordText], is [foldedText] is hidden.
+  bool hidesPostFoldedText(String foldedText) => postKeys.any(foldedText.contains);
 
   /// Whether the keyword [keyword] is in the list, compared like content.
-  bool contains(String keyword) => titleKeys.contains(normalizeBlockedKeyword(keyword).toLowerCase());
+  bool contains(String keyword) => titleKeys.contains(foldKeywordText(normalizeBlockedKeyword(keyword)));
 }
 
-/// Whether [text] contains one of the lower case [keys], ignoring case.
+/// Whether [text] contains one of the [keys] (folded by [foldKeywordText]), compared as [foldKeywordText] does.
 bool containsKeyword(String text, List<String> keys) {
   if (keys.isEmpty) {
     return false;
   }
-  final lower = text.toLowerCase();
-  return keys.any(lower.contains);
+  final folded = foldKeywordText(text);
+  return keys.any(folded.contains);
 }
 
 /// The stored keyword list could not be read; nothing was changed.
@@ -168,7 +192,7 @@ enum KeywordBlockResult {
   /// Longer than [KeywordBlockRepository.maxLength], nothing changed.
   tooLong,
 
-  /// Already in the list (ignoring case), nothing changed.
+  /// Already in the list (compared as [foldKeywordText] does), nothing changed.
   duplicate,
 
   /// The list holds [KeywordBlockRepository.maxCount] keywords already, nothing changed.
@@ -357,12 +381,12 @@ final class KeywordBlockRepository with LoggerMixin {
     return KeywordBlockResult.ok;
   });
 
-  /// Remove [keyword] (compared ignoring case) from the list of [ownerUid].
+  /// Remove [keyword] (compared as [foldKeywordText] does) from the list of [ownerUid].
   Future<KeywordBlockResult> remove({required int? ownerUid, required String keyword}) => _serialized(() async {
     if (ownerUid == null || ownerUid <= 0) {
       return KeywordBlockResult.invalid;
     }
-    final key = normalizeBlockedKeyword(keyword).toLowerCase();
+    final key = foldKeywordText(normalizeBlockedKeyword(keyword));
     final list = await load(ownerUid);
     if (!list.contains(key)) {
       return KeywordBlockResult.notFound;
@@ -386,7 +410,7 @@ final class KeywordBlockRepository with LoggerMixin {
     if (ownerUid == null || ownerUid <= 0) {
       return KeywordBlockResult.invalid;
     }
-    final key = normalizeBlockedKeyword(keyword).toLowerCase();
+    final key = foldKeywordText(normalizeBlockedKeyword(keyword));
     final list = await load(ownerUid);
     if (!list.contains(key)) {
       return KeywordBlockResult.notFound;

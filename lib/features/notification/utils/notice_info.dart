@@ -345,26 +345,39 @@ String? _threadTitleOf(uh.Element body) {
   return null;
 }
 
-/// Title of the thread the notice [data] (its html) names, null when it names none; see [NoticeInfo.threadTitle].
+/// What the keyword block reads of the notice [data] (its html): the title of the thread it names (null when none, see
+/// [NoticeInfo.threadTitle]), the page it opens ([noticeTargetOf]), and whether its text says it is about the user's
+/// own post ("回复了您的帖子", "评分了您的帖子", "点评了您的帖子", "引用了您曾经在主题…发表的帖子"...).
 ///
 /// Remembered for the last notices asked: lists and counts filter the same notices again and again.
-String? noticeThreadTitleOfHtml(String data) {
-  if (_threadTitles.containsKey(data)) {
-    final title = _threadTitles.remove(data);
-    _threadTitles[data] = title;
-    return title;
+({String? title, NoticeTarget? target, bool aboutOwnPost}) noticeSubjectOfHtml(String data) {
+  if (_subjects.containsKey(data)) {
+    final subject = _subjects.remove(data)!;
+    _subjects[data] = subject;
+    return subject;
   }
   final body = parseHtmlDocument('<html><body>$data</body></html>').body;
   final title = body == null ? null : _threadTitleOf(body);
-  _threadTitles[data] = title;
-  while (_threadTitles.length > _threadTitleCapacity) {
-    _threadTitles.remove(_threadTitles.keys.first);
+  // The title is left out: a thread named "你的帖子" says nothing about whose post the notice is about.
+  final text = body == null ? '' : noticePlainTextOf(body);
+  final subject = (
+    title: title,
+    target: body == null ? null : noticeTargetOf(body),
+    aboutOwnPost: _ownPostAction.hasMatch(title == null ? text : text.replaceFirst(title, ' ')),
+  );
+  _subjects[data] = subject;
+  while (_subjects.length > _threadTitleCapacity) {
+    _subjects.remove(_subjects.keys.first);
   }
-  return title;
+  return subject;
 }
 
+/// "X 回复了您的帖子", "X 评分了你的帖子", "X 答复了您曾经在主题 Y 发表的帖子", "您在 Y 的帖子被 X 评分"...: an action
+/// on a post of the user. "X 在主题 Y 中提到了您" is not one.
+final _ownPostAction = RegExp('了(?:您|你)(?:的|曾经|曾在)|(?:您|你)的(?:帖子|主题|回复)|(?:您|你)在.{1,200}?的(?:帖子|主题|回复)');
+
 const _threadTitleCapacity = 1024;
-final _threadTitles = <String, String?>{};
+final _subjects = <String, ({String? title, NoticeTarget? target, bool aboutOwnPost})>{};
 
 /// Quoted text of [body]: the block quote (mention, rate, moderation) or the summary (a reviewed reply).
 String? _quoteOf(uh.Element body) {

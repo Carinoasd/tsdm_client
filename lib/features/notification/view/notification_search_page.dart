@@ -71,7 +71,7 @@ class _NotificationSearchPageState extends State<NotificationSearchPage> {
         .where(
           (e) =>
               !isBlockedNoticeAuthor(e.authorId, blocked) &&
-              !isKeywordBlockedNotice(e.data, e.authorId, keywords) &&
+              !isKeywordBlockedNotice(e.data, e.authorId, keywords, type: e.ignoreType, fromIdType: e.fromIdType) &&
               e.data.contains(_searchContent),
         )
         .map(NoticeCardV2.new)

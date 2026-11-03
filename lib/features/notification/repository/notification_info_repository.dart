@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:rxdart/rxdart.dart';
+import 'package:tsdm_client/features/blocking/repository/keyword_block_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -19,9 +20,18 @@ import 'package:tsdm_client/utils/platform.dart';
 /// where it hides nothing, as before local blocking existed. With an account logged in it is not that account's list
 /// (not loaded yet, or left over from the guest session), so it says nothing about who the account blocked.
 ///
+/// Blocked keywords ([keywords]) hide notices too: with one the hints are not merged either.
+///
 /// The name is kept from when only the notice count was guarded.
-bool noticeHintAllowed(UserBlockList blockList, {required int? currentUid}) =>
-    blockList.status == UserBlockListStatus.ready && blockList.uids.isEmpty && blockList.ownerUid == currentUid;
+bool noticeHintAllowed(
+  UserBlockList blockList, {
+  required int? currentUid,
+  KeywordBlockList keywords = const KeywordBlockList.empty(null),
+}) =>
+    blockList.status == UserBlockListStatus.ready &&
+    blockList.uids.isEmpty &&
+    blockList.ownerUid == currentUid &&
+    keywords.titleKeys.isEmpty;
 
 /// A small repository for notification state cubit.
 ///

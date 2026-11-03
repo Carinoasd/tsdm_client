@@ -154,7 +154,13 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     // Every list showing notice cards filters them already; the card checks again so a list that forgets (or holds
     // an old snapshot) never shows a notice of a blocked user.
     if (isBlockedNoticeAuthor(widget.data.authorId, currentBlockList(context)) ||
-        isKeywordBlockedNotice(widget.data.data, widget.data.authorId, currentKeywordBlockList(context))) {
+        isKeywordBlockedNotice(
+          widget.data.data,
+          widget.data.authorId,
+          currentKeywordBlockList(context),
+          type: widget.data.ignoreType,
+          fromIdType: widget.data.fromIdType,
+        )) {
       return const SizedBox.shrink();
     }
     final showBadge = getIt.get<SettingsRepository>().currentSettings.showUnreadNoticeBadge;

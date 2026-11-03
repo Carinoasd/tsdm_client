@@ -394,7 +394,7 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                 (e) =>
                     !e.alreadyRead &&
                     !isBlockedNoticeAuthor(e.authorId, blocked) &&
-                    !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+                    !isKeywordBlockedNotice(e.data, e.authorId, keywords, type: e.ignoreType, fromIdType: e.fromIdType),
               )
               .length;
           // Conversations with locally blocked users stay listed below but are muted: they do not count in the badge.
@@ -419,7 +419,9 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
           final blocked = currentBlockList(context);
           final keywords = currentKeywordBlockList(context);
           final noticeList = state.noticeList.where(
-            (e) => !isBlockedNoticeAuthor(e.authorId, blocked) && !isKeywordBlockedNotice(e.data, e.authorId, keywords),
+            (e) =>
+                !isBlockedNoticeAuthor(e.authorId, blocked) &&
+                !isKeywordBlockedNotice(e.data, e.authorId, keywords, type: e.ignoreType, fromIdType: e.fromIdType),
           );
           final (n, pm, bm) = switch (onlyShowUnread) {
             true => (

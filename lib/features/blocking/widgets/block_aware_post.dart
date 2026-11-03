@@ -44,10 +44,15 @@ class BlockAwarePost extends StatelessWidget {
         failed: list.status == UserBlockListStatus.failed,
       );
     }
-    // Content of a keyword the current account blocked: the floor stays, its body and signature do not show. The
-    // first floor too, the rest of the thread stays readable.
+    // Content of a keyword the current account blocked: the floor and its author stay, its body and signature do not
+    // show. The first floor too, the rest of the thread stays readable.
     if (keywordHidesPost(post, currentKeywordBlockList(context))) {
-      return KeywordBlockedPostPlaceholder(floor: post.postFloor, hot: post.hot, hotFloor: post.hotFloor);
+      return KeywordBlockedPostPlaceholder(
+        username: post.author.name,
+        floor: post.postFloor,
+        hot: post.hot,
+        hotFloor: post.hotFloor,
+      );
     }
     if (list.uids.isEmpty) {
       return builder(context, post);
@@ -130,10 +135,14 @@ class BlockedPostPlaceholder extends StatelessWidget {
 
 /// Placeholder of a post containing a keyword blocked locally.
 ///
-/// Like [BlockedPostPlaceholder] it has no "show anyway" action: the content comes back by removing the keyword.
+/// Only the content is hidden, the author is still named. Like [BlockedPostPlaceholder] it has no "show anyway"
+/// action: the content comes back by removing the keyword.
 class KeywordBlockedPostPlaceholder extends StatelessWidget {
   /// Constructor.
-  const KeywordBlockedPostPlaceholder({this.floor, this.hot = false, this.hotFloor, super.key});
+  const KeywordBlockedPostPlaceholder({required this.username, this.floor, this.hot = false, this.hotFloor, super.key});
+
+  /// Author name, shown beside the floor number.
+  final String username;
 
   /// Floor number, kept so the floors around stay in place.
   final int? floor;
@@ -150,6 +159,7 @@ class KeywordBlockedPostPlaceholder extends StatelessWidget {
     hot: hot,
     hotFloor: hotFloor,
     icon: Icons.filter_alt_off_outlined,
+    author: username,
     text: context.t.userBlock.keyword.postPlaceholder,
   );
 }
@@ -163,11 +173,13 @@ class _PostPlaceholderCard extends StatelessWidget {
     required this.hotFloor,
     required this.icon,
     required this.text,
+    this.author,
     this.error = false,
     this.action,
   });
 
   final int? floor;
+  final String? author;
   final bool hot;
   final int? hotFloor;
   final IconData icon;
@@ -194,8 +206,17 @@ class _PostPlaceholderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  postFloorLabel(context.t, floor: floor, hot: hot, hotFloor: hotFloor),
+                Text.rich(
+                  TextSpan(
+                    text: postFloorLabel(context.t, floor: floor, hot: hot, hotFloor: hotFloor),
+                    children: [
+                      if (author != null && author!.isNotEmpty)
+                        TextSpan(
+                          text: '  $author',
+                          style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                        ),
+                    ],
+                  ),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
                 ),
                 Text(

@@ -64,44 +64,151 @@ bool isTitleHiddenByKeyword(BuildContext context, String? title, {String? author
   }
 }
 
-/// Plain text of [html]: the text of its nodes, tags left out.
+/// Plain text of [html] as it reads: tags, scripts and styles left out, white space collapsed, and a line break at
+/// every `br` and block element so that two lines, paragraphs or cells never run together into one word.
 String htmlPlainText(String html) {
   if (html.isEmpty) {
     return '';
   }
-  return parseHtmlDocument('<html><body>$html</body></html>').body?.text ?? '';
+  final body = parseHtmlDocument('<html><body>$html</body></html>').body;
+  return body == null ? '' : _readableText(body);
 }
 
-/// Whether the floor [post] is hidden by a keyword of [list] that also applies to floors: its body or the author's
-/// signature, as plain text, contains it (ignoring case). Floors of the owner of [list] are never hidden.
+/// Plain text of what the author wrote in a floor whose html is [html]: the `div.pcb` of the floor on the web page,
+/// or the floor's `body_html` of the app API, which is the same `div.pcb` cut from the page.
+///
+/// Only the message itself counts (`td.t_f#postmessage_PID`): what the forum adds around and inside it is left out,
+/// the comments (`div.cm`) and rate records (`post_rate_div_PID`, `dl.rate`), scripts and styles, the edit line
+/// (`i.pstatus`), the prompts of hidden or paid parts (`div.locked`, the title of a shown hidden part), and the
+/// attachment boxes (`ignore_js_op`, "下载附件", "下载次数"). Html without a message cell (older pages, tests) is read
+/// as a whole with the same parts left out. Lines are kept apart, see [htmlPlainText].
+String postContentPlainText(String html) {
+  if (html.isEmpty) {
+    return '';
+  }
+  final body = parseHtmlDocument('<html><body>$html</body></html>').body;
+  if (body == null) {
+    return '';
+  }
+  final content = body.querySelector('[id^="postmessage_"]') ?? body.querySelector('.t_f') ?? body;
+  for (final e in content.querySelectorAll(_notPostContent).toList()) {
+    e.remove();
+  }
+  return _readableText(content);
+}
+
+/// Parts of a floor that the forum writes, not the author, see [postContentPlainText].
+const _notPostContent =
+    'script, style, .cm, [id^="comment_"], [id^="post_rate_div_"], dl.rate, i.pstatus, .locked, ignore_js_op, '
+    '.tattl, .aimg_tip, .jammer, .showhide > h4';
+
+/// Elements that start a line of their own when rendered.
+const _lineElements = {
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'br',
+  'center',
+  'dd',
+  'details',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'legend',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+};
+
+final _spaces = RegExp(r'\s+');
+final _lineBreaks = RegExp(r' *\n[\n ]*');
+
+String _readableText(uh.Node root) {
+  final out = StringBuffer();
+  void write(uh.Node node) {
+    if (node is uh.Text) {
+      out.write((node.text ?? '').replaceAll(_spaces, ' '));
+      return;
+    }
+    if (node is! uh.Element) {
+      return;
+    }
+    final tag = node.localName.toLowerCase();
+    if (tag == 'script' || tag == 'style' || tag == 'template') {
+      return;
+    }
+    final line = _lineElements.contains(tag);
+    if (line) {
+      out.write('\n');
+    }
+    node.nodes.forEach(write);
+    if (line) {
+      out.write('\n');
+    }
+  }
+
+  root.nodes.forEach(write);
+  return out.toString().replaceAll(_lineBreaks, '\n').trim();
+}
+
+/// Whether the floor [post] is hidden by a keyword of [list] that also applies to floors: its message (see
+/// [postContentPlainText]) or the author's signature, as plain text, contains it (compared as [foldKeywordText] does).
+/// Floors of the owner of [list] are never hidden.
 ///
 /// The plain text is computed once per post and kept with it.
 bool keywordHidesPost(Post post, KeywordBlockList list) {
   if (list.postKeys.isEmpty || list.isOwnerString(post.author.uid)) {
     return false;
   }
-  return list.hidesPostLowerText(_lowerPlainTextOf(post));
+  return list.hidesPostFoldedText(_foldedPlainTextOf(post));
 }
 
 final class _PostTextMemo {
-  const _PostTextMemo(this.data, this.signature, this.lower);
+  const _PostTextMemo(this.data, this.signature, this.folded);
 
   final String data;
   final String? signature;
-  final String lower;
+  final String folded;
 }
 
 final _postTexts = Expando<_PostTextMemo>('keyword post text');
 
-String _lowerPlainTextOf(Post post) {
+String _foldedPlainTextOf(Post post) {
   final memo = _postTexts[post];
   if (memo != null && identical(memo.data, post.data) && identical(memo.signature, post.signature)) {
-    return memo.lower;
+    return memo.folded;
   }
   // Apart so that a keyword never spans the end of the body and the start of the signature.
-  final lower = '${htmlPlainText(post.data)}\n${htmlPlainText(post.signature ?? '')}'.toLowerCase();
-  _postTexts[post] = _PostTextMemo(post.data, post.signature, lower);
-  return lower;
+  final folded = foldKeywordText('${postContentPlainText(post.data)}\n${htmlPlainText(post.signature ?? '')}');
+  _postTexts[post] = _PostTextMemo(post.data, post.signature, folded);
+  return folded;
 }
 
 /// Parse the `pid` of a post that a quote links to, only from the forum's own `findpost` redirect.
