@@ -2,8 +2,18 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/image/widgets/post_image.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
+import 'package:tsdm_client/widgets/text_widget_span.dart';
 
 /// A width the author gave a table or a cell of a post (`<table width="98%">`, `[table=98%]`, `<td width="200">`,
 /// `style="width: 50%"`): a share of the width the table is laid out in, or css pixels.
@@ -1071,7 +1081,10 @@ class _RenderPostTableImage extends RenderProxyBox {
 /// edge of the screen looked whole, nothing said that there was more of it to the right. The fade narrows as the
 /// table nears its end and is gone there. It only changes how the table is painted, in any theme (the table itself
 /// fades, not a color painted over it): what is under it is still tapped.
-class PostTableScrollView extends StatelessWidget {
+///
+/// A table that scrolls has a button at its top right, in the fade, opening it in a page of its own
+/// ([PostTableFullscreenPage]).
+class PostTableScrollView extends StatefulWidget {
   /// Constructor.
   const PostTableScrollView({required this.child, super.key});
 
@@ -1081,16 +1094,271 @@ class PostTableScrollView extends StatelessWidget {
   /// How wide the table fades out at an edge it scrolls further past.
   static const double fadeWidth = 28;
 
+  @override
+  State<PostTableScrollView> createState() => _PostTableScrollViewState();
+}
+
+class _PostTableScrollViewState extends State<PostTableScrollView> {
+  /// Whether the table is wider than the view.
+  bool _scrolls = false;
+
+  bool _onMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth == 0 && notification.metrics.axis == Axis.horizontal) {
+      final scrolls = notification.metrics.maxScrollExtent > precisionErrorTolerance;
+      if (scrolls != _scrolls && mounted) {
+        setState(() => _scrolls = scrolls);
+      }
+    }
+    return false;
+  }
+
+  Future<void> _openFullscreen() async {
+    final navigator = Navigator.of(context);
+    // The table there as it is here: the themes, the typography of the post and when its pictures load.
+    var table = InheritedTheme.captureAll(context, widget.child, to: navigator.context);
+    final typography = context.getInheritedWidgetOfExactType<PostTypographyScope>();
+    if (typography != null) {
+      table = PostTypographyScope(typography: typography.typography, postContent: typography.postContent, child: table);
+    }
+    if (PostImageScope.find(context) case final images?) {
+      // Pictures of their own: the gallery opened there is the table's, not the floor's twice.
+      table = PostImageScope(images: FloorImages(), autoLoad: images.autoLoad, child: table);
+    }
+    // The thread it is in: a hidden section bought there reloads the thread, an offline copy offers nothing to buy or
+    // take there either.
+    if (context.readOrNull<ThreadRepository>() case final repository?) {
+      table = RepositoryProvider<ThreadRepository>.value(value: repository, child: table);
+    }
+    if (context.readOrNull<ThreadBloc>() case final thread?) {
+      table = BlocProvider<ThreadBloc>.value(value: thread, child: table);
+    }
+    // What the author put the table on, its colors are on it.
+    final background = context.findAncestorWidgetOfExactType<PostBlockBackground>()?.color;
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => PostTableFullscreenPage(table: table, background: background),
+      ),
+    );
+  }
+
   // Its own physics, not those of the page around it (a pull to refresh): it only scrolls sideways, to its ends.
   @override
-  Widget build(BuildContext context) => ScrollConfiguration(
-    behavior: ScrollConfiguration.of(context).copyWith(physics: const ClampingScrollPhysics(), overscroll: false),
-    child: Scrollable(
-      axisDirection: AxisDirection.right,
-      physics: const ClampingScrollPhysics(),
-      viewportBuilder: (context, offset) => _TableViewport(offset: offset, child: child),
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: _onMetrics,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(physics: const ClampingScrollPhysics(), overscroll: false),
+            child: Scrollable(
+              axisDirection: AxisDirection.right,
+              physics: const ClampingScrollPhysics(),
+              viewportBuilder: (context, offset) => _TableViewport(offset: offset, child: widget.child),
+            ),
+          ),
+          if (_scrolls)
+            Positioned(
+              top: 0,
+              right: 0,
+              // In a post its tooltip follows the text scale too.
+              child: OverlayTextScale(
+                child: Tooltip(
+                  message: context.t.html.table.fullscreen,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openFullscreen,
+                    // A finger's room to tap, the button drawn small in the corner.
+                    child: SizedBox.square(
+                      dimension: kMinInteractiveDimension,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: DecoratedBox(
+                            decoration: ShapeDecoration(
+                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                              shape: const CircleBorder(),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: Icon(Icons.open_in_full, size: 16, color: colorScheme.onSurfaceVariant),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A table of a post in a page of its own ([PostTableScrollView]): laid out as wide as it reads (its comfortable
+/// widths, the width of the page when it fits), zoomed and moved both ways; a double tap puts it back.
+///
+/// On the background the author put it on ([background]), else the page's.
+class PostTableFullscreenPage extends StatefulWidget {
+  /// Constructor.
+  const PostTableFullscreenPage({required this.table, this.background, super.key});
+
+  /// The table.
+  final Widget table;
+
+  /// The block background the table is on in the post ([PostBlockBackground]), the colors of its text are shown on
+  /// it.
+  final Color? background;
+
+  @override
+  State<PostTableFullscreenPage> createState() => _PostTableFullscreenPageState();
+}
+
+class _PostTableFullscreenPageState extends State<PostTableFullscreenPage> {
+  final _transformation = TransformationController();
+
+  static const double _padding = 12;
+
+  /// The last tap of the page, a second one soon after and close by is a double tap.
+  ({Duration time, Offset position})? _lastTap;
+
+  /// The pointer down now, where and when; null once it is more than a tap (moved, held, a second finger).
+  ({int pointer, Duration time, Offset position})? _down;
+
+  /// The pointers down on the page.
+  final _pointers = <int>{};
+
+  @override
+  void dispose() {
+    _transformation.dispose();
+    super.dispose();
+  }
+
+  // Told by the pointers, not a recognizer: one in the gesture arena kept every tap of the table (a link, a picture, a
+  // spoiler) waiting for a second one, and took a quick second tap on a link for a double tap.
+  void _onPointerDown(PointerDownEvent event) {
+    _pointers.add(event.pointer);
+    if (_pointers.length > 1 || (event.kind == PointerDeviceKind.mouse && event.buttons != kPrimaryMouseButton)) {
+      // A pinch, a click of another button: no tap.
+      _down = null;
+      _lastTap = null;
+      return;
+    }
+    _down = (pointer: event.pointer, time: event.timeStamp, position: event.position);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    final down = _down;
+    if (down != null &&
+        down.pointer == event.pointer &&
+        (event.position - down.position).distance >
+            computeHitSlop(event.kind, MediaQuery.maybeGestureSettingsOf(context))) {
+      // Moved: a pan.
+      _down = null;
+      _lastTap = null;
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    _pointers.remove(event.pointer);
+    final down = _down;
+    _down = null;
+    if (down == null || down.pointer != event.pointer || event.timeStamp - down.time > kLongPressTimeout) {
+      return;
+    }
+    final last = _lastTap;
+    if (last != null &&
+        event.timeStamp - last.time <= kDoubleTapTimeout &&
+        (event.position - last.position).distance <= kDoubleTapSlop) {
+      _lastTap = null;
+      _transformation.value = Matrix4.identity();
+      return;
+    }
+    _lastTap = (time: event.timeStamp, position: event.position);
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _pointers.remove(event.pointer);
+    _down = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.t.html.table.title)),
+    backgroundColor: widget.background,
+    body: LayoutBuilder(
+      builder: (context, constraints) => Listener(
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
+        child: InteractiveViewer(
+          transformationController: _transformation,
+          constrained: false,
+          minScale: 0.2,
+          maxScale: 6,
+          child: Padding(
+            padding: const EdgeInsets.all(_padding),
+            child: _TableAtWidth(width: math.max(0, constraints.maxWidth - _padding * 2), child: widget.table),
+          ),
+        ),
+      ),
     ),
   );
+}
+
+/// Lays out a [PostTable] as [PostTableScrollView] does in [width], wider when it cannot be narrower; in a view that
+/// does not limit it ([InteractiveViewer]).
+class _TableAtWidth extends SingleChildRenderObjectWidget {
+  const _TableAtWidth({required this.width, super.child});
+
+  final double width;
+
+  @override
+  _RenderTableAtWidth createRenderObject(BuildContext context) => _RenderTableAtWidth(width);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTableAtWidth renderObject) => renderObject.width = width;
+}
+
+class _RenderTableAtWidth extends RenderProxyBox {
+  _RenderTableAtWidth(this._width);
+
+  double get width => _width;
+  double _width;
+  set width(double value) {
+    if (value == _width) {
+      return;
+    }
+    _width = value;
+    markNeedsLayout();
+  }
+
+  BoxConstraints _childConstraints(RenderBox child) =>
+      _RenderTableViewport._childConstraints(child, BoxConstraints(maxWidth: _width));
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    return child == null ? constraints.smallest : constraints.constrain(child.getDryLayout(_childConstraints(child)));
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(_childConstraints(child), parentUsesSize: true);
+    size = constraints.constrain(child.size);
+  }
 }
 
 class _TableViewport extends SingleChildRenderObjectWidget {

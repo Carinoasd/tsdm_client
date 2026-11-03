@@ -1850,6 +1850,10 @@
   "html": {
     "newcomerReportCard": {
       "title": "Detail Info"
+    },
+    "table": {
+      "title": "Table",
+      "fullscreen": "Full screen"
     }
   },
   "mediaCard": {
