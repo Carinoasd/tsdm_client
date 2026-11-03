@@ -230,6 +230,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// default), or where the reading stopped. The index of a `ThreadOpenPosition`.
   threadOpenPosition<int>(name: 'threadOpenPosition', type: int, defaultValue: 1),
 
+  /// Swipe the floors of the thread page sideways to go to the next page (to the left) or the page before (to the
+  /// right).
+  threadSwipePaging<bool>(name: 'threadSwipePaging', type: bool, defaultValue: false),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',
