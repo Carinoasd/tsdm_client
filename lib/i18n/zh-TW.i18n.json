@@ -1835,6 +1835,10 @@
   "html": {
     "newcomerReportCard": {
       "title": "詳細資料"
+    },
+    "table": {
+      "title": "表格",
+      "fullscreen": "全螢幕檢視"
     }
   },
   "mediaCard": {
