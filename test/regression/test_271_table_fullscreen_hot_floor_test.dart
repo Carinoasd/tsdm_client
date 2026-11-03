@@ -13,17 +13,24 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
@@ -33,6 +40,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
@@ -56,23 +64,38 @@ String _table(int columns) {
   return 'x<br /><table>$row$row</table>';
 }
 
-/// [html] as the content of a post card on a phone.
-Future<void> _pumpPost(WidgetTester tester, String html, {ThemeData? theme}) async {
+/// [html] as the content of a post card on a phone, of the thread [thread] when given, with the text scale
+/// [textScale].
+Future<void> _pumpPost(
+  WidgetTester tester,
+  String html, {
+  ThemeData? theme,
+  _ThreadBloc? thread,
+  double textScale = 1,
+}) async {
   tester.view
     ..devicePixelRatio = 1
     ..physicalSize = const Size(390, 800);
   addTearDown(tester.view.reset);
+  Widget post = PostTypographyScope(typography: const PostTypography(), child: MunchedHtml(_inPost(html)));
+  if (thread != null) {
+    post = RepositoryProvider<ThreadRepository>.value(
+      value: thread.threadRepository,
+      child: BlocProvider<ThreadBloc>.value(value: thread, child: post),
+    );
+  }
   await tester.pumpWidget(
     TranslationProvider(
       child: MaterialApp(
         theme: theme ?? _light,
         themeAnimationDuration: Duration.zero,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Scaffold(
           body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: PostTypographyScope(typography: const PostTypography(), child: MunchedHtml(_inPost(html))),
-            ),
+            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 22), child: post),
           ),
         ),
       ),
@@ -124,23 +147,61 @@ Future<void> _unregisterApp(({AppDatabase db, SettingsRepository settings}) app)
 
 /// The thread on screen: its floors as told ([show]), the events asked of it recorded, not run.
 final class _ThreadBloc extends ThreadBloc {
-  _ThreadBloc()
+  _ThreadBloc() : this._(ThreadRepository());
+
+  _ThreadBloc._(this.threadRepository)
     : super(
         tid: '9200647',
         pid: null,
         onlyVisibleUid: null,
         reverseOrder: null,
         exactOrder: null,
-        threadRepository: ThreadRepository(),
+        threadRepository: threadRepository,
         currentUid: () => 1,
       );
 
+  final ThreadRepository threadRepository;
+
   final asked = <ThreadEvent>[];
+
+  /// Closed as the page it was of is left (a real close waits for its listeners, past the test's frames).
+  bool closedOnScreen = false;
+
+  @override
+  bool get isClosed => closedOnScreen || super.isClosed;
 
   @override
   void add(ThreadEvent event) => asked.add(event);
 
-  void show(List<Post> posts) => emit(state.copyWith(status: ThreadStatus.success, postList: posts));
+  void show(List<Post> posts, {DateTime? offlineSavedAt}) =>
+      emit(state.copyWith(status: ThreadStatus.success, postList: posts, offlineSavedAt: offlineSavedAt));
+}
+
+/// A floor of a thread, [hot] its copy as a hot reply.
+Post _floorPost(int floor, {bool hot = false}) => Post(
+  postID: '${700000 + floor}',
+  postFloor: hot ? null : floor,
+  hot: hot,
+  hotFloor: hot ? floor : null,
+  author: const User(name: 'u', url: 'u'),
+  publishTime: DateTime(2026, 11, 3),
+  data: 'floor $floor',
+  replyAction: null,
+  rateAction: null,
+  lastEditUsername: null,
+  lastEditTime: null,
+  shareLink: null,
+  page: (floor - 1) ~/ 10 + 1,
+  isDraft: false,
+  packetAllTaken: false,
+);
+
+/// A tap at [position] at [time], as a finger does it.
+Future<void> _tapAt(WidgetTester tester, Offset position, Duration time, {int pointer = 1}) async {
+  final finger = TestPointer(pointer);
+  await tester.sendEventToBinding(finger.down(position, timeStamp: time));
+  await tester.sendEventToBinding(finger.up(timeStamp: time + const Duration(milliseconds: 40)));
+  await tester.pump();
 }
 
 void main() {
@@ -225,6 +286,114 @@ void main() {
       // Light text on the dark surface.
       expect(color!.computeLuminance(), greaterThan(_dark.colorScheme.surface.computeLuminance()));
     });
+
+    testWidgets('a double tap, told by the pointers: not a slow second tap nor a pan; taps wait for nothing', (
+      tester,
+    ) async {
+      await _pumpPost(tester, _table(9));
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      final page = find.byType(PostTableFullscreenPage);
+      expect(
+        find.descendant(
+          of: page,
+          matching: find.byWidgetPredicate((w) => w is GestureDetector && w.onDoubleTap != null),
+        ),
+        findsNothing,
+        reason: 'no double tap recognizer keeping the taps of the table waiting',
+      );
+      final viewer = find.byType(InteractiveViewer);
+      final controller = tester.widget<InteractiveViewer>(viewer).transformationController!;
+      final zoomed = Matrix4.diagonal3Values(2, 2, 1);
+      final center = tester.getCenter(viewer);
+
+      controller.value = zoomed.clone();
+      await _tapAt(tester, center, const Duration(seconds: 10));
+      await _tapAt(tester, center, const Duration(seconds: 11));
+      expect(controller.value, zoomed, reason: 'a second tap a second later');
+
+      await _tapAt(tester, center, const Duration(seconds: 20));
+      await _tapAt(tester, center + const Offset(kDoubleTapSlop + 20, 0), const Duration(seconds: 20, milliseconds: 150));
+      expect(controller.value, zoomed, reason: 'a second tap far away');
+
+      await _tapAt(tester, center, const Duration(seconds: 30));
+      await _tapAt(tester, center, const Duration(seconds: 30, milliseconds: 150));
+      expect(controller.value, Matrix4.identity());
+    });
+
+    testWidgets("the button: a finger's room to tap, its tooltip in the text scale of the post", (tester) async {
+      await _pumpPost(tester, _table(14), textScale: 2);
+      expect(_button, findsOneWidget);
+      final tooltip = find.byTooltip(t.html.table.fullscreen);
+      // Laid out in the span, painted scaled by the text scale.
+      final layout = tester.renderObject<RenderBox>(tooltip).size;
+      expect(layout.width, greaterThanOrEqualTo(kMinInteractiveDimension));
+      expect(layout.height, greaterThanOrEqualTo(kMinInteractiveDimension));
+      expect(MediaQuery.textScalerOf(tester.element(tooltip)).scale(10), 20);
+    });
+
+    testWidgets('text scale 2.0: the page lays the table out as wide as it reads, nothing thrown', (tester) async {
+      await _pumpPost(tester, _table(9), textScale: 2);
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final table = find.descendant(of: find.byType(InteractiveViewer), matching: find.byType(PostTable));
+      final size = tester.getSize(table);
+      expect(size.width, greaterThan(390));
+      expect(size.width, lessThan(390 * 6));
+      expect(find.descendant(of: table, matching: find.text('第9列')), findsNWidgets(2));
+      // The text scale of the page, once.
+      expect(MediaQuery.textScalerOf(tester.element(find.text('第9列').first)).scale(10), 20);
+    });
+
+    testWidgets('the thread goes along: what needs it there finds it, an offline copy is one there too', (
+      tester,
+    ) async {
+      final thread = _ThreadBloc()..show([_floorPost(1)], offlineSavedAt: DateTime(2026, 11));
+      addTearDown(thread.close);
+      await _pumpPost(tester, _table(9), thread: thread);
+      final inPost = tester.element(find.byType(PostTable));
+      expect(isOfflineFloor(inPost), isTrue);
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      final there = tester.element(
+        find.descendant(of: find.byType(InteractiveViewer), matching: find.byType(PostTable)),
+      );
+      expect(there.read<ThreadBloc>(), same(thread));
+      expect(there.read<ThreadRepository>(), same(thread.threadRepository));
+      expect(isOfflineFloor(there), isOfflineFloor(inPost));
+
+      // Out of a thread: nothing of one there either.
+      await tester.pumpWidget(const SizedBox());
+      await _pumpPost(tester, _table(9));
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      final alone = tester.element(
+        find.descendant(of: find.byType(InteractiveViewer), matching: find.byType(PostTable)),
+      );
+      expect(alone.readOrNull<ThreadBloc>(), isNull);
+      expect(isOfflineFloor(alone), isFalse);
+    });
+
+    testWidgets('on the background the author put it on, in the dark theme too', (tester) async {
+      for (final theme in [_light, _dark]) {
+        await tester.pumpWidget(const SizedBox());
+        await _pumpPost(
+          tester,
+          '<div style="background-color: #303030"><font color="#ffffff">x</font>'
+          '${_table(9)}</div>',
+          theme: theme,
+        );
+        final block = tester.widget<PostBlockBackground>(find.byType(PostBlockBackground));
+        await tester.tap(_button);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final scaffold = tester.widget<Scaffold>(
+          find.ancestor(of: find.byType(InteractiveViewer), matching: find.byType(Scaffold)),
+        );
+        expect(scaffold.backgroundColor, block.color);
+      }
+    });
   });
 
   group('B. a hot reply goes to its floor', () {
@@ -303,6 +472,130 @@ void main() {
       await tester.tap(find.text(t.postCard.hotReply));
       await tester.pump();
       expect(thread.asked, isEmpty);
+    });
+
+    /// The cards in an app with the share links pushed to a page of their own.
+    Future<List<String>> pumpRouted(WidgetTester tester, List<Post> posts) async {
+      final pushed = <String>[];
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => Scaffold(
+              body: SingleChildScrollView(child: Column(children: [for (final p in posts) PostCard(bare(p))])),
+            ),
+          ),
+          GoRoute(
+            path: ScreenPaths.threadV1,
+            name: ScreenPaths.threadV1,
+            builder: (_, state) {
+              pushed.add(state.uri.queryParameters['pid'] ?? '');
+              return const Scaffold(body: Text('findpost'));
+            },
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<SettingsBloc>.value(value: settings),
+            BlocProvider<ThreadBloc>.value(value: thread),
+          ],
+          child: TranslationProvider(child: MaterialApp.router(routerConfig: router)),
+        ),
+      );
+      await tester.pump();
+      return pushed;
+    }
+
+    testWidgets('a card not of the thread on screen goes by its share link', (tester) async {
+      final posts = page();
+      final hot = posts.firstWhere((e) => e.postID == '6742');
+      thread.show([posts.first]);
+      final pushed = await pumpRouted(tester, [posts.first, hot]);
+      await tester.tap(find.byTooltip(t.postCard.jumpToHotFloor));
+      await tester.pumpAndSettle();
+      expect(thread.asked, isEmpty);
+      expect(pushed, ['6742']);
+      expect(find.text('findpost'), findsOneWidget);
+    });
+
+    testWidgets('the thread closed: by its share link', (tester) async {
+      final posts = page();
+      final hot = posts.firstWhere((e) => e.postID == '6742');
+      thread.show(posts);
+      final pushed = await pumpRouted(tester, [posts.first, hot]);
+      thread.closedOnScreen = true;
+      await tester.tap(find.byTooltip(t.postCard.jumpToHotFloor));
+      await tester.pumpAndSettle();
+      expect(thread.asked, isEmpty);
+      expect(pushed, ['6742']);
+    });
+
+    testWidgets('the list brings the floor itself to the top, not its copy as a hot reply', (tester) async {
+      final posts = [
+        _floorPost(1),
+        _floorPost(25, hot: true),
+        for (var f = 2; f <= 30; f++) _floorPost(f),
+      ];
+      final controller = ThreadScrollController();
+      addTearDown(controller.dispose);
+      var serial = 0;
+      String? target;
+      late StateSetter setHost;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            home: BlocProvider(
+              create: (_) => JumpPageCubit(),
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  setHost = setState;
+                  return Scaffold(
+                    body: PostList(
+                      threadID: '1120',
+                      title: 'Thread title',
+                      postList: posts,
+                      widgetBuilder: (_, post) => SizedBox(
+                        height: 200,
+                        child: Text(
+                          'floor',
+                          key: ValueKey('${post.hot ? 'hot' : 'floor'}-${post.postFloor ?? post.hotFloor}'),
+                        ),
+                      ),
+                      canLoadMore: false,
+                      scrollController: controller,
+                      latestModAct: null,
+                      useDivider: true,
+                      lastPage: 3,
+                      scrollTargetPid: target,
+                      scrollTargetSerial: serial,
+                      onLoadNext: () {},
+                      onLoadPrevious: () {},
+                      onRefresh: () {},
+                      onTopFloorChanged: (_, {required atThreadTop}) {},
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byKey(const ValueKey('hot-25')), findsOneWidget, reason: 'the copy on screen, under the first floor');
+      setHost(() {
+        target = '700025';
+        serial++;
+      });
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      final top = tester.getTopLeft(find.byType(PostList)).dy;
+      expect(tester.getTopLeft(find.byKey(const ValueKey('floor-25'))).dy - top, lessThan(100));
+      expect(find.byKey(const ValueKey('hot-25')), findsNothing, reason: 'far above');
+      expect(tester.takeException(), isNull);
     });
   });
 }

@@ -38,6 +38,7 @@ import 'package:tsdm_client/features/reading_progress/repository/reading_progres
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/widgets/thread_visit_history_card.dart';
@@ -391,6 +392,19 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await leave(tester);
       expect(progress.state.of(_tid), ReadingProgress(page: 3, pid: _pidOf(25), floor: 25, seenReplies: 29));
+    });
+
+    testWidgets('a jump to a floor before scrolling (a hot reply going to its floor) is where the reading is', (
+      tester,
+    ) async {
+      await remember(25);
+      final progress = await pumpThread(tester);
+      expect(find.byKey(const ValueKey('thread-resume-banner')), findsOneWidget);
+      tester.element(find.byType(PostList)).read<ThreadBloc>().add(ThreadJumpToFloorRequested(8, pid: '${_pidOf(8)}'));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 2));
+      await leave(tester);
+      expect(progress.state.of(_tid)!.floor, 8, reason: 'not the floor read last time, kept over it');
     });
 
     testWidgets('read as the app starts (a link): offered once known, nothing kept before', (tester) async {
