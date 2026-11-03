@@ -221,10 +221,11 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   String? _searchCurrentPid;
 
   /// The hits found last and what they were found in, see [_searchHits].
-  ({List<Post> posts, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
+  ({ThreadState state, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
 
   /// The pages the words searched for were looked for in: a page loaded for the search ([_searchLoadSide]) is one
-  /// not looked in yet, the pages on screen being at most [threadWindowPages].
+  /// not looked in yet, the pages on screen being at most [threadWindowPages]. The pages of the floors on screen and
+  /// of the floors they go on from ([_goesOn]): another list of floors has pages of its own.
   final _searchedPages = <int>{};
 
   /// The floor at the top of the list, as it told last ([_onTopFloorChanged]): a new search starts from there.
@@ -818,7 +819,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     final blocks = currentBlockList(context, listen: listen);
     final found = _searchFound;
     if (found != null &&
-        identical(found.posts, state.postList) &&
+        identical(found.state.postList, state.postList) &&
         found.pattern == pattern &&
         identical(found.blocks, blocks)) {
       return found.hits;
@@ -843,13 +844,29 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       hidden: (post) => blocks.hidesString(post.author.uid),
       shownData: shownData,
     );
+    if (found != null && !_goesOn(found.state, state)) {
+      _searchedPages.clear();
+    }
     _searchedPages.addAll([
       for (final post in posts)
         if (!post.hot) post.page,
     ]);
     _searchCurrentPid = _currentHitAmong(hits, found?.pattern == pattern ? found?.hits : null, posts);
-    _searchFound = (posts: posts, pattern: pattern, blocks: blocks, hits: hits);
+    _searchFound = (state: state, pattern: pattern, blocks: blocks, hits: hits);
     return hits;
+  }
+
+  /// Whether the floors of [to] go on from the floors of [from]: a page loaded after or before them keeps them as they
+  /// are. Another list of floors (one author's floors or every author's again from a floor's menu, another order,
+  /// another page jumped to, the thread reloaded) is read anew, and has pages of its own: its page 2 is not the page 2
+  /// searched before, which said it was ([_searchedPages]) and let no more page be loaded for the search until the
+  /// search was closed and opened again.
+  static bool _goesOn(ThreadState from, ThreadState to) {
+    if (from.onlyVisibleUid != to.onlyVisibleUid || from.reverseOrder != to.reverseOrder) {
+      return false;
+    }
+    final before = Set<Post>.identity()..addAll(from.postList);
+    return to.postList.any(before.contains);
   }
 
   /// The current hit among [hits]: the same floor while it is one; when it is not any more (its page dropped, its

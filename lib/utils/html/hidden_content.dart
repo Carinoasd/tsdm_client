@@ -10,6 +10,10 @@ import 'package:universal_html/html.dart' as uh;
 /// searched is what can be seen, a fold's content included. Before, the search had rules of its own and the two came
 /// apart: a fold's content was shown but not searched, and what the `hidden` attribute, `visibility: hidden` or a
 /// style sheet hid was searched but not shown.
+///
+/// Not here: the text in a font size of 1px or less, which the muncher leaves out (its `tinyText`) as it reads the
+/// font sizes down the elements (an `em` size is of the size around it). The search counts a hit in it: the floor is
+/// marked, the words are not seen.
 final class HiddenContent {
   /// [root] with the style the author gave each element read by [styleOf] (null when none): the muncher's, which it
   /// keeps for the rest of the munching.

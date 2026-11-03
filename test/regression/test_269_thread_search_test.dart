@@ -54,6 +54,9 @@ import 'package:tsdm_client/widgets/munched_html.dart';
 /// searched apart from the text; going from hit to hit, or typing the same words in another case, munches no floor
 /// again and keeps the current hit.
 ///
+/// Third round: the floors replaced while searching (one author's floors from a floor's menu, every author's again)
+/// have pages of their own: the pages searched before are let go, and a page of theirs may be loaded for the search.
+///
 /// The thread pages are synthetic (grounded in the Discuz template), no real account or network.
 const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 
@@ -302,6 +305,13 @@ void main() {
   Finder appBarMenu() => find.descendant(of: find.byType(AppBar), matching: find.byIcon(Icons.more_vert));
   Finder loadMore() => find.byKey(const ValueKey('thread-search-load-more'));
   bool loadMoreEnabled(WidgetTester tester) => tester.widget<IconButton>(loadMore()).onPressed != null;
+
+  /// Load the page offered for the search.
+  Future<void> loadForSearch(WidgetTester tester) async {
+    expect(loadMoreEnabled(tester), isTrue);
+    await tester.tap(loadMore());
+    await settle(tester);
+  }
 
   Future<void> openSearch(WidgetTester tester) async {
     await tester.tap(appBarMenu());
@@ -798,6 +808,78 @@ void main() {
     await holdEnds(tester);
   });
 
+  testWidgets("one author's floors from a floor's menu, and every author's again, have pages of their own to load", (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(360, 780);
+    addTearDown(tester.view.reset);
+    // Floors short enough for the menu at the end of the first one to be on screen, tall enough for three of them to
+    // fill the screen (the list asks for no page of its own).
+    String floor(int f, {required int hit}) => _floor(f, text: f == hit ? 'needle' : 'hay', lines: 12);
+    adapter.pages = [
+      _threadPage([for (var f = 1; f <= 10; f++) floor(f, hit: 1)], pages: 2),
+      _threadPage([for (var f = 11; f <= 20; f++) floor(f, hit: 15)], page: 2, pages: 2),
+    ];
+    adapter.byAuthor = {
+      '1000': [
+        _threadPage([
+          for (final f in [1, 4, 7]) floor(f, hit: 7),
+        ], pages: 2),
+        _threadPage(
+          [
+            for (final f in [12, 15, 18]) floor(f, hit: 15),
+          ],
+          page: 2,
+          pages: 2,
+        ),
+      ],
+    };
+    Finder floorMenu(int floor) => find.descendant(
+      of: find.ancestor(of: find.textContaining('floor $floor ', findRichText: true), matching: find.byType(PostCard)),
+      matching: find.byIcon(Icons.more_vert),
+    );
+    Future<void> chooseFromMenu(WidgetTester tester, int floor, String item) async {
+      await tester.tap(floorMenu(floor));
+      await tester.pump(const Duration(milliseconds: 500));
+      await settle(tester);
+      await tester.tap(find.text(item));
+      await settle(tester);
+    }
+
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await holdEnds(tester);
+    await loadForSearch(tester);
+    expect(countText(tester), '1 / 2');
+    expect(loadMore(), findsNothing, reason: 'both pages of every author searched');
+
+    // One author's floors: page 2 is asked for, their page 2, with pages of their own.
+    await chooseFromMenu(tester, 1, 'Only view the author');
+    expect(adapter.queries.last['authorid'], '1000');
+    expect(adapter.asked.last, 2);
+    expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 12, 15 and 18');
+    expect(loadMore(), findsOneWidget, reason: "the author's page 1 was not searched");
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 1);
+    expect(adapter.queries.last['authorid'], '1000');
+    expect(countText(tester), '2 / 2', reason: 'floor 7 found before floor 15, the current hit kept');
+    expect(loadMore(), findsNothing);
+
+    // Every author's floors again: pages of their own too.
+    await chooseFromMenu(tester, 12, 'View all authors');
+    expect(adapter.queries.last.containsKey('authorid'), isFalse);
+    expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 11 to 20');
+    expect(loadMore(), findsOneWidget);
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 1);
+    expect(countText(tester), '2 / 2');
+    expect(loadMore(), findsNothing);
+    await holdEnds(tester);
+  });
+
   testWidgets('the hot copy of a floor is not marked with it', (tester) async {
     // Tall enough for every floor to be built.
     tester.view
@@ -887,12 +969,6 @@ void main() {
         pages: pages,
       ),
   ];
-
-  Future<void> loadForSearch(WidgetTester tester) async {
-    expect(loadMoreEnabled(tester), isTrue);
-    await tester.tap(loadMore());
-    await settle(tester);
-  }
 
   testWidgets('pages loaded for the search never drop the page read: the button stops instead', (tester) async {
     adapter.pages = windowPages(12, 1);
