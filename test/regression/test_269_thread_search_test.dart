@@ -35,6 +35,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
+import 'package:tsdm_client/widgets/munched_html.dart';
 
 /// Search in a thread (the app bar's "search in thread"): the floors on screen are searched, their text without the
 /// markup and their authors, whatever the case; the previous and next hits go round the hits in the order shown; the
@@ -47,6 +48,14 @@ import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 /// gone (its author blocked) moves to the closest one; the hot copy of a floor is not marked; quotes of blocked users
 /// and words split by a line break are not hits; the real newest first order and one author's floors are searched in
 /// the order shown.
+///
+/// Second round: what is searched is what is shown (the same rules as the munched content, `HiddenContent`: a fold's
+/// content in, what the `hidden` attribute, `visibility: hidden` or a style sheet hides out); the author's name is
+/// searched apart from the text; going from hit to hit, or typing the same words in another case, munches no floor
+/// again and keeps the current hit.
+///
+/// Third round: the floors replaced while searching (one author's floors from a floor's menu, every author's again)
+/// have pages of their own: the pages searched before are let go, and a page of theirs may be loaded for the search.
 ///
 /// The thread pages are synthetic (grounded in the Discuz template), no real account or network.
 const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
@@ -297,6 +306,13 @@ void main() {
   Finder loadMore() => find.byKey(const ValueKey('thread-search-load-more'));
   bool loadMoreEnabled(WidgetTester tester) => tester.widget<IconButton>(loadMore()).onPressed != null;
 
+  /// Load the page offered for the search.
+  Future<void> loadForSearch(WidgetTester tester) async {
+    expect(loadMoreEnabled(tester), isTrue);
+    await tester.tap(loadMore());
+    await settle(tester);
+  }
+
   Future<void> openSearch(WidgetTester tester) async {
     await tester.tap(appBarMenu());
     // The menu opened all the way.
@@ -333,6 +349,19 @@ void main() {
     await tester.tap(find.byKey(ValueKey('thread-search-$key')));
     await settle(tester);
   }
+
+  /// The munched content of the floor whose text holds [text]: the same widget while the floor is not munched again.
+  Widget munchedOf(WidgetTester tester, String text) => tester.widget<ClipRect>(
+    find
+        .descendant(
+          of: find.descendant(
+            of: find.ancestor(of: find.textContaining(text, findRichText: true), matching: find.byType(PostCard)),
+            matching: find.byType(MunchedHtml),
+          ),
+          matching: find.byType(ClipRect),
+        )
+        .first,
+  );
 
   /// The text marked as found in the floors built.
   List<String> marked(WidgetTester tester) {
@@ -386,6 +415,83 @@ void main() {
     final hits = threadSearchHits(posts, threadSearchPattern('needle')!, hidden: (e) => e.author.uid == '66');
     expect(hits.map((e) => e.postID), ['8', '3', '7'], reason: 'the hot copy of floor 7 left out, floor 8 only hot');
     expect(hits.first.hot, isTrue);
+  });
+
+  test('the text searched is what is shown: a fold in, what an attribute, a style or the style sheets hide out', () {
+    Post post(String data) => Post(
+      postID: '1',
+      postFloor: 1,
+      author: const User(name: 'Alice', url: 'u', uid: '1000'),
+      publishTime: DateTime(2026, 11, 3),
+      data: data,
+      replyAction: null,
+      rateAction: null,
+      lastEditUsername: null,
+      lastEditTime: null,
+      shareLink: null,
+      page: 1,
+      isDraft: false,
+      packetAllTaken: false,
+    );
+    String text(String data) => threadSearchText(post(data)).replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    // A fold the post made itself (shown by a click on another element) is shown by the app as a spoiler: searched.
+    expect(
+      text(
+        '<div onclick="document.getElementById(\'c1\').style.display=\'\'">▼ 展开</div> '
+        '<div id="c1" style="display:none">fold needle</div>后文',
+      ),
+      '▼ 展开 fold needle 后文',
+    );
+    expect(
+      text('<a href="javascript:;" onclick="\$(\'c2\').style.display=\'\'">开</a><div id="c2" hidden>in</div>'),
+      '开 in',
+    );
+    // Hidden and no fold: nothing shows it, or it is one of the forum's popups.
+    expect(text('a<div id="lonely" style="display:none">needle</div>b'), 'ab');
+    expect(
+      text(
+        'a<div id="aimg_1_menu" class="tip" style="display:none">needle</div><span onclick="\$(\'aimg_1_menu\')">图</span>',
+      ),
+      'a图',
+    );
+    // Hidden as the web page hides it, whatever the way.
+    expect(text('a<span hidden>needle</span>b'), 'ab');
+    expect(text('a<span style="visibility:hidden">needle</span>b'), 'ab');
+    expect(text('a<span style="DISPLAY:NONE">needle</span>b'), 'ab');
+    expect(text('a<span style="color:red; display : none">needle</span>b'), 'ab');
+    // The style sheet after some text: a leading `<style>` is moved to the head by the parser, for the muncher too.
+    expect(text('a<style>.answer{display:none}</style><span class="answer">needle</span>b'), 'ab');
+    expect(text('a<font class="jammer">needle</font>b'), 'ab');
+    expect(text('a<script>needle</script><form><input value="needle"></form>b'), 'ab');
+    // Shown: a style that does not hide, a class the style sheets do not hide.
+    expect(text('a<span style="display:inline-block">needle</span>b'), 'aneedleb');
+    expect(text('a<style>.q{color:red}</style><span class="q">needle</span>b'), 'aneedleb');
+  });
+
+  test('the author is searched apart from the text: words are not found across the two', () {
+    Post post(String pid, String name, String data) => Post(
+      postID: pid,
+      postFloor: int.parse(pid),
+      author: User(name: name, url: 'u', uid: '1000'),
+      publishTime: DateTime(2026, 11, 3),
+      data: data,
+      replyAction: null,
+      rateAction: null,
+      lastEditUsername: null,
+      lastEditTime: null,
+      shareLink: null,
+      page: 1,
+      isDraft: false,
+      packetAllTaken: false,
+    );
+    final posts = [post('1', 'Alice', '你好'), post('2', 'Bob', 'Alice 你好')];
+    expect(threadSearchText(posts.first), isNot(contains('Alice')), reason: 'the name is not part of the text');
+    List<String> hits(String query) =>
+        threadSearchHits(posts, threadSearchPattern(query)!).map((e) => e.author.name).toList();
+    expect(hits('Alice 你好'), ['Bob'], reason: 'floor by Alice starting with 你好 is no hit');
+    expect(hits('alice'), ['Alice', 'Bob'], reason: 'the name is searched, whatever the case');
+    expect(hits('你好'), ['Alice', 'Bob']);
   });
 
   testWidgets('a search counts the floors found whatever the case, author names and quotes included', (tester) async {
@@ -444,10 +550,42 @@ void main() {
         tester.state(find.ancestor(of: find.textContaining(text, findRichText: true), matching: find.byType(PostCard)));
     final third = card('floor 3 a Needle');
     final sixth = card('floor 6 NEEDLE');
+    final thirdContent = munchedOf(tester, 'floor 3 a Needle');
+    final sixthContent = munchedOf(tester, 'floor 6 NEEDLE');
+    expect(marked(tester), ['Needle', 'NEEDLE'], reason: 'the words are marked the same in every hit');
     await tapKey(tester, 'next');
     expect(countText(tester), '2 / 2');
     expect(card('floor 3 a Needle'), same(third), reason: 'the floor left is not built anew');
     expect(card('floor 6 NEEDLE'), same(sixth), reason: 'the floor gone to is not built anew');
+    expect(munchedOf(tester, 'floor 3 a Needle'), same(thirdContent), reason: 'the floor left is not munched again');
+    expect(munchedOf(tester, 'floor 6 NEEDLE'), same(sixthContent), reason: 'the floor gone to is not munched again');
+    expect(marked(tester), ['Needle', 'NEEDLE']);
+    await holdEnds(tester);
+  });
+
+  testWidgets('the same words in another case keep the current hit and munch no floor again', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(800, 3000);
+    addTearDown(tester.view.reset);
+    adapter.pages = [
+      _threadPage([
+        for (var f = 1; f <= 8; f++)
+          _floor(f, text: f == 3 ? 'a Needle here' : (f == 6 ? 'NEEDLE again' : 'hay'), lines: 1),
+      ]),
+    ];
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await tapKey(tester, 'next');
+    expect(countText(tester), '2 / 2');
+    final sixthContent = munchedOf(tester, 'floor 6 NEEDLE');
+    await type(tester, 'NEEDLE');
+    expect(countText(tester), '2 / 2', reason: 'the same hits, the current one kept');
+    expect(munchedOf(tester, 'floor 6 NEEDLE'), same(sixthContent));
+    await type(tester, 'needle again');
+    expect(countText(tester), '1 / 1', reason: 'other words: searched anew');
+    expect(munchedOf(tester, 'floor 6 NEEDLE'), isNot(same(sixthContent)), reason: 'marked anew');
     await holdEnds(tester);
   });
 
@@ -670,6 +808,78 @@ void main() {
     await holdEnds(tester);
   });
 
+  testWidgets("one author's floors from a floor's menu, and every author's again, have pages of their own to load", (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(360, 780);
+    addTearDown(tester.view.reset);
+    // Floors short enough for the menu at the end of the first one to be on screen, tall enough for three of them to
+    // fill the screen (the list asks for no page of its own).
+    String floor(int f, {required int hit}) => _floor(f, text: f == hit ? 'needle' : 'hay', lines: 12);
+    adapter.pages = [
+      _threadPage([for (var f = 1; f <= 10; f++) floor(f, hit: 1)], pages: 2),
+      _threadPage([for (var f = 11; f <= 20; f++) floor(f, hit: 15)], page: 2, pages: 2),
+    ];
+    adapter.byAuthor = {
+      '1000': [
+        _threadPage([
+          for (final f in [1, 4, 7]) floor(f, hit: 7),
+        ], pages: 2),
+        _threadPage(
+          [
+            for (final f in [12, 15, 18]) floor(f, hit: 15),
+          ],
+          page: 2,
+          pages: 2,
+        ),
+      ],
+    };
+    Finder floorMenu(int floor) => find.descendant(
+      of: find.ancestor(of: find.textContaining('floor $floor ', findRichText: true), matching: find.byType(PostCard)),
+      matching: find.byIcon(Icons.more_vert),
+    );
+    Future<void> chooseFromMenu(WidgetTester tester, int floor, String item) async {
+      await tester.tap(floorMenu(floor));
+      await tester.pump(const Duration(milliseconds: 500));
+      await settle(tester);
+      await tester.tap(find.text(item));
+      await settle(tester);
+    }
+
+    await pump(tester);
+    await openSearch(tester);
+    await type(tester, 'needle');
+    await holdEnds(tester);
+    await loadForSearch(tester);
+    expect(countText(tester), '1 / 2');
+    expect(loadMore(), findsNothing, reason: 'both pages of every author searched');
+
+    // One author's floors: page 2 is asked for, their page 2, with pages of their own.
+    await chooseFromMenu(tester, 1, 'Only view the author');
+    expect(adapter.queries.last['authorid'], '1000');
+    expect(adapter.asked.last, 2);
+    expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 12, 15 and 18');
+    expect(loadMore(), findsOneWidget, reason: "the author's page 1 was not searched");
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 1);
+    expect(adapter.queries.last['authorid'], '1000');
+    expect(countText(tester), '2 / 2', reason: 'floor 7 found before floor 15, the current hit kept');
+    expect(loadMore(), findsNothing);
+
+    // Every author's floors again: pages of their own too.
+    await chooseFromMenu(tester, 12, 'View all authors');
+    expect(adapter.queries.last.containsKey('authorid'), isFalse);
+    expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 11 to 20');
+    expect(loadMore(), findsOneWidget);
+    await loadForSearch(tester);
+    expect(adapter.asked.last, 1);
+    expect(countText(tester), '2 / 2');
+    expect(loadMore(), findsNothing);
+    await holdEnds(tester);
+  });
+
   testWidgets('the hot copy of a floor is not marked with it', (tester) async {
     // Tall enough for every floor to be built.
     tester.view
@@ -759,12 +969,6 @@ void main() {
         pages: pages,
       ),
   ];
-
-  Future<void> loadForSearch(WidgetTester tester) async {
-    expect(loadMoreEnabled(tester), isTrue);
-    await tester.tap(loadMore());
-    await settle(tester);
-  }
 
   testWidgets('pages loaded for the search never drop the page read: the button stops instead', (tester) async {
     adapter.pages = windowPages(12, 1);

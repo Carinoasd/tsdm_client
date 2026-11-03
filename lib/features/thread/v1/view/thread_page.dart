@@ -222,10 +222,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   String? _searchCurrentPid;
 
   /// The hits found last and what they were found in, see [_searchHits].
-  ({List<Post> posts, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
+  ({ThreadState state, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
 
   /// The pages the words searched for were looked for in: a page loaded for the search ([_searchLoadSide]) is one
-  /// not looked in yet, the pages on screen being at most [threadWindowPages].
+  /// not looked in yet, the pages on screen being at most [threadWindowPages]. The pages of the floors on screen and
+  /// of the floors they go on from ([_goesOn]): another list of floors has pages of its own.
   final _searchedPages = <int>{};
 
   /// The floor at the top of the list, as it told last ([_onTopFloorChanged]): a new search starts from there.
@@ -848,7 +849,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _searchDebounce?.cancel();
     final bloc = _threadBloc;
     final pattern = threadSearchPattern(text);
-    if (!mounted || !_searching || bloc == null || pattern?.pattern == _searchPattern?.pattern) {
+    // The same words in another case find the same hits: the search goes on from the current hit.
+    if (!mounted || !_searching || bloc == null || _sameSearch(pattern, _searchPattern)) {
       return;
     }
     _searchedPages.clear();
@@ -862,6 +864,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     _revealHit(_hitFromTop(hits, bloc.state.postList));
   }
+
+  /// Whether [a] and [b] search for the same words: the words in any case ([threadSearchPattern]).
+  static bool _sameSearch(RegExp? a, RegExp? b) => a?.pattern.toLowerCase() == b?.pattern.toLowerCase();
 
   /// The search field was submitted: the words typed at once, else the next hit; nothing while they are composed.
   void _onSearchSubmitted(String text) {
@@ -878,7 +883,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The floors of [state] the search finds, in the order they are shown, the floors of blocked users and the quotes
   /// of their floors left out as on screen ([BlockAwarePost]); none while nothing is searched.
   ///
-  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]).
+  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]): the hits found are kept
+  /// ([_searchFound]), and a build reads them once, at its start, for the search bar and the floors alike.
   List<Post> _searchHits(BuildContext context, ThreadState state, {bool listen = true}) {
     final pattern = _searchPattern;
     if (!_searching || pattern == null) {
@@ -887,7 +893,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     final blocks = currentBlockList(context, listen: listen);
     final found = _searchFound;
     if (found != null &&
-        identical(found.posts, state.postList) &&
+        identical(found.state.postList, state.postList) &&
         found.pattern == pattern &&
         identical(found.blocks, blocks)) {
       return found.hits;
@@ -912,13 +918,29 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       hidden: (post) => blocks.hidesString(post.author.uid),
       shownData: shownData,
     );
+    if (found != null && !_goesOn(found.state, state)) {
+      _searchedPages.clear();
+    }
     _searchedPages.addAll([
       for (final post in posts)
         if (!post.hot) post.page,
     ]);
     _searchCurrentPid = _currentHitAmong(hits, found?.pattern == pattern ? found?.hits : null, posts);
-    _searchFound = (posts: posts, pattern: pattern, blocks: blocks, hits: hits);
+    _searchFound = (state: state, pattern: pattern, blocks: blocks, hits: hits);
     return hits;
+  }
+
+  /// Whether the floors of [to] go on from the floors of [from]: a page loaded after or before them keeps them as they
+  /// are. Another list of floors (one author's floors or every author's again from a floor's menu, another order,
+  /// another page jumped to, the thread reloaded) is read anew, and has pages of its own: its page 2 is not the page 2
+  /// searched before, which said it was ([_searchedPages]) and let no more page be loaded for the search until the
+  /// search was closed and opened again.
+  static bool _goesOn(ThreadState from, ThreadState to) {
+    if (from.onlyVisibleUid != to.onlyVisibleUid || from.reverseOrder != to.reverseOrder) {
+      return false;
+    }
+    final before = Set<Post>.identity()..addAll(from.postList);
+    return to.postList.any(before.contains);
   }
 
   /// The current hit among [hits]: the same floor while it is one; when it is not any more (its page dropped, its
@@ -1016,9 +1038,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
   /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
   /// ([bottom]).
-  PreferredSizeWidget _buildSearchBar(BuildContext context, ThreadState state, PreferredSizeWidget bottom) {
+  PreferredSizeWidget _buildSearchBar(
+    BuildContext context,
+    ThreadState state,
+    PreferredSizeWidget bottom,
+    List<Post> hits,
+  ) {
     final tr = context.t.threadPage.search;
-    final hits = _searchHits(context, state);
     final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
     final side = _searchLoadSide(state);
     // Offered at the end of the hits the way the page would be added (after them, or before them).
@@ -1094,15 +1120,17 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// [hits] holds the floor keys ([floorKeyOf]) of the hits: the copy of a floor as a hot reply is not marked with
   /// the floor (it is not a hit of its own).
   ///
-  /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends.
+  /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends. The
+  /// words are marked the same in every hit, only the line tells the current one: going from hit to hit changes
+  /// nothing the content was munched from, so no floor is munched again (the marks are part of the munched content).
   Widget _markSearchHit(BuildContext context, Post post, Set<String> hits, Widget card) {
     final hit = _searchPattern != null && hits.contains(floorKeyOf(post));
     final colorScheme = Theme.of(context).colorScheme;
     final current = hit && post.postID == _searchCurrentPid;
     return SearchHighlightScope(
       pattern: hit ? _searchPattern : null,
-      background: current ? colorScheme.primary : colorScheme.primaryContainer,
-      foreground: current ? colorScheme.onPrimary : colorScheme.onPrimaryContainer,
+      background: colorScheme.primaryContainer,
+      foreground: colorScheme.onPrimaryContainer,
       child: Stack(
         // The card is laid out as without the mark.
         fit: StackFit.passthrough,
@@ -1318,10 +1346,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       ..requestFocus();
   }
 
-  Widget _buildContent(BuildContext context, ThreadState state) {
+  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
+  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
     final swipePaging = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadSwipePaging);
-    final searchHits = {for (final post in _searchHits(context, state)) floorKeyOf(post)};
+    final searchHits = {for (final post in hits) floorKeyOf(post)};
     if (_scrollToPidOnReload != null) {
       // Consumed by the PostList created in this build.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPidOnReload = null);
@@ -1532,7 +1561,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       : ThreadLoadMoreRequested(state.currentPage);
 
   /// Body of the page; everything but the content (which handles the insets per part) stays in the safe area.
-  Widget _buildBody(BuildContext context, ThreadState state) {
+  /// The body of the page for [state], [hits] the hits of the search ([_searchHits]).
+  Widget _buildBody(BuildContext context, ThreadState state, List<Post> hits) {
     Widget safe(Widget child) => SafeArea(bottom: false, child: child);
     if (state.needLogin) {
       return safe(
@@ -1558,13 +1588,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     return switch (state.status) {
       ThreadStatus.initial || ThreadStatus.loading => const CenteredCircularIndicator(),
       // A failed reload keeps the previous posts (see ThreadBloc); only an empty page gets the retry button.
-      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state),
+      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state, hits),
       ThreadStatus.failure => safe(
         buildRetryButton(context, () {
           context.read<ThreadBloc>().add(_retryLoad(state));
         }),
       ),
-      ThreadStatus.success => _buildContent(context, state),
+      ThreadStatus.success => _buildContent(context, state, hits),
     };
   }
 
@@ -1840,9 +1870,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
               preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
               child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
             );
+            // The hits of the search, found once for the search bar and the floors.
+            final searchHits = _searchHits(context, state);
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
             final appBar = _searching
-                ? _buildSearchBar(context, state, breadcrumbs)
+                ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
                     title: title,
                     bottom: breadcrumbs,
@@ -1928,7 +1960,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             _appBarCollapser.barHeight = appBar.preferredSize.height;
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
             // The content's text-scale override must not restore the outer status-bar padding.
-            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));
+            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state, searchHits));
             // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
             // not rebuilt.
             // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own

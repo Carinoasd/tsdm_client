@@ -70,6 +70,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
+    this.editorQuickPhrases = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -197,6 +198,10 @@ class SettingsMap with SettingsMapMappable {
   /// older versions lack it.
   final int postImageAutoLoad;
 
+  /// The quick phrases of the editors' toolbar button, a JSON list of strings in the user's order (see
+  /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
+  final String editorQuickPhrases;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -272,6 +277,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.homepagePinnedGroup => copyWith(homepagePinnedGroup: value as String?),
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
+      SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
     };
   }
 }

@@ -1813,6 +1813,16 @@
       "siteSearch": "全站搜尋",
       "noSearchResult": "全站沒有找到「${name}」"
     },
+    "quickPhrases": {
+      "title": "常用語",
+      "manage": "管理",
+      "empty": "還沒有常用語",
+      "add": "新增常用語",
+      "edit": "編輯常用語",
+      "full": "最多 ${count: int} 條",
+      "deleted": "已刪除",
+      "undo": "復原"
+    },
     "customImage": {
       "tab": "我的圖片",
       "add": "新增圖片",

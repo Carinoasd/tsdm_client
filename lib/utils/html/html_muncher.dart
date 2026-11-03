@@ -20,6 +20,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/full_width_block.dart';
+import 'package:tsdm_client/utils/html/hidden_content.dart';
 import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 // Netease card
@@ -481,7 +482,7 @@ final class _Muncher with LoggerMixin {
   /// Additional options control injected by caller.
   final MunchOptions options;
 
-  /// The element munched by [munchElement], where the folds a post made itself are looked for ([_folds]).
+  /// The element munched by [munchElement], where the folds a post made itself are looked for ([_hiddenContent]).
   uh.Element? _root;
 
   /// Map to store div classes and corresponding munch functions.
@@ -495,6 +496,10 @@ final class _Muncher with LoggerMixin {
 
   /// [_sheets] matched to the elements of the html.
   late final AuthorStyler _styler = _sheets.styler(_root ?? uh.DivElement());
+
+  /// What the html does not show, and the folds the post made itself: shared with the search in a thread, which
+  /// searches what can be seen.
+  late final HiddenContent _hiddenContent = HiddenContent(_root ?? uh.DivElement(), styleOf: _styleOf);
 
   /// Count of the backgrounds pushed so far, see `_Behind.order`.
   int _behindCount = 0;
@@ -814,40 +819,8 @@ final class _Muncher with LoggerMixin {
   /// frame): an element of these the muncher fails on is left out, its source is never shown in its place.
   static const _sourceElements = {'script', 'style', 'iframe', 'noscript', 'template', 'noembed', 'noframes'};
 
-  /// What the web page does not show: scripts, styles, a form (a template's form, the poll's, is shown by the app's own
-  /// card) and its fields, ruby parentheses (the ruby text is shown above its base), what is there for browsers
-  /// without plugins or frames, and other things a browser never shows as text. A button, a text box and a choice
-  /// box out of a form are shown as their text ([_buildElement]).
-  static const _invisibleElements = {
-    'script',
-    'style',
-    'noscript',
-    'noembed',
-    'noframes',
-    'template',
-    'head',
-    'title',
-    'meta',
-    'link',
-    'base',
-    'form',
-    'input',
-    'option',
-    'optgroup',
-    'datalist',
-    'rp',
-    'param',
-    'source',
-    'track',
-    'colgroup',
-    'col',
-    'map',
-    'area',
-    'canvas',
-    'svg',
-    'math',
-    'dialog',
-  };
+  /// What the web page does not show ([HiddenContent.invisibleElements]).
+  static const Set<String> _invisibleElements = HiddenContent.invisibleElements;
 
   /// The text of a text node [raw] as the web page shows it at the current place of the line, null when it shows
   /// nothing there.
@@ -966,18 +939,9 @@ final class _Muncher with LoggerMixin {
     return tagName.contains(':') ? tagName.toLowerCase() : element.localName;
   }
 
-  /// Whether [element] is not shown on the web page: hidden by its style (`display: none`, also written without the
-  /// space: the jammer text some posts hide in `<span style="display:none">` was shown; `visibility: hidden`), by the
-  /// `hidden` attribute, or the forum's jammer text (`<font class="jammer">`, which the style sheet paints white in a
-  /// small size on the white page).
-  static bool _isHidden(uh.Element element) =>
-      element.attributes.containsKey('hidden') ||
-      element.classes.contains('jammer') ||
-      _hiddenStyleRe.hasMatch(element.attributes['style'] ?? '');
-
-  /// Whether [element] is not shown on the web page ([_isHidden]), also when the style sheets of the post hide it
-  /// (`.answer { display: none }`): before, only its own `style` was read for it.
-  bool _hidden(uh.Element element) => _isHidden(element) || _styleOf(element)?.display == 'none';
+  /// Whether [element] is not shown on the web page ([HiddenContent.isHidden]): by its `hidden` attribute, its own
+  /// style, the forum's jammer class or the style sheets of the post (`.answer { display: none }`).
+  bool _hidden(uh.Element element) => _hiddenContent.isHidden(element);
 
   /// Whether the style of [element], an element of the web page laid out in its line (a `<span>`, a `<small>`, a link,
   /// an image), makes it a block (`display: block`, `flex`…): it takes lines of its own. Before, such an element stayed
@@ -999,11 +963,6 @@ final class _Muncher with LoggerMixin {
     'dfn',
     'tt',
   };
-
-  static final _hiddenStyleRe = RegExp(
-    r'(^|;)\s*(display\s*:\s*none|visibility\s*:\s*(hidden|collapse))\b',
-    caseSensitive: false,
-  );
 
   /// The state of the muncher, to put back with [_restore] when munching an element failed half way.
   _MunchSnapshot _snapshot() => (
@@ -1032,84 +991,6 @@ final class _Muncher with LoggerMixin {
     _restoreLine(snapshot.line);
   }
 
-  /// The folds the post made itself, by the id of the hidden element: the element whose click shows it, its title.
-  ///
-  /// Posts written in html make folds of their own: an element with an id hidden by its style, shown by a click on
-  /// another element (`<div onclick="document.getElementById('c1').style.display=…">▼ 展开</div>`, `$('c1')` too).
-  /// Hidden like any hidden element, what they held could not be seen at all. The forum's popups (`.tip`, `*_menu`)
-  /// and elements without an id (the jammer text) stay hidden.
-  late final Map<String, ({uh.Element target, uh.Element title})> _folds = () {
-    final root = _root;
-    final folds = <String, ({uh.Element target, uh.Element title})>{};
-    if (root == null) {
-      return folds;
-    }
-    final hidden = <String, uh.Element>{};
-    for (final e in root.querySelectorAll('[id]')) {
-      if (_hidden(e) && _canFold(e) && !_showsNothing(e)) {
-        hidden.putIfAbsent(e.id, () => e);
-      }
-    }
-    if (hidden.isEmpty) {
-      return folds;
-    }
-    for (final title in root.querySelectorAll('[onclick], a[href]')) {
-      final code = '${title.attributes['onclick'] ?? ''} ${title.attributes['href'] ?? ''}';
-      for (final match in _foldTargetRe.allMatches(code)) {
-        final id = match.namedGroup('id')!;
-        final target = hidden[id];
-        // A title holding its fold is shown, it shows the fold too.
-        if (target != null && !folds.containsKey(id) && !_holds(title, target)) {
-          folds[id] = (target: target, title: title);
-        }
-      }
-    }
-    return folds;
-  }();
-
-  /// The titles of [_folds].
-  late final Set<uh.Element> _foldTitles = {for (final fold in _folds.values) fold.title};
-
-  static final _foldTargetRe = RegExp(r'''(?:getElementById|\$)\(\s*['"](?<id>[^'"]+)['"]\s*\)''');
-
-  /// Whether the hidden [element] can be a fold of the post: it is none of the forum's popups.
-  static bool _canFold(uh.Element element) =>
-      element.id.isNotEmpty && !element.id.endsWith('_menu') && !element.classes.contains('tip');
-
-  /// Whether the hidden [element] shows nothing when it is shown: no text, not even in what is hidden in it (another
-  /// fold), no picture, no player, no control (a spoiler's title is the value of its button). It is no fold: what
-  /// shows it stays as it is, as on the web page (before, the fold and its title were both left out). A form, as for
-  /// a dialog (the forum's `activityjoincancel`), a script and a style show nothing.
-  static bool _showsNothing(uh.Element element) {
-    bool holdsSomething(uh.Node node) {
-      for (final child in node.nodes) {
-        if (child is uh.Element) {
-          switch (child.localName) {
-            case 'form' || 'script' || 'style':
-              continue;
-            case 'img' || 'iframe' || 'embed' || 'object' || 'video' || 'audio' || 'details' || 'textarea' || 'select':
-              return true;
-            case 'input':
-              if (child.attributes['type']?.trim().toLowerCase() != 'hidden' &&
-                  (child.attributes['value']?.trim().isNotEmpty ?? false)) {
-                return true;
-              }
-            default:
-              if (child.classes.contains('spoiler') || holdsSomething(child)) {
-                return true;
-              }
-          }
-        } else if (child.nodeType == uh.Node.TEXT_NODE &&
-            (child.text ?? '').replaceAll(_htmlWhiteSpaceRe, '').isNotEmpty) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    return !holdsSomething(element);
-  }
-
   /// Whether the button [element] is one of the forum's: of its buttons' class `.pn`, or opening the forum's windows,
   /// dialogs and menus.
   static bool _isForumButton(uh.Element element) =>
@@ -1117,25 +998,16 @@ final class _Muncher with LoggerMixin {
 
   static final _forumActionRe = RegExp(r'\b(?:showWindow|ajaxmenu|showDialog|ajaxget|ajaxpost)\s*\(');
 
-  static bool _holds(uh.Element ancestor, uh.Element element) {
-    for (uh.Node? node = element; node != null; node = node.parentNode) {
-      if (identical(node, ancestor)) {
-        return true;
-      }
-    }
-    return false;
-  }
+  /// Whether [element] is the element whose click shows a fold of the post ([HiddenContent.folds]).
+  bool _isFoldTitle(uh.Element element) => _hiddenContent.isFoldTitle(element);
 
-  bool _isFoldTitle(uh.Element element) => element.attributes.isNotEmpty && _foldTitles.contains(element);
-
-  /// A fold the post made itself ([_folds]), as a spoiler whose title is the text of the element that showed it; null
-  /// for a hidden element that is no fold.
+  /// A fold the post made itself ([HiddenContent.folds]), as a spoiler whose title is the text of the element that
+  /// showed it; null for a hidden element that is no fold.
   List<InlineSpan>? _buildFold(uh.Element element) {
-    final fold = element.id.isEmpty ? null : _folds[element.id];
-    if (fold == null || !identical(fold.target, element)) {
+    if (!_hiddenContent.isFold(element)) {
       return null;
     }
-    final title = fold.title;
+    final title = _hiddenContent.folds[element.id]!.title;
     return _munchBlock(element, deferBreak: false, () {
       state.elevation += _elevationStep;
       final elevation = state.elevation;

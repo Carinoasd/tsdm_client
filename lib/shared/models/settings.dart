@@ -316,6 +316,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// When the pictures of the posts load by themselves, the index of a `PostImageAutoLoad`: always (the default), only
   /// on a network that is not metered, or never (each loads when tapped).
   postImageAutoLoad<int>(name: 'postImageAutoLoad', type: int, defaultValue: 0),
+
+  /// The quick phrases of the editors' toolbar button (a JSON list of strings, the order the user arranged), see
+  /// `decodeQuickPhrases`.
+  ///
+  /// One value for every account; it lives in the settings table, so a backup carries it.
+  editorQuickPhrases<String>(name: 'editorQuickPhrases', type: String, defaultValue: ''),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

@@ -49,7 +49,7 @@ import 'package:universal_html/parsing.dart';
 ///    behind [BlockAwarePost] turns into the placeholder under the open dialog, and closing the dialog throws nothing;
 /// 6. on a 360 wide phone (content 204 wide, Traditional Chinese, 1.0 scale) the chips take two rows at most;
 /// 7. without any account in use the lists stay and friend and block are left out; a floor with neither uid nor name
-///    gets no action row at all.
+///    gets no action row at all; a floor with the own name but no uid is the own floor too.
 ///
 /// Synthetic accounts and pages only: no network, no login, nothing is sent.
 Translations get tr => LocaleSettings.instance.currentTranslations;
@@ -333,6 +333,40 @@ void main() {
     expect(find.text(tr.postCard.profileDialog.myThreads), findsOneWidget);
     expect(action('friend'), findsNothing);
     expect(action('block'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('without a uid, the own name is the own floor: my threads, no friend and no block', (tester) async {
+    final post = _post();
+    final opened = await openDialog(
+      tester,
+      reader: 2000,
+      withBlocks: true,
+      // The account is "Reader"; the forum ignores the case when it looks a name up.
+      post: post.copyWith(
+        userBriefProfile: post.userBriefProfile!.copyWith(uid: '', username: 'reader'),
+      ),
+    );
+    expect(find.text(tr.postCard.profileDialog.myThreads), findsOneWidget);
+    expect(find.text(tr.postCard.profileDialog.memberThreads), findsNothing);
+    expect(action('friend'), findsNothing);
+    expect(action('block'), findsNothing);
+    await tester.tap(action('threads'));
+    await _settle(tester);
+    expect(opened.single.path, ScreenPaths.myThread);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('360x640, Traditional Chinese: the two list chips keep their own width on the first row', (tester) async {
+    await tester.runAsync(() => LocaleSettings.setLocale(AppLocale.zhTw));
+    addTearDown(() => LocaleSettings.setLocale(AppLocale.en));
+    await openDialog(tester, reader: 2000, withBlocks: true, window: const Size(360, 640));
+    final threads = tester.getSize(action('threads'));
+    final replies = tester.getSize(action('replies'));
+    final row = tester.getSize(find.ancestor(of: action('threads'), matching: find.byType(Row)).first);
+    // Not stretched to half the row each: the label decides the width.
+    expect(threads.width + replies.width + 8, lessThan(row.width), reason: 'room is left over');
+    expect(tester.getTopLeft(action('threads')).dy, tester.getTopLeft(action('replies')).dy, reason: 'one row');
     expect(tester.takeException(), isNull);
   });
 
