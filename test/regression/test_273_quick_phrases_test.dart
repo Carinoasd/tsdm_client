@@ -2,10 +2,12 @@
 /// arranges them (add, edit, drag to sort, swipe to delete).
 ///
 /// 1. saving: one JSON list in the settings (so a backup carries it) that survives a restart, reads damaged values as
-///    nothing, and keeps at most 100 phrases of 2000 characters;
+///    nothing, and keeps at most 100 phrases of 2000 characters (the unit the field counts: an emoji is one, so a phrase
+///    the field let through is read back whole);
 /// 2. the sheet lists the phrases (two lines at most) and inserts the tapped one at the cursor, as text;
-/// 3. without a phrase the button opens the page at once;
-/// 4. the page adds, edits, sorts and deletes, and stops at the limits.
+/// 3. without a phrase the button opens the page at once, and back from the page the sheet shows what there is now;
+/// 4. the page adds, edits, sorts and deletes, and stops at the limits;
+/// 5. the editor of a fast reply template has no quick phrases button.
 ///
 /// Synthetic data only: no network, nothing is sent.
 library;
@@ -26,6 +28,7 @@ import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/features/editor/utils/quick_phrases.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
+import 'package:tsdm_client/features/post/view/fast_reply_edit_template_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -104,6 +107,25 @@ void main() {
       expect(long.single, hasLength(quickPhraseMaxLength));
       expect(quickPhraseMaxCount, 100);
       expect(quickPhraseMaxLength, 2000);
+    });
+
+    test('the length is counted in characters, so an emoji phrase the field took is read back whole', () {
+      // Each is one character of two code units: the field takes 2000 of them, 4000 code units.
+      final emoji = '😀' * quickPhraseMaxLength;
+      expect(emoji.length, 2 * quickPhraseMaxLength);
+      expect(decodeQuickPhrases(encodeQuickPhrases([emoji])).single, emoji);
+
+      // One too many is cut after a whole emoji, never inside a surrogate pair.
+      final cut = decodeQuickPhrases(encodeQuickPhrases(['$emoji😀'])).single;
+      expect(cut, emoji);
+      expect(cut.characters.length, quickPhraseMaxLength);
+      expect(cut.runes.where((r) => r >= 0xD800 && r <= 0xDFFF), isEmpty, reason: 'no lone surrogate');
+
+      // A family of four is one character.
+      final family = '👨‍👩‍👧‍👦' * (quickPhraseMaxLength + 1);
+      final cutFamily = decodeQuickPhrases(encodeQuickPhrases([family])).single;
+      expect(cutFamily.characters.length, quickPhraseMaxLength);
+      expect(cutFamily, '👨‍👩‍👧‍👦' * quickPhraseMaxLength);
     });
 
     test('kept in the settings across a restart, for every account', () async {
@@ -252,6 +274,97 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(QuickPhrasesPage), findsOneWidget);
       expect(find.text(tr.bbcodeEditor.quickPhrases.empty), findsOneWidget);
+    });
+
+    testWidgets('back from the page with a phrase added there, the sheet opens with it', (tester) async {
+      await pumpToolbar(tester);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickPhrasesPage), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('quick-phrases-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('quick-phrase-field')), 'fresh');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('quick-phrase-ok')));
+      await tester.pumpAndSettle();
+      await settled(tester);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickPhrasesPage), findsNothing);
+      expect(find.byKey(const ValueKey('quick-phrases-manage')), findsOneWidget, reason: 'the sheet is open');
+      expect(find.byKey(const ValueKey('quick-phrase-item-0')), findsOneWidget);
+      expect(find.text('fresh'), findsOneWidget);
+    });
+
+    testWidgets('back from the manage button, the sheet shows the phrases as they are now', (tester) async {
+      await save(tester, ['one', 'two']);
+      final controller = await pumpToolbar(tester);
+      controller.updateSelection(const TextSelection.collapsed(offset: 4), ChangeSource.local);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quick-phrases-manage')));
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickPhrasesPage), findsOneWidget);
+
+      await tester.drag(find.text('one'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await settled(tester);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickPhrasesPage), findsNothing);
+      expect(find.byKey(const ValueKey('quick-phrases-manage')), findsOneWidget, reason: 'the sheet reopened');
+      expect(find.text('one'), findsNothing);
+      expect(find.byKey(const ValueKey('quick-phrase-item-0')), findsOneWidget);
+
+      await tester.tap(find.text('two'));
+      await tester.pumpAndSettle();
+      expect(controller.document.toPlainText(), 'abcdtwo\n');
+    });
+
+    testWidgets('back from the page with every phrase deleted, nothing opens', (tester) async {
+      await save(tester, ['only']);
+      await pumpToolbar(tester);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quick-phrases-manage')));
+      await tester.pumpAndSettle();
+      await tester.drag(find.text('only'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await settled(tester);
+      expect(find.text(tr.bbcodeEditor.quickPhrases.empty), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickPhrasesPage), findsNothing);
+      expect(find.byKey(const ValueKey('quick-phrases-manage')), findsNothing);
+      expect(find.text(tr.bbcodeEditor.quickPhrases.title), findsNothing);
+      expect(button, findsOneWidget);
+    });
+
+    testWidgets('the editor of a fast reply template has no quick phrases button', (tester) async {
+      getIt
+        ..registerSingleton<StorageProvider>(storage)
+        ..registerSingleton<SettingsRepository>(settings);
+      addTearDown(getIt.reset);
+      await save(tester, ['one']);
+      tester.view
+        ..physicalSize = const Size(1200, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: BlocProvider<SettingsBloc>.value(
+            value: bloc,
+            child: const MaterialApp(home: FastReplyTemplateEditPage(FastReplyTemplateEditType.create, null)),
+          ),
+        ),
+      );
+      await settled(tester);
+      expect(find.byType(EditorToolbar), findsOneWidget);
+      expect(find.descendant(of: find.byType(EditorToolbar), matching: find.byType(IconButton)), findsWidgets);
+      expect(button, findsNothing);
     });
 
     testWidgets('on a narrow toolbar every wrapped row starts at the left edge, the button ends the first row', (
@@ -431,6 +544,22 @@ void main() {
       await tester.pump();
       final field = tester.widget<TextField>(find.byKey(const ValueKey('quick-phrase-field')));
       expect(field.controller!.text, hasLength(quickPhraseMaxLength));
+    });
+
+    testWidgets('the field counts an emoji as one character, and what it took is saved whole', (tester) async {
+      await pumpPage(tester);
+      await tester.tap(find.byKey(const ValueKey('quick-phrases-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('quick-phrase-field')), '😀' * (quickPhraseMaxLength + 100));
+      await tester.pump();
+      final field = tester.widget<TextField>(find.byKey(const ValueKey('quick-phrase-field')));
+      final text = field.controller!.text;
+      expect(text.characters.length, quickPhraseMaxLength);
+      expect(text.length, 2 * quickPhraseMaxLength);
+      await tester.tap(find.byKey(const ValueKey('quick-phrase-ok')));
+      await tester.pumpAndSettle();
+      await settled(tester);
+      expect(saved().single, text);
     });
   });
 }

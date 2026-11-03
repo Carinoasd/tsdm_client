@@ -193,6 +193,9 @@ class SettingsMap with SettingsMapMappable {
   /// When the pictures of the posts load by themselves, the index of a `PostImageAutoLoad`. Not required: backups from
   /// older versions lack it.
   final int postImageAutoLoad;
+
+  /// The quick phrases of the editors' toolbar button, a JSON list of strings in the user's order (see
+  /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
 
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
