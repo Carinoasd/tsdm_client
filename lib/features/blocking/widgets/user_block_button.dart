@@ -59,6 +59,20 @@ Future<UserBlockResult> unblockUser(BuildContext context, {required int uid, req
   return result;
 }
 
+/// Unblock [uid] when [blocked], else ask for confirmation and block it.
+Future<void> toggleUserBlock(
+  BuildContext context, {
+  required int uid,
+  required String username,
+  required bool blocked,
+}) async {
+  if (blocked) {
+    await unblockUser(context, uid: uid, username: username);
+  } else {
+    await confirmAndBlockUser(context, uid: uid, username: username);
+  }
+}
+
 /// Block or unblock [uid] locally for the current account.
 ///
 /// Hidden for the current account itself and while the list of the current account is not known. Never sends any
@@ -85,13 +99,7 @@ class UserBlockButton extends StatelessWidget {
     return IconButton(
       icon: Icon(blocked ? Icons.remove_moderator_outlined : Icons.block_outlined),
       tooltip: blocked ? tr.unblock : tr.block,
-      onPressed: () async {
-        if (blocked) {
-          await unblockUser(context, uid: uid, username: username);
-        } else {
-          await confirmAndBlockUser(context, uid: uid, username: username);
-        }
-      },
+      onPressed: () async => toggleUserBlock(context, uid: uid, username: username, blocked: blocked),
     );
   }
 }
