@@ -65,13 +65,14 @@ String _table(int columns) {
 }
 
 /// [html] as the content of a post card on a phone, of the thread [thread] when given, with the text scale
-/// [textScale].
+/// [textScale]; under the line width of the floors ([PostLineWidth]) when [lineWidth].
 Future<void> _pumpPost(
   WidgetTester tester,
   String html, {
   ThemeData? theme,
   _ThreadBloc? thread,
   double textScale = 1,
+  bool lineWidth = false,
 }) async {
   tester.view
     ..devicePixelRatio = 1
@@ -83,6 +84,9 @@ Future<void> _pumpPost(
       value: thread.threadRepository,
       child: BlocProvider<ThreadBloc>.value(value: thread, child: post),
     );
+  }
+  if (lineWidth) {
+    post = PostLineWidth(child: post);
   }
   await tester.pumpWidget(
     TranslationProvider(
@@ -108,6 +112,31 @@ Future<void> _pumpPost(
 }
 
 final Finder _button = find.byIcon(Icons.open_in_full);
+
+/// The circle the button is drawn as.
+final Finder _circle = find.byWidgetPredicate((w) => w is Material && w.shape == const CircleBorder());
+
+/// The table's view under [tester]: its scrollable, hit when a tap reaches the table.
+RenderObject _tableView(WidgetTester tester) =>
+    tester.renderObject(find.descendant(of: find.byType(PostTableScrollView), matching: find.byType(Scrollable)));
+
+/// Whether a tap at [at] reaches the table ([_tableView]) rather than the button over it.
+bool _reachesTable(WidgetTester tester, Offset at) {
+  final view = _tableView(tester);
+  return tester.hitTestOnBinding(at).path.any((e) => e.target == view);
+}
+
+/// Whether a tap at [at] hits the button.
+bool _hitsButton(WidgetTester tester, Offset at) {
+  final button = tester.renderObject(_circle);
+  return tester.hitTestOnBinding(at).path.any((e) => e.target == button);
+}
+
+ScrollPosition _tablePosition(WidgetTester tester) => tester
+    .state<ScrollableState>(
+      find.descendant(of: find.byType(PostTableScrollView), matching: find.byType(Scrollable)),
+    )
+    .position;
 
 final class _OfflineAdapter implements HttpClientAdapter {
   @override
@@ -147,13 +176,13 @@ Future<void> _unregisterApp(({AppDatabase db, SettingsRepository settings}) app)
 
 /// The thread on screen: its floors as told ([show]), the events asked of it recorded, not run.
 final class _ThreadBloc extends ThreadBloc {
-  _ThreadBloc() : this._(ThreadRepository());
+  _ThreadBloc({String? onlyVisibleUid}) : this._(ThreadRepository(), onlyVisibleUid);
 
-  _ThreadBloc._(this.threadRepository)
+  _ThreadBloc._(this.threadRepository, String? onlyVisibleUid)
     : super(
         tid: '9200647',
         pid: null,
-        onlyVisibleUid: null,
+        onlyVisibleUid: onlyVisibleUid,
         reverseOrder: null,
         exactOrder: null,
         threadRepository: threadRepository,
@@ -213,11 +242,7 @@ void main() {
   group('A. a table in a page of its own', () {
     testWidgets('a table that scrolls sideways has the button, one that fits has none', (tester) async {
       await _pumpPost(tester, _table(9));
-      final position = tester
-          .state<ScrollableState>(
-            find.descendant(of: find.byType(PostTableScrollView), matching: find.byType(Scrollable)),
-          )
-          .position;
+      final position = _tablePosition(tester);
       expect(position.maxScrollExtent, greaterThan(0));
       expect(_button, findsOneWidget);
       // At the top right of the table, in its fade.
@@ -313,22 +338,107 @@ void main() {
       expect(controller.value, zoomed, reason: 'a second tap a second later');
 
       await _tapAt(tester, center, const Duration(seconds: 20));
-      await _tapAt(tester, center + const Offset(kDoubleTapSlop + 20, 0), const Duration(seconds: 20, milliseconds: 150));
+      await _tapAt(
+        tester,
+        center + const Offset(kDoubleTapSlop + 20, 0),
+        const Duration(seconds: 20, milliseconds: 150),
+      );
       expect(controller.value, zoomed, reason: 'a second tap far away');
 
       await _tapAt(tester, center, const Duration(seconds: 30));
       await _tapAt(tester, center, const Duration(seconds: 30, milliseconds: 150));
+      // Put back in a short move, not a jump.
+      await tester.pump(const Duration(milliseconds: 100));
+      final midway = controller.value.clone();
+      expect(midway, isNot(zoomed));
+      expect(midway, isNot(Matrix4.identity()));
+      expect(midway.getMaxScaleOnAxis(), inExclusiveRange(1, 2));
+      await tester.pumpAndSettle();
       expect(controller.value, Matrix4.identity());
+
+      // A finger on the table while it goes back takes it from where it is.
+      controller.value = zoomed.clone();
+      await _tapAt(tester, center, const Duration(seconds: 40));
+      await _tapAt(tester, center, const Duration(seconds: 40, milliseconds: 150));
+      await tester.pump(const Duration(milliseconds: 100));
+      final held = controller.value.clone();
+      expect(held, isNot(zoomed));
+      final finger = TestPointer(2);
+      await tester.sendEventToBinding(finger.down(center, timeStamp: const Duration(seconds: 41)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(controller.value, held);
+      await tester.sendEventToBinding(finger.up(timeStamp: const Duration(seconds: 41, milliseconds: 40)));
+      await tester.pumpAndSettle();
+      expect(controller.value, held);
     });
 
-    testWidgets("the button: a finger's room to tap, its tooltip in the text scale of the post", (tester) async {
+    testWidgets('the button is the circle it is drawn as: the corner of the table around it is tapped and dragged', (
+      tester,
+    ) async {
+      await _pumpPost(tester, _table(9));
+      final view = tester.getRect(find.byType(PostTableScrollView));
+      final circle = tester.getRect(_circle);
+      expect(circle.size, const Size.square(PostTableScrollView.buttonSize));
+      expect(circle.right, view.right);
+      expect(_hitsButton(tester, circle.center), isTrue);
+      expect(_reachesTable(tester, circle.center), isFalse);
+      // In its square but outside the circle: the table.
+      final corner = circle.bottomLeft + const Offset(2, -2);
+      expect(_hitsButton(tester, corner), isFalse);
+      expect(_reachesTable(tester, corner), isTrue);
+      // Where a finger's room around it (48dp) used to take every tap: the table, tapped and dragged.
+      final under = Offset(view.right - 40, view.top + 40);
+      expect(view.contains(under), isTrue);
+      expect(_hitsButton(tester, under), isFalse);
+      expect(_reachesTable(tester, under), isTrue);
+      final position = _tablePosition(tester);
+      expect(position.pixels, 0);
+      await tester.dragFrom(under, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(0));
+      expect(find.byType(PostTableFullscreenPage), findsNothing);
+    });
+
+    testWidgets(
+      'the button goes with the fade at the right end: half gone half way in, gone and taking no tap at the end',
+      (
+        tester,
+      ) async {
+        await _pumpPost(tester, _table(9));
+        final position = _tablePosition(tester);
+        final circle = tester.getRect(_circle);
+        double opacity() =>
+            tester.widget<Opacity>(find.ancestor(of: _button, matching: find.byType(Opacity)).first).opacity;
+        expect(opacity(), 1);
+
+        position.jumpTo(position.maxScrollExtent - PostTableScrollView.fadeWidth / 2);
+        await tester.pump();
+        expect(opacity(), moreOrLessEquals(0.5));
+        expect(_hitsButton(tester, circle.center), isTrue);
+
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+        expect(opacity(), 0);
+        expect(_hitsButton(tester, circle.center), isFalse);
+        expect(_reachesTable(tester, circle.center), isTrue);
+        await tester.tapAt(circle.center);
+        await tester.pumpAndSettle();
+        expect(find.byType(PostTableFullscreenPage), findsNothing);
+
+        position.jumpTo(0);
+        await tester.pump();
+        expect(opacity(), 1);
+        await tester.tap(_button);
+        await tester.pumpAndSettle();
+        expect(find.byType(PostTableFullscreenPage), findsOneWidget);
+      },
+    );
+
+    testWidgets('its tooltip in the text scale of the post', (tester) async {
       await _pumpPost(tester, _table(14), textScale: 2);
       expect(_button, findsOneWidget);
+      expect(tester.getSize(_circle), const Size.square(PostTableScrollView.buttonSize));
       final tooltip = find.byTooltip(t.html.table.fullscreen);
-      // Laid out in the span, painted scaled by the text scale.
-      final layout = tester.renderObject<RenderBox>(tooltip).size;
-      expect(layout.width, greaterThanOrEqualTo(kMinInteractiveDimension));
-      expect(layout.height, greaterThanOrEqualTo(kMinInteractiveDimension));
       expect(MediaQuery.textScalerOf(tester.element(tooltip)).scale(10), 20);
     });
 
@@ -373,6 +483,40 @@ void main() {
       );
       expect(alone.readOrNull<ThreadBloc>(), isNull);
       expect(isOfflineFloor(alone), isFalse);
+    });
+
+    testWidgets('the line width of the floors goes along: a long paragraph in a cell lays out there as in the post', (
+      tester,
+    ) async {
+      final long = List.filled(40, '長段落的文字').join();
+      await _pumpPost(tester, 'x<br /><table><tr><td>$long</td>${'<td>第二列</td>' * 8}</tr></table>', lineWidth: true);
+      final inPost = tester.element(find.byType(PostTable));
+      final lineWidth = PostLineWidth.maybeOf(inPost);
+      expect(lineWidth, isNotNull);
+      final contentWidth = postContentWidthOf(inPost);
+      expect(contentWidth, isNotNull);
+      final paragraph = find.descendant(of: find.byType(PostTable), matching: find.textContaining('長段落的文字'));
+      expect(paragraph, findsOneWidget);
+      final inPostSize = tester.getSize(paragraph);
+      expect(inPostSize.height, greaterThan(inPostSize.width / 10), reason: 'several lines');
+
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      final viewer = find.byType(InteractiveViewer);
+      final there = tester.element(find.descendant(of: viewer, matching: find.byType(PostTable)));
+      expect(PostLineWidth.maybeOf(there), lineWidth);
+      expect(postContentWidthOf(there), contentWidth);
+      final thereSize = tester.getSize(find.descendant(of: viewer, matching: find.textContaining('長段落的文字')));
+      expect(thereSize.width, moreOrLessEquals(inPostSize.width, epsilon: 0.5));
+      expect(thereSize.height, moreOrLessEquals(inPostSize.height, epsilon: 0.5));
+
+      // Without one above (the post of a notice): none there either.
+      await tester.pumpWidget(const SizedBox());
+      await _pumpPost(tester, _table(9));
+      await tester.tap(_button);
+      await tester.pumpAndSettle();
+      final alone = tester.element(find.descendant(of: viewer, matching: find.byType(PostTable)));
+      expect(PostLineWidth.maybeOf(alone), isNull);
     });
 
     testWidgets('on the background the author put it on, in the dark theme too', (tester) async {
@@ -527,6 +671,21 @@ void main() {
       thread.show(posts);
       final pushed = await pumpRouted(tester, [posts.first, hot]);
       thread.closedOnScreen = true;
+      await tester.tap(find.byTooltip(t.postCard.jumpToHotFloor));
+      await tester.pumpAndSettle();
+      expect(thread.asked, isEmpty);
+      expect(pushed, ['6742']);
+    });
+
+    testWidgets("the thread showing one author's floors only: by its share link", (tester) async {
+      // Closed after the test as the group's is: a close waits past the test's frames.
+      addTearDown(thread.close);
+      thread = _ThreadBloc(onlyVisibleUid: '2');
+      final posts = page();
+      final hot = posts.firstWhere((e) => e.postID == '6742');
+      thread.show(posts);
+      expect(thread.state.onlyVisibleUid, '2');
+      final pushed = await pumpRouted(tester, [posts.first, hot]);
       await tester.tap(find.byTooltip(t.postCard.jumpToHotFloor));
       await tester.pumpAndSettle();
       expect(thread.asked, isEmpty);

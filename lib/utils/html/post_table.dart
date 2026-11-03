@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -1083,7 +1084,9 @@ class _RenderPostTableImage extends RenderProxyBox {
 /// fades, not a color painted over it): what is under it is still tapped.
 ///
 /// A table that scrolls has a button at its top right, in the fade, opening it in a page of its own
-/// ([PostTableFullscreenPage]).
+/// ([PostTableFullscreenPage]). The button takes no more than the circle it is drawn as ([buttonSize]): the corner of
+/// the table around it is still tapped and dragged. It goes with the fade: as the table nears its right end it fades
+/// too, and once the table is at its end (the fade is gone, the last cells read whole) nothing is over them.
 class PostTableScrollView extends StatefulWidget {
   /// Constructor.
   const PostTableScrollView({required this.child, super.key});
@@ -1094,6 +1097,9 @@ class PostTableScrollView extends StatefulWidget {
   /// How wide the table fades out at an edge it scrolls further past.
   static const double fadeWidth = 28;
 
+  /// How large the button opening the table in a page of its own is, drawn and tapped: a circle this wide.
+  static const double buttonSize = 32;
+
   @override
   State<PostTableScrollView> createState() => _PostTableScrollViewState();
 }
@@ -1101,6 +1107,15 @@ class PostTableScrollView extends StatefulWidget {
 class _PostTableScrollViewState extends State<PostTableScrollView> {
   /// Whether the table is wider than the view.
   bool _scrolls = false;
+
+  /// Where the table is scrolled to: the button goes with the fade at the right end.
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   bool _onMetrics(ScrollMetricsNotification notification) {
     if (notification.depth == 0 && notification.metrics.axis == Axis.horizontal) {
@@ -1132,6 +1147,9 @@ class _PostTableScrollViewState extends State<PostTableScrollView> {
     if (context.readOrNull<ThreadBloc>() case final thread?) {
       table = BlocProvider<ThreadBloc>.value(value: thread, child: table);
     }
+    // The line width of the floors: what in the cells goes by it (pictures decoded no wider than the floor's content)
+    // goes by the same there.
+    table = PostLineWidth.carry(context, child: table);
     // What the author put the table on, its colors are on it.
     final background = context.findAncestorWidgetOfExactType<PostBlockBackground>()?.color;
     await navigator.push(
@@ -1155,6 +1173,7 @@ class _PostTableScrollViewState extends State<PostTableScrollView> {
               context,
             ).copyWith(physics: const ClampingScrollPhysics(), overscroll: false),
             child: Scrollable(
+              controller: _controller,
               axisDirection: AxisDirection.right,
               physics: const ClampingScrollPhysics(),
               viewportBuilder: (context, offset) => _TableViewport(offset: offset, child: widget.child),
@@ -1162,32 +1181,36 @@ class _PostTableScrollViewState extends State<PostTableScrollView> {
           ),
           if (_scrolls)
             Positioned(
-              top: 0,
+              top: 2,
               right: 0,
               // In a post its tooltip follows the text scale too.
               child: OverlayTextScale(
-                child: Tooltip(
-                  message: context.t.html.table.fullscreen,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _openFullscreen,
-                    // A finger's room to tap, the button drawn small in the corner.
-                    child: SizedBox.square(
-                      dimension: kMinInteractiveDimension,
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: DecoratedBox(
-                            decoration: ShapeDecoration(
-                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
-                              shape: const CircleBorder(),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: Icon(Icons.open_in_full, size: 16, color: colorScheme.onSurfaceVariant),
-                            ),
-                          ),
+                child: ListenableBuilder(
+                  listenable: _controller,
+                  builder: (context, child) {
+                    // With the fade at the right end: as far gone as it is.
+                    final position = _controller.hasClients ? _controller.position : null;
+                    final left = position != null && position.hasContentDimensions && position.hasPixels
+                        ? position.extentAfter
+                        : double.infinity;
+                    final opacity = (left / PostTableScrollView.fadeWidth).clamp(0.0, 1.0);
+                    return IgnorePointer(
+                      ignoring: opacity <= 0,
+                      child: Opacity(opacity: opacity, child: child),
+                    );
+                  },
+                  // The circle is all of the button: a Material of that shape takes no tap outside it.
+                  child: Material(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _openFullscreen,
+                      child: Tooltip(
+                        message: context.t.html.table.fullscreen,
+                        child: SizedBox.square(
+                          dimension: PostTableScrollView.buttonSize,
+                          child: Icon(Icons.open_in_full, size: 16, color: colorScheme.onSurfaceVariant),
                         ),
                       ),
                     ),
@@ -1220,8 +1243,17 @@ class PostTableFullscreenPage extends StatefulWidget {
   State<PostTableFullscreenPage> createState() => _PostTableFullscreenPageState();
 }
 
-class _PostTableFullscreenPageState extends State<PostTableFullscreenPage> {
+class _PostTableFullscreenPageState extends State<PostTableFullscreenPage> with SingleTickerProviderStateMixin {
   final _transformation = TransformationController();
+
+  /// A double tap puts the table back over [resetDuration], not in a jump.
+  late final AnimationController _reset;
+
+  /// The way back from where the table was at the double tap.
+  Animation<Matrix4>? _resetting;
+
+  /// How long a double tap takes to put the table back.
+  static const resetDuration = Duration(milliseconds: 200);
 
   static const double _padding = 12;
 
@@ -1235,14 +1267,42 @@ class _PostTableFullscreenPageState extends State<PostTableFullscreenPage> {
   final _pointers = <int>{};
 
   @override
+  void initState() {
+    super.initState();
+    _reset = AnimationController(vsync: this, duration: resetDuration)..addListener(_onReset);
+  }
+
+  @override
   void dispose() {
+    _reset.dispose();
     _transformation.dispose();
     super.dispose();
+  }
+
+  void _onReset() {
+    if (_resetting case final resetting?) {
+      _transformation.value = resetting.value;
+    }
+  }
+
+  /// Put the table back, from where it is now.
+  void _putBack() {
+    final from = _transformation.value;
+    if (from == Matrix4.identity()) {
+      return;
+    }
+    _resetting = Matrix4Tween(
+      begin: from.clone(),
+      end: Matrix4.identity(),
+    ).animate(CurvedAnimation(parent: _reset, curve: Curves.easeOutCubic));
+    unawaited(_reset.forward(from: 0));
   }
 
   // Told by the pointers, not a recognizer: one in the gesture arena kept every tap of the table (a link, a picture, a
   // spoiler) waiting for a second one, and took a quick second tap on a link for a double tap.
   void _onPointerDown(PointerDownEvent event) {
+    // A finger on the table while it goes back takes it from where it is.
+    _reset.stop();
     _pointers.add(event.pointer);
     if (_pointers.length > 1 || (event.kind == PointerDeviceKind.mouse && event.buttons != kPrimaryMouseButton)) {
       // A pinch, a click of another button: no tap.
@@ -1277,7 +1337,7 @@ class _PostTableFullscreenPageState extends State<PostTableFullscreenPage> {
         event.timeStamp - last.time <= kDoubleTapTimeout &&
         (event.position - last.position).distance <= kDoubleTapSlop) {
       _lastTap = null;
-      _transformation.value = Matrix4.identity();
+      _putBack();
       return;
     }
     _lastTap = (time: event.timeStamp, position: event.position);

@@ -150,6 +150,14 @@ class PostLineWidth extends StatefulWidget {
   static double? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_PostLineWidthScope>()?.lineWidth;
 
+  /// [child] under the line width of the floors above [context], when there is one: a page opened from a floor
+  /// showing a part of it (a table in a page of its own) lays it out as the floor does, its pictures decoded no wider
+  /// either ([postContentWidthOf]). Without one above, [child] as it is.
+  static Widget carry(BuildContext context, {required Widget child}) {
+    final scope = context.getInheritedWidgetOfExactType<_PostLineWidthScope>();
+    return scope == null ? child : _PostLineWidthScope(lineWidth: scope.lineWidth, child: child);
+  }
+
   @override
   State<PostLineWidth> createState() => _PostLineWidthState();
 }
