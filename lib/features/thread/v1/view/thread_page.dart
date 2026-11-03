@@ -1627,6 +1627,12 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
               }
             },
           ),
+          // A jump to a floor (asked, a hot reply going to its floor) goes from where the reading stopped: the floor
+          // jumped to is where it is now, not scrolled to by the user's own hand ([_heldPosition]).
+          BlocListener<ThreadBloc, ThreadState>(
+            listenWhen: (prev, curr) => prev.scrollTargetSerial != curr.scrollTargetSerial,
+            listener: (context, state) => _heldPosition = null,
+          ),
           // A jump to a floor the thread does not have went to the closest one.
           BlocListener<ThreadBloc, ThreadState>(
             listenWhen: (prev, curr) =>

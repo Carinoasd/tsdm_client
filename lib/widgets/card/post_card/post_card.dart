@@ -688,13 +688,33 @@ class _BlockedAvatar extends StatelessWidget {
 
 /// The floor number at the end of a floor's header, "#N" ([postFloorLabel]); a hot reply ([Post.hot]) says "推荐"
 /// there as the page does, with the floor it really is when known ([Post.hotFloor]), and then goes to that floor when
-/// tapped (its share link, the forum's `findpost`). When that floor is not known (plugin 2.8.4 works it out even for
-/// threads that count floors one by one, but gives 0 when it cannot: posted in the same second, floors the viewer
-/// cannot see, reply counts that do not add up; the web page never tells it): "推荐" alone, nothing to tap.
+/// tapped: in the thread on screen when the card is one of its floors ([ThreadJumpToFloorRequested], the page of the
+/// floor asked when it is not on screen), else its share link (the forum's `findpost`; while the thread shows one
+/// author's floors only as well). When that floor is not known
+/// (plugin 2.8.4 works it out even for threads that count floors one by one, but gives 0 when it cannot: posted in
+/// the same second, floors the viewer cannot see, reply counts that do not add up; the web page never tells it):
+/// "推荐" alone, nothing to tap.
 class _FloorBadge extends StatelessWidget {
   const _FloorBadge(this.post);
 
   final Post post;
+
+  /// Go to the floor the hot reply is ([Post.hotFloor]): in the thread on screen when the card is one of its floors,
+  /// else by its share [link]. By the link too while the thread shows one author's floors only
+  /// ([ThreadState.onlyVisibleUid]): its pages are not the thread's, the floor worked out from them would be another.
+  Future<void> _goToFloor(BuildContext context, String link) async {
+    final bloc = context.readOrNull<ThreadBloc>();
+    final floor = post.hotFloor;
+    if (bloc != null &&
+        !bloc.isClosed &&
+        floor != null &&
+        bloc.state.onlyVisibleUid == null &&
+        bloc.state.postList.any((e) => e.hot && e.postID == post.postID)) {
+      bloc.add(ThreadJumpToFloorRequested(floor, pid: post.postID));
+      return;
+    }
+    await context.dispatchAsUrl(link);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -725,7 +745,7 @@ class _FloorBadge extends StatelessWidget {
       message: context.t.postCard.jumpToHotFloor,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () async => context.dispatchAsUrl(link),
+        onTap: () async => _goToFloor(context, link),
         child: badge,
       ),
     );

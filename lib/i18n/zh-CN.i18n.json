@@ -1857,6 +1857,10 @@
   "html": {
     "newcomerReportCard": {
       "title": "详细信息"
+    },
+    "table": {
+      "title": "表格",
+      "fullscreen": "全屏查看"
     }
   },
   "mediaCard": {
