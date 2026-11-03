@@ -148,7 +148,8 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     final auth = context.readOrNull<AuthenticationRepository>();
     // The actions follow the account the device acts as, also before the stored session was verified (an offline
     // start, a thread opened from a link): the own floor must not offer "add friend" then.
-    final isSelf = authorUid != null && authorUid == auth?.effectiveCurrentUid;
+    final accountUid = auth?.effectiveCurrentUid;
+    final isSelf = authorUid != null && authorUid == accountUid;
     // The title badge needs a verified current account; the uid is compared again by the badge against the title it
     // holds.
     final ownFloor = widget.secondBadge == null && authorUid != null && authorUid == auth?.currentUser?.uid;
@@ -265,9 +266,17 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     );
 
     final profileContent = [
-      // What to do with the author, before the details.
-      _AuthorActions(uid: authorUid, username: widget.profile.username, isSelf: isSelf, width: contentWidth),
-      sectionSeparator,
+      // What to do with the author, before the details; nothing to open without a uid and a name.
+      if (_AuthorActions.hasAny(uid: authorUid, username: widget.profile.username)) ...[
+        _AuthorActions(
+          uid: authorUid,
+          username: widget.profile.username,
+          isSelf: isSelf,
+          hasAccount: accountUid != null,
+          width: contentWidth,
+        ),
+        sectionSeparator,
+      ],
 
       // Who the author is: group, titles, names and dates, one line each.
       sectionTitle(tr.tabName.info, Icons.badge_outlined),
@@ -516,14 +525,21 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
 
 /// Chips opening the threads and replies of the author, adding the author as a friend and blocking the author.
 ///
-/// Friend and block are for other accounts only and need a uid; without a uid the lists are opened by name. Block is
-/// left out where the app provides no [UserBlockCubit] and while the list of the current account is not known.
+/// Friend and block are for other accounts only, need a uid and an account in use; without a uid the lists are opened
+/// by name. Block is left out where the app provides no [UserBlockCubit] and while the list of the current account is
+/// not known.
 ///
 /// Compact, and friend and block are icons only. On a phone the dialog content is about 200 wide (a 360 wide window:
 /// 204, see [briefProfileDialogContentWidth]), too narrow for the chips to wrap into two rows by themselves: there the
 /// two list chips share the first row and the actions take the second. Wider content lets the chips wrap naturally.
 class _AuthorActions extends StatelessWidget {
-  const _AuthorActions({required this.uid, required this.username, required this.isSelf, required this.width});
+  const _AuthorActions({
+    required this.uid,
+    required this.username,
+    required this.isSelf,
+    required this.hasAccount,
+    required this.width,
+  });
 
   /// Parsed author uid, null if the floor carries no number.
   final int? uid;
@@ -532,16 +548,39 @@ class _AuthorActions extends StatelessWidget {
 
   final bool isSelf;
 
+  /// Whether the device acts as an account: friend and block need one.
+  final bool hasAccount;
+
   /// Width of the dialog content.
   final double width;
 
   /// Content narrower than this gets the fixed two rows.
   static const _wrapWidth = 300.0;
 
+  /// Whether the author offers anything to open: a uid or a name.
+  static bool hasAny({required int? uid, required String username}) => _validUid(uid) != null || username.isNotEmpty;
+
+  static int? _validUid(int? uid) => uid != null && uid > 0 ? uid : null;
+
   @override
   Widget build(BuildContext context) {
+    final uid = _validUid(this.uid);
+    // Same state as the block button of the profile page: the list of the current account has to be known. The
+    // selector exists only where the cubit does; uid and isSelf are fixed for the life of the dialog.
+    if (uid != null && hasAccount && !isSelf && context.readOrNull<UserBlockCubit>() != null) {
+      return BlocSelector<UserBlockCubit, UserBlockList, (bool, bool)>(
+        selector: (state) => (
+          state.ownerUid != null && state.ownerUid != uid && state.status == UserBlockListStatus.ready,
+          state.isBlocked(uid),
+        ),
+        builder: (context, state) => _build(context, uid, canBlock: state.$1, blocked: state.$2),
+      );
+    }
+    return _build(context, uid, canBlock: false, blocked: false);
+  }
+
+  Widget _build(BuildContext context, int? uid, {required bool canBlock, required bool blocked}) {
     final tr = context.t.postCard.profileDialog;
-    final uid = this.uid != null && this.uid! > 0 ? this.uid : null;
 
     // Label padding halved: at 204 wide the label of a list chip sharing a row gets 72, "TA的主題" needs about 60.
     Widget chip(String key, String label, VoidCallback onPressed) => ActionChip(
@@ -570,17 +609,6 @@ class _AuthorActions extends StatelessWidget {
       ),
     );
 
-    // Same state as the block button of the profile page: the list of the current account has to be known.
-    var blocked = false;
-    var canBlock = false;
-    if (uid != null && !isSelf && context.readOrNull<UserBlockCubit>() != null) {
-      final (owner, known, isBlocked) = context.select<UserBlockCubit, (int?, bool, bool)>(
-        (c) => (c.state.ownerUid, c.state.status == UserBlockListStatus.ready, c.state.isBlocked(uid)),
-      );
-      blocked = isBlocked;
-      canBlock = owner != null && owner != uid && known;
-    }
-
     final lists = <Widget>[
       if (uid != null || username.isNotEmpty) ...[
         chip('threads', isSelf ? tr.myThreads : tr.memberThreads, () => openMemberThreads(null)),
@@ -588,7 +616,7 @@ class _AuthorActions extends StatelessWidget {
       ],
     ];
     final actions = <Widget>[
-      if (uid != null && !isSelf)
+      if (uid != null && hasAccount && !isSelf)
         iconChip(
           'friend',
           Icons.person_add_alt_1_outlined,
