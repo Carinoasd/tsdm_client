@@ -4,6 +4,7 @@ import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
+import 'package:tsdm_client/utils/html/search_highlight.dart';
 import 'package:universal_html/parsing.dart';
 
 /// [munchElement] run once per piece of html and kept across rebuilds.
@@ -11,8 +12,9 @@ import 'package:universal_html/parsing.dart';
 /// Parsing a post and turning it into spans is the most expensive thing a card does. Done straight in `build`, it ran
 /// again on every rebuild of the page: a badge update or the keyboard coming up re-munched every floor on the thread
 /// page, which is where most of the dropped frames came from. Here the result is kept and only rebuilt when the html
-/// changes or something the spans were built from changes: the theme, the text scale, the locale or the
-/// [PostTypography] of a post's content (and whether it is one, [PostTypographyScope.postContent]).
+/// changes or something the spans were built from changes: the theme, the text scale, the locale, the
+/// [PostTypography] of a post's content (and whether it is one, [PostTypographyScope.postContent]) or the words
+/// searched for in it ([SearchHighlightScope]).
 ///
 /// Under a [MunchCacheScope] (the thread page) the result is kept in its [MunchCache] instead, so a floor scrolled
 /// away (its card is not kept alive) and built again later takes it back rather than munching its html again.
@@ -53,6 +55,7 @@ class _MunchedHtmlState extends State<MunchedHtml> {
       locale: Localizations.maybeLocaleOf(context),
       typography: PostTypographyScope.maybeOf(context),
       postContent: PostTypographyScope.isPostContent(context),
+      highlight: SearchHighlightScope.maybeOf(context)?.identity,
     );
     final cache = MunchCacheScope.maybeOf(context);
     if (deps != _deps || cache != _cache) {
@@ -121,6 +124,7 @@ final class _MunchDeps {
     required this.locale,
     required this.typography,
     required this.postContent,
+    required this.highlight,
   });
 
   final ThemeData theme;
@@ -129,6 +133,9 @@ final class _MunchDeps {
   final PostTypography? typography;
   final bool postContent;
 
+  /// The words searched for marked in the text ([SearchHighlightScope.identity]), null when none.
+  final (String, Color, Color)? highlight;
+
   @override
   bool operator ==(Object other) =>
       other is _MunchDeps &&
@@ -136,10 +143,11 @@ final class _MunchDeps {
       other.textScaler == textScaler &&
       other.locale == locale &&
       other.typography == typography &&
-      other.postContent == postContent;
+      other.postContent == postContent &&
+      other.highlight == highlight;
 
   @override
-  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent);
+  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent, highlight);
 }
 
 /// Munched contents kept for one page that shows many of them (the thread page): the content of a floor built again

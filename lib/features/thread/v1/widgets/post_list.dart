@@ -229,6 +229,17 @@ class PostListState extends State<PostList> with LoggerMixin {
     _scheduleCheck();
   }
 
+  /// Bring the floor with [pid] to the top of the list (a hit of the search in the thread), held there while the list
+  /// settles like a jump to a floor ([_scrollToTarget]). Nothing happens when the floor is not on screen.
+  void revealPost(String pid) {
+    final key = _keyOfPid(pid);
+    if (key == null) {
+      return;
+    }
+    _targetKey = key;
+    unawaited(_scrollToTarget());
+  }
+
   /// Key of the slot of the floor with [pid]: the floor where it is rather than its copy as a hot reply.
   String? _keyOfPid(String pid) {
     for (final key in ['floor:$pid', 'hot:$pid']) {

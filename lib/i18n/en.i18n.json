@@ -1044,6 +1044,14 @@
       "invalid": "Enter a floor of 1 or more",
       "missed": "There is no floor ${floor: int}, went to the closest one"
     },
+    "search": {
+      "menu": "Search in thread",
+      "hint": "Keyword",
+      "count": "${n: int} / ${total: int}",
+      "loadMore": "Load more pages",
+      "previous": "Previous",
+      "next": "Next"
+    },
     "resume": {
       "message": "Last read: floor ${floor: int}",
       "action": "Continue",

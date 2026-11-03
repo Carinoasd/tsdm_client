@@ -1044,6 +1044,14 @@
       "invalid": "請輸入 1 以上的樓層",
       "missed": "沒有第 ${floor: int} 樓，已跳到最接近的樓層"
     },
+    "search": {
+      "menu": "搜尋本帖",
+      "hint": "關鍵字",
+      "count": "${n: int} / ${total: int}",
+      "loadMore": "載入更多頁",
+      "previous": "上一個",
+      "next": "下一個"
+    },
     "resume": {
       "message": "上次看到第 ${floor: int} 樓",
       "action": "繼續",

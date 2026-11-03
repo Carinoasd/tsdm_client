@@ -32,6 +32,7 @@ import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 // Review (post comment) parser
 import 'package:tsdm_client/utils/html/review_parser.dart';
+import 'package:tsdm_client/utils/html/search_highlight.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -443,7 +444,8 @@ final class _Muncher with LoggerMixin {
   /// Constructor.
   _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options})
     : typography = PostTypographyScope.maybeOf(context),
-      postContent = PostTypographyScope.isPostContent(context);
+      postContent = PostTypographyScope.isPostContent(context),
+      highlight = PostTypographyScope.isPostContent(context) ? SearchHighlightScope.maybeOf(context) : null;
 
   /// Context to build widget when munching.
   final BuildContext context;
@@ -454,6 +456,9 @@ final class _Muncher with LoggerMixin {
 
   /// The html is a post's content ([PostTypographyScope.postContent]), not only laid out as one ([typography]).
   final bool postContent;
+
+  /// The words searched for, marked in the text of a post's content; null when nothing is searched.
+  final SearchHighlightScope? highlight;
 
   /// Text spans of preformatted text (`<pre>`): their lines are kept as they are ([layOutParagraphs]).
   final _keptLines = Set<InlineSpan>.identity();
@@ -1271,6 +1276,9 @@ final class _Muncher with LoggerMixin {
             spans = _linkifySpans(text, style);
           } else {
             spans = [TextSpan(text: text, recognizer: recognizer, style: style)];
+          }
+          if (highlight case final highlight?) {
+            spans = highlight.mark(spans);
           }
           if (indent != null) {
             spans = [if (breakFirst) TextSpan(text: '\n', style: style), indent, ...spans];
