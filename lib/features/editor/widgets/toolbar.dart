@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -447,14 +448,15 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
       child: toolbar,
     );
 
-    // The quick phrases button starts the toolbar like one more button of its wrapped rows.
+    // The quick phrases button sits at the end of the first row: the wrapped rows below keep starting at the left edge.
     final withPhrases = _hasFeature(EditorFeatures.quickPhrases)
         ? Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(child: themed),
               IconButton(
                 key: const ValueKey('editor-quick-phrases'),
-                icon: const Icon(Icons.format_quote_outlined),
+                icon: Icon(MdiIcons.textBoxMultipleOutline),
                 tooltip: context.t.bbcodeEditor.quickPhrases.title,
                 style: IconButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
@@ -464,7 +466,6 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
                   afterButtonPressed?.call();
                 },
               ),
-              Expanded(child: themed),
             ],
           )
         : themed;

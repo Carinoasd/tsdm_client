@@ -54,8 +54,22 @@ extension BBCodeEditorControllerForum on BBCodeEditorController {
     final hasCursor = selected.baseOffset >= 0 && selected.extentOffset >= 0;
     final position = hasCursor ? min(min(selected.baseOffset, selected.extentOffset), end) : end;
     final length = hasCursor ? min(max(selected.baseOffset, selected.extentOffset), end) - position : 0;
-    replaceText(position, length, Delta()..insert(text), null);
-    moveCursorToPosition(position + text.length);
+    // The text goes in as a String (not a raw Delta) so the insert rules run: a phrase of several lines keeps the quote,
+    // list or code block of the line it lands in, and a toggled inline style covers all of it. Like the package's own
+    // plain text insert, a carriage return is dropped.
+    final plain = text.replaceAll('\r', '');
+    if (plain.isEmpty) {
+      return;
+    }
+    // The package would retain the toggled inline style over the whole text and trips on a line break in it: take the
+    // style out of the insert and put it on the inserted range afterwards.
+    final toggled = toggledStyle.attributes.values.where((a) => a.isInline).toList();
+    toggledStyle = toggledStyle.removeAll(toggled.toSet());
+    replaceText(position, length, plain, null);
+    for (final attribute in toggled) {
+      formatText(position, plain.length, attribute);
+    }
+    moveCursorToPosition(position + plain.length);
   }
 
   /// Put a kept draft back: the editor's own document [delta] (Quill delta JSON) when it loads, which keeps what BBCode

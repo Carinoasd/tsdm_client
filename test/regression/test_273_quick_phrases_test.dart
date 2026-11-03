@@ -18,7 +18,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 // The editor package's own dependency: the selection is set with its change source.
 // ignore: depend_on_referenced_packages
-import 'package:flutter_quill/flutter_quill.dart' show ChangeSource;
+import 'package:flutter_quill/flutter_quill.dart' show Attribute, ChangeSource;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -143,6 +143,38 @@ void main() {
       controller.dispose();
       fresh.dispose();
     });
+
+    test('several lines inside a quote or a list keep the block of every line', () {
+      for (final attribute in <Attribute<dynamic>>[Attribute.blockQuote, Attribute.ul, Attribute.codeBlock]) {
+        final controller = buildBBCodeEditorController(initialText: 'abcd')
+          ..updateSelection(const TextSelection.collapsed(offset: 2), ChangeSource.local)
+          ..formatSelection(attribute)
+          ..insertTextAtCursor('X\nY\nZ');
+        expect(controller.document.toPlainText(), 'abX\nY\nZcd\n');
+        final lines = controller.document.toDelta().toList().where((op) => op.data == '\n').toList();
+        expect(lines, hasLength(3));
+        for (final line in lines) {
+          expect(line.attributes?[attribute.key], attribute.value, reason: '${attribute.key} on every line');
+        }
+        controller.dispose();
+      }
+    });
+
+    test('a toggled style covers the whole phrase, a carriage return is dropped', () {
+      final controller = buildBBCodeEditorController(initialText: 'abcd')
+        ..updateSelection(const TextSelection.collapsed(offset: 2), ChangeSource.local)
+        ..formatSelection(Attribute.bold)
+        ..insertTextAtCursor('one\r\ntwo');
+      expect(controller.document.toPlainText(), 'abone\ntwocd\n');
+      expect(controller.selection.baseOffset, 2 + 'one\ntwo'.length);
+      final bold = controller.document.toDelta().toList().where((op) => op.attributes?['bold'] == true).toList();
+      expect(
+        bold.map((op) => op.data).join(),
+        'one\ntwo'.replaceAll('\n', ''),
+        reason: 'the text of both lines is bold',
+      );
+      controller.dispose();
+    });
   });
 
   /// The toolbar under a router that has the arranging page.
@@ -220,6 +252,51 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(QuickPhrasesPage), findsOneWidget);
       expect(find.text(tr.bbcodeEditor.quickPhrases.empty), findsOneWidget);
+    });
+
+    testWidgets('on a narrow toolbar every wrapped row starts at the left edge, the button ends the first row', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(260, 844)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = buildBBCodeEditorController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: BlocProvider<SettingsBloc>.value(
+            value: bloc,
+            child: MaterialApp(
+              home: Scaffold(body: EditorToolbar(bbcodeController: controller)),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final buttons = find.descendant(of: find.byType(EditorToolbar), matching: find.byType(IconButton));
+      final tops = <double>{};
+      var left = double.infinity;
+      for (final element in buttons.evaluate()) {
+        final rect = tester.getRect(find.byElementPredicate((e) => e == element));
+        tops.add(rect.top);
+        if (rect.left < left) {
+          left = rect.left;
+        }
+      }
+      expect(tops.length, greaterThan(1), reason: 'the toolbar wraps');
+      for (final top in tops) {
+        final rowLeft = buttons
+            .evaluate()
+            .map((e) => tester.getRect(find.byElementPredicate((x) => x == e)))
+            .where((r) => r.top == top)
+            .map((r) => r.left)
+            .reduce((a, b) => a < b ? a : b);
+        expect(rowLeft, left, reason: 'row at $top starts at the left edge');
+      }
+      final phrases = tester.getRect(button);
+      expect(phrases.top, tops.reduce((a, b) => a < b ? a : b));
+      expect(phrases.left, greaterThan(left));
     });
 
     testWidgets('the feature can be switched off', (tester) async {
