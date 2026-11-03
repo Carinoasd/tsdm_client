@@ -37,6 +37,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
+import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
@@ -49,6 +50,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
+import 'package:tsdm_client/utils/html/search_highlight.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -202,6 +204,34 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   final _munchCache = MunchCache();
 
   final _replyBarController = ReplyBarController();
+
+  /// Searching the floors on screen: the app bar is the search bar meanwhile, and stays shown.
+  bool _searching = false;
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  /// The words typed last ([_onSearchEdited]), null while the input method composes them.
+  String? _searchTyped;
+
+  /// What is searched for, once the words typed settled for a moment ([_searchDelay]); null while nothing is.
+  RegExp? _searchPattern;
+
+  /// The current hit: the one brought into view last, or the one closest to it when it is not a hit any more
+  /// ([_currentHitAmong]); null only while nothing is found.
+  String? _searchCurrentPid;
+
+  /// The hits found last and what they were found in, see [_searchHits].
+  ({ThreadState state, RegExp pattern, UserBlockList blocks, List<Post> hits})? _searchFound;
+
+  /// The pages the words searched for were looked for in: a page loaded for the search ([_searchLoadSide]) is one
+  /// not looked in yet, the pages on screen being at most [threadWindowPages]. The pages of the floors on screen and
+  /// of the floors they go on from ([_goesOn]): another list of floors has pages of its own.
+  final _searchedPages = <int>{};
+
+  /// The floor at the top of the list, as it told last ([_onTopFloorChanged]): a new search starts from there.
+  String? _topPid;
+
+  static const _searchDelay = Duration(milliseconds: 300);
 
   /// Shown part of the app bar and the breadcrumbs: hidden while scrolling down the floors (the
   /// `collapseAppBarWhenScroll` setting), shown again when scrolling up.
@@ -612,6 +642,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   /// floors (one author's floors are not where the thread is), floors from the forum (not an offline copy), and a
   /// thread whose visit is kept ([_mayKeepVisit]).
   void _onTopFloorChanged(Post post, {required bool atThreadTop}) {
+    _topPid = post.postID;
     final offer = _resumeOffer;
     if (offer != null && (!atThreadTop || (post.shownFloor ?? 0) >= (offer.floor ?? 0))) {
       // Read on from the start, or got there: nothing to offer any more.
@@ -686,6 +717,368 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       _userScrolled = true;
     }
     return _appBarCollapser.onNotification(notification);
+  }
+
+  /// Search the floors on screen: the app bar turns into the search bar.
+  void _openSearch() {
+    setState(() => _searching = true);
+    _appBarCollapser.show();
+  }
+
+  /// Back to the app bar, nothing marked any more.
+  void _closeSearch() {
+    _searchController.clear();
+    _searchDebounce?.cancel();
+    _searchTyped = null;
+    _searchedPages.clear();
+    setState(() {
+      _searching = false;
+      _searchPattern = null;
+      _searchCurrentPid = null;
+      _searchFound = null;
+    });
+  }
+
+  /// Back closes the search first, the page stays: only while it is the page on top (not under a dialog or a page
+  /// opened from it).
+  Future<bool> _onBackPressed() async {
+    if (!_searching || !mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      return false;
+    }
+    _closeSearch();
+    return true;
+  }
+
+  /// Whether the input method is still composing the words in [value] (a pinyin or a kana not chosen yet).
+  static bool _composing(TextEditingValue value) => value.composing.isValid && !value.composing.isCollapsed;
+
+  /// The search field changed: the words are searched for once they settled for a moment ([_searchDelay]), not
+  /// while the input method composes them.
+  void _onSearchEdited() {
+    final value = _searchController.value;
+    if (_composing(value)) {
+      _searchDebounce?.cancel();
+      _searchTyped = null;
+      return;
+    }
+    if (value.text == _searchTyped) {
+      // Only the cursor moved.
+      return;
+    }
+    final text = _searchTyped = value.text;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDelay, () => _applySearch(text));
+  }
+
+  /// Search for [text] from now on, and bring its first hit from the floor at the top of the list on into view.
+  void _applySearch(String text) {
+    _searchDebounce?.cancel();
+    final bloc = _threadBloc;
+    final pattern = threadSearchPattern(text);
+    // The same words in another case find the same hits: the search goes on from the current hit.
+    if (!mounted || !_searching || bloc == null || _sameSearch(pattern, _searchPattern)) {
+      return;
+    }
+    _searchedPages.clear();
+    setState(() {
+      _searchPattern = pattern;
+      _searchCurrentPid = null;
+    });
+    final hits = _searchHits(context, bloc.state, listen: false);
+    if (hits.isEmpty) {
+      return;
+    }
+    _revealHit(_hitFromTop(hits, bloc.state.postList));
+  }
+
+  /// Whether [a] and [b] search for the same words: the words in any case ([threadSearchPattern]).
+  static bool _sameSearch(RegExp? a, RegExp? b) => a?.pattern.toLowerCase() == b?.pattern.toLowerCase();
+
+  /// The search field was submitted: the words typed at once, else the next hit; nothing while they are composed.
+  void _onSearchSubmitted(String text) {
+    if (_composing(_searchController.value)) {
+      return;
+    }
+    if (_searchDebounce?.isActive ?? false) {
+      _applySearch(text);
+      return;
+    }
+    _stepHit(1);
+  }
+
+  /// The floors of [state] the search finds, in the order they are shown, the floors of blocked users and the quotes
+  /// of their floors left out as on screen ([BlockAwarePost]); none while nothing is searched.
+  ///
+  /// The current hit ([_searchCurrentPid]) is kept among them ([_currentHitAmong]): the hits found are kept
+  /// ([_searchFound]), and a build reads them once, at its start, for the search bar and the floors alike.
+  List<Post> _searchHits(BuildContext context, ThreadState state, {bool listen = true}) {
+    final pattern = _searchPattern;
+    if (!_searching || pattern == null) {
+      return const [];
+    }
+    final blocks = currentBlockList(context, listen: listen);
+    final found = _searchFound;
+    if (found != null &&
+        identical(found.state.postList, state.postList) &&
+        found.pattern == pattern &&
+        identical(found.blocks, blocks)) {
+      return found.hits;
+    }
+    final posts = state.postList;
+    final String Function(Post post)? shownData;
+    if (blocks.uids.isEmpty) {
+      shownData = null;
+    } else {
+      final placeholder = context.t.userBlock.quotePlaceholder;
+      final authors = {for (final post in posts) post.postID: post.author.uid};
+      shownData = (post) => redactBlockedQuotesOf(
+        post,
+        blockedUids: blocks.uids,
+        authorOfPost: (pid) => int.tryParse(authors['$pid'] ?? ''),
+        placeholder: placeholder,
+      );
+    }
+    final hits = threadSearchHits(
+      posts,
+      pattern,
+      hidden: (post) => blocks.hidesString(post.author.uid),
+      shownData: shownData,
+    );
+    if (found != null && !_goesOn(found.state, state)) {
+      _searchedPages.clear();
+    }
+    _searchedPages.addAll([
+      for (final post in posts)
+        if (!post.hot) post.page,
+    ]);
+    _searchCurrentPid = _currentHitAmong(hits, found?.pattern == pattern ? found?.hits : null, posts);
+    _searchFound = (state: state, pattern: pattern, blocks: blocks, hits: hits);
+    return hits;
+  }
+
+  /// Whether the floors of [to] go on from the floors of [from]: a page loaded after or before them keeps them as they
+  /// are. Another list of floors (one author's floors or every author's again from a floor's menu, another order,
+  /// another page jumped to, the thread reloaded) is read anew, and has pages of its own: its page 2 is not the page 2
+  /// searched before, which said it was ([_searchedPages]) and let no more page be loaded for the search until the
+  /// search was closed and opened again.
+  static bool _goesOn(ThreadState from, ThreadState to) {
+    if (from.onlyVisibleUid != to.onlyVisibleUid || from.reverseOrder != to.reverseOrder) {
+      return false;
+    }
+    final before = Set<Post>.identity()..addAll(from.postList);
+    return to.postList.any(before.contains);
+  }
+
+  /// The current hit among [hits]: the same floor while it is one; when it is not any more (its page dropped, its
+  /// author blocked), the closest one of the hits before ([previous]) that still is, else the first from the floor at
+  /// the top of the list on. Never none while something is found: the count never says "0 / N".
+  String? _currentHitAmong(List<Post> hits, List<Post>? previous, List<Post> posts) {
+    if (hits.isEmpty) {
+      return null;
+    }
+    final current = _searchCurrentPid;
+    final pids = {for (final post in hits) post.postID};
+    if (current == null) {
+      return _hitFromTop(hits, posts).postID;
+    }
+    if (pids.contains(current)) {
+      return current;
+    }
+    final at = previous?.indexWhere((e) => e.postID == current) ?? -1;
+    if (previous != null && at >= 0) {
+      for (var distance = 1; distance < previous.length; distance++) {
+        for (final index in [at + distance, at - distance]) {
+          if (index >= 0 && index < previous.length && pids.contains(previous[index].postID)) {
+            return previous[index].postID;
+          }
+        }
+      }
+    }
+    return _hitFromTop(hits, posts).postID;
+  }
+
+  /// The first of [hits] from the floor at the top of the list on, else the first one.
+  Post _hitFromTop(List<Post> hits, List<Post> posts) {
+    final top = posts.indexWhere((e) => e.postID == _topPid);
+    return hits.firstWhere((hit) => posts.indexWhere((e) => identical(e, hit)) >= top, orElse: () => hits.first);
+  }
+
+  /// Bring the hit [step] hits after the current one into view (before it when negative), round the hits.
+  void _stepHit(int step) {
+    final bloc = _threadBloc;
+    if (bloc == null) {
+      return;
+    }
+    final hits = _searchHits(context, bloc.state, listen: false);
+    if (hits.isEmpty) {
+      return;
+    }
+    final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
+    _revealHit(hits[at < 0 ? (step > 0 ? 0 : hits.length - 1) : (at + step) % hits.length]);
+  }
+
+  void _revealHit(Post post) {
+    _heldPosition = null;
+    setState(() => _searchCurrentPid = post.postID);
+    _postListKey.currentState?.revealPost(post.postID);
+  }
+
+  /// Where a page loaded for the search goes: after the floors on screen (true), before them (false), or nowhere
+  /// (null). Only a page not looked in yet ([_searchedPages]) is loaded.
+  ///
+  /// With [threadWindowPages] pages on screen, a page loaded after them drops the first one and a page loaded before
+  /// them drops the last one: never the page of the current hit or of the floor at the top of the list (the floors
+  /// read), so the other side is taken, or none.
+  bool? _searchLoadSide(ThreadState state) {
+    final full = state.currentPage - state.firstPage + 1 >= threadWindowPages;
+    final kept = <int>{
+      if (full)
+        for (final post in state.postList)
+          if (post.postID == _searchCurrentPid || post.postID == _topPid) post.page,
+    };
+    if (state.canLoadMore && !_searchedPages.contains(state.currentPage + 1) && !kept.contains(state.firstPage)) {
+      return true;
+    }
+    if (state.canLoadPrevious && !_searchedPages.contains(state.firstPage - 1) && !kept.contains(state.currentPage)) {
+      return false;
+    }
+    return null;
+  }
+
+  /// Load a page for the search to look in too, where [_searchLoadSide] says.
+  void _loadMoreForSearch(ThreadState state) {
+    final bloc = _threadBloc;
+    if (bloc == null || bloc.isClosed) {
+      return;
+    }
+    switch (_searchLoadSide(state)) {
+      case true:
+        bloc.add(ThreadLoadMoreRequested(state.currentPage + 1));
+      case false:
+        bloc.add(const ThreadLoadPreviousRequested());
+      case null:
+        break;
+    }
+  }
+
+  /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
+  /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
+  /// ([bottom]).
+  PreferredSizeWidget _buildSearchBar(
+    BuildContext context,
+    ThreadState state,
+    PreferredSizeWidget bottom,
+    List<Post> hits,
+  ) {
+    final tr = context.t.threadPage.search;
+    final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
+    final side = _searchLoadSide(state);
+    // Offered at the end of the hits the way the page would be added (after them, or before them).
+    final atEdge = hits.isEmpty || (side == false ? at == 0 : at == hits.length - 1);
+    final loading = switch (side) {
+      false => state.previousStatus == ThreadEdgeStatus.loading,
+      _ => state.nextStatus == ThreadEdgeStatus.loading,
+    };
+    return AppBar(
+      automaticallyImplyLeading: false,
+      title: TextField(
+        key: const ValueKey('thread-search-field'),
+        controller: _searchController,
+        autofocus: true,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: tr.hint,
+          border: InputBorder.none,
+          suffix: _searchPattern == null
+              ? null
+              : Text(
+                  tr.count(n: at + 1, total: hits.length),
+                  key: const ValueKey('thread-search-count'),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+        ),
+        // Enter goes to the next hit, the field keeps the focus (and the keyboard stays up).
+        onEditingComplete: () {},
+        onSubmitted: _onSearchSubmitted,
+      ),
+      actions: [
+        if (_searchPattern != null && atEdge && (state.canLoadMore || state.canLoadPrevious))
+          loading
+              ? const SizedBox.square(
+                  dimension: 48,
+                  child: Center(
+                    child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                )
+              : IconButton(
+                  key: const ValueKey('thread-search-load-more'),
+                  tooltip: tr.loadMore,
+                  icon: const Icon(Icons.playlist_add),
+                  onPressed: side == null ? null : () => _loadMoreForSearch(state),
+                ),
+        IconButton(
+          key: const ValueKey('thread-search-previous'),
+          tooltip: tr.previous,
+          icon: const Icon(Icons.keyboard_arrow_up),
+          onPressed: hits.isEmpty ? null : () => _stepHit(-1),
+        ),
+        IconButton(
+          key: const ValueKey('thread-search-next'),
+          tooltip: tr.next,
+          icon: const Icon(Icons.keyboard_arrow_down),
+          onPressed: hits.isEmpty ? null : () => _stepHit(1),
+        ),
+        IconButton(
+          key: const ValueKey('thread-search-close'),
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close),
+          onPressed: _closeSearch,
+        ),
+      ],
+      bottom: bottom,
+    );
+  }
+
+  /// [card] of [post], marked as a hit of the search when it is one: a line at its side, the words in its content.
+  /// [hits] holds the floor keys ([floorKeyOf]) of the hits: the copy of a floor as a hot reply is not marked with
+  /// the floor (it is not a hit of its own).
+  ///
+  /// The card is always under the same widgets, a hit or not: it keeps its state when a search starts or ends. The
+  /// words are marked the same in every hit, only the line tells the current one: going from hit to hit changes
+  /// nothing the content was munched from, so no floor is munched again (the marks are part of the munched content).
+  Widget _markSearchHit(BuildContext context, Post post, Set<String> hits, Widget card) {
+    final hit = _searchPattern != null && hits.contains(floorKeyOf(post));
+    final colorScheme = Theme.of(context).colorScheme;
+    final current = hit && post.postID == _searchCurrentPid;
+    return SearchHighlightScope(
+      pattern: hit ? _searchPattern : null,
+      background: colorScheme.primaryContainer,
+      foreground: colorScheme.onPrimaryContainer,
+      child: Stack(
+        // The card is laid out as without the mark.
+        fit: StackFit.passthrough,
+        children: [
+          card,
+          if (hit)
+            Positioned(
+              key: ValueKey('thread-search-hit-${post.postID}'),
+              left: 0,
+              top: 12,
+              bottom: 12,
+              width: current ? 4 : 3,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: current ? colorScheme.primary : colorScheme.primary.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   /// Ask for a floor to go to, and go there.
@@ -876,8 +1269,10 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       ..requestFocus();
   }
 
-  Widget _buildContent(BuildContext context, ThreadState state) {
+  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
+  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
+    final searchHits = {for (final post in hits) floorKeyOf(post)};
     if (_scrollToPidOnReload != null) {
       // Consumed by the PostList created in this build.
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPidOnReload = null);
@@ -934,11 +1329,16 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                           widgetBuilder: (context, post) => BlockAwarePost(
                             post: post,
                             postList: state.postList,
-                            builder: (context, post) => PostCard(
+                            builder: (context, post) => _markSearchHit(
+                              context,
                               post,
-                              replyCallback: replyPostCallback,
-                              onEdited: () => _scrollToPidOnReload = post.postID,
-                              onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                              searchHits,
+                              PostCard(
+                                post,
+                                replyCallback: replyPostCallback,
+                                onEdited: () => _scrollToPidOnReload = post.postID,
+                                onJoinDebate: state.replyParameters == null || state.threadClosed ? null : _joinDebate,
+                              ),
                             ),
                           ),
                           useDivider: true,
@@ -1056,7 +1456,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
       : ThreadLoadMoreRequested(state.currentPage);
 
   /// Body of the page; everything but the content (which handles the insets per part) stays in the safe area.
-  Widget _buildBody(BuildContext context, ThreadState state) {
+  /// The body of the page for [state], [hits] the hits of the search ([_searchHits]).
+  Widget _buildBody(BuildContext context, ThreadState state, List<Post> hits) {
     Widget safe(Widget child) => SafeArea(bottom: false, child: child);
     if (state.needLogin) {
       return safe(
@@ -1082,13 +1483,13 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     return switch (state.status) {
       ThreadStatus.initial || ThreadStatus.loading => const CenteredCircularIndicator(),
       // A failed reload keeps the previous posts (see ThreadBloc); only an empty page gets the retry button.
-      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state),
+      ThreadStatus.failure when state.postList.isNotEmpty => _buildContent(context, state, hits),
       ThreadStatus.failure => safe(
         buildRetryButton(context, () {
           context.read<ThreadBloc>().add(_retryLoad(state));
         }),
       ),
-      ThreadStatus.success => _buildContent(context, state),
+      ThreadStatus.success => _buildContent(context, state, hits),
     };
   }
 
@@ -1109,6 +1510,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchEdited);
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
       _takeSavedProgress(progress, atOpen: true);
@@ -1146,6 +1548,8 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
     unawaited(_progressWait?.cancel());
     _listScrollController.dispose();
     _appBarController.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -1335,106 +1739,125 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                   'pid=${widget.findPostID}';
             }
 
-            _appBarCollapser.enabled = context.select<SettingsBloc, bool>(
-              (bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll,
-            );
+            // The search bar stays while searching.
+            _appBarCollapser.enabled =
+                context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll) &&
+                !_searching;
             if (!_appBarCollapser.enabled && _appBarController.value < 1) {
               // Turned off while the bar was hidden: show it again, not from inside this build.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) _appBarCollapser.show();
               });
             }
-            final appBar = ListAppBar(
-              title: title,
-              bottom: PreferredSize(
-                preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
-                child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
-              ),
-              showReverseOrderAction: true,
-              onJumpPage: (pageNumber) async {
-                if (!mounted) {
-                  return;
-                }
-                // Mark loading here.
-                // Mark state will be removed when loading finishes
-                // in next build.
-                context.read<JumpPageCubit>().markLoading();
-                context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
-              },
-              onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
-              onCopyUrl: () async => copyToClipboard(context, threadUrl!),
-              onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
-              onBackToTop: () async {
-                _appBarCollapser.show();
-                final bloc = context.read<ThreadBloc>();
-                // Pages above the floors on screen are not loaded (or were dropped): open the thread at its start.
-                if (bloc.state.canLoadPrevious || !(_postListKey.currentState?.startsAtThreadTop ?? true)) {
-                  bloc.add(const ThreadJumpPageRequested(1));
-                  return;
-                }
-                if (!_listScrollController.hasClients) {
-                  return;
-                }
-                await _listScrollController.animateTo(
-                  _listScrollController.position.minScrollExtent,
-                  curve: Curves.ease,
-                  duration: const Duration(milliseconds: 500),
-                );
-              },
-              onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
-              customMenuItems: [
-                if (state.tid != null) ...[
-                  // Favorite and share need the network: not offered on floors read back offline.
-                  if (!state.isOffline)
-                    MenuCustomItem(
-                      icon: isThreadFavorited(context, tid: state.tid!)
-                          ? Icons.bookmark_remove_outlined
-                          : Icons.bookmark_add_outlined,
-                      description: isThreadFavorited(context, tid: state.tid!)
-                          ? context.t.threadPage.favorite.remove
-                          : context.t.threadPage.favorite.add,
-                      onSelected: () async {
-                        final changed = await toggleThreadFavorite(context, tid: state.tid!);
-                        if (changed && mounted) {
-                          // Relabel the menu item.
-                          setState(() {});
-                        }
-                      },
-                    ),
-                  if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
-                    MenuCustomItem(
-                      icon: Icons.forward_to_inbox_outlined,
-                      description: context.t.threadPage.shareToFriend.title,
-                      onSelected: () async => shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
-                    ),
-                  // Floor numbers are where the floors are only when every author's floors are listed.
-                  if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
-                    MenuCustomItem(
-                      icon: Icons.format_list_numbered_outlined,
-                      description: context.t.threadPage.jumpToFloor.menu,
-                      onSelected: () async => _askJumpToFloor(context, state),
-                    ),
-                  MenuCustomItem(
-                    icon: Icons.numbers_outlined,
-                    description: context.t.threadPage.copyTid(tid: state.tid!),
-                    onSelected: () async => copyToClipboard(context, state.tid!),
-                  ),
-                ],
-              ],
+            final breadcrumbs = PreferredSize(
+              preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
+              child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
             );
+            // The hits of the search, found once for the search bar and the floors.
+            final searchHits = _searchHits(context, state);
+            // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
+            final appBar = _searching
+                ? _buildSearchBar(context, state, breadcrumbs, searchHits)
+                : ListAppBar(
+                    title: title,
+                    bottom: breadcrumbs,
+                    showReverseOrderAction: true,
+                    onJumpPage: (pageNumber) async {
+                      if (!mounted) {
+                        return;
+                      }
+                      // Mark loading here.
+                      // Mark state will be removed when loading finishes
+                      // in next build.
+                      context.read<JumpPageCubit>().markLoading();
+                      context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
+                    },
+                    onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+                    onCopyUrl: () async => copyToClipboard(context, threadUrl!),
+                    onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
+                    onBackToTop: () async {
+                      _appBarCollapser.show();
+                      final bloc = context.read<ThreadBloc>();
+                      // Pages above the floors on screen are not loaded (or were dropped): open the thread at its start.
+                      if (bloc.state.canLoadPrevious || !(_postListKey.currentState?.startsAtThreadTop ?? true)) {
+                        bloc.add(const ThreadJumpPageRequested(1));
+                        return;
+                      }
+                      if (!_listScrollController.hasClients) {
+                        return;
+                      }
+                      await _listScrollController.animateTo(
+                        _listScrollController.position.minScrollExtent,
+                        curve: Curves.ease,
+                        duration: const Duration(milliseconds: 500),
+                      );
+                    },
+                    onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
+                    customMenuItems: [
+                      if (state.postList.isNotEmpty)
+                        MenuCustomItem(
+                          icon: Icons.search,
+                          description: context.t.threadPage.search.menu,
+                          onSelected: _openSearch,
+                        ),
+                      if (state.tid != null) ...[
+                        // Favorite and share need the network: not offered on floors read back offline.
+                        if (!state.isOffline)
+                          MenuCustomItem(
+                            icon: isThreadFavorited(context, tid: state.tid!)
+                                ? Icons.bookmark_remove_outlined
+                                : Icons.bookmark_add_outlined,
+                            description: isThreadFavorited(context, tid: state.tid!)
+                                ? context.t.threadPage.favorite.remove
+                                : context.t.threadPage.favorite.add,
+                            onSelected: () async {
+                              final changed = await toggleThreadFavorite(context, tid: state.tid!);
+                              if (changed && mounted) {
+                                // Relabel the menu item.
+                                setState(() {});
+                              }
+                            },
+                          ),
+                        if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                          MenuCustomItem(
+                            icon: Icons.forward_to_inbox_outlined,
+                            description: context.t.threadPage.shareToFriend.title,
+                            onSelected: () async =>
+                                shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                          ),
+                        // Floor numbers are where the floors are only when every author's floors are listed.
+                        if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
+                          MenuCustomItem(
+                            icon: Icons.format_list_numbered_outlined,
+                            description: context.t.threadPage.jumpToFloor.menu,
+                            onSelected: () async => _askJumpToFloor(context, state),
+                          ),
+                        MenuCustomItem(
+                          icon: Icons.numbers_outlined,
+                          description: context.t.threadPage.copyTid(tid: state.tid!),
+                          onSelected: () async => copyToClipboard(context, state.tid!),
+                        ),
+                      ],
+                    ],
+                  );
             _appBarCollapser.barHeight = appBar.preferredSize.height;
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
             // The content's text-scale override must not restore the outer status-bar padding.
-            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state));
+            final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state, searchHits));
             // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
             // not rebuilt.
-            return AnimatedBuilder(
-              animation: _appBarController,
-              builder: (context, _) => Scaffold(
-                // Required by chat_bottom_container in the reply bar.
-                resizeToAvoidBottomInset: false,
-                appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
-                body: body,
+            // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own
+            // (`canCloseQuietly`), and the back swipe still closes it.
+            return BackButtonListener(
+              onBackButtonPressed: _onBackPressed,
+              child: AnimatedBuilder(
+                animation: _appBarController,
+                builder: (context, _) => Scaffold(
+                  // Required by chat_bottom_container in the reply bar.
+                  resizeToAvoidBottomInset: false,
+                  appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
+                  body: body,
+                ),
               ),
             );
           },

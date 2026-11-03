@@ -164,11 +164,14 @@ class PostListState extends State<PostList> with LoggerMixin {
 
   final _layout = FloorLayout();
 
-  /// Marks the card of the floor scrolled to so it can be kept in view while the freshly built list settles, see
-  /// [_scrollToTarget].
-  final GlobalKey _initialPostKey = GlobalKey();
+  /// The cards built, by the key of their slot: the card of the floor scrolled to is kept in view from it while the
+  /// freshly built list settles, see [_scrollToTarget].
+  ///
+  /// Every card is under the same widgets whether it is the one scrolled to or not: going to another floor (the next
+  /// hit of a search) rebuilds no card, and none loses its state (a folded part opened).
+  final _cards = <String, BuildContext>{};
 
-  /// Key of the slot carrying [_initialPostKey].
+  /// Key of the slot of the floor scrolled to.
   String? _targetKey;
   Timer? _holdTimer;
   int _holdCorrections = 0;
@@ -229,6 +232,17 @@ class PostListState extends State<PostList> with LoggerMixin {
     _scheduleCheck();
   }
 
+  /// Bring the floor with [pid] to the top of the list (a hit of the search in the thread), held there while the list
+  /// settles like a jump to a floor ([_scrollToTarget]). Nothing happens when the floor is not on screen.
+  void revealPost(String pid) {
+    final key = _keyOfPid(pid);
+    if (key == null) {
+      return;
+    }
+    _targetKey = key;
+    unawaited(_scrollToTarget());
+  }
+
   /// Key of the slot of the floor with [pid]: the floor where it is rather than its copy as a hot reply.
   String? _keyOfPid(String pid) {
     for (final key in ['floor:$pid', 'hot:$pid']) {
@@ -267,8 +281,6 @@ class PostListState extends State<PostList> with LoggerMixin {
     if (!mounted || key == null || !_listScrollController.hasClients) {
       return;
     }
-    // Rebuilt with the key on the floor first.
-    setState(() {});
     final below = _layout.belowItemIndexOf(key);
     final above = _layout.aboveItemIndexOf(key);
     debug('scroll to $key: below=$below above=$above');
@@ -311,7 +323,9 @@ class PostListState extends State<PostList> with LoggerMixin {
 
   /// Put the card of the target post at the top of the viewport (or as close as the ends of the list allow).
   void _alignInitialPost() {
-    final renderObject = _initialPostKey.currentContext?.findRenderObject();
+    final key = _targetKey;
+    final card = key == null ? null : _cards[key];
+    final renderObject = card != null && card.mounted ? card.findRenderObject() : null;
     if (renderObject == null || !renderObject.attached) {
       // Not built yet: the approach animation is still on its way.
       return;
@@ -509,13 +523,14 @@ class PostListState extends State<PostList> with LoggerMixin {
       // A dropped floor: its place stays, without height.
       return SizedBox.shrink(key: ValueKey(slot.key));
     }
-    Widget card = _FloorSurface(child: widget.widgetBuilder(context, post));
-    // Adding or removing the key is a structural change: that floor is rebuilt into a new element on the next build
-    // after the floor scrolled to changes. A card must therefore not rely on its own `context` across an async gap
-    // that may span such a rebuild; the edit flow takes what it needs before opening the editor (GitHub #76).
-    if (slot.key == _targetKey) {
-      card = KeyedSubtree(key: _initialPostKey, child: card);
-    }
+    // Told to [_cards] from the same place whatever floor is scrolled to: no card is moved into a new element by it.
+    // A card must still not rely on its own `context` across an async gap (a reload may rebuild it into a new one);
+    // the edit flow takes what it needs before opening the editor (GitHub #76).
+    final card = _CardAnchor(
+      slotKey: slot.key,
+      cards: _cards,
+      child: _FloorSurface(child: widget.widgetBuilder(context, post)),
+    );
     return KeyedSubtree(
       key: ValueKey(slot.key),
       child: Padding(
@@ -945,6 +960,52 @@ class ThreadEndCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Tells [cards] where the card of the slot [slotKey] is built, while it is.
+class _CardAnchor extends StatefulWidget {
+  const _CardAnchor({required this.slotKey, required this.cards, required this.child});
+
+  final String slotKey;
+
+  final Map<String, BuildContext> cards;
+
+  final Widget child;
+
+  @override
+  State<_CardAnchor> createState() => _CardAnchorState();
+}
+
+class _CardAnchorState extends State<_CardAnchor> {
+  @override
+  void initState() {
+    super.initState();
+    widget.cards[widget.slotKey] = context;
+  }
+
+  @override
+  void didUpdateWidget(_CardAnchor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.slotKey != widget.slotKey || !identical(oldWidget.cards, widget.cards)) {
+      _forget(oldWidget);
+      widget.cards[widget.slotKey] = context;
+    }
+  }
+
+  @override
+  void dispose() {
+    _forget(widget);
+    super.dispose();
+  }
+
+  void _forget(_CardAnchor of) {
+    if (identical(of.cards[of.slotKey], context)) {
+      of.cards.remove(of.slotKey);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// A floor of the thread as a rounded surface, at most [appReadingMaxWidth] wide so lines stay readable on desktop.
