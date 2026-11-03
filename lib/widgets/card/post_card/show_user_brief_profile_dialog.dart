@@ -145,9 +145,13 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
       preferred: SecondaryTitleBadge.widthFor(profileBadgeHeight),
     );
     final authorUid = int.tryParse(widget.profile.uid);
-    // Only a verified current account counts; the uid is compared again by the badge against the title it holds.
-    final isSelf = authorUid != null && authorUid == context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
-    final ownFloor = widget.secondBadge == null && isSelf;
+    final auth = context.readOrNull<AuthenticationRepository>();
+    // The actions follow the account the device acts as, also before the stored session was verified (an offline
+    // start, a thread opened from a link): the own floor must not offer "add friend" then.
+    final isSelf = authorUid != null && authorUid == auth?.effectiveCurrentUid;
+    // The title badge needs a verified current account; the uid is compared again by the badge against the title it
+    // holds.
+    final ownFloor = widget.secondBadge == null && authorUid != null && authorUid == auth?.currentUser?.uid;
 
     final avatar = Hero(
       tag: widget.avatarHeroTag,
@@ -262,7 +266,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
 
     final profileContent = [
       // What to do with the author, before the details.
-      _AuthorActions(uid: authorUid, username: widget.profile.username, isSelf: isSelf),
+      _AuthorActions(uid: authorUid, username: widget.profile.username, isSelf: isSelf, width: contentWidth),
       sectionSeparator,
 
       // Who the author is: group, titles, names and dates, one line each.
@@ -514,8 +518,12 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
 ///
 /// Friend and block are for other accounts only and need a uid; without a uid the lists are opened by name. Block is
 /// left out where the app provides no [UserBlockCubit] and while the list of the current account is not known.
+///
+/// Compact, and friend and block are icons only. On a phone the dialog content is about 200 wide (a 360 wide window:
+/// 204, see [briefProfileDialogContentWidth]), too narrow for the chips to wrap into two rows by themselves: there the
+/// two list chips share the first row and the actions take the second. Wider content lets the chips wrap naturally.
 class _AuthorActions extends StatelessWidget {
-  const _AuthorActions({required this.uid, required this.username, required this.isSelf});
+  const _AuthorActions({required this.uid, required this.username, required this.isSelf, required this.width});
 
   /// Parsed author uid, null if the floor carries no number.
   final int? uid;
@@ -524,15 +532,31 @@ class _AuthorActions extends StatelessWidget {
 
   final bool isSelf;
 
+  /// Width of the dialog content.
+  final double width;
+
+  /// Content narrower than this gets the fixed two rows.
+  static const _wrapWidth = 300.0;
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.postCard.profileDialog;
     final uid = this.uid != null && this.uid! > 0 ? this.uid : null;
 
-    Widget chip(String key, IconData icon, String label, VoidCallback onPressed) => ActionChip(
+    // Label padding halved: at 204 wide the label of a list chip sharing a row gets 72, "TA的主題" needs about 60.
+    Widget chip(String key, String label, VoidCallback onPressed) => ActionChip(
       key: ValueKey('brief-profile-action-$key'),
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed,
+    );
+
+    Widget iconChip(String key, IconData icon, String tooltip, VoidCallback onPressed) => ActionChip(
+      key: ValueKey('brief-profile-action-$key'),
+      label: Icon(icon, size: 18),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
       onPressed: onPressed,
     );
 
@@ -557,28 +581,39 @@ class _AuthorActions extends StatelessWidget {
       canBlock = owner != null && owner != uid && known;
     }
 
-    return Wrap(
+    final lists = <Widget>[
+      if (uid != null || username.isNotEmpty) ...[
+        chip('threads', isSelf ? tr.myThreads : tr.memberThreads, () => openMemberThreads(null)),
+        chip('replies', isSelf ? tr.myReplies : tr.memberReplies, () => openMemberThreads('reply')),
+      ],
+    ];
+    final actions = <Widget>[
+      if (uid != null && !isSelf)
+        iconChip(
+          'friend',
+          Icons.person_add_alt_1_outlined,
+          context.t.friendPage.addFriend.tooltip,
+          () => unawaited(showAddFriendDialog(context, uid: '$uid', username: username)),
+        ),
+      if (canBlock)
+        iconChip(
+          'block',
+          blocked ? Icons.remove_moderator_outlined : Icons.block_outlined,
+          blocked ? context.t.userBlock.unblock : context.t.userBlock.block,
+          () => unawaited(toggleUserBlock(context, uid: uid!, username: username, blocked: blocked)),
+        ),
+    ];
+
+    if (width >= _wrapWidth) {
+      return Wrap(spacing: 8, runSpacing: 8, children: [...lists, ...actions]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       spacing: 8,
-      runSpacing: 8,
       children: [
-        if (uid != null || username.isNotEmpty) ...[
-          chip('threads', Icons.article_outlined, tr.memberThreads, () => openMemberThreads(null)),
-          chip('replies', Icons.reply_outlined, tr.memberReplies, () => openMemberThreads('reply')),
-        ],
-        if (uid != null && !isSelf)
-          chip(
-            'friend',
-            Icons.person_add_alt_1_outlined,
-            context.t.friendPage.addFriend.tooltip,
-            () => unawaited(showAddFriendDialog(context, uid: '$uid', username: username)),
-          ),
-        if (canBlock)
-          chip(
-            'block',
-            blocked ? Icons.remove_moderator_outlined : Icons.block_outlined,
-            blocked ? context.t.userBlock.unblock : tr.blockShort,
-            () => unawaited(toggleUserBlock(context, uid: uid!, username: username, blocked: blocked)),
-          ),
+        if (lists.isNotEmpty) Row(spacing: 8, children: lists.map((e) => Expanded(child: e)).toList()),
+        if (actions.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: actions),
       ],
     );
   }
