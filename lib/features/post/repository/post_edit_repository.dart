@@ -116,7 +116,7 @@ final class PostEditRepository with LoggerMixin {
           return left(AttachmentUploadFailedException(AttachmentUploadRefusal.type));
         }
         final maxKb = upload.maxKb;
-        if (maxKb != null && (fileSize ?? _fileSize)(path) > maxKb * 1024) {
+        if (maxKb != null && (fileSize != null ? fileSize(path) : await _fileSize(path)) > maxKb * 1024) {
           return left(AttachmentUploadFailedException(AttachmentUploadRefusal.size));
         }
         final result = await sendFile(
@@ -133,9 +133,9 @@ final class PostEditRepository with LoggerMixin {
       });
 
   /// The size of the file at [path] in bytes, 0 when it cannot be told (the upload then decides).
-  static int _fileSize(String path) {
+  static Future<int> _fileSize(String path) async {
     try {
-      return File(path).lengthSync();
+      return await File(path).length();
     } on Object {
       return 0;
     }

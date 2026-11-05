@@ -13,6 +13,9 @@ import android.os.Bundle
  * sender's task. This activity shows nothing, forwards the intent to the app's task (`NEW_TASK`, `CLEAR_TOP`,
  * `SINGLE_TOP`: the running [MainActivity] gets it in `onNewIntent`, else one starts with it) and finishes at once.
  * The uri grants of the shared images travel with the clip data and the grant flag.
+ *
+ * `CLEAR_TOP` also finishes whatever is stacked over [MainActivity] in the app's task (an [InteractiveHtmlActivity]
+ * showing interactive content): a share is handled on the app's own pages, so the app comes back to them.
  */
 class ShareActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
