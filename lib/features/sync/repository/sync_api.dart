@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -118,9 +119,11 @@ final class TsdmAppSyncApi implements SyncApi {
 
   final NetClientProvider Function(int uid) _buildClient;
 
-  /// The app's client for account [uid]: on the global cookie, bound to that account.
-  static NetClientProvider clientOf(int uid) =>
-      NetClientProvider.build(userLoginInfo: UserLoginInfo(username: null, uid: uid));
+  /// The app's client for account [uid]: on the global cookie, bound to that account ([dio] for the tests).
+  static NetClientProvider clientOf(int uid, {Dio? dio}) => NetClientProvider.build(
+    dio: dio,
+    userLoginInfo: UserLoginInfo(username: null, uid: uid),
+  );
 
   /// The action.
   static const action = 'sync';

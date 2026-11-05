@@ -10,7 +10,6 @@
 /// the other account.
 library;
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -93,11 +92,9 @@ void main() {
     });
   });
 
-  /// A client on the test forum, bound as [TsdmAppSyncApi.clientOf] binds the app's.
-  NetClientProvider clientOf(int uid) => NetClientProvider.build(
-    dio: Dio(BaseOptions(baseUrl: _baseUrl))..httpClientAdapter = forum,
-    userLoginInfo: UserLoginInfo(username: null, uid: uid),
-  );
+  /// The app's client of the account ([TsdmAppSyncApi.clientOf]), on the test forum.
+  NetClientProvider clientOf(int uid) =>
+      TsdmAppSyncApi.clientOf(uid, dio: Dio(BaseOptions(baseUrl: _baseUrl))..httpClientAdapter = forum);
 
   test('the client built once at the start, as the guest: dropped once an account logged in (the bug)', () async {
     // The guest's client, as the cookie had no account when the app started.
@@ -112,7 +109,7 @@ void main() {
   });
 
   test('a client built at each call for the account synced: the call after the login goes out', () async {
-    var built = <int>[];
+    final built = <int>[];
     final api = TsdmAppSyncApi((uid) {
       built.add(uid);
       return clientOf(uid);
