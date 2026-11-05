@@ -3083,5 +3083,8 @@
     "confirm": "发送",
     "openBrowser": "在浏览器中打开",
     "cancelled": "没有发出：论坛要求填写验证码或回答安全提问"
+  },
+  "appShortcuts": {
+    "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
   }
 }

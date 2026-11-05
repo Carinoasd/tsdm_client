@@ -3083,5 +3083,8 @@
     "confirm": "Send",
     "openBrowser": "Open in browser",
     "cancelled": "Not sent: the forum asks for a captcha or a security question"
+  },
+  "appShortcuts": {
+    "checkinNotVerified": "The login is not verified yet, check in later"
   }
 }
