@@ -11,9 +11,10 @@ part 'theme_state.dart';
 
 /// Cubit controlling app theme.
 ///
-/// With the theme mode [themeModeScheduled] the clock decides: dark inside the [DarkSchedule], light outside. The
-/// cubit wakes up at the next boundary of the window ([Timer]) and works the time out again when the app comes back
-/// to the foreground ([observeLifecycle]), as the timer does not run while the app sleeps.
+/// While [ThemeState.scheduled] the clock decides: dark inside the [DarkSchedule], light outside. The cubit wakes up
+/// at the next boundary of the window ([Timer]), at most [maxTimerWait] away so a sleeping device or a changed clock
+/// is caught up with soon, and works the time out again when the app comes back to the foreground
+/// ([observeLifecycle]), as the timer does not run while the app sleeps.
 class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
   /// Constructor.
   ///
@@ -22,6 +23,7 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
     Color? accentColor,
     int themeModeIndex = 0,
     String fontFamily = '',
+    bool scheduled = false,
     DarkSchedule schedule = DarkSchedule.defaults,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
@@ -30,6 +32,7 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
            accentColor: accentColor,
            themeModeIndex: themeModeIndex,
            fontFamily: fontFamily,
+           scheduled: scheduled,
            scheduleStart: schedule.start,
            scheduleEnd: schedule.end,
            scheduleDark: schedule.isDark((now ?? DateTime.now)()),
@@ -37,6 +40,10 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
        ) {
     _arm();
   }
+
+  /// The longest the timer sleeps: the monotonic clock behind [Timer] stops while a desktop sleeps, and the wall clock
+  /// or the time zone may be changed under the app, so wake up now and then and look at the clock again.
+  static const Duration maxTimerWait = Duration(minutes: 15);
 
   final DateTime Function() _now;
 
@@ -47,9 +54,12 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
   /// Set the accent color.
   void setAccentColor(Color accentColor) => emit(state.copyWith(accentColor: accentColor));
 
-  /// Set the theme mode: the index of a [ThemeMode], or [themeModeScheduled].
-  void setThemeModeIndex(int themeModeIndex) {
-    emit(state.copyWith(themeModeIndex: themeModeIndex, scheduleDark: state.schedule.isDark(_now())));
+  /// Set the theme mode to the [ThemeMode] at [themeModeIndex]; it shows once the clock is not in charge.
+  void setThemeModeIndex(int themeModeIndex) => emit(state.copyWith(themeModeIndex: themeModeIndex));
+
+  /// Hand the theme to the clock, or take it back.
+  void setScheduled({required bool scheduled}) {
+    emit(state.copyWith(scheduled: scheduled, scheduleDark: state.schedule.isDark(_now())));
     _arm();
   }
 
@@ -89,14 +99,16 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
   }
 
   @override
+  // The parameter keeps the name of the overridden method (lint avoid_renaming_method_parameters); it is the lifecycle
+  // state, not the state of the cubit.
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       refreshSchedule();
     }
   }
 
-  /// Wake up at the next moment the dark hours begin or end, not on every tick; no timer unless the clock is in
-  /// charge.
+  /// Wake up at the next moment the dark hours begin or end (or after [maxTimerWait], whichever comes first), not on
+  /// every tick; no timer unless the clock is in charge.
   void _arm() {
     _timer?.cancel();
     _timer = null;
@@ -108,7 +120,8 @@ class ThemeCubit extends Cubit<ThemeState> with WidgetsBindingObserver {
     if (next == null) {
       return;
     }
-    _timer = Timer(next.difference(now), refreshSchedule);
+    final wait = next.difference(now);
+    _timer = Timer(wait > maxTimerWait ? maxTimerWait : wait, refreshSchedule);
   }
 
   @override

@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// The value of the `themeMode` setting that hands the theme to the clock: dark inside [DarkSchedule], light outside.
-///
-/// 0, 1 and 2 are the indexes of [ThemeMode].
-const int themeModeScheduled = 3;
-
 /// Minutes in a day.
 const int _minutesPerDay = 24 * 60;
 

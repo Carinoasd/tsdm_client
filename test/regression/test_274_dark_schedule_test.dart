@@ -1,4 +1,5 @@
-/// Theme mode "by time": the app is dark inside a window of the day and light outside it.
+/// Theme mode "by time" (its own setting beside the theme mode): the app is dark inside a window of the day and light
+/// outside it.
 ///
 /// 1. The window: inside, outside, over midnight, the boundaries, an empty one, and the next moment it changes.
 /// 2. The theme cubit: the mode it really uses, the timer at the boundary, coming back to the foreground, close.
@@ -151,8 +152,8 @@ void main() {
 
   group('2. the theme cubit', () {
     test('by time: dark inside the window, light outside; the other modes are as they are', () async {
-      final inside = ThemeCubit(themeModeIndex: themeModeScheduled, now: () => _at(23, 0));
-      final outside = ThemeCubit(themeModeIndex: themeModeScheduled, now: () => _at(12, 0));
+      final inside = ThemeCubit(scheduled: true, now: () => _at(23, 0));
+      final outside = ThemeCubit(scheduled: true, now: () => _at(12, 0));
       expect(inside.state.scheduled, isTrue);
       expect(inside.state.effectiveThemeMode, ThemeMode.dark);
       expect(outside.state.effectiveThemeMode, ThemeMode.light);
@@ -174,31 +175,32 @@ void main() {
     });
 
     test('a window of its own', () async {
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, schedule: _sameDay, now: () => _at(12, 0));
+      final cubit = ThemeCubit(scheduled: true, schedule: _sameDay, now: () => _at(12, 0));
       expect(cubit.state.effectiveThemeMode, ThemeMode.dark);
       expect(cubit.state.schedule, _sameDay);
       await cubit.close();
     });
 
-    testWidgets('switching the mode to and from by time takes effect at once', (tester) async {
+    testWidgets('handing the theme to the clock and taking it back takes effect at once', (tester) async {
       var now = _at(23, 0);
       final cubit = ThemeCubit(themeModeIndex: 1, now: () => now);
       expect(cubit.state.effectiveThemeMode, ThemeMode.light);
-      cubit.setThemeModeIndex(themeModeScheduled);
+      cubit.setScheduled(scheduled: true);
       expect(cubit.state.effectiveThemeMode, ThemeMode.dark, reason: '23:00 is inside the window');
-      cubit.setThemeModeIndex(2);
-      expect(cubit.state.effectiveThemeMode, ThemeMode.dark);
       cubit.setThemeModeIndex(0);
-      expect(cubit.state.effectiveThemeMode, ThemeMode.system);
+      expect(cubit.state.effectiveThemeMode, ThemeMode.dark, reason: 'the theme mode is set aside while scheduled');
+      expect(cubit.state.themeModeIndex, 0, reason: 'but kept');
+      cubit.setScheduled(scheduled: false);
+      expect(cubit.state.effectiveThemeMode, ThemeMode.system, reason: 'back to the theme mode kept');
       now = _at(12, 0);
-      cubit.setThemeModeIndex(themeModeScheduled);
+      cubit.setScheduled(scheduled: true);
       expect(cubit.state.effectiveThemeMode, ThemeMode.light, reason: '12:00 is outside');
       await _closeIn(tester, cubit);
     });
 
     testWidgets('new hours take effect at once', (tester) async {
       var now = _at(12, 0);
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, now: () => now);
+      final cubit = ThemeCubit(scheduled: true, now: () => now);
       expect(cubit.state.effectiveThemeMode, ThemeMode.light);
       cubit.setSchedule(const DarkSchedule(start: 11 * 60, end: 17 * 60));
       expect(cubit.state.effectiveThemeMode, ThemeMode.dark);
@@ -217,7 +219,7 @@ void main() {
       final start = tester.binding.clock.now();
       final base = _at(21, 50);
       DateTime now() => base.add(tester.binding.clock.now().difference(start));
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, now: now);
+      final cubit = ThemeCubit(scheduled: true, now: now);
       final seen = <ThemeMode>[];
       final sub = cubit.stream.map((s) => s.effectiveThemeMode).listen(seen.add);
       expect(cubit.state.effectiveThemeMode, ThemeMode.light);
@@ -248,12 +250,31 @@ void main() {
       final start = tester.binding.clock.now();
       final base = _at(12, 0);
       DateTime now() => base.add(tester.binding.clock.now().difference(start));
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, now: now)
+      final cubit = ThemeCubit(scheduled: true, now: now)
         ..setSchedule(const DarkSchedule(start: 14 * 60, end: 15 * 60));
       await tester.pump(const Duration(hours: 2));
       expect(cubit.state.effectiveThemeMode, ThemeMode.dark, reason: '14:00');
       await tester.pump(const Duration(hours: 1));
       expect(cubit.state.effectiveThemeMode, ThemeMode.light, reason: '15:00');
+      await _closeIn(tester, cubit);
+    });
+
+    testWidgets('a clock that jumps, as after a sleep, is caught up with within 15 minutes', (tester) async {
+      final start = tester.binding.clock.now();
+      var jump = Duration.zero;
+      DateTime now() => _at(20, 0).add(tester.binding.clock.now().difference(start)).add(jump);
+      final cubit = ThemeCubit(scheduled: true, now: now);
+      final seen = <ThemeMode>[];
+      final sub = cubit.stream.map((s) => s.effectiveThemeMode).listen(seen.add);
+      expect(cubit.state.effectiveThemeMode, ThemeMode.light);
+      await tester.pump(const Duration(minutes: 20));
+      expect(seen, isEmpty, reason: 'waking up between boundaries changes nothing');
+      // The device slept from 20:20 to 23:20: the timer did not run, the clock moved on.
+      jump = const Duration(hours: 3);
+      await tester.pump(ThemeCubit.maxTimerWait);
+      expect(cubit.state.effectiveThemeMode, ThemeMode.dark);
+      expect(seen, [ThemeMode.dark]);
+      unawaited(sub.cancel());
       await _closeIn(tester, cubit);
     });
 
@@ -270,7 +291,7 @@ void main() {
       unawaited(sub.cancel());
       await _closeIn(tester, light);
 
-      final closed = ThemeCubit(themeModeIndex: themeModeScheduled, now: now);
+      final closed = ThemeCubit(scheduled: true, now: now);
       expect(closed.state.effectiveThemeMode, ThemeMode.light);
       await _closeIn(tester, closed);
       await tester.pump(const Duration(days: 2));
@@ -281,7 +302,7 @@ void main() {
       final start = tester.binding.clock.now();
       final base = _at(21, 50);
       DateTime now() => base.add(tester.binding.clock.now().difference(start));
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, now: now)..setThemeModeIndex(1);
+      final cubit = ThemeCubit(themeModeIndex: 1, scheduled: true, now: now)..setScheduled(scheduled: false);
       final seen = <ThemeState>[];
       final sub = cubit.stream.listen(seen.add);
       await tester.pump(const Duration(days: 1));
@@ -293,7 +314,7 @@ void main() {
 
     testWidgets('coming back to the foreground works the time out again', (tester) async {
       var now = _at(12, 0);
-      final cubit = ThemeCubit(themeModeIndex: themeModeScheduled, now: () => now)..observeLifecycle();
+      final cubit = ThemeCubit(scheduled: true, now: () => now)..observeLifecycle();
       expect(cubit.state.effectiveThemeMode, ThemeMode.light);
       now = _at(23, 0);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -402,7 +423,7 @@ void main() {
 
     testWidgets('the theme mode has four choices, by time the last; no hours row until it is chosen', (tester) async {
       await pumpSettings(tester);
-      expect(themeSwitch(tester).segments.map((s) => s.value), [1, 0, 2, themeModeScheduled]);
+      expect(themeSwitch(tester).segments.map((s) => s.value), [1, 0, 2, 3]);
       expect(themeSwitch(tester).segments.last.tooltip, tr.settingsPage.appearanceSection.themeMode.scheduled);
       expect(themeSwitch(tester).selected, {0});
       expect(tile, findsNothing);
@@ -415,10 +436,12 @@ void main() {
     ) async {
       await pumpSettings(tester);
       await chooseMode(tester, Icons.schedule_outlined);
-      expect(settings.currentSettings.themeMode, themeModeScheduled);
-      expect(theme.state.themeModeIndex, themeModeScheduled);
+      expect(settings.currentSettings.themeModeScheduled, isTrue);
+      expect(settings.currentSettings.themeMode, 0, reason: 'its own setting, the theme mode stays what it was');
+      expect(theme.state.scheduled, isTrue);
+      expect(theme.state.themeModeIndex, 0);
       expect(theme.state.effectiveThemeMode, ThemeMode.light, reason: '12:00 is outside the window');
-      expect(themeSwitch(tester).selected, {themeModeScheduled});
+      expect(themeSwitch(tester).selected, {3});
       expect(
         find.text(tr.settingsPage.appearanceSection.themeMode.scheduled),
         findsOneWidget,
@@ -436,7 +459,10 @@ void main() {
 
       await chooseMode(tester, Icons.light_mode_outlined);
       expect(settings.currentSettings.themeMode, 1);
+      expect(settings.currentSettings.themeModeScheduled, isFalse);
+      expect(theme.state.scheduled, isFalse);
       expect(theme.state.effectiveThemeMode, ThemeMode.light);
+      expect(themeSwitch(tester).selected, {1});
       expect(tile, findsNothing, reason: 'the hours row goes with the mode');
       await finish(tester);
     });
@@ -502,6 +528,28 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('the same start and end cannot be saved', (tester) async {
+      await pumpSettings(tester);
+      await chooseMode(tester, Icons.schedule_outlined);
+      await tester.tap(tile);
+      await _settle(tester, rounds: 3);
+      FilledButton ok() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, tr.general.ok));
+      expect(ok().onPressed, isNotNull);
+      await tester.tap(endRow);
+      await _settle(tester, rounds: 3);
+      await enterTime(tester, 22, 0);
+      expect(find.descendant(of: endRow, matching: find.text('22:00')), findsOneWidget);
+      expect(ok().onPressed, isNull, reason: 'an empty window');
+      await tester.tap(endRow);
+      await _settle(tester, rounds: 3);
+      await enterTime(tester, 22, 1);
+      expect(ok().onPressed, isNotNull);
+      await tester.tap(find.text(tr.general.ok));
+      await _settle(tester);
+      expect(settings.currentSettings.darkScheduleEnd, 22 * 60 + 1);
+      await finish(tester);
+    });
+
     testWidgets('new hours covering now switch the theme at once', (tester) async {
       await pumpSettings(tester);
       await chooseMode(tester, Icons.schedule_outlined);
@@ -523,14 +571,16 @@ void main() {
     testWidgets('the saved choice is read back', (tester) async {
       // The database works in real time: outside the fake async zone.
       await tester.runAsync(() async {
-        await settings.setValue(SettingsKeys.themeMode, themeModeScheduled);
+        await settings.setValue(SettingsKeys.themeMode, 2);
+        await settings.setValue(SettingsKeys.themeModeScheduled, true);
         await settings.setValues<int>([
           (SettingsKeys.darkScheduleStart, 23 * 60),
           (SettingsKeys.darkScheduleEnd, 8 * 60 + 5),
         ]);
       });
       await pumpSettings(tester);
-      expect(themeSwitch(tester).selected, {themeModeScheduled});
+      expect(themeSwitch(tester).selected, {3});
+      expect(find.text(tr.settingsPage.appearanceSection.themeMode.scheduled), findsOneWidget);
       expect(find.descendant(of: tile, matching: find.text('23:00–08:05')), findsOneWidget);
       await finish(tester);
     });
@@ -554,7 +604,8 @@ void main() {
       final db = AppDatabase(NativeDatabase(dbFile));
       final settings = SettingsRepository(StorageProvider(db, {}, {}));
       await settings.init();
-      await settings.setValue(SettingsKeys.themeMode, themeModeScheduled);
+      await settings.setValue(SettingsKeys.themeMode, 2);
+      await settings.setValue(SettingsKeys.themeModeScheduled, true);
       await settings.setValues<int>([
         (SettingsKeys.darkScheduleStart, 21 * 60),
         (SettingsKeys.darkScheduleEnd, 6 * 60),
@@ -566,7 +617,13 @@ void main() {
       final restored = AppDatabase(NativeDatabase(restoredFile));
       final restoredSettings = SettingsRepository(StorageProvider(restored, {}, {}));
       await restoredSettings.init();
-      expect(restoredSettings.currentSettings.themeMode, themeModeScheduled);
+      expect(restoredSettings.currentSettings.themeModeScheduled, isTrue);
+      expect(restoredSettings.currentSettings.themeMode, 2);
+      expect(
+        restoredSettings.currentSettings.themeMode,
+        inInclusiveRange(0, ThemeMode.values.length - 1),
+        reason: 'an older version restoring this backup indexes ThemeMode.values with it',
+      );
       expect(restoredSettings.currentSettings.darkScheduleStart, 21 * 60);
       expect(restoredSettings.currentSettings.darkScheduleEnd, 6 * 60);
       await restored.close();
@@ -577,6 +634,7 @@ void main() {
       final settings = SettingsRepository(StorageProvider(db, {}, {}));
       await settings.init();
       expect(settings.currentSettings.themeMode, 0);
+      expect(settings.currentSettings.themeModeScheduled, isFalse);
       expect(settings.currentSettings.darkScheduleStart, DarkSchedule.defaultStart);
       expect(settings.currentSettings.darkScheduleEnd, DarkSchedule.defaultEnd);
       await db.close();

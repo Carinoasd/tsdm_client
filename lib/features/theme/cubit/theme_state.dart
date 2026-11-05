@@ -8,6 +8,7 @@ final class ThemeState with ThemeStateMappable {
     this.accentColor,
     this.themeModeIndex = 0,
     this.fontFamily = '',
+    this.scheduled = false,
     this.scheduleStart = DarkSchedule.defaultStart,
     this.scheduleEnd = DarkSchedule.defaultEnd,
     this.scheduleDark = false,
@@ -16,11 +17,14 @@ final class ThemeState with ThemeStateMappable {
   /// Current using app accent color.
   final Color? accentColor;
 
-  /// Current using theme mode index: the index of a [ThemeMode], or [themeModeScheduled].
+  /// Current using theme mode index, the index of a [ThemeMode]; set aside while [scheduled].
   final int themeModeIndex;
 
   /// Font family
   final String fontFamily;
+
+  /// Whether the clock decides the theme: dark inside the dark hours, light outside.
+  final bool scheduled;
 
   /// Start of the dark hours, minutes after midnight.
   final int scheduleStart;
@@ -30,9 +34,6 @@ final class ThemeState with ThemeStateMappable {
 
   /// Whether it is inside the dark hours now, as of the last time the cubit worked it out.
   final bool scheduleDark;
-
-  /// Whether the clock decides the theme.
-  bool get scheduled => themeModeIndex == themeModeScheduled;
 
   /// The dark hours.
   DarkSchedule get schedule => DarkSchedule(start: scheduleStart, end: scheduleEnd);

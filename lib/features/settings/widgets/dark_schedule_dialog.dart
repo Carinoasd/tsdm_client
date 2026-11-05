@@ -81,7 +81,11 @@ class _DarkScheduleDialogState extends State<DarkScheduleDialog> {
       contentPadding: EdgeInsets.zero,
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
-        FilledButton(onPressed: () => Navigator.of(context).pop(_schedule), child: Text(context.t.general.ok)),
+        // The same start and end would be an empty window, by time would then mean always light.
+        FilledButton(
+          onPressed: _schedule.start == _schedule.end ? null : () => Navigator.of(context).pop(_schedule),
+          child: Text(context.t.general.ok),
+        ),
       ],
     );
   }

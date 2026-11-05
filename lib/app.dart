@@ -489,6 +489,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 accentColor: widget.color >= 0 ? Color(widget.color) : null,
                 themeModeIndex: widget.themeModeIndex,
                 fontFamily: widget.fontFamily,
+                scheduled: settings.themeModeScheduled,
                 schedule: DarkSchedule(start: settings.darkScheduleStart, end: settings.darkScheduleEnd),
               )..observeLifecycle();
             },
