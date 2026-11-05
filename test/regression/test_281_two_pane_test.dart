@@ -39,6 +39,7 @@ import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
+import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
@@ -531,6 +532,45 @@ void main() {
       expect(threadPage(tester).threadID, tid);
       expect(threadPage(tester).pageNumber, '2');
       expect(find.textContaining('正文 $tid 第2页', findRichText: true), findsOneWidget);
+      await _finish(tester);
+    });
+
+    testWidgets('the page in view counts, not the last page loaded on the way down', (tester) async {
+      await app.pump(tester);
+      final tid = await tapCard(tester, 0);
+      final element = tester.element(find.byType(PostList));
+      // The next page loaded under the one in view (as scrolling near the end does), the indicator still on page 1.
+      BlocProvider.of<ThreadBloc>(element).add(const ThreadLoadMoreRequested(2));
+      await _settle(tester);
+      expect(BlocProvider.of<ThreadBloc>(element).state.currentPage, 2, reason: 'the last page loaded');
+      expect(BlocProvider.of<JumpPageCubit>(element).state.currentPage, 1, reason: 'the page in view');
+
+      tester.view.physicalSize = _narrow;
+      await _settle(tester, rounds: 6);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1]);
+      expect(threadPage(tester).threadID, tid);
+      expect(threadPage(tester).pageNumber, '1');
+
+      // Read on to the next page (the indicator follows the floors in view), then back to the wide window: the thread
+      // stays a page of its own, and the pane is empty.
+      await _finish(tester);
+    });
+
+    testWidgets('the author filter switched on the right is kept', (tester) async {
+      await app.pump(tester);
+      final tid = await tapCard(tester, 0);
+      final element = tester.element(find.byType(PostList));
+      BlocProvider.of<ThreadBloc>(element).add(const ThreadOnlyViewAuthorRequested('$_authorUid'));
+      await _settle(tester);
+      // The floors were built anew for the filter: their element too.
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)));
+      expect(bloc.state.onlyVisibleUid, '$_authorUid');
+
+      tester.view.physicalSize = _narrow;
+      await _settle(tester, rounds: 6);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1]);
+      expect(threadPage(tester).threadID, tid);
+      expect(threadPage(tester).onlyVisibleUid, '$_authorUid');
       await _finish(tester);
     });
 

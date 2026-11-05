@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,9 +44,33 @@ final class PaneThread {
   /// Tells the threads opened apart, so the same thread opened again starts over.
   final int id;
 
-  /// The query parameters of the thread route.
+  /// The query parameters the thread was opened with.
   final Map<String, String> query;
+
+  /// Tells how to open the thread again where it is read now, set by the thread page showing it ([resolver]).
+  PaneQueryResolver? _resolver;
+
+  /// The query to open the thread again as a page of its own: where it is read now when its page says so
+  /// ([resolver]), else as it was opened.
+  Map<String, String> get currentQuery => _resolver?.call(query) ?? query;
+
+  /// The page showing this thread tells, through it, how to open the thread again where it is read now (the page in
+  /// view, the author filter), from the query it was opened with. Undone with [detach].
+  set resolver(PaneQueryResolver resolve) => _resolver = resolve;
+
+  /// The resolver set, null while no page tells.
+  PaneQueryResolver? get resolver => _resolver;
+
+  /// Forget [resolve], when it is the [resolver] set.
+  void detach(PaneQueryResolver resolve) {
+    if (identical(_resolver, resolve)) {
+      _resolver = null;
+    }
+  }
 }
+
+/// Builds the query to open a pane's thread again where it is read now, from the query it was opened with.
+typedef PaneQueryResolver = Map<String, String> Function(Map<String, String> opened);
 
 /// The threads of the detail pane, the one on top shown: taps on the list replace them all ([open]), a thread link
 /// inside the pane goes on top of them ([push]), back takes the top one away ([pop]).
@@ -74,20 +99,6 @@ class TwoPaneController extends ChangeNotifier {
   void push(Map<String, String> query) {
     _threads.add(PaneThread._(_nextId++, query));
     notifyListeners();
-  }
-
-  /// Keep [page] of thread [tid] as where the thread shown is read now, so the thread opened as a page of its own when
-  /// the window turns narrow starts there, not at its first page or the floor it was opened on. Nobody is told.
-  void rememberPage({required String? tid, required int page}) {
-    final top = _threads.lastOrNull;
-    if (top == null || tid == null) {
-      return;
-    }
-    top.query
-      ..['tid'] = tid
-      ..['pageNumber'] = '$page'
-      ..remove('pid')
-      ..remove('lastPost');
   }
 
   /// Take the thread shown away; false when the pane was empty.
@@ -168,10 +179,10 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
 /// Tapping a thread in [list] shows it on the right ([openThreadInPane]); another tap replaces it. Inside the thread,
 /// a link to a thread opens above it on the right, everything else (a member, a forum, the editor) opens as a page of
 /// its own. The system back takes the thread on the right away first, then leaves the page. A window turning narrow
-/// (rotated, resized) with a thread on the right goes on reading it as a page of its own, at the page read
-/// ([TwoPaneController.rememberPage]); while another page, a dialog or a sheet is above this one, the panes stay as
-/// they are until it is on top again, so the thread is not pushed above that page and the sheet keeps its floor. A
-/// window turning wide changes the layout only, nothing moves into the pane.
+/// (rotated, resized) with a thread on the right goes on reading it as a page of its own, at the page in view
+/// ([PaneThread.resolver]); while another page, a dialog or a sheet is above this one, the panes stay as they are (laid
+/// out at least [twoPaneMinWidth] wide, clipped) until it is on top again, so the thread is not pushed above that page
+/// and the sheet keeps its floor. A window turning wide changes the layout only, nothing moves into the pane.
 ///
 /// Each pane sees a [MediaQuery] of its own width, with the side insets of its own edge only. The list pane has a
 /// [ScaffoldMessenger] of its own: the app's snack bars (shown through its root messenger) appear on the detail pane
@@ -235,54 +246,66 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
         // Narrow now, with a thread on the right: it goes on as a page of its own. Opened once this build is over,
         // the pane leaves the tree in this one.
         _controller._reset();
+        // Where the thread is read now, asked before the pane goes.
+        final query = top.currentQuery;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            unawaited(context.pushNamed(ScreenPaths.threadV1, queryParameters: top.query));
+            unawaited(context.pushNamed(ScreenPaths.threadV1, queryParameters: query));
           }
         });
       }
       return list;
     }
     final colorScheme = Theme.of(context).colorScheme;
-    final width = MediaQuery.sizeOf(context).width;
+    // Held under another page while narrow: laid out as a wide window would be, not squeezed.
+    final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
     final listWidth = (width * twoPaneListFraction).clamp(twoPaneListMinWidth, twoPaneListMaxWidth);
     return BackButtonListener(
       onBackButtonPressed: _onBackPressed,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: listWidth,
-            child: TwoPaneScope(
-              controller: _controller,
-              side: TwoPaneSide.list,
-              child: ScaffoldMessenger(child: _pane(list, left: true)),
-            ),
-          ),
-          VerticalDivider(width: 1, thickness: 1, color: colorScheme.outlineVariant),
-          Expanded(
-            child: TwoPaneScope(
-              controller: _controller,
-              side: TwoPaneSide.detail,
-              child: _pane(
-                ListenableBuilder(
-                  listenable: _controller,
-                  builder: (context, _) {
-                    final top = _controller.top;
-                    if (top == null) {
-                      return const TwoPaneEmptyDetail();
-                    }
-                    return KeyedSubtree(key: ValueKey(top.id), child: ThreadPage.fromQuery(top.query));
-                  },
-                ),
-                left: false,
-              ),
-            ),
-          ),
-        ],
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: width,
+          maxWidth: width,
+          child: _panes(context, colorScheme, listWidth, list),
+        ),
       ),
     );
   }
+
+  Widget _panes(BuildContext context, ColorScheme colorScheme, double listWidth, Widget list) => Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      SizedBox(
+        width: listWidth,
+        child: TwoPaneScope(
+          controller: _controller,
+          side: TwoPaneSide.list,
+          child: ScaffoldMessenger(child: _pane(list, left: true)),
+        ),
+      ),
+      VerticalDivider(width: 1, thickness: 1, color: colorScheme.outlineVariant),
+      Expanded(
+        child: TwoPaneScope(
+          controller: _controller,
+          side: TwoPaneSide.detail,
+          child: _pane(
+            ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) {
+                final top = _controller.top;
+                if (top == null) {
+                  return const TwoPaneEmptyDetail();
+                }
+                return KeyedSubtree(key: ValueKey(top.id), child: ThreadPage.fromQuery(top.query));
+              },
+            ),
+            left: false,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// The detail pane with nothing opened: a faint icon on the page's background. A [Scaffold], so the app's snack bars

@@ -1671,7 +1671,50 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // In the detail pane of a list page ([TwoPaneLayout]): tell the pane how to open this thread again where it is
+    // read, for the window turning narrow. The pane's thread on top is this one, nothing else is built there.
+    if (_paneThread == null) {
+      final scope = TwoPaneScope.readOf(context);
+      if (scope != null && scope.side == TwoPaneSide.detail) {
+        _paneThread = scope.controller.top?..resolver = _paneQuery;
+      }
+    }
+  }
+
+  /// The thread of the detail pane this page shows, see [_paneQuery].
+  PaneThread? _paneThread;
+
+  /// The query to open this thread again where it is read now: the page in view (the page indicator, not the last
+  /// page loaded) and the author filter as they are, from the query [opened] the pane was given.
+  Map<String, String> _paneQuery(Map<String, String> opened) {
+    final state = _threadBloc?.state;
+    final tid = state?.tid ?? widget.threadID;
+    final query = Map.of(opened);
+    if (tid != null) {
+      query
+        ..['tid'] = tid
+        ..remove('pid')
+        ..remove('lastPost');
+    }
+    if (_jumpPageCubit?.state.currentPage case final page? when tid != null) {
+      query['pageNumber'] = '$page';
+    }
+    if (state != null && state.status == ThreadStatus.success) {
+      // The author filter as it is now (switched on this page), not as the thread was opened.
+      if (state.onlyVisibleUid case final uid?) {
+        query['onlyVisibleUid'] = uid;
+      } else {
+        query.remove('onlyVisibleUid');
+      }
+    }
+    return query;
+  }
+
+  @override
   void dispose() {
+    _paneThread?.detach(_paneQuery);
     // Where the reading is when leaving the page.
     _keepProgress();
     _munchCache.clear();
@@ -1862,11 +1905,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
             final title = widget.title ?? state.title;
             final replied = isThreadReplied(context, state.tid ?? widget.threadID);
-            // In the detail pane of a list page: the page read, for the thread going on as a page of its own.
-            final pane = TwoPaneScope.detailOf(context);
-            if (state.status == ThreadStatus.success) {
-              pane?.rememberPage(tid: state.tid ?? widget.threadID, page: state.currentPage);
-            }
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {
               context.read<JumpPageCubit>().markLoading();
@@ -1906,6 +1944,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
             // In the detail pane of a list page the back button would close that page: none, or one taking the
             // thread opened above this one away.
+            final pane = TwoPaneScope.detailOf(context);
             final appBar = _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
