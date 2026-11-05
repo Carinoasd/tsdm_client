@@ -74,6 +74,9 @@ class SettingsMap with SettingsMapMappable {
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
+    this.themeModeScheduled = false,
+    this.darkScheduleStart = 1320,
+    this.darkScheduleEnd = 420,
   });
 
   final String netClientAccept;
@@ -152,6 +155,15 @@ class SettingsMap with SettingsMapMappable {
 
   /// Swipe the floors sideways to change pages. Not required: backups from older versions lack it.
   final bool threadSwipePaging;
+
+  /// The clock decides the theme. Not required: backups from older versions lack it.
+  final bool themeModeScheduled;
+
+  /// Start of the dark hours, minutes after midnight. Not required: backups from older versions lack it.
+  final int darkScheduleStart;
+
+  /// End of the dark hours, minutes after midnight. Not required: backups from older versions lack it.
+  final int darkScheduleEnd;
 
   /// Where a thread read before opens from a list.
   ThreadOpenPosition get openPosition => ThreadOpenPosition.fromIndex(threadOpenPosition);
@@ -262,6 +274,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
+      SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
+      SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
+      SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),
       SettingsKeys.threadFloorInteractionMode => copyWith(
         threadFloorInteractionMode: value as ThreadFloorInteractionMode?,
       ),

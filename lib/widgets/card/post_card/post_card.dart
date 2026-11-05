@@ -189,27 +189,44 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final userGroup = widget.post.userBriefProfile?.userGroup;
     final publishTime = widget.post.publishTime;
 
+    // The avatar is a 48 wide tap target around the 44 wide circle, named after the author (the circle itself has
+    // nothing to read). The circle sits at the top of the box, so it and the texts beside it stay where they were: 2
+    // less padding before it, 2 less gap after it, the target growing 4 below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 0),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
+            // The whole box takes the tap, not only the circle.
+            behavior: HitTestBehavior.opaque,
             onTap: openBriefProfile,
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              // The page prints "头像被屏蔽" in place of the avatar: none is shown, not even one kept for the author.
-              child: widget.post.avatarBlocked
-                  ? _BlockedAvatar(heroTag: avatarHeroTag)
-                  : HeroUserAvatar(
-                      avatarUrl: widget.post.author.avatarUrl,
-                      username: widget.post.author.name,
-                      heroTag: avatarHeroTag,
-                    ),
+            child: Semantics(
+              button: true,
+              label: widget.post.author.name,
+              excludeSemantics: true,
+              child: SizedBox.square(
+                dimension: 48,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    // The page prints "头像被屏蔽" in place of the avatar: none is shown, not even one kept for the
+                    // author.
+                    child: widget.post.avatarBlocked
+                        ? _BlockedAvatar(heroTag: avatarHeroTag)
+                        : HeroUserAvatar(
+                            avatarUrl: widget.post.author.avatarUrl,
+                            username: widget.post.author.name,
+                            heroTag: avatarHeroTag,
+                          ),
+                  ),
+                ),
+              ),
             ),
           ),
-          sizedBoxW12H12,
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

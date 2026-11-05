@@ -336,7 +336,13 @@
         "title": "主题模式",
         "light": "浅色",
         "system": "跟随系统",
-        "dark": "深色"
+        "dark": "深色",
+        "scheduled": "按时间"
+      },
+      "darkSchedule": {
+        "title": "深色时段",
+        "start": "开始",
+        "end": "结束"
       },
       "colorSchemeFollowSystem": {
         "title": "色调跟随系统颜色",
@@ -807,6 +813,8 @@
     "usernameEmpty": "用户名不能为空",
     "password": "密码",
     "passwordEmpty": "密码不能为空",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
     "answer": "安全问题的答案",
     "answerEmpty": "安全问题的答案不能为空",
     "verifyCode": "验证码",
@@ -1934,6 +1942,14 @@
     "browserHint": "应用内无法打开的链接，仍可在浏览器中打开",
     "invalidBrowserLink": "请输入以 http:// 或 https:// 开头的网页链接",
     "browserLaunchFailed": "无法在浏览器中打开此链接"
+  },
+  "shareReceive": {
+    "pickForum": "发到哪个版块",
+    "uploadUnavailable": "这个版块不能上传图片",
+    "uploadFailed": "图片上传失败 $code",
+    "uploadRefusedType": "不支持的图片格式：$name",
+    "uploadRefusedSize": "图片超过 ${limit: int} KB：$name",
+    "uploadFailedCount": "${count: int} 张图片上传失败"
   },
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",

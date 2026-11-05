@@ -336,7 +336,13 @@
         "title": "Theme Mode",
         "light": "Light",
         "system": "Follow System",
-        "dark": "Dark"
+        "dark": "Dark",
+        "scheduled": "By time"
+      },
+      "darkSchedule": {
+        "title": "Dark hours",
+        "start": "Start",
+        "end": "End"
       },
       "colorSchemeFollowSystem": {
         "title": "Color Follow System",
@@ -807,6 +813,8 @@
     "usernameEmpty": "Username should not be empty",
     "password": "Password",
     "passwordEmpty": "Password should not be empty",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "answer": "Answer",
     "answerEmpty": "Answer should not be empty",
     "verifyCode": "Verification code",
@@ -1934,6 +1942,14 @@
     "browserHint": "Links the app can not open here can still be opened in the browser",
     "invalidBrowserLink": "Enter a web link starting with http:// or https://",
     "browserLaunchFailed": "Could not open the link in the browser"
+  },
+  "shareReceive": {
+    "pickForum": "Post to which forum",
+    "uploadUnavailable": "Images cannot be uploaded to this forum",
+    "uploadFailed": "Image upload failed $code",
+    "uploadRefusedType": "Image type not accepted: $name",
+    "uploadRefusedSize": "Image over ${limit: int} KB: $name",
+    "uploadFailedCount": "${count: int} images failed to upload"
   },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",

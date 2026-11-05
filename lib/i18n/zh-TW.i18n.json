@@ -336,7 +336,13 @@
         "title": "主題模式",
         "light": "淺色",
         "system": "跟隨系統",
-        "dark": "深色"
+        "dark": "深色",
+        "scheduled": "按時間"
+      },
+      "darkSchedule": {
+        "title": "深色時段",
+        "start": "開始",
+        "end": "結束"
       },
       "colorSchemeFollowSystem": {
         "title": "色調跟隨系統顏色",
@@ -807,6 +813,8 @@
     "usernameEmpty": "使用者名稱不能為空",
     "password": "密碼",
     "passwordEmpty": "密碼不能為空",
+    "showPassword": "顯示密碼",
+    "hidePassword": "隱藏密碼",
     "answer": "安全問題的答案",
     "answerEmpty": "安全問題的答案不能為空",
     "verifyCode": "驗證碼",
@@ -1934,6 +1942,14 @@
     "browserHint": "應用程式內無法開啟的連結，仍可在瀏覽器中開啟",
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
+  },
+  "shareReceive": {
+    "pickForum": "要發到哪個版塊",
+    "uploadUnavailable": "這個版塊不能上傳圖片",
+    "uploadFailed": "圖片上傳失敗 $code",
+    "uploadRefusedType": "不支援的圖片格式：$name",
+    "uploadRefusedSize": "圖片超過 ${limit: int} KB：$name",
+    "uploadFailedCount": "${count: int} 張圖片上傳失敗"
   },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",

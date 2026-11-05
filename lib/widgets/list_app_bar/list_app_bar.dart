@@ -210,8 +210,8 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Tooltip(
               message: context.t.jumpDialog.title,
               child: FilledButton.tonal(
+                // Standard density: the compact one shrank the tap target to 40, the pill itself stays 36 high.
                 style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   minimumSize: const Size(0, 36),
                 ),
