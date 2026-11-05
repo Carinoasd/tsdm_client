@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
@@ -41,8 +42,9 @@ import 'package:universal_html/parsing.dart';
 /// 2. the picture captured is 420 logical pixels wide at 2 pixels each, whatever the screen;
 /// 3. save and share wait until the pictures of the content are decoded, then share hands a PNG file of that width to
 ///    the share sheet;
-/// 4. a floor taller than the limit is cut there, with a fading mark, and the picture ends there; a picture under the
-///    cut is not waited for;
+/// 4. a floor taller than the limit is cut there, with a fading mark, and the picture ends there within the texture
+///    limit; a picture under the cut is not waited for; a picture that grows the content past the limit once decoded is
+///    marked too;
 /// 5. the surface follows the theme in use.
 ///
 /// Synthetic floors and pictures only: no network, nothing is sent.
@@ -55,6 +57,54 @@ final Uint8List _png = base64Decode(
 );
 
 const _a = 'https://img.example/a.png';
+const _tall = 'https://img.example/tall.png';
+
+final _crcTable = List<int>.generate(256, (n) {
+  var c = n;
+  for (var k = 0; k < 8; k++) {
+    c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1;
+  }
+  return c;
+});
+
+int _crc32(List<int> bytes) {
+  var c = 0xFFFFFFFF;
+  for (final b in bytes) {
+    c = _crcTable[(c ^ b) & 0xFF] ^ (c >> 8);
+  }
+  return c ^ 0xFFFFFFFF;
+}
+
+List<int> _uint32(int v) => [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
+
+/// A PNG of [width] by [height] pixels, of one color.
+Uint8List _pngOf(int width, int height) {
+  final row = Uint8List(1 + width * 3);
+  for (var x = 0; x < width; x++) {
+    row
+      ..[1 + x * 3] = 0x33
+      ..[2 + x * 3] = 0x66
+      ..[3 + x * 3] = 0xCC;
+  }
+  final raw = BytesBuilder(copy: false);
+  for (var y = 0; y < height; y++) {
+    raw.add(row);
+  }
+  final out = BytesBuilder()..add(const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  void chunk(String type, List<int> data) {
+    final head = ascii.encode(type);
+    out
+      ..add(_uint32(data.length))
+      ..add(head)
+      ..add(data)
+      ..add(_uint32(_crc32([...head, ...data])));
+  }
+
+  chunk('IHDR', [..._uint32(width), ..._uint32(height), 8, 2, 0, 0, 0]);
+  chunk('IDAT', ZLibEncoder().convert(raw.toBytes()));
+  chunk('IEND', const []);
+  return out.toBytes();
+}
 
 /// The size a PNG declares in its header.
 ({int width, int height}) _pngSize(Uint8List bytes) {
@@ -82,7 +132,7 @@ final class _ImageServer implements HttpClientAdapter {
       return ResponseBody.fromString('', 404);
     }
     return ResponseBody.fromBytes(
-      _png,
+      url == _tall ? _pngOf(200, 1500) : _png,
       200,
       headers: {
         Headers.contentTypeHeader: ['image/png'],
@@ -374,19 +424,41 @@ void main() {
   });
 
   group('4. a long floor is cut', () {
-    testWidgets('the content stops at the limit with a fading mark; the picture is that tall', (tester) async {
-      final long = List.generate(600, (i) => '<p>line $i of a very long floor</p>').join();
-      await pumpPage(tester, _post(long));
+    testWidgets(
+      'the content stops at the limit with a fading mark; the picture is that tall, within the texture limit',
+      (
+        tester,
+      ) async {
+        final long = List.generate(600, (i) => '<p>line $i of a very long floor</p>').join();
+        await pumpPage(tester, _post(long));
+        await untilReady(tester);
+        expect(find.byKey(shareFloorImageTruncatedKey), findsOneWidget);
+        final size = _pngSize(await capture(tester));
+        expect(size.width, 840, reason: 'header and footer fit the limit at the full ratio');
+        expect(size.height, greaterThanOrEqualTo((shareFloorImageMaxHeight * shareFloorImagePixelRatio).round()));
+        expect(size.height, lessThanOrEqualTo(shareFloorImageMaxPixels.round()), reason: 'a texture of 8192 holds it');
+      },
+    );
+
+    test('the ratio is lowered when the canvas would pass the texture limit', () {
+      expect(shareFloorImagePixelRatioFor(const Size(420, 1000)), shareFloorImagePixelRatio);
+      expect(shareFloorImagePixelRatioFor(const Size(420, 4000)), shareFloorImagePixelRatio);
+      expect(shareFloorImagePixelRatioFor(const Size(420, 5000)) * 5000, shareFloorImageMaxPixels);
+    });
+
+    testWidgets('a picture without a declared size that decodes tall pushes the content past the limit: marked', (
+      tester,
+    ) async {
+      // Short of the limit as text alone, past it once the picture is at its height.
+      final text = List.generate(130, (i) => '<p>line $i</p>').join();
+      await pumpPage(tester, _post(text));
       await untilReady(tester);
-      expect(find.byKey(shareFloorImageTruncatedKey), findsOneWidget);
-      final size = _pngSize(await capture(tester));
-      expect(size.width, 840);
-      expect(size.height, greaterThanOrEqualTo((shareFloorImageMaxHeight * shareFloorImagePixelRatio).round()));
-      expect(
-        size.height,
-        lessThan(((shareFloorImageMaxHeight + 400) * shareFloorImagePixelRatio).round()),
-        reason: 'the content cut at the limit, then the footer',
-      );
+      expect(find.byKey(shareFloorImageTruncatedKey), findsNothing, reason: 'the text alone fits');
+
+      await pumpPage(tester, _post('<img src="$_tall" />$text'));
+      await untilReady(tester);
+      await _settle(tester, until: () => find.byKey(shareFloorImageTruncatedKey).evaluate().isNotEmpty, rounds: 30);
+      expect(find.byKey(shareFloorImageTruncatedKey), findsOneWidget, reason: 'measured again after the picture');
     });
 
     testWidgets('a short floor shows no mark', (tester) async {

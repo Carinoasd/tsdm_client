@@ -113,6 +113,9 @@ final class FloorImages {
 /// Which pictures of a floor are still loading ([PostImageScope.loads]): a [PostImage] built under the scope registers
 /// its url, and tells when its first frame is decoded or it failed. For the floor rendered to an image, which waits for
 /// its pictures before it is captured.
+///
+/// By url: the same picture twice in a floor is one here, settled when either tells (or is let go of), the other is
+/// usually the same decoded image.
 final class PostImageLoads extends ChangeNotifier {
   final _expected = <String>{};
   final _settled = <String>{};

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -29,10 +30,20 @@ const shareFloorImageWidth = 420.0;
 /// Pixels per logical pixel of the picture: 840 wide.
 const shareFloorImagePixelRatio = 2.0;
 
-/// The content is cut after this many logical pixels: 8000 pixels tall at [shareFloorImagePixelRatio], within the
-/// 8192 a texture may be on the GPUs of older phones; a floor of hundreds of pictures would not fit one, nor the memory
-/// of a phone, as one picture.
-const shareFloorImageMaxHeight = 4000.0;
+/// The picture is never taller than this many pixels: a texture may be 8192 at most on the GPUs of older phones, and a
+/// floor of hundreds of pictures would not fit the memory of a phone as one picture. The content is cut at
+/// [shareFloorImageMaxHeight] for it; the pixel ratio is lowered as well when the title and the header above the
+/// content would still take the whole past it ([shareFloorImagePixelRatioFor]).
+const shareFloorImageMaxPixels = 8000.0;
+
+/// The content is cut after this many logical pixels: 7600 pixels at [shareFloorImagePixelRatio], the title, header and
+/// footer around it fit [shareFloorImageMaxPixels] at that ratio on the usual text scale.
+const shareFloorImageMaxHeight = 3800.0;
+
+/// Pixels per logical pixel for a picture of [canvas]: [shareFloorImagePixelRatio], less when the picture would be
+/// taller than [shareFloorImageMaxPixels] at it (a long title at a large text scale).
+double shareFloorImagePixelRatioFor(Size canvas) =>
+    math.min(shareFloorImagePixelRatio, shareFloorImageMaxPixels / math.max(canvas.height, 1));
 
 /// The buttons are offered after this long even when a picture of the floor still loads (a host that never answers
 /// would keep them off for good).
@@ -121,7 +132,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
   /// The boundary captured.
   final GlobalKey _canvas = GlobalKey(debugLabel: 'share floor image canvas');
 
-  /// The content before it is cut, measured for [_truncated].
+  /// The content with its padding, as the cut applies to it, measured for [_truncated].
   final GlobalKey _content = GlobalKey(debugLabel: 'share floor image content');
 
   /// The pictures of the floor still loading.
@@ -164,10 +175,13 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     super.dispose();
   }
 
-  /// A picture settled (after the frame that told it): the layout may have changed with it, measured again.
+  /// A picture settled: it is laid out at its size in the next frame (told before the frame that shows it), measured
+  /// after that frame.
   void _onLoads() {
     if (mounted) {
-      _afterFrame(Duration.zero);
+      WidgetsBinding.instance
+        ..addPostFrameCallback(_afterFrame)
+        ..ensureVisualUpdate();
     }
   }
 
@@ -218,9 +232,9 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     if (boundary is! RenderRepaintBoundary) {
       return null;
     }
-    // Anything thrown while drawing or encoding (a texture too large for the GPU, an encoder error) is told, not left
-    // unhandled: tried once more at the logical size before giving up.
-    for (final pixelRatio in [shareFloorImagePixelRatio, 1.0]) {
+    // Anything thrown while drawing or encoding (a texture too large for the GPU still, an encoder error) is told, not
+    // left unhandled: tried once more at the logical size before giving up.
+    for (final pixelRatio in [shareFloorImagePixelRatioFor(boundary.size), 1.0]) {
       try {
         return await renderShareFloorImage(boundary, pixelRatio: pixelRatio);
       } on Object catch (e, st) {
@@ -371,6 +385,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
       postContentLineWidth(context),
     );
     final content = Padding(
+      key: _content,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: PostTypographyScope(
         typography: typography,
@@ -379,14 +394,11 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
           // Every picture, whatever the data saver says: the picture is what is shared.
           autoLoad: PostImageAutoLoad.always,
           loads: _loads,
-          child: KeyedSubtree(
-            key: _content,
-            child: _post.isSpoofed
-                ? Text(context.t.postCard.contentUnavailable, style: TextStyle(color: colorScheme.outline))
-                : appRenderer
-                ? PostBbcodeBody(_post)
-                : MunchedHtml(_post.data),
-          ),
+          child: _post.isSpoofed
+              ? Text(context.t.postCard.contentUnavailable, style: TextStyle(color: colorScheme.outline))
+              : appRenderer
+              ? PostBbcodeBody(_post)
+              : MunchedHtml(_post.data),
         ),
       ),
     );
