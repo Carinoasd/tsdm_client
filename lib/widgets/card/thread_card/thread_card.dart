@@ -168,6 +168,9 @@ class _CardLayout extends StatelessWidget {
     return HeroUserAvatar(username: author!.name, avatarUrl: author!.avatarUrl, disableHero: true);
   }
 
+  /// Size of the tap target of the avatar: the minimum of the platform guidelines.
+  static const double _authorTapSize = 48;
+
   /// Mainly for test.
   final bool disableTap;
 
@@ -326,15 +329,28 @@ class _CardLayout extends StatelessWidget {
       // would resolve to.
       final canOpenAuthor = !disableTap && author!.url.isNotEmpty;
       Future<void> openAuthor() async => context.dispatchAsUrl(author!.url);
+      // The avatar is a 48 wide tap target around the 40 wide circle, named after the author (the circle itself has
+      // nothing to read); the name beside it opens the same page and is read as a link.
       leading = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canOpenAuthor ? openAuthor : null,
-        child: _buildAvatar(context),
+        child: Semantics(
+          button: canOpenAuthor,
+          label: author!.name,
+          excludeSemantics: true,
+          child: SizedBox.square(
+            dimension: _authorTapSize,
+            child: Center(child: _buildAvatar(context)),
+          ),
+        ),
       );
       name = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canOpenAuthor ? openAuthor : null,
-        child: SingleLineText(author!.name, style: nameStyle),
+        child: Semantics(
+          link: canOpenAuthor,
+          child: SingleLineText(author!.name, style: nameStyle),
+        ),
       );
     } else {
       final colorScheme = Theme.of(context).colorScheme;
@@ -354,12 +370,14 @@ class _CardLayout extends StatelessWidget {
       if (author != null && forum != null) SingleLineText(forum!, style: forumNameStyle),
     ];
 
+    // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before and above it,
+    // 4 less gap after it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
           leading,
-          sizedBoxW12H12,
+          sizedBoxW8H8,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -159,16 +159,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final tr = context.t.settingsPage.appearanceSection;
     final title = tr.themeMode.title;
     final subtitle = <String>[tr.themeMode.system, tr.themeMode.light, tr.themeMode.dark][themeModeIndex];
-    // Icons only: three labels do not fit a phone at a large text scale; each segment has a tooltip. Compact and of a
-    // fixed width, so the row can tell whether the title still fits beside it.
+    // Icons only: three labels do not fit a phone at a large text scale; each segment has a tooltip. Of a fixed width,
+    // so the row can tell whether the title still fits beside it; standard density and tap targets, so every segment
+    // can be hit on 48 (compact and shrink wrapped they were 52 by 32).
     final themeSwitch = SizedBox(
       width: _themeSwitchWidth,
       child: SegmentedButton<int>(
         showSelectedIcon: false,
-        style: const ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
         segments: [
           ButtonSegment(
             value: ThemeMode.light.index,

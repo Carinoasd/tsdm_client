@@ -807,6 +807,8 @@
     "usernameEmpty": "使用者名稱不能為空",
     "password": "密碼",
     "passwordEmpty": "密碼不能為空",
+    "showPassword": "顯示密碼",
+    "hidePassword": "隱藏密碼",
     "answer": "安全問題的答案",
     "answerEmpty": "安全問題的答案不能為空",
     "verifyCode": "驗證碼",

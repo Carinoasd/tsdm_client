@@ -27,12 +27,28 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
       // 72 is the height when thread title is not null.
       // Set this value to make every group of section has the same height.
       minTileHeight: 72,
+      // The avatar is a 48 wide tap target around the 40 wide circle, named after the user (the circle itself has
+      // nothing to read); the name opens the same page and is read as a link.
       leading: GestureDetector(
-        child: HeroUserAvatar(username: username, avatarUrl: null, disableHero: true),
+        child: Semantics(
+          button: true,
+          label: username,
+          excludeSemantics: true,
+          child: SizedBox.square(
+            dimension: 48,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: HeroUserAvatar(username: username, avatarUrl: null, disableHero: true),
+            ),
+          ),
+        ),
         onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
       ),
       title: GestureDetector(
-        child: Row(children: [SingleLineText(username)]),
+        child: Semantics(
+          link: true,
+          child: Row(children: [SingleLineText(username)]),
+        ),
         onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
       ),
       subtitle: isRank ? null : SingleLineText(threadTitle, overflow: TextOverflow.ellipsis),
