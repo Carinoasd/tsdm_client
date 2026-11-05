@@ -1928,6 +1928,11 @@
     "invalidBrowserLink": "请输入以 http:// 或 https:// 开头的网页链接",
     "browserLaunchFailed": "无法在浏览器中打开此链接"
   },
+  "shareReceive": {
+    "pickForum": "发到哪个版块",
+    "uploadUnavailable": "这个版块不能上传图片",
+    "uploadFailed": "图片上传失败 $code"
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",

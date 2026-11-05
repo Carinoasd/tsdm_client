@@ -120,10 +120,13 @@ final class ThreadPubFetchInfoRequested extends PostEditEvent with ThreadPubFetc
 @MappableClass()
 final class ThreadPubPostThread extends PostEditEvent with ThreadPubPostThreadMappable {
   /// Constructor.
-  const ThreadPubPostThread(this.info, {this.verification, this.draftKey});
+  const ThreadPubPostThread(this.info, {this.verification, this.draftKey, this.attachNew = const []});
 
   /// All info to post in body.
   final ThreadPublishInfo info;
+
+  /// The attachments uploaded while the thread was written, by `aid` ([PostFormEdits.attachNew]).
+  final List<int> attachNew;
 
   /// The answers to the captcha or the security question the forum asks, null when none is asked (yet).
   final SecCheckAnswer? verification;

@@ -67,6 +67,19 @@
                 <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
+            <!-- Text, links and images shared from other apps (received in MainActivity, handed to Dart over the
+                 shareReceive channel: a forum link opens its page, anything else goes into a new thread). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

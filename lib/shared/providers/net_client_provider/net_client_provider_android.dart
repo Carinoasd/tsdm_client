@@ -196,11 +196,11 @@ abstract class _AndroidHttpMethodChannel {
     }
   }
 
-  /// Post multipart data.
+  /// Post multipart data: strings, and the maps of file parts (`MultipartFilePart.toChannelMap`).
   static Future<_KotlinHttpResponse?> _postMultipart({
     required String url,
     required Map<String, String> headers,
-    required Map<String, String> body,
+    required Map<String, Object?> body,
   }) async {
     try {
       final resp = await _httpChannel.invokeMethod<Map<Object?, Object?>>(_methodPostMultipart, {
@@ -354,7 +354,7 @@ final class KotlinHttpClient {
       'multipart/form-data' => await _AndroidHttpMethodChannel._postMultipart(
         url: url.toString(),
         headers: headers ?? {},
-        body: body as Map<String, String>,
+        body: body as Map<String, Object?>,
       ),
       'application/json' => await _AndroidHttpMethodChannel._postJson(
         url: url.toString(),

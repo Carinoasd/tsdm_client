@@ -1928,6 +1928,11 @@
     "invalidBrowserLink": "Enter a web link starting with http:// or https://",
     "browserLaunchFailed": "Could not open the link in the browser"
   },
+  "shareReceive": {
+    "pickForum": "Post to which forum",
+    "uploadUnavailable": "Images cannot be uploaded to this forum",
+    "uploadFailed": "Image upload failed $code"
+  },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",

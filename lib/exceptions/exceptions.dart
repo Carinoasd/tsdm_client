@@ -494,6 +494,20 @@ final class ThreadPublishFailedException extends AppException with ThreadPublish
 final class ThreadPublishLocationNotFoundException extends AppException
     with ThreadPublishLocationNotFoundExceptionMappable {}
 
+/// The forum did not take an attachment upload (`misc.php?mod=swfupload`).
+///
+/// [code] is the error of its `DISCUZUPLOAD|uid|error|…` answer (not 0: no permission or a wrong hash, a damaged file,
+/// too large, a type the forum does not take, the day's quota…), null when the answer was not one of the upload script
+/// or the file was refused before anything was sent (not an image the forum takes).
+@MappableClass()
+final class AttachmentUploadFailedException extends AppException with AttachmentUploadFailedExceptionMappable {
+  /// Constructor.
+  AttachmentUploadFailedException({this.code});
+
+  /// The upload script's error code, null without one.
+  final int? code;
+}
+
 /// User not found when trying to operate on that user's notification.
 @MappableClass()
 final class NotificationUserNotFound extends AppException with NotificationUserNotFoundMappable {}

@@ -1928,6 +1928,11 @@
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
   },
+  "shareReceive": {
+    "pickForum": "要發到哪個版塊",
+    "uploadUnavailable": "這個版塊不能上傳圖片",
+    "uploadFailed": "圖片上傳失敗 $code"
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",
     "autoCheckinFinished": "自動簽到已完成",
