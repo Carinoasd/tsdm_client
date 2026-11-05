@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Card of one favorite record (thread or forum): kind icon, title, time pill, optional note and a remove button.
 class FavoriteCard extends StatelessWidget {
@@ -16,6 +17,8 @@ class FavoriteCard extends StatelessWidget {
   final FavoriteItem item;
 
   Future<void> _open(BuildContext context) async => switch (item) {
+    // On the right of the wide favorites page, else as a page of its own.
+    FavoriteThread(:final tid, :final title) when openThreadInPane(context, {'tid': tid, 'appBarTitle': title}) => null,
     FavoriteThread(:final tid, :final title) => context.pushNamed(
       ScreenPaths.threadV1,
       queryParameters: {'tid': tid, 'appBarTitle': title},

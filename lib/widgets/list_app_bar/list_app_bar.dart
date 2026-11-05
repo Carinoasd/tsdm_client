@@ -60,8 +60,17 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBackToTop,
     this.onReverseOrder,
     this.customMenuItems = const [],
+    this.leading,
+    this.automaticallyImplyLeading = true,
     super.key,
   });
+
+  /// Widget before the title, see [AppBar.leading].
+  final Widget? leading;
+
+  /// Whether a back button is implied when [leading] is null, see [AppBar.automaticallyImplyLeading]. False for a
+  /// page shown in a pane of another page, whose back button would close that page.
+  final bool automaticallyImplyLeading;
 
   /// Callback that should navigate to global search page.
   final FutureOr<void> Function()? onSearch;
@@ -149,6 +158,8 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
         showsAccount && MediaQuery.sizeOf(context).width < MediaQuery.textScalerOf(context).scale(_compactPillWidth);
 
     return AppBar(
+      leading: leading,
+      automaticallyImplyLeading: automaticallyImplyLeading,
       title: title == null ? null : Text(title!),
       // TODO: Currently we always use a compact layout in list app bar for larger main content space.
       // If going to implement responsive layout, remember to wrap list app bar in `PreferredSize` in ALL places using

@@ -69,6 +69,7 @@ import 'package:tsdm_client/widgets/reply_bar/debate_stand_selector.dart';
 import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Page to show thread.
 class ThreadPage extends StatefulWidget {
@@ -85,6 +86,29 @@ class ThreadPage extends StatefulWidget {
     this.lastPost = false,
     super.key,
   }) : assert(threadID != null || findPostID != null, 'MUST provide threadID or findPostID');
+
+  /// The page of the thread route [ScreenPaths.threadV1] with the query parameters [query], as the router and the
+  /// detail pane of a two-pane layout ([TwoPaneLayout]) build it.
+  factory ThreadPage.fromQuery(Map<String, String> query) {
+    final threadTypeName = query['threadTypeName'];
+    final threadTypeID = query['threadTypeID'];
+    final tid = query['tid'];
+    final pid = query['pid'];
+    assert(tid != null || pid != null, 'MUST provide tid or pid through query parameters');
+    return ThreadPage(
+      title: query['appBarTitle'],
+      threadType: threadTypeName != null && threadTypeID != null
+          ? FilterType(name: threadTypeName, typeID: threadTypeID)
+          : null,
+      threadID: tid,
+      findPostID: pid,
+      pageNumber: query['pageNumber'] ?? '1',
+      overrideReverseOrder: query['overrideReverseOrder'] != 'false',
+      overrideWithExactOrder: query['overrideWithExactOrder']?.parseToInt(),
+      onlyVisibleUid: query['onlyVisibleUid'],
+      lastPost: query['lastPost'] == '1',
+    );
+  }
 
   /// Thread ID, tid.
   final String? threadID;
@@ -1875,9 +1899,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // The hits of the search, found once for the search bar and the floors.
             final searchHits = _searchHits(context, state);
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
+            // In the detail pane of a list page the back button would close that page: none, or one taking the
+            // thread opened above this one away.
+            final pane = TwoPaneScope.detailOf(context);
             final appBar = _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
+                    leading: pane != null && pane.threads.length > 1 ? BackButton(onPressed: pane.pop) : null,
+                    automaticallyImplyLeading: pane == null,
                     title: title,
                     bottom: breadcrumbs,
                     showReverseOrderAction: true,
@@ -2052,7 +2081,10 @@ class _AuthorLookupFailure extends StatelessWidget {
         runSpacing: 8,
         alignment: WrapAlignment.center,
         children: [
-          if (Navigator.of(context).canPop())
+          // In the detail pane of a list page, back takes this thread out of the pane rather than closing the page.
+          if (TwoPaneScope.detailOf(context) case final pane?)
+            OutlinedButton(onPressed: pane.pop, child: Text(context.t.userBlock.goBack))
+          else if (Navigator.of(context).canPop())
             OutlinedButton(
               onPressed: () => Navigator.of(context).maybePop(),
               child: Text(context.t.userBlock.goBack),

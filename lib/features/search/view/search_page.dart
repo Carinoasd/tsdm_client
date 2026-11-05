@@ -18,6 +18,7 @@ import 'package:tsdm_client/widgets/debounce_buttons.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Page of search, including a form to fill search parameters and search
 /// results.
@@ -546,6 +547,12 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
 
   @override
   Widget build(BuildContext context) {
+    // A wide window shows the thread tapped on the right of the results.
+    return TwoPaneLayout(list: _buildPage(context));
+  }
+
+  /// The page, under the [TwoPaneLayout] of [build].
+  Widget _buildPage(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         RepositoryProvider(create: (_) => SearchRepository()),

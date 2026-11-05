@@ -172,45 +172,9 @@ final List<RouteBase> _appRoutes = [
       return ForumGroupPage(gid: gid!, title: title);
     },
   ),
-  AppRoute(
-    path: ScreenPaths.threadV1,
-    builder: (state) {
-      final title = state.uri.queryParameters['appBarTitle'];
-      final threadTypeName = state.uri.queryParameters['threadTypeName'];
-      final threadTypeID = state.uri.queryParameters['threadTypeID'];
-      final FilterType? threadType;
-      if (threadTypeName != null && threadTypeID != null) {
-        threadType = FilterType(name: threadTypeName, typeID: threadTypeID);
-      } else {
-        threadType = null;
-      }
-
-      final tid = state.uri.queryParameters['tid'];
-      final pid = state.uri.queryParameters['pid'];
-      final onlyVisibleUid = state.uri.queryParameters['onlyVisibleUid'];
-      final bool overrideReverseOrder;
-      if (state.uri.queryParameters['overrideReverseOrder'] == 'false') {
-        overrideReverseOrder = false;
-      } else {
-        overrideReverseOrder = true;
-      }
-      final overrideWithExactOrder = state.uri.queryParameters['overrideWithExactOrder']?.parseToInt();
-
-      assert(tid != null || pid != null, 'MUST provide tid or pid through query parameters');
-      final pageNumber = state.uri.queryParameters['pageNumber'];
-      return ThreadPage(
-        title: title,
-        threadType: threadType,
-        threadID: tid,
-        findPostID: pid,
-        pageNumber: pageNumber ?? '1',
-        overrideReverseOrder: overrideReverseOrder,
-        overrideWithExactOrder: overrideWithExactOrder,
-        onlyVisibleUid: onlyVisibleUid,
-        lastPost: state.uri.queryParameters['lastPost'] == '1',
-      );
-    },
-  ),
+  // The same page shows in the detail pane of the list pages on wide windows (`TwoPaneLayout`), built from the same
+  // query; a deep link or a notification still opens it here, as a page of its own.
+  AppRoute(path: ScreenPaths.threadV1, builder: (state) => ThreadPage.fromQuery(state.uri.queryParameters)),
   AppRoute(
     path: ScreenPaths.search,
     builder: (state) {

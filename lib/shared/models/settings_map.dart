@@ -74,6 +74,7 @@ class SettingsMap with SettingsMapMappable {
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
+    this.twoPaneLayout = true,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -155,6 +156,10 @@ class SettingsMap with SettingsMapMappable {
 
   /// Swipe the floors sideways to change pages. Not required: backups from older versions lack it.
   final bool threadSwipePaging;
+
+  /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
+  /// versions lack it.
+  final bool twoPaneLayout;
 
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
@@ -274,6 +279,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
+      SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),
