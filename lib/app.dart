@@ -48,8 +48,12 @@ import 'package:tsdm_client/features/root/view/singleton.dart';
 import 'package:tsdm_client/features/session_expiry/cubit/session_expiry_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
+import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
+import 'package:tsdm_client/features/share_receive/share_receiver.dart';
 import 'package:tsdm_client/features/shortcuts/widgets/app_shortcuts_watcher.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
+import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
@@ -140,6 +144,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Applies the high refresh rate setting on Android (GitHub #182).
   HighRefreshRateFollower? _highRefreshRate;
 
+  /// Text, links and images other apps share to this one (Android).
+  ShareReceiver? _shareReceiver;
+
   Future<void> _saveWindowPosition() async {
     final settings = getIt.get<SettingsRepository>().currentSettings;
     if (settings.windowRememberPosition && !settings.windowInCenter && await _hasNormalWindowBounds()) {
@@ -208,11 +215,26 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           }
         }
       });
+
+      // What other apps share to this one: a forum link opens its page, anything else starts a new thread. The share
+      // the app was launched with arrives before the first frame: the dispatcher waits for the app to be built.
+      final dispatcher = ShareDispatcher.app();
+      _shareReceiver = ShareReceiver(
+        onShare: (content) async {
+          if (await waitForRootNavigatorContext() == null || !mounted) {
+            discardSharedFiles(content.imagePaths);
+            return;
+          }
+          await dispatcher.dispatch(content);
+        },
+      );
+      unawaited(_shareReceiver!.start());
     }
   }
 
   @override
   void dispose() {
+    _shareReceiver?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     windowPositionTimer?.cancel();
@@ -483,11 +505,16 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             },
           ),
           BlocProvider(
-            create: (context) => ThemeCubit(
-              accentColor: widget.color >= 0 ? Color(widget.color) : null,
-              themeModeIndex: widget.themeModeIndex,
-              fontFamily: widget.fontFamily,
-            ),
+            create: (context) {
+              final settings = getIt.get<SettingsRepository>().currentSettings;
+              return ThemeCubit(
+                accentColor: widget.color >= 0 ? Color(widget.color) : null,
+                themeModeIndex: widget.themeModeIndex,
+                fontFamily: widget.fontFamily,
+                scheduled: settings.themeModeScheduled,
+                schedule: DarkSchedule(start: settings.darkScheduleStart, end: settings.darkScheduleEnd),
+              )..observeLifecycle();
+            },
           ),
           BlocProvider(
             create: (context) {
@@ -673,7 +700,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 builder: (context, state) {
                   final themeState = context.watch<ThemeCubit>().state;
                   final accentColor = themeState.accentColor;
-                  final themeModeIndex = themeState.themeModeIndex;
+                  final themeMode = themeState.effectiveThemeMode;
                   final fontFamily = themeState.fontFamily;
                   final textScaleFactor = context.select<SettingsBloc, double>(
                     (bloc) => bloc.state.settingsMap.textScaleFactor,
@@ -690,7 +717,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                     localizationsDelegates: GlobalMaterialLocalizations.delegates,
                     theme: lightTheme,
                     darkTheme: darkTheme,
-                    themeMode: ThemeMode.values[themeModeIndex],
+                    themeMode: themeMode,
                     scaffoldMessengerKey: snackbarKey,
                     builder: (context, child) {
                       final data = MediaQuery.of(context);

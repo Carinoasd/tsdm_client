@@ -709,6 +709,18 @@ void main() {
 
     testWidgets('settings page, $mode', (tester) async {
       await pump(tester, const SettingsPage(), dark: dark);
+      // The theme mode switch: on a phone the four segments are 43 wide, so the switch stays beside its title
+      // (feedback 111, test_172); a wider window gets the 48 ones (the test below).
+      await audit(tester, tapTargetExempt: [find.byType(SegmentedButton<int>)]);
+      await unpump(tester);
+    });
+
+    testWidgets('settings page on a wider window, $mode: the theme segments are 48', (tester) async {
+      await pump(tester, const SettingsPage(), dark: dark);
+      tester.view.physicalSize = const Size(480, 844);
+      await tester.pumpAndSettle();
+      final light = find.byTooltip(tr.settingsPage.appearanceSection.themeMode.light);
+      expect(tester.getSize(light).width, greaterThanOrEqualTo(48));
       await audit(tester);
       await unpump(tester);
     });

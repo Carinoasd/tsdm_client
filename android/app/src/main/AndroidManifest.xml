@@ -69,6 +69,26 @@
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
+        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivity
+             in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
+        <activity
+                android:name=".ShareActivity"
+                android:exported="true"
+                android:excludeFromRecents="true"
+                android:noHistory="true"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

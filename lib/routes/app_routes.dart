@@ -76,6 +76,7 @@ import 'package:tsdm_client/features/settings/view/debug_log_page.dart';
 import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
+import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
@@ -402,9 +403,17 @@ final List<RouteBase> _appRoutes = [
         tid: tid,
         pid: pid,
         pollOffered: state.uri.queryParameters['poll'] == '1',
-        transfer: state.extra is ThreadModeTransfer ? state.extra! as ThreadModeTransfer : null,
+        transfer: switch (state.extra) {
+          final ThreadModeTransfer transfer => transfer,
+          SharedThreadDraft(:final transfer) => transfer,
+          _ => null,
+        },
         mentionSuggestions: switch (state.extra) {
           final List<MentionSuggestion> suggestions => suggestions,
+          _ => null,
+        },
+        sharedImages: switch (state.extra) {
+          SharedThreadDraft(:final imagePaths) => imagePaths,
           _ => null,
         },
       );
