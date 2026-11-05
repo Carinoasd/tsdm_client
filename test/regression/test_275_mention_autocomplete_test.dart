@@ -239,6 +239,18 @@ void main() {
         ..replaceText(0, 0, 'y', null)
         ..moveCursorToEnd();
       expect(suggester.isOpen, isFalse, reason: 'a character typed elsewhere, then the caret moved after the old @');
+      // A space typed right before an @ that was there already (the keyboard moves the caret with the text), then
+      // the caret moved past that @: not a typed @.
+      controller
+        ..setDocumentFromRawText('hi@x')
+        ..replaceText(2, 0, ' ', const TextSelection.collapsed(offset: 3))
+        ..updateSelection(const TextSelection.collapsed(offset: 4), ChangeSource.local);
+      expect(suggester.isOpen, isFalse, reason: 'the @ was there before the space');
+      controller
+        ..setDocumentFromRawText('hi x')
+        ..replaceText(3, 0, '@', const TextSelection.collapsed(offset: 3))
+        ..updateSelection(const TextSelection.collapsed(offset: 4), ChangeSource.local);
+      expect(suggester.isOpen, isTrue, reason: 'the @ itself went in at the caret');
 
       controller
         ..insertPlainText(' ')
@@ -247,7 +259,7 @@ void main() {
       node.unfocus();
       await tester.pump();
       expect(suggester.isOpen, isFalse);
-      expect(controller.toForumBBCode(), 'y@ x @al @ @', reason: 'the text stays as typed');
+      expect(controller.toForumBBCode(), 'hi @ @x', reason: 'the text stays as typed');
     });
 
     testWidgets('without suggestions nothing opens, and they can arrive later', (tester) async {

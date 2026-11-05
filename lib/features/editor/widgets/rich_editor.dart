@@ -177,11 +177,14 @@ class _RichEditorState extends State<RichEditor> {
   /// The suggestion bar over the editor, as wide as the editor, above its top edge; when the editor is close to the
   /// top of the screen (the whole page is the editor), under its top edge instead. In the overlay, so the frame
   /// around the editor does not clip it.
-  Widget _buildSuggestionBar(BuildContext overlayContext, MentionSuggester suggester) => ListenableBuilder(
+  Widget _buildSuggestionBar(MentionSuggester suggester) => ListenableBuilder(
     listenable: suggester,
     builder: (context, _) {
-      // Laid out again when the screen turns or the keyboard moves the editor.
-      MediaQuery.of(overlayContext);
+      // Laid out again when the screen turns or the keyboard moves the editor. The editor's place is read as it was
+      // laid out last, so after such a move the bar may follow one frame late.
+      MediaQuery.sizeOf(context);
+      MediaQuery.viewInsetsOf(context);
+      MediaQuery.paddingOf(context);
       if (!suggester.isOpen) {
         return const SizedBox.shrink();
       }
@@ -190,10 +193,9 @@ class _RichEditorState extends State<RichEditor> {
       final editorBox = _editorKey.currentContext?.findRenderObject();
       if (editorBox is RenderBox && editorBox.hasSize && editorBox.attached) {
         width = editorBox.size.width;
-        final overlayBox = Overlay.of(overlayContext).context.findRenderObject();
+        final overlayBox = Overlay.of(context).context.findRenderObject();
         if (overlayBox is RenderBox && overlayBox.hasSize) {
-          roomAbove =
-              editorBox.localToGlobal(Offset.zero, ancestor: overlayBox).dy - MediaQuery.paddingOf(overlayContext).top;
+          roomAbove = editorBox.localToGlobal(Offset.zero, ancestor: overlayBox).dy - MediaQuery.paddingOf(context).top;
         }
       }
       const rowHeight = MentionSuggestionBar.rowHeight;
@@ -227,7 +229,7 @@ class _RichEditorState extends State<RichEditor> {
     }
     return OverlayPortal(
       controller: _suggestionPortal,
-      overlayChildBuilder: (overlayContext) => _buildSuggestionBar(overlayContext, suggester),
+      overlayChildBuilder: (_) => _buildSuggestionBar(suggester),
       child: CompositedTransformTarget(
         link: _editorLink,
         child: NotificationListener<SizeChangedLayoutNotification>(

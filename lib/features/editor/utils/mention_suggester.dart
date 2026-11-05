@@ -35,6 +35,9 @@ final class MentionSuggester extends ChangeNotifier {
   /// Where an `@` the last change typed sits while the caret has not moved past it yet, see [_onChanged].
   int? _typedAt;
 
+  /// The plain text after the last change, to tell where a character went in; null when it was not looked at.
+  String? _lastText;
+
   /// Everyone who can be suggested, in order; set from the thread being read.
   List<MentionSuggestion> get suggestions => _suggestions;
 
@@ -43,6 +46,9 @@ final class MentionSuggester extends ChangeNotifier {
       return;
     }
     _suggestions = value;
+    if (_attached && _lastText == null && value.isNotEmpty) {
+      _lastText = controller.document.toPlainText();
+    }
     _update();
   }
 
@@ -62,6 +68,7 @@ final class MentionSuggester extends ChangeNotifier {
     }
     _attached = true;
     _lastLength = controller.document.length;
+    _lastText = _suggestions.isEmpty ? null : controller.document.toPlainText();
     controller.addListener(_onChanged);
     focusNode.addListener(_onFocusChanged);
   }
@@ -125,21 +132,33 @@ final class MentionSuggester extends ChangeNotifier {
     _lastLength = length;
     final typedAt = _typedAt;
     _typedAt = null;
-    if (_suggestions.isEmpty || controller.readOnly || !focusNode.hasFocus) {
+    final lastText = _lastText;
+    if (_suggestions.isEmpty) {
+      // Nobody to suggest: the text is not looked at.
+      _lastText = null;
+      if (_fragment != null) {
+        dismiss();
+      }
+      return;
+    }
+    final text = controller.document.toPlainText();
+    _lastText = text;
+    if (controller.readOnly || !focusNode.hasFocus) {
       if (_fragment != null) {
         dismiss();
       }
       return;
     }
     final selection = controller.selection;
-    final text = controller.document.toPlainText();
     final caret = selection.baseOffset;
     final fragment = selection.isValid && selection.isCollapsed ? mentionFragmentAt(text, caret) : null;
     final open = _fragment;
     if (open == null) {
       // Opens only on the `@` just typed: one character went in and the caret sits right after it. The controller's
-      // own inserts move the caret in a change of their own after the text, so an `@` found right at the caret is
-      // remembered and opens on the next change that keeps the length and lands the caret after it.
+      // own inserts move the caret in a change of their own after the text, so an `@` that went in right at the
+      // caret (the text before the caret is as it was, the `@` is new) is remembered and opens on the next change
+      // that keeps the length and lands the caret after it. A space typed before an `@` that was there already is not
+      // that `@`.
       if (fragment != null && fragment.query.isEmpty && (delta == 1 || (delta == 0 && typedAt == fragment.atOffset))) {
         _fragment = fragment;
         _update();
@@ -148,7 +167,11 @@ final class MentionSuggester extends ChangeNotifier {
           selection.isCollapsed &&
           caret < text.length &&
           isMentionAt(text[caret]) &&
-          (caret == 0 || text[caret - 1].trim().isEmpty)) {
+          (caret == 0 || text[caret - 1].trim().isEmpty) &&
+          lastText != null &&
+          lastText.length == text.length - 1 &&
+          lastText.startsWith(text.substring(0, caret)) &&
+          lastText.substring(caret) == text.substring(caret + 1)) {
         _typedAt = caret;
       }
       return;
