@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -109,17 +110,62 @@ final class FloorImages {
   }
 }
 
+/// Which pictures of a floor are still loading ([PostImageScope.loads]): a [PostImage] built under the scope registers
+/// its url, and tells when its first frame is decoded or it failed. For the floor rendered to an image, which waits for
+/// its pictures before it is captured.
+///
+/// By url: the same picture twice in a floor is one here, settled when either tells (or is let go of), the other is
+/// usually the same decoded image.
+final class PostImageLoads extends ChangeNotifier {
+  final _expected = <String>{};
+  final _settled = <String>{};
+
+  /// Pictures registered and not settled yet.
+  int get pending => _expected.difference(_settled).length;
+
+  /// Every picture registered so far is decoded or failed (true as well while none is registered).
+  bool get allSettled => pending == 0;
+
+  /// A picture at [url] is built: waited for until [settle].
+  void expect(String url) => _expected.add(url);
+
+  /// The picture at [url] is there, or will not come (it failed).
+  ///
+  /// Told from a build (the first frame of a picture is reported while the floor builds): listeners hear it after the
+  /// frame, so none rebuilds anything in it.
+  void settle(String url) {
+    if (_settled.add(url) && _expected.contains(url)) {
+      scheduleMicrotask(() {
+        if (!_disposed) {
+          notifyListeners();
+        }
+      });
+    }
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
 /// The pictures of a floor's content ([FloorImages]) and when they load by themselves ([autoLoad]), for the
 /// [PostImage]s in it.
 class PostImageScope extends InheritedWidget {
   /// Constructor.
-  const PostImageScope({required this.images, required this.autoLoad, required super.child, super.key});
+  const PostImageScope({required this.images, required this.autoLoad, required super.child, this.loads, super.key});
 
   /// The pictures of the floor.
   final FloorImages images;
 
   /// When they load by themselves.
   final PostImageAutoLoad autoLoad;
+
+  /// Told which pictures are loading, when something waits for them ([PostImageLoads]); null when nothing does.
+  final PostImageLoads? loads;
 
   /// The scope above [context], without depending on it (the muncher reading the attachments).
   static PostImageScope? find(BuildContext context) => context.getInheritedWidgetOfExactType<PostImageScope>();
@@ -129,7 +175,7 @@ class PostImageScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(PostImageScope oldWidget) =>
-      !identical(images, oldWidget.images) || autoLoad != oldWidget.autoLoad;
+      !identical(images, oldWidget.images) || autoLoad != oldWidget.autoLoad || !identical(loads, oldWidget.loads);
 }
 
 /// Which part of a floor its content below is ([PostImage]s in a lower part come first in the gallery): the html before
@@ -182,6 +228,9 @@ class _PostImageState extends State<PostImage> {
   PostImageAutoLoad _autoLoad = PostImageAutoLoad.always;
   int _part = 0;
 
+  /// What waits for the pictures of the floor, when something does ([PostImageScope.loads]).
+  PostImageLoads? _loads;
+
   /// Tapped to load while it would not load by itself.
   bool _requested = false;
 
@@ -202,6 +251,7 @@ class _PostImageState extends State<PostImage> {
       _floor?._remove(this);
       _floor = floor?.._add(this);
     }
+    _loads = scope?.loads;
     final autoLoad = scope?.autoLoad ?? PostImageAutoLoad.always;
     if (autoLoad != _autoLoad) {
       _autoLoad = autoLoad;
@@ -323,6 +373,9 @@ class _PostImageState extends State<PostImage> {
       declaredHeight: widget.declaredHeight,
     );
     final fetches = _fetches;
+    // Waited for while it loads by itself; one waiting for a tap or the network's answer is not coming by itself.
+    final loads = (fetches ?? false) ? _loads : null;
+    loads?.expect(image.floorUrl);
     final sizeKnown =
         ImageSizes.of(image.floorUrl) != null ||
         ((image.width ?? 0) > 0 && (image.height ?? 0) > 0) ||
@@ -345,10 +398,16 @@ class _PostImageState extends State<PostImage> {
           // Not cached, and the network is being asked about: tapping comes once it answered.
           null => const _ImageLoading(null),
           false => _TapToLoad(image: image, onTap: _load),
-          true => _ImageFailed(url: image.floorUrl, onRetry: retry),
+          true => () {
+            loads?.settle(image.floorUrl);
+            return _ImageFailed(url: image.floorUrl, onRetry: retry);
+          }(),
         },
       ),
-      onImageSize: (size, {required downscaled}) => ImageSizes.record(image.floorUrl, size, downscaled: downscaled),
+      onImageSize: (size, {required downscaled}) {
+        ImageSizes.record(image.floorUrl, size, downscaled: downscaled);
+        loads?.settle(image.floorUrl);
+      },
     );
     return MouseRegion(
       cursor: _linksToPage ? SystemMouseCursors.click : SystemMouseCursors.zoomIn,

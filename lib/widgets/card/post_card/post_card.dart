@@ -20,6 +20,7 @@ import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
+import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -74,6 +75,9 @@ enum _PostCardActions {
   ///
   /// Share with thread and post id, and 'fromuid=$UID'.
   share,
+
+  /// Render the floor to a picture to save or share ([ShareFloorImagePage]).
+  shareAsImage,
 
   /// Open the post link in browser.
   ///
@@ -431,6 +435,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       [
         if (widget.post.shareLink != null) ...[
           item(_PostCardActions.share, Icons.share_outlined, context.t.postCard.share),
+          item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
           item(_PostCardActions.openInBrowser, Icons.open_in_browser_outlined, context.t.postCard.openInBrowser),
           item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
           item(
@@ -520,6 +525,17 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         threadBloc.add(ThreadJumpPageRequested(page));
       case _PostCardActions.share:
         await copyToClipboard(context, widget.post.shareLink!);
+      case _PostCardActions.shareAsImage:
+        // The title and id of the thread when the floor is on its page: none on the notice page.
+        final thread = context.readOrNull<ThreadBloc>()?.state;
+        await context.pushNamed(
+          ScreenPaths.shareFloorImage,
+          extra: ShareFloorImageArgs(
+            post: widget.post,
+            threadTitle: thread?.title,
+            link: shareFloorImageLink(pid: widget.post.postID, tid: thread?.tid, shareLink: widget.post.shareLink),
+          ),
+        );
       case _PostCardActions.openInBrowser:
         await launchUrl(Uri.parse(widget.post.shareLink!), mode: LaunchMode.externalApplication);
       case _PostCardActions.openAndCopy:

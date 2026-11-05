@@ -1687,12 +1687,19 @@
       }
     },
     "share": "Copy share link",
+    "shareAsImage": "Share as image",
     "openInBrowser": "Open in browser",
     "copyText": "Copy Text",
     "copyPid": "Copy pid (${pid: String})",
     "avatarBlocked": "Avatar hidden",
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
+  },
+  "shareFloorImage": {
+    "title": "Share as image",
+    "save": "Save",
+    "share": "Share",
+    "siteName": "天使动漫"
   },
   "postReport": {
     "menu": "Report",
