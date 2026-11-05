@@ -11,7 +11,9 @@ import 'package:tsdm_client/features/shortcuts/repository/app_shortcuts_channel.
 import 'package:tsdm_client/features/shortcuts/utils/app_shortcut_action.dart';
 import 'package:tsdm_client/features/shortcuts/utils/checkin_when_verified.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -81,9 +83,12 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
   Future<void> _checkinWhenVerified() async {
     final auth = context.repo<AuthenticationRepository>();
     final bloc = context.read<CheckinBloc>();
+    final uid = auth.effectiveCurrentUid;
     final outcome = await startCheckinWhenVerified(
       verified: () => auth.currentUser != null,
       status: auth.status,
+      // The homepage records the guest page it got for an expired session here, without a status (issue #25).
+      expired: getIt.get<StorageProvider>().watchExpiredSessionUids().map((uids) => uids.contains(uid)),
       start: () => bloc.add(const CheckinRequested()),
     );
     info('app shortcut checkin: ${outcome.name}');
@@ -94,11 +99,12 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
       case ShortcutCheckinOutcome.started:
         break;
       case ShortcutCheckinOutcome.notAuthed:
+        // The login action never starts a check-in: the callback is not called.
         performAppShortcut(
           router,
           const AppShortcutLogin(),
           hasPopup: popupRouteObserver.hasPopupRoute,
-          checkin: _checkin,
+          checkin: () {},
         );
       case ShortcutCheckinOutcome.timedOut:
         showSnackBar(context: context, message: context.t.appShortcuts.checkinNotVerified);

@@ -9,8 +9,9 @@
 ///    alone and are pushed above another page, the check-in goes home through the quietly closable pages and leaves a
 ///    dialog alone;
 /// 5. the check-in waits for the login check of a cold start (`CheckinBloc` drops a request before the stored session
-///    is verified): it starts with the first "authed", gives the login page on "not authed", and gives up after the
-///    timeout of an offline start.
+///    is verified): it starts with the first "authed", gives the login page when the storage knows the session expired
+///    (the homepage records a guest page there, no status is emitted for it) or on "not authed", and gives up after
+///    the timeout of an offline start.
 library;
 
 import 'dart:async';
@@ -256,19 +257,25 @@ void main() {
 
   group('the check-in waits for the login check', () {
     late StreamController<AuthStatus> status;
+    late StreamController<bool> expired;
     late bool verified;
     late int started;
 
     setUp(() {
       status = StreamController<AuthStatus>.broadcast();
+      expired = StreamController<bool>.broadcast();
       verified = false;
       started = 0;
     });
-    tearDown(() => status.close());
+    tearDown(() async {
+      await status.close();
+      await expired.close();
+    });
 
     Future<ShortcutCheckinOutcome> run({Duration timeout = const Duration(seconds: 20)}) => startCheckinWhenVerified(
       verified: () => verified,
       status: status.stream,
+      expired: expired.stream,
       start: () => started++,
       timeout: timeout,
     );
@@ -279,9 +286,10 @@ void main() {
       expect(started, 1);
     });
 
-    test('a cold start: the first "authed" starts it, loading states are not answers', () async {
+    test('a cold start: the first "authed" starts it, loading states and a live session are not answers', () async {
       final outcome = run();
       status.add(const AuthStatusLoading());
+      expired.add(false);
       await Future<void>.delayed(Duration.zero);
       expect(started, 0);
       verified = true;
@@ -291,10 +299,36 @@ void main() {
     });
 
     test('an expired session: not started, the login page is for the user', () async {
-      final outcome = run();
+      // Known from an earlier start: the storage tells it first thing.
+      var outcome = run();
+      expired.add(true);
+      expect(await outcome, ShortcutCheckinOutcome.notAuthed);
+      expect(started, 0);
+
+      // Found by the homepage's fetch while waiting.
+      outcome = run();
+      expired.add(false);
+      await Future<void>.delayed(Duration.zero);
+      expired.add(true);
+      expect(await outcome, ShortcutCheckinOutcome.notAuthed);
+      expect(started, 0);
+
+      // Logged out meanwhile.
+      outcome = run();
       status.add(const AuthStatusNotAuthed());
       expect(await outcome, ShortcutCheckinOutcome.notAuthed);
       expect(started, 0);
+    });
+
+    test('the answer ends the wait: nothing listens afterwards', () async {
+      final outcome = run();
+      status.add(const AuthStatusNotAuthed());
+      await outcome;
+      expect(status.hasListener, isFalse);
+      expect(expired.hasListener, isFalse);
+      await run(timeout: const Duration(milliseconds: 20));
+      expect(status.hasListener, isFalse);
+      expect(expired.hasListener, isFalse);
     });
 
     test('no answer in time (an offline start): given up', () async {
