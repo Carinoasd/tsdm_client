@@ -498,8 +498,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       context.pop();
       return;
     }
+    // Not offered while shared images are still going up: saving would be refused without a word (see _onFinish).
     final canSaveDraft =
-        widget.editType.isEditingDraft && (bloc.state.content?.canSaveDraft ?? false) && bloc.canSubmit;
+        widget.editType.isEditingDraft &&
+        (bloc.state.content?.canSaveDraft ?? false) &&
+        bloc.canSubmit &&
+        !_uploadingSharedImages;
     _leaving = true;
     final LeaveEditChoice choice;
     try {
