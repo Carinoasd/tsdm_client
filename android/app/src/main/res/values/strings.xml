@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_checkin">签到</string>
+    <string name="shortcut_notice">消息</string>
+    <string name="shortcut_favorite">收藏</string>
+    <string name="shortcut_search">搜索</string>
+</resources>

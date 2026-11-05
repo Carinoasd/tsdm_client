@@ -76,8 +76,12 @@ class MainActivity: FlutterActivity() {
     /** Hold the deep link when app is launched from a link (cold start). */
     private var initialDeepLink: String? = null
 
+    /** The launcher shortcuts of the app icon, see [ShortcutsHandler]. */
+    private val shortcuts = ShortcutsHandler()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        shortcuts.onCreate(intent, savedInstanceState)
         // 冷启动时捕获深度链接
         if (intent?.action == Intent.ACTION_VIEW) {
             initialDeepLink = intent?.dataString
@@ -117,6 +121,7 @@ class MainActivity: FlutterActivity() {
                 }
             }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
+        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger)
 
         // 处理 Flutter 端对深度链接的查询
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
@@ -133,6 +138,7 @@ class MainActivity: FlutterActivity() {
     /** 热启动（App 在后台）时接收新的深度链接并推送给 Flutter */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        shortcuts.onNewIntent(intent)
         if (intent.action == Intent.ACTION_VIEW) {
             val link = intent.dataString
             if (link != null && flutterEngine != null) {
@@ -162,6 +168,7 @@ class MainActivity: FlutterActivity() {
         }
         networkCallback = null
         updateScope.cancel()
+        shortcuts.detach()
         super.onDestroy()
     }
 

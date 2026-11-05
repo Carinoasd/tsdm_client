@@ -48,6 +48,7 @@ import 'package:tsdm_client/features/root/view/singleton.dart';
 import 'package:tsdm_client/features/session_expiry/cubit/session_expiry_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/shortcuts/widgets/app_shortcuts_watcher.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
@@ -704,6 +705,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             ),
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
+            const AppShortcutsWatcher(),
           ],
         ),
       ),

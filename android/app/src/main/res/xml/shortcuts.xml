@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shortcuts of a long press on the app icon. Each starts MainActivity with tsdm://shortcut/<id> as data; the
+     id is handed to Dart by ShortcutsHandler (lib/features/shortcuts). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="checkin"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checkin"
+        android:shortcutShortLabel="@string/shortcut_checkin">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.tsdm.tsdm_client"
+            android:targetClass="kzs.th000.tsdm_client.MainActivity"
+            android:data="tsdm://shortcut/checkin" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="notice"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_notice"
+        android:shortcutShortLabel="@string/shortcut_notice">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.tsdm.tsdm_client"
+            android:targetClass="kzs.th000.tsdm_client.MainActivity"
+            android:data="tsdm://shortcut/notice" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="favorite"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_favorite"
+        android:shortcutShortLabel="@string/shortcut_favorite">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.tsdm.tsdm_client"
+            android:targetClass="kzs.th000.tsdm_client.MainActivity"
+            android:data="tsdm://shortcut/favorite" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.tsdm.tsdm_client"
+            android:targetClass="kzs.th000.tsdm_client.MainActivity"
+            android:data="tsdm://shortcut/search" />
+    </shortcut>
+</shortcuts>

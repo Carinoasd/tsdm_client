@@ -1,0 +1,71 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
+import 'package:tsdm_client/features/local_notice/tap.dart';
+import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
+import 'package:tsdm_client/features/shortcuts/repository/app_shortcuts_channel.dart';
+import 'package:tsdm_client/features/shortcuts/utils/app_shortcut_action.dart';
+import 'package:tsdm_client/routes/app_routes.dart';
+import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/platform.dart';
+
+/// Carries out the shortcuts of a long press on the app icon (Android).
+///
+/// Lives under the app's providers and draws nothing. The shortcut the app was started with is carried out after the
+/// first frame, when the router shows its first page; a shortcut tapped while the app runs is carried out as it comes.
+/// The account in use decides between the page and the login ([decideAppShortcut]); the stored session counts, as it
+/// does for a notification tap: at a cold start the homepage has its first frame before the login is verified.
+class AppShortcutsWatcher extends StatefulWidget {
+  /// Constructor.
+  const AppShortcutsWatcher({super.key});
+
+  @override
+  State<AppShortcutsWatcher> createState() => _AppShortcutsWatcherState();
+}
+
+class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMixin {
+  final _channel = const AppShortcutsChannel();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!isAndroid) {
+      return;
+    }
+    _channel.listen(_run);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final shortcut = await _channel.initial();
+      if (shortcut != null && mounted) {
+        _run(shortcut);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (isAndroid) {
+      _channel.dispose();
+    }
+    super.dispose();
+  }
+
+  void _run(AppShortcut shortcut) {
+    if (!mounted) {
+      return;
+    }
+    final loggedIn = context.repo<AuthenticationRepository>().effectiveCurrentUid != null;
+    final action = decideAppShortcut(shortcut, loggedIn: loggedIn);
+    info('app shortcut ${shortcut.id}: ${action.runtimeType}, top=${routerTopLocation(router)}');
+    performAppShortcut(
+      router,
+      action,
+      hasPopup: popupRouteObserver.hasPopupRoute,
+      checkin: () => context.read<CheckinBloc>().add(const CheckinRequested()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
