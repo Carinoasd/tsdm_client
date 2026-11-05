@@ -31,7 +31,7 @@ class HomeWidgetProvider : AppWidgetProvider() {
         for (id in appWidgetIds) {
             appWidgetManager.updateAppWidget(id, views)
         }
-        scheduleMidnightRedraw(context, appWidgetIds)
+        scheduleMidnightRedraw(context)
     }
 
     override fun onDisabled(context: Context) {
@@ -59,14 +59,18 @@ class HomeWidgetProvider : AppWidgetProvider() {
             for (id in ids) {
                 manager.updateAppWidget(id, views)
             }
-            scheduleMidnightRedraw(context, ids)
+            scheduleMidnightRedraw(context)
         }
 
         /**
-         * Ask the system to send the widgets [ids] an update just after the next local midnight: an inexact alarm
-         * without wake-up (needs no permission), delivered when the device is next awake.
+         * Ask the system to send every placed widget an update just after the next local midnight: an inexact alarm
+         * without wake-up (needs no permission), delivered when the device is next awake. Always every widget: the
+         * one pending intent is replaced each time, and an `onUpdate` of the system often names a single widget (the
+         * one just placed or resized).
          */
-        private fun scheduleMidnightRedraw(context: Context, ids: IntArray) {
+        private fun scheduleMidnightRedraw(context: Context) {
+            val manager = AppWidgetManager.getInstance(context) ?: return
+            val ids = manager.getAppWidgetIds(ComponentName(context, HomeWidgetProvider::class.java))
             if (ids.isEmpty()) return
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val midnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
