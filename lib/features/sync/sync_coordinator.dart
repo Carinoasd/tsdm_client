@@ -42,7 +42,7 @@ final class SyncCoordinator with LoggerMixin {
     final settings = getIt.get<SettingsRepository>();
     return SyncCoordinator(
       repository: SyncRepository(
-        api: TsdmAppSyncApi(client ?? getIt.get<NetClientProvider>()),
+        api: TsdmAppSyncApi(client != null ? () => client : () => getIt.get<NetClientProvider>()),
         store: StorageSyncLocalStore(
           storage: storage,
           settings: settings,

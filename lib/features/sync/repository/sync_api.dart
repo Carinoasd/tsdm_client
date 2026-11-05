@@ -103,11 +103,15 @@ abstract interface class SyncApi {
 }
 
 /// [SyncApi] on the forum's app API ([TsdmAppApi]).
+///
+/// The client of each call is built then. A client is bound to the account it was built for (`NetClientProvider`):
+/// built once at the start, it would stay the guest's or the previous account's and every call after a login or a
+/// switch be dropped as another account's; built per call, each call goes out as the account in use.
 final class TsdmAppSyncApi implements SyncApi {
   /// Constructor.
-  const TsdmAppSyncApi(this._client);
+  const TsdmAppSyncApi(NetClientProvider Function() client) : _client = client;
 
-  final NetClientProvider _client;
+  final NetClientProvider Function() _client;
 
   /// The action.
   static const action = 'sync';
@@ -115,7 +119,7 @@ final class TsdmAppSyncApi implements SyncApi {
   @override
   Future<SyncPullAnswer> pull() async {
     // Waits for a "too soon" answer: the read follows the notification poll at the start, on another action.
-    final json = await TsdmAppApi.askWaitingKeepingAction(_client, action);
+    final json = await TsdmAppApi.askWaitingKeepingAction(_client(), action);
     if (json == null) {
       return const SyncPullFailed('no answer');
     }
@@ -142,7 +146,7 @@ final class TsdmAppSyncApi implements SyncApi {
   @override
   Future<SyncPushAnswer> push({required String data, required int baseUpdated, required String formhash}) async {
     final json = await TsdmAppApi.post(
-      _client,
+      _client(),
       action,
       {
         'formhash': formhash,
