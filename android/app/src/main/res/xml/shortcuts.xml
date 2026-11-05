@@ -6,7 +6,8 @@
         android:shortcutId="checkin"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_checkin"
-        android:shortcutShortLabel="@string/shortcut_checkin">
+        android:shortcutShortLabel="@string/shortcut_checkin"
+        android:shortcutLongLabel="@string/shortcut_checkin">
         <intent
             android:action="android.intent.action.MAIN"
             android:targetPackage="com.tsdm.tsdm_client"
@@ -17,7 +18,8 @@
         android:shortcutId="notice"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_notice"
-        android:shortcutShortLabel="@string/shortcut_notice">
+        android:shortcutShortLabel="@string/shortcut_notice"
+        android:shortcutLongLabel="@string/shortcut_notice">
         <intent
             android:action="android.intent.action.MAIN"
             android:targetPackage="com.tsdm.tsdm_client"
@@ -28,7 +30,8 @@
         android:shortcutId="favorite"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_favorite"
-        android:shortcutShortLabel="@string/shortcut_favorite">
+        android:shortcutShortLabel="@string/shortcut_favorite"
+        android:shortcutLongLabel="@string/shortcut_favorite">
         <intent
             android:action="android.intent.action.MAIN"
             android:targetPackage="com.tsdm.tsdm_client"
@@ -39,7 +42,8 @@
         android:shortcutId="search"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_search"
-        android:shortcutShortLabel="@string/shortcut_search">
+        android:shortcutShortLabel="@string/shortcut_search"
+        android:shortcutLongLabel="@string/shortcut_search">
         <intent
             android:action="android.intent.action.MAIN"
             android:targetPackage="com.tsdm.tsdm_client"

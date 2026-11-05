@@ -7,7 +7,10 @@
 ///    unknown id or a missing native side never throws;
 /// 4. on the router: a page is pushed above the page on top and not twice, the notices show their tab when the shell is
 ///    alone and are pushed above another page, the check-in goes home through the quietly closable pages and leaves a
-///    dialog alone.
+///    dialog alone;
+/// 5. the check-in waits for the login check of a cold start (`CheckinBloc` drops a request before the stored session
+///    is verified): it starts with the first "authed", gives the login page on "not authed", and gives up after the
+///    timeout of an offline start.
 library;
 
 import 'dart:async';
@@ -17,12 +20,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
 import 'package:tsdm_client/features/shortcuts/repository/app_shortcuts_channel.dart';
 import 'package:tsdm_client/features/shortcuts/utils/app_shortcut_action.dart';
+import 'package:tsdm_client/features/shortcuts/utils/checkin_when_verified.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -245,6 +251,63 @@ void main() {
       await perform(tester, const AppShortcutCheckin(), hasPopup: true);
       expect(routerTopLocation(router), ScreenPaths.favorite);
       expect(checkins, 1);
+    });
+  });
+
+  group('the check-in waits for the login check', () {
+    late StreamController<AuthStatus> status;
+    late bool verified;
+    late int started;
+
+    setUp(() {
+      status = StreamController<AuthStatus>.broadcast();
+      verified = false;
+      started = 0;
+    });
+    tearDown(() => status.close());
+
+    Future<ShortcutCheckinOutcome> run({Duration timeout = const Duration(seconds: 20)}) => startCheckinWhenVerified(
+      verified: () => verified,
+      status: status.stream,
+      start: () => started++,
+      timeout: timeout,
+    );
+
+    test('a verified session starts right away', () async {
+      verified = true;
+      expect(await run(), ShortcutCheckinOutcome.started);
+      expect(started, 1);
+    });
+
+    test('a cold start: the first "authed" starts it, loading states are not answers', () async {
+      final outcome = run();
+      status.add(const AuthStatusLoading());
+      await Future<void>.delayed(Duration.zero);
+      expect(started, 0);
+      verified = true;
+      status.add(const AuthStatusAuthed(UserLoginInfo(username: 'u', uid: 1)));
+      expect(await outcome, ShortcutCheckinOutcome.started);
+      expect(started, 1);
+    });
+
+    test('an expired session: not started, the login page is for the user', () async {
+      final outcome = run();
+      status.add(const AuthStatusNotAuthed());
+      expect(await outcome, ShortcutCheckinOutcome.notAuthed);
+      expect(started, 0);
+    });
+
+    test('no answer in time (an offline start): given up', () async {
+      expect(await run(timeout: const Duration(milliseconds: 20)), ShortcutCheckinOutcome.timedOut);
+      expect(started, 0);
+    });
+
+    test('verified meanwhile counts whatever the answer says', () async {
+      final outcome = run();
+      verified = true;
+      status.add(const AuthStatusNotAuthed());
+      expect(await outcome, ShortcutCheckinOutcome.started);
+      expect(started, 1);
     });
   });
 }

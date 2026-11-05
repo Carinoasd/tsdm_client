@@ -10,9 +10,10 @@ import io.flutter.plugin.common.MethodChannel
  * `tsdm://shortcut/<id>` as data, and the id is handed to Dart, which navigates.
  *
  * A cold start keeps the id until Dart asks for it ([GET_INITIAL_SHORTCUT]); an activity already running gets the
- * intent through `onNewIntent` and the id is pushed to Dart ([ON_SHORTCUT]). An activity recreated by the system
- * (restored state, brought back from the recent apps) ignores the shortcut it was started with, so the shortcut runs
- * once.
+ * intent through `onNewIntent` and the id is pushed to Dart ([ON_SHORTCUT]), once Dart has asked for the initial one
+ * (before that Dart is not listening yet and the id is kept for its question instead). An activity recreated by the
+ * system (restored state, brought back from the recent apps) ignores the shortcut it was started with, so the
+ * shortcut runs once.
  */
 class ShortcutsHandler {
     companion object {
@@ -35,8 +36,11 @@ class ShortcutsHandler {
 
     private var channel: MethodChannel? = null
 
-    /** The shortcut the activity was started with, until Dart takes it. */
+    /** The shortcut the activity was started with (or got before Dart listened), until Dart takes it. */
     private var pending: String? = null
+
+    /** Whether Dart asked for the initial shortcut: from then on it listens to [ON_SHORTCUT]. */
+    private var dartListening = false
 
     fun onCreate(intent: Intent?, savedInstanceState: Bundle?) {
         if (savedInstanceState == null) {
@@ -48,6 +52,7 @@ class ShortcutsHandler {
         channel = MethodChannel(messenger, CHANNEL).also {
             it.setMethodCallHandler { call, result ->
                 if (call.method == GET_INITIAL_SHORTCUT) {
+                    dartListening = true
                     result.success(pending)
                     pending = null
                 } else {
@@ -60,7 +65,7 @@ class ShortcutsHandler {
     fun onNewIntent(intent: Intent) {
         val id = shortcutIdOf(intent) ?: return
         val channel = channel
-        if (channel == null) {
+        if (channel == null || !dartListening) {
             pending = id
         } else {
             channel.invokeMethod(ON_SHORTCUT, id)
@@ -70,5 +75,6 @@ class ShortcutsHandler {
     fun detach() {
         channel?.setMethodCallHandler(null)
         channel = null
+        dartListening = false
     }
 }
