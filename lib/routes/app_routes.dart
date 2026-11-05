@@ -77,6 +77,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
 import 'package:tsdm_client/features/title_shop/view/title_shop_page.dart';
@@ -457,6 +458,12 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   ImageGalleryRoute(),
+  AppRoute(
+    path: ScreenPaths.shareFloorImage,
+    // Only opened from a floor's menu with the floor: nothing to render without it.
+    redirect: (_, state) => state.extra is ShareFloorImageArgs ? null : ScreenPaths.homepage,
+    builder: (state) => ShareFloorImagePage(state.extra! as ShareFloorImageArgs),
+  ),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.autoCheckinDetail, builder: (_) => const AutoCheckinPage()),

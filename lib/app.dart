@@ -51,6 +51,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/share_receive/share_receiver.dart';
+import 'package:tsdm_client/features/shortcuts/widgets/app_shortcuts_watcher.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
@@ -725,6 +726,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             ),
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
+            const AppShortcutsWatcher(),
           ],
         ),
       ),

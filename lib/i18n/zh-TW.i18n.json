@@ -1687,12 +1687,19 @@
       }
     },
     "share": "複製分享連結",
+    "shareAsImage": "分享為圖片",
     "openInBrowser": "在瀏覽器中開啟",
     "copyText": "複製文字",
     "copyPid": "複製pid（${pid: String}）",
     "avatarBlocked": "頭像被屏蔽",
     "hotReply": "推薦",
     "jumpToHotFloor": "跳到該樓"
+  },
+  "shareFloorImage": {
+    "title": "分享為圖片",
+    "save": "儲存",
+    "share": "分享",
+    "siteName": "天使动漫"
   },
   "postReport": {
     "menu": "檢舉",
@@ -3084,5 +3091,8 @@
     "confirm": "送出",
     "openBrowser": "在瀏覽器中開啟",
     "cancelled": "沒有送出：論壇要求填寫驗證碼或回答安全提問"
+  },
+  "appShortcuts": {
+    "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
   }
 }
