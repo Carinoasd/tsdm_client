@@ -36,13 +36,13 @@ final class SyncCoordinator with LoggerMixin {
   factory SyncCoordinator.build({
     required AuthenticationRepository authentication,
     required UserBlockRepository blocks,
-    NetClientProvider? client,
+    NetClientProvider Function(int uid)? buildClient,
   }) {
     final storage = getIt.get<StorageProvider>();
     final settings = getIt.get<SettingsRepository>();
     return SyncCoordinator(
       repository: SyncRepository(
-        api: TsdmAppSyncApi(client != null ? () => client : () => getIt.get<NetClientProvider>()),
+        api: TsdmAppSyncApi(buildClient),
         store: StorageSyncLocalStore(
           storage: storage,
           settings: settings,
