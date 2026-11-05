@@ -587,6 +587,22 @@ void main() {
       expect(api.lastPushed['visits'], {'12': _visitItem(9000, floor: 50, progress: 7000)});
     });
 
+    test('a progress kept before it was timed: filled in where this device has none, kept where it has', () async {
+      store.visitsByUid[_uid] = {12: _visit(12, 5000), 13: _visit(13, 5000, floor: 20, progress: 0)};
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'visits': {'12': _visitItem(5000, floor: 50, progress: 0), '13': _visitItem(5000, floor: 70, progress: 0)},
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.upToDate);
+      expect(store.visitsByUid[_uid]![12]!.floor, 50);
+      expect(store.visitsByUid[_uid]![13]!.floor, 20);
+      expect(store.writes, ['saveProgress 12']);
+    });
+
     test('the same time on both sides: this device keeps its own progress', () async {
       store.visitsByUid[_uid] = {12: _visit(12, 5000, floor: 30)};
       api.pullAnswer = SyncPulled(

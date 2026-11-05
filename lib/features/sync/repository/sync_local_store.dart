@@ -81,6 +81,9 @@ final class SyncVisit {
   /// The replies the thread had when read.
   final int? seenReplies;
 
+  /// Whether a reading progress is kept (the same test as `SyncDocument.hasProgress` on the item).
+  bool get hasProgress => page != null || pid != null || floor != null;
+
   /// The document item.
   Map<String, dynamic> toItem() => {
     'updated': updated,

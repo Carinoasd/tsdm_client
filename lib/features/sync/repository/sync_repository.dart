@@ -472,11 +472,9 @@ final class SyncRepository with LoggerMixin {
         await _store.saveVisit(uid, visit);
       }
       // The same progress time (0: kept before it was timed): a progress fills in where this device has none.
-      final localHasProgress = local != null && (local.page != null || local.pid != null || local.floor != null);
-      final visitHasProgress = visit.page != null || visit.pid != null || visit.floor != null;
       if (local == null ||
           local.progressUpdated < visit.progressUpdated ||
-          (local.progressUpdated == visit.progressUpdated && !localHasProgress && visitHasProgress)) {
+          (local.progressUpdated == visit.progressUpdated && !local.hasProgress && visit.hasProgress)) {
         await _store.saveProgress(uid, visit);
       }
     }
