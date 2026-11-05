@@ -29,15 +29,25 @@ Future<Uint8List?> imageBytesOf(String url) async =>
 /// Tells the user where it went, or that it failed. Returns the path saved to, null when nothing was saved (failed, or
 /// the user picked nothing).
 Future<String?> saveImageOf(BuildContext context, String url) async {
-  final tr = context.t.imageBottomSheet;
   final data = await imageBytesOf(url);
   if (data == null) {
     if (context.mounted) {
-      showSnackBar(context: context, message: tr.failedToSaveImage);
+      showSnackBar(context: context, message: context.t.imageBottomSheet.failedToSaveImage);
     }
     return null;
   }
-  final fileName = imageFileNameOf(url, data);
+  if (!context.mounted) {
+    return null;
+  }
+  return saveImageBytes(context, data, fileName: imageFileNameOf(url, data));
+}
+
+/// Save the image [data] where the user picks, as [fileName]: the picture rendered by the app, or one fetched
+/// ([saveImageOf]).
+///
+/// Tells the user where it went. Returns the path saved to, null when the user picked nothing.
+Future<String?> saveImageBytes(BuildContext context, Uint8List data, {required String fileName}) async {
+  final tr = context.t.imageBottomSheet;
   final String? filePath;
   if (isDesktop) {
     // On desktop platforms, `saveFile` only returns the selected path.
@@ -89,15 +99,22 @@ String imageMimeTypeOf(String fileName) => switch (fileName.split('.').last.toLo
 /// [origin] is where the share sheet points from on a tablet. Tells the user when the image could not be shared;
 /// returns whether the share sheet was shown.
 Future<bool> shareImageOf(BuildContext context, String url, {Rect? origin}) async {
-  final tr = context.t.imageBottomSheet;
   final data = await imageBytesOf(url);
   if (data == null) {
     if (context.mounted) {
-      showSnackBar(context: context, message: tr.failedToShareImage);
+      showSnackBar(context: context, message: context.t.imageBottomSheet.failedToShareImage);
     }
     return false;
   }
-  final fileName = imageFileNameOf(url, data);
+  if (!context.mounted) {
+    return false;
+  }
+  return shareImageBytes(context, data, fileName: imageFileNameOf(url, data), origin: origin);
+}
+
+/// Share the image [data] as a file named [fileName] (the type by its extension), see [shareImageOf].
+Future<bool> shareImageBytes(BuildContext context, Uint8List data, {required String fileName, Rect? origin}) async {
+  final tr = context.t.imageBottomSheet;
   try {
     final file = await _sharedImageFile(fileName, data);
     final result = await shareImageFiles(

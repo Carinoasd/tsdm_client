@@ -261,6 +261,10 @@ class ScreenPaths {
   /// Post id and thread id are required.
   static const String rateLog = '/rateLog/:tid/:pid';
 
+  /// Page rendering one floor to an image to save or share, opened from the floor's menu with the floor as its extra
+  /// (`ShareFloorImageArgs`).
+  static const String shareFloorImage = '/shareFloorImage/:pid';
+
   /// Page to view and edit fast rate templates.
   static const String fastRateTemplate = '/fastRateTemplate/:pick';
 
