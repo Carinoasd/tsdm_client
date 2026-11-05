@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
+import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
@@ -401,6 +402,10 @@ final List<RouteBase> _appRoutes = [
         pid: pid,
         pollOffered: state.uri.queryParameters['poll'] == '1',
         transfer: state.extra is ThreadModeTransfer ? state.extra! as ThreadModeTransfer : null,
+        mentionSuggestions: switch (state.extra) {
+          final List<MentionSuggestion> suggestions => suggestions,
+          _ => null,
+        },
       );
     },
   ),
