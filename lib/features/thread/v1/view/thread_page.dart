@@ -1688,9 +1688,15 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The query to open this thread again where it is read now: the page in view (the page indicator, not the last
   /// page loaded) and the author filter as they are, from the query [opened] the pane was given.
+  ///
+  /// Until the thread loaded once (still loading, or its first load failed) the page indicator says nothing yet:
+  /// [opened] as it is, with the floor or the last page it asked for.
   Map<String, String> _paneQuery(Map<String, String> opened) {
     final state = _threadBloc?.state;
-    final tid = state?.tid ?? widget.threadID;
+    if (state == null || _pageInfoGeneration == null) {
+      return opened;
+    }
+    final tid = state.tid ?? widget.threadID;
     final query = Map.of(opened);
     if (tid != null) {
       query
@@ -1701,7 +1707,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (_jumpPageCubit?.state.currentPage case final page? when tid != null) {
       query['pageNumber'] = '$page';
     }
-    if (state != null && state.status == ThreadStatus.success) {
+    if (state.status == ThreadStatus.success) {
       // The author filter as it is now (switched on this page), not as the thread was opened.
       if (state.onlyVisibleUid case final uid?) {
         query['onlyVisibleUid'] = uid;

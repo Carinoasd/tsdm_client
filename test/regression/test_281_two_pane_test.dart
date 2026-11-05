@@ -21,6 +21,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -95,14 +96,15 @@ Map<String, dynamic> _thread(int tid, {int page = 1}) {
     ..['tid'] = tid
     ..['subject'] = 'thread $tid';
   json
-    ..['page'] = page
+    ..['page'] = math.min(page, 3)
     ..['pages'] = 3;
   final first = (json['posts'] as List).cast<Map<String, dynamic>>().first;
   first['body_html'] =
       '<div class="t_fsz"><table cellspacing="0" cellpadding="0"><tr><td class="t_f" id="postmessage_${first['pid']}">'
       '正文 $tid 第$page页<br />'
       '<a href="forum.php?mod=viewthread&amp;tid=$_linkedTid" target="_blank">看这个帖子</a><br />'
-      '<a href="home.php?mod=space&amp;uid=$_authorUid" target="_blank">看作者</a>'
+      '<a href="home.php?mod=space&amp;uid=$_authorUid" target="_blank">看作者</a><br />'
+      '<a href="forum.php?mod=redirect&amp;tid=$_linkedTid&amp;goto=lastpost" target="_blank">看最后回复</a>'
       '</td></tr></table></div>';
   return json;
 }
@@ -110,6 +112,9 @@ Map<String, dynamic> _thread(int tid, {int page = 1}) {
 /// Answers the forum and any thread; images and anything else are offline.
 final class _ForumAdapter implements HttpClientAdapter {
   final requests = <Uri>[];
+
+  /// While set, the threads are answered only once it completes (a slow network).
+  Completer<void>? hold;
 
   @override
   Future<ResponseBody> fetch(
@@ -119,6 +124,9 @@ final class _ForumAdapter implements HttpClientAdapter {
   ) async {
     final uri = options.uri;
     requests.add(uri);
+    if (hold case final hold? when uri.queryParameters['mod'] == 'viewthread') {
+      await hold.future;
+    }
     final q = uri.queryParameters;
     final json = switch (uri.pathSegments.lastOrNull) {
       'forum.php' when q['mod'] == 'forumdisplay' => _forum(),
@@ -553,6 +561,32 @@ void main() {
 
       // Read on to the next page (the indicator follows the floors in view), then back to the wide window: the thread
       // stays a page of its own, and the pane is empty.
+      await _finish(tester);
+    });
+
+    testWidgets('a thread still loading goes on as asked for, the last floor here, not at page 1', (tester) async {
+      await app.pump(tester);
+      await tapCard(tester, 0);
+      // The last floor of the linked thread, answered slowly.
+      app.adapter.hold = Completer<void>();
+      openLink(tester, '看最后回复');
+      await _settle(tester, rounds: 4);
+      expect(threadPage(tester).threadID, '$_linkedTid');
+      expect(threadPage(tester).lastPost, isTrue);
+      expect(find.textContaining('正文 $_linkedTid', findRichText: true), findsNothing, reason: 'still loading');
+
+      tester.view.physicalSize = _narrow;
+      await _settle(tester, rounds: 6);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1]);
+      expect(threadPage(tester).threadID, '$_linkedTid');
+      expect(threadPage(tester).lastPost, isTrue, reason: 'as asked for, the page indicator said nothing yet');
+      expect(threadPage(tester).overrideReverseOrder, isFalse);
+
+      app.adapter.hold!.complete();
+      app.adapter.hold = null;
+      await _settle(tester);
+      final bloc = BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList)));
+      expect(bloc.state.currentPage, 3, reason: 'the last page, as the forum answers a page past the end');
       await _finish(tester);
     });
 
