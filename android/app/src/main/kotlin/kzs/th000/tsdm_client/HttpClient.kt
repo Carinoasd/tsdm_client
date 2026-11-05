@@ -5,13 +5,16 @@ import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.BufferedSink
+import java.io.File
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.ProxySelector
@@ -127,27 +130,52 @@ object HttpClient {
         }
     }
 
+    /**
+     * A value of [body] is a string part, or a map `{"path", "filename", "contentType"}` naming a file to send as the
+     * part (the file of a shared image uploaded as an attachment); any other value is sent as its string form.
+     *
+     * [singleAttempt] as in [postForm]: an upload the server may already have taken is never sent twice.
+     */
     suspend fun postMultipart(
         url: String,
         headers: Map<String, String> = emptyMap(),
-        body: Map<String, String> = emptyMap(),
+        body: Map<String, Any?> = emptyMap(),
+        singleAttempt: Boolean = false,
     ): Response {
         val multipartBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .apply {
-                body.forEach { (key, value) -> addFormDataPart(key, value) }
+                body.forEach { (key, value) ->
+                    when (value) {
+                        is Map<*, *> -> {
+                            val path = value["path"] as? String ?: throw IllegalArgumentException("file part without path")
+                            val file = File(path)
+                            val filename = value["filename"] as? String ?: file.name
+                            val type = (value["contentType"] as? String)?.toMediaTypeOrNull()
+                            addFormDataPart(key, filename, file.asRequestBody(type))
+                        }
+                        null -> addFormDataPart(key, "")
+                        else -> addFormDataPart(key, value.toString())
+                    }
+                }
             }
             .build()
+        val requestBody = if (singleAttempt) object : RequestBody() {
+            override fun contentType() = multipartBody.contentType()
+            override fun contentLength() = multipartBody.contentLength()
+            override fun isOneShot() = true
+            override fun writeTo(sink: BufferedSink) = multipartBody.writeTo(sink)
+        } else multipartBody
 
         val request = Request.Builder()
             .url(url)
             .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
-            .post(multipartBody)
+            .post(requestBody)
             .build()
 
         return withContext(Dispatchers.IO) {
             try {
-                client.newCall(request).execute()
+                (if (singleAttempt) singleAttemptClient else client).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }

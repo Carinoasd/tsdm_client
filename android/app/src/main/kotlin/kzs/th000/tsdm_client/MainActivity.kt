@@ -79,12 +79,30 @@ class MainActivity: FlutterActivity() {
     /** The launcher shortcuts of the app icon, see [ShortcutsHandler]. */
     private val shortcuts = ShortcutsHandler()
 
+    /** The share intent the app was launched with (cold start), read when Dart asks for it, see [ShareIntents]. */
+    private var initialShareIntent: Intent? = null
+    private var shareChannel: MethodChannel? = null
+
+    /** Dart asked for the initial share: its handler for pushed shares is set, a share can be pushed to it now. */
+    private var dartTakesShares = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         shortcuts.onCreate(intent, savedInstanceState)
+        // The intent the activity was created with, only when it is new: the recents replay the launch intent of the
+        // task (with FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY), and a recreated process gets it again with its saved state;
+        // a link or a share handled before must not open its page or its editor a second time.
+        val launch = intent
+        val replayed = savedInstanceState != null ||
+            launch == null ||
+            (launch.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (replayed) return
         // 冷启动时捕获深度链接
-        if (intent?.action == Intent.ACTION_VIEW) {
-            initialDeepLink = intent?.dataString
+        if (launch.action == Intent.ACTION_VIEW) {
+            initialDeepLink = launch.dataString
+        }
+        if (ShareIntents.isShare(launch)) {
+            initialShareIntent = launch
         }
     }
 
@@ -133,6 +151,37 @@ class MainActivity: FlutterActivity() {
                     result.notImplemented()
                 }
             }
+
+        // Content other apps shared to this one: asked once at a cold start, pushed on a warm one (onNewIntent).
+        shareChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ShareIntents.CHANNEL).also {
+            it.setMethodCallHandler { call, result ->
+                if (call.method != ShareIntents.GET_INITIAL_SHARE) {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                dartTakesShares = true
+                val pending = initialShareIntent
+                initialShareIntent = null // Handed over once; a configuration change must not post it twice.
+                updateScope.launch {
+                    if (pending == null) {
+                        // Copies left by a run that was killed before uploading them.
+                        withContext(Dispatchers.IO) { ShareIntents.removeStale(applicationContext) }
+                        result.success(null)
+                    } else {
+                        result.success(readShare(pending))
+                    }
+                }
+            }
+        }
+    }
+
+    /** The shared content of [intent] with its images copied into the cache (file IO off the main thread). */
+    private suspend fun readShare(intent: Intent): Map<String, Any?>? = withContext(Dispatchers.IO) {
+        try {
+            ShareIntents.read(applicationContext, intent)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /** 热启动（App 在后台）时接收新的深度链接并推送给 Flutter */
@@ -144,6 +193,19 @@ class MainActivity: FlutterActivity() {
             if (link != null && flutterEngine != null) {
                 MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
                     .invokeMethod("onDeepLink", link)
+            }
+        }
+        if (ShareIntents.isShare(intent)) {
+            val channel = shareChannel
+            if (channel == null || !dartTakesShares) {
+                // Dart is not listening yet: keep it for its getInitialShare. Only the latest is kept: a second share
+                // within the seconds before Dart asks replaces the first (its images are cleaned up a day later).
+                initialShareIntent = intent
+                return
+            }
+            updateScope.launch {
+                val payload = readShare(intent) ?: return@launch
+                channel.invokeMethod(ShareIntents.ON_SHARE, payload)
             }
         }
     }
@@ -470,10 +532,12 @@ class MainActivity: FlutterActivity() {
             HTTP_POST_MULTIPART -> {
                 val url = call.argument<String>("url")!!
                 val headers = call.argument<HashMap<String, String>>("headers")!!
-                val body = call.argument<HashMap<String, String>>("body")!!
+                // Strings, and maps describing a file part (see HttpClient.postMultipart).
+                val body = call.argument<HashMap<String, Any?>>("body")!!
+                val singleAttempt = call.argument<Boolean>("singleAttempt") ?: false
                 CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                     try {
-                        val resp = HttpClient.postMultipart(url, headers, body)
+                        val resp = HttpClient.postMultipart(url, headers, body, singleAttempt = singleAttempt)
                         val statusCode = resp.code
                         val headers = HashMap(resp.headers.toMultimap())
                         val body = resp.body.bytes()

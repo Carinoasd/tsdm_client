@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -6,6 +8,7 @@ import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dar
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/features/post/utils/submission_result.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
@@ -57,20 +60,26 @@ final class PostEditRepository with LoggerMixin {
         currentUid: currentUid,
         getPage: (url) => client.get(url).run(),
         sendForm: (url, body) => client.postForm(url, data: body, singleAttempt: true).run(),
+        sendFile: (url, fields, file) => client.postMultipartFiles(url, data: fields, files: {'Filedata': file}).run(),
       );
 
   /// Injectable identity-bound transports; submissions must never automatically retry.
+  ///
+  /// [sendFile] posts a file upload (the fields and the file as the `Filedata` part); without it no upload is offered.
   PostEditRepository.withTransport({
     required int? Function() currentUid,
     required Future<SyncEither<Response<dynamic>>> Function(String) getPage,
     required Future<SyncEither<Response<dynamic>>> Function(String, Map<String, String>) sendForm,
+    Future<SyncEither<Response<dynamic>>> Function(String, Map<String, String>, MultipartFilePart)? sendFile,
   }) : _get = getPage,
        _post = sendForm,
+       _sendFile = sendFile,
        _currentUid = currentUid,
        _ownerUid = currentUid();
 
   final Future<SyncEither<Response<dynamic>>> Function(String) _get;
   final Future<SyncEither<Response<dynamic>>> Function(String, Map<String, String>) _post;
+  final Future<SyncEither<Response<dynamic>>> Function(String, Map<String, String>, MultipartFilePart)? _sendFile;
   final int? Function() _currentUid;
   final int? _ownerUid;
   bool _invalidated = false;
@@ -86,6 +95,51 @@ final class PostEditRepository with LoggerMixin {
 
   /// The account this editing session belongs to, null without one.
   int? get ownerUid => _ownerUid != null && _ownerUid > 0 ? _ownerUid : null;
+
+  /// Upload the image file at [path] as an attachment of the form offering [upload], as the website's image uploader
+  /// does ([AttachmentUpload]): the `aid` of the attachment, to show in the post with [attachmentImageBBCode] and to
+  /// bind to it with [PostFormEdits.attachNew].
+  ///
+  /// Refused before anything is sent ([AttachmentUploadFailedException] with the reason) when the forum takes no
+  /// images, not this file's type or not a file this large, or when the session is no longer the account the editor
+  /// opened for ([IdentityChangedException]). [fileSize] tells the size of a file in bytes, the file system's by
+  /// default.
+  AsyncEither<int> uploadImage(AttachmentUpload upload, String path, {int Function(String path)? fileSize}) =>
+      AsyncEither(() async {
+        if (!isCurrent) return left(IdentityChangedException());
+        final sendFile = _sendFile;
+        if (sendFile == null || !upload.image) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.unavailable));
+        }
+        final filename = path.split(RegExp(r'[/\\]')).last;
+        if (!upload.acceptsImage(filename)) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.type));
+        }
+        final maxKb = upload.maxKb;
+        if (maxKb != null && (fileSize != null ? fileSize(path) : await _fileSize(path)) > maxKb * 1024) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.size));
+        }
+        final result = await sendFile(
+          upload.imageUrl.toString(),
+          upload.fields,
+          MultipartFilePart(path: path, filename: filename, contentType: imageContentTypeOf(filename)),
+        );
+        if (!isCurrent) return left(IdentityChangedException());
+        return switch (result) {
+          Left(:final value) => left(value),
+          Right(:final value) when value.statusCode != 200 => left(HttpRequestFailedException(value.statusCode)),
+          Right(:final value) => parseAttachmentUploadAnswer(value.data),
+        };
+      });
+
+  /// The size of the file at [path] in bytes, 0 when it cannot be told (the upload then decides).
+  static Future<int> _fileSize(String path) async {
+    try {
+      return await File(path).length();
+    } on Object {
+      return 0;
+    }
+  }
 
   /// A successful POST may instead enter moderation; verify the draft marker through GET.
   ///
@@ -198,6 +252,7 @@ final class PostEditRepository with LoggerMixin {
         price: edits.price,
         options: edits.options,
         save: edits.save,
+        attachNew: edits.attachNew,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {

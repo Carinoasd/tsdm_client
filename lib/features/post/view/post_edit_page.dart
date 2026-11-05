@@ -13,6 +13,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -31,7 +32,9 @@ import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.d
 import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
@@ -39,6 +42,7 @@ import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/sec_check_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -132,8 +136,13 @@ class PostEditPage extends StatefulWidget {
     this.pollOffered = false,
     this.transfer,
     this.mentionSuggestions,
+    this.sharedImages,
     super.key,
   });
+
+  /// Images another app shared to this one, to upload as attachments of this new thread once its form is loaded
+  /// (paths of copies in this app's cache, deleted after the upload); null or empty when none.
+  final List<String>? sharedImages;
 
   /// The forum page offered a poll creation link to the current account; only used for new threads.
   ///
@@ -232,6 +241,15 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   bool initialized = false;
   bool _confirming = false;
+
+  /// The shared images were taken (uploading, or done): they are uploaded once, whatever rebuilds the page.
+  bool _sharedImagesTaken = false;
+
+  /// A shared image is on its way to the forum.
+  bool _uploadingSharedImages = false;
+
+  /// The attachments uploaded for this thread, by aid ([PostFormEdits.attachNew]).
+  final _attachNew = <int>[];
 
   /// Content switched in from the poll editor by the same account, dropped on any identity change.
   ThreadModeTransfer? _transfer;
@@ -480,8 +498,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       context.pop();
       return;
     }
+    // Not offered while shared images are still going up: saving would be refused without a word (see _onFinish).
     final canSaveDraft =
-        widget.editType.isEditingDraft && (bloc.state.content?.canSaveDraft ?? false) && bloc.canSubmit;
+        widget.editType.isEditingDraft &&
+        (bloc.state.content?.canSaveDraft ?? false) &&
+        bloc.canSubmit &&
+        !_uploadingSharedImages;
     _leaving = true;
     final LeaveEditChoice choice;
     try {
@@ -514,6 +536,74 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   static String _formatDataUrl({required String fid, required String tid, required String pid}) {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
+  }
+
+  /// Upload the images another app shared ([PostEditPage.sharedImages]) as attachments of this thread, one after the
+  /// other, each shown in the post at the cursor as the website's image list inserts it (`[attachimg]aid[/attachimg]`)
+  /// and bound to the post when it is published ([ThreadPubPostThread.attachNew]).
+  ///
+  /// Only the form of the forum's app API offers the upload ([PostForm.attachmentUpload]); a page without it, or a
+  /// forum where the account may not upload images, is told so and the images are dropped. The shared files are
+  /// deleted either way.
+  Future<void> _uploadSharedImages(PostEditState state, List<String> paths) async {
+    final upload = state.content?.form?.attachmentUpload;
+    if (!mounted) {
+      discardSharedFiles(paths);
+      return;
+    }
+    final tr = context.t.shareReceive;
+    if (upload == null || !upload.image) {
+      discardSharedFiles(paths);
+      showSnackBar(context: context, message: tr.uploadUnavailable);
+      return;
+    }
+    final repo = context.read<PostEditRepository>();
+    setState(() => _uploadingSharedImages = true);
+    // What went wrong, told once at the end: one failure with its reason, several as their count.
+    final failures = <String>[];
+    try {
+      for (final path in paths) {
+        if (!mounted || !repo.isCurrent) {
+          break;
+        }
+        final result = await repo.uploadImage(upload, path).run();
+        if (!mounted) {
+          break;
+        }
+        result.match(
+          (e) {
+            handle(e);
+            final name = path.split(RegExp(r'[/\\]')).last;
+            failures.add(switch (e) {
+              AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(name: name),
+              AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
+                name: name,
+                limit: upload.maxKb ?? 0,
+              ),
+              AttachmentUploadFailedException(:final code?) => tr.uploadFailed(code: '$code'),
+              _ => tr.uploadFailed(code: ''),
+            });
+          },
+          (aid) {
+            _attachNew.add(aid);
+            bbcodeController.insertTextAtCursor('${attachmentImageBBCode(aid)}\n');
+          },
+        );
+      }
+    } finally {
+      discardSharedFiles(paths);
+      if (mounted) {
+        setState(() => _uploadingSharedImages = false);
+        if (failures.length == 1) {
+          showSnackBar(context: context, message: failures.single);
+        } else if (failures.length > 1) {
+          showSnackBar(
+            context: context,
+            message: tr.uploadFailedCount(count: failures.length),
+          );
+        }
+      }
+    }
   }
 
   /// Continue this new thread or this edit on the website.
@@ -658,6 +748,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }) async {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
+    // Shared images still going up: sent now, the post would miss them and the rest would be uploaded for nothing.
+    if (_uploadingSharedImages) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
     if (_waitingSeconds > 0) return;
     final issue = _formIssue(context, state.content!);
@@ -763,6 +855,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           ),
           verification: verification,
           draftKey: _draftKey?.value,
+          // Only the uploads the post still shows; one the member deleted from it is left unused.
+          attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
         ),
       };
       if (saveDraft) {
@@ -1229,6 +1323,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       }
       _loadedBody = bbcodeController.toForumBBCode();
       initialized = true;
+      final shared = widget.sharedImages;
+      if (!_sharedImagesTaken && shared != null && shared.isNotEmpty && widget.editType == PostEditType.newThread) {
+        _sharedImagesTaken = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _uploadSharedImages(state, shared));
+      }
     }
 
     // Title fields and the writing area stay at a readable width on wide windows; the bars under them keep the full
@@ -1253,6 +1352,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       ),
                     ),
             ),
+            if (_uploadingSharedImages) const LinearProgressIndicator(minHeight: 2),
             Padding(padding: horizontal.add(edgeInsetsT12), child: _buildTitleRow(context, state)),
             // Post data editor.
             // Now we don't restrict the thread type and thread title, so it's better to focus on content area.
@@ -1293,10 +1393,21 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   Future<void> _onListen(BuildContext context, PostEditState state) async {
     _bodyCounted = state.content?.messageLimits != null;
+    final shared = widget.sharedImages;
+    if (!_sharedImagesTaken &&
+        shared != null &&
+        shared.isNotEmpty &&
+        (state.status == PostEditStatus.unsupported || state.status == PostEditStatus.verificationRequired)) {
+      // The editor never opens here: the shared images cannot be uploaded; the text stays to copy.
+      _sharedImagesTaken = true;
+      discardSharedFiles(shared);
+      showSnackBar(context: context, message: context.t.shareReceive.uploadUnavailable);
+    }
     if (state.status == PostEditStatus.identityChanged) {
       // What was written stays the draft of the account it was written for; nothing goes to the next one.
       _stopDraft(delete: false);
       _transfer = null;
+      _attachNew.clear();
       threadTitleController.clear();
       threadTypeController.clear();
       bbcodeController.setDocumentFromRawText('');
@@ -1498,6 +1609,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   @override
   void dispose() {
     _countdown?.cancel();
+    // Shared images never uploaded (the page was left before its form came): their copies go.
+    if (!_sharedImagesTaken && widget.sharedImages != null) {
+      discardSharedFiles(widget.sharedImages!);
+    }
     // What is not sent is kept on this device before the editor goes.
     _drafts.dispose();
     bbcodeController.dispose();
@@ -1574,7 +1689,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     ),
                   if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
                     IconButton(
-                      onPressed: _confirming || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
+                      onPressed:
+                          _confirming ||
+                              _uploadingSharedImages ||
+                              _waitingSeconds > 0 ||
+                              !context.read<PostEditBloc>().canSubmit
                           ? null
                           : () async => _onFinish(context, state, saveDraft: true),
                       icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft
@@ -1594,7 +1713,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                         : _waitingSeconds > 0
                         ? Text('${_waitingSeconds}s', key: const ValueKey('post-edit-countdown'))
                         : const Icon(Icons.send),
-                    onPressed: _confirming || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
+                    onPressed:
+                        _confirming ||
+                            _uploadingSharedImages ||
+                            _waitingSeconds > 0 ||
+                            !context.read<PostEditBloc>().canSubmit
                         ? null
                         : () async => _onFinish(context, state),
                   ),

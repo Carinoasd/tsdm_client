@@ -386,6 +386,47 @@ final class NetClientProvider with LoggerMixin {
     mapException,
   );
 
+  /// Post the form [data] together with the [files] to url [path] as `multipart/form-data`: each file is a part named
+  /// by its key, sent as [MultipartFilePart.filename] with its content type.
+  ///
+  /// Sent as the website sends a file upload, without [tsdmAppJsonWriteQuery]: the forum's upload script
+  /// (`misc.php?mod=swfupload`) answers its own plain text, which the forum's app API leaves alone. Never sent twice
+  /// (single attempt, no redirect followed): an upload the server took once must not leave a second copy.
+  AsyncEither<Response<dynamic>> postMultipartFiles(
+    String path, {
+    required Map<String, String> data,
+    required Map<String, MultipartFilePart> files,
+    Map<String, String>? header,
+  }) => AsyncEither.tryCatch(
+    () async => _dio.post<dynamic>(
+      path,
+      options: _withAjaxHeader(
+        path,
+        Options(
+          headers: <String, String>{
+            HttpHeaders.contentTypeHeader: Headers.multipartFormDataContentType,
+          }.copyWith(header ?? {}),
+          validateStatus: (code) => code == 301 || code == 200,
+          followRedirects: false,
+          extra: {singleAttemptHttpRequestKey: true},
+        ),
+      ),
+      // The kotlin client takes a plain map, a file part as the map `MultipartFilePart.toChannelMap` builds.
+      data: isAndroid
+          ? <String, Object>{...data, for (final MapEntry(:key, :value) in files.entries) key: value.toChannelMap()}
+          : FormData.fromMap({
+              ...data,
+              for (final MapEntry(:key, :value) in files.entries)
+                key: await MultipartFile.fromFile(
+                  value.path,
+                  filename: value.filename,
+                  contentType: DioMediaType.parse(value.contentType),
+                ),
+            }),
+    ),
+    mapException,
+  );
+
   /// Download the file from url [path] and save to [savePath].
   AsyncVoidEither download(
     String path,
@@ -772,4 +813,23 @@ bool _startsWithTag(Uint8List data) {
     i++;
   }
   return i < data.length && data[i] == 0x3C;
+}
+
+/// A file sent as one part of a multipart form ([NetClientProvider.postMultipartFiles]): the file at [path], named
+/// [filename] in the part, with the media type [contentType] (`image/jpeg`).
+final class MultipartFilePart {
+  /// Constructor.
+  const MultipartFilePart({required this.path, required this.filename, required this.contentType});
+
+  /// Path of the file on this device.
+  final String path;
+
+  /// The file name the server sees.
+  final String filename;
+
+  /// Media type of the part.
+  final String contentType;
+
+  /// The part as the kotlin http client reads it (`HttpClient.postMultipart`).
+  Map<String, String> toChannelMap() => {'path': path, 'filename': filename, 'contentType': contentType};
 }

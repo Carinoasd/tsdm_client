@@ -201,10 +201,15 @@ final class PostFormEdits {
     this.price,
     this.options = const {},
     this.save,
+    this.attachNew = const [],
   });
 
   /// The post as it is posted (BBCode, mentions in the forum's format).
   final String message;
+
+  /// The attachments uploaded for this post while it was edited ([AttachmentUpload]), by `aid`: each is posted as
+  /// `attachnew[aid][description]` so the forum binds it to the post, as the web page does for a new upload.
+  final List<int> attachNew;
 
   /// The title, null to keep the served one.
   final String? subject;
@@ -225,6 +230,78 @@ final class PostFormEdits {
   /// `1` to save a draft (only when the form offers it, [PostForm.canSaveDraft]); anything else publishes with the
   /// served value.
   final String? save;
+}
+
+/// The forum's file upload for a post form (`attach.upload` of the forum's app API, plugin 3.0.0 and later): the url
+/// and the `uid` and `hash` the website's uploader posts (`swfconfig`), and what may go up.
+///
+/// The website posts the file as `Filedata` together with `uid` and `hash` to [url] with `type=image` added for an
+/// image, and reads the plain text answer `DISCUZUPLOAD|uid|error|aid|isimage|path|filename|…`.
+final class AttachmentUpload {
+  /// Constructor.
+  const AttachmentUpload({
+    required this.url,
+    required this.uid,
+    required this.hash,
+    required this.maxKb,
+    required this.image,
+    required this.imageExts,
+  });
+
+  /// The upload of a form's `attach.upload`, null when it names none or lacks what an upload needs (url, uid, hash).
+  static AttachmentUpload? fromJson(Object? json) {
+    final map = tsdmAppMap(json);
+    final url = draftForumUri(tsdmAppText(map['url']));
+    final uid = map['uid'];
+    final hash = tsdmAppText(map['hash']);
+    if (url == null || url.path != '/misc.php' || uid is! num || uid <= 0 || hash.isEmpty) {
+      return null;
+    }
+    final maxKb = map['max_kb'];
+    return AttachmentUpload(
+      url: url,
+      uid: uid.toInt(),
+      hash: hash,
+      maxKb: maxKb is num && maxKb > 0 ? maxKb.toInt() : null,
+      image: map['image'] == 1,
+      imageExts: tsdmAppText(map['image_exts'])
+          .split(';')
+          .map((e) => e.trim().replaceFirst(RegExp(r'^\*?\.'), '').toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  /// `misc.php?mod=swfupload&…&fid=N` on the forum host.
+  final Uri url;
+
+  /// The member uploading, posted as `uid`.
+  final int uid;
+
+  /// The upload hash of the member, posted as `hash`.
+  final String hash;
+
+  /// The largest file in KiB (`max_kb`), null when the forum names none.
+  final int? maxKb;
+
+  /// Whether images may go up (`image`: the member's group allows image attachments).
+  final bool image;
+
+  /// The image extensions the forum takes (`image_exts`: `*.jpg;*.jpeg;*.gif;*.png`), without dot, lower case.
+  final List<String> imageExts;
+
+  /// The url an image is posted to: [url] with `type=image`, as the website's image uploader does.
+  Uri get imageUrl => url.replace(queryParameters: {...url.queryParameters, 'type': 'image'});
+
+  /// Whether the forum takes an image file named [filename], by its extension; any when the forum names none.
+  bool acceptsImage(String filename) {
+    final dot = filename.lastIndexOf('.');
+    final ext = dot < 0 ? '' : filename.substring(dot + 1).toLowerCase();
+    return imageExts.isEmpty || imageExts.contains(ext);
+  }
+
+  /// The fields the upload posts beside the file.
+  Map<String, String> get fields => {'uid': '$uid', 'hash': hash};
 }
 
 /// What the app's editors can do with a post form (plugin 2.9.0).
@@ -550,8 +627,15 @@ final class PostForm {
     if (edits.save == '1' && canSaveDraft) {
       body.set('save', '1');
     }
+    for (final aid in edits.attachNew) {
+      body.set('attachnew[$aid][description]', '');
+    }
     return body;
   }
+
+  /// The upload the forum offers for this form (`attach.upload`), null when the member may not upload here (no
+  /// permission, the day's quota used up, a plugin replacing the upload) or the answer is of a plugin before it.
+  AttachmentUpload? get attachmentUpload => AttachmentUpload.fromJson(_block('attach')?['upload']);
 
   /// What the app's editor of [expectedAction] (`newthread` for a new ordinary thread, `edit`, `reply`) can do with
   /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question without telling
