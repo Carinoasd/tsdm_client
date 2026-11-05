@@ -7,7 +7,9 @@
 ///    as they are until the app counted them in this run, then every change: the unread counts, a check-in recorded in
 ///    storage today (another account's or yesterday's does not count), a logout (cleared at once) and a login, an
 ///    account switch (the counts of the account before are not sent as the new one's); the same state is not sent
-///    twice, and nothing is sent where the widget does not exist.
+///    twice, and nothing is sent where the widget does not exist;
+/// 3. the check-in goes as its day, not a flag: an app open across midnight that checks in again sends the new day
+///    although "checked in" did not change, and the widget never takes the day from its own clock.
 library;
 
 import 'dart:async';
@@ -54,20 +56,20 @@ void main() {
   group('channel', () {
     test('the whole state goes in one update call', () async {
       const widget = HomeWidgetChannel(enabled: true);
-      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedIn: true);
-      await widget.update(uid: 7, notice: null, personalMessage: null, checkedIn: false);
+      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedInDay: '2026-11-05');
+      await widget.update(uid: 7, notice: null, personalMessage: null, checkedInDay: null);
       await widget.clear();
       expect(calls.map((c) => c.method), everyElement(HomeWidgetChannel.updateMethod));
       expect(sent(), [
-        {'uid': 7, 'notice': 3, 'personalMessage': 1, 'checkedIn': true},
-        {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedIn': false},
-        {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedIn': false},
+        {'uid': 7, 'notice': 3, 'personalMessage': 1, 'checkedInDay': '2026-11-05'},
+        {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedInDay': null},
+        {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedInDay': null},
       ]);
     });
 
     test('nothing on a platform without the widget', () async {
       const widget = HomeWidgetChannel(enabled: false);
-      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedIn: true);
+      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedInDay: '2026-11-05');
       await widget.clear();
       expect(calls, isEmpty);
       // The app's channel decides by the platform: the tests run on none of the mobile ones.
@@ -77,9 +79,9 @@ void main() {
     test('a missing or failing native side never throws', () async {
       const widget = HomeWidgetChannel(enabled: true);
       messenger.setMockMethodCallHandler(channel, null);
-      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedIn: true);
+      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedInDay: '2026-11-05');
       nativeSide(failure: PlatformException(code: 'boom'));
-      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedIn: true);
+      await widget.update(uid: 7, notice: 3, personalMessage: 1, checkedInDay: '2026-11-05');
       expect(calls, hasLength(1));
     });
   });
@@ -89,7 +91,8 @@ void main() {
     late StreamController<List<StoredAccount>> accounts;
     late StreamController<AuthStatus> auth;
     int? uid;
-    final now = DateTime(2026, 11, 5, 9);
+    var now = DateTime(2026, 11, 5, 9);
+    const today = '2026-11-05';
     const user = UserLoginInfo(username: 'a', uid: 7);
     const other = UserLoginInfo(username: 'b', uid: 8);
     const counts = NotificationStateInfo(notice: 2, personalMessage: 1, broadcastMessage: 5);
@@ -111,6 +114,7 @@ void main() {
       accounts = StreamController.broadcast();
       auth = StreamController.broadcast();
       uid = 7;
+      now = DateTime(2026, 11, 5, 9);
     });
     tearDown(() async {
       await unread.close();
@@ -128,19 +132,19 @@ void main() {
 
       accounts.add([stored(user, null)]);
       await pumpEventQueue();
-      expect(cubit.state, const HomeWidgetSnapshot(uid: 7, notice: null, personalMessage: null, checkedIn: false));
+      expect(cubit.state, const HomeWidgetSnapshot(uid: 7, notice: null, personalMessage: null, checkedInDay: null));
       expect(sent(), [
-        {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedIn': false},
+        {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedInDay': null},
       ]);
 
       unread.add(counts);
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedIn': false});
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': null});
 
       // The notice page read a notice; the broadcast messages are not on the widget.
       unread.add(const NotificationStateInfo(notice: 1, personalMessage: 1, broadcastMessage: 0));
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': 1, 'personalMessage': 1, 'checkedIn': false});
+      expect(sent().last, {'uid': 7, 'notice': 1, 'personalMessage': 1, 'checkedInDay': null});
 
       // The same counts again (another sync found nothing new): not sent twice.
       unread.add(const NotificationStateInfo(notice: 1, personalMessage: 1, broadcastMessage: 3));
@@ -162,24 +166,47 @@ void main() {
       accounts.add([stored(user, now.subtract(const Duration(days: 1))), stored(other, now)]);
       await pumpEventQueue();
       expect(sent(), [
-        {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedIn': false},
+        {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': null},
       ]);
 
       // A check-in of this account succeeded (or answered "already checked in"): recorded in storage.
       accounts.add([stored(user, now.subtract(const Duration(minutes: 1))), stored(other, now)]);
       await pumpEventQueue();
-      expect(cubit.state, const HomeWidgetSnapshot(uid: 7, notice: 2, personalMessage: 1, checkedIn: true));
-      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedIn': true});
+      expect(cubit.state, const HomeWidgetSnapshot(uid: 7, notice: 2, personalMessage: 1, checkedInDay: today));
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': today});
 
       // Switched to the other account, which checked in as well: the counts in hand are the first account's, the new
       // one's come with its sync.
       uid = 8;
       auth.add(const AuthStatusAuthed(other));
       await pumpEventQueue();
-      expect(sent().last, {'uid': 8, 'notice': null, 'personalMessage': null, 'checkedIn': true});
+      expect(sent().last, {'uid': 8, 'notice': null, 'personalMessage': null, 'checkedInDay': today});
       unread.add(const NotificationStateInfo(notice: 4, personalMessage: 0, broadcastMessage: 0));
       await pumpEventQueue();
-      expect(sent().last, {'uid': 8, 'notice': 4, 'personalMessage': 0, 'checkedIn': true});
+      expect(sent().last, {'uid': 8, 'notice': 4, 'personalMessage': 0, 'checkedInDay': today});
+    });
+
+    test('the next day: the check-in of the day before is over, the new one is sent as its own day', () async {
+      final cubit = build()..start();
+      addTearDown(cubit.close);
+      unread.add(counts);
+      accounts.add([stored(user, now)]);
+      await pumpEventQueue();
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': today});
+
+      // Past midnight, the app still open: the day watcher asks the check-in state again, storage answers the same
+      // rows (nothing changed in them), the widget is told yesterday's check-in is over.
+      now = DateTime(2026, 11, 6, 0, 0, 5);
+      accounts.add([stored(user, DateTime(2026, 11, 5, 9))]);
+      await pumpEventQueue();
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': null});
+
+      // The auto check-in of the new day: "checked in" again, a different day than the one sent before, so it goes.
+      now = DateTime(2026, 11, 6, 1, 1);
+      accounts.add([stored(user, DateTime(2026, 11, 6, 1, 0, 40))]);
+      await pumpEventQueue();
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': '2026-11-06'});
+      expect(HomeWidgetSyncCubit.isoDay(DateTime(2026, 1, 9, 23, 59)), '2026-01-09');
     });
 
     test('a logout clears the widget, a login fills it again', () async {
@@ -188,13 +215,13 @@ void main() {
       unread.add(counts);
       accounts.add([stored(user, now)]);
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedIn': true});
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': today});
 
       // The settings still name the account while the logout clears them: the status decides.
       auth.add(const AuthStatusNotAuthed());
       await pumpEventQueue();
       expect(cubit.state, HomeWidgetSnapshot.empty);
-      expect(sent().last, {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedIn': false});
+      expect(sent().last, {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedInDay': null});
 
       // Counts of nobody change nothing on the widget.
       unread.add(const NotificationStateInfo(notice: 9, personalMessage: 9, broadcastMessage: 9));
@@ -208,10 +235,10 @@ void main() {
       // Logged in again: the check-in of the day is still recorded, the counts are counted again.
       auth.add(const AuthStatusAuthed(user));
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedIn': true});
+      expect(sent().last, {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedInDay': today});
       unread.add(counts);
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedIn': true});
+      expect(sent().last, {'uid': 7, 'notice': 2, 'personalMessage': 1, 'checkedInDay': today});
     });
 
     test('no account at start: cleared once storage answered, until a login', () async {
@@ -221,12 +248,12 @@ void main() {
       accounts.add([]);
       await pumpEventQueue();
       expect(sent(), [
-        {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedIn': false},
+        {'uid': null, 'notice': 0, 'personalMessage': 0, 'checkedInDay': null},
       ]);
       uid = 7;
       auth.add(const AuthStatusAuthed(user));
       await pumpEventQueue();
-      expect(sent().last, {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedIn': false});
+      expect(sent().last, {'uid': 7, 'notice': null, 'personalMessage': null, 'checkedInDay': null});
     });
 
     test('nothing where the widget does not exist', () async {

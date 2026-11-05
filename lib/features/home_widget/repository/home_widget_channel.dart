@@ -27,15 +27,17 @@ final class HomeWidgetChannel with LoggerMixin {
   bool get enabled => _enabled ?? isAndroid;
 
   /// Tell the widget the state of the account in use: [uid] (null when no account is in use, the widget then shows no
-  /// counts), the unread [notice] and [personalMessage] counts and whether it [checkedIn] today.
+  /// counts), the unread [notice] and [personalMessage] counts and the day it checked in ([checkedInDay], ISO date,
+  /// null when not today).
   ///
   /// A null count leaves the one the widget shows as it is, when the widget shows the same account: the app has not
-  /// counted yet in this run, the background service may have.
+  /// counted yet in this run, the background service may have. The widget compares [checkedInDay] with the day it
+  /// draws on, so the check-in is over at midnight by itself.
   Future<void> update({
     required int? uid,
     required int? notice,
     required int? personalMessage,
-    required bool checkedIn,
+    required String? checkedInDay,
   }) async {
     if (!enabled) {
       return;
@@ -45,7 +47,7 @@ final class HomeWidgetChannel with LoggerMixin {
         'uid': uid,
         'notice': notice,
         'personalMessage': personalMessage,
-        'checkedIn': checkedIn,
+        'checkedInDay': checkedInDay,
       });
     } on MissingPluginException {
       // No native side on this engine.
@@ -55,5 +57,5 @@ final class HomeWidgetChannel with LoggerMixin {
   }
 
   /// No account in use: no counts, not checked in.
-  Future<void> clear() => update(uid: null, notice: 0, personalMessage: 0, checkedIn: false);
+  Future<void> clear() => update(uid: null, notice: 0, personalMessage: 0, checkedInDay: null);
 }

@@ -82,7 +82,8 @@ class HomeWidgetProvider : AppWidgetProvider() {
         /**
          * Start [MainActivity] with [data], the way a launcher shortcut does (`ACTION_MAIN` with the `tsdm://shortcut`
          * URI, see [ShortcutsHandler.shortcutIdOf]). `CLEAR_TOP` hands the intent to the activity already running
-         * (`singleTop`) instead of stacking another one above whatever it opened.
+         * (`singleTop`) instead of stacking another one above whatever it opened; an activity above it (a file picker,
+         * the share sheet, [InteractiveHtmlActivity]) is closed, as a tap meaning "go to the notices" should.
          */
         private fun open(context: Context, data: String, requestCode: Int): PendingIntent {
             val intent = Intent(Intent.ACTION_MAIN)

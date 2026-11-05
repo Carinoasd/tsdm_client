@@ -16,7 +16,10 @@ import org.json.JSONObject
  * the process lives, and stores the counts when they are the widget's account's ([HomeWidgetStore.writeCounts]).
  *
  * The pipe is the plugin's public static bus between its two engines; a plugin update that changes it fails this
- * file's compilation, not the widget at runtime.
+ * file's compilation, not the widget at runtime. Two things about it are relied on that its API does not state, to
+ * check at an update (flutter_background_service_android 6.3.1, `BackgroundService.java`, the `sendData` method):
+ * the payload is `{"method": <name>, "args": <map>}` as the Dart `invoke` sends it, and [onReceived] is called on the
+ * main thread (synchronously from the service engine's method channel handler), where the widget manager is used.
  */
 object HomeWidgetSyncListener : Pipe.PipeListener {
     private const val METHOD_SYNCED = "synced"

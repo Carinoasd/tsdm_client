@@ -17,11 +17,11 @@ final class HomeWidgetSnapshot {
     required this.uid,
     required this.notice,
     required this.personalMessage,
-    required this.checkedIn,
+    required this.checkedInDay,
   });
 
   /// No account in use.
-  static const empty = HomeWidgetSnapshot(uid: null, notice: 0, personalMessage: 0, checkedIn: false);
+  static const empty = HomeWidgetSnapshot(uid: null, notice: 0, personalMessage: 0, checkedInDay: null);
 
   /// The account in use, null when none.
   final int? uid;
@@ -32,8 +32,15 @@ final class HomeWidgetSnapshot {
   /// Unread personal messages; null like [notice].
   final int? personalMessage;
 
-  /// Whether the account checked in today, by the app's record.
-  final bool checkedIn;
+  /// The day the account checked in, by the app's record, when that is today (ISO date, device-local); null when it
+  /// has not checked in today.
+  ///
+  /// The day, not a flag: a check-in on the next day of an app that stayed open is a different snapshot, so it is
+  /// pushed although "checked in" did not change.
+  final String? checkedInDay;
+
+  /// Whether the account checked in today.
+  bool get checkedIn => checkedInDay != null;
 
   @override
   bool operator ==(Object other) =>
@@ -41,13 +48,14 @@ final class HomeWidgetSnapshot {
       other.uid == uid &&
       other.notice == notice &&
       other.personalMessage == personalMessage &&
-      other.checkedIn == checkedIn;
+      other.checkedInDay == checkedInDay;
 
   @override
-  int get hashCode => Object.hash(uid, notice, personalMessage, checkedIn);
+  int get hashCode => Object.hash(uid, notice, personalMessage, checkedInDay);
 
   @override
-  String toString() => 'HomeWidgetSnapshot(uid: $uid, notice: $notice, pm: $personalMessage, checkedIn: $checkedIn)';
+  String toString() =>
+      'HomeWidgetSnapshot(uid: $uid, notice: $notice, pm: $personalMessage, checkedInDay: $checkedInDay)';
 }
 
 /// Keeps the Android home screen widget in step with the app (Android only, see [HomeWidgetChannel]).
@@ -94,7 +102,12 @@ final class HomeWidgetSyncCubit extends Cubit<HomeWidgetSnapshot?> with LoggerMi
   /// of the account before are not the new one's).
   NotificationStateInfo? _unread;
 
-  /// The account the counts in [_unread] are of.
+  /// The account the counts in [_unread] are of: the account in use when they came.
+  ///
+  /// Counts of the account before that arrive after the switch would be taken as the new account's: nothing in the
+  /// counts tells their account. The sources check the account in use before they publish (`NotificationBloc` and
+  /// `BackgroundSyncBridgeCubit` compare the uid, the notice page the lists' owner), so this is unlikely, and the new
+  /// account's first sync corrects it.
   int? _unreadUid;
 
   /// The stored accounts, null until storage answered.
@@ -158,9 +171,15 @@ final class HomeWidgetSyncCubit extends Cubit<HomeWidgetSnapshot?> with LoggerMi
       uid: uid,
       notice: unread?.notice,
       personalMessage: unread?.personalMessage,
-      checkedIn: isCheckedInToday(lastCheckin, now: _now()),
+      checkedInDay: isCheckedInToday(lastCheckin, now: _now()) ? isoDay(lastCheckin!) : null,
     );
   }
+
+  /// The device-local day of [time] as the native side writes it (`LocalDate.toString()`): `yyyy-MM-dd`.
+  static String isoDay(DateTime time) =>
+      '${time.year.toString().padLeft(4, '0')}-'
+      '${time.month.toString().padLeft(2, '0')}-'
+      '${time.day.toString().padLeft(2, '0')}';
 
   void _push() {
     if (isClosed) {
@@ -172,12 +191,14 @@ final class HomeWidgetSyncCubit extends Cubit<HomeWidgetSnapshot?> with LoggerMi
     }
     emit(next);
     unawaited(
-      _channel.update(
-        uid: next.uid,
-        notice: next.notice,
-        personalMessage: next.personalMessage,
-        checkedIn: next.checkedIn,
-      ),
+      next.uid == null
+          ? _channel.clear()
+          : _channel.update(
+              uid: next.uid,
+              notice: next.notice,
+              personalMessage: next.personalMessage,
+              checkedInDay: next.checkedInDay,
+            ),
     );
   }
 

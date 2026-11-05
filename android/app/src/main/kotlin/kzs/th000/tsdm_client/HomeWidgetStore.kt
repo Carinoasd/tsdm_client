@@ -6,9 +6,9 @@ import java.time.LocalDate
 /**
  * What the home screen widget shows: the account in use and its unread counts, and the day it checked in.
  *
- * [checkedInDay] is the device-local day (ISO date) the app last told "checked in", null when it told "not checked
- * in": the widget compares it with today when it draws, so yesterday's check-in is over at midnight without the app
- * saying anything.
+ * [checkedInDay] is the device-local day (ISO date, `yyyy-MM-dd` like [LocalDate.toString]) of the check-in the app
+ * last told, null when it told "not checked in": the widget compares it with today when it draws, so yesterday's
+ * check-in is over at midnight without the app saying anything.
  */
 data class HomeWidgetState(
     val uid: Int?,
@@ -22,8 +22,6 @@ data class HomeWidgetState(
 
     companion object {
         val EMPTY = HomeWidgetState(uid = null, notice = 0, personalMessage = 0, checkedInDay = null)
-
-        fun today(): String = LocalDate.now().toString()
     }
 }
 
