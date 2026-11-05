@@ -328,7 +328,10 @@
     "title": "设置",
     "accountSection": {
       "title": "账号",
-      "mgmt": "管理账户"
+      "mgmt": "管理账户",
+      "crossDeviceSync": {
+        "title": "跨设备同步"
+      }
     },
     "appearanceSection": {
       "title": "外观",

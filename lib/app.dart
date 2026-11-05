@@ -52,6 +52,7 @@ import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/share_receive/share_receiver.dart';
 import 'package:tsdm_client/features/shortcuts/widgets/app_shortcuts_watcher.dart';
+import 'package:tsdm_client/features/sync/sync_coordinator.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
@@ -316,6 +317,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
         RepositoryProvider<UserBlockRepository>(
           create: (_) => UserBlockRepository(getIt.get<StorageProvider>()),
           dispose: (repo) async => repo.dispose(),
+        ),
+        // The reading progress, the quick phrases and the block list of the account kept on the forum for its other
+        // devices (plugin 3.4.0); not lazy, so the start pulls them.
+        RepositoryProvider<SyncCoordinator>(
+          create: (context) => SyncCoordinator.build(authentication: context.repo(), blocks: context.repo())..start(),
+          dispose: (coordinator) async => coordinator.dispose(),
+          lazy: false,
         ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(
@@ -732,6 +740,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             ),
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
+            const SyncResumeWatcher(),
             const AppShortcutsWatcher(),
           ],
         ),

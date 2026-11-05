@@ -245,6 +245,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// right).
   threadSwipePaging<bool>(name: 'threadSwipePaging', type: bool, defaultValue: false),
 
+  /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
+  /// take them back on every device the account logs in on. Off: nothing is read or written there.
+  crossDeviceSync<bool>(name: 'crossDeviceSync', type: bool, defaultValue: true),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',

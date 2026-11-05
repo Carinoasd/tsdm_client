@@ -328,7 +328,10 @@
     "title": "設定",
     "accountSection": {
       "title": "帳號",
-      "mgmt": "管理帳戶"
+      "mgmt": "管理帳戶",
+      "crossDeviceSync": {
+        "title": "跨裝置同步"
+      }
     },
     "appearanceSection": {
       "title": "外觀",

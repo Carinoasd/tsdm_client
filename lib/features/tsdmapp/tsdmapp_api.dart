@@ -161,6 +161,12 @@ abstract final class TsdmAppApi {
     Map<String, String> query = const {},
   ]) => _ask(client, action, query, waitBusy: true, tries: 3);
 
+  /// [askWaiting], and an older plugin's `{"ok":0,"error":"action"}` is given back instead of null: the caller tells
+  /// a plugin without the action apart from a failed request (the sync of plugin 3.4.0 switches itself off for a
+  /// while on the former).
+  static Future<Map<String, dynamic>?> askWaitingKeepingAction(NetClientProvider client, String action) =>
+      _ask(client, action, const {}, waitBusy: true, tries: 3, keepActionError: true);
+
   /// [ask], and an answer "too soon" of at most [maxWait] seconds is waited for and asked once more; a longer wait or
   /// a second "too soon" gives null, as [ask] does.
   ///
@@ -181,6 +187,7 @@ abstract final class TsdmAppApi {
     required bool waitBusy,
     required int tries,
     int maxWait = 10,
+    bool keepActionError = false,
   }) async {
     if (knownUnavailable) {
       return null;
@@ -211,7 +218,15 @@ abstract final class TsdmAppApi {
         await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
         // Another page or poller of the account may take the action again meanwhile: a few more waits, never the web
         // page of a plugin the parsers may not know any more.
-        return _ask(client, action, query, waitBusy: tries > 2, tries: tries - 1, maxWait: maxWait);
+        return _ask(
+          client,
+          action,
+          query,
+          waitBusy: tries > 2,
+          tries: tries - 1,
+          maxWait: maxWait,
+          keepActionError: keepActionError,
+        );
       }
     }
     switch (result) {
@@ -230,7 +245,7 @@ abstract final class TsdmAppApi {
           _unavailableUntil = DateTime.now().add(unavailableFor);
           return null;
         }
-        if (decoded['ok'] == 0 && decoded['error'] == 'action') {
+        if (decoded['ok'] == 0 && decoded['error'] == 'action' && !keepActionError) {
           // An older plugin without this action: not missing, just not for this question.
           return null;
         }
@@ -247,12 +262,23 @@ abstract final class TsdmAppApi {
   /// that tells nothing about the plugin. A failed request, HTTP 429 (`error: busy`), an older plugin without the
   /// action (`error: action`) and an API switched off (`error: off`) give null as well. The caller logs it and asks
   /// again on its next fetch.
-  static Future<Map<String, dynamic>?> post(NetClientProvider client, String action, Map<String, String> form) async {
+  ///
+  /// An answer with an HTTP status in [acceptStatus] is given back like a 200 (the `sync` action of plugin 3.4.0
+  /// answers a conflict as 409 and an oversized document as 413, each with its JSON); any other error status is a
+  /// failed request.
+  static Future<Map<String, dynamic>?> post(
+    NetClientProvider client,
+    String action,
+    Map<String, String> form, {
+    Set<int> acceptStatus = const {},
+  }) async {
     if (knownUnavailable) {
       return null;
     }
     // The plugin's own API answers JSON as it is: never asked for a write result.
-    switch (await client.postForm(url(action), data: form, singleAttempt: true, tsdmAppJson: false).run()) {
+    switch (await client
+        .postForm(url(action), data: form, singleAttempt: true, tsdmAppJson: false, acceptStatus: acceptStatus)
+        .run()) {
       case Left(:final value):
         talker.debug('tsdmapp api $action (post) failed: $value');
         return null;

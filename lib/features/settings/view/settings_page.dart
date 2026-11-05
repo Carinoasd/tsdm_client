@@ -160,6 +160,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-cross-device-sync'),
+          secondary: const Icon(Icons.sync_outlined),
+          title: Text(tr.crossDeviceSync.title),
+          value: state.settingsMap.crossDeviceSync,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.crossDeviceSync, v)),
+        ),
       ],
     );
   }
