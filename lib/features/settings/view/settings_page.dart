@@ -37,6 +37,7 @@ import 'package:tsdm_client/features/settings/widgets/backup_secrets_dialogs.dar
 import 'package:tsdm_client/features/settings/widgets/check_in_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/clear_cache_bottom_sheet.dart';
 import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/dark_schedule_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_family_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
@@ -48,6 +49,7 @@ import 'package:tsdm_client/features/settings/widgets/select_thread_open_positio
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
+import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -71,8 +73,11 @@ import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
 
-/// Width of the theme mode switch: three compact icon segments.
-const _themeSwitchWidth = 156.0;
+/// Width of the theme mode switch: four compact icon segments.
+const _themeSwitchWidth = 172.0;
+
+/// The value of the fourth segment of the theme mode switch, by time; the other three are the indexes of [ThemeMode].
+const _scheduledSegment = 3;
 
 /// Width of a settings row that is not text: side paddings (16 + 16), leading icon with its gap (24 + 16) and the gap
 /// before the trailing widget (16), plus a little slack.
@@ -155,10 +160,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildThemeModeTile(BuildContext context, int themeModeIndex) {
+  Widget _buildThemeModeTile(BuildContext context, int themeModeIndex, {required bool scheduled}) {
     final tr = context.t.settingsPage.appearanceSection;
     final title = tr.themeMode.title;
-    final subtitle = <String>[tr.themeMode.system, tr.themeMode.light, tr.themeMode.dark][themeModeIndex];
+    final selected = scheduled ? _scheduledSegment : themeModeIndex;
+    final subtitle = <String>[
+      tr.themeMode.system,
+      tr.themeMode.light,
+      tr.themeMode.dark,
+      tr.themeMode.scheduled,
+    ][selected];
     // Icons only: three labels do not fit a phone at a large text scale; each segment has a tooltip. Compact and of a
     // fixed width, so the row can tell whether the title still fits beside it.
     final themeSwitch = SizedBox(
@@ -168,6 +179,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         style: const ButtonStyle(
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          // Four icons: a little less room around each, so the row still fits beside the title on a 384dp phone.
+          padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
         ),
         segments: [
           ButtonSegment(
@@ -185,12 +198,31 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             icon: const Icon(Icons.dark_mode_outlined),
             tooltip: tr.themeMode.dark,
           ),
+          ButtonSegment(
+            value: _scheduledSegment,
+            icon: const Icon(Icons.schedule_outlined),
+            tooltip: tr.themeMode.scheduled,
+          ),
         ],
-        selected: {themeModeIndex},
+        selected: {selected},
         onSelectionChanged: (selection) {
-          final themeIndex = selection.first;
-          context.read<ThemeCubit>().setThemeModeIndex(themeIndex);
-          context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.themeMode, themeIndex));
+          final value = selection.first;
+          final cubit = context.read<ThemeCubit>();
+          final bloc = context.read<SettingsBloc>();
+          // By time is its own setting, the theme mode stays what it was: a backup of this version restored on an
+          // older one still has a theme mode the older one knows.
+          if (value == _scheduledSegment) {
+            cubit.setScheduled(scheduled: true);
+            bloc.add(const SettingsValueChanged(SettingsKeys.themeModeScheduled, true));
+            return;
+          }
+          cubit
+            ..setThemeModeIndex(value)
+            ..setScheduled(scheduled: false);
+          bloc.add(SettingsValueChanged(SettingsKeys.themeMode, value));
+          if (scheduled) {
+            bloc.add(const SettingsValueChanged(SettingsKeys.themeModeScheduled, false));
+          }
         },
       ),
     );
@@ -236,6 +268,25 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  /// The hours of the day the app is dark, shown under the theme mode while the clock decides it.
+  Widget _buildDarkScheduleTile(BuildContext context, DarkSchedule schedule) => SectionListTile(
+    key: const ValueKey('settings-dark-schedule'),
+    leading: const Icon(Icons.bedtime_outlined),
+    title: Text(context.t.settingsPage.appearanceSection.darkSchedule.title),
+    subtitle: Text(schedule.text),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () async {
+      final picked = await showDarkScheduleDialog(context, schedule);
+      if (picked == null || picked == schedule || !context.mounted) return;
+      context.read<ThemeCubit>().setSchedule(picked);
+      // Both at once: one notification of the settings, the page and the cubit see the new window once.
+      await getIt.get<SettingsRepository>().setValues<int>([
+        (SettingsKeys.darkScheduleStart, picked.start),
+        (SettingsKeys.darkScheduleEnd, picked.end),
+      ]);
+    },
+  );
+
   /// Pick the line height and the paragraph spacing of the post content ([ThreadContentLayoutDialog]) and save them.
   Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
     final picked = await showDialog<PostTypography>(
@@ -259,6 +310,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
     final localeName = locale == null ? tr.languages.followSystem : context.t.locale;
     final themeModeIndex = state.settingsMap.themeMode;
+    final themeModeScheduled = state.settingsMap.themeModeScheduled;
     final showForumCardShortcut = state.settingsMap.showShortcutInForumCard;
     final highRefreshRate = state.settingsMap.highRefreshRate;
     final accentColor = state.settingsMap.accentColor;
@@ -272,7 +324,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       title: tr.title,
       icon: Icons.palette_outlined,
       children: [
-        _buildThemeModeTile(context, themeModeIndex),
+        _buildThemeModeTile(context, themeModeIndex, scheduled: themeModeScheduled),
+        if (themeModeScheduled)
+          _buildDarkScheduleTile(
+            context,
+            DarkSchedule(start: state.settingsMap.darkScheduleStart, end: state.settingsMap.darkScheduleEnd),
+          ),
         SectionListTile(
           leading: const Icon(Icons.translate_outlined),
           title: Text(tr.languages.title),
