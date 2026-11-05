@@ -236,7 +236,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     // Anything thrown while drawing or encoding (a texture too large for the GPU still, an encoder error) is told, not
     // left unhandled: tried once more at the logical size before giving up.
     final first = shareFloorImagePixelRatioFor(boundary.size);
-    for (final pixelRatio in {first, math.min(1.0, first)}) {
+    for (final pixelRatio in {first, math.min(1, first)}) {
       try {
         return await renderShareFloorImage(boundary, pixelRatio: pixelRatio);
       } on Object catch (e, st) {
