@@ -175,6 +175,20 @@ void main() {
       expect(SyncDocument.isDeleted(SyncDocument.merge(b, gone).items('visits')['1']!), isFalse);
     });
 
+    test('a progress kept before it was timed fills in where the other side has none', () {
+      final mine = _doc({
+        'schema': 1,
+        'visits': {'1': _visitItem(100, floor: 50, progress: 0)},
+      });
+      final theirs = _doc({
+        'schema': 1,
+        'visits': {'1': _visitItem(200)},
+      });
+      final expected = _visitItem(200, floor: 50, progress: 0);
+      expect(SyncDocument.merge(mine, theirs).items('visits')['1'], expected);
+      expect(SyncDocument.merge(theirs, mine).items('visits')['1'], expected);
+    });
+
     test('equal timestamps keep the forum item', () {
       final local = _doc({
         'schema': 1,
@@ -817,6 +831,33 @@ void main() {
       expect(api.pushes, isEmpty, reason: 'the old account write never ran');
       // Nothing of the old account reached the new one.
       expect(store.visitsByUid[3001], isNull);
+    });
+
+    test('visiting a recorded thread again (nothing read further) schedules a write', () async {
+      await storage.updateThreadVisitHistory(
+        uid: _uid,
+        tid: 7,
+        fid: 2,
+        username: 'a',
+        threadTitle: 't',
+        forumName: 'f',
+        visitTime: DateTime(2026, 11, 1),
+      );
+      final c = coordinator()..start();
+      addTearDown(c.dispose);
+      await pumpEventQueue();
+      expect(c.repository.pushScheduled, isFalse, reason: 'the first value of the stream is the current state');
+      await storage.updateThreadVisitHistory(
+        uid: _uid,
+        tid: 7,
+        fid: 2,
+        username: 'a',
+        threadTitle: 't',
+        forumName: 'f',
+        visitTime: DateTime(2026, 11, 2),
+      );
+      await pumpEventQueue();
+      expect(c.repository.pushScheduled, isTrue);
     });
 
     test('with the setting off nothing is asked, switching it on pulls', () async {

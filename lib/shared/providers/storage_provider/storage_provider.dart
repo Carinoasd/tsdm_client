@@ -812,6 +812,10 @@ class StorageProvider with LoggerMixin {
   Stream<Map<int, ({int? page, int? pid, int? floor, int? seenReplies})>> watchThreadVisitProgress(int uid) =>
       ThreadVisitHistoryDao(_db).watchProgressByUid(uid);
 
+  /// An event whenever a visit record of user [uid] changes (added, removed, visited again, read further); the first
+  /// event is the current state.
+  Stream<void> watchThreadVisitChanges(int uid) => ThreadVisitHistoryDao(_db).watchChangesByUid(uid);
+
   /// Keep where user [uid] stopped reading thread [tid] on its visit record; nothing when the visit is not recorded.
   /// [progressUpdated] is when the progress was written (schema 18); absent, the stored time stays.
   Future<void> updateThreadVisitProgress({

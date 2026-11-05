@@ -121,7 +121,7 @@ final class SyncCoordinator with LoggerMixin {
       _visitsSub = null;
       if (uid != null) {
         var first = true;
-        _visitsSub = _storage.watchThreadVisitProgress(uid).listen(
+        _visitsSub = _storage.watchThreadVisitChanges(uid).listen(
           (_) {
             // The first value is the current state, not a change.
             if (first) {

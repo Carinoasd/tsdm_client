@@ -192,6 +192,10 @@ final class SyncDocument {
   /// The fields of a visit item that belong to its reading progress.
   static const progressFields = ['progress_updated', 'page', 'pid', 'floor', 'seen'];
 
+  /// Whether a visit [item] carries a reading progress.
+  static bool hasProgress(Map<String, dynamic> item) =>
+      item['page'] != null || item['pid'] != null || item['floor'] != null;
+
   /// Merge two visit items [a] (this device's) and [b] (the forum's) of the same thread: the visit (`updated`) and
   /// the progress (`progress_updated`) each from the side that wrote it later, ties to [b]. A deletion wins when it is
   /// later than both times of the live item, else the live item wins (visited again after the deletion).
@@ -207,7 +211,13 @@ final class SyncDocument {
       return stoneAt > liveAt || (stoneAt == liveAt && identical(stone, b)) ? stone : live;
     }
     final visit = updatedOf(a) > updatedOf(b) ? a : b;
-    final progress = progressUpdatedOf(a) > progressUpdatedOf(b) ? a : b;
+    // The same progress time on both (0: a progress kept before it was timed, or none): the side that has a
+    // progress, the forum's when both have.
+    final progress = switch (progressUpdatedOf(a).compareTo(progressUpdatedOf(b))) {
+      > 0 => a,
+      < 0 => b,
+      _ => hasProgress(b) || !hasProgress(a) ? b : a,
+    };
     if (identical(visit, progress)) {
       return visit;
     }

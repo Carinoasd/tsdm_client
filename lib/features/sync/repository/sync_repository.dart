@@ -471,7 +471,12 @@ final class SyncRepository with LoggerMixin {
       if (local == null || local.updated < visit.updated) {
         await _store.saveVisit(uid, visit);
       }
-      if (local == null || local.progressUpdated < visit.progressUpdated) {
+      // The same progress time (0: kept before it was timed): a progress fills in where this device has none.
+      final localHasProgress = local != null && (local.page != null || local.pid != null || local.floor != null);
+      final visitHasProgress = visit.page != null || visit.pid != null || visit.floor != null;
+      if (local == null ||
+          local.progressUpdated < visit.progressUpdated ||
+          (local.progressUpdated == visit.progressUpdated && !localHasProgress && visitHasProgress)) {
         await _store.saveProgress(uid, visit);
       }
     }
