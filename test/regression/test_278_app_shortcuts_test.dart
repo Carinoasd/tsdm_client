@@ -272,12 +272,16 @@ void main() {
       await expired.close();
     });
 
-    Future<ShortcutCheckinOutcome> run({Duration timeout = const Duration(seconds: 20)}) => startCheckinWhenVerified(
+    Future<ShortcutCheckinOutcome> run({
+      Duration timeout = const Duration(seconds: 20),
+      Duration grace = const Duration(milliseconds: 40),
+    }) => startCheckinWhenVerified(
       verified: () => verified,
       status: status.stream,
       expired: expired.stream,
       start: () => started++,
       timeout: timeout,
+      knownExpiryGrace: grace,
     );
 
     test('a verified session starts right away', () async {
@@ -299,13 +303,16 @@ void main() {
     });
 
     test('an expired session: not started, the login page is for the user', () async {
-      // Known from an earlier start: the storage tells it first thing.
+      // Known from an earlier start: the storage tells it first thing, and it answers after the grace.
       var outcome = run();
       expired.add(true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(started, 0);
+      expect(status.hasListener, isTrue);
       expect(await outcome, ShortcutCheckinOutcome.notAuthed);
       expect(started, 0);
 
-      // Found by the homepage's fetch while waiting.
+      // Found by the homepage's fetch while waiting: no grace.
       outcome = run();
       expired.add(false);
       await Future<void>.delayed(Duration.zero);
@@ -318,6 +325,24 @@ void main() {
       status.add(const AuthStatusNotAuthed());
       expect(await outcome, ShortcutCheckinOutcome.notAuthed);
       expect(started, 0);
+    });
+
+    test('a record of an earlier start may be wrong: a session verified within the grace is checked in', () async {
+      final outcome = run();
+      expired.add(true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      verified = true;
+      status.add(const AuthStatusAuthed(UserLoginInfo(username: 'u', uid: 1)));
+      expect(await outcome, ShortcutCheckinOutcome.started);
+      expect(started, 1);
+    });
+
+    test('a failing stream ends the wait like a timeout', () async {
+      final outcome = run();
+      expired.addError(StateError('db closed'));
+      expect(await outcome, ShortcutCheckinOutcome.timedOut);
+      expect(started, 0);
+      expect(status.hasListener, isFalse);
     });
 
     test('the answer ends the wait: nothing listens afterwards', () async {
