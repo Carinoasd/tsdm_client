@@ -18,7 +18,9 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
+import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
@@ -129,6 +131,7 @@ class PostEditPage extends StatefulWidget {
     required this.pid,
     this.pollOffered = false,
     this.transfer,
+    this.mentionSuggestions,
     super.key,
   });
 
@@ -139,6 +142,9 @@ class PostEditPage extends StatefulWidget {
 
   /// Subject and body carried over from the poll editor.
   final ThreadModeTransfer? transfer;
+
+  /// The authors of the thread a floor is edited from, suggested for a typed `@`; null when not opened from a thread.
+  final List<MentionSuggestion>? mentionSuggestions;
 
   /// Reason to enter [PostEditPage].
   ///
@@ -1255,7 +1261,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 padding: horizontal.add(const EdgeInsets.symmetric(vertical: 12)),
                 child: EditorFrame(
                   focusNode: focusNode,
-                  child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                  child: MentionSuggestionsScope(
+                    suggestions: widget.mentionSuggestions ?? const [],
+                    child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                  ),
                 ),
               ),
             ),

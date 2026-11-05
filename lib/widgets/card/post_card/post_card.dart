@@ -8,6 +8,8 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
@@ -489,10 +491,18 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         final onEdited = widget.onEdited;
         final postID = widget.post.postID;
         final page = widget.post.page;
+        // The thread's authors go along, for a typed `@` in the editor.
+        final self = context.readOrNull<AuthenticationRepository>()?.currentUser;
+        final mentionSuggestions = threadMentionSuggestions(
+          threadBloc.state.postList,
+          selfUid: self?.uid,
+          selfName: self?.username,
+        );
         final edited = await context.pushNamed<bool>(
           ScreenPaths.editPost,
           pathParameters: {'editType': '$editType', 'fid': '${url.queryParameters["fid"]}'},
           queryParameters: {'tid': '${url.queryParameters["tid"]}', 'pid': '${url.queryParameters["pid"]}'},
+          extra: mentionSuggestions,
         );
         if (!(edited ?? false)) {
           return;
