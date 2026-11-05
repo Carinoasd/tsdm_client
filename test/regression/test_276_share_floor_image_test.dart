@@ -41,7 +41,8 @@ import 'package:universal_html/parsing.dart';
 /// 2. the picture captured is 420 logical pixels wide at 2 pixels each, whatever the screen;
 /// 3. save and share wait until the pictures of the content are decoded, then share hands a PNG file of that width to
 ///    the share sheet;
-/// 4. a floor taller than the limit is cut there, with a fading mark, and the picture ends there;
+/// 4. a floor taller than the limit is cut there, with a fading mark, and the picture ends there; a picture under the
+///    cut is not waited for;
 /// 5. the surface follows the theme in use.
 ///
 /// Synthetic floors and pictures only: no network, nothing is sent.
@@ -355,6 +356,15 @@ void main() {
       expect(file.mimeType, 'image/png');
       expect(file.name, 'tsdm-floor-77983102.png');
       expect(_pngSize(File(file.path).readAsBytesSync()).width, 840);
+    });
+
+    testWidgets('a picture under the cut of a long floor is not waited for', (tester) async {
+      server.held[_a] = Completer<void>();
+      final long = List.generate(600, (i) => '<p>line $i of a very long floor</p>').join();
+      await pumpPage(tester, _post('$long<img src="$_a" />'));
+      await untilReady(tester);
+      expect(find.byKey(shareFloorImageTruncatedKey), findsOneWidget);
+      expect(server.held[_a]!.isCompleted, isFalse, reason: 'the picture never came, the buttons act regardless');
     });
 
     testWidgets('a floor without pictures is ready at once', (tester) async {

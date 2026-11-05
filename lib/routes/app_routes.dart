@@ -446,6 +446,8 @@ final List<RouteBase> _appRoutes = [
   ImageGalleryRoute(),
   AppRoute(
     path: ScreenPaths.shareFloorImage,
+    // Only opened from a floor's menu with the floor: nothing to render without it.
+    redirect: (_, state) => state.extra is ShareFloorImageArgs ? null : ScreenPaths.homepage,
     builder: (state) => ShareFloorImagePage(state.extra! as ShareFloorImageArgs),
   ),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),

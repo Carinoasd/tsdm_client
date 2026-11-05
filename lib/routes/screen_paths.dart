@@ -262,8 +262,8 @@ class ScreenPaths {
   static const String rateLog = '/rateLog/:tid/:pid';
 
   /// Page rendering one floor to an image to save or share, opened from the floor's menu with the floor as its extra
-  /// (`ShareFloorImageArgs`).
-  static const String shareFloorImage = '/shareFloorImage/:pid';
+  /// (`ShareFloorImageArgs`); without one (a link to the path) it goes to the homepage.
+  static const String shareFloorImage = '/shareFloorImage';
 
   /// Page to view and edit fast rate templates.
   static const String fastRateTemplate = '/fastRateTemplate/:pick';

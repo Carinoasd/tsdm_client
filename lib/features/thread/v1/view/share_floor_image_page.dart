@@ -29,9 +29,10 @@ const shareFloorImageWidth = 420.0;
 /// Pixels per logical pixel of the picture: 840 wide.
 const shareFloorImagePixelRatio = 2.0;
 
-/// The content is cut after this many logical pixels (12000 pixels tall at [shareFloorImagePixelRatio]): a floor of
-/// hundreds of pictures would not fit a texture, nor the memory of a phone, as one picture.
-const shareFloorImageMaxHeight = 6000.0;
+/// The content is cut after this many logical pixels: 8000 pixels tall at [shareFloorImagePixelRatio], within the
+/// 8192 a texture may be on the GPUs of older phones; a floor of hundreds of pictures would not fit one, nor the memory
+/// of a phone, as one picture.
+const shareFloorImageMaxHeight = 4000.0;
 
 /// The buttons are offered after this long even when a picture of the floor still loads (a host that never answers
 /// would keep them off for good).
@@ -77,13 +78,19 @@ String? shareFloorImageLink({required String pid, String? tid, String? shareLink
   return uri.replace(queryParameters: query.isEmpty ? null : query).toString();
 }
 
-/// Draw the floor on the surface above [boundary] into a PNG, [shareFloorImagePixelRatio] pixels per logical pixel.
-Future<Uint8List> renderShareFloorImage(RenderRepaintBoundary boundary) async {
-  final image = await boundary.toImage(pixelRatio: shareFloorImagePixelRatio);
+/// Draw the floor on the surface above [boundary] into a PNG, [pixelRatio] pixels per logical pixel
+/// ([shareFloorImagePixelRatio]).
+///
+/// Throws (an [Exception]) when the picture can not be drawn or encoded.
+Future<Uint8List> renderShareFloorImage(
+  RenderRepaintBoundary boundary, {
+  double pixelRatio = shareFloorImagePixelRatio,
+}) async {
+  final image = await boundary.toImage(pixelRatio: pixelRatio);
   try {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     if (data == null) {
-      throw StateError('the floor could not be encoded');
+      throw const FormatException('the floor could not be encoded');
     }
     return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
   } finally {
@@ -138,7 +145,8 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
   @override
   void initState() {
     super.initState();
-    _loads.addListener(_checkReady);
+    _loads.addListener(_onLoads);
+    WidgetsBinding.instance.addPostFrameCallback(_afterFrame);
     _timeout = Timer(shareFloorImageLoadTimeout, () {
       if (mounted && !_ready) {
         debug('share floor image: ${_loads.pending} pictures still loading, offering the buttons');
@@ -151,28 +159,58 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
   void dispose() {
     _timeout?.cancel();
     _loads
-      ..removeListener(_checkReady)
+      ..removeListener(_onLoads)
       ..dispose();
     super.dispose();
   }
 
-  /// After a frame: whether every picture built in it is settled, and whether the content was cut.
+  /// A picture settled (after the frame that told it): the layout may have changed with it, measured again.
+  void _onLoads() {
+    if (mounted) {
+      _afterFrame(Duration.zero);
+    }
+  }
+
+  /// After a frame: whether the content was cut, and whether every picture built in it is settled.
   void _afterFrame(Duration _) {
     if (!mounted) {
       return;
     }
-    _checkReady();
-    final box = _content.currentContext?.findRenderObject();
-    final truncated = box is RenderBox && box.hasSize && box.size.height > shareFloorImageMaxHeight;
+    final content = _content.currentContext?.findRenderObject();
+    final box = content is RenderBox && content.hasSize ? content : null;
+    final truncated = box != null && box.size.height > shareFloorImageMaxHeight;
     if (truncated != _truncated) {
       setState(() => _truncated = truncated);
     }
-  }
-
-  void _checkReady() {
-    if (mounted && !_ready && _loads.allSettled) {
+    if (_ready) {
+      return;
+    }
+    if (truncated) {
+      _releaseBelowCut(box);
+    }
+    if (_loads.allSettled) {
       setState(() => _ready = true);
     }
+  }
+
+  /// The pictures laid out under the cut are not in the picture: not waited for (they still load, the content is laid
+  /// out whole).
+  void _releaseBelowCut(RenderBox content) {
+    void visit(Element element) {
+      if (element.widget case final PostImage image) {
+        final box = element.renderObject;
+        if (box is RenderBox && box.hasSize && box.attached) {
+          final top = box.localToGlobal(Offset.zero, ancestor: content).dy;
+          if (top >= shareFloorImageMaxHeight) {
+            _loads.settle(image.image.floorUrl);
+          }
+        }
+        return;
+      }
+      element.visitChildElements(visit);
+    }
+
+    _content.currentContext?.visitChildElements(visit);
   }
 
   Future<Uint8List?> _render() async {
@@ -180,17 +218,22 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     if (boundary is! RenderRepaintBoundary) {
       return null;
     }
-    try {
-      return await renderShareFloorImage(boundary);
-    } on Exception catch (e, st) {
-      handleRaw(e, st);
-      return null;
+    // Anything thrown while drawing or encoding (a texture too large for the GPU, an encoder error) is told, not left
+    // unhandled: tried once more at the logical size before giving up.
+    for (final pixelRatio in [shareFloorImagePixelRatio, 1.0]) {
+      try {
+        return await renderShareFloorImage(boundary, pixelRatio: pixelRatio);
+      } on Object catch (e, st) {
+        handleRaw(e, st);
+      }
     }
+    return null;
   }
 
   String get _fileName => 'tsdm-floor-${_post.postID}.png';
 
-  Future<void> _run(Future<void> Function(Uint8List data) action) async {
+  /// Render, then [action] on the picture; [failed] is told when it could not be rendered.
+  Future<void> _run(Future<void> Function(Uint8List data) action, {required String Function() failed}) async {
     if (_busy) {
       return;
     }
@@ -199,7 +242,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
       final data = await _render();
       if (data == null) {
         if (mounted) {
-          showSnackBar(context: context, message: context.t.imageBottomSheet.failedToSaveImage);
+          showSnackBar(context: context, message: failed());
         }
         return;
       }
@@ -213,10 +256,19 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     }
   }
 
-  Future<void> _save() => _run((data) => saveImageBytes(context, data, fileName: _fileName));
+  Future<void> _save() => _run(
+    (data) => saveImageBytes(context, data, fileName: _fileName),
+    failed: () => context.t.imageBottomSheet.failedToSaveImage,
+  );
 
-  Future<void> _share(BuildContext buttonContext) =>
-      _run((data) => shareImageBytes(context, data, fileName: _fileName, origin: shareOriginOf(buttonContext)));
+  Future<void> _share(BuildContext buttonContext) {
+    // Where the sheet points from, taken while the button is surely there.
+    final origin = shareOriginOf(buttonContext);
+    return _run(
+      (data) => shareImageBytes(context, data, fileName: _fileName, origin: origin),
+      failed: () => context.t.imageBottomSheet.failedToShareImage,
+    );
+  }
 
   Widget _buildAvatar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -482,7 +534,6 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback(_afterFrame);
     return Scaffold(
       appBar: AppBar(title: Text(context.t.shareFloorImage.title)),
       body: Column(

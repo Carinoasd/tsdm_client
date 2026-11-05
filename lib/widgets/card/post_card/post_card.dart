@@ -518,7 +518,6 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         final thread = context.readOrNull<ThreadBloc>()?.state;
         await context.pushNamed(
           ScreenPaths.shareFloorImage,
-          pathParameters: {'pid': widget.post.postID},
           extra: ShareFloorImageArgs(
             post: widget.post,
             threadTitle: thread?.title,
