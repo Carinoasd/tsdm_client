@@ -77,7 +77,14 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// 0: [ThemeMode.system]
   /// 1: [ThemeMode.light]
   /// 2: [ThemeMode.dark]
+  /// 3: by the clock, dark from [darkScheduleStart] to [darkScheduleEnd] and light outside (`themeModeScheduled`)
   themeMode<int>(name: 'ThemeMode', type: int, defaultValue: 0),
+
+  /// Start of the dark hours of theme mode 3, minutes after midnight (22:00).
+  darkScheduleStart<int>(name: 'darkScheduleStart', type: int, defaultValue: 1320),
+
+  /// End of the dark hours of theme mode 3, minutes after midnight (07:00). Before the start it runs over midnight.
+  darkScheduleEnd<int>(name: 'darkScheduleEnd', type: int, defaultValue: 420),
 
   /// Locale
   ///

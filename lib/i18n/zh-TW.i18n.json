@@ -336,7 +336,13 @@
         "title": "主題模式",
         "light": "淺色",
         "system": "跟隨系統",
-        "dark": "深色"
+        "dark": "深色",
+        "scheduled": "按時間"
+      },
+      "darkSchedule": {
+        "title": "深色時段",
+        "start": "開始",
+        "end": "結束"
       },
       "colorSchemeFollowSystem": {
         "title": "色調跟隨系統顏色",

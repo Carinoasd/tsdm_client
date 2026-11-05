@@ -163,6 +163,8 @@ final class SettingsRepository with LoggerMixin {
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       threadOpenPosition: s.extract(_SK.threadOpenPosition),
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
+      darkScheduleStart: s.extract(_SK.darkScheduleStart),
+      darkScheduleEnd: s.extract(_SK.darkScheduleEnd),
       textScaleFactor: s.extract(_SK.textScaleFactor),
       threadContentScale: s.extract(_SK.threadContentScale),
       threadContentLineHeight: s.extract(_SK.threadContentLineHeight),

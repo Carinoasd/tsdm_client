@@ -470,6 +470,9 @@ class DialogPaths {
 
   /// Dialog to select when the pictures of the posts load by themselves.
   static const String selectPostImageAutoLoad = '/dialog/selectPostImageAutoLoad';
+
+  /// Dialog to set the hours of the day the app is dark.
+  static const String darkSchedule = '/dialog/darkSchedule';
 }
 
 /// Route path for a screen.

@@ -336,7 +336,13 @@
         "title": "Theme Mode",
         "light": "Light",
         "system": "Follow System",
-        "dark": "Dark"
+        "dark": "Dark",
+        "scheduled": "By time"
+      },
+      "darkSchedule": {
+        "title": "Dark hours",
+        "start": "Start",
+        "end": "End"
       },
       "colorSchemeFollowSystem": {
         "title": "Color Follow System",
