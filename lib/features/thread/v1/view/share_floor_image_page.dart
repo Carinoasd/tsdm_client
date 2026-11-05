@@ -27,7 +27,8 @@ import 'package:tsdm_client/widgets/munched_html.dart';
 /// How wide the floor is rendered, in logical pixels: the same picture on every screen.
 const shareFloorImageWidth = 420.0;
 
-/// Pixels per logical pixel of the picture: 840 wide.
+/// Pixels per logical pixel of the picture: 840 wide, a little less when the canvas is too tall for it
+/// ([shareFloorImagePixelRatioFor]).
 const shareFloorImagePixelRatio = 2.0;
 
 /// The picture is never taller than this many pixels: a texture may be 8192 at most on the GPUs of older phones, and a
@@ -234,7 +235,8 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     }
     // Anything thrown while drawing or encoding (a texture too large for the GPU still, an encoder error) is told, not
     // left unhandled: tried once more at the logical size before giving up.
-    for (final pixelRatio in [shareFloorImagePixelRatioFor(boundary.size), 1.0]) {
+    final first = shareFloorImagePixelRatioFor(boundary.size);
+    for (final pixelRatio in {first, math.min(1.0, first)}) {
       try {
         return await renderShareFloorImage(boundary, pixelRatio: pixelRatio);
       } on Object catch (e, st) {

@@ -457,8 +457,11 @@ void main() {
 
       await pumpPage(tester, _post('<img src="$_tall" />$text'));
       await untilReady(tester);
-      await _settle(tester, until: () => find.byKey(shareFloorImageTruncatedKey).evaluate().isNotEmpty, rounds: 30);
-      expect(find.byKey(shareFloorImageTruncatedKey), findsOneWidget, reason: 'measured again after the picture');
+      expect(
+        find.byKey(shareFloorImageTruncatedKey),
+        findsOneWidget,
+        reason: 'measured again after the picture, before the buttons act',
+      );
     });
 
     testWidgets('a short floor shows no mark', (tester) async {
