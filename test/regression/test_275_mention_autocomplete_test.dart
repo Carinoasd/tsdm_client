@@ -1,10 +1,11 @@
 /// Typing `@` in the editor of a thread suggests the authors of the loaded floors, over the editor like the candidate
 /// row of a keyboard, filtered by what is typed on; a tap completes the `@` to the mention chip of the name.
 ///
-/// 1. the suggestions: every author once in order of appearance, the account in use and anonymous floors left out,
-///    two spellings the forum counts as one member (case, full-width letters) are one;
+/// 1. the suggestions: every author once in order of appearance, the account in use, blocked and anonymous floors
+///    left out, two spellings the forum counts as one member (case, full-width letters) are one;
 /// 2. the filter: contains, case and full-width letters do not matter, an empty query keeps everyone;
-/// 3. the `@` fragment of the caret: `@` at the start or after whitespace, the typed part up to the caret;
+/// 3. the `@` fragment of the caret: `@` (or the full-width `＠`) at the start or after whitespace, the typed part up to
+///    the caret;
 /// 4. the suggester over a controller: opens on a typed `@`, filters, picks (chip and a space), closes on a space, on
 ///    the caret leaving the fragment, on the focus going away; pasted text does not open it; without suggestions
 ///    nothing opens;
@@ -103,6 +104,15 @@ void main() {
       expect(threadMentionSuggestions(posts, selfUid: 1000, selfName: 'Me'), _three);
     });
 
+    test('a blocked author is not suggested, as the floors hide them', () {
+      final posts = [
+        _post('1', 'Alice', uid: '1001', avatar: 'https://example.com/a.jpg'),
+        _post('2', 'Bob', uid: '1002'),
+      ];
+      expect(threadMentionSuggestions(posts, hidden: (uid) => uid == '1002'), [_alice]);
+      expect(threadMentionSuggestions(posts, hidden: (uid) => true), isEmpty);
+    });
+
     test('the account in use is told by name when a floor carries no uid, a guest is nobody', () {
       final posts = [_post('1', 'me'), _post('2', 'Bob', uid: '1002'), _post('3', '匿名', uid: '1')];
       expect(threadMentionSuggestions(posts, selfName: 'ME'), [
@@ -135,6 +145,7 @@ void main() {
       expect(mentionFragmentAt('x\n@b', 4), (atOffset: 2, query: 'b'));
       expect(mentionFragmentAt('', 0), isNull);
       expect(mentionFragmentAt('ab', 5), isNull);
+      expect(mentionFragmentAt('hi ＠Al', 6), (atOffset: 3, query: 'Al'), reason: 'the full-width @ of an input method');
     });
   });
 
@@ -223,6 +234,11 @@ void main() {
       expect(suggester.isOpen, isFalse, reason: 'the caret left the fragment');
       controller.moveCursorToEnd();
       expect(suggester.isOpen, isFalse, reason: 'back in the fragment does not reopen: only a typed @ opens');
+      controller
+        ..updateSelection(const TextSelection.collapsed(offset: 0), ChangeSource.local)
+        ..replaceText(0, 0, 'y', null)
+        ..moveCursorToEnd();
+      expect(suggester.isOpen, isFalse, reason: 'a character typed elsewhere, then the caret moved after the old @');
 
       controller
         ..insertPlainText(' ')
@@ -231,7 +247,7 @@ void main() {
       node.unfocus();
       await tester.pump();
       expect(suggester.isOpen, isFalse);
-      expect(controller.toForumBBCode(), '@ x @al @ @', reason: 'the text stays as typed');
+      expect(controller.toForumBBCode(), 'y@ x @al @ @', reason: 'the text stays as typed');
     });
 
     testWidgets('without suggestions nothing opens, and they can arrive later', (tester) async {
@@ -253,6 +269,20 @@ void main() {
       expect(suggester.visible, [_bob], reason: 'the open bar follows the list');
       suggester.suggestions = const [];
       expect(suggester.isOpen, isFalse);
+    });
+
+    testWidgets('a full-width ＠ opens and is replaced as well', (tester) async {
+      await pumpFocus(tester);
+      final (controller, suggester, _) = attach(_three);
+      controller
+        ..insertPlainText('hi ')
+        ..insertPlainText('＠');
+      expect(suggester.visible, _three);
+      controller.insertPlainText('b');
+      expect(suggester.visible, [_bob]);
+      suggester.pick(_bob);
+      expect(controller.toForumBBCode(), 'hi [@]Bob[/@] ');
+      expect(controller.document.toPlainText(), isNot(contains('＠')));
     });
 
     testWidgets('a pick over a fragment that is gone does nothing', (tester) async {

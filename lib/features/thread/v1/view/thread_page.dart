@@ -1963,12 +1963,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
             // The content's text-scale override must not restore the outer status-bar padding.
             final body = Builder(builder: (bodyContext) => _buildBody(bodyContext, state, searchHits));
-            // The authors of the loaded floors, for a typed `@` in the reply bar (a bottom sheet of this scaffold).
+            // The authors of the loaded floors, for a typed `@` in the reply bar (a bottom sheet of this scaffold);
+            // a blocked author is not suggested, as the floors hide them.
             final self = context.read<AuthenticationRepository>().currentUser;
             final mentionSuggestions = threadMentionSuggestions(
               state.postList,
               selfUid: self?.uid,
               selfName: self?.username,
+              hidden: currentBlockList(context).hidesString,
             );
             // Only the scaffold follows the bar's animation: the same app bar and body widgets are laid out again,
             // not rebuilt.

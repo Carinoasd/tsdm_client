@@ -6,6 +6,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggester.dart';
+import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/utils/mention_trigger.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
@@ -84,6 +85,9 @@ class _RichEditorState extends State<RichEditor> {
   MentionTrigger? _trigger;
   MentionSuggester? _suggester;
 
+  /// Who the enclosing [MentionSuggestionsScope] suggests, read in [didChangeDependencies].
+  List<MentionSuggestion> _scopeSuggestions = const [];
+
   /// The suggestion bar lives in the overlay, following the editor; the portal is shown once and the bar itself is
   /// nothing while closed.
   final _suggestionPortal = OverlayPortalController();
@@ -101,6 +105,15 @@ class _RichEditorState extends State<RichEditor> {
     super.initState();
     _attachTrigger();
     _suggestionPortal.show();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Here, not in build: the suggester tells its bar in the overlay about a change, which must not happen while
+    // this widget builds.
+    _scopeSuggestions = MentionSuggestionsScope.maybeOf(context) ?? const [];
+    _suggester?.suggestions = _scopeSuggestions;
   }
 
   @override
@@ -128,7 +141,23 @@ class _RichEditorState extends State<RichEditor> {
       return;
     }
     _trigger = MentionTrigger(controller: widget.controller, focusNode: focusNode, pick: _pickMention)..attach();
-    _suggester = MentionSuggester(controller: widget.controller, focusNode: focusNode)..attach();
+    _suggester = MentionSuggester(controller: widget.controller, focusNode: focusNode)
+      ..suggestions = _scopeSuggestions
+      ..attach();
+  }
+
+  /// The editor changed size (the reply bar grew into the page, the keyboard came): the open bar follows once the
+  /// layout is done.
+  bool _onEditorResized(SizeChangedLayoutNotification _) {
+    final suggester = _suggester;
+    if (suggester != null && suggester.isOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          suggester.relayout();
+        }
+      });
+    }
+    return true;
   }
 
   /// Open the picker for the typed `@`, and give the focus (and the keyboard) back to the editor afterwards.
@@ -151,6 +180,8 @@ class _RichEditorState extends State<RichEditor> {
   Widget _buildSuggestionBar(BuildContext overlayContext, MentionSuggester suggester) => ListenableBuilder(
     listenable: suggester,
     builder: (context, _) {
+      // Laid out again when the screen turns or the keyboard moves the editor.
+      MediaQuery.of(overlayContext);
       if (!suggester.isOpen) {
         return const SizedBox.shrink();
       }
@@ -194,13 +225,17 @@ class _RichEditorState extends State<RichEditor> {
     if (suggester == null) {
       return editor;
     }
-    suggester.suggestions = MentionSuggestionsScope.maybeOf(context) ?? const [];
     return OverlayPortal(
       controller: _suggestionPortal,
       overlayChildBuilder: (overlayContext) => _buildSuggestionBar(overlayContext, suggester),
       child: CompositedTransformTarget(
         link: _editorLink,
-        child: KeyedSubtree(key: _editorKey, child: editor),
+        child: NotificationListener<SizeChangedLayoutNotification>(
+          onNotification: _onEditorResized,
+          child: SizeChangedLayoutNotifier(
+            child: KeyedSubtree(key: _editorKey, child: editor),
+          ),
+        ),
       ),
     );
   }

@@ -10,8 +10,9 @@ import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 /// opens when the document grew by exactly one character and the caret then sits right after an `@` that starts the
 /// text or follows whitespace ([mentionFragmentAt]), so `a@b` and pasted text do not open it. It stays open while the
 /// caret stays in that fragment, filtering the suggestions by what is typed after the `@`; a space, the caret leaving
-/// the fragment, a selection, the focus going away or no suggestion matching closes it. Without any [suggestions]
-/// (an editor outside a thread) nothing ever opens.
+/// the fragment, a selection or the focus going away closes it. While nobody matches what is typed the bar hides but
+/// the fragment is kept, so deleting back to a match shows it again. Without any [suggestions] (an editor outside a
+/// thread) nothing ever opens.
 ///
 /// [pick] replaces the `@` and what was typed by the mention chip of the name, followed by a space, the same chip the
 /// mention picker inserts (sent as the forum's `@` mention).
@@ -31,8 +32,8 @@ final class MentionSuggester extends ChangeNotifier {
   int _lastLength = 0;
   bool _attached = false;
 
-  /// Whether the last change grew the document by one character, see [_onChanged].
-  bool _typed = false;
+  /// Where an `@` the last change typed sits while the caret has not moved past it yet, see [_onChanged].
+  int? _typedAt;
 
   /// Everyone who can be suggested, in order; set from the thread being read.
   List<MentionSuggestion> get suggestions => _suggestions;
@@ -75,6 +76,13 @@ final class MentionSuggester extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Tell the bar the editor moved or changed size, so it is laid out again where the editor is now.
+  void relayout() {
+    if (isOpen) {
+      notifyListeners();
+    }
+  }
+
   /// Close the bar, keeping the text as typed.
   void dismiss() {
     _fragment = null;
@@ -92,7 +100,7 @@ final class MentionSuggester extends ChangeNotifier {
     final caret = controller.selection.baseOffset;
     final end = caret > fragment.atOffset ? caret : fragment.atOffset + 1;
     // The document may have changed under the bar; only replace the fragment that is still there.
-    if (fragment.atOffset >= text.length || text[fragment.atOffset] != '@' || end > text.length) {
+    if (fragment.atOffset >= text.length || !isMentionAt(text[fragment.atOffset]) || end > text.length) {
       _update();
       return;
     }
@@ -101,6 +109,7 @@ final class MentionSuggester extends ChangeNotifier {
       ..insertMention(suggestion.username)
       ..insertTextAtCursor(' ');
     _lastLength = controller.document.length;
+    _typedAt = null;
     _update();
   }
 
@@ -114,11 +123,8 @@ final class MentionSuggester extends ChangeNotifier {
     final length = controller.document.length;
     final delta = length - _lastLength;
     _lastLength = length;
-    // One character went in: the `@` may have been typed. The caret often moves in a change of its own right after
-    // the text (the controller's own inserts do that), so the check also runs on the next change that keeps the
-    // length.
-    final typed = delta == 1 || (delta == 0 && _typed);
-    _typed = delta == 1;
+    final typedAt = _typedAt;
+    _typedAt = null;
     if (_suggestions.isEmpty || controller.readOnly || !focusNode.hasFocus) {
       if (_fragment != null) {
         dismiss();
@@ -126,15 +132,24 @@ final class MentionSuggester extends ChangeNotifier {
       return;
     }
     final selection = controller.selection;
-    final fragment = selection.isValid && selection.isCollapsed
-        ? mentionFragmentAt(controller.document.toPlainText(), selection.baseOffset)
-        : null;
+    final text = controller.document.toPlainText();
+    final caret = selection.baseOffset;
+    final fragment = selection.isValid && selection.isCollapsed ? mentionFragmentAt(text, caret) : null;
     final open = _fragment;
     if (open == null) {
-      // Opens only on the `@` just typed.
-      if (typed && fragment != null && fragment.query.isEmpty) {
+      // Opens only on the `@` just typed: one character went in and the caret sits right after it. The controller's
+      // own inserts move the caret in a change of their own after the text, so an `@` found right at the caret is
+      // remembered and opens on the next change that keeps the length and lands the caret after it.
+      if (fragment != null && fragment.query.isEmpty && (delta == 1 || (delta == 0 && typedAt == fragment.atOffset))) {
         _fragment = fragment;
         _update();
+      } else if (delta == 1 &&
+          selection.isValid &&
+          selection.isCollapsed &&
+          caret < text.length &&
+          isMentionAt(text[caret]) &&
+          (caret == 0 || text[caret - 1].trim().isEmpty)) {
+        _typedAt = caret;
       }
       return;
     }

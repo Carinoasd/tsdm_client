@@ -9,6 +9,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -491,12 +492,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         final onEdited = widget.onEdited;
         final postID = widget.post.postID;
         final page = widget.post.page;
-        // The thread's authors go along, for a typed `@` in the editor.
+        // The thread's authors go along, for a typed `@` in the editor; not the blocked ones.
         final self = context.readOrNull<AuthenticationRepository>()?.currentUser;
         final mentionSuggestions = threadMentionSuggestions(
           threadBloc.state.postList,
           selfUid: self?.uid,
           selfName: self?.username,
+          hidden: currentBlockList(context, listen: false).hidesString,
         );
         final edited = await context.pushNamed<bool>(
           ScreenPaths.editPost,
