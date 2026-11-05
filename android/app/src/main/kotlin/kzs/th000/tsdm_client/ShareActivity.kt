@@ -25,16 +25,15 @@ class ShareActivity : Activity() {
         val replayed = savedInstanceState != null ||
             (received.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
         if (!replayed && ShareIntents.isShare(received)) {
+            // The copy keeps action, type, extras and clip data (the uri grants travel with the clip data and the
+            // grant flag). The sender's flags are replaced, not added to: NEW_DOCUMENT or MULTIPLE_TASK from a sender
+            // would open another task, the very thing this activity is for.
             val forward = Intent(received).apply {
                 setClass(this@ShareActivity, MainActivity::class.java)
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-                // The system keeps the grant of a forwarded uri only when it is in the clip data.
-                if (clipData == null && received.clipData != null) clipData = received.clipData
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
             try {
                 startActivity(forward)

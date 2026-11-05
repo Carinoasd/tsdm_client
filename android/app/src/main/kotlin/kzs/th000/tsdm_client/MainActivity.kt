@@ -192,7 +192,8 @@ class MainActivity: FlutterActivity() {
         if (ShareIntents.isShare(intent)) {
             val channel = shareChannel
             if (channel == null || !dartTakesShares) {
-                // Dart is not listening yet: keep it for its getInitialShare.
+                // Dart is not listening yet: keep it for its getInitialShare. Only the latest is kept: a second share
+                // within the seconds before Dart asks replaces the first (its images are cleaned up a day later).
                 initialShareIntent = intent
                 return
             }

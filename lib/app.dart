@@ -48,6 +48,7 @@ import 'package:tsdm_client/features/root/view/singleton.dart';
 import 'package:tsdm_client/features/session_expiry/cubit/session_expiry_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/share_receive/share_receiver.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
@@ -219,6 +220,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       _shareReceiver = ShareReceiver(
         onShare: (content) async {
           if (await waitForRootNavigatorContext() == null || !mounted) {
+            discardSharedFiles(content.imagePaths);
             return;
           }
           await dispatcher.dispatch(content);

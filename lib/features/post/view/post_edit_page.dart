@@ -744,6 +744,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }) async {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
+    // Shared images still going up: sent now, the post would miss them and the rest would be uploaded for nothing.
+    if (_uploadingSharedImages) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
     if (_waitingSeconds > 0) return;
     final issue = _formIssue(context, state.content!);
@@ -1683,7 +1685,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     ),
                   if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
                     IconButton(
-                      onPressed: _confirming || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
+                      onPressed:
+                          _confirming ||
+                              _uploadingSharedImages ||
+                              _waitingSeconds > 0 ||
+                              !context.read<PostEditBloc>().canSubmit
                           ? null
                           : () async => _onFinish(context, state, saveDraft: true),
                       icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft
@@ -1703,7 +1709,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                         : _waitingSeconds > 0
                         ? Text('${_waitingSeconds}s', key: const ValueKey('post-edit-countdown'))
                         : const Icon(Icons.send),
-                    onPressed: _confirming || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
+                    onPressed:
+                        _confirming ||
+                            _uploadingSharedImages ||
+                            _waitingSeconds > 0 ||
+                            !context.read<PostEditBloc>().canSubmit
                         ? null
                         : () async => _onFinish(context, state),
                   ),
