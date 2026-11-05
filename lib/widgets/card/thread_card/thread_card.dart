@@ -30,6 +30,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/quoted_text.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// An item of the info row: its icon, its text, and a highlighted text after it (the replies since the last visit).
@@ -99,17 +100,18 @@ class _CardLayout extends StatelessWidget {
       onTap: disableTap
           ? null
           : () async {
-              await context.pushNamed(
-                ScreenPaths.threadV1,
-                // pathParameters: {'id': threadID},
-                // FIXME: Query parameters are not recognized by v2 yet.
-                queryParameters: {
-                  'tid': threadID,
-                  'appBarTitle': title,
-                  'threadTypeName': threadType?.name,
-                  'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-                },
-              );
+              // FIXME: Query parameters are not recognized by v2 yet.
+              final query = {
+                'tid': threadID,
+                'appBarTitle': title,
+                'threadTypeName': threadType?.name,
+                'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+              };
+              // On the right of a wide list page, else as a page of its own.
+              if (openThreadInPane(context, query)) {
+                return;
+              }
+              await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
             },
       onAdaptiveContextTap: (tapPosition) async {
         // Get the position where the tap occurred.

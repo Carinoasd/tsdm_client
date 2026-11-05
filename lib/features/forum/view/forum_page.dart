@@ -33,6 +33,7 @@ import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
 import 'package:tsdm_client/widgets/post_layout_html.dart';
 import 'package:tsdm_client/widgets/scroll_travel.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 const _tabsCount = 3;
 const _pinnedTabIndex = 0;
@@ -584,8 +585,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     // The threads, sub forums and actions shown are the ones the account in use may see: loaded again for another
-    // account.
-    return AccountReloadScope(child: _buildPage(context));
+    // account. A wide window shows the thread tapped on the right of the list.
+    return TwoPaneLayout(list: AccountReloadScope(child: _buildPage(context)));
   }
 
   /// The page, under the [AccountReloadScope] of [build].

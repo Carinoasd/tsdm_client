@@ -130,6 +130,8 @@ void main() {
         ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter())),
       );
     await settings.init();
+    // The cards are measured across the whole window: without the detail pane the wide windows get (test 281).
+    await settings.setValue(SettingsKeys.twoPaneLayout, false);
     auth = AuthenticationRepository();
   });
   tearDown(() async {

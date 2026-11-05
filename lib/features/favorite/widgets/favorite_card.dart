@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Card of one favorite record (thread or forum): kind icon, title, time pill, optional note and a remove button.
 class FavoriteCard extends StatelessWidget {
@@ -15,17 +16,26 @@ class FavoriteCard extends StatelessWidget {
   /// Record to show.
   final FavoriteItem item;
 
-  Future<void> _open(BuildContext context) async => switch (item) {
-    FavoriteThread(:final tid, :final title) => context.pushNamed(
-      ScreenPaths.threadV1,
-      queryParameters: {'tid': tid, 'appBarTitle': title},
-    ),
-    FavoriteForum(:final fid, :final title) => context.pushNamed(
-      ScreenPaths.forum,
-      pathParameters: {'fid': fid},
-      queryParameters: {'appBarTitle': title},
-    ),
-  };
+  Future<void> _open(BuildContext context) async {
+    // A thread opens on the right of the wide favorites page, else as a page of its own.
+    if (item case FavoriteThread(
+      :final tid,
+      :final title,
+    ) when openThreadInPane(context, {'tid': tid, 'appBarTitle': title})) {
+      return;
+    }
+    await switch (item) {
+      FavoriteThread(:final tid, :final title) => context.pushNamed(
+        ScreenPaths.threadV1,
+        queryParameters: {'tid': tid, 'appBarTitle': title},
+      ),
+      FavoriteForum(:final fid, :final title) => context.pushNamed(
+        ScreenPaths.forum,
+        pathParameters: {'fid': fid},
+        queryParameters: {'appBarTitle': title},
+      ),
+    };
+  }
 
   /// Called when the user asks to remove this record.
   final VoidCallback onRemove;

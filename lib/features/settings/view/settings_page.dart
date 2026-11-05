@@ -488,6 +488,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-two-pane-layout'),
+          secondary: const Icon(Icons.vertical_split_outlined),
+          title: Text(tr.twoPaneLayout.title),
+          value: state.settingsMap.twoPaneLayout,
+          onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.twoPaneLayout, v)),
+        ),
         if (isAndroid)
           SectionSwitchListTile(
             secondary: const Icon(Icons.speed_outlined),

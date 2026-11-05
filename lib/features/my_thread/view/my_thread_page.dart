@@ -13,6 +13,7 @@ import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Page to show the threads and replies published by current logged user.
 class MyThreadPage extends StatefulWidget {
@@ -156,6 +157,12 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    // A wide window shows the thread tapped on the right of the list.
+    return TwoPaneLayout(list: _buildPage(context));
+  }
+
+  /// The page, under the [TwoPaneLayout] of [build].
+  Widget _buildPage(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         RepositoryProvider(create: (_) => MyThreadRepository()),

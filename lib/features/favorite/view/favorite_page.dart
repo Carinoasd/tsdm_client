@@ -15,6 +15,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Page listing what the current user added to favorites: a tab of threads (帖子) and a tab of forums (版块), like
 /// the web page `home.php?mod=space&do=favorite&type=thread|forum`.
@@ -27,6 +28,12 @@ class FavoritePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A wide window shows the thread tapped on the right of the list.
+    return TwoPaneLayout(list: _buildPage(context));
+  }
+
+  /// The page, under the [TwoPaneLayout] of [build].
+  Widget _buildPage(BuildContext context) {
     final tr = context.t.favoritePage;
     return DefaultTabController(
       length: FavoriteType.values.length,

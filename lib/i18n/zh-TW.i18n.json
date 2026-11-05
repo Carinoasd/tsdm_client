@@ -368,6 +368,9 @@
         "title": "版塊卡片顯示捷徑",
         "detail": "在版塊卡片上顯示跳到最新貼文和子版塊的按鈕"
       },
+      "twoPaneLayout": {
+        "title": "寬螢幕雙欄"
+      },
       "showUnreadInfoHint": {
         "title": "未讀取訊息提示",
         "detail": "有未讀訊息時訊息按鈕上顯示紅點或數量"

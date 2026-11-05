@@ -21,6 +21,7 @@ import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// The threads and the replies of another member ("TA的主题"), in the two tabs the forum's page has.
 ///
@@ -209,6 +210,12 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    // A wide window shows the thread tapped on the right of the list.
+    return TwoPaneLayout(list: _buildPage(context));
+  }
+
+  /// The page, under the [TwoPaneLayout] of [build].
+  Widget _buildPage(BuildContext context) {
     final tr = context.t.memberThreadPage;
     return BlocProvider.value(
       value: _cubit,
