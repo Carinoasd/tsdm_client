@@ -342,4 +342,39 @@ void main() {
       await db.close();
     });
   }
+
+  test('upgrade from 17 to 18 keeps the visits and their progress, when it was written not known yet', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(17);
+    schema.rawDatabase.execute(
+      'INSERT INTO thread_visit_history (uid, tid, username, thread_title, fid, forum_name, visit_time, last_page, '
+      "last_pid, last_floor, seen_replies) VALUES (1000, 1264975, 'Alice', 'title', 2, 'forum', 100, 3, 9, 27, 40)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 18);
+    final row = (await db.select(db.threadVisitHistory).get()).single;
+    expect((row.uid, row.tid, row.threadTitle, row.fid), (1000, 1264975, 'title', 2));
+    expect((row.lastPage, row.lastPid, row.lastFloor, row.seenReplies), (3, 9, 27, 40));
+    expect(row.progressUpdated, isNull);
+    await db.close();
+  });
+
+  test('the 17 to 18 step runs again safely when another connection already added the column', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(18);
+    schema.rawDatabase.execute('PRAGMA user_version = 17');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 18);
+    await db.close();
+  });
+
+  for (final from in [10, 15, 16]) {
+    test('upgrade from $from to 18 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 18);
+      await db.close();
+    });
+  }
 }

@@ -363,6 +363,37 @@ final class UserBlockRepository with LoggerMixin {
     return UserBlockResult.ok;
   });
 
+  /// Replace the list of [ownerUid] with [users] (the cross-device sync applying the merged list); entries this
+  /// version can not read are kept. Nothing is written when the list is the same already.
+  Future<UserBlockResult> replaceAll({required int? ownerUid, required List<BlockedUser> users}) =>
+      _serialized(() async {
+        if (ownerUid == null || ownerUid <= 0) {
+          return UserBlockResult.invalid;
+        }
+        final list = await load(ownerUid);
+        final next = <BlockedUser>[];
+        final seen = <int>{};
+        for (final user in users) {
+          if (user.uid > 0 && user.uid != ownerUid && seen.add(user.uid)) {
+            next.add(user);
+          }
+        }
+        next.sort((a, b) => b.blockedAt.compareTo(a.blockedAt));
+        final same =
+            next.length == list.users.length &&
+            Iterable<int>.generate(next.length).every(
+              (i) =>
+                  next[i].uid == list.users[i].uid &&
+                  next[i].username == list.users[i].username &&
+                  next[i].blockedAt == list.users[i].blockedAt,
+            );
+        if (same) {
+          return UserBlockResult.ok;
+        }
+        await _save(UserBlockList(ownerUid: ownerUid, users: next, unreadableEntries: list.unreadableEntries));
+        return UserBlockResult.ok;
+      });
+
   /// Dispose.
   Future<void> dispose() async {
     await _changes.close();

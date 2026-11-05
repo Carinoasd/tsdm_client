@@ -328,7 +328,10 @@
     "title": "Settings",
     "accountSection": {
       "title": "Account",
-      "mgmt": "Manage account"
+      "mgmt": "Manage account",
+      "crossDeviceSync": {
+        "title": "Sync across devices"
+      }
     },
     "appearanceSection": {
       "title": "Appearance",
