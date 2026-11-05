@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.51.1] - 2026-11-05
+
+### Fixed
+
+- 跨设备同步：全新安装后登录、或切换账号后，同步的读取与写入全部被当成「别的账号的请求」丢掉，要重启 App 才会同步；现在每次同步都以当前账号发出。
+
 ## [1.51.0] - 2026-11-05
 
 ### Added
