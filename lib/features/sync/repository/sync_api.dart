@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
 /// What the forum answered a read of the account's document.
@@ -95,27 +97,41 @@ final class SyncPushFailed extends SyncPushAnswer {
 
 /// The forum's `sync` action (plugin 3.4.0): one document per account, read with GET, written with POST.
 abstract interface class SyncApi {
-  /// Read the account's document.
-  Future<SyncPullAnswer> pull();
+  /// Read the document of account [uid].
+  Future<SyncPullAnswer> pull(int uid);
 
-  /// Write [data] as the account's document, when the forum's `updated` is still [baseUpdated].
-  Future<SyncPushAnswer> push({required String data, required int baseUpdated, required String formhash});
+  /// Write [data] as the document of account [uid], when the forum's `updated` is still [baseUpdated].
+  Future<SyncPushAnswer> push(int uid, {required String data, required int baseUpdated, required String formhash});
 }
 
 /// [SyncApi] on the forum's app API ([TsdmAppApi]).
+///
+/// The client of each call is built then, for the account the call is of. A client is bound to the account it was
+/// built for (`NetClientProvider`): built once at the start, it would stay the guest's or the previous account's and
+/// every call after a login or a switch be dropped as another account's. Built per call for the account synced, a
+/// call goes out as that account, and is dropped when the global cookie names another one meanwhile (a switch in the
+/// middle of a run).
 final class TsdmAppSyncApi implements SyncApi {
   /// Constructor.
-  const TsdmAppSyncApi(this._client);
+  ///
+  /// [buildClient] builds the client of a call for the account (the tests); the app builds one on the global cookie.
+  const TsdmAppSyncApi([NetClientProvider Function(int uid)? buildClient]) : _buildClient = buildClient ?? clientOf;
 
-  final NetClientProvider _client;
+  final NetClientProvider Function(int uid) _buildClient;
+
+  /// The app's client for account [uid]: on the global cookie, bound to that account ([dio] for the tests).
+  static NetClientProvider clientOf(int uid, {Dio? dio}) => NetClientProvider.build(
+    dio: dio,
+    userLoginInfo: UserLoginInfo(username: null, uid: uid),
+  );
 
   /// The action.
   static const action = 'sync';
 
   @override
-  Future<SyncPullAnswer> pull() async {
+  Future<SyncPullAnswer> pull(int uid) async {
     // Waits for a "too soon" answer: the read follows the notification poll at the start, on another action.
-    final json = await TsdmAppApi.askWaitingKeepingAction(_client, action);
+    final json = await TsdmAppApi.askWaitingKeepingAction(_buildClient(uid), action);
     if (json == null) {
       return const SyncPullFailed('no answer');
     }
@@ -140,9 +156,14 @@ final class TsdmAppSyncApi implements SyncApi {
   }
 
   @override
-  Future<SyncPushAnswer> push({required String data, required int baseUpdated, required String formhash}) async {
+  Future<SyncPushAnswer> push(
+    int uid, {
+    required String data,
+    required int baseUpdated,
+    required String formhash,
+  }) async {
     final json = await TsdmAppApi.post(
-      _client,
+      _buildClient(uid),
       action,
       {
         'formhash': formhash,

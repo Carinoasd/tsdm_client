@@ -232,7 +232,7 @@ final class SyncRepository with LoggerMixin {
     if (!_stillCurrent(uid)) {
       return SyncOutcome.accountChanged;
     }
-    return _readThenMerge(uid, await _api.pull());
+    return _readThenMerge(uid, await _api.pull(uid));
   }
 
   Future<SyncOutcome> _push(int uid) async {
@@ -250,7 +250,7 @@ final class SyncRepository with LoggerMixin {
     }
     // The write needs the form hash of the session: a read gives it, and tells whether another device wrote
     // meanwhile without a refused write.
-    return _readThenMerge(uid, await _api.pull());
+    return _readThenMerge(uid, await _api.pull(uid));
   }
 
   /// What a read [answer] of account [uid] leads to.
@@ -306,7 +306,7 @@ final class SyncRepository with LoggerMixin {
     if (!_stillCurrent(uid)) {
       return SyncOutcome.accountChanged;
     }
-    final answer = await _api.push(data: merged.encode(), baseUpdated: remoteUpdated, formhash: formhash);
+    final answer = await _api.push(uid, data: merged.encode(), baseUpdated: remoteUpdated, formhash: formhash);
     switch (answer) {
       case SyncPushed(:final updated):
         await _store.saveLastSynced(uid, merged.encode(), updated);

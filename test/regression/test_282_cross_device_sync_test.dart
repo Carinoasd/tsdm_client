@@ -49,7 +49,7 @@ final class _FakeApi implements SyncApi {
   int storedUpdated = 0;
 
   @override
-  Future<SyncPullAnswer> pull() async {
+  Future<SyncPullAnswer> pull(int uid) async {
     pulls.add(pulls.length);
     final answer = pullAnswer;
     return answer is SyncPulled
@@ -58,7 +58,12 @@ final class _FakeApi implements SyncApi {
   }
 
   @override
-  Future<SyncPushAnswer> push({required String data, required int baseUpdated, required String formhash}) async {
+  Future<SyncPushAnswer> push(
+    int uid, {
+    required String data,
+    required int baseUpdated,
+    required String formhash,
+  }) async {
     pushes.add((data: data, base: baseUpdated, formhash: formhash));
     final current = pullAnswer is SyncPulled ? (pullAnswer as SyncPulled).updated : storedUpdated;
     final answer = pushAnswers.isEmpty
