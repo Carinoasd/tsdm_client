@@ -16,19 +16,26 @@ class FavoriteCard extends StatelessWidget {
   /// Record to show.
   final FavoriteItem item;
 
-  Future<void> _open(BuildContext context) async => switch (item) {
-    // On the right of the wide favorites page, else as a page of its own.
-    FavoriteThread(:final tid, :final title) when openThreadInPane(context, {'tid': tid, 'appBarTitle': title}) => null,
-    FavoriteThread(:final tid, :final title) => context.pushNamed(
-      ScreenPaths.threadV1,
-      queryParameters: {'tid': tid, 'appBarTitle': title},
-    ),
-    FavoriteForum(:final fid, :final title) => context.pushNamed(
-      ScreenPaths.forum,
-      pathParameters: {'fid': fid},
-      queryParameters: {'appBarTitle': title},
-    ),
-  };
+  Future<void> _open(BuildContext context) async {
+    // A thread opens on the right of the wide favorites page, else as a page of its own.
+    if (item case FavoriteThread(
+      :final tid,
+      :final title,
+    ) when openThreadInPane(context, {'tid': tid, 'appBarTitle': title})) {
+      return;
+    }
+    await switch (item) {
+      FavoriteThread(:final tid, :final title) => context.pushNamed(
+        ScreenPaths.threadV1,
+        queryParameters: {'tid': tid, 'appBarTitle': title},
+      ),
+      FavoriteForum(:final fid, :final title) => context.pushNamed(
+        ScreenPaths.forum,
+        pathParameters: {'fid': fid},
+        queryParameters: {'appBarTitle': title},
+      ),
+    };
+  }
 
   /// Called when the user asks to remove this record.
   final VoidCallback onRemove;

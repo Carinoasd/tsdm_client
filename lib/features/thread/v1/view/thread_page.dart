@@ -1862,6 +1862,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
             final title = widget.title ?? state.title;
             final replied = isThreadReplied(context, state.tid ?? widget.threadID);
+            // In the detail pane of a list page: the page read, for the thread going on as a page of its own.
+            final pane = TwoPaneScope.detailOf(context);
+            if (state.status == ThreadStatus.success) {
+              pane?.rememberPage(tid: state.tid ?? widget.threadID, page: state.currentPage);
+            }
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {
               context.read<JumpPageCubit>().markLoading();
@@ -1901,7 +1906,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
             // In the detail pane of a list page the back button would close that page: none, or one taking the
             // thread opened above this one away.
-            final pane = TwoPaneScope.detailOf(context);
             final appBar = _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(

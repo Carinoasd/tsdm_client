@@ -76,6 +76,20 @@ class TwoPaneController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Keep [page] of thread [tid] as where the thread shown is read now, so the thread opened as a page of its own when
+  /// the window turns narrow starts there, not at its first page or the floor it was opened on. Nobody is told.
+  void rememberPage({required String? tid, required int page}) {
+    final top = _threads.lastOrNull;
+    if (top == null || tid == null) {
+      return;
+    }
+    top.query
+      ..['tid'] = tid
+      ..['pageNumber'] = '$page'
+      ..remove('pid')
+      ..remove('lastPost');
+  }
+
   /// Take the thread shown away; false when the pane was empty.
   bool pop() {
     if (_threads.isEmpty) {
@@ -113,7 +127,12 @@ class TwoPaneScope extends InheritedNotifier<TwoPaneController> {
   TwoPaneController get controller => notifier!;
 
   /// The scope of the pane [context] is in, null outside a two-pane layout (a page on its own, a narrow window).
+  ///
+  /// For a build: the caller is built again when the threads of the pane change. Event handlers use [readOf].
   static TwoPaneScope? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<TwoPaneScope>();
+
+  /// [maybeOf] without depending on the scope, for event handlers (a tap, a link opened).
+  static TwoPaneScope? readOf(BuildContext context) => context.getInheritedWidgetOfExactType<TwoPaneScope>();
 
   /// The controller of the panes when [context] is in the detail pane, null elsewhere.
   static TwoPaneController? detailOf(BuildContext context) {
@@ -126,7 +145,7 @@ class TwoPaneScope extends InheritedNotifier<TwoPaneController> {
 /// [context] is in: from the list it replaces what the pane shows, from the detail pane it goes on top. False when
 /// [context] is not in a two-pane layout, the caller then opens the thread as a page of its own.
 bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters) {
-  final scope = TwoPaneScope.maybeOf(context);
+  final scope = TwoPaneScope.readOf(context);
   if (scope == null) {
     return false;
   }
@@ -149,10 +168,14 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
 /// Tapping a thread in [list] shows it on the right ([openThreadInPane]); another tap replaces it. Inside the thread,
 /// a link to a thread opens above it on the right, everything else (a member, a forum, the editor) opens as a page of
 /// its own. The system back takes the thread on the right away first, then leaves the page. A window turning narrow
-/// (rotated, resized) with a thread on the right goes on reading it as a page of its own; a window turning wide
-/// changes the layout only, nothing moves into the pane.
+/// (rotated, resized) with a thread on the right goes on reading it as a page of its own, at the page read
+/// ([TwoPaneController.rememberPage]); while another page, a dialog or a sheet is above this one, the panes stay as
+/// they are until it is on top again, so the thread is not pushed above that page and the sheet keeps its floor. A
+/// window turning wide changes the layout only, nothing moves into the pane.
 ///
-/// Each pane sees a [MediaQuery] of its own width, with the side insets of its own edge only.
+/// Each pane sees a [MediaQuery] of its own width, with the side insets of its own edge only. The list pane has a
+/// [ScaffoldMessenger] of its own: the app's snack bars (shown through its root messenger) appear on the detail pane
+/// only, not on both.
 class TwoPaneLayout extends StatefulWidget {
   /// Constructor.
   const TwoPaneLayout({required this.list, super.key});
@@ -204,8 +227,10 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   @override
   Widget build(BuildContext context) {
     final list = KeyedSubtree(key: _listKey, child: widget.list);
-    if (!twoPaneEnabled(context)) {
-      final top = _controller.top;
+    final top = _controller.top;
+    // Built again when this page comes on top again (the page above it closed): the layout held meanwhile changes then.
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (!twoPaneEnabled(context) && (top == null || current)) {
       if (top != null) {
         // Narrow now, with a thread on the right: it goes on as a page of its own. Opened once this build is over,
         // the pane leaves the tree in this one.
@@ -231,7 +256,7 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
             child: TwoPaneScope(
               controller: _controller,
               side: TwoPaneSide.list,
-              child: _pane(list, left: true),
+              child: ScaffoldMessenger(child: _pane(list, left: true)),
             ),
           ),
           VerticalDivider(width: 1, thickness: 1, color: colorScheme.outlineVariant),
@@ -260,7 +285,8 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   }
 }
 
-/// The detail pane with nothing opened: a faint icon on the page's background.
+/// The detail pane with nothing opened: a faint icon on the page's background. A [Scaffold], so the app's snack bars
+/// have somewhere to show while nothing is opened.
 class TwoPaneEmptyDetail extends StatelessWidget {
   /// Constructor.
   const TwoPaneEmptyDetail({super.key});
@@ -268,9 +294,8 @@ class TwoPaneEmptyDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ColoredBox(
-      color: colorScheme.surface,
-      child: Center(
+    return Scaffold(
+      body: Center(
         child: ExcludeSemantics(
           child: Icon(Icons.article_outlined, size: 72, color: colorScheme.outlineVariant),
         ),

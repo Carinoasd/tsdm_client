@@ -5,8 +5,10 @@
 ///   right has no back button of its own, the empty pane shows an icon only;
 /// * the system back takes the thread on the right away first, then leaves the forum page;
 /// * a narrower window, or the setting off, pushes the thread as a page of its own, as before;
-/// * a window turning narrow with a thread on the right goes on reading it as a page of its own; turning the setting
-///   off does the same;
+/// * a window turning narrow with a thread on the right goes on reading it as a page of its own, at the page read;
+///   turning the setting off does the same; while another page is above the list page the panes stay until it is on
+///   top again;
+/// * the app's snack bars show once, on the detail pane;
 /// * inside the thread on the right, a link to a thread opens above it on the right (with a back button taking it
 ///   away again), a member opens as a page of its own.
 ///
@@ -42,7 +44,9 @@ import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -82,17 +86,20 @@ Map<String, dynamic> _fixture(String name) =>
 /// The forum (schema 2) with its threads as the fixture has them.
 Map<String, dynamic> _forum() => _fixture('forum_v2_fid2.json')..remove('document');
 
-/// The thread [tid] (schema 3): the fixture's thread under that id, its first floor saying which thread it is and
-/// linking to thread [_linkedTid] and to the member [_authorUid].
-Map<String, dynamic> _thread(int tid) {
+/// The thread [tid] (schema 3), one of three pages: the fixture's thread under that id, its first floor saying which
+/// thread and page it is and linking to thread [_linkedTid] and to the member [_authorUid].
+Map<String, dynamic> _thread(int tid, {int page = 1}) {
   final json = _fixture('thread_v3_plain.json')..remove('document');
   (json['thread'] as Map<String, dynamic>)
     ..['tid'] = tid
     ..['subject'] = 'thread $tid';
+  json
+    ..['page'] = page
+    ..['pages'] = 3;
   final first = (json['posts'] as List).cast<Map<String, dynamic>>().first;
   first['body_html'] =
       '<div class="t_fsz"><table cellspacing="0" cellpadding="0"><tr><td class="t_f" id="postmessage_${first['pid']}">'
-      '正文 $tid<br />'
+      '正文 $tid 第$page页<br />'
       '<a href="forum.php?mod=viewthread&amp;tid=$_linkedTid" target="_blank">看这个帖子</a><br />'
       '<a href="home.php?mod=space&amp;uid=$_authorUid" target="_blank">看作者</a>'
       '</td></tr></table></div>';
@@ -114,7 +121,10 @@ final class _ForumAdapter implements HttpClientAdapter {
     final q = uri.queryParameters;
     final json = switch (uri.pathSegments.lastOrNull) {
       'forum.php' when q['mod'] == 'forumdisplay' => _forum(),
-      'forum.php' when q['mod'] == 'viewthread' && q['tid'] != null => _thread(int.parse(q['tid']!)),
+      'forum.php' when q['mod'] == 'viewthread' && q['tid'] != null => _thread(
+        int.parse(q['tid']!),
+        page: int.tryParse(q['page'] ?? '') ?? 1,
+      ),
       _ => null,
     };
     if (json == null) {
@@ -483,6 +493,60 @@ void main() {
       await tester.binding.handlePopRoute();
       await _settle(tester, rounds: 4);
       expect(threadPage(tester).threadID, first);
+      await _finish(tester);
+    });
+
+    testWidgets('a window turning narrow with another page above waits for the list page to be on top again', (
+      tester,
+    ) async {
+      await app.pump(tester);
+      final tid = await tapCard(tester, 0);
+      unawaited(app.router.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '5'}));
+      await _settle(tester, rounds: 4);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.profile]);
+
+      tester.view.physicalSize = _narrow;
+      await _settle(tester, rounds: 4);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.profile], reason: 'nothing pushed above the profile');
+      expect(find.byType(ThreadPage, skipOffstage: false), findsOneWidget, reason: 'the pane is held meanwhile');
+
+      await tester.binding.handlePopRoute();
+      await _settle(tester, rounds: 6);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1], reason: 'on top again: a page of its own');
+      expect(threadPage(tester).threadID, tid);
+      await _finish(tester);
+    });
+
+    testWidgets('a window turning narrow goes on at the page read, not the first one', (tester) async {
+      await app.pump(tester);
+      final tid = await tapCard(tester, 0);
+      expect(find.textContaining('正文 $tid 第1页', findRichText: true), findsOneWidget);
+      BlocProvider.of<ThreadBloc>(tester.element(find.byType(PostList))).add(const ThreadJumpPageRequested(2));
+      await _settle(tester);
+      expect(find.textContaining('正文 $tid 第2页', findRichText: true), findsOneWidget);
+
+      tester.view.physicalSize = _narrow;
+      await _settle(tester, rounds: 6);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1]);
+      expect(threadPage(tester).threadID, tid);
+      expect(threadPage(tester).pageNumber, '2');
+      expect(find.textContaining('正文 $tid 第2页', findRichText: true), findsOneWidget);
+      await _finish(tester);
+    });
+
+    testWidgets('a snack bar shows once, on the detail pane', (tester) async {
+      await app.pump(tester);
+      snackbarKey.currentState!.showSnackBar(const SnackBar(content: Text('toast 1')));
+      await _settle(tester, rounds: 4);
+      expect(find.byType(SnackBar), findsOneWidget, reason: 'not one per pane');
+      expect(tester.getRect(find.byType(SnackBar)).left, greaterThanOrEqualTo(481));
+      await _settle(tester);
+
+      await tapCard(tester, 0);
+      snackbarKey.currentState!.showSnackBar(const SnackBar(content: Text('toast 2')));
+      await _settle(tester, rounds: 4);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(tester.getRect(find.byType(SnackBar)).left, greaterThanOrEqualTo(481));
       await _finish(tester);
     });
 
