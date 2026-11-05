@@ -34,7 +34,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -278,6 +278,27 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
           }
         }
         info('migrating database schema from 16 to 17... ok!');
+      },
+      from17To18: (m, schema) async {
+        info('migrating database schema from 17 to 18...');
+        // When the reading progress of a visit was written (the cross-device sync compares it). Added only when
+        // missing, see from13To14.
+        final existing = (await schema.database.customSelect('PRAGMA table_info(thread_visit_history)').get())
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        final column = schema.threadVisitHistory.progressUpdated;
+        if (!existing.contains(column.name)) {
+          try {
+            await m.addColumn(schema.threadVisitHistory, column);
+          } on Object catch (e) {
+            // Added by the other connection between the check and here.
+            if (!'$e'.contains('duplicate column name')) {
+              rethrow;
+            }
+            info('thread_visit_history.${column.name} added by another connection');
+          }
+        }
+        info('migrating database schema from 17 to 18... ok!');
       },
     ),
   );

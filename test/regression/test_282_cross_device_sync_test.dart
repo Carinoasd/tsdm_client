@@ -102,17 +102,26 @@ final class _Auth extends Fake implements AuthenticationRepository {
   Future<void> dispose() => _status.close();
 }
 
-SyncVisit _visit(int tid, int updated, {int? floor, String title = 't'}) =>
-    SyncVisit(tid: tid, title: title, fid: 7, forumName: 'f', updated: updated, floor: floor);
+/// A visit at [updated]; with a [floor] its progress, written at [progress] (the visit's time unless given).
+SyncVisit _visit(int tid, int updated, {int? floor, int? progress, String title = 't'}) => SyncVisit(
+  tid: tid,
+  title: title,
+  fid: 7,
+  forumName: 'f',
+  updated: updated,
+  progressUpdated: progress ?? (floor != null ? updated : 0),
+  floor: floor,
+);
 
 /// A document of [raw] (a plain call, so the literals need not be const).
 SyncDocument _doc(Map<String, dynamic> raw) => SyncDocument(raw);
 
-Map<String, dynamic> _visitItem(int updated, {int? floor, String title = 't'}) => {
+Map<String, dynamic> _visitItem(int updated, {int? floor, int? progress, String title = 't'}) => {
   'updated': updated,
   'title': title,
   'fid': 7,
   'forum': 'f',
+  'progress_updated': progress ?? (floor != null ? updated : 0),
   'floor': ?floor,
 };
 
@@ -142,6 +151,28 @@ void main() {
       expect(merged.items('visits')['1'], _visitItem(200, floor: 5));
       expect(merged.items('visits')['2'], _visitItem(300, floor: 7));
       expect(merged.items('visits')['3'], _visitItem(50));
+    });
+
+    test('a visit is two halves: the visit and the progress each from the side that wrote it later', () {
+      // B opened the thread (a newer visit, with the old progress), A read further before that.
+      final b = _doc({
+        'schema': 1,
+        'visits': {'1': _visitItem(300, floor: 10, progress: 100, title: 'renamed')},
+      });
+      final a = _doc({
+        'schema': 1,
+        'visits': {'1': _visitItem(200, floor: 50, progress: 250)},
+      });
+      final expected = _visitItem(300, floor: 50, progress: 250, title: 'renamed');
+      expect(SyncDocument.merge(a, b).items('visits')['1'], expected);
+      expect(SyncDocument.merge(b, a).items('visits')['1'], expected);
+      // A deletion later than both halves removes; a visit or a progress after it revives.
+      final gone = _doc({
+        'schema': 1,
+        'visits': {'1': SyncDocument.tombstone(260)},
+      });
+      expect(SyncDocument.isDeleted(SyncDocument.merge(a, gone).items('visits')['1']!), isTrue);
+      expect(SyncDocument.isDeleted(SyncDocument.merge(b, gone).items('visits')['1']!), isFalse);
     });
 
     test('equal timestamps keep the forum item', () {
@@ -329,7 +360,17 @@ void main() {
         const SyncBlock(uid: 77, username: 'x', updated: 500),
         const SyncBlock(uid: 78, username: 'y', updated: 600),
       ]);
-      expect(store.writes, unorderedEquals(['saveVisit 12', 'saveVisit 14', 'savePhrases', 'saveBlocks']));
+      expect(
+        store.writes,
+        unorderedEquals([
+          'saveVisit 12',
+          'saveProgress 12',
+          'saveVisit 14',
+          'saveProgress 14',
+          'savePhrases',
+          'saveBlocks',
+        ]),
+      );
       expect(store.lastByUid[_uid], (document: SyncDocument(remote).encode(), updated: 5));
     });
 
@@ -358,7 +399,7 @@ void main() {
       expect(doc['keep'], 'me');
       expect(store.visitsByUid[_uid]![14], _visit(14, 3000));
       expect(store.phraseList, ['mine']);
-      expect(store.writes, ['saveVisit 14']);
+      expect(store.writes, ['saveVisit 14', 'saveProgress 14']);
       expect(store.lastByUid[_uid]!.updated, 6);
     });
 
@@ -513,6 +554,25 @@ void main() {
       await r.dispose();
     });
 
+    test('opening a thread on the device that read less does not undo the progress of the other', () async {
+      // This device opened thread 12 just now (the visit is newer) but read only to floor 10 long ago; the forum has
+      // the other device's reading to floor 50, later than that.
+      store.visitsByUid[_uid] = {12: _visit(12, 9000, floor: 10, progress: 1000)};
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'visits': {'12': _visitItem(5000, floor: 50, progress: 7000)},
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.pushed);
+      // The other device's progress reached here, this device's visit reached the forum.
+      expect(store.visitsByUid[_uid]![12], _visit(12, 9000, floor: 50, progress: 7000));
+      expect(store.writes, ['saveProgress 12']);
+      expect(api.lastPushed['visits'], {'12': _visitItem(9000, floor: 50, progress: 7000)});
+    });
+
     test('the same time on both sides: this device keeps its own progress', () async {
       store.visitsByUid[_uid] = {12: _visit(12, 5000, floor: 30)};
       api.pullAnswer = SyncPulled(
@@ -652,6 +712,28 @@ void main() {
       );
       expect(await repo().pull(_uid), SyncOutcome.upToDate);
       expect(store.phraseList, ['z']);
+    });
+
+    test('a first sync that starts as a write unites the phrases too', () async {
+      store.phraseList = ['a'];
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'phrases': {
+            'updated': 900,
+            'items': ['b'],
+          },
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pushNow(_uid), SyncOutcome.pushed);
+      expect(store.phraseList, ['a', 'b']);
+      expect(store.phrasesUpdatedAt, now.millisecondsSinceEpoch);
+      expect(api.lastPushed['phrases'], {
+        'updated': now.millisecondsSinceEpoch,
+        'items': ['a', 'b'],
+      });
     });
 
     test('a document over the limit drops the oldest visits', () async {

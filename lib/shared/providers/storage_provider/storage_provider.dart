@@ -813,7 +813,7 @@ class StorageProvider with LoggerMixin {
       ThreadVisitHistoryDao(_db).watchProgressByUid(uid);
 
   /// Keep where user [uid] stopped reading thread [tid] on its visit record; nothing when the visit is not recorded.
-  /// With [visitTime] the record's time moves to it too.
+  /// [progressUpdated] is when the progress was written (schema 18); absent, the stored time stays.
   Future<void> updateThreadVisitProgress({
     required int uid,
     required int tid,
@@ -821,7 +821,7 @@ class StorageProvider with LoggerMixin {
     required int? pid,
     required int? floor,
     required int? seenReplies,
-    DateTime? visitTime,
+    DateTime? progressUpdated,
   }) async => ThreadVisitHistoryDao(_db).updateProgress(
     uid: uid,
     tid: tid,
@@ -829,7 +829,7 @@ class StorageProvider with LoggerMixin {
     pid: pid,
     floor: floor,
     seenReplies: seenReplies,
-    visitTime: visitTime,
+    progressUpdated: progressUpdated,
   );
 
   /// Delete thread visit history with [uid] and [tid].

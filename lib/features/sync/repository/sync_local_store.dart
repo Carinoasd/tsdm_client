@@ -21,6 +21,7 @@ final class SyncVisit {
     required this.fid,
     required this.forumName,
     required this.updated,
+    this.progressUpdated = 0,
     this.page,
     this.pid,
     this.floor,
@@ -41,6 +42,7 @@ final class SyncVisit {
       fid: fid.toInt(),
       forumName: item['forum'] is String ? item['forum'] as String : '',
       updated: intOf(item['updated']) ?? 0,
+      progressUpdated: intOf(item['progress_updated']) ?? 0,
       page: intOf(item['page']),
       pid: intOf(item['pid']),
       floor: intOf(item['floor']),
@@ -60,8 +62,12 @@ final class SyncVisit {
   /// Forum name.
   final String forumName;
 
-  /// The visit time (milliseconds since the epoch), the item's `updated`.
+  /// The visit time (milliseconds since the epoch), the item's `updated`: the time of the title and forum fields.
   final int updated;
+
+  /// When the progress fields were written (milliseconds), the item's `progress_updated`; 0 when not known (a
+  /// progress kept before schema 18).
+  final int progressUpdated;
 
   /// Where the reading stopped: the page.
   final int? page;
@@ -81,6 +87,7 @@ final class SyncVisit {
     'title': title,
     'fid': fid,
     'forum': forumName,
+    'progress_updated': progressUpdated,
     'page': ?page,
     'pid': ?pid,
     'floor': ?floor,
@@ -95,13 +102,14 @@ final class SyncVisit {
       other.fid == fid &&
       other.forumName == forumName &&
       other.updated == updated &&
+      other.progressUpdated == progressUpdated &&
       other.page == page &&
       other.pid == pid &&
       other.floor == floor &&
       other.seenReplies == seenReplies;
 
   @override
-  int get hashCode => Object.hash(tid, title, fid, forumName, updated, page, pid, floor, seenReplies);
+  int get hashCode => Object.hash(tid, title, fid, forumName, updated, progressUpdated, page, pid, floor, seenReplies);
 }
 
 /// A blocked user as the sync sees it.
@@ -145,8 +153,13 @@ abstract interface class SyncLocalStore {
   /// The visit records of account [uid].
   Future<List<SyncVisit>> visits(int uid);
 
-  /// Keep [visit] as a visit record of account [uid] (added or replaced, its progress with it).
+  /// Keep the visit of [visit] (title, forum, time) as a record of account [uid], added or replaced; the progress
+  /// columns of a record that exists stay.
   Future<void> saveVisit(int uid, SyncVisit visit);
+
+  /// Keep the progress of [visit] (page, pid, floor, seen replies, when written) on the record of account [uid];
+  /// nothing when the visit is not recorded.
+  Future<void> saveProgress(int uid, SyncVisit visit);
 
   /// Remove the visit record of thread [tid] of account [uid].
   Future<void> deleteVisit(int uid, int tid);
@@ -215,6 +228,7 @@ final class StorageSyncLocalStore implements SyncLocalStore {
             fid: row.fid,
             forumName: row.forumName,
             updated: row.visitTime.millisecondsSinceEpoch,
+            progressUpdated: row.progressUpdated?.millisecondsSinceEpoch ?? 0,
             page: row.lastPage,
             pid: row.lastPid,
             floor: row.lastFloor,
@@ -240,16 +254,18 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       forumName: visit.forumName,
       visitTime: DateTime.fromMillisecondsSinceEpoch(visit.updated),
     );
-    await _storage.updateThreadVisitProgress(
-      uid: uid,
-      tid: visit.tid,
-      page: visit.page,
-      pid: visit.pid,
-      floor: visit.floor,
-      seenReplies: visit.seenReplies,
-      visitTime: DateTime.fromMillisecondsSinceEpoch(visit.updated),
-    );
   }
+
+  @override
+  Future<void> saveProgress(int uid, SyncVisit visit) => _storage.updateThreadVisitProgress(
+    uid: uid,
+    tid: visit.tid,
+    page: visit.page,
+    pid: visit.pid,
+    floor: visit.floor,
+    seenReplies: visit.seenReplies,
+    progressUpdated: visit.progressUpdated > 0 ? DateTime.fromMillisecondsSinceEpoch(visit.progressUpdated) : null,
+  );
 
   @override
   Future<void> deleteVisit(int uid, int tid) => _storage.deleteThreadVisitHistory(uid: uid, tid: tid);
@@ -325,8 +341,49 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   @override
   Future<void> saveVisit(int uid, SyncVisit visit) async {
-    (visitsByUid[uid] ??= {})[visit.tid] = visit;
+    final old = (visitsByUid[uid] ??= {})[visit.tid];
+    visitsByUid[uid]![visit.tid] = old == null
+        ? SyncVisit(
+            tid: visit.tid,
+            title: visit.title,
+            fid: visit.fid,
+            forumName: visit.forumName,
+            updated: visit.updated,
+          )
+        : SyncVisit(
+            tid: visit.tid,
+            title: visit.title,
+            fid: visit.fid,
+            forumName: visit.forumName,
+            updated: visit.updated,
+            progressUpdated: old.progressUpdated,
+            page: old.page,
+            pid: old.pid,
+            floor: old.floor,
+            seenReplies: old.seenReplies,
+          );
     writes.add('saveVisit ${visit.tid}');
+  }
+
+  @override
+  Future<void> saveProgress(int uid, SyncVisit visit) async {
+    final old = visitsByUid[uid]?[visit.tid];
+    if (old == null) {
+      return;
+    }
+    visitsByUid[uid]![visit.tid] = SyncVisit(
+      tid: old.tid,
+      title: old.title,
+      fid: old.fid,
+      forumName: old.forumName,
+      updated: old.updated,
+      progressUpdated: visit.progressUpdated,
+      page: visit.page,
+      pid: visit.pid,
+      floor: visit.floor,
+      seenReplies: visit.seenReplies,
+    );
+    writes.add('saveProgress ${visit.tid}');
   }
 
   @override

@@ -42,8 +42,8 @@ final class StorageReadingProgressStore implements ReadingProgressStore {
     pid: progress.pid,
     floor: progress.floor,
     seenReplies: progress.seenReplies,
-    // The reading went on: the record's time is when it was last read, which the cross-device sync compares.
-    visitTime: DateTime.now(),
+    // When the progress was written: the cross-device sync tells the later progress by it.
+    progressUpdated: DateTime.now(),
   );
 }
 

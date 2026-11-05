@@ -114,7 +114,19 @@ final class SyncRepository with LoggerMixin {
     }
     _pullAskedAt = now;
     _pullAskedUid = uid;
-    return _run(() => _pull(uid));
+    return _run(() => _pull(uid)).then((outcome) {
+      // A pull that did not reach the forum does not count as asked: the next occasion asks again.
+      if (const {
+            SyncOutcome.failed,
+            SyncOutcome.notLoggedIn,
+            SyncOutcome.accountChanged,
+            SyncOutcome.disabled,
+          }.contains(outcome) &&
+          _pullAskedAt == now) {
+        _pullAskedAt = null;
+      }
+      return outcome;
+    });
   }
 
   /// Write the document of account [uid] after [debounce], once for a burst of changes; a later call restarts the
@@ -322,27 +334,30 @@ final class SyncRepository with LoggerMixin {
     }
   }
 
-  /// The first sync of a device that had quick phrases before the sync existed (never stamped) while the forum has
-  /// some too: the two lists are united here (this device's first, the forum's that it lacks after), so neither
-  /// device's phrases are lost; the union then counts as this device's change and is written back.
+  /// The first sync of a device (its quick phrases never stamped): a device that had phrases before the sync existed
+  /// while the forum has some too gets the two lists united (this device's first, the forum's that it lacks after),
+  /// so neither device's phrases are lost; the phrases are then stamped as this device's change of now (0 when it has
+  /// none: nothing to say), and the union is written back. Only here is the stamp first written: [_localDocument]
+  /// computes it without keeping it, so a first sync that starts as a write still unites.
   Future<void> _unitePhrasesOnFirstSync(SyncDocument remote) async {
     if (await _store.phrasesUpdated() != null) {
       return;
     }
-    final mine = await _store.phrases();
+    var mine = await _store.phrases();
     final theirs = remote.single('phrases');
-    if (mine.isEmpty || theirs == null) {
-      return;
+    if (mine.isNotEmpty && theirs != null) {
+      final items = [
+        for (final e in theirs['items'] is List ? theirs['items'] as List : const [])
+          if (e is String && e.trim().isNotEmpty) e,
+      ];
+      final union = [...mine, ...items.where((e) => !mine.contains(e))].take(syncPhrasesMax).toList();
+      if (!listEquals(union, mine)) {
+        info('sync: first sync, ${union.length - mine.length} quick phrases of the forum added to this device');
+        await _store.savePhrases(union);
+        mine = union;
+      }
     }
-    final items = [
-      for (final e in theirs['items'] is List ? theirs['items'] as List : const [])
-        if (e is String && e.trim().isNotEmpty) e,
-    ];
-    final union = [...mine, ...items.where((e) => !mine.contains(e))].take(syncPhrasesMax).toList();
-    if (!listEquals(union, mine)) {
-      info('sync: first sync, ${union.length - mine.length} quick phrases of the forum added to this device');
-      await _store.savePhrases(union);
-    }
+    await _store.savePhrasesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
   }
 
   /// This device's document of account [uid]: what it keeps, and the deletions since [base] (what the forum held last)
@@ -364,13 +379,10 @@ final class SyncRepository with LoggerMixin {
     }
     doc = doc.withItems('visits', visits);
 
-    // Phrases: one item; a device that never noted a change stamps its phrases now (it has some) or 0 (none).
+    // Phrases: one item; a device that never noted a change counts its phrases as of now (it has some) or 0 (none)
+    // without keeping the stamp (the first sync does, see _unitePhrasesOnFirstSync).
     final phrases = await _store.phrases();
-    var phrasesUpdated = await _store.phrasesUpdated();
-    if (phrasesUpdated == null) {
-      phrasesUpdated = phrases.isEmpty ? 0 : now;
-      await _store.savePhrasesUpdated(phrasesUpdated);
-    }
+    final phrasesUpdated = await _store.phrasesUpdated() ?? (phrases.isEmpty ? 0 : now);
     final basePhrases = base.single('phrases') ?? const <String, dynamic>{};
     // A device that never had phrases says nothing (the same as a forum without the section).
     doc = doc.withSingle(
@@ -443,7 +455,10 @@ final class SyncRepository with LoggerMixin {
       }
       final local = localVisits[tid];
       if (SyncDocument.isDeleted(item)) {
-        if (local != null && local.updated <= SyncDocument.updatedOf(item)) {
+        final localAt = local == null
+            ? 0
+            : (local.updated > local.progressUpdated ? local.updated : local.progressUpdated);
+        if (local != null && localAt <= SyncDocument.updatedOf(item)) {
           await _store.deleteVisit(uid, tid);
         }
         continue;
@@ -452,9 +467,12 @@ final class SyncRepository with LoggerMixin {
       if (visit == null) {
         continue;
       }
-      // The same time on both: this device's own progress stays (the forum's is not newer).
+      // Each half where the merge is later than this device's; the same time on both leaves this device's own.
       if (local == null || local.updated < visit.updated) {
         await _store.saveVisit(uid, visit);
+      }
+      if (local == null || local.progressUpdated < visit.progressUpdated) {
+        await _store.saveProgress(uid, visit);
       }
     }
 

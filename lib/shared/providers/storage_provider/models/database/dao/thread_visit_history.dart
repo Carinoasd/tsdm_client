@@ -53,8 +53,8 @@ final class ThreadVisitHistoryDao extends DatabaseAccessor<AppDatabase> with _$T
   }
 
   /// Keep where user [uid] stopped reading thread [tid] on its visit record; nothing when the visit is not recorded.
-  /// With [visitTime] the record's time moves to it too (the reading went on: the cross-device sync tells the later
-  /// progress by that time).
+  /// [progressUpdated] is when the progress was written (the cross-device sync tells the later progress by it);
+  /// absent, the stored time stays.
   Future<int> updateProgress({
     required int uid,
     required int tid,
@@ -62,14 +62,14 @@ final class ThreadVisitHistoryDao extends DatabaseAccessor<AppDatabase> with _$T
     required int? pid,
     required int? floor,
     required int? seenReplies,
-    DateTime? visitTime,
+    DateTime? progressUpdated,
   }) => (update(threadVisitHistory)..where((e) => e.uid.equals(uid) & e.tid.equals(tid))).write(
     ThreadVisitHistoryCompanion(
       lastPage: Value(page),
       lastPid: Value(pid),
       lastFloor: Value(floor),
       seenReplies: Value(seenReplies),
-      visitTime: Value.absentIfNull(visitTime),
+      progressUpdated: Value.absentIfNull(progressUpdated),
     ),
   );
 
