@@ -61,6 +61,7 @@ import 'package:tsdm_client/features/thread_visit_history/repository/thread_visi
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
@@ -595,6 +596,10 @@ void main() {
     handle.dispose();
   }
 
+  /// The tap target of the [avatar]: the box of the gesture detector around it.
+  Rect avatarTarget(WidgetTester tester, Finder avatar) =>
+      tester.getRect(find.ancestor(of: avatar, matching: find.byType(GestureDetector)).first);
+
   /// The floating buttons of a list: the text of the last row on screen may run under them, where it is covered,
   /// not low in contrast (the guideline reads the pixels of the button over the text).
   Finder floatingButtons() => find.byType(FloatingActionButton);
@@ -619,10 +624,33 @@ void main() {
     final mode = dark ? 'dark' : 'light';
 
     testWidgets('homepage, $mode', (tester) async {
-      await pump(tester, const HomepagePage(), dark: dark);
+      final opened = <Uri>[];
+      await pump(
+        tester,
+        const HomepagePage(),
+        dark: dark,
+        routes: [
+          GoRoute(
+            path: ScreenPaths.profile,
+            name: ScreenPaths.profile,
+            builder: (_, state) {
+              opened.add(state.uri);
+              return const Scaffold(body: Text('profile page'));
+            },
+          ),
+        ],
+      );
       await _settle(tester);
       expect(find.text('【活动】十月签到挑战赛开始报名'), findsOneWidget, reason: 'the pinned threads are on the page');
       await audit(tester);
+      // The whole 48 box of the avatar takes the tap: its end edge, past the circle, opens the user, not the thread
+      // of the row (the tile's own tap).
+      final avatar = avatarTarget(tester, find.byType(HeroUserAvatar).first);
+      expect(avatar.width, 48);
+      await tester.tapAt(Offset(avatar.right - 1, avatar.center.dy));
+      await _settle(tester);
+      expect(opened.map((e) => e.queryParameters['username']), ['Carol']);
+      expect(find.text('profile page'), findsOneWidget);
       await unpump(tester);
     });
 
@@ -705,7 +733,10 @@ void main() {
         dark: dark,
       );
       await audit(tester, tapTargetExempt: [floorAuthorName(post.author.name)]);
-      await tester.tap(find.byType(HeroUserAvatar).first);
+      // The whole 48 box of the avatar takes the tap: a corner of it, outside the circle, opens the author card.
+      final avatar = avatarTarget(tester, find.byType(HeroUserAvatar).first);
+      expect(avatar.size, const Size(48, 48));
+      await tester.tapAt(avatar.topLeft + const Offset(1, 1));
       await _settle(tester, rounds: 12);
       expect(find.text(tr.postCard.profileDialog.tabName.info), findsOneWidget, reason: 'the dialog is open');
       await audit(tester);

@@ -28,8 +28,12 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
       // Set this value to make every group of section has the same height.
       minTileHeight: 72,
       // The avatar is a 48 wide tap target around the 40 wide circle, named after the user (the circle itself has
-      // nothing to read); the name opens the same page and is read as a link.
+      // nothing to read): the circle stays at the start, the target grows towards the title, and the title gap gives
+      // the 8 back so the texts stay where they were. The name opens the same page and is read as a link.
+      horizontalTitleGap: 2,
       leading: GestureDetector(
+        // The whole box takes the tap, not only the circle.
+        behavior: HitTestBehavior.opaque,
         child: Semantics(
           button: true,
           label: username,

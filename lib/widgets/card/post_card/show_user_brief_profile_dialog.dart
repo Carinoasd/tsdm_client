@@ -137,8 +137,9 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
         AppSectionHeader(title, icon: icon, padding: const EdgeInsets.symmetric(vertical: 4));
 
     final inDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    // The 700 shades read under 4.5:1 on the light surfaces of the dialog (blue 4.2, green 3.7, cyan 3.2, orange 2.4):
-    // one shade darker, cyan two, and orange is deep orange.
+    // The 700 shades read under 4.5:1 on the light surfaces of the dialog (the blue of the title, nickname and
+    // registration 4.2, the green of the threads 3.7, the cyan of the posts 3.2, the orange of the privilege 2.4): one
+    // shade darker for all, cyan two, and orange is deep orange.
     final colorOffset = inDarkTheme ? 300 : 800;
     final cyanOffset = inDarkTheme ? 300 : 900;
     final orange = inDarkTheme ? Colors.orange[300] : Colors.deepOrange[900];

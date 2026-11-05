@@ -190,13 +190,16 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final publishTime = widget.post.publishTime;
 
     // The avatar is a 48 wide tap target around the 44 wide circle, named after the author (the circle itself has
-    // nothing to read); it keeps the circle where it was: 2 less padding before and above it, 2 less gap after it.
+    // nothing to read). The circle sits at the top of the box, so it and the texts beside it stay where they were: 2
+    // less padding before it, 2 less gap after it, the target growing 4 below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 0),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
+            // The whole box takes the tap, not only the circle.
+            behavior: HitTestBehavior.opaque,
             onTap: openBriefProfile,
             child: Semantics(
               button: true,
@@ -204,7 +207,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               excludeSemantics: true,
               child: SizedBox.square(
                 dimension: 48,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: 44,
                     height: 44,
