@@ -247,6 +247,7 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       pid: visit.pid,
       floor: visit.floor,
       seenReplies: visit.seenReplies,
+      visitTime: DateTime.fromMillisecondsSinceEpoch(visit.updated),
     );
   }
 

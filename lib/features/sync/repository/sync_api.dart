@@ -12,7 +12,10 @@ sealed class SyncPullAnswer {
 /// needs.
 final class SyncPulled extends SyncPullAnswer {
   /// Constructor.
-  const SyncPulled({required this.updated, required this.data, required this.formhash});
+  const SyncPulled({required this.updated, required this.data, required this.formhash, this.uid});
+
+  /// The account the forum answered for (the session's), null when the answer did not name it.
+  final int? uid;
 
   /// The forum's time of the last write (seconds), 0 when nothing was written.
   final int updated;
@@ -129,6 +132,7 @@ final class TsdmAppSyncApi implements SyncApi {
     }
     final data = json['data'];
     return SyncPulled(
+      uid: (json['uid'] as num?)?.toInt(),
       updated: (json['updated'] as num?)?.toInt() ?? 0,
       data: data is String ? data : null,
       formhash: json['formhash'] is String ? json['formhash'] as String : '',

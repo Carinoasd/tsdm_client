@@ -26,6 +26,13 @@ enum SyncOutcome {
 
   /// Written: the forum holds what this device has now.
   pushed,
+
+  /// The account in use changed while the run was on its way (or the forum answered for another account): nothing
+  /// was changed or written.
+  accountChanged,
+
+  /// The forum's document was written by a newer app version: left alone, nothing applied or written.
+  newerSchema,
 }
 
 /// Keeps the reading progress, the quick phrases and the block list of an account the same on every device it logs in
@@ -46,17 +53,23 @@ final class SyncRepository with LoggerMixin {
     required SyncApi api,
     required SyncLocalStore store,
     required bool Function() enabled,
+    int? Function()? currentUid,
     DateTime Function()? now,
     this.debounce = const Duration(seconds: 30),
     this.unsupportedFor = const Duration(hours: 1),
   }) : _api = api,
        _store = store,
        _enabled = enabled,
+       _currentUid = currentUid,
        _now = now ?? DateTime.now;
 
   final SyncApi _api;
   final SyncLocalStore _store;
   final bool Function() _enabled;
+
+  /// The account in use now, asked before anything is applied or written: a run of another account (the account was
+  /// switched while it waited or was on its way) changes nothing. Null when there is no such account (tests).
+  final int? Function()? _currentUid;
   final DateTime Function() _now;
 
   /// How long a local change waits before it is written, so a burst of changes is written once.
@@ -128,6 +141,12 @@ final class SyncRepository with LoggerMixin {
     return _run(() => _push(uid));
   }
 
+  /// Drop a scheduled write (the account in use changed: its write must not run for the account that is in use now).
+  void cancelScheduled() {
+    _pushTimer?.cancel();
+    _pushUid = null;
+  }
+
   /// The quick phrases changed on this device to [raw] (the setting's value): note the time, unless it is the value
   /// the sync wrote itself, and schedule a write for account [uid].
   Future<void> onPhrasesChanged(int? uid, String raw) async {
@@ -180,11 +199,50 @@ final class SyncRepository with LoggerMixin {
     info('sync: the forum does not keep documents, off for ${unsupportedFor.inMinutes} min');
   }
 
+  /// Whether account [uid] is still the one in use (and the one the forum answered for, [answeredUid]).
+  bool _stillCurrent(int uid, [int? answeredUid]) {
+    if (answeredUid != null && answeredUid != uid) {
+      info('sync: the forum answered for account $answeredUid, not $uid: nothing done');
+      return false;
+    }
+    final current = _currentUid?.call();
+    if (_currentUid != null && current != uid) {
+      info('sync: the account in use is now $current, not $uid: nothing done');
+      return false;
+    }
+    return true;
+  }
+
   Future<SyncOutcome> _pull(int uid) async {
     if (_gate() case final gated?) {
       return gated;
     }
-    final answer = await _api.pull();
+    if (!_stillCurrent(uid)) {
+      return SyncOutcome.accountChanged;
+    }
+    return _readThenMerge(uid, await _api.pull());
+  }
+
+  Future<SyncOutcome> _push(int uid) async {
+    if (_gate() case final gated?) {
+      return gated;
+    }
+    if (!_stillCurrent(uid)) {
+      return SyncOutcome.accountChanged;
+    }
+    final last = await _store.lastSynced(uid);
+    final base = SyncDocument.parse(last?.document);
+    final local = await _localDocument(uid, base);
+    if (last != null && local.sameAs(base)) {
+      return SyncOutcome.upToDate;
+    }
+    // The write needs the form hash of the session: a read gives it, and tells whether another device wrote
+    // meanwhile without a refused write.
+    return _readThenMerge(uid, await _api.pull());
+  }
+
+  /// What a read [answer] of account [uid] leads to.
+  Future<SyncOutcome> _readThenMerge(int uid, SyncPullAnswer answer) async {
     switch (answer) {
       case SyncUnsupported():
         _markUnsupported();
@@ -195,36 +253,10 @@ final class SyncRepository with LoggerMixin {
       case SyncPullFailed(:final reason):
         debug('sync: pull failed: $reason');
         return SyncOutcome.failed;
-      case SyncPulled(:final updated, :final data, :final formhash):
-        lastPulledAt = _now();
-        lastPulledUid = uid;
-        return _mergeAndWriteBack(uid, remote: SyncDocument.parse(data), remoteUpdated: updated, formhash: formhash);
-    }
-  }
-
-  Future<SyncOutcome> _push(int uid) async {
-    if (_gate() case final gated?) {
-      return gated;
-    }
-    final last = await _store.lastSynced(uid);
-    final base = SyncDocument.parse(last?.document);
-    final local = await _localDocument(uid, base);
-    if (last != null && local.sameAs(base)) {
-      return SyncOutcome.upToDate;
-    }
-    // The write needs the form hash of the session: a read gives it, and tells whether another device wrote
-    // meanwhile without a refused write.
-    final answer = await _api.pull();
-    switch (answer) {
-      case SyncUnsupported():
-        _markUnsupported();
-        return SyncOutcome.unsupported;
-      case SyncNotLoggedIn():
-        return SyncOutcome.notLoggedIn;
-      case SyncPullFailed(:final reason):
-        debug('sync: push failed, the read before it: $reason');
-        return SyncOutcome.failed;
-      case SyncPulled(:final updated, :final data, :final formhash):
+      case SyncPulled(uid: final answeredUid, :final updated, :final data, :final formhash):
+        if (!_stillCurrent(uid, answeredUid)) {
+          return SyncOutcome.accountChanged;
+        }
         lastPulledAt = _now();
         lastPulledUid = uid;
         return _mergeAndWriteBack(uid, remote: SyncDocument.parse(data), remoteUpdated: updated, formhash: formhash);
@@ -240,14 +272,27 @@ final class SyncRepository with LoggerMixin {
     required String formhash,
     bool retry = true,
   }) async {
+    if (remote.newerThanKnown) {
+      info('sync: the forum holds a schema ${remote.schema} document, newer than this version reads: left alone');
+      return SyncOutcome.newerSchema;
+    }
+    await _unitePhrasesOnFirstSync(remote);
     final last = await _store.lastSynced(uid);
     final base = SyncDocument.parse(last?.document);
     final local = await _localDocument(uid, base);
-    final merged = SyncDocument.merge(local, remote);
+    // The merge is a union: the caps hold for it as for this device's own document (two devices with different
+    // histories would otherwise give a document over the forum's limit for ever).
+    final merged = _fit(SyncDocument.merge(local, remote));
+    if (!_stillCurrent(uid)) {
+      return SyncOutcome.accountChanged;
+    }
     await _apply(uid, merged);
     await _store.saveLastSynced(uid, remote.encode(), remoteUpdated);
     if (merged.sameAs(remote)) {
       return SyncOutcome.upToDate;
+    }
+    if (!_stillCurrent(uid)) {
+      return SyncOutcome.accountChanged;
     }
     final answer = await _api.push(data: merged.encode(), baseUpdated: remoteUpdated, formhash: formhash);
     switch (answer) {
@@ -277,26 +322,47 @@ final class SyncRepository with LoggerMixin {
     }
   }
 
+  /// The first sync of a device that had quick phrases before the sync existed (never stamped) while the forum has
+  /// some too: the two lists are united here (this device's first, the forum's that it lacks after), so neither
+  /// device's phrases are lost; the union then counts as this device's change and is written back.
+  Future<void> _unitePhrasesOnFirstSync(SyncDocument remote) async {
+    if (await _store.phrasesUpdated() != null) {
+      return;
+    }
+    final mine = await _store.phrases();
+    final theirs = remote.single('phrases');
+    if (mine.isEmpty || theirs == null) {
+      return;
+    }
+    final items = [
+      for (final e in theirs['items'] is List ? theirs['items'] as List : const [])
+        if (e is String && e.trim().isNotEmpty) e,
+    ];
+    final union = [...mine, ...items.where((e) => !mine.contains(e))].take(syncPhrasesMax).toList();
+    if (!listEquals(union, mine)) {
+      info('sync: first sync, ${union.length - mine.length} quick phrases of the forum added to this device');
+      await _store.savePhrases(union);
+    }
+  }
+
   /// This device's document of account [uid]: what it keeps, and the deletions since [base] (what the forum held last)
-  /// as tombstones. Fields of [base] this version does not read are carried over.
+  /// as tombstones. Fields of [base] this version does not read are carried over, and so are items of [base] this
+  /// version could not read (they were never applied here: not deleted here either).
   Future<SyncDocument> _localDocument(int uid, SyncDocument base) async {
     final now = _now().millisecondsSinceEpoch;
-    final keepSince = now - syncTombstoneKeptFor.inMilliseconds;
     var doc = base;
 
     // Visits: the records, then the threads the forum knew that this device removed.
     final visits = {for (final v in await _store.visits(uid)) '${v.tid}': v.toItem()};
-    final gone = <String, Map<String, dynamic>>{};
     for (final MapEntry(:key, value: item) in base.items('visits').entries) {
       if (visits.containsKey(key)) {
         continue;
       }
-      final stone = SyncDocument.isDeleted(item) ? item : SyncDocument.tombstone(now);
-      if (SyncDocument.updatedOf(stone) >= keepSince) {
-        gone[key] = stone;
-      }
+      final tid = int.tryParse(key);
+      final readable = tid != null && SyncVisit.fromItem(tid, item) != null;
+      visits[key] = SyncDocument.isDeleted(item) || !readable ? item : SyncDocument.tombstone(now);
     }
-    doc = doc.withItems('visits', _capped(visits, gone));
+    doc = doc.withItems('visits', visits);
 
     // Phrases: one item; a device that never noted a change stamps its phrases now (it has some) or 0 (none).
     final phrases = await _store.phrases();
@@ -317,45 +383,54 @@ final class SyncRepository with LoggerMixin {
     // Blocks: the list, then the users the forum knew blocked that this device unblocked.
     final blocks = {for (final b in await _store.blocks(uid)) '${b.uid}': b.toItem()};
     for (final MapEntry(:key, value: item) in base.items('blocks').entries) {
-      if (blocks.containsKey(key)) {
-        continue;
-      }
-      final stone = SyncDocument.isDeleted(item) ? item : SyncDocument.tombstone(now);
-      if (SyncDocument.updatedOf(stone) >= keepSince) {
-        blocks[key] = stone;
+      if (!blocks.containsKey(key)) {
+        blocks[key] = SyncDocument.isDeleted(item) ? item : SyncDocument.tombstone(now);
       }
     }
     doc = doc.withItems('blocks', blocks);
-
-    // Size: the oldest visits go first, then the oldest tombstones.
-    while (doc.encodedLength > syncDocumentMaxBytes) {
-      final items = doc.items('visits');
-      if (items.isEmpty) {
-        break;
-      }
-      final live = items.entries.where((e) => !SyncDocument.isDeleted(e.value)).toList();
-      final pool = (live.isNotEmpty ? live : items.entries.toList())
-        ..sort((a, b) => SyncDocument.updatedOf(a.value).compareTo(SyncDocument.updatedOf(b.value)));
-      doc = doc.withItems('visits', {...items}..remove(pool.first.key));
-    }
-    return doc;
+    return _fit(doc);
   }
 
-  /// [live] visits capped to the latest [syncVisitsMax], [gone] to the latest [syncVisitTombstonesMax].
-  static Map<String, Map<String, dynamic>> _capped(
-    Map<String, Map<String, dynamic>> live,
-    Map<String, Map<String, dynamic>> gone,
-  ) {
-    List<MapEntry<String, Map<String, dynamic>>> latest(Map<String, Map<String, dynamic>> items, int max) {
-      final entries = items.entries.toList()
+  /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
+  /// deletion records older than [syncTombstoneKeptFor] dropped, and at most [syncDocumentMaxBytes] (the oldest
+  /// visits dropped first, then the oldest deletion records). Dropping is by time alone, so every device drops the
+  /// same items of the same document; a dropped item is not a deletion.
+  SyncDocument _fit(SyncDocument doc) {
+    final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
+    List<MapEntry<String, Map<String, dynamic>>> latest(
+      Iterable<MapEntry<String, Map<String, dynamic>>> items,
+      int max,
+    ) {
+      final entries = items.toList()
         ..sort((a, b) => SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value)));
       return entries.take(max).toList();
     }
 
-    return {
-      for (final e in latest(live, syncVisitsMax)) e.key: e.value,
-      for (final e in latest(gone, syncVisitTombstonesMax)) e.key: e.value,
+    final visits = doc.items('visits').entries;
+    final live = latest(visits.where((e) => !SyncDocument.isDeleted(e.value)), syncVisitsMax);
+    final gone = latest(
+      visits.where((e) => SyncDocument.isDeleted(e.value) && SyncDocument.updatedOf(e.value) >= keepSince),
+      syncVisitTombstonesMax,
+    );
+    final blocks = {
+      for (final e in doc.items('blocks').entries)
+        if (!SyncDocument.isDeleted(e.value) || SyncDocument.updatedOf(e.value) >= keepSince) e.key: e.value,
     };
+    var fitted = doc
+        .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
+        .withItems('blocks', blocks);
+    // Size: the oldest visits go first, then the oldest deletion records.
+    while (fitted.encodedLength > syncDocumentMaxBytes) {
+      if (live.isNotEmpty) {
+        live.removeLast();
+      } else if (gone.isNotEmpty) {
+        gone.removeLast();
+      } else {
+        break;
+      }
+      fitted = fitted.withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value});
+    }
+    return fitted;
   }
 
   /// Make this device hold what [merged] says, where it differs.
@@ -377,7 +452,8 @@ final class SyncRepository with LoggerMixin {
       if (visit == null) {
         continue;
       }
-      if (local == null || local.updated < visit.updated || (local.updated == visit.updated && local != visit)) {
+      // The same time on both: this device's own progress stays (the forum's is not newer).
+      if (local == null || local.updated < visit.updated) {
         await _store.saveVisit(uid, visit);
       }
     }
@@ -391,11 +467,14 @@ final class SyncRepository with LoggerMixin {
       final updated = SyncDocument.updatedOf(phrases);
       final localUpdated = await _store.phrasesUpdated() ?? 0;
       final local = await _store.phrases();
-      if (updated > localUpdated || (updated == localUpdated && !listEquals(items, local))) {
-        // The setting's value the store writes (`encodeQuickPhrases`): the change the settings stream reports is this one.
-        _appliedPhrases = items.isEmpty ? '' : jsonEncode(items);
+      if (updated > localUpdated) {
         await _store.savePhrasesUpdated(updated);
-        await _store.savePhrases(items);
+        if (!listEquals(items, local)) {
+          // The setting's value the store writes (`encodeQuickPhrases`): the change the settings stream reports next
+          // is this one, not the user's.
+          _appliedPhrases = items.isEmpty ? '' : jsonEncode(items);
+          await _store.savePhrases(items);
+        }
       }
     }
 

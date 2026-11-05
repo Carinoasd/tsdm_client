@@ -14,19 +14,32 @@ library;
 
 import 'dart:convert';
 
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
 import 'package:tsdm_client/features/sync/repository/sync_repository.dart';
+import 'package:tsdm_client/features/sync/sync_coordinator.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 
 const _uid = 3000;
 
 /// A forum that answers from [pullAnswer] and the queued [pushAnswers] (the last one stays), and records every call.
 final class _FakeApi implements SyncApi {
-  SyncPullAnswer pullAnswer = const SyncPulled(updated: 0, data: null, formhash: 'fh');
+  SyncPullAnswer pullAnswer = const SyncPulled(updated: 0, data: null, formhash: 'fh', uid: _uid);
+
+  /// The account the forum names in its answers (the session's).
+  int answeredUid = _uid;
   final pushAnswers = <SyncPushAnswer>[];
   final pulls = <int>[];
   final pushes = <({String data, int base, String formhash})>[];
@@ -38,7 +51,10 @@ final class _FakeApi implements SyncApi {
   @override
   Future<SyncPullAnswer> pull() async {
     pulls.add(pulls.length);
-    return pullAnswer;
+    final answer = pullAnswer;
+    return answer is SyncPulled
+        ? SyncPulled(updated: answer.updated, data: answer.data, formhash: answer.formhash, uid: answeredUid)
+        : answer;
   }
 
   @override
@@ -57,6 +73,33 @@ final class _FakeApi implements SyncApi {
   }
 
   Map<String, dynamic> get lastPushed => jsonDecode(pushes.last.data) as Map<String, dynamic>;
+}
+
+/// The account in use, switchable (the coordinator follows it).
+final class _Auth extends Fake implements AuthenticationRepository {
+  _Auth(int uid) : _uid = uid {
+    _status.add(AuthStatusAuthed(UserLoginInfo(username: 'u$uid', uid: uid)));
+  }
+
+  int? _uid;
+  final _status = BehaviorSubject<AuthStatus>();
+
+  @override
+  int? get effectiveCurrentUid => _uid;
+
+  @override
+  UserLoginInfo? get currentUser => _uid == null ? null : UserLoginInfo(username: 'u$_uid', uid: _uid);
+
+  @override
+  Stream<AuthStatus> get status => _status.stream;
+
+  void switchTo(int uid) {
+    _uid = uid;
+    _status.add(AuthStatusAuthed(UserLoginInfo(username: 'u$uid', uid: uid)));
+  }
+
+  @override
+  Future<void> dispose() => _status.close();
 }
 
 SyncVisit _visit(int tid, int updated, {int? floor, String title = 't'}) =>
@@ -286,7 +329,7 @@ void main() {
         const SyncBlock(uid: 77, username: 'x', updated: 500),
         const SyncBlock(uid: 78, username: 'y', updated: 600),
       ]);
-      expect(store.writes, ['saveVisit 12', 'saveVisit 14', 'savePhrases', 'saveBlocks']);
+      expect(store.writes, unorderedEquals(['saveVisit 12', 'saveVisit 14', 'savePhrases', 'saveBlocks']));
       expect(store.lastByUid[_uid], (document: SyncDocument(remote).encode(), updated: 5));
     });
 
@@ -470,6 +513,147 @@ void main() {
       await r.dispose();
     });
 
+    test('the same time on both sides: this device keeps its own progress', () async {
+      store.visitsByUid[_uid] = {12: _visit(12, 5000, floor: 30)};
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'visits': {'12': _visitItem(5000, floor: 10)},
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.upToDate);
+      expect(store.visitsByUid[_uid]![12]!.floor, 30);
+      expect(store.writes, isEmpty);
+    });
+
+    test('a run of an account that is no longer in use changes nothing', () async {
+      store.visitsByUid[_uid] = {12: _visit(12, 5000)};
+      var current = _uid;
+      final r = SyncRepository(
+        api: api,
+        store: store,
+        enabled: () => enabled,
+        currentUid: () => current,
+        now: () => now,
+      );
+      // The forum answers for another account (the session changed under the request).
+      api.answeredUid = 3001;
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'visits': {'99': _visitItem(9000)},
+        }),
+        formhash: 'fh',
+      );
+      expect(await r.pull(_uid), SyncOutcome.accountChanged);
+      expect(store.writes, isEmpty);
+      expect(api.pushes, isEmpty);
+      expect(store.lastByUid, isEmpty);
+      // The account in use changed before the run started.
+      api.answeredUid = _uid;
+      current = 3001;
+      expect(await r.pull(_uid), SyncOutcome.accountChanged);
+      expect(await r.pushNow(_uid), SyncOutcome.accountChanged);
+      expect(api.pulls, hasLength(1));
+      // A scheduled write is dropped on the switch.
+      current = _uid;
+      r.schedulePush(_uid);
+      expect(r.pushScheduled, isTrue);
+      r.cancelScheduled();
+      expect(r.pushScheduled, isFalse);
+    });
+
+    test('two devices with different histories: the merge is capped too, never over the limit', () async {
+      store.visitsByUid[_uid] = {
+        for (var i = 1; i <= 400; i++) i: _visit(i, i * 1000, title: 'mine ' * 20),
+      };
+      final theirs = {
+        for (var i = 1001; i <= 1400; i++) '$i': _visitItem(i * 1000, title: 'theirs ' * 20),
+      };
+      api.pullAnswer = SyncPulled(updated: 5, data: jsonEncode({'schema': 1, 'visits': theirs}), formhash: 'fh');
+      expect(await repo().pull(_uid), SyncOutcome.pushed);
+      final visits = api.lastPushed['visits'] as Map<String, dynamic>;
+      expect(visits.length, lessThanOrEqualTo(syncVisitsMax));
+      expect(utf8.encode(api.pushes.single.data).length, lessThanOrEqualTo(syncDocumentMaxBytes));
+      // The latest of both, by time: the forum's are newer here.
+      expect(visits.containsKey('1400'), isTrue);
+      expect(visits.containsKey('1'), isFalse);
+      // The other device's visits reached this device (what was applied is not limited by the document cap).
+      expect(store.visitsByUid[_uid]!.containsKey(1400), isTrue);
+    });
+
+    test('a document of a newer schema is left alone', () async {
+      store.visitsByUid[_uid] = {12: _visit(12, 5000)};
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 2,
+          'visits': {'13': _visitItem(9000)},
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.newerSchema);
+      expect(store.writes, isEmpty);
+      expect(api.pushes, isEmpty);
+      expect(store.lastByUid, isEmpty);
+    });
+
+    test('an item of the forum this version could not read is carried over, not taken for a deletion', () async {
+      store.lastByUid[_uid] = (
+        document: jsonEncode({
+          'schema': 1,
+          'visits': {
+            '12': {'updated': 5000, 'future': true},
+          },
+        }),
+        updated: 5,
+      );
+      api.pullAnswer = SyncPulled(updated: 5, data: store.lastByUid[_uid]!.document, formhash: 'fh');
+      store.visitsByUid[_uid] = {13: _visit(13, 6000)};
+      expect(await repo().pull(_uid), SyncOutcome.pushed);
+      final visits = api.lastPushed['visits'] as Map<String, dynamic>;
+      expect(visits['12'], {'updated': 5000, 'future': true});
+      expect(visits['13'], _visitItem(6000));
+    });
+
+    test('the first sync of a device that had phrases before unites them with the forum phrases', () async {
+      store.phraseList = ['a', 'b'];
+      api.pullAnswer = SyncPulled(
+        updated: 5,
+        data: jsonEncode({
+          'schema': 1,
+          'phrases': {
+            'updated': 900,
+            'items': ['b', 'c'],
+          },
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.pushed);
+      expect(store.phraseList, ['a', 'b', 'c']);
+      expect(api.lastPushed['phrases'], {
+        'updated': now.millisecondsSinceEpoch,
+        'items': ['a', 'b', 'c'],
+      });
+      // Not a first sync any more: the forum's later list replaces it.
+      api.pullAnswer = SyncPulled(
+        updated: 7,
+        data: jsonEncode({
+          'schema': 1,
+          'phrases': {
+            'updated': now.millisecondsSinceEpoch + 1,
+            'items': ['z'],
+          },
+        }),
+        formhash: 'fh',
+      );
+      expect(await repo().pull(_uid), SyncOutcome.upToDate);
+      expect(store.phraseList, ['z']);
+    });
+
     test('a document over the limit drops the oldest visits', () async {
       store.visitsByUid[_uid] = {
         for (var i = 1; i <= 1200; i++) i: _visit(i, i * 1000, title: 'title ' * 10),
@@ -480,6 +664,88 @@ void main() {
       expect(utf8.encode(api.pushes.single.data).length, lessThanOrEqualTo(syncDocumentMaxBytes));
       expect(visits.containsKey('1200'), isTrue);
       expect(visits.containsKey('1'), isFalse);
+    });
+  });
+
+  group('coordinator', () {
+    late AppDatabase db;
+    late StorageProvider storage;
+    late SettingsRepository settings;
+    late UserBlockRepository blocks;
+    late _FakeApi api;
+    late MemorySyncLocalStore store;
+    late _Auth auth;
+
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      storage = StorageProvider(db, {}, {});
+      settings = SettingsRepository(storage);
+      await settings.init();
+      blocks = UserBlockRepository(storage);
+      api = _FakeApi();
+      store = MemorySyncLocalStore();
+      auth = _Auth(_uid);
+    });
+
+    tearDown(() async {
+      await auth.dispose();
+      await blocks.dispose();
+      await settings.dispose();
+      await db.close();
+    });
+
+    SyncCoordinator coordinator() => SyncCoordinator(
+      repository: SyncRepository(
+        api: api,
+        store: store,
+        enabled: () => settings.currentSettings.crossDeviceSync,
+        currentUid: () => auth.effectiveCurrentUid,
+        debounce: const Duration(milliseconds: 300),
+      ),
+      authentication: auth,
+      settings: settings,
+      blocks: blocks,
+      storage: storage,
+    );
+
+    test('the start pulls the account in use once, a switch pulls the new one and drops the old write', () async {
+      final c = coordinator()..start();
+      addTearDown(c.dispose);
+      await pumpEventQueue();
+      expect(api.pulls, hasLength(1), reason: 'the start and the replayed login status pull once');
+      // A visit of the account: a write is scheduled.
+      await storage.updateThreadVisitHistory(
+        uid: _uid,
+        tid: 7,
+        fid: 2,
+        username: 'a',
+        threadTitle: 't',
+        forumName: 'f',
+        visitTime: DateTime.now(),
+      );
+      await pumpEventQueue();
+      expect(c.repository.pushScheduled, isTrue);
+      // The account changes before the write runs.
+      auth.switchTo(3001);
+      api.answeredUid = 3001;
+      await pumpEventQueue();
+      expect(c.repository.pushScheduled, isFalse);
+      expect(api.pulls, hasLength(2), reason: 'the new account is pulled');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(api.pushes, isEmpty, reason: 'the old account write never ran');
+      // Nothing of the old account reached the new one.
+      expect(store.visitsByUid[3001], isNull);
+    });
+
+    test('with the setting off nothing is asked, switching it on pulls', () async {
+      await settings.setValue(SettingsKeys.crossDeviceSync, false);
+      final c = coordinator()..start();
+      addTearDown(c.dispose);
+      await pumpEventQueue();
+      expect(api.pulls, isEmpty);
+      await settings.setValue(SettingsKeys.crossDeviceSync, true);
+      await pumpEventQueue();
+      expect(api.pulls, hasLength(1));
     });
   });
 }

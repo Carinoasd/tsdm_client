@@ -18,6 +18,9 @@ const syncVisitTombstonesMax = 400;
 /// How long a record of a deletion (a visit removed, a user unblocked) is kept in the document before it is dropped.
 const syncTombstoneKeptFor = Duration(days: 180);
 
+/// Most quick phrases (the editor's own limit).
+const syncPhrasesMax = 100;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -44,6 +47,8 @@ final class SyncDocument {
   const SyncDocument.empty() : raw = const {'schema': syncSchema};
 
   /// The document [text] holds, an empty one for null, blank or damaged text, or a JSON value that is not an object.
+  /// A `schema` newer than [syncSchema] is kept as it is ([schema]: the caller leaves such a document alone); an
+  /// older or missing one reads as this version's.
   factory SyncDocument.parse(String? text) {
     if (text == null || text.trim().isEmpty) {
       return const SyncDocument.empty();
@@ -51,7 +56,8 @@ final class SyncDocument {
     try {
       final json = jsonDecode(text);
       if (json is Map<String, dynamic>) {
-        return SyncDocument({...json, 'schema': syncSchema});
+        final schema = json['schema'];
+        return SyncDocument({...json, 'schema': schema is num && schema > syncSchema ? schema.toInt() : syncSchema});
       }
     } on FormatException {
       // Damaged: nothing is read from it.
@@ -101,6 +107,15 @@ final class SyncDocument {
 
   /// The document as read, `schema` included.
   final Map<String, dynamic> raw;
+
+  /// The `schema` of the document ([syncSchema] for this version's).
+  int get schema => switch (raw['schema']) {
+    final num n => n.toInt(),
+    _ => syncSchema,
+  };
+
+  /// Whether the document was written by a newer app version than this one reads: it is left alone.
+  bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
   static const itemSections = ['visits', 'blocks'];

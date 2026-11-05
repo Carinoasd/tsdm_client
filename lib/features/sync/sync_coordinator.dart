@@ -26,13 +26,11 @@ final class SyncCoordinator with LoggerMixin {
     required SettingsRepository settings,
     required UserBlockRepository blocks,
     required StorageProvider storage,
-    DateTime Function()? now,
   }) : _repository = repository,
        _authentication = authentication,
        _settings = settings,
        _blocks = blocks,
-       _storage = storage,
-       _now = now ?? DateTime.now;
+       _storage = storage;
 
   /// The coordinator on the app's repositories.
   factory SyncCoordinator.build({
@@ -52,6 +50,7 @@ final class SyncCoordinator with LoggerMixin {
           authentication: authentication,
         ),
         enabled: () => settings.currentSettings.crossDeviceSync,
+        currentUid: () => authentication.effectiveCurrentUid,
       ),
       authentication: authentication,
       settings: settings,
@@ -71,7 +70,6 @@ final class SyncCoordinator with LoggerMixin {
   final SettingsRepository _settings;
   final UserBlockRepository _blocks;
   final StorageProvider _storage;
-  final DateTime Function() _now;
 
   StreamSubscription<AuthStatus>? _authSub;
   StreamSubscription<void>? _settingsSub;
@@ -117,6 +115,8 @@ final class SyncCoordinator with LoggerMixin {
   void _follow(int? uid, {required bool pull}) {
     if (uid != _uid) {
       _uid = uid;
+      // A write scheduled for the account before must not run for this one.
+      _repository.cancelScheduled();
       unawaited(_visitsSub?.cancel());
       _visitsSub = null;
       if (uid != null) {
@@ -141,15 +141,12 @@ final class SyncCoordinator with LoggerMixin {
     }
   }
 
-  /// The app came to the front: a pull when the last one is [pullAgainAfter] ago or more.
+  /// The app came to the front: a pull when the last one asked for this account is [pullAgainAfter] ago or more
+  /// (one still on its way counts as asked).
   void onResumed() {
     final uid = _uid;
-    if (uid == null) {
-      return;
-    }
-    final last = _repository.lastPulledAt;
-    if (_repository.lastPulledUid != uid || last == null || _now().difference(last) >= pullAgainAfter) {
-      unawaited(_repository.pull(uid));
+    if (uid != null) {
+      unawaited(_repository.pull(uid, dedupe: pullAgainAfter));
     }
   }
 
