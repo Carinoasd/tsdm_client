@@ -1,5 +1,6 @@
 package kzs.th000.tsdm_client
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -8,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * The home screen widget (`res/xml/home_widget_info.xml`, layout `res/layout/home_widget.xml`): the unread notice
@@ -17,6 +20,10 @@ import android.widget.RemoteViews
  * service through [HomeWidgetSyncListener], both calling [refresh]. Taps start [MainActivity] with the shortcut URIs
  * of `res/xml/shortcuts.xml`, so [ShortcutsHandler] and Dart treat them like the launcher shortcuts: the check-in
  * cell checks in while not checked in yet, the rest of the widget (and the cell once checked in) opens the notices.
+ *
+ * "Checked in" is a day ([HomeWidgetState.checkedInDay]) compared with today at each drawing, so every drawing also
+ * asks for one more just after midnight ([scheduleMidnightRedraw]): yesterday's check-in is then over on the widget
+ * without the app saying anything, and the cell is a check-in button again.
  */
 class HomeWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -24,6 +31,12 @@ class HomeWidgetProvider : AppWidgetProvider() {
         for (id in appWidgetIds) {
             appWidgetManager.updateAppWidget(id, views)
         }
+        scheduleMidnightRedraw(context, appWidgetIds)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        (context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager)?.cancel(midnightIntent(context, IntArray(0)))
     }
 
     companion object {
@@ -32,6 +45,7 @@ class HomeWidgetProvider : AppWidgetProvider() {
 
         private const val REQUEST_NOTICE = 0
         private const val REQUEST_CHECKIN = 1
+        private const val REQUEST_MIDNIGHT = 2
 
         /** The most a count shows; the exact number is in the app. */
         private const val COUNT_CAP = 99
@@ -45,6 +59,34 @@ class HomeWidgetProvider : AppWidgetProvider() {
             for (id in ids) {
                 manager.updateAppWidget(id, views)
             }
+            scheduleMidnightRedraw(context, ids)
+        }
+
+        /**
+         * Ask the system to send the widgets [ids] an update just after the next local midnight: an inexact alarm
+         * without wake-up (needs no permission), delivered when the device is next awake.
+         */
+        private fun scheduleMidnightRedraw(context: Context, ids: IntArray) {
+            if (ids.isEmpty()) return
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val midnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            try {
+                alarm.set(AlarmManager.RTC, midnight + 5_000, midnightIntent(context, ids))
+            } catch (_: SecurityException) {
+                // Not expected for an inexact alarm; the periodic update redraws within half an hour anyway.
+            }
+        }
+
+        private fun midnightIntent(context: Context, ids: IntArray): PendingIntent {
+            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                .setClass(context, HomeWidgetProvider::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            return PendingIntent.getBroadcast(
+                context,
+                REQUEST_MIDNIGHT,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         }
 
         fun build(context: Context, state: HomeWidgetState): RemoteViews {
@@ -73,8 +115,9 @@ class HomeWidgetProvider : AppWidgetProvider() {
             return views
         }
 
+        /** A count; a dash without an account and while the count is not known ([HomeWidgetState.UNKNOWN_COUNT]). */
         private fun count(state: HomeWidgetState, value: Int): String = when {
-            !state.loggedIn -> "–"
+            !state.loggedIn || value < 0 -> "–"
             value > COUNT_CAP -> "$COUNT_CAP+"
             else -> value.toString()
         }

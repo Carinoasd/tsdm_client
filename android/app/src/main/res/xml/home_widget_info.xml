@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home screen widget (HomeWidgetProvider): 4x1 by default, resizable down to 2x1 and up to 2x2 and wider. The
-     app pushes every change; the periodic update only redraws from the stored state, so "checked in" ends at
-     midnight without the app. -->
+     app pushes every change; the periodic update only redraws from the stored state (the provider also asks for one
+     just after midnight, when "checked in" is over). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
     android:minHeight="40dp"

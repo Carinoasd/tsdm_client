@@ -31,8 +31,9 @@ final class HomeWidgetChannel with LoggerMixin {
   /// null when not today).
   ///
   /// A null count leaves the one the widget shows as it is, when the widget shows the same account: the app has not
-  /// counted yet in this run, the background service may have. The widget compares [checkedInDay] with the day it
-  /// draws on, so the check-in is over at midnight by itself.
+  /// counted yet in this run, the background service may have. For another account the widget shows a dash until
+  /// counted. The widget compares [checkedInDay] with the day it draws on, so the check-in is over at midnight by
+  /// itself.
   Future<void> update({
     required int? uid,
     required int? notice,

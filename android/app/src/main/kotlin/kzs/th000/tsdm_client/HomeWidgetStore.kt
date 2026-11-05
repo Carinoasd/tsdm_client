@@ -6,6 +6,9 @@ import java.time.LocalDate
 /**
  * What the home screen widget shows: the account in use and its unread counts, and the day it checked in.
  *
+ * A count is [UNKNOWN_COUNT] while nothing counted for this account yet (right after a switch to it): the widget shows
+ * a dash rather than a zero that is not true.
+ *
  * [checkedInDay] is the device-local day (ISO date, `yyyy-MM-dd` like [LocalDate.toString]) of the check-in the app
  * last told, null when it told "not checked in": the widget compares it with today when it draws, so yesterday's
  * check-in is over at midnight without the app saying anything.
@@ -22,6 +25,8 @@ data class HomeWidgetState(
 
     companion object {
         val EMPTY = HomeWidgetState(uid = null, notice = 0, personalMessage = 0, checkedInDay = null)
+
+        const val UNKNOWN_COUNT = -1
     }
 }
 
