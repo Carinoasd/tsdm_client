@@ -73,8 +73,12 @@ import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/section_switch_list_tile.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
 
-/// Width of the theme mode switch: four compact icon segments.
-const _themeSwitchWidth = 172.0;
+/// Width of the theme mode switch: four icon segments, each a 48 tap target (plus the outlines).
+const _themeSwitchWidth = 200.0;
+
+/// Width of the theme mode switch where the full one leaves no room for its title on the same row (a 384dp phone,
+/// feedback 111): segments of 43, the whole switch still beside the title.
+const _themeSwitchWidthNarrow = 172.0;
 
 /// The value of the fourth segment of the theme mode switch, by time; the other three are the indexes of [ThemeMode].
 const _scheduledSegment = 3;
@@ -156,6 +160,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-cross-device-sync'),
+          secondary: const Icon(Icons.sync_outlined),
+          title: Text(tr.crossDeviceSync.title),
+          value: state.settingsMap.crossDeviceSync,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.crossDeviceSync, v)),
+        ),
       ],
     );
   }
@@ -170,15 +182,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       tr.themeMode.dark,
       tr.themeMode.scheduled,
     ][selected];
-    // Icons only: three labels do not fit a phone at a large text scale; each segment has a tooltip. Compact and of a
-    // fixed width, so the row can tell whether the title still fits beside it.
-    final themeSwitch = SizedBox(
-      width: _themeSwitchWidth,
+    // Icons only: four labels do not fit a phone at a large text scale; each segment has a tooltip. Of a fixed width,
+    // so the row can tell whether the title still fits beside it; standard density and tap targets, so every segment
+    // can be hit on 48 where the row has the room (compact and shrink wrapped they were 52 by 32).
+    Widget themeSwitch(double width) => SizedBox(
+      width: width,
       child: SegmentedButton<int>(
         showSelectedIcon: false,
         style: const ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           // Four icons: a little less room around each, so the row still fits beside the title on a 384dp phone.
           padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
         ),
@@ -247,13 +258,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         }
 
         final textWidth = math.max(widthOf(title, textTheme.bodyLarge), widthOf(subtitle, textTheme.bodyMedium));
-        final beside = constraints.maxWidth - _themeTileChromeWidth - _themeSwitchWidth >= textWidth;
-        if (beside) {
+        final room = constraints.maxWidth - _themeTileChromeWidth - textWidth;
+        // The full switch where it fits beside the title, the narrow one where only that does.
+        final switchWidth = room >= _themeSwitchWidth ? _themeSwitchWidth : _themeSwitchWidthNarrow;
+        if (room >= switchWidth) {
           return SectionListTile(
             leading: const Icon(Icons.contrast_outlined),
             title: Text(title, maxLines: 1),
             subtitle: Text(subtitle, maxLines: 1),
-            trailing: themeSwitch,
+            trailing: themeSwitch(switchWidth),
           );
         }
         return SectionListTile(
@@ -261,7 +274,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           title: Text(title),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [Text(subtitle), sizedBoxW8H8, themeSwitch, sizedBoxW4H4],
+            children: [Text(subtitle), sizedBoxW8H8, themeSwitch(_themeSwitchWidth), sizedBoxW4H4],
           ),
         );
       },

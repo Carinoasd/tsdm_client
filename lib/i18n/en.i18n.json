@@ -328,7 +328,10 @@
     "title": "Settings",
     "accountSection": {
       "title": "Account",
-      "mgmt": "Manage account"
+      "mgmt": "Manage account",
+      "crossDeviceSync": {
+        "title": "Sync across devices"
+      }
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -816,6 +819,8 @@
     "usernameEmpty": "Username should not be empty",
     "password": "Password",
     "passwordEmpty": "Password should not be empty",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "answer": "Answer",
     "answerEmpty": "Answer should not be empty",
     "verifyCode": "Verification code",

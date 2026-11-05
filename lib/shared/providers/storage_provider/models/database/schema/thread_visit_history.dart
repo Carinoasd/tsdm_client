@@ -39,6 +39,11 @@ class ThreadVisitHistory extends Table {
   /// The thread's replies when it was read (as the thread lists count them): the lists tell the replies since.
   IntColumn get seenReplies => integer().nullable()();
 
+  /// When the reading progress ([lastPage], [lastPid], [lastFloor], [seenReplies]) was last written; null while not
+  /// known (a progress kept before schema 18). The cross-device sync tells the later progress by it, apart from
+  /// [visitTime], which moves on every visit.
+  DateTimeColumn get progressUpdated => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {uid, tid};
 }

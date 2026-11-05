@@ -91,6 +91,7 @@ extension _WithFormExt<T> on Dio {
     Object? data,
     Map<String, dynamic>? queryParameters,
     bool singleAttempt = false,
+    Set<int> acceptStatus = const {},
   }) => AsyncEither.tryCatch(
     () async => post(
       path,
@@ -102,6 +103,11 @@ extension _WithFormExt<T> on Dio {
           headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'},
           followRedirects: singleAttempt ? false : null,
           extra: singleAttempt ? {singleAttemptHttpRequestKey: true} : null,
+          // An error status the caller reads the body of (the app API's 409 and 413 of `sync`) is a response, not an
+          // exception; the others stay exceptions as by default.
+          validateStatus: acceptStatus.isEmpty
+              ? null
+              : (code) => code != null && ((code >= 200 && code < 300) || acceptStatus.contains(code)),
         ),
       ),
     ),
@@ -305,6 +311,7 @@ final class NetClientProvider with LoggerMixin {
     Map<String, dynamic>? queryParameters,
     bool singleAttempt = false,
     bool tsdmAppJson = true,
+    Set<int> acceptStatus = const {},
   }) => AsyncEither(
     () => _dio
         .postWithForm(
@@ -312,6 +319,7 @@ final class NetClientProvider with LoggerMixin {
           data: data,
           queryParameters: queryParameters,
           singleAttempt: singleAttempt,
+          acceptStatus: acceptStatus,
         )
         .run(),
   );

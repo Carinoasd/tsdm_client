@@ -164,6 +164,7 @@ final class SettingsRepository with LoggerMixin {
       threadOpenPosition: s.extract(_SK.threadOpenPosition),
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
+      crossDeviceSync: s.extract(_SK.crossDeviceSync),
       themeModeScheduled: s.extract(_SK.themeModeScheduled),
       darkScheduleStart: s.extract(_SK.darkScheduleStart),
       darkScheduleEnd: s.extract(_SK.darkScheduleEnd),

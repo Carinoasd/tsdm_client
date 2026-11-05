@@ -505,7 +505,9 @@ void main() {
       for (final (i, tile) in tiles.indexed) {
         final (name, _, posts) = _ranks[i];
         expect(tile.subtitle, isNull);
-        expect((((tile.title! as GestureDetector).child! as Row).children.single as Text).data, name);
+        // The name is read as a link (test_279) around the row.
+        final link = (tile.title! as GestureDetector).child! as Semantics;
+        expect(((link.child! as Row).children.single as Text).data, name);
         expect((tile.trailing! as Text).data, '今日共发$posts贴');
       }
     });

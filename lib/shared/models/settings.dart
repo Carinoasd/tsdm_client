@@ -248,6 +248,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
+  /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
+  /// take them back on every device the account logs in on. Off: nothing is read or written there.
+  crossDeviceSync<bool>(name: 'crossDeviceSync', type: bool, defaultValue: true),
 
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(

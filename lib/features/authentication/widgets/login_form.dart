@@ -208,6 +208,7 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
                       descendantsAreFocusable: false,
                       child: IconButton(
                         icon: _showPassword ? const Icon(Icons.visibility) : const Icon(Icons.visibility_off),
+                        tooltip: _showPassword ? tr.hidePassword : tr.showPassword,
                         onPressed: () {
                           setState(() {
                             _showPassword = !_showPassword;
@@ -245,11 +246,15 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
               icon: Icons.shield_outlined,
               children: [
                 InputDecorator(
-                  decoration: appFieldDecoration(label: tr.securityQuestion, icon: Icons.question_mark_outlined),
+                  // The dropdown is not dense: dense, its tap target was 24 high. Its 48 sit in the field's padding
+                  // instead, so the field stays as high as the text fields above.
+                  decoration: appFieldDecoration(
+                    label: tr.securityQuestion,
+                    icon: Icons.question_mark_outlined,
+                  ).copyWith(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _question,
-                      isDense: true,
                       // Long questions are cut with an ellipsis instead of overflowing on narrow phones.
                       isExpanded: true,
                       borderRadius: BorderRadius.circular(appInnerRadius),

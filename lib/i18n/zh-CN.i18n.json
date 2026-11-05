@@ -328,7 +328,10 @@
     "title": "设置",
     "accountSection": {
       "title": "账号",
-      "mgmt": "管理账户"
+      "mgmt": "管理账户",
+      "crossDeviceSync": {
+        "title": "跨设备同步"
+      }
     },
     "appearanceSection": {
       "title": "外观",
@@ -816,6 +819,8 @@
     "usernameEmpty": "用户名不能为空",
     "password": "密码",
     "passwordEmpty": "密码不能为空",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
     "answer": "安全问题的答案",
     "answerEmpty": "安全问题的答案不能为空",
     "verifyCode": "验证码",

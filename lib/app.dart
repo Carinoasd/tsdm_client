@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
+import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
@@ -52,6 +53,7 @@ import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/share_receive/share_receiver.dart';
 import 'package:tsdm_client/features/shortcuts/widgets/app_shortcuts_watcher.dart';
+import 'package:tsdm_client/features/sync/sync_coordinator.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
@@ -317,6 +319,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           create: (_) => UserBlockRepository(getIt.get<StorageProvider>()),
           dispose: (repo) async => repo.dispose(),
         ),
+        // The reading progress, the quick phrases and the block list of the account kept on the forum for its other
+        // devices (plugin 3.4.0); not lazy, so the start pulls them.
+        RepositoryProvider<SyncCoordinator>(
+          create: (context) => SyncCoordinator.build(authentication: context.repo(), blocks: context.repo())..start(),
+          dispose: (coordinator) async => coordinator.dispose(),
+          lazy: false,
+        ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(
           create: (_) => ForumHomeRepository(),
@@ -504,6 +513,20 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               return bloc;
             },
           ),
+          if (isAndroid)
+            // The home screen widget follows the unread counts, the check-in record and the account in use.
+            BlocProvider(
+              create: (context) {
+                final auth = context.repo<AuthenticationRepository>();
+                return HomeWidgetSyncCubit(
+                  unread: context.read<NotificationStateCubit>().stream,
+                  accounts: getIt.get<StorageProvider>().allAccountsStream(),
+                  auth: auth.status,
+                  currentUid: () => auth.effectiveCurrentUid,
+                )..start();
+              },
+              lazy: false,
+            ),
           BlocProvider(
             create: (context) {
               final settings = getIt.get<SettingsRepository>().currentSettings;
@@ -732,6 +755,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             ),
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
+            const SyncResumeWatcher(),
             const AppShortcutsWatcher(),
           ],
         ),
