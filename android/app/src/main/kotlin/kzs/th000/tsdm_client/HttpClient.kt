@@ -133,11 +133,14 @@ object HttpClient {
     /**
      * A value of [body] is a string part, or a map `{"path", "filename", "contentType"}` naming a file to send as the
      * part (the file of a shared image uploaded as an attachment); any other value is sent as its string form.
+     *
+     * [singleAttempt] as in [postForm]: an upload the server may already have taken is never sent twice.
      */
     suspend fun postMultipart(
         url: String,
         headers: Map<String, String> = emptyMap(),
         body: Map<String, Any?> = emptyMap(),
+        singleAttempt: Boolean = false,
     ): Response {
         val multipartBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -157,16 +160,22 @@ object HttpClient {
                 }
             }
             .build()
+        val requestBody = if (singleAttempt) object : RequestBody() {
+            override fun contentType() = multipartBody.contentType()
+            override fun contentLength() = multipartBody.contentLength()
+            override fun isOneShot() = true
+            override fun writeTo(sink: BufferedSink) = multipartBody.writeTo(sink)
+        } else multipartBody
 
         val request = Request.Builder()
             .url(url)
             .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
-            .post(multipartBody)
+            .post(requestBody)
             .build()
 
         return withContext(Dispatchers.IO) {
             try {
-                client.newCall(request).execute()
+                (if (singleAttempt) singleAttemptClient else client).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }

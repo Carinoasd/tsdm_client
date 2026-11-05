@@ -30,6 +30,7 @@ object ShareIntents {
 
     /** The shared content of [intent], or null when it carries nothing this app takes. Does file IO: call off the main thread. */
     fun read(context: Context, intent: Intent): Map<String, Any?>? {
+        removeStale(imageDir(context))
         if (!isShare(intent)) return null
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
         val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { it.isNotBlank() }
@@ -75,7 +76,6 @@ object ShareIntents {
         if (uris.isEmpty()) return emptyList()
         val dir = imageDir(context)
         dir.mkdirs()
-        removeStale(dir)
         val resolver = context.contentResolver
         val paths = ArrayList<String>()
         val stamp = System.currentTimeMillis()
@@ -110,8 +110,12 @@ object ShareIntents {
         }
     }
 
-    private fun removeStale(dir: File) {
+    /** Delete copies a day old: Dart deletes a copy once it uploaded it, but the app may have been killed before. */
+    fun removeStale(dir: File) {
         val now = System.currentTimeMillis()
         dir.listFiles()?.forEach { if (now - it.lastModified() > STALE_AFTER_MS) it.delete() }
     }
+
+    /** [removeStale] of this app's shared image copies; file IO. */
+    fun removeStale(context: Context) = removeStale(imageDir(context))
 }

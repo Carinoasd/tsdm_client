@@ -1931,7 +1931,10 @@
   "shareReceive": {
     "pickForum": "Post to which forum",
     "uploadUnavailable": "Images cannot be uploaded to this forum",
-    "uploadFailed": "Image upload failed $code"
+    "uploadFailed": "Image upload failed $code",
+    "uploadRefusedType": "Image type not accepted: $name",
+    "uploadRefusedSize": "Image over ${limit: int} KB: $name",
+    "uploadFailedCount": "${count: int} images failed to upload"
   },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",

@@ -390,7 +390,8 @@ final class NetClientProvider with LoggerMixin {
   /// by its key, sent as [MultipartFilePart.filename] with its content type.
   ///
   /// Sent as the website sends a file upload, without [tsdmAppJsonWriteQuery]: the forum's upload script
-  /// (`misc.php?mod=swfupload`) answers its own plain text, which the forum's app API leaves alone.
+  /// (`misc.php?mod=swfupload`) answers its own plain text, which the forum's app API leaves alone. Never sent twice
+  /// (single attempt, no redirect followed): an upload the server took once must not leave a second copy.
   AsyncEither<Response<dynamic>> postMultipartFiles(
     String path, {
     required Map<String, String> data,
@@ -406,6 +407,8 @@ final class NetClientProvider with LoggerMixin {
             HttpHeaders.contentTypeHeader: Headers.multipartFormDataContentType,
           }.copyWith(header ?? {}),
           validateStatus: (code) => code == 301 || code == 200,
+          followRedirects: false,
+          extra: {singleAttemptHttpRequestKey: true},
         ),
       ),
       // The kotlin client takes a plain map, a file part as the map `MultipartFilePart.toChannelMap` builds.

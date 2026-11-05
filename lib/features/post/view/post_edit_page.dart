@@ -555,6 +555,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     }
     final repo = context.read<PostEditRepository>();
     setState(() => _uploadingSharedImages = true);
+    // What went wrong, told once at the end: one failure with its reason, several as their count.
+    final failures = <String>[];
     try {
       for (final path in paths) {
         if (!mounted || !repo.isCurrent) {
@@ -567,11 +569,16 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         result.match(
           (e) {
             handle(e);
-            final code = e is AttachmentUploadFailedException ? e.code : null;
-            showSnackBar(
-              context: context,
-              message: tr.uploadFailed(code: code == null ? '' : '$code'),
-            );
+            final name = path.split(RegExp(r'[/\\]')).last;
+            failures.add(switch (e) {
+              AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(name: name),
+              AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
+                name: name,
+                limit: upload.maxKb ?? 0,
+              ),
+              AttachmentUploadFailedException(:final code?) => tr.uploadFailed(code: '$code'),
+              _ => tr.uploadFailed(code: ''),
+            });
           },
           (aid) {
             _attachNew.add(aid);
@@ -581,7 +588,17 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       }
     } finally {
       discardSharedFiles(paths);
-      if (mounted) setState(() => _uploadingSharedImages = false);
+      if (mounted) {
+        setState(() => _uploadingSharedImages = false);
+        if (failures.length == 1) {
+          showSnackBar(context: context, message: failures.single);
+        } else if (failures.length > 1) {
+          showSnackBar(
+            context: context,
+            message: tr.uploadFailedCount(count: failures.length),
+          );
+        }
+      }
     }
   }
 
@@ -832,7 +849,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           ),
           verification: verification,
           draftKey: _draftKey?.value,
-          attachNew: List.of(_attachNew),
+          // Only the uploads the post still shows; one the member deleted from it is left unused.
+          attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
         ),
       };
       if (saveDraft) {
@@ -1369,6 +1387,16 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   Future<void> _onListen(BuildContext context, PostEditState state) async {
     _bodyCounted = state.content?.messageLimits != null;
+    final shared = widget.sharedImages;
+    if (!_sharedImagesTaken &&
+        shared != null &&
+        shared.isNotEmpty &&
+        (state.status == PostEditStatus.unsupported || state.status == PostEditStatus.verificationRequired)) {
+      // The editor never opens here: the shared images cannot be uploaded; the text stays to copy.
+      _sharedImagesTaken = true;
+      discardSharedFiles(shared);
+      showSnackBar(context: context, message: context.t.shareReceive.uploadUnavailable);
+    }
     if (state.status == PostEditStatus.identityChanged) {
       // What was written stays the draft of the account it was written for; nothing goes to the next one.
       _stopDraft(delete: false);
@@ -1575,6 +1603,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   @override
   void dispose() {
     _countdown?.cancel();
+    // Shared images never uploaded (the page was left before its form came): their copies go.
+    if (!_sharedImagesTaken && widget.sharedImages != null) {
+      discardSharedFiles(widget.sharedImages!);
+    }
     // What is not sent is kept on this device before the editor goes.
     _drafts.dispose();
     bbcodeController.dispose();

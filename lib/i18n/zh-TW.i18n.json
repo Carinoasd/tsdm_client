@@ -1931,7 +1931,10 @@
   "shareReceive": {
     "pickForum": "要發到哪個版塊",
     "uploadUnavailable": "這個版塊不能上傳圖片",
-    "uploadFailed": "圖片上傳失敗 $code"
+    "uploadFailed": "圖片上傳失敗 $code",
+    "uploadRefusedType": "不支援的圖片格式：$name",
+    "uploadRefusedSize": "圖片超過 ${limit: int} KB：$name",
+    "uploadFailedCount": "${count: int} 張圖片上傳失敗"
   },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",

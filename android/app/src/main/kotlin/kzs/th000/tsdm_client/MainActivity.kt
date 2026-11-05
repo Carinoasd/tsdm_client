@@ -80,14 +80,25 @@ class MainActivity: FlutterActivity() {
     private var initialShareIntent: Intent? = null
     private var shareChannel: MethodChannel? = null
 
+    /** Dart asked for the initial share: its handler for pushed shares is set, a share can be pushed to it now. */
+    private var dartTakesShares = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The intent the activity was created with, only when it is new: the recents replay the launch intent of the
+        // task (with FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY), and a recreated process gets it again with its saved state;
+        // a link or a share handled before must not open its page or its editor a second time.
+        val launch = intent
+        val replayed = savedInstanceState != null ||
+            launch == null ||
+            (launch.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (replayed) return
         // 冷启动时捕获深度链接
-        if (intent?.action == Intent.ACTION_VIEW) {
-            initialDeepLink = intent?.dataString
+        if (launch.action == Intent.ACTION_VIEW) {
+            initialDeepLink = launch.dataString
         }
-        if (ShareIntents.isShare(intent)) {
-            initialShareIntent = intent
+        if (ShareIntents.isShare(launch)) {
+            initialShareIntent = launch
         }
     }
 
@@ -143,14 +154,17 @@ class MainActivity: FlutterActivity() {
                     result.notImplemented()
                     return@setMethodCallHandler
                 }
+                dartTakesShares = true
                 val pending = initialShareIntent
                 initialShareIntent = null // Handed over once; a configuration change must not post it twice.
-                if (pending == null) {
-                    result.success(null)
-                    return@setMethodCallHandler
-                }
                 updateScope.launch {
-                    result.success(readShare(pending))
+                    if (pending == null) {
+                        // Copies left by a run that was killed before uploading them.
+                        withContext(Dispatchers.IO) { ShareIntents.removeStale(applicationContext) }
+                        result.success(null)
+                    } else {
+                        result.success(readShare(pending))
+                    }
                 }
             }
         }
@@ -177,7 +191,7 @@ class MainActivity: FlutterActivity() {
         }
         if (ShareIntents.isShare(intent)) {
             val channel = shareChannel
-            if (channel == null) {
+            if (channel == null || !dartTakesShares) {
                 // Dart is not listening yet: keep it for its getInitialShare.
                 initialShareIntent = intent
                 return
@@ -512,9 +526,10 @@ class MainActivity: FlutterActivity() {
                 val headers = call.argument<HashMap<String, String>>("headers")!!
                 // Strings, and maps describing a file part (see HttpClient.postMultipart).
                 val body = call.argument<HashMap<String, Any?>>("body")!!
+                val singleAttempt = call.argument<Boolean>("singleAttempt") ?: false
                 CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                     try {
-                        val resp = HttpClient.postMultipart(url, headers, body)
+                        val resp = HttpClient.postMultipart(url, headers, body, singleAttempt = singleAttempt)
                         val statusCode = resp.code
                         val headers = HashMap(resp.headers.toMultimap())
                         val body = resp.body.bytes()

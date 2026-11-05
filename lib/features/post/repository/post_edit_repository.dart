@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -98,27 +100,46 @@ final class PostEditRepository with LoggerMixin {
   /// does ([AttachmentUpload]): the `aid` of the attachment, to show in the post with [attachmentImageBBCode] and to
   /// bind to it with [PostFormEdits.attachNew].
   ///
-  /// Refused before anything is sent when the forum takes no images or not this file's type, or the session is no
-  /// longer the account the editor opened for.
-  AsyncEither<int> uploadImage(AttachmentUpload upload, String path) => AsyncEither(() async {
-    if (!isCurrent) return left(IdentityChangedException());
-    final sendFile = _sendFile;
-    final filename = path.split(RegExp(r'[/\\]')).last;
-    if (sendFile == null || !upload.image || !upload.acceptsImage(filename)) {
-      return left(AttachmentUploadFailedException());
+  /// Refused before anything is sent ([AttachmentUploadFailedException] with the reason) when the forum takes no
+  /// images, not this file's type or not a file this large, or when the session is no longer the account the editor
+  /// opened for ([IdentityChangedException]). [fileSize] tells the size of a file in bytes, the file system's by
+  /// default.
+  AsyncEither<int> uploadImage(AttachmentUpload upload, String path, {int Function(String path)? fileSize}) =>
+      AsyncEither(() async {
+        if (!isCurrent) return left(IdentityChangedException());
+        final sendFile = _sendFile;
+        if (sendFile == null || !upload.image) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.unavailable));
+        }
+        final filename = path.split(RegExp(r'[/\\]')).last;
+        if (!upload.acceptsImage(filename)) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.type));
+        }
+        final maxKb = upload.maxKb;
+        if (maxKb != null && (fileSize ?? _fileSize)(path) > maxKb * 1024) {
+          return left(AttachmentUploadFailedException(AttachmentUploadRefusal.size));
+        }
+        final result = await sendFile(
+          upload.imageUrl.toString(),
+          upload.fields,
+          MultipartFilePart(path: path, filename: filename, contentType: imageContentTypeOf(filename)),
+        );
+        if (!isCurrent) return left(IdentityChangedException());
+        return switch (result) {
+          Left(:final value) => left(value),
+          Right(:final value) when value.statusCode != 200 => left(HttpRequestFailedException(value.statusCode)),
+          Right(:final value) => parseAttachmentUploadAnswer(value.data),
+        };
+      });
+
+  /// The size of the file at [path] in bytes, 0 when it cannot be told (the upload then decides).
+  static int _fileSize(String path) {
+    try {
+      return File(path).lengthSync();
+    } on Object {
+      return 0;
     }
-    final result = await sendFile(
-      upload.imageUrl.toString(),
-      upload.fields,
-      MultipartFilePart(path: path, filename: filename, contentType: imageContentTypeOf(filename)),
-    );
-    if (!isCurrent) return left(IdentityChangedException());
-    return switch (result) {
-      Left(:final value) => left(value),
-      Right(:final value) when value.statusCode != 200 => left(HttpRequestFailedException(value.statusCode)),
-      Right(:final value) => parseAttachmentUploadAnswer(value.data),
-    };
-  });
+  }
 
   /// A successful POST may instead enter moderation; verify the draft marker through GET.
   ///

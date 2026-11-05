@@ -494,15 +494,33 @@ final class ThreadPublishFailedException extends AppException with ThreadPublish
 final class ThreadPublishLocationNotFoundException extends AppException
     with ThreadPublishLocationNotFoundExceptionMappable {}
 
-/// The forum did not take an attachment upload (`misc.php?mod=swfupload`).
+/// Why an attachment upload did not happen or was not taken, see [AttachmentUploadFailedException].
+enum AttachmentUploadRefusal {
+  /// The file is not of a type the forum takes (its extension is not in the form's image types).
+  type,
+
+  /// The file is larger than the forum's limit for one upload.
+  size,
+
+  /// The forum's upload script answered an error (`DISCUZUPLOAD|uid|error|…` with an error other than 0).
+  refused,
+
+  /// The answer was not one of the upload script (a login page, a 提示信息 page), or no upload transport is offered.
+  unavailable,
+}
+
+/// The forum did not take an attachment upload (`misc.php?mod=swfupload`), or the file was refused before anything
+/// was sent, see [reason].
 ///
-/// [code] is the error of its `DISCUZUPLOAD|uid|error|…` answer (not 0: no permission or a wrong hash, a damaged file,
-/// too large, a type the forum does not take, the day's quota…), null when the answer was not one of the upload script
-/// or the file was refused before anything was sent (not an image the forum takes).
+/// [code] is the error of the upload script's answer for [AttachmentUploadRefusal.refused] (no permission or a wrong
+/// hash, a damaged file, too large, a type the forum does not take, the day's quota…), null otherwise.
 @MappableClass()
 final class AttachmentUploadFailedException extends AppException with AttachmentUploadFailedExceptionMappable {
   /// Constructor.
-  AttachmentUploadFailedException({this.code});
+  AttachmentUploadFailedException(this.reason, {this.code});
+
+  /// Why.
+  final AttachmentUploadRefusal reason;
 
   /// The upload script's error code, null without one.
   final int? code;

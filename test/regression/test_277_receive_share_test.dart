@@ -485,11 +485,15 @@ void main() {
     test('the upload script answer: the aid, or its error', () {
       expect(parseAttachmentUploadAnswer('DISCUZUPLOAD|31|0|4567|1|202611/05/abc.jpg|a.jpg\n').toNullable(), 4567);
       expect(parseAttachmentUploadAnswer(utf8.encode('DISCUZUPLOAD|31|0|89|1|p|n')).toNullable(), 89);
-      final refused = parseAttachmentUploadAnswer('DISCUZUPLOAD|31|3|0|0|||2048000').getLeft().toNullable();
-      expect(refused, isA<AttachmentUploadFailedException>());
-      expect((refused! as AttachmentUploadFailedException).code, 3);
-      final page = parseAttachmentUploadAnswer('<html>login</html>').getLeft().toNullable();
-      expect((page! as AttachmentUploadFailedException).code, isNull);
+      final refused =
+          parseAttachmentUploadAnswer('DISCUZUPLOAD|31|3|0|0|||2048000').getLeft().toNullable()!
+              as AttachmentUploadFailedException;
+      expect(refused.code, 3);
+      expect(refused.reason, AttachmentUploadRefusal.refused);
+      final page =
+          parseAttachmentUploadAnswer('<html>login</html>').getLeft().toNullable()! as AttachmentUploadFailedException;
+      expect(page.code, isNull);
+      expect(page.reason, AttachmentUploadRefusal.unavailable);
       expect(parseAttachmentUploadAnswer('DISCUZUPLOAD|31|0|0|1').isLeft(), isTrue, reason: 'no aid');
       expect(parseAttachmentUploadAnswer(null).isLeft(), isTrue);
     });
@@ -500,6 +504,12 @@ void main() {
       expect(imageContentTypeOf('a.gif'), 'image/gif');
       expect(imageContentTypeOf('a.bin'), 'application/octet-stream');
       expect(attachmentImageBBCode(12), '[attachimg]12[/attachimg]');
+    });
+
+    test('only the uploads the post still shows are bound to it', () {
+      const message = 'a\n[attachimg]12[/attachimg]\nb [attachimg]340[/attachimg]';
+      expect(attachmentsInMessage(message, [12, 34, 340, 5]), [12, 340]);
+      expect(attachmentsInMessage('', [12]), isEmpty);
     });
 
     test('the repository posts uid, hash and the file as Filedata to the image url, as the account in use', () async {
@@ -515,7 +525,7 @@ void main() {
         },
       );
       final upload = form.attachmentUpload!;
-      final aid = await repo.uploadImage(upload, '/cache/shared_images/1_0.jpg').run();
+      final aid = await repo.uploadImage(upload, '/cache/shared_images/1_0.jpg', fileSize: (_) => 1024 * 1024).run();
       expect(aid.toNullable(), 777);
       final (url, fields, file) = sent.single;
       expect(url, upload.imageUrl.toString());
@@ -529,16 +539,22 @@ void main() {
         'contentType': 'image/jpeg',
       });
 
-      // A type the forum does not take is refused before anything is sent.
-      final webp = await repo.uploadImage(upload, '/cache/a.webp').run();
-      expect(webp.getLeft().toNullable(), isA<AttachmentUploadFailedException>());
+      // A type the forum does not take, or a file over its limit (2000 KB here), is refused before anything is sent.
+      final webp = await repo.uploadImage(upload, '/cache/a.webp', fileSize: (_) => 10).run();
+      expect((webp.getLeft().toNullable()! as AttachmentUploadFailedException).reason, AttachmentUploadRefusal.type);
+      final large = await repo.uploadImage(upload, '/cache/a.jpg', fileSize: (_) => 2000 * 1024 + 1).run();
+      expect((large.getLeft().toNullable()! as AttachmentUploadFailedException).reason, AttachmentUploadRefusal.size);
       expect(sent.length, 1);
+      // A file whose size cannot be told goes up: the forum decides.
+      final unknown = await repo.uploadImage(upload, '/cache/missing.jpg').run();
+      expect(unknown.toNullable(), 777);
+      expect(sent.length, 2);
 
       // The account changed: nothing is uploaded as another one.
       uid = 99;
-      final other = await repo.uploadImage(upload, '/cache/b.jpg').run();
+      final other = await repo.uploadImage(upload, '/cache/b.jpg', fileSize: (_) => 10).run();
       expect(other.getLeft().toNullable(), isA<IdentityChangedException>());
-      expect(sent.length, 1);
+      expect(sent.length, 2);
     });
 
     test('the forum refuses, or answers something else: the failure, no aid', () async {
@@ -550,10 +566,12 @@ void main() {
         sendFile: (_, _, _) async => right(_response(answers.removeAt(0))),
       );
       final upload = form.attachmentUpload!;
-      final refused = await repo.uploadImage(upload, '/c/a.jpg').run();
+      final refused = await repo.uploadImage(upload, '/c/a.jpg', fileSize: (_) => 10).run();
       expect((refused.getLeft().toNullable()! as AttachmentUploadFailedException).code, 4);
-      final page = await repo.uploadImage(upload, '/c/a.jpg').run();
-      expect((page.getLeft().toNullable()! as AttachmentUploadFailedException).code, isNull);
+      final page = await repo.uploadImage(upload, '/c/a.jpg', fileSize: (_) => 10).run();
+      final failure = page.getLeft().toNullable()! as AttachmentUploadFailedException;
+      expect(failure.code, isNull);
+      expect(failure.reason, AttachmentUploadRefusal.unavailable);
 
       // Without a file transport (a page without the forum's app API) nothing is offered.
       final none = PostEditRepository.withTransport(
@@ -561,7 +579,11 @@ void main() {
         getPage: (_) async => throw StateError('no page'),
         sendForm: (_, _) async => throw StateError('no form'),
       );
-      expect((await none.uploadImage(upload, '/c/a.jpg').run()).isLeft(), isTrue);
+      final offered = await none.uploadImage(upload, '/c/a.jpg', fileSize: (_) => 10).run();
+      expect(
+        (offered.getLeft().toNullable()! as AttachmentUploadFailedException).reason,
+        AttachmentUploadRefusal.unavailable,
+      );
     });
   });
 

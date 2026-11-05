@@ -67,8 +67,15 @@
                 <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
-            <!-- Text, links and images shared from other apps (received in MainActivity, handed to Dart over the
-                 shareReceive channel: a forum link opens its page, anything else goes into a new thread). -->
+        </activity>
+        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivity
+             in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
+        <activity
+                android:name=".ShareActivity"
+                android:exported="true"
+                android:excludeFromRecents="true"
+                android:noHistory="true"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
