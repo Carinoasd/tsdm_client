@@ -936,23 +936,14 @@ class AppPager extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Standard density: the compact one shrank the tap targets to 40.
           IconButton(
             icon: const Icon(Icons.chevron_left),
             tooltip: localizations.previousPageTooltip,
-            visualDensity: VisualDensity.compact,
             onPressed: onPrevious,
           ),
-          TextButton(
-            onPressed: onJump,
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            child: Text('${current ?? '-'} / ${total ?? '-'}'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: localizations.nextPageTooltip,
-            visualDensity: VisualDensity.compact,
-            onPressed: onNext,
-          ),
+          TextButton(onPressed: onJump, child: Text('${current ?? '-'} / ${total ?? '-'}')),
+          IconButton(icon: const Icon(Icons.chevron_right), tooltip: localizations.nextPageTooltip, onPressed: onNext),
         ],
       ),
     );

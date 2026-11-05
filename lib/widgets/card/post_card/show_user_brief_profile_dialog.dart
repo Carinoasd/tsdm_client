@@ -137,7 +137,12 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
         AppSectionHeader(title, icon: icon, padding: const EdgeInsets.symmetric(vertical: 4));
 
     final inDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final colorOffset = inDarkTheme ? 300 : 700;
+    // The 700 shades read under 4.5:1 on the light surfaces of the dialog (the blue of the title, nickname and
+    // registration 4.2, the green of the threads 3.7, the cyan of the posts 3.2, the orange of the privilege 2.4): one
+    // shade darker for all, cyan two, and orange is deep orange.
+    final colorOffset = inDarkTheme ? 300 : 800;
+    final cyanOffset = inDarkTheme ? 300 : 900;
+    final orange = inDarkTheme ? Colors.orange[300] : Colors.deepOrange[900];
     // Measured like the badges below: the dialog content has no layout builder (the dialog sizes to intrinsics).
     final contentWidth = briefProfileDialogContentWidth(MediaQuery.sizeOf(context).width);
     final statWidth = (contentWidth - 8) / 2;
@@ -262,7 +267,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -308,7 +313,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
               Icons.feedback_outlined,
               tr.privilege,
               widget.profile.privilege,
-              Colors.orange[colorOffset],
+              orange,
             ),
             _UserProfilePair(
               Icons.event_note_outlined,
@@ -329,7 +334,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
         children: [
           stat(Icons.thumb_up_outlined, tr.recommended, widget.profile.recommended, Colors.red[colorOffset]),
           stat(Icons.book_outlined, tr.thread, widget.profile.threadCount, Colors.green[colorOffset]),
-          stat(MdiIcons.commentEditOutline, tr.post, widget.profile.postCount, Colors.cyan[colorOffset]),
+          stat(MdiIcons.commentEditOutline, tr.post, widget.profile.postCount, Colors.cyan[cyanOffset]),
           stat(Icons.emoji_people_outlined, tr.famous, widget.profile.famous, Colors.purple[colorOffset]),
           stat(FontAwesomeIcons.coins, tr.coins, widget.profile.coins, Colors.purple[colorOffset]),
           stat(Icons.campaign_outlined, tr.publicity, widget.profile.publicity, Colors.purple[colorOffset]),
@@ -591,11 +596,11 @@ class _AuthorActions extends StatelessWidget {
     final tr = context.t.postCard.profileDialog;
 
     // Label padding halved: at 204 wide the label of a list chip sharing a row gets 72, "TA的主題" needs about 60.
+    // Standard density: the compact one shrank the tap targets to 40.
     Widget chip(String key, String label, VoidCallback onPressed) => ActionChip(
       key: ValueKey('brief-profile-action-$key'),
       label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-      visualDensity: VisualDensity.compact,
       onPressed: onPressed,
     );
 
@@ -603,7 +608,6 @@ class _AuthorActions extends StatelessWidget {
       key: ValueKey('brief-profile-action-$key'),
       label: Icon(icon, size: 18),
       tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
       onPressed: onPressed,
     );
 
@@ -671,9 +675,9 @@ class _UserProfilePair extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(iconData, size: 16, color: colorScheme.outline),
+        Icon(iconData, size: 16, color: colorScheme.onSurfaceVariant),
         sizedBoxW8H8,
-        Text(name, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
+        Text(name, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
         sizedBoxW12H12,
         Expanded(
           child: Text(value ?? '', style: textTheme.bodyMedium?.copyWith(color: valueColor)),
