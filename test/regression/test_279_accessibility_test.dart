@@ -663,6 +663,20 @@ void main() {
       await _settle(tester);
       expect(find.text('Alice'), findsWidgets, reason: 'the thread cards are on the page');
       await audit(tester, covered: [floatingButtons()]);
+      // The 48 box of the avatar and its circle, name and date where they were with the 40 circle (16, 12 from the
+      // corner of the card, the name 12 after the circle): the target grew around the circle, not the head.
+      final card = tester.getRect(find.byType(Card).first);
+      final circle = tester.getRect(find.descendant(of: find.byType(Card).first, matching: find.byType(CircleAvatar)));
+      final box = avatarTarget(tester, find.byType(HeroUserAvatar).first);
+      expect(box.size, const Size(48, 48));
+      expect(circle.size, const Size(40, 40));
+      expect(circle.topLeft - card.topLeft, const Offset(16, 12));
+      final name = tester.getRect(find.descendant(of: find.byType(Card).first, matching: find.text('Alice')));
+      expect(name.left - circle.right, 12);
+      // The texts (name over date) centered on the circle, as with the 40 circle at the default size.
+      final texts = tester.getRect(find.ancestor(of: find.text('Alice').first, matching: find.byType(Column)).first);
+      expect(texts.height, lessThan(48), reason: 'the default size: the box decides the height of the head');
+      expect(texts.center.dy, closeTo(circle.center.dy, 0.5));
       await unpump(tester);
     });
 

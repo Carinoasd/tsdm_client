@@ -340,7 +340,7 @@ class _CardLayout extends StatelessWidget {
           excludeSemantics: true,
           child: SizedBox.square(
             dimension: _authorTapSize,
-            child: Align(alignment: Alignment.topCenter, child: _buildAvatar(context)),
+            child: Center(child: _buildAvatar(context)),
           ),
         ),
       );
@@ -370,11 +370,12 @@ class _CardLayout extends StatelessWidget {
       if (author != null && forum != null) SingleLineText(forum!, style: forumNameStyle),
     ];
 
-    // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before it, 4 less gap
-    // after it, and the circle at the top of its box, which grows 8 below it (the head is 4 higher at the default
-    // text size, where the texts are lower than the box; at a large size the texts decide the height as before).
+    // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before and above it, 4
+    // less gap after it, the circle in the middle of its box. The row is centered: at the default text size (texts
+    // lower than the box) the circle and the texts stay where they were and the head grows 4 below; at a large size
+    // the texts decide the height as before and everything is 4 higher.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
           leading,
