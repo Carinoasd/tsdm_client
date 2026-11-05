@@ -4,4 +4,9 @@
     <string name="shortcut_notice">Messages</string>
     <string name="shortcut_favorite">Favorites</string>
     <string name="shortcut_search">Search</string>
+    <string name="home_widget_label">Check-in and messages</string>
+    <string name="home_widget_notice">Notices</string>
+    <string name="home_widget_personal_message">Messages</string>
+    <string name="home_widget_checked_in">Checked in</string>
+    <string name="home_widget_not_checked_in">Not checked in</string>
 </resources>

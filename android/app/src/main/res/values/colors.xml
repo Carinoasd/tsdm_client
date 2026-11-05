@@ -6,4 +6,9 @@
     <color name="icCls4">#19a6e6</color>
     <color name="ic_launcher_background">#ffffff</color>
     <color name="ic_shortcut_background">#01579b</color>
+    <color name="home_widget_background">#FFFFFFFF</color>
+    <color name="home_widget_text">#DE000000</color>
+    <color name="home_widget_text_secondary">#8A000000</color>
+    <color name="home_widget_accent">#01579b</color>
+    <color name="home_widget_button_background">#1401579B</color>
 </resources>

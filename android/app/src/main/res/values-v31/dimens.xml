@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The corner radius the system gives widgets on Android 12+. -->
+    <dimen name="home_widget_corner">@android:dimen/system_app_widget_background_radius</dimen>
+</resources>
