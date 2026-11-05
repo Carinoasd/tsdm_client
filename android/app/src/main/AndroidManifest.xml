@@ -15,7 +15,7 @@
 
     <application
             android:label="天使动漫"
-            android:name="${applicationName}"
+            android:name=".TsdmApplication"
             android:icon="@mipmap/ic_launcher">
         <provider
                 android:name="kzs.th000.tsdm_client.UpdateFileProvider"
@@ -69,6 +69,18 @@
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
+        <!-- The home screen widget: unread counts and the check-in of the account in use (HomeWidgetProvider). -->
+        <receiver
+                android:name=".HomeWidgetProvider"
+                android:exported="true"
+                android:label="@string/home_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                    android:name="android.appwidget.provider"
+                    android:resource="@xml/home_widget_info" />
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

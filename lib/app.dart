@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
+import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
@@ -482,6 +483,20 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               return bloc;
             },
           ),
+          if (isAndroid)
+            // The home screen widget follows the unread counts, the check-in record and the account in use.
+            BlocProvider(
+              create: (context) {
+                final auth = context.repo<AuthenticationRepository>();
+                return HomeWidgetSyncCubit(
+                  unread: context.read<NotificationStateCubit>().stream,
+                  accounts: getIt.get<StorageProvider>().allAccountsStream(),
+                  auth: auth.status,
+                  currentUid: () => auth.effectiveCurrentUid,
+                )..start();
+              },
+              lazy: false,
+            ),
           BlocProvider(
             create: (context) => ThemeCubit(
               accentColor: widget.color >= 0 ? Color(widget.color) : null,

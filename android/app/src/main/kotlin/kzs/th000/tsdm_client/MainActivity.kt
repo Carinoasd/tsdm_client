@@ -79,6 +79,9 @@ class MainActivity: FlutterActivity() {
     /** The launcher shortcuts of the app icon, see [ShortcutsHandler]. */
     private val shortcuts = ShortcutsHandler()
 
+    /** The home screen widget's state, told by Dart, see [HomeWidgetChannel]. */
+    private val homeWidget = HomeWidgetChannel()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         shortcuts.onCreate(intent, savedInstanceState)
@@ -122,6 +125,7 @@ class MainActivity: FlutterActivity() {
             }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
         shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger)
+        homeWidget.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         // 处理 Flutter 端对深度链接的查询
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
@@ -169,6 +173,7 @@ class MainActivity: FlutterActivity() {
         networkCallback = null
         updateScope.cancel()
         shortcuts.detach()
+        homeWidget.detach()
         super.onDestroy()
     }
 
