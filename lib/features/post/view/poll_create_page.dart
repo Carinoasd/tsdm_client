@@ -254,6 +254,8 @@ class _PollCreatePageState extends State<PollCreatePage> {
               // The settings of the other kinds the member came with, for when they are back there.
               rewardPrice: _carried?.rewardPrice,
               hongbao: _carried?.hongbao,
+              // Not the editor's document: the body was edited as text here.
+              typeId: _carried?.typeId,
             ),
     );
   }

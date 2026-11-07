@@ -18,6 +18,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart' hide State;
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -30,7 +31,9 @@ import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/models/special_thread_form.dart';
+import 'package:tsdm_client/features/post/repository/poll_create_repository.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/view/poll_create_page.dart';
 import 'package:tsdm_client/features/post/view/post_edit_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -46,6 +49,8 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+
+import 'poll_fixtures.dart';
 
 const _alice = UserLoginInfo(username: 'Alice', uid: 31);
 
@@ -209,6 +214,67 @@ void main() {
       await drafts.pendingWrites;
       expect((await drafts.load(31, key))?.rewardPrice, 20);
     });
+  });
+
+  testWidgets('the poll editor passes the settings and the thread type on, not the document', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1000, 2000)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final auth = AuthenticationRepository(user: const UserLoginInfo(uid: 1000, username: 'Synthetic A'));
+    addTearDown(auth.dispose);
+    await LocaleSettings.setLocale(AppLocale.en);
+    addTearDown(() => LocaleSettings.setLocale(AppLocale.zhTw));
+    Object? carried;
+    final router = GoRouter(
+      initialLocation: '/poll',
+      routes: [
+        GoRoute(
+          path: '/poll',
+          builder: (_, _) => PollCreatePage(
+            fid: '4',
+            transfer: const ThreadModeTransfer(
+              uid: 1000,
+              fid: '4',
+              subject: '標題',
+              body: '內文',
+              rewardPrice: 50,
+              hongbao: _packet,
+              typeId: '5',
+              delta: '[]',
+            ),
+            repositoryBuilder: (currentUid) => PollCreateRepository.withTransport(
+              currentUid: currentUid,
+              getPage: (_) async => right(pollResponse(pollForm())),
+              sendForm: (_, _) async => throw StateError('nothing is posted'),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: ScreenPaths.editPost,
+          name: ScreenPaths.editPost,
+          builder: (_, state) {
+            carried = state.extra;
+            return const Scaffold(body: Text('thread editor'));
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      RepositoryProvider<AuthenticationRepository>.value(
+        value: auth,
+        child: TranslationProvider(child: MaterialApp.router(routerConfig: router)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.pumpAndSettle();
+    final transfer = carried! as ThreadModeTransfer;
+    expect(transfer.rewardPrice, 50);
+    expect(transfer.hongbao?.toFields(), _packet.toFields());
+    expect(transfer.typeId, '5');
+    expect(transfer.delta, isNull, reason: 'the body was edited as text');
   });
 
   group('the editor', () {
