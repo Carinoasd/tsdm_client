@@ -148,19 +148,23 @@ final class PostEditRepository with LoggerMixin {
   /// `schema: 3`) tells the account it was served to and whether the thread is a draft (`thread.draft`); any other
   /// answer is the page, read as before: the account from its `discuz_uid`, the draft from the marker beside the
   /// title ([isDraftThreadDocument]).
-  Future<bool> confirmsDraft(String url) async {
-    if (!isCurrent) return false;
+  Future<bool> confirmsDraft(String url) async => await draftStatus(url) ?? false;
+
+  /// Whether the thread page [url] is a draft, as [confirmsDraft] reads it; null when it cannot tell (the request
+  /// failed, another account or a guest was served, no page came back).
+  Future<bool?> draftStatus(String url) async {
+    if (!isCurrent) return null;
     final result = await _get(withTsdmAppJson(url));
-    if (!isCurrent) return false;
-    return result.match((_) => false, (response) {
-      if (response.statusCode != 200) return false;
+    if (!isCurrent) return null;
+    return result.match((_) => null, (response) {
+      if (response.statusCode != 200) return null;
       final api = threadApiAnswerOf(response.data);
       if (api != null) {
-        return threadApiViewerUid(api) == _ownerUid && threadPageFromApi(api, 1).isDraft;
+        return threadApiViewerUid(api) == _ownerUid ? threadPageFromApi(api, 1).isDraft : null;
       }
-      if (tsdmAppAnswerWithoutPage(response.data)) return false;
+      if (tsdmAppAnswerWithoutPage(response.data)) return null;
       final document = tsdmAppPageDocument(response.data);
-      if (parseLoggedUidFromDocument(document) != _ownerUid) return false;
+      if (parseLoggedUidFromDocument(document) != _ownerUid) return null;
       return isDraftThreadDocument(document);
     });
   }
@@ -287,6 +291,8 @@ final class PostEditRepository with LoggerMixin {
         activity: edits.activity,
         debate: edits.debate,
         poll: edits.poll,
+        // A draft saved is no publication: never scheduled (a time passed meanwhile would leave a plain draft).
+        cronPublish: edits.save == '1' ? null : edits.cronPublish,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {

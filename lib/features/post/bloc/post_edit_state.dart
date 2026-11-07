@@ -40,6 +40,10 @@ enum PostEditStatus {
 
   /// Server accepted the content, but it could not be confirmed as a private draft.
   draftUnconfirmed,
+
+  /// A new thread posted to be published later ([PostFormEdits.cronPublish]): the forum keeps it a draft until then
+  /// (the thread checked after posting).
+  scheduled,
 }
 
 /// State of mappable.

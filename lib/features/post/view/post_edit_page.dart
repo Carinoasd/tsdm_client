@@ -40,6 +40,7 @@ import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/cron_publish_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
@@ -256,6 +257,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   /// The poll settings of the first post of a poll edited, as served until the member changes them.
   PollEdits? poll;
+
+  /// When the new thread is published, null for now.
+  DateTime? cronPublish;
 
   /// The reward credits of a new reward thread, null until set; the price of an open reward thread edited, raised by
   /// the member.
@@ -897,6 +901,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       }
     }
     if (widget.editType == PostEditType.newThread) {
+      // A time passed meanwhile would publish the thread now.
+      if (cronPublish case final at? when !saveDraft && (form?.offersCronPublish ?? false)) {
+        if (!cronPublishAhead(at, DateTime.now())) {
+          showSnackBar(context: context, message: context.t.postEditPage.cronPublish.passed);
+          return;
+        }
+      }
       // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
       if (form?.hongbao case final info? when !saveDraft) {
         final packet = hongbao;
@@ -1018,6 +1029,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           hongbao: state.content!.form?.hongbao == null ? null : hongbao,
           activity: state.content!.form?.activity == null ? null : activity,
           debate: state.content!.form?.debate == null ? null : debate,
+          // A draft saved is no publication: not scheduled.
+          cronPublish: (state.content!.form?.offersCronPublish ?? false) && !saveDraft ? cronPublish : null,
         ),
       };
       if (saveDraft) {
@@ -1435,6 +1448,20 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               }
             },
           ),
+        if (state.content?.form case final form?
+            when widget.editType == PostEditType.newThread && form.offersCronPublish)
+          IconButton(
+            icon: const Icon(Icons.schedule_outlined),
+            selectedIcon: const Icon(Icons.schedule),
+            isSelected: cronPublish != null,
+            tooltip: context.t.postEditPage.cronPublish.entryTooltip,
+            onPressed: () async {
+              final set = await showCronPublishDialog(context, cronPublish);
+              if (set != null && mounted) {
+                setState(() => cronPublish = set.at);
+              }
+            },
+          ),
         if (state.content?.form?.debate case final info?)
           IconButton(
             icon: const Icon(Icons.balance_outlined),
@@ -1713,6 +1740,23 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         message: context.t.draftBox.acceptedUnconfirmed,
       );
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
+    } else if (state.status == PostEditStatus.scheduled) {
+      _stopDraft(delete: true);
+      // Kept a draft until its time: no thread to go to yet, the drafts tell when. The time shown is the device's
+      // clock of the instant posted (the forum got its own wall clock of it, PostForm.cronPublishDate); the field is
+      // not changed while posting (the editor is locked).
+      final tr = context.t.postEditPage.cronPublish;
+      final view = await showQuestionDialog(
+        context: context,
+        title: tr.scheduled,
+        message: tr.scheduledMessage(time: cronPublish == null ? '' : discuzDateTime(cronPublish!)),
+      );
+      if (!context.mounted || !context.read<PostEditRepository>().isCurrent) return;
+      if (view ?? false) {
+        context.pushReplacementNamed(ScreenPaths.myThread, queryParameters: {'tab': 'drafts'});
+      } else {
+        context.pop(true);
+      }
     } else if (state.status == PostEditStatus.stillDraft) {
       _stopDraft(delete: true);
       // Published from the app, but the forum keeps it a draft (a scheduled publication): no "go to the new thread".
@@ -2066,6 +2110,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                         state.status != PostEditStatus.uploading &&
                         state.status != PostEditStatus.success &&
                         state.status != PostEditStatus.draftUnconfirmed &&
+                        state.status != PostEditStatus.stillDraft &&
+                        state.status != PostEditStatus.scheduled &&
                         state.status != PostEditStatus.identityChanged)
                       IconButton(
                         tooltip: context.t.pollCreate.switchToPoll,

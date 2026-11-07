@@ -400,6 +400,9 @@ class DialogPaths {
   /// Dialog to set the poll of the first post of a poll edited.
   static const String pollSettings = '/dialog/pollSettings';
 
+  /// Dialog to set when a new thread is published.
+  static const String cronPublish = '/dialog/cronPublish';
+
   /// Dialog to let user select thread read perm.
   static const String selectPerm = '/dialog/selectPerm';
 
