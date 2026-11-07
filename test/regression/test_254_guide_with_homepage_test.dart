@@ -133,6 +133,15 @@ final class _Auth extends Fake implements AuthenticationRepository {
   Future<void> close() => _controller.close();
 }
 
+/// The first state [bloc] emits after [trigger] that [where] takes, or that is no page shown (loading, failed, a login
+/// asked): listened to before [trigger] runs, and checked by the caller, so a load that goes another way fails at
+/// once with the state it went to instead of waiting for the test to time out.
+Future<HomepageState> next(HomepageBloc bloc, void Function() trigger, bool Function(HomepageState) where) {
+  final state = bloc.stream.firstWhere((s) => where(s) || s.status != HomepageStatus.success);
+  trigger();
+  return state;
+}
+
 void main() {
   late AppDatabase db;
   late SettingsRepository settings;
@@ -141,14 +150,22 @@ void main() {
   late Directory tmp;
   late SavedAnswerStore store;
 
+  /// Ends the store of the test: it reads and writes nothing any more.
+  late void Function() closeStore;
+
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
     await LocaleSettings.setLocale(AppLocale.en);
   });
   setUp(() async {
     TsdmAppApi.reset();
-    tmp = Directory.systemTemp.createTempSync('tsdm_guide_feed_');
-    store = SavedAnswerStore(directory: () async => tmp);
+    final dir = tmp = Directory.systemTemp.createTempSync('tsdm_guide_feed_');
+    // The store keeps to the directory of its own test, and only while the test runs: an answer a test left on its
+    // way is saved after the next test started, and it went to that test's directory then (`tmp` is set again for
+    // every test), racing the answers that test saved.
+    var open = true;
+    closeStore = () => open = false;
+    store = SavedAnswerStore(directory: () async => open ? dir : throw StateError('the test of this store is over'));
     db = AppDatabase(NativeDatabase.memory());
     final storage = StorageProvider(db, {}, {});
     settings = SettingsRepository(storage);
@@ -168,6 +185,10 @@ void main() {
     await settings.setValue(SettingsKeys.loginUid, _alice.uid!);
   });
   tearDown(() async {
+    // Nothing of the test runs on into the next one. Bounded: a test that failed while a request was held leaves it
+    // held; the closed store keeps the next test safe.
+    await store.pendingWrites.timeout(const Duration(seconds: 5), onTimeout: () {});
+    closeStore();
     await getIt.reset();
     await settings.dispose();
     await db.close();
@@ -244,16 +265,20 @@ void main() {
       profileRepository: ProfileRepository(),
       authenticationRepository: auth,
       guideFeed: feed,
-    )..add(HomepageLoadRequested());
+    );
     addTearDown(bloc.close);
-    for (var i = 0; i < 50 && forum.guide.isEmpty; i++) {
+    final loading = next(bloc, () => bloc.add(HomepageLoadRequested()), (_) => false);
+    // Both requests are on their way: the page is asked once the saved one was read, the guide before.
+    for (var i = 0; i < 100 && (forum.guide.isEmpty || forum.homepage.isEmpty); i++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
     expect(forum.guide, hasLength(1));
     expect(forum.homepage, hasLength(1));
     expect(forum.holdHome!.isCompleted, isFalse, reason: 'the homepage is still on its way');
-    forum.holdHome!.complete();
-    await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success);
+    expect((await loading).status, HomepageStatus.loading);
+    final loaded = await next(bloc, forum.holdHome!.complete, (s) => s.status == HomepageStatus.success);
+    expect(loaded.status, HomepageStatus.success);
+    await home.dailyRewardsDone;
     // The card built now takes that request.
     await feed.fetch().run();
     expect(forum.guide, hasLength(1));
