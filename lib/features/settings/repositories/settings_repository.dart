@@ -173,6 +173,9 @@ final class SettingsRepository with LoggerMixin {
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),
+      crossDeviceSyncRateTemplates: s.extract(_SK.crossDeviceSyncRateTemplates),
+      crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),
+      crossDeviceSyncDrafts: s.extract(_SK.crossDeviceSyncDrafts),
       themeModeScheduled: s.extract(_SK.themeModeScheduled),
       darkScheduleStart: s.extract(_SK.darkScheduleStart),
       darkScheduleEnd: s.extract(_SK.darkScheduleEnd),
@@ -248,6 +251,29 @@ final class SettingsRepository with LoggerMixin {
   Future<void> setValues<T>(List<(SettingsKeys<T>, T)> values) async {
     for (final (key, value) in values) {
       await _save<T>(key, value);
+    }
+    _controller.add(_state);
+  }
+
+  /// Save several values of different types (each a key and its value: a bool, an int, a double, a string or a
+  /// [ThreadFloorInteractionMode]) and publish the new settings once (the cross-device sync applying the settings of
+  /// another device).
+  Future<void> setMixedValues(List<(SettingsKeys<Object>, Object)> values) async {
+    for (final (key, value) in values) {
+      switch (value) {
+        case final bool v:
+          await _save<bool>(key as SettingsKeys<bool>, v);
+        case final int v:
+          await _save<int>(key as SettingsKeys<int>, v);
+        case final double v:
+          await _save<double>(key as SettingsKeys<double>, v);
+        case final String v:
+          await _save<String>(key as SettingsKeys<String>, v);
+        case final ThreadFloorInteractionMode v:
+          await _save<ThreadFloorInteractionMode>(key as SettingsKeys<ThreadFloorInteractionMode>, v);
+        default:
+          error('failed to save settings for key $key: unsupported value $value');
+      }
     }
     _controller.add(_state);
   }

@@ -330,7 +330,10 @@
       "title": "账号",
       "mgmt": "管理账户",
       "crossDeviceSync": {
-        "title": "跨设备同步"
+        "title": "跨设备同步",
+        "rateTemplates": "评分模板",
+        "settings": "阅读与显示设置",
+        "drafts": "本机草稿"
       }
     },
     "appearanceSection": {
@@ -1937,6 +1940,11 @@
     "shareImage": "分享图片",
     "failedToShareImage": "无法分享图片",
     "openInBrowser": "在浏览器中打开",
+    "saveAllImages": "保存全部图片",
+    "saveScopeFloor": "这一楼",
+    "saveScopePage": "这一页",
+    "saveAllDone": "已保存 ${saved: int} 张，失败 ${failed: int} 张",
+    "saveAllCancelled": "已取消，已保存 ${saved: int} 张",
     "failedToOpenInBrowser": "无法打开浏览器"
   },
   "init": {
@@ -3004,6 +3012,45 @@
     "accountChanged": "载入此页后已切换账号，请先刷新帖子。",
     "openInBrowser": "在浏览器中打开",
     "submit": "提交",
+    "hongbao": {
+      "title": "红包",
+      "status": {
+        "active": "进行中",
+        "done": "已领完",
+        "withdrawn": "已撤回",
+        "expired": "已过期",
+        "closed": "已关闭"
+      },
+      "lucky": "拼手气",
+      "even": "均分",
+      "shares": "已领 $claimed/$shares 份",
+      "needReply": "需回帖",
+      "password": "口令",
+      "appoint": "指定领取",
+      "expireAt": "$time 到期",
+      "noExpire": "不自动到期",
+      "mine": "领到 $amount$credit",
+      "best": "手气最佳",
+      "why": {
+        "disabled": "红包功能已关闭",
+        "login": "登录后领取",
+        "self": "不能领取自己的红包",
+        "claimed": "已领取",
+        "appoint": "不在指定领取名单",
+        "needreply": "回帖后领取"
+      },
+      "grab": "抢红包",
+      "passwordTitle": "输入口令",
+      "records": "领取记录",
+      "recordsEmpty": "还没有人领取",
+      "recordsFailed": "读取失败",
+      "withdraw": "撤回",
+      "withdrawConfirmTitle": "撤回红包",
+      "withdrawConfirm": "剩余的$credit退回给你",
+      "grabbed": "领到 $amount $unit",
+      "already": "已领过 $amount $unit",
+      "withdrawn": "已撤回，退回 $amount $unit"
+    },
     "poll": {
       "single": "单选投票",
       "multiple": "多选投票，最多可选 $max 项",
@@ -3125,7 +3172,28 @@
       "credit": "$credit $unit",
       "manage": "商品排序",
       "add": "添加商品",
-      "openHint": "购买、数量与运费在浏览器的商品页办理。"
+      "buy": "购买",
+      "buyInBrowser": "在浏览器购买",
+      "soldOut": "已售完",
+      "seller": "卖家",
+      "quantity": "数量",
+      "message": "留言",
+      "next": "下一步",
+      "confirmTitle": "确认购买",
+      "pay": "付款",
+      "cost": "支付",
+      "balance": "余额",
+      "after": "购买后",
+      "insufficient": "余额不足",
+      "password": "登录密码",
+      "bought": "购买完成。",
+      "notPaid": "订单已建立，尚未付款。",
+      "payAgain": "重新付款",
+      "openOrder": "查看订单",
+      "unknown": "未能确认结果，请在订单页查看。",
+      "verification": "论坛要求验证，请在浏览器中完成。",
+      "openOrders": "查看交易记录",
+      "unknownOrder": "未能确认是否已下单，请在交易记录中查看。"
     },
     "already": "之前已经完成。"
   },

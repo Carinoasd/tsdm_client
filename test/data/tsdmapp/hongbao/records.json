@@ -1,0 +1,90 @@
+{
+ "rec_denied": {
+  "ok": 0,
+  "error": "message",
+  "message": "開包後才能看大家的手氣",
+  "login": 0,
+  "uid": 1033
+ },
+ "rec_guest": {
+  "ok": 0,
+  "error": "message",
+  "message": "請先登入",
+  "login": 1,
+  "uid": 0
+ },
+ "rec_ok_9202752": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058929,
+  "uid": 1031,
+  "formhash": "f1f2f3f4",
+  "type": "hongbao_record",
+  "schema": 19,
+  "tid": 9202752,
+  "packetid": 98,
+  "split": "lucky",
+  "credit": {
+   "id": 1,
+   "title": "威望",
+   "unit": ""
+  },
+  "shares": 3,
+  "claimed": 3,
+  "records": [
+   {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif",
+    "amount": 1,
+    "dateline": 1794057859,
+    "best": 1
+   },
+   {
+    "uid": 1037,
+    "username": "领取人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg",
+    "amount": 1,
+    "dateline": 1794057859,
+    "best": 0
+   },
+   {
+    "uid": 1038,
+    "username": "领取人丙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg",
+    "amount": 1,
+    "dateline": 1794057859,
+    "best": 0
+   }
+  ]
+ },
+ "rec_sender_pw": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058971,
+  "uid": 1035,
+  "formhash": "f1f2f3f4",
+  "type": "hongbao_record",
+  "schema": 19,
+  "tid": 9202761,
+  "packetid": 102,
+  "split": "lucky",
+  "credit": {
+   "id": 1,
+   "title": "威望",
+   "unit": ""
+  },
+  "shares": 3,
+  "claimed": 1,
+  "records": [
+   {
+    "uid": 1033,
+    "username": "领取人甲",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg",
+    "amount": 1,
+    "dateline": 1794058956,
+    "best": 1
+   }
+  ]
+ }
+}

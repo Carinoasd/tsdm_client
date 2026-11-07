@@ -1315,6 +1315,32 @@ class StorageProvider with LoggerMixin {
     return rightVoid();
   });
 
+  /// Replace every fast rate template with [rates], in their order, in one transaction (the watchers see one change).
+  AsyncVoidEither replaceAllFastRateTemplates(List<FastRateTemplateModel> rates) => AsyncEither(() async {
+    final dao = FastRateTemplateDao(_db);
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      await dao.deleteAll();
+      for (final rate in rates) {
+        await dao.insertOrUpdate(
+          FastRateTemplateCompanion(
+            name: Value(rate.name),
+            ww: Value(rate.ww),
+            tsb: Value(rate.tsb),
+            xc: Value(rate.xc),
+            tr: Value(rate.tr),
+            fh: Value(rate.fh),
+            jl: Value(rate.jl),
+            lastUsedTime: Value(now),
+            special: Value(rate.special),
+            special2: Value(rate.special2),
+          ),
+        );
+      }
+    });
+    return rightVoid();
+  });
+
   /// Delete all fast rate templates from storage.
   AsyncVoidEither deleteAllFastRateTemplate() => AsyncEither(() async {
     await FastRateTemplateDao(_db).deleteAll();

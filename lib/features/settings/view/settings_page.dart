@@ -169,6 +169,34 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.crossDeviceSync, v)),
         ),
+        if (state.settingsMap.crossDeviceSync)
+          for (final (key, icon, title, value) in [
+            (
+              SettingsKeys.crossDeviceSyncRateTemplates,
+              Icons.star_border_outlined,
+              tr.crossDeviceSync.rateTemplates,
+              state.settingsMap.crossDeviceSyncRateTemplates,
+            ),
+            (
+              SettingsKeys.crossDeviceSyncSettings,
+              Icons.tune_outlined,
+              tr.crossDeviceSync.settings,
+              state.settingsMap.crossDeviceSyncSettings,
+            ),
+            (
+              SettingsKeys.crossDeviceSyncDrafts,
+              Icons.drafts_outlined,
+              tr.crossDeviceSync.drafts,
+              state.settingsMap.crossDeviceSyncDrafts,
+            ),
+          ])
+            SectionSwitchListTile(
+              key: ValueKey('settings-${key.name}'),
+              secondary: Padding(padding: const EdgeInsetsDirectional.only(start: 24), child: Icon(icon)),
+              title: Text(title),
+              value: value,
+              onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(key, v)),
+            ),
       ],
     );
   }

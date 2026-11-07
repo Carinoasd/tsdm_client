@@ -330,7 +330,10 @@
       "title": "Account",
       "mgmt": "Manage account",
       "crossDeviceSync": {
-        "title": "Sync across devices"
+        "title": "Sync across devices",
+        "rateTemplates": "Rate templates",
+        "settings": "Reading and display settings",
+        "drafts": "Local drafts"
       }
     },
     "appearanceSection": {
@@ -1937,6 +1940,11 @@
     "shareImage": "Share image",
     "failedToShareImage": "Failed to share image",
     "openInBrowser": "Open in browser",
+    "saveAllImages": "Save all images",
+    "saveScopeFloor": "This floor",
+    "saveScopePage": "This page",
+    "saveAllDone": "Saved ${saved: int}, failed ${failed: int}",
+    "saveAllCancelled": "Cancelled, saved ${saved: int}",
     "failedToOpenInBrowser": "Failed to open the browser"
   },
   "init": {
@@ -3004,6 +3012,45 @@
     "accountChanged": "The account changed since this page was loaded. Refresh the thread first.",
     "openInBrowser": "Open in browser",
     "submit": "Submit",
+    "hongbao": {
+      "title": "Red packet",
+      "status": {
+        "active": "Open",
+        "done": "All taken",
+        "withdrawn": "Withdrawn",
+        "expired": "Expired",
+        "closed": "Closed"
+      },
+      "lucky": "Random split",
+      "even": "Even split",
+      "shares": "$claimed/$shares taken",
+      "needReply": "Reply first",
+      "password": "Password",
+      "appoint": "Named members",
+      "expireAt": "Expires $time",
+      "noExpire": "No expiry",
+      "mine": "You got $amount$credit",
+      "best": "Luckiest",
+      "why": {
+        "disabled": "Red packets are turned off",
+        "login": "Log in to grab",
+        "self": "You cannot grab your own red packet",
+        "claimed": "Grabbed",
+        "appoint": "Not among the named members",
+        "needreply": "Reply to grab"
+      },
+      "grab": "Grab",
+      "passwordTitle": "Password",
+      "records": "Records",
+      "recordsEmpty": "Nobody has grabbed it yet",
+      "recordsFailed": "Failed to load",
+      "withdraw": "Withdraw",
+      "withdrawConfirmTitle": "Withdraw red packet",
+      "withdrawConfirm": "The $credit left goes back to you",
+      "grabbed": "You got $amount $unit",
+      "already": "Already grabbed: $amount $unit",
+      "withdrawn": "Withdrawn, $amount $unit refunded"
+    },
     "poll": {
       "single": "Single choice",
       "multiple": "Multiple choice, up to $max",
@@ -3125,7 +3172,28 @@
       "credit": "$credit $unit",
       "manage": "Sort goods",
       "add": "Add goods",
-      "openHint": "Buying, quantity and shipping are on the goods page in the browser."
+      "buy": "Buy",
+      "buyInBrowser": "Buy in browser",
+      "soldOut": "Sold out",
+      "seller": "Seller",
+      "quantity": "Quantity",
+      "message": "Message",
+      "next": "Next",
+      "confirmTitle": "Confirm purchase",
+      "pay": "Pay",
+      "cost": "Pay",
+      "balance": "Balance",
+      "after": "After",
+      "insufficient": "Not enough credit",
+      "password": "Login password",
+      "bought": "Purchased.",
+      "notPaid": "The order was created but is not paid yet.",
+      "payAgain": "Pay again",
+      "openOrder": "View order",
+      "unknown": "Could not confirm the result; check the order page.",
+      "verification": "The forum asks for a verification; finish it in the browser.",
+      "openOrders": "View trade records",
+      "unknownOrder": "Could not confirm whether the order was placed; check the trade records."
     },
     "already": "Done already."
   },

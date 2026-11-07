@@ -432,7 +432,7 @@ void main() {
 
   group('I. the plugin version', () {
     test('expected version, and the order of versions', () {
-      expect(expectedTsdmAppVersion, '3.1.0');
+      expect(expectedTsdmAppVersion, '3.5.0');
       expect(compareTsdmAppVersions('2.2.0', '2.3.0'), lessThan(0));
       expect(compareTsdmAppVersions('2.3.0', '2.3.0'), 0);
       expect(compareTsdmAppVersions('2.3', '2.3.0'), 0);
@@ -449,7 +449,8 @@ void main() {
       expect(info.version, '3.1.0');
       expect(info.api, 1);
       expect(info.nodoc, isTrue);
-      expect(info.olderThanExpected, isFalse);
+      expect(info.olderThanExpected, isTrue, reason: 'the previews of the list rows, but not the red packets');
+      expect(TsdmAppPluginInfo.fromAnswer(_status('3.5.0', nodoc: true))!.olderThanExpected, isFalse);
       final older = TsdmAppPluginInfo.fromAnswer(_status('2.2.0'))!;
       expect(older.nodoc, isFalse);
       expect(older.olderThanExpected, isTrue);
@@ -563,7 +564,7 @@ void main() {
           TsdmAppApi.pluginInfo.value,
           const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true, preview: false),
         );
-        expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isFalse);
+        expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isTrue, reason: 'no red packets before 3.5.0');
 
         // notify never names nodoc: what status said of the same version holds, and the listeners hear nothing.
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
@@ -666,12 +667,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isTrue);
 
       // The expected plugin: no note.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '3.1.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '3.5.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );

@@ -1,0 +1,595 @@
+{
+ "claimed_best": {
+  "formhash": "f1f2f3f4",
+  "uid": 1031,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 98,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "APP紅包57858",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 3,
+   "claimed_shares": 3,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794057858,
+   "expiretime": 1794144258,
+   "expired": 0,
+   "status": "done",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": {
+    "amount": 1,
+    "best": 1,
+    "dateline": 1794057859
+   },
+   "can_grab": 0,
+   "why": "claimed",
+   "grab": null,
+   "can_view_records": 1,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202752",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "sender_withdrawn": {
+  "formhash": "f1f2f3f4",
+  "uid": 1031,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 99,
+   "sender": {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif"
+   },
+   "blessing": "APP口令57859",
+   "split": "even",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 2,
+   "claimed_shares": 2,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 1,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794057874,
+   "expiretime": 1794144274,
+   "expired": 0,
+   "status": "withdrawn",
+   "settled": 1,
+   "settletime": 1794057907,
+   "is_sender": 1,
+   "mine": null,
+   "can_grab": 0,
+   "why": "withdrawn",
+   "grab": null,
+   "can_view_records": 1,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202753",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "appointed_done": {
+  "formhash": "f1f2f3f4",
+  "uid": 1031,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 101,
+   "sender": {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif"
+   },
+   "blessing": "APP指定57945",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 1,
+   "claimed_shares": 1,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 1,
+   "appointed": 1,
+   "dateline": 1794057945,
+   "expiretime": 1794144345,
+   "expired": 0,
+   "status": "done",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 1,
+   "mine": null,
+   "can_grab": 0,
+   "why": "done",
+   "grab": null,
+   "can_view_records": 1,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202756",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "needreply": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 103,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "回帖包C",
+   "split": "even",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 2,
+   "claimed_shares": 0,
+   "remain_shares": 2,
+   "need_reply": 1,
+   "replied": 0,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794058965,
+   "expiretime": 1794145365,
+   "expired": 0,
+   "status": "active",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "needreply",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202762",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "appoint": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 101,
+   "sender": {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif"
+   },
+   "blessing": "APP指定57945",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 1,
+   "claimed_shares": 1,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 1,
+   "appointed": 0,
+   "dateline": 1794057945,
+   "expiretime": 1794144345,
+   "expired": 0,
+   "status": "done",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "appoint",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202756",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "withdrawn": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 100,
+   "sender": {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif"
+   },
+   "blessing": "APP回帖57875",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 2,
+   "claimed_shares": 2,
+   "remain_shares": 0,
+   "need_reply": 1,
+   "replied": 0,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794057891,
+   "expiretime": 1794144291,
+   "expired": 0,
+   "status": "withdrawn",
+   "settled": 1,
+   "settletime": 1794058948,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "withdrawn",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202754",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "expired": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 103,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "回帖包C",
+   "split": "even",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 2,
+   "claimed_shares": 2,
+   "remain_shares": 0,
+   "need_reply": 1,
+   "replied": 0,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794058965,
+   "expiretime": 1794059425,
+   "expired": 1,
+   "status": "expired",
+   "settled": 1,
+   "settletime": 1794059485,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "expired",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202762",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "closed": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 101,
+   "sender": {
+    "uid": 1031,
+    "username": "发包人甲",
+    "avatar": "https://forum.test/data/avatar/custom.gif"
+   },
+   "blessing": "APP指定57945",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 1,
+   "claimed_shares": 1,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 1,
+   "appointed": 0,
+   "dateline": 1794057945,
+   "expiretime": 1794144345,
+   "expired": 0,
+   "status": "closed",
+   "settled": 1,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "closed",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202756",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "no_expire_done": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 95,
+   "sender": {
+    "uid": 1077,
+    "username": "发包人丙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "恭喜發財,大吉大利",
+   "split": "even",
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   },
+   "shares": 2,
+   "claimed_shares": 2,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1791860549,
+   "expiretime": 0,
+   "expired": 0,
+   "status": "done",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "done",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9199454",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "guest": {
+  "formhash": "f1f2f3f4",
+  "uid": 0,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 102,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "口令包B",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 3,
+   "claimed_shares": 1,
+   "remain_shares": 2,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 1,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794058945,
+   "expiretime": 1794145345,
+   "expired": 0,
+   "status": "active",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "login",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202761",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "claimed_password": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 102,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "口令包B",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 3,
+   "claimed_shares": 1,
+   "remain_shares": 2,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 1,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794058945,
+   "expiretime": 1794145345,
+   "expired": 0,
+   "status": "active",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": {
+    "amount": 1,
+    "best": 1,
+    "dateline": 1794058956
+   },
+   "can_grab": 0,
+   "why": "claimed",
+   "grab": null,
+   "can_view_records": 1,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202761",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ },
+ "sender_password": {
+  "formhash": "f1f2f3f4",
+  "uid": 1035,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 102,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "口令包B",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 3,
+   "claimed_shares": 1,
+   "remain_shares": 2,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 1,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794058945,
+   "expiretime": 1794145345,
+   "expired": 0,
+   "status": "active",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 1,
+   "mine": null,
+   "can_grab": 1,
+   "why": "",
+   "grab": {
+    "action": "plugin.php?id=hongbao:grab",
+    "method": "POST",
+    "fields": {
+     "tid": "9202761"
+    },
+    "password": "password"
+   },
+   "can_view_records": 1,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202761",
+   "can_withdraw": 1,
+   "withdraw": {
+    "action": "plugin.php?id=hongbao:withdraw",
+    "method": "POST",
+    "fields": {
+     "tid": "9202761"
+    }
+   }
+  }
+ },
+ "done": {
+  "formhash": "f1f2f3f4",
+  "uid": 1033,
+  "timeoffset": 8,
+  "special": {
+   "type": "hongbao",
+   "packetid": 98,
+   "sender": {
+    "uid": 1035,
+    "username": "发包人乙",
+    "avatar": "https://forum.test/data/avatar/noavatar.svg"
+   },
+   "blessing": "APP紅包57858",
+   "split": "lucky",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "shares": 3,
+   "claimed_shares": 3,
+   "remain_shares": 0,
+   "need_reply": 0,
+   "replied": null,
+   "has_password": 0,
+   "appoint": 0,
+   "appointed": null,
+   "dateline": 1794057858,
+   "expiretime": 1794144258,
+   "expired": 0,
+   "status": "done",
+   "settled": 0,
+   "settletime": 0,
+   "is_sender": 0,
+   "mine": null,
+   "can_grab": 0,
+   "why": "done",
+   "grab": null,
+   "can_view_records": 0,
+   "records_url": "plugin.php?id=hongbao:record&tid=9202752",
+   "can_withdraw": 0,
+   "withdraw": null
+  }
+ }
+}

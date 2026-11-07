@@ -330,7 +330,10 @@
       "title": "帳號",
       "mgmt": "管理帳戶",
       "crossDeviceSync": {
-        "title": "跨裝置同步"
+        "title": "跨裝置同步",
+        "rateTemplates": "評分範本",
+        "settings": "閱讀與顯示設定",
+        "drafts": "本機草稿"
       }
     },
     "appearanceSection": {
@@ -1937,6 +1940,11 @@
     "shareImage": "分享圖片",
     "failedToShareImage": "無法分享圖片",
     "openInBrowser": "用瀏覽器開啟",
+    "saveAllImages": "儲存全部圖片",
+    "saveScopeFloor": "這一樓",
+    "saveScopePage": "這一頁",
+    "saveAllDone": "已儲存 ${saved: int} 張，失敗 ${failed: int} 張",
+    "saveAllCancelled": "已取消，已儲存 ${saved: int} 張",
     "failedToOpenInBrowser": "無法開啟瀏覽器"
   },
   "init": {
@@ -3004,6 +3012,45 @@
     "accountChanged": "載入此頁後已切換帳號，請先重新整理帖子。",
     "openInBrowser": "在瀏覽器中開啟",
     "submit": "提交",
+    "hongbao": {
+      "title": "紅包",
+      "status": {
+        "active": "進行中",
+        "done": "已領完",
+        "withdrawn": "已撤回",
+        "expired": "已過期",
+        "closed": "已關閉"
+      },
+      "lucky": "拼手氣",
+      "even": "均分",
+      "shares": "已領 $claimed/$shares 份",
+      "needReply": "需回帖",
+      "password": "口令",
+      "appoint": "指定領取",
+      "expireAt": "$time 到期",
+      "noExpire": "不自動到期",
+      "mine": "領到 $amount$credit",
+      "best": "手氣最佳",
+      "why": {
+        "disabled": "紅包功能已關閉",
+        "login": "登入後領取",
+        "self": "不能領取自己的紅包",
+        "claimed": "已領取",
+        "appoint": "不在指定領取名單",
+        "needreply": "回帖後領取"
+      },
+      "grab": "搶紅包",
+      "passwordTitle": "輸入口令",
+      "records": "領取紀錄",
+      "recordsEmpty": "還沒有人領取",
+      "recordsFailed": "讀取失敗",
+      "withdraw": "撤回",
+      "withdrawConfirmTitle": "撤回紅包",
+      "withdrawConfirm": "剩餘的$credit退回給你",
+      "grabbed": "領到 $amount $unit",
+      "already": "已領過 $amount $unit",
+      "withdrawn": "已撤回，退回 $amount $unit"
+    },
     "poll": {
       "single": "單選投票",
       "multiple": "多選投票，最多可選 $max 項",
@@ -3125,7 +3172,28 @@
       "credit": "$credit $unit",
       "manage": "商品排序",
       "add": "添加商品",
-      "openHint": "購買、數量與運費在瀏覽器的商品頁辦理。"
+      "buy": "購買",
+      "buyInBrowser": "在瀏覽器購買",
+      "soldOut": "已售完",
+      "seller": "賣家",
+      "quantity": "數量",
+      "message": "留言",
+      "next": "下一步",
+      "confirmTitle": "確認購買",
+      "pay": "付款",
+      "cost": "支付",
+      "balance": "餘額",
+      "after": "購買後",
+      "insufficient": "餘額不足",
+      "password": "登入密碼",
+      "bought": "購買完成。",
+      "notPaid": "訂單已建立，尚未付款。",
+      "payAgain": "重新付款",
+      "openOrder": "查看訂單",
+      "unknown": "未能確認結果，請在訂單頁查看。",
+      "verification": "論壇要求驗證，請在瀏覽器中完成。",
+      "openOrders": "查看交易記錄",
+      "unknownOrder": "未能確認是否已下單，請在交易記錄中查看。"
     },
     "already": "之前已經完成。"
   },
