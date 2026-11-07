@@ -138,10 +138,8 @@ Future<BatchSaveResult> saveImagesInBatch({
         await sink.save(name, data);
         saved += 1;
       }
-    } on Exception {
-      failed += 1;
     } on Object {
-      // A bug in one picture's way must not end the batch with the rest unsaved.
+      // Whatever went wrong with one picture (an exception, or a bug in its way) must not end the batch.
       failed += 1;
     }
     onProgress?.call(saved + failed, pictures.length);

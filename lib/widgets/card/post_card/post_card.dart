@@ -336,6 +336,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
   /// The pictures of every floor of this floor's page loaded in the thread (the floor's own outside a thread).
   List<GalleryImage> _pageImages() {
+    // Asked for from the gallery over the thread: the card may be gone by then.
+    if (!mounted) {
+      return galleryImagesOfPost(widget.post);
+    }
     final posts = context.readOrNull<ThreadBloc>()?.state.postList.where((e) => e.page == widget.post.page);
     return galleryImagesOfPosts(posts ?? [widget.post]);
   }
