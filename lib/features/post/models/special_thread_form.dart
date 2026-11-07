@@ -559,6 +559,39 @@ String discuzDateTime(DateTime t) =>
     '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')} '
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
+/// The date and time [value] as the forum prints it in a form ([discuzDateTime], `Y-m-d H:i`, seconds taken; a date
+/// alone is its midnight), null when it is not one, or not a day of the calendar.
+DateTime? parseDiscuzDateTime(String? value) {
+  final match = RegExp(
+    r'^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?\s*$',
+  ).firstMatch(value ?? '');
+  if (match == null) {
+    return null;
+  }
+  int at(int i) => int.parse(match.group(i) ?? '0');
+  final (year, month, day, hour, minute, second) = (at(1), at(2), at(3), at(4), at(5), at(6));
+  if (hour > 23 || minute > 59 || second > 59) {
+    return null;
+  }
+  final time = DateTime(year, month, day, hour, minute, second);
+  // DateTime carries a day past the month's last into the next month: not a date the forum prints.
+  return time.year == year && time.month == month && time.day == day ? time : null;
+}
+
+/// [value] without the backslashes PHP's `addslashes()` puts before `'`, `"`, `\` and NUL (`stripslashes()`).
+String stripSlashes(String value) => value.replaceAllMapped(RegExp(r'\\(.?)', dotAll: true), (m) {
+  final c = m.group(1)!;
+  return c == '0' ? '\u0000' : c;
+});
+
+/// The values of the inputs of a form block (`inputs`, `{name, type, value, checked}`) as the browser posts them: a
+/// checkbox's value only when checked; the last value of a name.
+Map<String, String> _servedValues(List<Map<String, dynamic>> inputs) => {
+  for (final input in inputs)
+    if (input['name'] case final String name when input['type'] != 'checkbox' || input['checked'] == 1)
+      name: tsdmAppText(input['value']),
+};
+
 /// Why an activity is refused, as the forum refuses it (`extend_thread_activity::before_newthread`).
 enum ActivityIssue {
   /// No category (`activity_sort_please`).
@@ -589,10 +622,12 @@ final class ActivityFormInfo {
     required this.credit,
     required this.extNum,
     required this.hasCity,
+    this.served,
   });
 
-  /// The `activity` block of a new thread form, null when it lacks a field the forum requires.
-  static ActivityFormInfo? fromJson(Object? json) {
+  /// The `activity` block of a new thread form, or of the edit of the first post of an activity thread ([edit]: its
+  /// values are the activity as it is, [served]), null when it lacks a field the forum requires.
+  static ActivityFormInfo? fromJson(Object? json, {bool edit = false}) {
     if (json is! Map<String, dynamic>) {
       return null;
     }
@@ -629,8 +664,13 @@ final class ActivityFormInfo {
           : null,
       extNum: names.contains('extfield') ? tsdmAppInt(json['extnum']) : 0,
       hasCity: names.contains('activitycity'),
+      served: edit ? ActivityEdits._served(inputs) : null,
     );
   }
+
+  /// The activity as it is, from the form of the edit of its first post (`post_activity.php` prints it); null for a
+  /// new thread.
+  final ActivityEdits? served;
 
   /// The categories the forum offers (`activitytype`); any other may be typed.
   final List<String> types;
@@ -668,6 +708,35 @@ final class ActivityEdits {
     this.expiration,
     this.extFields = '',
   });
+
+  /// The activity as the form of the edit of its first post prints it ([inputs]): a start alone, or a start and an
+  /// end when `activitytime` is checked; a number, credit or cost of 0 as none (the forum stores none as 0).
+  factory ActivityEdits._served(List<Map<String, dynamic>> inputs) {
+    final values = _servedValues(inputs);
+    final ranged = values['activitytime'] == '1';
+    int? count(String name) => switch (int.tryParse((values[name] ?? '').trim())) {
+      final int n when n > 0 => n,
+      _ => null,
+    };
+    return ActivityEdits(
+      category: values['activityclass'] ?? '',
+      start: parseDiscuzDateTime(values[ranged ? 'starttimefrom[1]' : 'starttimefrom[0]']),
+      end: ranged ? parseDiscuzDateTime(values['starttimeto']) : null,
+      place: values['activityplace'] ?? '',
+      city: values['activitycity'] ?? '',
+      number: count('activitynumber'),
+      gender: values['gender'] ?? '0',
+      userFields: [
+        for (final input in inputs)
+          if (input['name'] == 'userfield[]' && input['type'] == 'checkbox' && input['checked'] == 1)
+            tsdmAppText(input['value']),
+      ],
+      credit: count('activitycredit'),
+      cost: count('cost'),
+      expiration: parseDiscuzDateTime(values['activityexpiration']),
+      extFields: values['extfield'] ?? '',
+    );
+  }
 
   /// The category (`activityclass`).
   final String category;
@@ -782,19 +851,38 @@ enum DebateIssue {
 /// The debate settings of a new debate thread form (`debate` of the forum's app API, plugin 2.9.0, `post_debate.php`).
 final class DebateFormInfo {
   /// Constructor.
-  const DebateFormInfo({required this.hasEnd, required this.hasUmpire});
+  const DebateFormInfo({required this.hasEnd, required this.hasUmpire, this.served});
 
-  /// The `debate` block of a new thread form, null when it lacks the points.
-  static DebateFormInfo? fromJson(Object? json) {
+  /// The `debate` block of a new thread form, or of the edit of the first post of a debate thread ([edit]: its values
+  /// are the debate as it is, [served]), null when it lacks the points.
+  static DebateFormInfo? fromJson(Object? json, {bool edit = false}) {
     if (json is! Map<String, dynamic>) {
       return null;
     }
-    final names = tsdmAppList(json['inputs']).map((e) => e['name']).whereType<String>().toSet();
+    final inputs = tsdmAppList(json['inputs']);
+    final names = inputs.map((e) => e['name']).whereType<String>().toSet();
     if (!names.containsAll(const ['affirmpoint', 'negapoint'])) {
       return null;
     }
-    return DebateFormInfo(hasEnd: names.contains('endtime'), hasUmpire: names.contains('umpire'));
+    final values = _servedValues(inputs);
+    return DebateFormInfo(
+      hasEnd: names.contains('endtime'),
+      hasUmpire: names.contains('umpire'),
+      // The edit page prints the row of the debate through `daddslashes()` (editpost.php), which the browser posts
+      // back as it is: each edit on the website adds a backslash before every quote. The app posts what is stored.
+      served: edit
+          ? DebateEdits(
+              affirm: stripSlashes(values['affirmpoint'] ?? ''),
+              negate: stripSlashes(values['negapoint'] ?? ''),
+              end: parseDiscuzDateTime(values['endtime']),
+              umpire: stripSlashes(values['umpire'] ?? ''),
+            )
+          : null,
+    );
   }
+
+  /// The debate as it is, from the form of the edit of its first post; null for a new thread.
+  final DebateEdits? served;
 
   /// Whether the form takes the end of the debate (`endtime`).
   final bool hasEnd;

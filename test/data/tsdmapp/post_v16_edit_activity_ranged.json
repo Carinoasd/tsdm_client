@@ -1,0 +1,443 @@
+{
+ "ok": 1,
+ "api": 1,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "post",
+ "schema": 16,
+ "action": "edit",
+ "float": 0,
+ "fid": 7,
+ "tid": 9600041,
+ "pid": 9700041,
+ "page": 0,
+ "forum": {
+  "fid": 7,
+  "name": "神作殿堂",
+  "allowspecialonly": 0
+ },
+ "thread": {
+  "tid": 9600041,
+  "subject": "活動帖範圍測試 app",
+  "special": 4,
+  "displayorder": 0,
+  "draft": 0,
+  "closed": 0,
+  "authorid": 31,
+  "anonymous": 0
+ },
+ "first": 1,
+ "moderated": null,
+ "submit": {
+  "url": "forum.php?mod=post&action=edit&extra=&editsubmit=yes",
+  "method": "POST",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "posttime": "1700000000",
+   "delattachop": "0",
+   "wysiwyg": "1",
+   "fid": "7",
+   "tid": "9600041",
+   "pid": "9700041",
+   "page": "",
+   "special": "4",
+   "editsubmit": "true",
+   "save": ""
+  }
+ },
+ "subject": {
+  "shown": 1,
+  "value": "活動帖範圍測試 app",
+  "max": null,
+  "min": null,
+  "unit": "dstrlen",
+  "hard_max": 255,
+  "reply_default": null
+ },
+ "message": {
+  "value": "活動帖內文，時間範圍。",
+  "min": null,
+  "max": null,
+  "unit": "bytes",
+  "min_excludes_quote": 1,
+  "json": 0
+ },
+ "quote_html": null,
+ "types": null,
+ "stand": null,
+ "special": {
+  "current": 4,
+  "specialextra": "",
+  "sortid": 0,
+  "allowed": null,
+  "threadplugins": null,
+  "threadsorts": null
+ },
+ "editor": {
+  "mode": 1,
+  "html": 0,
+  "smilies": 1,
+  "bbcode": 1,
+  "imgcode": 1,
+  "hide": 0,
+  "at": 0
+ },
+ "options": [
+  {
+   "name": "hiddenreplies",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "回帖仅作者可见"
+  },
+  {
+   "name": "ordertype",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "回帖倒序排列"
+  },
+  {
+   "name": "allownoticeauthor",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "接收回复通知"
+  },
+  {
+   "name": "usesig",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "使用个人签名"
+  },
+  {
+   "name": "htmlon",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "HTML 代码"
+  },
+  {
+   "name": "parseurloff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用链接识别"
+  },
+  {
+   "name": "smileyoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用表情"
+  },
+  {
+   "name": "bbcodeoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用编辑器代码"
+  },
+  {
+   "name": "imgcontent",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "内容生成图片"
+  }
+ ],
+ "readperm": null,
+ "price": null,
+ "tags": null,
+ "replycredit": {
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "have": 842,
+  "total": 0,
+  "inputs": [
+   {
+    "name": "replycredit_times",
+    "type": "text",
+    "value": "1"
+   },
+   {
+    "name": "replycredit_extcredits",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "replycredit_membertimes",
+    "type": "select",
+    "value": "1",
+    "choices": [
+     {
+      "value": "1",
+      "label": "1"
+     },
+     {
+      "value": "2",
+      "label": "2"
+     },
+     {
+      "value": "3",
+      "label": "3"
+     },
+     {
+      "value": "4",
+      "label": "4"
+     },
+     {
+      "value": "5",
+      "label": "5"
+     },
+     {
+      "value": "6",
+      "label": "6"
+     },
+     {
+      "value": "7",
+      "label": "7"
+     },
+     {
+      "value": "8",
+      "label": "8"
+     },
+     {
+      "value": "9",
+      "label": "9"
+     },
+     {
+      "value": "10",
+      "label": "10"
+     }
+    ]
+   },
+   {
+    "name": "replycredit_random",
+    "type": "select",
+    "value": "100",
+    "choices": [
+     {
+      "value": "100",
+      "label": "100"
+     },
+     {
+      "value": "90",
+      "label": "90"
+     },
+     {
+      "value": "80",
+      "label": "80"
+     },
+     {
+      "value": "70",
+      "label": "70"
+     },
+     {
+      "value": "60",
+      "label": "60"
+     },
+     {
+      "value": "50",
+      "label": "50"
+     },
+     {
+      "value": "40",
+      "label": "40"
+     },
+     {
+      "value": "30",
+      "label": "30"
+     },
+     {
+      "value": "20",
+      "label": "20"
+     },
+     {
+      "value": "10",
+      "label": "10"
+     }
+    ]
+   }
+  ]
+ },
+ "rushreply": null,
+ "cronpublish": null,
+ "can_delete": 0,
+ "mygroup": null,
+ "attach": {
+  "file": 1,
+  "image": 1,
+  "exts": "chm,pdf,zip,rar,tar,gz,bzip2,gif,jpg,jpeg,png",
+  "maxsize": 2048000,
+  "today": 1,
+  "today_left": null,
+  "today_size_left": null,
+  "setperm": 0,
+  "upload": {
+   "url": "misc.php?mod=swfupload&action=swfupload&operation=upload&fid=7",
+   "uid": 31,
+   "hash": "0123456789abcdef0123456789abcdef",
+   "max_kb": 2000,
+   "limit": 0,
+   "image": 1,
+   "file": 1,
+   "image_exts": "*.jpg;*.jpeg;*.gif;*.png",
+   "file_exts": "*.chm;*.pdf;*.zip;*.rar;*.tar;*.gz;*.bzip2;*.gif;*.jpg;*.jpeg;*.png"
+  },
+  "used": [],
+  "unused": [],
+  "fields": {},
+  "list_shown": 1
+ },
+ "draft": {
+  "field": 1,
+  "can_save": 0,
+  "count": null,
+  "publish": 0
+ },
+ "seccheck": null,
+ "poll": null,
+ "trade": null,
+ "reward": null,
+ "activity": {
+  "types": [
+   "朋友聚会",
+   "出外郊游",
+   "自驾出行",
+   "公益活动",
+   "线上活动"
+  ],
+  "credit": {
+   "id": 1,
+   "title": "威望",
+   "unit": ""
+  },
+  "extnum": 0,
+  "inputs": [
+   {
+    "name": "starttimefrom[0]",
+    "type": "text",
+    "value": "2026-12-02 10:00"
+   },
+   {
+    "name": "starttimefrom[1]",
+    "type": "text",
+    "value": "2026-12-02 10:00"
+   },
+   {
+    "name": "starttimeto",
+    "type": "text",
+    "value": "2026-12-02 18:00"
+   },
+   {
+    "name": "activitytime",
+    "type": "checkbox",
+    "value": "1",
+    "checked": 1,
+    "disabled": 0,
+    "label": "时间范围"
+   },
+   {
+    "name": "activityplace",
+    "type": "text",
+    "value": "測試地點"
+   },
+   {
+    "name": "activityclass",
+    "type": "text",
+    "value": "朋友聚会"
+   },
+   {
+    "name": "activitynumber",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "gender",
+    "type": "select",
+    "value": "0",
+    "choices": [
+     {
+      "value": "0",
+      "label": "不限"
+     },
+     {
+      "value": "1",
+      "label": "男"
+     },
+     {
+      "value": "2",
+      "label": "女"
+     }
+    ]
+   },
+   {
+    "name": "userfield[]",
+    "type": "checkbox",
+    "value": "mobile",
+    "checked": 0,
+    "disabled": 0,
+    "label": "手机"
+   },
+   {
+    "name": "userfield[]",
+    "type": "checkbox",
+    "value": "qq",
+    "checked": 0,
+    "disabled": 0,
+    "label": "QQ"
+   },
+   {
+    "name": "userfield[]",
+    "type": "checkbox",
+    "value": "realname",
+    "checked": 0,
+    "disabled": 0,
+    "label": "真实姓名"
+   },
+   {
+    "name": "activitycredit",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "cost",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "activityexpiration",
+    "type": "text",
+    "value": ""
+   },
+   {
+    "name": "activityaid",
+    "type": "hidden",
+    "value": ""
+   },
+   {
+    "name": "activityaid_url",
+    "type": "hidden",
+    "value": ""
+   }
+  ]
+ },
+ "debate": null,
+ "hook_fields": [],
+ "unsupported": []
+}
