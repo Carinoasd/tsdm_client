@@ -1029,6 +1029,21 @@ class StorageProvider with LoggerMixin {
     return entity;
   }
 
+  /// The saved page of the key without marking it used: for listing and comparing copies, which must not keep them
+  /// from being evicted nor make them look read.
+  Future<OfflineThreadEntity?> peekOfflineThreadPage({
+    required int uid,
+    required int tid,
+    required int page,
+    required int orderType,
+    required int authorId,
+  }) async => OfflineThreadDao(
+    _db,
+  ).selectPage(uid: uid, tid: tid, page: page, orderType: orderType, authorId: authorId);
+
+  /// The threads kept for user [uid], most recently used first ([OfflineThreadDao.selectCopies]).
+  Future<List<OfflineThreadCopyRow>> fetchOfflineThreadCopies(int uid) async => OfflineThreadDao(_db).selectCopies(uid);
+
   /// Every saved offline thread page of every user, with the bodies. Tests only.
   @visibleForTesting
   Future<List<OfflineThreadEntity>> fetchAllOfflineThreadPages() async => OfflineThreadDao(_db).selectAll();
@@ -1036,6 +1051,13 @@ class StorageProvider with LoggerMixin {
   /// Delete every saved page of thread [tid] for user [uid].
   Future<int> deleteOfflineThread({required int uid, required int tid}) async =>
       OfflineThreadDao(_db).deleteThread(uid: uid, tid: tid);
+
+  /// How many threads are kept, of every account together.
+  Future<int> offlineThreadCount() async => OfflineThreadDao(_db).countThreads();
+
+  /// Delete the pages of the default request of thread [tid] for user [uid] after page [page].
+  Future<int> deleteOfflineThreadPagesAfter({required int uid, required int tid, required int page}) async =>
+      OfflineThreadDao(_db).deletePagesAfter(uid: uid, tid: tid, page: page);
 
   /// Delete every saved page of user [uid].
   Future<int> deleteOfflineThreadsByUid(int uid) async => OfflineThreadDao(_db).deleteByUid(uid);

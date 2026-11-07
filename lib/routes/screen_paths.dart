@@ -250,6 +250,9 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&do=favorite&type=thread
   static const String favorite = '/favorite';
 
+  /// Page listing the threads kept for reading without network ("離線副本"), with the update of all of them.
+  static const String offlineThreads = '/offlineThreads';
+
   /// Page to show the friends list of a user.
   ///
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
@@ -459,6 +462,9 @@ class DialogPaths {
 
   /// Dialog to select how many threads the offline copies are kept for.
   static const String offlineThreadsLimit = '/dialog/offlineThreadsLimit';
+
+  /// Dialog showing the progress of saving the favorites offline or updating the offline copies.
+  static const String offlineBatch = '/dialog/offlineBatch';
 
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
