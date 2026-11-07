@@ -238,6 +238,16 @@ void main() {
       }
     });
 
+    test('no forum selected: all of them listed, not this forum', () {
+      final html = _text('queue_replies_empty.html');
+      final all = html.replaceFirst('<option value="10" selected>', '<option value="10" >');
+      expect(all, isNot(html));
+      expect(
+        ModerateRepository.queueOf(all, ModerateQueueKind.replies, fid: _fid, uid: _uid),
+        isA<Left<AppException, ModerateQueueAnswer>>(),
+      );
+    });
+
     test('nothing waiting', () {
       final list = _queue('queue_replies_empty.html', ModerateQueueKind.replies);
       expect(list.items, isEmpty);

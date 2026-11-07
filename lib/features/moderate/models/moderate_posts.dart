@@ -426,8 +426,9 @@ ModerateQueueList? parseModerateQueue(
     return null;
   }
   // The forum the panel lists, as its forum select shows it (a forum the account does not moderate lists them all).
-  if (doc.querySelector('select[name="fid"] option[selected]') case final selected?
-      when selected.attributes['value'] != '$fid') {
+  // None selected is all of them: the forum asked was not taken.
+  if (doc.querySelector('select[name="fid"]') case final select?
+      when select.querySelector('option[selected]')?.attributes['value'] != '$fid') {
     return null;
   }
   final form = doc.querySelector('form#moderate');
