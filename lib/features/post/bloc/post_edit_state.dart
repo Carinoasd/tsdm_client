@@ -57,7 +57,12 @@ final class PostEditState with PostEditStateMappable {
     this.secCheck,
     this.wrongAnswer = false,
     this.maybeSent = false,
+    this.notice,
   });
+
+  /// What the forum said after it took the new thread ([PostEditStatus.success] without [redirectTid]: a red packet
+  /// thread whose packet was not made), null otherwise.
+  final String? notice;
 
   /// Status.
   final PostEditStatus status;

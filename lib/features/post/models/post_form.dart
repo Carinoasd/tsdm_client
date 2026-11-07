@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -202,7 +203,16 @@ final class PostFormEdits {
     this.options = const {},
     this.save,
     this.attachNew = const [],
+    this.rewardPrice,
+    this.hongbao,
   });
+
+  /// The reward price of a new reward thread ([PostForm.reward]), null to keep the served one.
+  final int? rewardPrice;
+
+  /// The red packet of a new red packet thread ([PostForm.hongbao]), null for none: the form then posts no `hb_*`
+  /// field, and the plugin skips the packet.
+  final HongbaoEdits? hongbao;
 
   /// The post as it is posted (BBCode, mentions in the forum's format).
   final String message;
@@ -465,6 +475,39 @@ final class PostForm {
   /// 4 an activity, 5 a debate, 127 a thread plugin's.
   int get special => tsdmAppInt(tsdmAppMap(json['special'])['current']);
 
+  /// The thread plugin the form is for (`special.specialextra`, `hongbao`…), empty for none.
+  String get specialExtra => tsdmAppText(tsdmAppMap(json['special'])['specialextra']);
+
+  /// The thread types the member may post in this forum, as the new thread page lists them (`special.allowed`: 0
+  /// an ordinary thread, 1 a poll, 3 a reward…); empty when the form is not of a new thread, or the plugin is older.
+  List<int> get specialAllowed => [
+    for (final value in tsdmAppMap(json['special'])['allowed'] as List? ?? const [])
+      if (value is num) value.toInt(),
+  ];
+
+  /// The thread plugins the member may post with in this forum (`special.threadplugins`): the identifier and the
+  /// name of each; empty when the form is not of a new thread, or the plugin is older.
+  List<(String, String)> get threadPlugins => [
+    for (final plugin in tsdmAppList(tsdmAppMap(json['special'])['threadplugins']))
+      if (tsdmAppText(plugin['id']) case final String id when id.isNotEmpty) (id, tsdmAppText(plugin['name'])),
+  ];
+
+  /// The reward settings of a new reward thread (`reward`, [special] 3), null for any other form.
+  RewardFormInfo? get reward => special == 3 && action == 'newthread' ? RewardFormInfo.fromJson(json['reward']) : null;
+
+  /// The red packet form of a new red packet thread ([special] 127 of the `hongbao` plugin), read from the web page
+  /// and kept under the app's own key [hongbaoKey] ([withHongbao]); null when not read, or for any other form.
+  HongbaoFormInfo? get hongbao => isHongbao ? HongbaoFormInfo.fromJson(json[hongbaoKey]) : null;
+
+  /// Whether the form is for a new thread of the `hongbao` thread plugin (the forum stores it as [special] 127).
+  bool get isHongbao => action == 'newthread' && specialExtra == ThreadKind.hongbaoPlugin;
+
+  /// This form with the red packet form [info] read from its web page ([HongbaoFormInfo.parse]).
+  PostForm withHongbao(HongbaoFormInfo info) => PostForm._({...json, hongbaoKey: info.toJson()});
+
+  /// The key of [hongbao] in [json]: the app's, never one of the plugin's.
+  static const hongbaoKey = 'app_hongbao';
+
   /// The checkbox options and the other controls of the form's options (`options`).
   List<PostFormInput> get options => _inputs(json['options']);
 
@@ -618,6 +661,16 @@ final class PostForm {
     if (price != null && edits.price != null) {
       body.set(price.name, '${edits.price}');
     }
+    final reward = this.reward;
+    if (reward != null && edits.rewardPrice != null) {
+      body.set(reward.inputName, '${edits.rewardPrice}');
+    }
+    if (isHongbao && hongbao != null && edits.hongbao != null) {
+      // The plugin's fields are not in the served form: added as the website's form posts them.
+      for (final MapEntry(:key, :value) in edits.hongbao!.toFields().entries) {
+        body.set(key, value);
+      }
+    }
     for (final option in options.where((e) => e.isCheckbox && !e.disabled)) {
       if (edits.options[option.name] case final bool checked) {
         body.set(option.name, checked ? option.value ?? 'on' : null);
@@ -651,16 +704,19 @@ final class PostForm {
     if (asksVerification && check == null) {
       return PostFormSupport.verification;
     }
+    // A new thread: an ordinary one, a reward with its settings, or a red packet thread with its form read.
     final ordinary = switch (expectedAction) {
-      'newthread' => special == 0,
+      'newthread' => special == 0 || reward != null || (isHongbao && hongbao != null),
       'edit' => first ? special == 0 : special != 2,
       'reply' => true,
       _ => false,
     };
     // The forum prints a thread plugin's fields only on a new thread and on the edit of its first post (newthread.php,
     // editpost.php `$isfirstpost && $specialextra`): a reply to such a thread or the edit of another of its posts has
-    // none, though plugins before 3.2.0 list `threadplugin` for them too (#239).
-    final threadPluginFields = expectedAction == 'newthread' || (expectedAction == 'edit' && first);
+    // none, though plugins before 3.2.0 list `threadplugin` for them too (#239). The red packet plugin's fields the
+    // app knows ([hongbao]).
+    final threadPluginFields =
+        (expectedAction == 'newthread' || (expectedAction == 'edit' && first)) && !(isHongbao && hongbao != null);
     if (!ordinary ||
         action != expectedAction ||
         unsupported.any(

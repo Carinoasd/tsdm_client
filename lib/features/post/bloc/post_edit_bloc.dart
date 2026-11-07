@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/repository/sec_check_repository.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
@@ -35,7 +36,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       super(const PostEditState()) {
     on<PostEditLoadDataRequested>(_onPostEditLoadDataRequested);
     on<PostEditCompleteEditRequested>(_sending(_onPostEditCompleteEditRequested));
-    on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit));
+    on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit, kind: event.kind));
     on<ThreadPubPostThread>(_sending(_onPostNewThread));
     on<PostEditIdentityChanged>((event, emit) => emit(const PostEditState(status: PostEditStatus.identityChanged)));
     _authenticationSubscription = authenticationChanges?.listen((status) {
@@ -254,10 +255,10 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     }
   }
 
-  Future<void> _onFetchNewThreadInfo(String fid, _Emit emit) async {
+  Future<void> _onFetchNewThreadInfo(String fid, _Emit emit, {ThreadKind kind = ThreadKind.normal}) async {
     if (!_active(emit) || _submitting) return;
     emit(state.copyWith(status: PostEditStatus.loading));
-    final answer = await _repo.prepareForm(fid).run();
+    final answer = await _repo.prepareForm(fid, kind: kind).run();
     if (!_active(emit)) return;
     _onFormLoaded(answer, emit, action: 'newthread');
   }
@@ -322,6 +323,8 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                   options: {for (final option in info.options) option.name: option.checked},
                   save: info.save,
                   attachNew: event.attachNew,
+                  rewardPrice: event.rewardPrice,
+                  hongbao: event.hongbao,
                 ),
                 verification: event.verification,
                 told: told,
@@ -333,7 +336,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       await clearSecCheckCookies();
     }
     switch (tidEither) {
-      case Right():
+      case Right() || Left(value: ThreadPostedWithNoticeException()):
         // Taken: whatever the page does now (it may be gone), the local draft goes.
         _taken(event.draftKey);
       case Left(:final value):
@@ -341,6 +344,14 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     }
     if (!_active(emit)) {
       _submitting = false;
+      return;
+    }
+    if (tidEither case Left(value: final ThreadPostedWithNoticeException posted)) {
+      // Published, then the plugin's notice (the red packet was not made): no thread id to go to.
+      _submitting = false;
+      emit(
+        state.copyWith(status: PostEditStatus.success, redirectTid: null, needsBrowser: false, notice: posted.notice),
+      );
       return;
     }
     if (tidEither.isLeft()) {

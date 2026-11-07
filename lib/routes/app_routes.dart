@@ -55,6 +55,7 @@ import 'package:tsdm_client/features/pokemon/view/pokemon_page.dart';
 import 'package:tsdm_client/features/pokemon/view/pokemon_storage_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/view/fast_reply_edit_template_page.dart';
 import 'package:tsdm_client/features/post/view/fast_reply_template_page.dart';
 import 'package:tsdm_client/features/post/view/poll_create_page.dart';
@@ -367,6 +368,7 @@ final List<RouteBase> _appRoutes = [
         tid: tid,
         pid: pid,
         pollOffered: state.uri.queryParameters['poll'] == '1',
+        threadKind: ThreadKind.fromQuery(state.uri.queryParameters['kind']),
         transfer: switch (state.extra) {
           final ThreadModeTransfer transfer => transfer,
           SharedThreadDraft(:final transfer) => transfer,

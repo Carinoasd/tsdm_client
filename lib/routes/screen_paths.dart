@@ -370,6 +370,12 @@ class DialogPaths {
   /// Dialog to let user input thread price.
   static const String inputPrice = '/dialog/inputThreadPrice';
 
+  /// Dialog to set the reward credits of a new reward thread.
+  static const String rewardPrice = '/dialog/rewardPrice';
+
+  /// Dialog to set the red packet of a new red packet thread.
+  static const String hongbao = '/dialog/hongbao';
+
   /// Dialog to let user select thread read perm.
   static const String selectPerm = '/dialog/selectPerm';
 
