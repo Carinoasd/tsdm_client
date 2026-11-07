@@ -75,6 +75,7 @@ void main() {
     test('bold next to punctuation is html, which Markdown takes where ** would not close', () {
       expect(_md('文字<b>「粗體」</b>文字'), '文字<strong>「粗體」</strong>文字');
       expect(_md('文字<b>粗體</b>文字'), '文字**粗體**文字');
+      expect(_md('文字<b><s>刪除</s></b>文字'), '文字<strong>~~刪除~~</strong>文字');
     });
 
     test('white space collapses as on the page and a line break stays', () {
@@ -85,8 +86,9 @@ void main() {
 
   group('images and smileys', () {
     test('a smiley is its name', () {
-      expect(_md('x<img src="static/image/smiley/a/1.gif" smilieid="3" alt=":lol:">'), 'x[lol]');
+      expect(_md('x<img src="static/image/smiley/a/1.gif" smilieid="3" alt=":lol:">'), r'x\[lol\]');
       expect(_txt('<img src="https://h.test/s/kiss.png" smilieid="4" alt="">'), '[kiss]');
+      expect(_md('<img smilieid="4" alt=":smile:">(笑)'), r'\[smile\](笑)');
       expect(_txt('<img smilieid="4" alt="">'), '[$exportSmileyFallback]');
     });
 

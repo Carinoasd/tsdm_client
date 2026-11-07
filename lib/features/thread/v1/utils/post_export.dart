@@ -554,7 +554,7 @@ final class _Renderer {
   /// How deep the emphasis of each marker is: a `<b>` in a `<b>` is bold once.
   final _emphasis = <String, int>{};
 
-  static final _punctuationEdgeRe = RegExp(r'^(?![*~])[\p{P}\p{S}]|(?![*~])[\p{P}\p{S}]$', unicode: true);
+  static final _punctuationEdgeRe = RegExp(r'^(?!\*)[\p{P}\p{S}]|(?!\*)[\p{P}\p{S}]$', unicode: true);
 
   /// [core] in [marker]; in html tags when it starts or ends with punctuation: Markdown does not take `文字**「粗體」**`
   /// (a marker next to punctuation and a letter does not open or close).
@@ -644,7 +644,7 @@ final class _Renderer {
     final url = _absolute(href);
     if (inner.isEmpty) {
       out.text(md ? '<$url>' : url);
-    } else if ((el.text ?? '').trim() == href) {
+    } else if ((el.text ?? '').trim() == href || (el.text ?? '').trim() == url) {
       out.text(md ? '<$url>' : url);
     } else if (md && !inner.contains('\n')) {
       out.text('[$inner](${_mdUrl(url)})');
@@ -668,7 +668,9 @@ final class _Renderer {
         final file = src.split('?').first.split('/').last;
         name = file.contains('.') ? file.substring(0, file.lastIndexOf('.')) : file;
       }
-      out.text('[${name.isEmpty ? labels.smiley : name}]');
+      final shown = name.isEmpty ? labels.smiley : name;
+      // Escaped: a `[name]` before a `(` would be a link.
+      out.text(md ? '\\[${_escapeMarkdown(shown)}\\]' : '[$shown]');
       return;
     }
     final url = el.imageUrl();

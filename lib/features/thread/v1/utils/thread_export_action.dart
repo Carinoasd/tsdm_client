@@ -90,12 +90,24 @@ final class ThreadExportChoice {
   final bool share;
 }
 
+/// Whether an export is on its way: a second one would only make a second file.
+bool _exporting = false;
+
 /// Ask what to export of the thread on [state] and write it out: saved where the user picks, or shared.
 Future<void> exportThread(BuildContext context, ThreadState state) async {
   final tid = state.tid;
-  if (tid == null) {
+  if (tid == null || _exporting) {
     return;
   }
+  _exporting = true;
+  try {
+    await _exportThread(context, state, tid);
+  } finally {
+    _exporting = false;
+  }
+}
+
+Future<void> _exportThread(BuildContext context, ThreadState state, String tid) async {
   // Everything the work needs is taken before the first await: the page may be rebuilt meanwhile.
   final repository = RepositoryProvider.of<ThreadRepository>(context);
   final choice = await showDialog<ThreadExportChoice>(
@@ -127,7 +139,16 @@ Future<void> exportThread(BuildContext context, ThreadState state) async {
     url: '$baseUrl/forum.php?mod=viewthread&tid=$tid',
     labels: exportLabelsOf(context),
   );
-  final text = posts.length < _inlineFloors ? _runExport(job) : await compute(_runExport, job);
+  final String text;
+  try {
+    text = posts.length < _inlineFloors ? _runExport(job) : await compute(_runExport, job);
+  } on Object catch (e, st) {
+    talker.handle(e, st, 'failed to build the export of a thread');
+    if (context.mounted) {
+      showSnackBar(context: context, message: context.t.threadExport.failed);
+    }
+    return;
+  }
   if (!context.mounted) {
     return;
   }
