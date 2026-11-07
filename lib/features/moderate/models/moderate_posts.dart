@@ -425,6 +425,11 @@ ModerateQueueList? parseModerateQueue(
   if (!current.any((q) => q != null && q['mod'] == 'modcp' && q['action'] == 'moderate' && q['op'] == kind.name)) {
     return null;
   }
+  // The forum the panel lists, as its forum select shows it (a forum the account does not moderate lists them all).
+  if (doc.querySelector('select[name="fid"] option[selected]') case final selected?
+      when selected.attributes['value'] != '$fid') {
+    return null;
+  }
   final form = doc.querySelector('form#moderate');
   if (form == null) {
     // Nothing waits: the forum prints no form, only its "no result".

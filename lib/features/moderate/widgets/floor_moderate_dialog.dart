@@ -180,74 +180,81 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
     final danger = widget.action == FloorModerateAction.delete;
     final canSend = form != null && !_sending;
     final tr = context.t.moderate;
-    return CustomAlertDialog.sync(
-      title: AppDialogTitle(
-        icon: floorModerateIcon(widget.action, undo: undo),
-        title: floorModerateName(context, widget.action, undo: undo),
-        error: danger,
-      ),
-      content: _loading
-          ? const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (form != null) ...[
-                    TextField(
-                      controller: _reason,
-                      enabled: !_sending,
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: tr.reason,
-                        suffixIcon: form.reasons.isEmpty
-                            ? null
-                            : PopupMenuButton<String>(
-                                icon: const Icon(Icons.arrow_drop_down),
-                                enabled: !_sending,
-                                onSelected: (v) => _reason.text = v,
-                                itemBuilder: (_) => [
-                                  for (final r in form.reasons) PopupMenuItem(value: r, child: Text(r)),
-                                ],
-                              ),
+    // Once sent the forum carries it out whatever the dialog does: it stays until the answer, so the page is reloaded.
+    return PopScope(
+      canPop: !_sending,
+      child: CustomAlertDialog.sync(
+        title: AppDialogTitle(
+          icon: floorModerateIcon(widget.action, undo: undo),
+          title: floorModerateName(context, widget.action, undo: undo),
+          error: danger,
+        ),
+        content: _loading
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (form != null) ...[
+                      TextField(
+                        controller: _reason,
+                        enabled: !_sending,
+                        minLines: 1,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: tr.reason,
+                          suffixIcon: form.reasons.isEmpty
+                              ? null
+                              : PopupMenuButton<String>(
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  enabled: !_sending,
+                                  onSelected: (v) => _reason.text = v,
+                                  itemBuilder: (_) => [
+                                    for (final r in form.reasons) PopupMenuItem(value: r, child: Text(r)),
+                                  ],
+                                ),
+                        ),
                       ),
-                    ),
-                    if (form.canNotify)
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(tr.notifyAuthor),
-                        value: _notify || form.notifyForced,
-                        onChanged: form.notifyForced || _sending ? null : (v) => setState(() => _notify = v ?? false),
+                      if (form.canNotify)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(tr.notifyAuthor),
+                          value: _notify || form.notifyForced,
+                          onChanged: form.notifyForced || _sending ? null : (v) => setState(() => _notify = v ?? false),
+                        ),
+                    ],
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: SelectableText(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                       ),
                   ],
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SelectableText(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ),
-                ],
+                ),
               ),
-            ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(context.t.general.cancel)),
-        if (form == null && !_loading)
-          TextButton(onPressed: _load, child: Text(context.t.general.retry))
-        else
+        actions: [
           TextButton(
-            onPressed: canSend ? _send : null,
-            child: _sending
-                ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(
-                    context.t.general.ok,
-                    style: danger && canSend ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
-                  ),
+            onPressed: _sending ? null : () => Navigator.of(context).pop(false),
+            child: Text(context.t.general.cancel),
           ),
-      ],
+          if (form == null && !_loading)
+            TextButton(onPressed: _load, child: Text(context.t.general.retry))
+          else
+            TextButton(
+              onPressed: canSend ? _send : null,
+              child: _sending
+                  ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(
+                      context.t.general.ok,
+                      style: danger && canSend ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
+                    ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -9,9 +9,11 @@
 /// refusals (no access, locked), and the answers to the queue's operations and to the panel's password.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -20,6 +22,7 @@ import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 
 const _dir = 'test/data/moderate';
@@ -226,6 +229,15 @@ void main() {
       expect(list.fields['posttableid'], '0');
     });
 
+    test('the list of another forum, empty or not, is not taken', () {
+      for (final name in ['queue_replies_empty.html', 'queue_replies.html']) {
+        expect(
+          ModerateRepository.queueOf(_data(name), ModerateQueueKind.replies, fid: 2, uid: _uid),
+          isA<Left<AppException, ModerateQueueAnswer>>(),
+        );
+      }
+    });
+
     test('nothing waiting', () {
       final list = _queue('queue_replies_empty.html', ModerateQueueKind.replies);
       expect(list.items, isEmpty);
@@ -408,6 +420,53 @@ void main() {
         'login_panel': 'yes',
         'cppwd': 'secret',
       });
+    });
+  });
+
+  group('dialog', () {
+    testWidgets('once sent, the floor dialog stays until the answer and tells the page to reload', (tester) async {
+      final answer = Completer<Either<AppException, ModerateResponse>>();
+      final repo = ModerateRepository(
+        get: (_) async => right(_ok(_data('posts_window_warn.json'))),
+        post: (_, _) => answer.future,
+        currentUid: () => _uid,
+      );
+      bool? done;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async => done = await showFloorModerateDialog(
+                    context,
+                    action: FloorModerateAction.warn,
+                    tid: _tid,
+                    fid: _fid,
+                    pid: _pid,
+                    repository: repo,
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FloorModerateDialog), findsOneWidget);
+      await tester.tap(find.text(t.general.ok));
+      await tester.pump();
+      // Back and the barrier do not close it while the request is out.
+      await tester.binding.handlePopRoute();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pump();
+      expect(find.byType(FloorModerateDialog), findsOneWidget);
+      answer.complete(right(_ok(_data('posts_result_succeed.json'))));
+      await tester.pumpAndSettle();
+      expect(find.byType(FloorModerateDialog), findsNothing);
+      expect(done, isTrue);
     });
   });
 }

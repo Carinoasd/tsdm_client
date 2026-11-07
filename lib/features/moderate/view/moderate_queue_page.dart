@@ -128,10 +128,28 @@ class _QueueListState extends State<_QueueList> with AutomaticKeepAliveClientMix
     if (!mounted) {
       return;
     }
-    setState(() {
-      _loadingMore = false;
-      _apply(answer);
-    });
+    switch (answer) {
+      case Right(value: ModerateQueueReady(:final page)):
+        setState(() {
+          _loadingMore = false;
+          _pages.add(page);
+        });
+      case Right(value: ModerateQueueNeedsLogin()):
+        // The panel asks the password again: the list from the start once given.
+        setState(() => _loadingMore = false);
+        await _load();
+      default:
+        // The pages loaded stay; the next one can be asked again.
+        setState(() => _loadingMore = false);
+        showSnackBar(
+          context: context,
+          message: switch (answer) {
+            Right(value: ModerateQueueRefused(:final message)) when message.isNotEmpty => message,
+            Left(value: IdentityChangedException()) => context.t.general.accountChangedRetry,
+            _ => context.t.general.failedToLoad,
+          },
+        );
+    }
   }
 
   void _apply(Either<AppException, ModerateQueueAnswer> answer) {
@@ -340,49 +358,53 @@ class _QueueActionDialogState extends State<_QueueActionDialog> {
   @override
   Widget build(BuildContext context) {
     final danger = widget.action == ModerateQueueAction.delete;
-    return CustomAlertDialog.sync(
-      title: AppDialogTitle(
-        icon: _actionIcon(widget.action),
-        title: _actionName(context, widget.action),
-        error: danger,
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.item.subject, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _reason,
-              enabled: !_sending,
-              minLines: 1,
-              maxLines: 3,
-              decoration: InputDecoration(labelText: context.t.moderate.reason),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SelectableText(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+    // Once sent the forum carries it out whatever the dialog does: it stays until the answer.
+    return PopScope(
+      canPop: !_sending,
+      child: CustomAlertDialog.sync(
+        title: AppDialogTitle(
+          icon: _actionIcon(widget.action),
+          title: _actionName(context, widget.action),
+          error: danger,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.item.subject, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _reason,
+                enabled: !_sending,
+                minLines: 1,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: context.t.moderate.reason),
               ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _sending ? null : () => Navigator.of(context).pop(),
-          child: Text(context.t.general.cancel),
-        ),
-        TextButton(
-          onPressed: _sending ? null : _send,
-          child: _sending
-              ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(
-                  context.t.general.ok,
-                  style: danger ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: SelectableText(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ),
+            ],
+          ),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: _sending ? null : () => Navigator.of(context).pop(),
+            child: Text(context.t.general.cancel),
+          ),
+          TextButton(
+            onPressed: _sending ? null : _send,
+            child: _sending
+                ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(
+                    context.t.general.ok,
+                    style: danger ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
