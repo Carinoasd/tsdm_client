@@ -158,7 +158,8 @@ final class SyncDocument {
   /// The sections this version reads as one item each.
   static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`, `drafts`) by key, empty when the section is missing or not an object.
+  /// The items of section [name] (`visits`, `blocks`, `drafts`) by key, empty when the section is missing or not an
+  /// object.
   /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];

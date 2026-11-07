@@ -15,6 +15,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -343,6 +345,23 @@ void main() {
         expect((settings['values'] as Map).keys.toSet(), {for (final s in syncedSettings) s.key.name});
       });
 
+      test('a device with settings of its own keeps them at its first sync, the forum fills in the rest', () async {
+        store.settingsMap = {...store.settingsMap, 'threadReverseOrder': true};
+        api.remote({
+          'settings': {
+            'updated': 500,
+            'values': {...syncedSettingsDefaults(), 'threadReverseOrder': false, 'textScaleFactor': 1.3},
+          },
+        });
+        expect(await repo().pull(_uid), SyncOutcome.pushed);
+        expect(store.settingsMap['threadReverseOrder'], true);
+        expect(store.settingsMap['textScaleFactor'], 1.3);
+        expect(store.settingsUpdatedAt, now.millisecondsSinceEpoch);
+        final values = (api.lastPushed['settings'] as Map)['values'] as Map;
+        expect(values['threadReverseOrder'], true);
+        expect(values['textScaleFactor'], 1.3);
+      });
+
       test('a later change here is written, keeping the values of settings this version does not carry', () async {
         api.remote({
           'settings': {
@@ -496,6 +515,28 @@ void main() {
         api.pushAnswers.add(const SyncTooLarge(0));
         expect(await repo().pull(_uid), SyncOutcome.failed);
         expect(api.pushes, hasLength(1));
+      });
+
+      test("drafts lost here (their file set aside) are no deletion: the forum's come back", () async {
+        store.draftsByUid[_uid] = {'reply:1': _draft('1', 100)};
+        await repo().pull(_uid);
+        expect(store.draftsSeenByUid[_uid], {'reply:1'});
+        store.draftsSetAside.add(_uid);
+        await repo().pull(_uid);
+        final forum = SyncDocument.parse((api.pullAnswer as SyncPulled).data);
+        expect(forum.items('drafts')['reply:1'], _draftItem(100));
+        expect(store.draftsByUid[_uid]!.keys, ['reply:1']);
+      });
+
+      test('the draft store tells once that a damaged file was set aside', () async {
+        final dir = await Directory.systemTemp.createTemp('drafts');
+        addTearDown(() => dir.delete(recursive: true));
+        File('${dir.path}/$_uid.json').writeAsStringSync('{broken');
+        final drafts = LocalDraftStore(directory: () async => dir);
+        expect(await drafts.listForSync(_uid), isEmpty);
+        expect(drafts.takeSetAside(_uid), isTrue);
+        expect(drafts.takeSetAside(_uid), isFalse);
+        expect(File('${dir.path}/$_uid.json.bad').existsSync(), isTrue);
       });
 
       test('unreadable drafts are left alone', () async {

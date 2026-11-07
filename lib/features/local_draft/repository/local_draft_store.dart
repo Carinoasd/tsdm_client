@@ -61,6 +61,13 @@ final class LocalDraftStore with LoggerMixin {
   /// The drafts of each account read so far, by key.
   final _accounts = <int, Map<String, LocalDraft>>{};
 
+  /// Accounts whose file could not be read and was set aside since [takeSetAside] last asked.
+  final _setAside = <int>{};
+
+  /// Whether the file of [uid] was set aside (unreadable, another format or account) since this was last asked: its
+  /// drafts read as none, which is no deletion of them (the cross-device sync then starts over for the account).
+  bool takeSetAside(int uid) => _setAside.remove(uid);
+
   /// Accounts removed from the device ([forget]): a late write of an editor still open is refused, until the account
   /// reads its drafts again (it logged in again).
   final _forgotten = <int>{};
@@ -161,11 +168,13 @@ final class LocalDraftStore with LoggerMixin {
         } else {
           warning('local drafts: file of uid $uid not read (another format or account)');
           await _files.keepAside(uid);
+          _setAside.add(uid);
         }
       } on Object catch (e) {
         warning('local drafts: file of uid $uid unreadable: $e');
         // Kept beside, not written over by the next draft.
         await _files.keepAside(uid);
+        _setAside.add(uid);
       }
     }
     return _accounts[uid] = drafts;
@@ -214,8 +223,9 @@ final class LocalDraftStore with LoggerMixin {
     );
   }
 
-  /// Every draft of [uid] for the cross-device sync, null when they could not be read or the account was removed from
-  /// this device (unlike [list], reading does not bring it back): the sync then leaves the drafts alone.
+  /// Every draft of [uid] for the cross-device sync, null when reading failed or the account was removed from this
+  /// device (unlike [list], reading does not bring it back): the sync then leaves the drafts alone. A file set aside
+  /// reads as none: see [takeSetAside].
   Future<List<LocalDraft>?> listForSync(int uid) async {
     if (!_writable(uid)) {
       return null;

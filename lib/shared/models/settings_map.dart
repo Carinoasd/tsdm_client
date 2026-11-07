@@ -165,11 +165,18 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool twoPaneLayout;
 
-  /// Sync the reading progress, the quick phrases and the block list across devices. Not required: backups from older
+  /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
+  /// settings and the drafts each on their own switch too). Not required: backups from older
   /// versions lack it.
   final bool crossDeviceSync;
+
+  /// With [crossDeviceSync], sync the fast rate templates. Not required: backups from older versions lack it.
   final bool crossDeviceSyncRateTemplates;
+
+  /// With [crossDeviceSync], sync the reading and display settings. Not required: backups from older versions lack it.
   final bool crossDeviceSyncSettings;
+
+  /// With [crossDeviceSync], sync the local drafts. Not required: backups from older versions lack it.
   final bool crossDeviceSyncDrafts;
 
   /// The clock decides the theme. Not required: backups from older versions lack it.

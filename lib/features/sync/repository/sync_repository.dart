@@ -53,7 +53,8 @@ enum SyncCategory {
 }
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings and
-/// the local drafts of an account the same on every device it logs in on, through the forum's `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
+/// the local drafts of an account the same on every device it logs in on, through the forum's `sync` action (plugin
+/// 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
 /// wins), applies the result here and writes it back when this device had something newer. [schedulePush] waits a
@@ -111,6 +112,10 @@ final class SyncRepository with LoggerMixin {
   String? _appliedPhrases;
   String? _appliedRateTemplates;
   String? _appliedSettings;
+
+  /// The drafts this device held when its document was last built: a draft deleted since (while the run was on its
+  /// way) is not written back by the apply.
+  Set<String>? _draftKeysRead;
   bool _disposed = false;
 
   /// The time of the last [pull] that reached the forum, null when none did yet.
@@ -460,18 +465,38 @@ final class SyncRepository with LoggerMixin {
     await _store.saveRateTemplatesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
   }
 
-  /// The first sync of the settings on a device (never stamped): the forum's settings are taken when it has some (the
-  /// device counts as changed at 0); else this device's are stamped as of now when they are not all the defaults
-  /// (then written), and left unstamped otherwise (a fresh device says nothing, so it never undoes another's).
+  /// The first sync of the settings on a device (never stamped). A device with only the defaults takes the forum's
+  /// settings (it counts as changed at 0), or says nothing when the forum has none: a fresh device never undoes
+  /// another's. A device with settings of its own keeps them: the forum's fill in only the settings still at their
+  /// default here, and the result is stamped as of now (then written), so neither device's choices are lost.
   Future<void> _stampSettingsOnFirstSync(SyncDocument remote) async {
     if (!_on(SyncCategory.settings) || await _store.settingsUpdated() != null) {
       return;
     }
-    if (remote.single('settings') != null) {
-      await _store.saveSettingsUpdated(0);
-    } else if (!mapEquals(await _store.settingsValues(), syncedSettingsDefaults())) {
-      await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
+    final mine = await _store.settingsValues();
+    final defaults = syncedSettingsDefaults();
+    final theirs = remote.single('settings');
+    if (mapEquals(mine, defaults)) {
+      if (theirs != null) {
+        await _store.saveSettingsUpdated(0);
+      }
+      return;
     }
+    if (theirs != null) {
+      final fill = {
+        for (final MapEntry(:key, :value) in settingsValuesOf(theirs).entries)
+          if (mine.containsKey(key) && mine[key] == defaults[key]) key: value,
+      };
+      final next = syncedSettingsApplied(mine, fill);
+      if (!mapEquals(next, mine)) {
+        info('sync: first sync, settings of the forum taken where this device has the defaults');
+        await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
+        _appliedSettings = encodeSettingsValues(next);
+        await _store.applySettingsValues(fill);
+        return;
+      }
+    }
+    await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
   }
 
   /// The fast rate templates of the `rate_templates` [item]: the ones this version reads, the first of each name, at
@@ -598,6 +623,7 @@ final class SyncRepository with LoggerMixin {
           }
         }
         final held = {for (final d in drafts) d.key.value};
+        _draftKeysRead = held;
         for (final key in {...baseDrafts.keys, ...seen}) {
           if (held.contains(key)) {
             continue;
@@ -619,9 +645,9 @@ final class SyncRepository with LoggerMixin {
 
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
   /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
-  /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor] dropped, and at most
-  /// [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits dropped first, then the oldest deletion records of visits, then the
-  /// drafts). Dropping is by time alone, so every device drops the same items of the same document; a dropped item is
+  /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor]
+  /// dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits
+  /// dropped first, then the oldest deletion records of visits, then the drafts). Dropping is by time alone, so every device drops the same items of the same document; a dropped item is
   /// not a deletion.
   SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
@@ -801,6 +827,10 @@ final class SyncRepository with LoggerMixin {
             continue;
           }
           if (mine != null && mine.updatedAt.millisecondsSinceEpoch >= at) {
+            continue;
+          }
+          if (mine == null && (_draftKeysRead?.contains(key) ?? false)) {
+            // Deleted here while the run was on its way: the next run sends the deletion.
             continue;
           }
           if (draftFromItem(key, item) case final draft?) {

@@ -291,7 +291,9 @@ abstract interface class SyncLocalStore {
   /// Note when the synced settings last changed.
   Future<void> saveSettingsUpdated(int updated);
 
-  /// The local drafts of account [uid], null when they can not be read (they are left alone then).
+  /// The local drafts of account [uid], null when they can not be read (they are left alone then). When the drafts of
+  /// the account were lost on this device (their file set aside), [draftsSeen] is forgotten first: nothing this device
+  /// held reads as deleted.
   Future<List<LocalDraft>?> drafts(int uid);
 
   /// Keep the drafts [save] and delete those of [delete] of account [uid].
@@ -468,7 +470,17 @@ final class StorageSyncLocalStore implements SyncLocalStore {
   Future<void> saveSettingsUpdated(int updated) => _storage.saveInt(settingsUpdatedKey, updated);
 
   @override
-  Future<List<LocalDraft>?> drafts(int uid) async => LocalDraftStore.app?.listForSync(uid);
+  Future<List<LocalDraft>?> drafts(int uid) async {
+    final store = LocalDraftStore.app;
+    if (store == null) {
+      return null;
+    }
+    final drafts = await store.listForSync(uid);
+    if (store.takeSetAside(uid)) {
+      await _storage.deleteKey(draftsSeenKeyOf(uid));
+    }
+    return drafts;
+  }
 
   @override
   Future<void> applyDrafts(int uid, {required List<LocalDraft> save, required List<LocalDraftKey> delete}) async =>
@@ -531,6 +543,9 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// Accounts whose drafts can not be read.
   final draftsUnreadable = <int>{};
+
+  /// Accounts whose drafts were lost (their file set aside): read as none, [draftsSeen] forgotten.
+  final draftsSetAside = <int>{};
 
   /// The [draftsSeen] by account.
   final draftsSeenByUid = <int, Set<String>>{};
@@ -652,8 +667,16 @@ final class MemorySyncLocalStore implements SyncLocalStore {
   Future<void> saveSettingsUpdated(int updated) async => settingsUpdatedAt = updated;
 
   @override
-  Future<List<LocalDraft>?> drafts(int uid) async =>
-      draftsUnreadable.contains(uid) ? null : (draftsByUid[uid] ?? const {}).values.toList();
+  Future<List<LocalDraft>?> drafts(int uid) async {
+    if (draftsUnreadable.contains(uid)) {
+      return null;
+    }
+    if (draftsSetAside.remove(uid)) {
+      draftsByUid.remove(uid);
+      draftsSeenByUid.remove(uid);
+    }
+    return (draftsByUid[uid] ?? const {}).values.toList();
+  }
 
   @override
   Future<void> applyDrafts(int uid, {required List<LocalDraft> save, required List<LocalDraftKey> delete}) async {

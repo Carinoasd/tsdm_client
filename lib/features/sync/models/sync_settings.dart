@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
+import 'package:tsdm_client/shared/models/thread_open_position.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 
 /// A setting the cross-device sync carries in the `settings` section, by its stored name ([SettingsKeys.name]).
@@ -65,7 +68,7 @@ final class SyncedSetting<T extends Object> {
 /// * the quick phrases (their own section) and the switches of the sync itself.
 final syncedSettings = <SyncedSetting<Object>>[
   // Theme.
-  SyncedSetting._(SettingsKeys.themeMode, (s) => s.themeMode, min: 0, max: 2),
+  SyncedSetting._(SettingsKeys.themeMode, (s) => s.themeMode, min: 0, max: ThemeMode.values.length - 1),
   SyncedSetting._(SettingsKeys.themeModeScheduled, (s) => s.themeModeScheduled),
   SyncedSetting._(SettingsKeys.darkScheduleStart, (s) => s.darkScheduleStart, min: 0, max: 1439),
   SyncedSetting._(SettingsKeys.darkScheduleEnd, (s) => s.darkScheduleEnd, min: 0, max: 1439),
@@ -88,7 +91,12 @@ final syncedSettings = <SyncedSetting<Object>>[
     min: PostTypography.minLineHeight,
     max: PostTypography.maxLineHeight,
   ),
-  SyncedSetting._(SettingsKeys.threadContentParagraphSpacing, (s) => s.threadContentParagraphSpacing, min: 0, max: 16),
+  SyncedSetting._(
+    SettingsKeys.threadContentParagraphSpacing,
+    (s) => s.threadContentParagraphSpacing,
+    min: PostTypography.minParagraphSpacing,
+    max: PostTypography.maxParagraphSpacing,
+  ),
   SyncedSetting._(SettingsKeys.threadContentSplitLongParagraphs, (s) => s.threadContentSplitLongParagraphs),
   // Thread lists.
   SyncedSetting._(SettingsKeys.showShortcutInForumCard, (s) => s.showShortcutInForumCard),
@@ -98,15 +106,30 @@ final syncedSettings = <SyncedSetting<Object>>[
   SyncedSetting._(SettingsKeys.threadCardHighlightAuthorName, (s) => s.threadCardHighlightAuthorName),
   SyncedSetting._(SettingsKeys.threadCardHighlightInfoRow, (s) => s.threadCardHighlightInfoRow),
   SyncedSetting._(SettingsKeys.threadCardShowExcerpt, (s) => s.threadCardShowExcerpt),
-  SyncedSetting._(SettingsKeys.threadCardThumbnailMode, (s) => s.threadCardThumbnailMode, min: 0, max: 2),
+  SyncedSetting._(
+    SettingsKeys.threadCardThumbnailMode,
+    (s) => s.threadCardThumbnailMode,
+    min: 0,
+    max: ThreadThumbnailMode.values.length - 1,
+  ),
   SyncedSetting._(SettingsKeys.threadCardExternalThumbnails, (s) => s.threadCardExternalThumbnails),
   // Threads.
   SyncedSetting._(SettingsKeys.threadReverseOrder, (s) => s.threadReverseOrder),
   SyncedSetting._(SettingsKeys.collapseAppBarWhenScroll, (s) => s.collapseAppBarWhenScroll),
-  SyncedSetting._(SettingsKeys.threadOpenPosition, (s) => s.threadOpenPosition, min: 0, max: 2),
+  SyncedSetting._(
+    SettingsKeys.threadOpenPosition,
+    (s) => s.threadOpenPosition,
+    min: 0,
+    max: ThreadOpenPosition.values.length - 1,
+  ),
   SyncedSetting._(SettingsKeys.threadSwipePaging, (s) => s.threadSwipePaging),
   SyncedSetting._(SettingsKeys.threadFloorInteractionMode, (s) => s.threadFloorInteractionMode),
-  SyncedSetting._(SettingsKeys.postImageAutoLoad, (s) => s.postImageAutoLoad, min: 0, max: 2),
+  SyncedSetting._(
+    SettingsKeys.postImageAutoLoad,
+    (s) => s.postImageAutoLoad,
+    min: 0,
+    max: PostImageAutoLoad.values.length - 1,
+  ),
   SyncedSetting._(SettingsKeys.enableAppPostRenderer, (s) => s.enableAppPostRenderer),
   SyncedSetting._(SettingsKeys.enableEditorBBCodeParser, (s) => s.enableEditorBBCodeParser),
   // Unread badges.

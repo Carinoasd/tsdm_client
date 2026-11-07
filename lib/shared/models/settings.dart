@@ -250,7 +250,8 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
 
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
-  /// take them back on every device the account logs in on. Off: nothing is read or written there.
+  /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
+  /// local drafts too, each on its own switch below. Off: nothing is read or written there.
   crossDeviceSync<bool>(name: 'crossDeviceSync', type: bool, defaultValue: true),
 
   /// With [crossDeviceSync], keep the fast rate templates the same on every device too.
