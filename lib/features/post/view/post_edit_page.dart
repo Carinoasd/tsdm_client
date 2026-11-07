@@ -1774,6 +1774,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               body: bbcodeController.toForumBBCode(),
               rewardPrice: rewardPrice,
               hongbao: hongbao,
+              typeId: threadType?.typeID,
             ),
     );
   }

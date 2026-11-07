@@ -271,9 +271,72 @@ void main() {
     await tester.tap(find.byTooltip('Switch to ordinary thread'));
     await tester.pumpAndSettle();
     final transfer = carried! as ThreadModeTransfer;
+    // This form offers no thread type: the one carried goes back.
     expect(transfer.rewardPrice, 50);
     expect(transfer.hongbao?.toFields(), _packet.toFields());
     expect(transfer.typeId, '5');
+    expect(transfer.delta, isNull, reason: 'the body was edited as text');
+  });
+
+  testWidgets('the poll editor chooses the thread type carried, and passes it back', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1000, 2000)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final auth = AuthenticationRepository(user: const UserLoginInfo(uid: 1000, username: 'Synthetic A'));
+    addTearDown(auth.dispose);
+    await LocaleSettings.setLocale(AppLocale.en);
+    addTearDown(() => LocaleSettings.setLocale(AppLocale.zhTw));
+    Object? carried;
+    final router = GoRouter(
+      initialLocation: '/poll',
+      routes: [
+        GoRoute(
+          path: '/poll',
+          builder: (_, _) => PollCreatePage(
+            fid: '4',
+            transfer: const ThreadModeTransfer(
+              uid: 1000,
+              fid: '4',
+              subject: '標題',
+              body: '內文',
+              rewardPrice: 50,
+              hongbao: _packet,
+              typeId: '7',
+              delta: '[]',
+            ),
+            repositoryBuilder: (currentUid) => PollCreateRepository.withTransport(
+              currentUid: currentUid,
+              getPage: (_) async => right(pollResponse(pollForm(typeSelect: pollTypeSelect))),
+              sendForm: (_, _) async => throw StateError('nothing is posted'),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: ScreenPaths.editPost,
+          name: ScreenPaths.editPost,
+          builder: (_, state) {
+            carried = state.extra;
+            return const Scaffold(body: Text('thread editor'));
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      RepositoryProvider<AuthenticationRepository>.value(
+        value: auth,
+        child: TranslationProvider(child: MaterialApp.router(routerConfig: router)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Synthetic type'), findsOneWidget);
+    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.pumpAndSettle();
+    final transfer = carried! as ThreadModeTransfer;
+    expect(transfer.rewardPrice, 50);
+    expect(transfer.hongbao?.toFields(), _packet.toFields());
+    expect(transfer.typeId, '7');
     expect(transfer.delta, isNull, reason: 'the body was edited as text');
   });
 
@@ -281,6 +344,8 @@ void main() {
     late SettingsBloc settingsBloc;
     setUp(() => settingsBloc = SettingsBloc(settingsRepository: settings, fragmentsRepository: FragmentsRepository()));
     tearDown(() => settingsBloc.close());
+
+    Object? toPoll;
 
     Future<GoRouter> pump(WidgetTester tester, {required String kind, ThreadModeTransfer? transfer}) async {
       final auth = AuthenticationRepository(user: _alice);
@@ -301,7 +366,16 @@ void main() {
               pid: null,
               threadKind: ThreadKind.fromQuery(state.uri.queryParameters['kind']),
               transfer: state.extra as ThreadModeTransfer?,
+              pollOffered: true,
             ),
+          ),
+          GoRoute(
+            path: ScreenPaths.createPoll,
+            name: ScreenPaths.createPoll,
+            builder: (_, state) {
+              toPoll = state.extra;
+              return const Scaffold(body: Text('poll editor'));
+            },
           ),
         ],
       );
@@ -406,6 +480,30 @@ void main() {
       await _settle(tester);
       expect(page(tester).threadKind, ThreadKind.reward, reason: 'not switched to an ordinary thread');
       expect(find.text('舊草稿標題'), findsWidgets);
+      await _unpump(tester);
+    });
+
+    testWidgets('to the poll editor: the settings and the thread type go along', (tester) async {
+      await pump(
+        tester,
+        kind: 'normal',
+        transfer: const ThreadModeTransfer(
+          uid: 31,
+          fid: '7',
+          subject: '標題',
+          body: '內文',
+          rewardPrice: 50,
+          hongbao: _packet,
+          typeId: '5',
+        ),
+      );
+      expect(find.text('其他'), findsWidgets);
+      await tester.tap(find.byTooltip('改為發起投票'));
+      await _settle(tester);
+      final transfer = toPoll! as ThreadModeTransfer;
+      expect(transfer.typeId, '5');
+      expect(transfer.rewardPrice, 50);
+      expect(transfer.hongbao?.toFields(), _packet.toFields());
       await _unpump(tester);
     });
 
