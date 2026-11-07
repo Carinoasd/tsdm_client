@@ -1479,13 +1479,15 @@
       "min": "最低 $min $credit",
       "balance": "你有 $have $credit",
       "afterTax": "税后支付 $real $credit",
+      "raiseCost": "追加支付 $real $credit",
       "required": "请先设置悬赏积分",
       "issue": {
         "empty": "请填写悬赏积分",
         "overflow": "不能高于 32767",
         "belowMin": "不能低于 $min",
         "aboveMax": "不能高于 $max",
-        "shortage": "积分余额不足"
+        "shortage": "积分余额不足",
+        "fall": "不能低于当前的 $current"
       }
     },
     "hongbaoDialog": {

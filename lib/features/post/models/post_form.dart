@@ -207,7 +207,8 @@ final class PostFormEdits {
     this.hongbao,
   });
 
-  /// The reward price of a new reward thread ([PostForm.reward]), null to keep the served one.
+  /// The reward price of a new reward thread, or the raised price of an open one edited by its author
+  /// ([PostForm.reward], [RewardFormInfo.editable]), null to keep the served one.
   final int? rewardPrice;
 
   /// The red packet of a new red packet thread ([PostForm.hongbao]), null for none: the form then posts no `hb_*`
@@ -492,8 +493,11 @@ final class PostForm {
       if (tsdmAppText(plugin['id']) case final String id when id.isNotEmpty) (id, tsdmAppText(plugin['name'])),
   ];
 
-  /// The reward settings of a new reward thread (`reward`, [special] 3), null for any other form.
-  RewardFormInfo? get reward => special == 3 && action == 'newthread' ? RewardFormInfo.fromJson(json['reward']) : null;
+  /// The reward settings of a new reward thread or of the edit of its first post (`reward`, [special] 3), null for any
+  /// other form.
+  RewardFormInfo? get reward => special == 3 && (action == 'newthread' || (action == 'edit' && first))
+      ? RewardFormInfo.fromJson(json['reward'])
+      : null;
 
   /// The red packet form of a new red packet thread ([special] 127 of the `hongbao` plugin), read from the web page
   /// and kept under the app's own key [hongbaoKey] ([withHongbao]); null when not read, or for any other form.
@@ -662,7 +666,7 @@ final class PostForm {
       body.set(price.name, '${edits.price}');
     }
     final reward = this.reward;
-    if (reward != null && edits.rewardPrice != null) {
+    if (reward != null && reward.editable && edits.rewardPrice != null) {
       body.set(reward.inputName, '${edits.rewardPrice}');
     }
     // The plugin's fields are not in the served form: added as the website's form posts them. Never for a draft: the
@@ -698,17 +702,18 @@ final class PostForm {
   /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields])
   /// the web page did not give ([hookValues] null), a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
   /// whose body a map cannot carry ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
-  /// allowing special threads only), the first post of a special thread, a post of a trade thread (its goods), as
+  /// allowing special threads only), the first post of a special thread (but a reward), a post of a trade thread (its goods), as
   /// the web page parser decides.
   PostFormSupport editorSupport(String expectedAction) {
     final check = secCheck;
     if (asksVerification && check == null) {
       return PostFormSupport.verification;
     }
-    // A new thread: an ordinary one, a reward with its settings, or a red packet thread with its form read.
+    // A new thread: an ordinary one, a reward with its settings, or a red packet thread with its form read. The first
+    // post of a reward thread: its price as the form lets the member set it, else posted back as served.
     final ordinary = switch (expectedAction) {
       'newthread' => special == 0 || reward != null || (isHongbao && hongbao != null),
-      'edit' => first ? special == 0 : special != 2,
+      'edit' => first ? special == 0 || reward != null : special != 2,
       'reply' => true,
       _ => false,
     };

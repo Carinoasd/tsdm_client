@@ -9,7 +9,8 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
-/// Ask the reward credits of a new reward thread within the limits of [info]; [initial] is the price set so far.
+/// Ask the reward credits of a new reward thread within the limits of [info], or the raised price of an open one
+/// ([RewardFormInfo.raising]); [initial] is the price set so far.
 ///
 /// Returns the price, null when not set.
 Future<int?> showRewardPriceDialog(BuildContext context, RewardFormInfo info, int? initial) async => showDialog<int>(
@@ -26,6 +27,7 @@ String rewardIssueText(BuildContext context, RewardFormInfo info, RewardPriceIss
     RewardPriceIssue.belowMin => tr.belowMin(min: info.min),
     RewardPriceIssue.aboveMax => tr.aboveMax(max: info.max),
     RewardPriceIssue.shortage => tr.shortage,
+    RewardPriceIssue.fall => tr.fall(current: info.current ?? 0),
   };
 }
 
@@ -70,11 +72,14 @@ class _RewardPriceDialogState extends State<_RewardPriceDialog> {
     final real = price;
     final helper = [
       if (info.max > 0)
-        tr.range(min: info.min, max: info.max, credit: credit)
+        tr.range(min: info.floor, max: info.max, credit: credit)
       else
-        tr.min(min: info.min, credit: credit),
+        tr.min(min: info.floor, credit: credit),
       if (info.have case final int have) tr.balance(have: have, credit: credit),
-      if (real != null && real > 0 && real <= RewardFormInfo.overflow)
+      if (info.raising) ...[
+        if (real != null && real > info.current! && real <= RewardFormInfo.overflow)
+          tr.raiseCost(real: info.cost(real), credit: credit),
+      ] else if (real != null && real > 0 && real <= RewardFormInfo.overflow)
         tr.afterTax(real: info.realPrice(real), credit: credit),
     ].join('\n');
     return CustomAlertDialog.sync(

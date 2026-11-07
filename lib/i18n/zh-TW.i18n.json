@@ -1479,13 +1479,15 @@
       "min": "最低 $min $credit",
       "balance": "你有 $have $credit",
       "afterTax": "稅後支付 $real $credit",
+      "raiseCost": "追加支付 $real $credit",
       "required": "請先設定懸賞積分",
       "issue": {
         "empty": "請填寫懸賞積分",
         "overflow": "不能高於 32767",
         "belowMin": "不能低於 $min",
         "aboveMax": "不能高於 $max",
-        "shortage": "積分餘額不足"
+        "shortage": "積分餘額不足",
+        "fall": "不能低於目前的 $current"
       }
     },
     "hongbaoDialog": {
