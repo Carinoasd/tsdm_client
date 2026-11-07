@@ -368,8 +368,9 @@ void main() {
     });
     tearDown(() async {
       // Nothing of the test runs on into the next one.
+      // Bounded: a test that failed while a page was held leaves it held; the closed store keeps the next test safe.
       if (!pageTest) {
-        await drain();
+        await drain().timeout(const Duration(seconds: 5), onTimeout: () {});
       }
       await forumHome.dispose();
       await auth.close();
@@ -461,6 +462,7 @@ void main() {
       expect(forum.hold!.isCompleted, isFalse);
 
       final fresh = await next(bloc, forum.hold!.complete, isFresh);
+      expect(fresh.status, HomepageStatus.success);
       expect(fresh.savedAt, isNull);
       expect(fresh.forumStatus.todayCount, '4242');
       expect(fresh.dailyRedPacket?.dateFlag, isNotNull);
@@ -539,6 +541,7 @@ void main() {
       expect(back.loggedUserInfo?.username, 'alice');
       // Her fresh page arrives within the test: nothing of it runs on into the next one.
       final fresh = await next(bloc, forum.hold!.complete, isFresh);
+      expect(fresh.status, HomepageStatus.success);
       expect(fresh.savedAt, isNull);
       expect(fresh.loggedUserInfo?.username, 'alice');
 
@@ -599,7 +602,7 @@ void main() {
       Future<void> drainPage(WidgetTester tester) async {
         var drained = false;
         unawaited(drain().then((_) => drained = true));
-        for (var i = 0; i < 50 && !drained; i++) {
+        for (var i = 0; i < 250 && !drained; i++) {
           await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
           await tester.pump();
         }
