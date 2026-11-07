@@ -1545,6 +1545,11 @@
         "extFieldsTooMany": "At most $max extra fields"
       }
     },
+    "pollDialog": {
+      "title": "Poll settings",
+      "entryTooltip": "Poll",
+      "optionEmpty": "An option cannot be empty"
+    },
     "debateDialog": {
       "title": "Set debate",
       "entryTooltip": "Debate",

@@ -1545,6 +1545,11 @@
         "extFieldsTooMany": "擴充資料項最多 $max 項"
       }
     },
+    "pollDialog": {
+      "title": "投票設定",
+      "entryTooltip": "投票",
+      "optionEmpty": "選項不能為空白"
+    },
     "debateDialog": {
       "title": "辯論設定",
       "entryTooltip": "辯論",

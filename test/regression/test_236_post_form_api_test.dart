@@ -259,7 +259,7 @@ void main() {
 
   group('A. the answer', () {
     test('every form fixture is a post form of its action, served to its account', () {
-      expect(_forms, hasLength(26));
+      expect(_forms, hasLength(27));
       for (final name in _forms) {
         final json = _json(name);
         expect(postFormAnswerOf(json), same(json), reason: name);
@@ -508,6 +508,8 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         'edit_draft': ('edit', PostFormSupport.unsupported),
         // fid 2 as edit_first; without them the first post of a poll is taken, the poll posted as served (test_292).
         'edit_poll': ('edit', PostFormSupport.unsupported),
+        // An administrator's: the poll settings and the text of the options may change (test_331).
+        'edit_poll_editable': ('edit', PostFormSupport.supported),
         'edit_json': ('edit', PostFormSupport.unsupported),
         // The first post of a reward thread: its price raised, or kept as served (test_291).
         'edit_reward_open': ('edit', PostFormSupport.supported),

@@ -1,0 +1,581 @@
+{
+ "ok": 1,
+ "api": 1,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "post",
+ "schema": 16,
+ "action": "edit",
+ "float": 0,
+ "fid": 7,
+ "tid": 9600050,
+ "pid": 9700050,
+ "page": 0,
+ "forum": {
+  "fid": 7,
+  "name": "神作殿堂",
+  "allowspecialonly": 0
+ },
+ "thread": {
+  "tid": 9600050,
+  "subject": "投票編輯測試 app（改）",
+  "special": 1,
+  "displayorder": 0,
+  "draft": 0,
+  "closed": 0,
+  "authorid": 31,
+  "anonymous": 0
+ },
+ "first": 1,
+ "moderated": null,
+ "submit": {
+  "url": "forum.php?mod=post&action=edit&extra=&editsubmit=yes",
+  "method": "POST",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "posttime": "1700000000",
+   "delattachop": "0",
+   "wysiwyg": "1",
+   "fid": "7",
+   "tid": "9600050",
+   "pid": "9700050",
+   "page": "",
+   "special": "1",
+   "editsubmit": "true",
+   "save": ""
+  }
+ },
+ "subject": {
+  "shown": 1,
+  "value": "投票編輯測試 app（改）",
+  "max": null,
+  "min": null,
+  "unit": "dstrlen",
+  "hard_max": 255,
+  "reply_default": null
+ },
+ "message": {
+  "value": "投票帖內文，App 協定實測。（結束後編輯 -1）",
+  "min": null,
+  "max": null,
+  "unit": "bytes",
+  "min_excludes_quote": 1,
+  "json": 0
+ },
+ "quote_html": null,
+ "types": null,
+ "stand": null,
+ "special": {
+  "current": 1,
+  "specialextra": "",
+  "sortid": 0,
+  "allowed": null,
+  "threadplugins": null,
+  "threadsorts": null
+ },
+ "editor": {
+  "mode": 1,
+  "html": 0,
+  "smilies": 1,
+  "bbcode": 1,
+  "imgcode": 1,
+  "hide": 1,
+  "at": 0
+ },
+ "options": [
+  {
+   "name": "isanonymous",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "使用匿名发帖"
+  },
+  {
+   "name": "hiddenreplies",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "回帖仅作者可见"
+  },
+  {
+   "name": "ordertype",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "回帖倒序排列"
+  },
+  {
+   "name": "allownoticeauthor",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "接收回复通知"
+  },
+  {
+   "name": "usesig",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "使用个人签名"
+  },
+  {
+   "name": "htmlon",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "HTML 代码"
+  },
+  {
+   "name": "parseurloff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用链接识别"
+  },
+  {
+   "name": "smileyoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用表情"
+  },
+  {
+   "name": "bbcodeoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用编辑器代码"
+  },
+  {
+   "name": "imgcontent",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "内容生成图片"
+  }
+ ],
+ "readperm": {
+  "name": "readperm",
+  "type": "select",
+  "value": "",
+  "choices": [
+   {
+    "value": "",
+    "label": "不限"
+   },
+   {
+    "value": "1",
+    "label": "游客"
+   },
+   {
+    "value": "10",
+    "label": "新手上路"
+   },
+   {
+    "value": "20",
+    "label": "AG效能組"
+   },
+   {
+    "value": "20",
+    "label": "AG低權組"
+   },
+   {
+    "value": "20",
+    "label": "注册会员"
+   },
+   {
+    "value": "30",
+    "label": "中级会员"
+   },
+   {
+    "value": "30",
+    "label": "字幕組"
+   },
+   {
+    "value": "50",
+    "label": "高级会员"
+   },
+   {
+    "value": "70",
+    "label": "金牌会员"
+   },
+   {
+    "value": "90",
+    "label": "论坛元老"
+   },
+   {
+    "value": "100",
+    "label": "实习版主"
+   },
+   {
+    "value": "100",
+    "label": "审核员"
+   },
+   {
+    "value": "100",
+    "label": "版主"
+   },
+   {
+    "value": "150",
+    "label": "网站编辑"
+   },
+   {
+    "value": "150",
+    "label": "超级版主"
+   },
+   {
+    "value": "175",
+    "label": "區版主"
+   },
+   {
+    "value": "200",
+    "label": "信息监察员"
+   },
+   {
+    "value": "200",
+    "label": "管理员"
+   },
+   {
+    "value": "255",
+    "label": "最高权限"
+   }
+  ]
+ },
+ "price": null,
+ "tags": {
+  "recent": [
+   "ED",
+   "2026新番",
+   "无损",
+   "OP",
+   "治愈"
+  ],
+  "input": {
+   "name": "tags",
+   "type": "text",
+   "value": ""
+  }
+ },
+ "replycredit": {
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "have": 917,
+  "total": 0,
+  "inputs": [
+   {
+    "name": "replycredit_times",
+    "type": "text",
+    "value": "1"
+   },
+   {
+    "name": "replycredit_extcredits",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "replycredit_membertimes",
+    "type": "select",
+    "value": "1",
+    "choices": [
+     {
+      "value": "1",
+      "label": "1"
+     },
+     {
+      "value": "2",
+      "label": "2"
+     },
+     {
+      "value": "3",
+      "label": "3"
+     },
+     {
+      "value": "4",
+      "label": "4"
+     },
+     {
+      "value": "5",
+      "label": "5"
+     },
+     {
+      "value": "6",
+      "label": "6"
+     },
+     {
+      "value": "7",
+      "label": "7"
+     },
+     {
+      "value": "8",
+      "label": "8"
+     },
+     {
+      "value": "9",
+      "label": "9"
+     },
+     {
+      "value": "10",
+      "label": "10"
+     }
+    ]
+   },
+   {
+    "name": "replycredit_random",
+    "type": "select",
+    "value": "100",
+    "choices": [
+     {
+      "value": "100",
+      "label": "100"
+     },
+     {
+      "value": "90",
+      "label": "90"
+     },
+     {
+      "value": "80",
+      "label": "80"
+     },
+     {
+      "value": "70",
+      "label": "70"
+     },
+     {
+      "value": "60",
+      "label": "60"
+     },
+     {
+      "value": "50",
+      "label": "50"
+     },
+     {
+      "value": "40",
+      "label": "40"
+     },
+     {
+      "value": "30",
+      "label": "30"
+     },
+     {
+      "value": "20",
+      "label": "20"
+     },
+     {
+      "value": "10",
+      "label": "10"
+     }
+    ]
+   }
+  ]
+ },
+ "rushreply": null,
+ "cronpublish": null,
+ "can_delete": 0,
+ "mygroup": null,
+ "attach": {
+  "file": 1,
+  "image": 1,
+  "exts": "",
+  "maxsize": 2048000,
+  "today": 1,
+  "today_left": null,
+  "today_size_left": null,
+  "setperm": 1,
+  "upload": {
+   "url": "misc.php?mod=swfupload&action=swfupload&operation=upload&fid=7",
+   "uid": 31,
+   "hash": "0123456789abcdef0123456789abcdef",
+   "max_kb": 2000,
+   "limit": 0,
+   "image": 1,
+   "file": 1,
+   "image_exts": "*.jpg;*.jpeg;*.gif;*.png;*.bmp;*.webp",
+   "file_exts": "*.*"
+  },
+  "used": [],
+  "unused": [],
+  "fields": {},
+  "list_shown": 1
+ },
+ "draft": {
+  "field": 1,
+  "can_save": 0,
+  "count": null,
+  "publish": 0
+ },
+ "seccheck": null,
+ "poll": {
+  "max_options": 20,
+  "image": 0,
+  "multiple": 1,
+  "options": [
+   {
+    "id": 2001,
+    "displayorder": "0",
+    "text": "選項甲 & \"乙\"改",
+    "readonly": 0,
+    "image": null
+   },
+   {
+    "id": 2002,
+    "displayorder": "0",
+    "text": "選項二改",
+    "readonly": 0,
+    "image": null
+   },
+   {
+    "id": 2003,
+    "displayorder": "0",
+    "text": "選項三改",
+    "readonly": 0,
+    "image": null
+   },
+   {
+    "id": 2004,
+    "displayorder": "1",
+    "text": "App 新增選項改",
+    "readonly": 0,
+    "image": null
+   }
+  ],
+  "option_field": "polloption[ID]",
+  "inputs": [
+   {
+    "name": "polls",
+    "type": "hidden",
+    "value": "yes"
+   },
+   {
+    "name": "fid",
+    "type": "hidden",
+    "value": "7"
+   },
+   {
+    "name": "polloptionid[2001]",
+    "type": "hidden",
+    "value": "2001"
+   },
+   {
+    "name": "displayorder[2001]",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "polloption[2001]",
+    "type": "text",
+    "value": "選項甲 & \"乙\"改"
+   },
+   {
+    "name": "pollimage[2001]",
+    "type": "hidden",
+    "value": ""
+   },
+   {
+    "name": "polloptionid[2002]",
+    "type": "hidden",
+    "value": "2002"
+   },
+   {
+    "name": "displayorder[2002]",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "polloption[2002]",
+    "type": "text",
+    "value": "選項二改"
+   },
+   {
+    "name": "pollimage[2002]",
+    "type": "hidden",
+    "value": ""
+   },
+   {
+    "name": "polloptionid[2003]",
+    "type": "hidden",
+    "value": "2003"
+   },
+   {
+    "name": "displayorder[2003]",
+    "type": "text",
+    "value": "0"
+   },
+   {
+    "name": "polloption[2003]",
+    "type": "text",
+    "value": "選項三改"
+   },
+   {
+    "name": "pollimage[2003]",
+    "type": "hidden",
+    "value": ""
+   },
+   {
+    "name": "polloptionid[2004]",
+    "type": "hidden",
+    "value": "2004"
+   },
+   {
+    "name": "displayorder[2004]",
+    "type": "text",
+    "value": "1"
+   },
+   {
+    "name": "polloption[2004]",
+    "type": "text",
+    "value": "App 新增選項改"
+   },
+   {
+    "name": "pollimage[2004]",
+    "type": "hidden",
+    "value": ""
+   },
+   {
+    "name": "maxchoices",
+    "type": "text",
+    "value": "2"
+   },
+   {
+    "name": "expiration",
+    "type": "text",
+    "value": "5"
+   },
+   {
+    "name": "visibilitypoll",
+    "type": "checkbox",
+    "value": "1",
+    "checked": 0,
+    "disabled": 0,
+    "label": "投票后结果可见"
+   },
+   {
+    "name": "overt",
+    "type": "checkbox",
+    "value": "1",
+    "checked": 0,
+    "disabled": 0,
+    "label": "公开投票参与人"
+   }
+  ]
+ },
+ "trade": null,
+ "reward": null,
+ "activity": null,
+ "debate": null,
+ "hook_fields": [],
+ "unsupported": []
+}
