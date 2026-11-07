@@ -548,6 +548,29 @@ final class PostForm {
   bool get schedulesPublication =>
       blockInputs('cronpublish').any((e) => e.name == 'cronpublish' && e.isCheckbox && e.checked);
 
+  /// Whether the form is the edit of the first post of a poll whose options it serves (`poll.options`, each with its
+  /// `polloptionid[ID]`, `displayorder[ID]` and `polloption[ID]` fields; `pollimage[ID]` sent when served), posted
+  /// back as served ([body]): the forum (`extend_thread_poll::before_editpost`) keeps every option by its id, its
+  /// votes with it, and the settings as the page prints them, as the website's form does when the member changes none
+  /// of them.
+  ///
+  /// False without options: the form of a member who may not edit the poll, or one the forum would read as no poll
+  /// at all (`polls` with no option drops the poll from the thread).
+  bool get editsPollAsServed {
+    final poll = _block('poll');
+    if (action != 'edit' || !first || special != 1 || poll == null || poll['option_field'] != 'polloption[ID]') {
+      return false;
+    }
+    final ids = [
+      for (final option in tsdmAppList(poll['options']))
+        if (option['id'] case final num id when id > 0) id.toInt(),
+    ];
+    final names = blockInputs('poll').map((e) => e.name).toSet();
+    return ids.isNotEmpty &&
+        ids.every((id) => names.containsAll(['polloptionid[$id]', 'displayorder[$id]', 'polloption[$id]'])) &&
+        names.contains('polls');
+  }
+
   /// The highest number of choices of a poll (`poll.max_options`, the site's `maxpolloptions`), null without a poll.
   int? get pollMaxOptions {
     final max = _block('poll')?['max_options'];
@@ -681,6 +704,18 @@ final class PostForm {
         body.set(option.name, checked ? option.value ?? 'on' : null);
       }
     }
+    // A poll that has ended or was closed prints its days left as words (`poll_finish`, `poll_close`), which the forum
+    // stores as no expiry at all (`intval()` 0: the poll reopened for good, as the website's form does); a day before
+    // today keeps it ended (`TIMESTAMP + 86400 * -1`), its votes and options as they are. Not its exact state: a poll
+    // closed with its thread no longer reopens with it, which the website's form does not keep either. The days are
+    // rounded: a poll with less than half a day left prints `0`, the same as one without expiry, and is stored without
+    // one as the website's form does; the form does not tell them apart.
+    if (editsPollAsServed) {
+      final expiration = body.valueOf('expiration');
+      if (expiration != null && expiration.trim().isNotEmpty && int.tryParse(expiration.trim()) == null) {
+        body.set('expiration', '-1');
+      }
+    }
     // The website's 保存草稿 button sets `save` to 1; publishing posts the served value.
     if (edits.save == '1' && canSaveDraft) {
       body.set('save', '1');
@@ -702,7 +737,7 @@ final class PostForm {
   /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields])
   /// the web page did not give ([hookValues] null), a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
   /// whose body a map cannot carry ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
-  /// allowing special threads only), the first post of a special thread (but a reward), a post of a trade thread (its goods), as
+  /// allowing special threads only), the first post of a special thread (but a reward or a poll), a post of a trade thread (its goods), as
   /// the web page parser decides.
   PostFormSupport editorSupport(String expectedAction) {
     final check = secCheck;
@@ -710,10 +745,11 @@ final class PostForm {
       return PostFormSupport.verification;
     }
     // A new thread: an ordinary one, a reward with its settings, or a red packet thread with its form read. The first
-    // post of a reward thread: its price as the form lets the member set it, else posted back as served.
+    // post of a reward thread: its price as the form lets the member set it, else posted back as served; of a poll:
+    // its options and settings posted back as served.
     final ordinary = switch (expectedAction) {
       'newthread' => special == 0 || reward != null || (isHongbao && hongbao != null),
-      'edit' => first ? special == 0 || reward != null : special != 2,
+      'edit' => first ? special == 0 || reward != null || editsPollAsServed : special != 2,
       'reply' => true,
       _ => false,
     };
