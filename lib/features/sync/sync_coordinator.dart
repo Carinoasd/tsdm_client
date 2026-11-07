@@ -5,19 +5,22 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
 import 'package:tsdm_client/features/sync/repository/sync_repository.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// When the cross-device sync runs: a pull when the app starts with an account and at every login, again when the app
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
-/// phrases or the block list of the account change on this device. Nothing while the setting is off; a pull when it
-/// is switched on.
+/// phrases, the block list, the fast rate templates, the synced settings or the local drafts of the account change on
+/// this device. Nothing while the setting is off; a pull when it (or one of its categories) is switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
   SyncCoordinator({
@@ -26,11 +29,13 @@ final class SyncCoordinator with LoggerMixin {
     required SettingsRepository settings,
     required UserBlockRepository blocks,
     required StorageProvider storage,
+    Stream<int>? draftChanges,
   }) : _repository = repository,
        _authentication = authentication,
        _settings = settings,
        _blocks = blocks,
-       _storage = storage;
+       _storage = storage,
+       _draftChanges = draftChanges;
 
   /// The coordinator on the app's repositories.
   factory SyncCoordinator.build({
@@ -51,13 +56,30 @@ final class SyncCoordinator with LoggerMixin {
         ),
         enabled: () => settings.currentSettings.crossDeviceSync,
         currentUid: () => authentication.effectiveCurrentUid,
+        categoryEnabled: (category) => categoryEnabledIn(settings.currentSettings, category),
       ),
       authentication: authentication,
       settings: settings,
       blocks: blocks,
       storage: storage,
+      draftChanges: LocalDraftStore.app?.changes,
     );
   }
+
+  /// Whether [category] goes with the sync by [settings].
+  static bool categoryEnabledIn(SettingsMap settings, SyncCategory category) => switch (category) {
+    SyncCategory.rateTemplates => settings.crossDeviceSyncRateTemplates,
+    SyncCategory.settings => settings.crossDeviceSyncSettings,
+    SyncCategory.drafts => settings.crossDeviceSyncDrafts,
+  };
+
+  static String _settingsSnapshotOf(SettingsMap settings) =>
+      SyncRepository.encodeSettingsValues(syncedSettingsValues(settings));
+
+  static Set<SyncCategory> _categoriesOf(SettingsMap settings) => {
+    for (final c in SyncCategory.values)
+      if (categoryEnabledIn(settings, c)) c,
+  };
 
   /// A pull again when the app comes to the front after this long since the last one.
   static const pullAgainAfter = Duration(minutes: 10);
@@ -70,8 +92,14 @@ final class SyncCoordinator with LoggerMixin {
   final SettingsRepository _settings;
   final UserBlockRepository _blocks;
   final StorageProvider _storage;
+  final Stream<int>? _draftChanges;
 
   StreamSubscription<AuthStatus>? _authSub;
+  StreamSubscription<List<FastRateTemplateModel>>? _templatesSub;
+  StreamSubscription<int>? _draftsSub;
+  String? _settingsSnapshot;
+  String? _templates;
+  Set<SyncCategory> _categories = const {};
   StreamSubscription<void>? _settingsSub;
   StreamSubscription<UserBlockList>? _blocksSub;
   StreamSubscription<void>? _visitsSub;
@@ -86,6 +114,8 @@ final class SyncCoordinator with LoggerMixin {
   void start() {
     _phrases = _settings.currentSettings.editorQuickPhrases;
     _enabled = _settings.currentSettings.crossDeviceSync;
+    _settingsSnapshot = _settingsSnapshotOf(_settings.currentSettings);
+    _categories = _categoriesOf(_settings.currentSettings);
     _follow(_authentication.effectiveCurrentUid, pull: true);
     _authSub = _authentication.status.listen((status) {
       // A login (or the stored session verified) pulls; the start above pulled the same account a moment ago.
@@ -93,11 +123,21 @@ final class SyncCoordinator with LoggerMixin {
     });
     _settingsSub = _settings.settings.listen((settings) {
       final enabled = settings.crossDeviceSync;
+      final categories = _categoriesOf(settings);
+      final switchedOn = categories.difference(_categories).isNotEmpty;
+      _categories = categories;
       if (enabled != _enabled) {
         _enabled = enabled;
         if (enabled && _uid != null) {
           unawaited(_repository.pull(_uid!));
         }
+      } else if (enabled && switchedOn && _uid != null) {
+        unawaited(_repository.pull(_uid!));
+      }
+      final snapshot = _settingsSnapshotOf(settings);
+      if (snapshot != _settingsSnapshot) {
+        _settingsSnapshot = snapshot;
+        unawaited(_repository.onSettingsChanged(_uid, snapshot));
       }
       final phrases = settings.editorQuickPhrases;
       if (phrases != _phrases) {
@@ -108,6 +148,23 @@ final class SyncCoordinator with LoggerMixin {
     _blocksSub = _blocks.changes.listen((list) {
       if (list.ownerUid == _uid && _uid != null) {
         _repository.schedulePush(_uid!);
+      }
+    });
+    _templatesSub = _storage.watchAllFastRateTemplate().listen(
+      (templates) {
+        final snapshot = SyncRepository.encodeRateTemplates(templates);
+        // The first value is the current state, not a change.
+        final before = _templates;
+        _templates = snapshot;
+        if (before != null && before != snapshot) {
+          unawaited(_repository.onRateTemplatesChanged(_uid, snapshot));
+        }
+      },
+      onError: (Object e, StackTrace st) => error('sync: failed to watch the rate templates: $e', e, st),
+    );
+    _draftsSub = _draftChanges?.listen((uid) {
+      if (uid == _uid) {
+        _repository.schedulePush(uid);
       }
     });
   }
@@ -156,6 +213,8 @@ final class SyncCoordinator with LoggerMixin {
     await _settingsSub?.cancel();
     await _blocksSub?.cancel();
     await _visitsSub?.cancel();
+    await _templatesSub?.cancel();
+    await _draftsSub?.cancel();
     await _repository.dispose();
   }
 }

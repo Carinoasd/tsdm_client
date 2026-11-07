@@ -707,6 +707,24 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 ),
                 // Content of identified authors is held back while the block list can not be read; say why, with a retry.
                 const UserBlockFailureListener(),
+                // The theme settings changed under the settings page (the cross-device sync applied another device's).
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) {
+                    final a = prev.settingsMap;
+                    final b = curr.settingsMap;
+                    return a.themeMode != b.themeMode ||
+                        a.themeModeScheduled != b.themeModeScheduled ||
+                        a.darkScheduleStart != b.darkScheduleStart ||
+                        a.darkScheduleEnd != b.darkScheduleEnd;
+                  },
+                  listener: (context, state) {
+                    final s = state.settingsMap;
+                    context.read<ThemeCubit>()
+                      ..setThemeModeIndex(s.themeMode)
+                      ..setSchedule(DarkSchedule(start: s.darkScheduleStart, end: s.darkScheduleEnd))
+                      ..setScheduled(scheduled: s.themeModeScheduled);
+                  },
+                ),
                 BlocListener<InitCubit, InitState>(
                   listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
                   listener: (context, state) async {

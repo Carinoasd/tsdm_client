@@ -5,7 +5,10 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/editor/utils/quick_phrases.dart';
+import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -148,6 +151,85 @@ final class SyncBlock {
   int get hashCode => Object.hash(uid, username, updated);
 }
 
+/// The document item of the fast rate template [template] (an item of the `rate_templates` list).
+Map<String, dynamic> rateTemplateToItem(FastRateTemplateModel template) => {
+  'name': template.name,
+  'ww': template.ww,
+  'tsb': template.tsb,
+  'xc': template.xc,
+  'tr': template.tr,
+  'fh': template.fh,
+  'jl': template.jl,
+  'special': template.special,
+  'special2': template.special2,
+};
+
+/// The fast rate template of the document item [item], null when it is not one (no name, a value not a number).
+FastRateTemplateModel? rateTemplateFromItem(Object? item) {
+  if (item is! Map) {
+    return null;
+  }
+  final name = item['name'];
+  if (name is! String || name.trim().isEmpty) {
+    return null;
+  }
+  int? intOf(String field) => switch (item[field]) {
+    final num n when n.isFinite => n.toInt(),
+    null => 0,
+    _ => null,
+  };
+  final values = [
+    for (final f in const ['ww', 'tsb', 'xc', 'tr', 'fh', 'jl', 'special', 'special2']) intOf(f),
+  ];
+  if (values.contains(null)) {
+    return null;
+  }
+  return FastRateTemplateModel(
+    name: name,
+    ww: values[0]!,
+    tsb: values[1]!,
+    xc: values[2]!,
+    tr: values[3]!,
+    fh: values[4]!,
+    jl: values[5]!,
+    special: values[6]!,
+    special2: values[7]!,
+  );
+}
+
+/// The fields of a draft item this version reads; others are kept as they are.
+const syncDraftFields = {
+  'updated',
+  'deleted',
+  'body',
+  'delta',
+  'subject',
+  'fid',
+  'tid',
+  'replyAction',
+  'hint',
+  'quote',
+  'title',
+  'typeId',
+  'maybeSent',
+};
+
+/// The document item of [draft]: its fields as the draft file has them, the time as `updated`.
+Map<String, dynamic> draftToItem(LocalDraft draft) => {
+  'updated': draft.updatedAt.millisecondsSinceEpoch,
+  for (final MapEntry(:key, :value) in draft.toJson().entries)
+    if (key != 'updatedAt') key: value,
+};
+
+/// The draft of the document item [item] under [key], null when either is not one this version reads.
+LocalDraft? draftFromItem(String key, Map<String, dynamic> item) {
+  final draftKey = LocalDraftKey.parse(key);
+  if (draftKey == null) {
+    return null;
+  }
+  return LocalDraft.fromJson(draftKey, {...item, 'updatedAt': item['updated']});
+}
+
 /// What the sync was last told by the forum about an account: the document the forum holds and its `updated`.
 typedef SyncLastSynced = ({String document, int updated});
 
@@ -185,6 +267,43 @@ abstract interface class SyncLocalStore {
   /// Replace the users account [uid] blocks.
   Future<void> saveBlocks(int uid, List<SyncBlock> blocks);
 
+  /// The fast rate templates (of the device, not of one account), in their order.
+  Future<List<FastRateTemplateModel>> rateTemplates();
+
+  /// Replace the fast rate templates.
+  Future<void> saveRateTemplates(List<FastRateTemplateModel> templates);
+
+  /// When the fast rate templates last changed (milliseconds), null when never noted.
+  Future<int?> rateTemplatesUpdated();
+
+  /// Note when the fast rate templates last changed.
+  Future<void> saveRateTemplatesUpdated(int updated);
+
+  /// The values of the synced settings (of the device), by stored name ([syncedSettingsValues]).
+  Future<Map<String, Object>> settingsValues();
+
+  /// Apply the document's settings [values] ([syncedSettingsChanges]), at once.
+  Future<void> applySettingsValues(Map<String, dynamic> values);
+
+  /// When the synced settings last changed (milliseconds), null when never noted.
+  Future<int?> settingsUpdated();
+
+  /// Note when the synced settings last changed.
+  Future<void> saveSettingsUpdated(int updated);
+
+  /// The local drafts of account [uid], null when they can not be read (they are left alone then).
+  Future<List<LocalDraft>?> drafts(int uid);
+
+  /// Keep the drafts [save] and delete those of [delete] of account [uid].
+  Future<void> applyDrafts(int uid, {required List<LocalDraft> save, required List<LocalDraftKey> delete});
+
+  /// The keys of the drafts of account [uid] this device held (or knew deleted) after its last sync of them, null
+  /// before the first: a key of them this device no longer holds was deleted here.
+  Future<Set<String>?> draftsSeen(int uid);
+
+  /// Keep [keys] as the [draftsSeen] of account [uid].
+  Future<void> saveDraftsSeen(int uid, Set<String> keys);
+
   /// The document the forum held for account [uid] when it was last read or written, null before the first sync.
   Future<SyncLastSynced?> lastSynced(int uid);
 
@@ -212,6 +331,15 @@ final class StorageSyncLocalStore implements SyncLocalStore {
 
   /// The settings row of when the quick phrases last changed.
   static const phrasesUpdatedKey = 'sync.phrasesUpdated';
+
+  /// The settings row of when the fast rate templates last changed.
+  static const rateTemplatesUpdatedKey = 'sync.rateTemplatesUpdated';
+
+  /// The settings row of when the synced settings last changed.
+  static const settingsUpdatedKey = 'sync.settingsUpdated';
+
+  /// The settings row of the drafts an account held after its last sync of them.
+  static String draftsSeenKeyOf(int uid) => 'sync.draftsSeen.$uid';
 
   /// The settings row of the document the forum held for an account.
   static String lastDocumentKeyOf(int uid) => 'sync.lastDocument.$uid';
@@ -304,6 +432,56 @@ final class StorageSyncLocalStore implements SyncLocalStore {
   }
 
   @override
+  Future<List<FastRateTemplateModel>> rateTemplates() async => switch (await _storage.getAllFastRateTemplate().run()) {
+    Right(:final value) => value,
+    Left(:final value) => throw value,
+  };
+
+  @override
+  Future<void> saveRateTemplates(List<FastRateTemplateModel> templates) async {
+    if (await _storage.replaceAllFastRateTemplates(templates).run() case Left(:final value)) {
+      throw value;
+    }
+  }
+
+  @override
+  Future<int?> rateTemplatesUpdated() => _storage.getInt(rateTemplatesUpdatedKey);
+
+  @override
+  Future<void> saveRateTemplatesUpdated(int updated) => _storage.saveInt(rateTemplatesUpdatedKey, updated);
+
+  @override
+  Future<Map<String, Object>> settingsValues() async => syncedSettingsValues(_settings.currentSettings);
+
+  @override
+  Future<void> applySettingsValues(Map<String, dynamic> values) async {
+    final changes = syncedSettingsChanges(values, _settings.currentSettings);
+    if (changes.isNotEmpty) {
+      await _settings.setMixedValues(changes);
+    }
+  }
+
+  @override
+  Future<int?> settingsUpdated() => _storage.getInt(settingsUpdatedKey);
+
+  @override
+  Future<void> saveSettingsUpdated(int updated) => _storage.saveInt(settingsUpdatedKey, updated);
+
+  @override
+  Future<List<LocalDraft>?> drafts(int uid) async => LocalDraftStore.app?.listForSync(uid);
+
+  @override
+  Future<void> applyDrafts(int uid, {required List<LocalDraft> save, required List<LocalDraftKey> delete}) async =>
+      LocalDraftStore.app?.applySynced(uid, save: save, delete: delete);
+
+  @override
+  Future<Set<String>?> draftsSeen(int uid) async => (await _storage.getStringList(draftsSeenKeyOf(uid)))?.toSet();
+
+  @override
+  Future<void> saveDraftsSeen(int uid, Set<String> keys) =>
+      _storage.saveStringList(draftsSeenKeyOf(uid), keys.toList());
+
+  @override
   Future<SyncLastSynced?> lastSynced(int uid) async {
     final document = await _storage.getString(lastDocumentKeyOf(uid));
     if (document == null) {
@@ -335,6 +513,27 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// What the forum held, by account.
   final lastByUid = <int, SyncLastSynced>{};
+
+  /// The fast rate templates.
+  List<FastRateTemplateModel> templateList = [];
+
+  /// When the fast rate templates last changed.
+  int? templatesUpdatedAt;
+
+  /// The values of the synced settings, by stored name.
+  Map<String, Object> settingsMap = syncedSettingsDefaults();
+
+  /// When the synced settings last changed.
+  int? settingsUpdatedAt;
+
+  /// The drafts by account and key; an account missing reads as none, [draftsUnreadable] as unreadable.
+  final draftsByUid = <int, Map<String, LocalDraft>>{};
+
+  /// Accounts whose drafts can not be read.
+  final draftsUnreadable = <int>{};
+
+  /// The [draftsSeen] by account.
+  final draftsSeenByUid = <int, Set<String>>{};
 
   /// Every write, in order (`saveVisit 3`, `deleteVisit 3`, `savePhrases`, `saveBlocks`), for the tests.
   final writes = <String>[];
@@ -418,6 +617,62 @@ final class MemorySyncLocalStore implements SyncLocalStore {
     blocksByUid[uid] = List.of(blocks);
     writes.add('saveBlocks');
   }
+
+  @override
+  Future<List<FastRateTemplateModel>> rateTemplates() async => List.of(templateList);
+
+  @override
+  Future<void> saveRateTemplates(List<FastRateTemplateModel> templates) async {
+    templateList = List.of(templates);
+    writes.add('saveRateTemplates');
+  }
+
+  @override
+  Future<int?> rateTemplatesUpdated() async => templatesUpdatedAt;
+
+  @override
+  Future<void> saveRateTemplatesUpdated(int updated) async => templatesUpdatedAt = updated;
+
+  @override
+  Future<Map<String, Object>> settingsValues() async => Map.of(settingsMap);
+
+  @override
+  Future<void> applySettingsValues(Map<String, dynamic> values) async {
+    final next = syncedSettingsApplied(settingsMap, values);
+    if (!mapEquals(next, settingsMap)) {
+      settingsMap = next;
+      writes.add('applySettings');
+    }
+  }
+
+  @override
+  Future<int?> settingsUpdated() async => settingsUpdatedAt;
+
+  @override
+  Future<void> saveSettingsUpdated(int updated) async => settingsUpdatedAt = updated;
+
+  @override
+  Future<List<LocalDraft>?> drafts(int uid) async =>
+      draftsUnreadable.contains(uid) ? null : (draftsByUid[uid] ?? const {}).values.toList();
+
+  @override
+  Future<void> applyDrafts(int uid, {required List<LocalDraft> save, required List<LocalDraftKey> delete}) async {
+    final drafts = draftsByUid[uid] ??= {};
+    for (final key in delete) {
+      drafts.remove(key.value);
+      writes.add('deleteDraft ${key.value}');
+    }
+    for (final draft in save) {
+      drafts[draft.key.value] = draft;
+      writes.add('saveDraft ${draft.key.value}');
+    }
+  }
+
+  @override
+  Future<Set<String>?> draftsSeen(int uid) async => draftsSeenByUid[uid];
+
+  @override
+  Future<void> saveDraftsSeen(int uid, Set<String> keys) async => draftsSeenByUid[uid] = Set.of(keys);
 
   @override
   Future<SyncLastSynced?> lastSynced(int uid) async => lastByUid[uid];

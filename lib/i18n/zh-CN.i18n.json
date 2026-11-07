@@ -330,7 +330,10 @@
       "title": "账号",
       "mgmt": "管理账户",
       "crossDeviceSync": {
-        "title": "跨设备同步"
+        "title": "跨设备同步",
+        "rateTemplates": "评分模板",
+        "settings": "阅读与显示设置",
+        "drafts": "本机草稿"
       }
     },
     "appearanceSection": {

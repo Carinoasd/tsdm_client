@@ -21,6 +21,22 @@ const syncTombstoneKeptFor = Duration(days: 180);
 /// Most quick phrases (the editor's own limit).
 const syncPhrasesMax = 100;
 
+/// Most fast rate templates a document carries.
+const syncRateTemplatesMax = 100;
+
+/// Most live local drafts a document carries: the latest ones, by their time.
+const syncDraftsMax = 30;
+
+/// Most records of deleted local drafts a document carries, the latest first.
+const syncDraftTombstonesMax = 200;
+
+/// Most bytes one draft item may take; a larger one goes without its editor document (`delta`), and stays on its
+/// device when that is not enough.
+const int syncDraftMaxBytes = 8 * 1024;
+
+/// Most bytes the drafts of a document take together, so the reading progress keeps the rest of the room.
+const int syncDraftsMaxBytes = 16 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -31,8 +47,23 @@ const syncPhrasesMax = 100;
 ///              "<tid>": {"updated": ms, "deleted": true}},
 ///  "phrases": {"updated": ms, "items": ["…"]},
 ///  "blocks":  {"<uid>": {"updated": ms, "username": "…"},
-///              "<uid>": {"updated": ms, "deleted": true}}}
+///              "<uid>": {"updated": ms, "deleted": true}},
+///  "rate_templates": {"updated": ms, "items": [{"name": "…", "ww": 0, "tsb": 0, "xc": 0, "tr": 0, "fh": 0,
+///                                               "jl": 0, "special": 0, "special2": 0}]},
+///  "settings": {"updated": ms, "values": {"<settings name>": value}},
+///  "drafts":  {"<draft key>": {"updated": ms, "body": "…", "delta": "…", "subject": "…", "fid": "…", "tid": "…",
+///                              "replyAction": "…", "hint": "…", "quote": false, "title": "…", "typeId": "…",
+///                              "maybeSent": true},
+///              "<draft key>": {"updated": ms, "deleted": true}}}
 /// ```
+///
+/// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
+/// settings the later one does not hold are kept from the other). `settings`
+/// holds the reading and display settings of `syncedSettings` by their stored name (a theme index, a text scale, a
+/// switch), never one tied to the device. `drafts` holds the local drafts of the account by their key
+/// (`reply:<tid>`, `floor:<tid>:<pid>`, `pm:<uid>`, `thread:<fid>`, `edit:<pid>`, a backup with `~<stamp>`): the latest
+/// [syncDraftsMax] within [syncDraftsMaxBytes], none over [syncDraftMaxBytes]. Each of the three can be left out of
+/// the sync on a device (its section is then neither read nor written there).
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device
@@ -98,6 +129,7 @@ final class SyncDocument {
       final winner = switch ((a, b)) {
         (final a?, null) => a,
         (null, final b?) => b,
+        (final a?, final b?) when section == 'settings' => mergeSettings(a, b),
         (final a?, final b?) => updatedOf(a) > updatedOf(b) ? a : b,
         _ => null,
       };
@@ -121,12 +153,12 @@ final class SyncDocument {
   bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
-  static const itemSections = ['visits', 'blocks'];
+  static const itemSections = ['visits', 'blocks', 'drafts'];
 
   /// The sections this version reads as one item each.
-  static const singleSections = ['phrases'];
+  static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`) by key, empty when the section is missing or not an object.
+  /// The items of section [name] (`visits`, `blocks`, `drafts`) by key, empty when the section is missing or not an object.
   /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];
@@ -139,7 +171,7 @@ final class SyncDocument {
     };
   }
 
-  /// The one item of section [name] (`phrases`), null when missing or not an object.
+  /// The one item of section [name] (`phrases`, `rate_templates`, `settings`), null when missing or not an object.
   Map<String, dynamic>? single(String name) {
     final section = raw[name];
     return section is Map<String, dynamic> ? section : null;
@@ -227,6 +259,17 @@ final class SyncDocument {
       for (final field in progressFields)
         if (progress.containsKey(field)) field: progress[field],
     };
+  }
+
+  /// Merge two `settings` items [a] (this device's) and [b] (the forum's): the later one wins, ties to [b], and the
+  /// values of settings it does not hold (a setting the app version that wrote it does not carry) are taken from the
+  /// other, so a device of an older version does not drop the settings of a newer one.
+  static Map<String, dynamic> mergeSettings(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final (winner, loser) = updatedOf(a) > updatedOf(b) ? (a, b) : (b, a);
+    Map<String, dynamic> valuesOf(Map<String, dynamic> item) =>
+        item['values'] is Map<String, dynamic> ? item['values'] as Map<String, dynamic> : const {};
+    final values = {...valuesOf(loser), ...valuesOf(winner)};
+    return values.length == valuesOf(winner).length ? winner : {...winner, 'values': values};
   }
 
   /// Whether [item] records a deletion.

@@ -330,7 +330,10 @@
       "title": "Account",
       "mgmt": "Manage account",
       "crossDeviceSync": {
-        "title": "Sync across devices"
+        "title": "Sync across devices",
+        "rateTemplates": "Rate templates",
+        "settings": "Reading and display settings",
+        "drafts": "Local drafts"
       }
     },
     "appearanceSection": {
