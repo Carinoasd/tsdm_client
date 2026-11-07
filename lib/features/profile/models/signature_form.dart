@@ -128,6 +128,9 @@ final class SignatureForm {
 /// Length of a signature [value] as the forum counts it before it cuts the signature to its user group's
 /// `maxsigsize` (`cutstr` on UTF-8): a tab, a line feed or a printable ASCII character counts 1, any other ASCII
 /// character (a carriage return) 0, any other character 2.
+///
+/// The forum counts `&amp;`, `&quot;`, `&lt;` and `&gt;` written in the signature as one character each; they are
+/// counted as written here, so such a signature is only ever taken as longer than the forum would, never shorter.
 int signatureLength(String value) => value.runes.fold(
   0,
   (sum, rune) => sum + (rune == 9 || rune == 10 || (rune >= 32 && rune <= 126) ? 1 : (rune < 0x80 ? 0 : 2)),

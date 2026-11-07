@@ -28,7 +28,8 @@ final class EditAvatarBloc extends Bloc<EditAvatarEvent, EditAvatarState> with L
   final ProfileRepository _repo;
 
   Future<void> _onLoadInfo(_Emit emit) async {
-    emit(state.copyWith(status: EditAvatarStatus.loading));
+    // A failure of the last upload is told once: not again when this load ends.
+    emit(state.copyWith(status: EditAvatarStatus.loading, uploadFailure: null));
 
     await _repo
         .loadAvatarEditPage()

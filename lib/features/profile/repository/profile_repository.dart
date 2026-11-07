@@ -184,7 +184,12 @@ final class ProfileRepository with LoggerMixin {
             error('failed to upload avatar: $answer');
             return TaskEither<AppException, void>.left(EditAvatarUploadFailed(answer.name));
           }
-          return getIt.get<NetClientProvider>().get(_editAvatarPage).map((_) {});
+          // Saved already: a failure of opening the page again is only logged (the forum marks the avatar the next
+          // time the page is opened).
+          return getIt.get<NetClientProvider>().get(_editAvatarPage).map<void>((_) {}).orElse((e) {
+            warning('avatar saved, failed to open the avatar page again: $e');
+            return TaskEither<AppException, void>.right(null);
+          });
         });
   });
 

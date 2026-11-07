@@ -137,6 +137,10 @@ Map<String, dynamic> _asTab(Map<String, dynamic> json, String op) => {
 String _webTabWithoutSignature() {
   final doc = parseHtmlDocument(_read('signature_info_x5.html'));
   doc.querySelector('textarea[name="sightml"]')!.remove();
+  // Shown as the base tab.
+  for (final li in doc.querySelectorAll('ul.tb li')) {
+    li.classes.toggle('a', li.querySelector('a')!.attributes['href']!.endsWith('op=base'));
+  }
   return doc.documentElement!.outerHtml!;
 }
 
@@ -467,6 +471,50 @@ void main() {
       expect(post.extra[singleAttemptHttpRequestKey], isTrue);
       expect(post.followRedirects, isFalse);
       expect(_posted(post), images.toBody());
+    });
+
+    test('saved, but the page opened after saving failed: still saved', () async {
+      final images = (await AvatarImages.crop(_png(64, 64), left: 0, top: 0, side: 64))!;
+      var gets = 0;
+      final forum = _Forum((r) {
+        if (r.method == 'POST') {
+          return _html("<script>window.parent.postMessage('success','*');</script>");
+        }
+        if (++gets > 1) {
+          throw DioException.connectionError(requestOptions: r, reason: 'offline');
+        }
+        return _html(page);
+      });
+      _use(forum);
+      _right(await ProfileRepository(currentUid: () => 31).uploadAvatarImages(images).run());
+      expect(forum.requests.map((r) => r.method).toList(), ['GET', 'POST', 'GET']);
+    });
+
+    test('a failed upload is told once: loading the page again clears it, also when that load fails', () async {
+      final images = (await AvatarImages.crop(_png(64, 64), left: 0, top: 0, side: 64))!;
+      var offline = false;
+      _use(
+        _Forum((r) {
+          if (offline) {
+            throw DioException.connectionError(requestOptions: r, reason: 'offline');
+          }
+          return r.method == 'POST' ? _html("<script>window.parent.postMessage('failure','*');</script>") : _html(page);
+        }),
+      );
+      final bloc = EditAvatarBloc(ProfileRepository(currentUid: () => 31));
+      final states = <EditAvatarState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(EditAvatarImageUploadRequested(images));
+      await bloc.stream.firstWhere((s) => s.status == EditAvatarStatus.waitingForUpload);
+      expect(states.last.uploadFailure, t.editAvatarPage.uploadFailed);
+      offline = true;
+      states.clear();
+      bloc.add(const EditAvatarLoadInfoRequested());
+      await bloc.stream.firstWhere((s) => s.status == EditAvatarStatus.failure);
+      expect(states.map((s) => s.status), [EditAvatarStatus.loading, EditAvatarStatus.failure]);
+      expect(states.map((s) => s.uploadFailure), everyElement(isNull));
+      await sub.cancel();
+      await bloc.close();
     });
 
     test('refused, denied: told; the page of another account: nothing posted', () async {

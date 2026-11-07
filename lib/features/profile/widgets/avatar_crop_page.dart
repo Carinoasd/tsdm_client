@@ -126,6 +126,8 @@ class _AvatarCropPageState extends State<AvatarCropPage> {
                   child: InteractiveViewer(
                     transformationController: _transform,
                     constrained: false,
+                    // Never smaller than the frame: what the frame shows is what is cropped.
+                    minScale: 1,
                     maxScale: 8,
                     child: SizedBox.fromSize(
                       size: shown,

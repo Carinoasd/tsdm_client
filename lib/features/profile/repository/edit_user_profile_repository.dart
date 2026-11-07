@@ -208,7 +208,9 @@ final class EditUserProfileRepository with LoggerMixin {
           if (SignatureForm.fromDocument(doc, uid) case final signature?) {
             return right(signature);
           }
-          tried.add(op ?? '');
+          // The tab the page shows (`li.a`), the default one included.
+          final shown = doc.querySelector('ul.tb li.a a[href*="ac=profile"]')?.attributes['href'];
+          tried.add(op ?? (shown == null ? '' : Uri.tryParse(shown)?.queryParameters['op'] ?? ''));
           tabs = [
             for (final a in doc.querySelectorAll('a[href*="ac=profile"]'))
               Uri.tryParse(a.attributes['href'] ?? '')?.queryParameters['op'] ?? '',
