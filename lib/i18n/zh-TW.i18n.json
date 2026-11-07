@@ -1272,6 +1272,20 @@
     "actionFailed": "操作失敗：$err",
     "favoritedAt": "收藏於 $time"
   },
+  "offlineBatch": {
+    "downloadTitle": "離線下載",
+    "updateTitle": "更新離線副本",
+    "progress": "${done: int}／${total: int}",
+    "downloadSelected": "離線下載所選",
+    "downloadAll": "全部離線下載",
+    "copies": "離線副本",
+    "updateAll": "全部更新",
+    "clearSelection": "取消選取",
+    "selectedCount": "${count: int}",
+    "empty": "沒有離線副本",
+    "remove": "刪除離線副本",
+    "pages": "${count: int} 頁"
+  },
   "friendPage": {
     "title": "好友",
     "subtitle": "${name} · ${count: int} 位好友",

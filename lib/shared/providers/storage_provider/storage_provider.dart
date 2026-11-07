@@ -1029,6 +1029,21 @@ class StorageProvider with LoggerMixin {
     return entity;
   }
 
+  /// The saved page of the key without marking it used: for listing and comparing copies, which must not keep them
+  /// from being evicted nor make them look read.
+  Future<OfflineThreadEntity?> peekOfflineThreadPage({
+    required int uid,
+    required int tid,
+    required int page,
+    required int orderType,
+    required int authorId,
+  }) async => OfflineThreadDao(
+    _db,
+  ).selectPage(uid: uid, tid: tid, page: page, orderType: orderType, authorId: authorId);
+
+  /// The threads kept for user [uid], most recently used first ([OfflineThreadDao.selectCopies]).
+  Future<List<OfflineThreadCopyRow>> fetchOfflineThreadCopies(int uid) async => OfflineThreadDao(_db).selectCopies(uid);
+
   /// Every saved offline thread page of every user, with the bodies. Tests only.
   @visibleForTesting
   Future<List<OfflineThreadEntity>> fetchAllOfflineThreadPages() async => OfflineThreadDao(_db).selectAll();

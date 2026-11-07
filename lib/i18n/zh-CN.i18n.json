@@ -1272,6 +1272,20 @@
     "actionFailed": "操作失败：$err",
     "favoritedAt": "收藏于 $time"
   },
+  "offlineBatch": {
+    "downloadTitle": "离线下载",
+    "updateTitle": "更新离线副本",
+    "progress": "${done: int}／${total: int}",
+    "downloadSelected": "离线下载所选",
+    "downloadAll": "全部离线下载",
+    "copies": "离线副本",
+    "updateAll": "全部更新",
+    "clearSelection": "取消选择",
+    "selectedCount": "${count: int}",
+    "empty": "没有离线副本",
+    "remove": "删除离线副本",
+    "pages": "${count: int} 页"
+  },
   "friendPage": {
     "title": "好友",
     "subtitle": "${name} · ${count: int} 位好友",

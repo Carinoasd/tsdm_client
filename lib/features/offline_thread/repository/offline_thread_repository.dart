@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart' show OfflineThreadCopyRow;
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -56,6 +57,9 @@ final class OfflineThreadKey {
 /// and writes nothing while the setting is off.
 OfflineThreadRepository get appOfflineThreads =>
     getIt.isRegistered<OfflineThreadRepository>() ? getIt.get<OfflineThreadRepository>() : OfflineThreadRepository();
+
+/// One thread kept for the account in use: see [OfflineThreadRepository.copies].
+typedef OfflineThreadCopy = OfflineThreadCopyRow;
 
 /// A saved page read back: the answer of the forum as it came, and when it was loaded.
 typedef OfflineThreadPage = ({String body, DateTime savedAt});
@@ -216,6 +220,44 @@ class OfflineThreadRepository with LoggerMixin {
       return null;
     }
   }
+
+  /// The saved page of [key] without marking it used (see [load]); null when none or when reading failed.
+  Future<OfflineThreadPage?> peek(OfflineThreadKey key) async {
+    try {
+      final entity = await _store.peekOfflineThreadPage(
+        uid: key.uid,
+        tid: key.tid,
+        page: key.page,
+        orderType: key.orderType,
+        authorId: key.authorId,
+      );
+      return entity == null ? null : (body: entity.body, savedAt: entity.savedAt);
+    } on Object catch (e, st) {
+      error('offline threads: failed to peek $key: $e');
+      handleRaw(e, st);
+      return null;
+    }
+  }
+
+  /// The threads kept for account [uid], most recently used first; empty when reading failed.
+  Future<List<OfflineThreadCopy>> copies(int uid) async {
+    try {
+      return await _store.fetchOfflineThreadCopies(uid);
+    } on Object catch (e, st) {
+      error('offline threads: failed to list the copies of $uid: $e');
+      handleRaw(e, st);
+      return const [];
+    }
+  }
+
+  /// Delete every saved page of thread [tid] of account [uid], after the writes queued before.
+  Future<void> remove({required int uid, required int tid}) {
+    forgetThread(uid: uid, tid: tid);
+    return _writes;
+  }
+
+  /// Completes once every write queued so far is done.
+  Future<void> get writesDone => _writes;
 
   /// Size of every saved page in bytes.
   Future<int> size() async => _store.offlineThreadsSize();

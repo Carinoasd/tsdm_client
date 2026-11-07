@@ -1272,6 +1272,20 @@
     "actionFailed": "Failed: $err",
     "favoritedAt": "Favorited at $time"
   },
+  "offlineBatch": {
+    "downloadTitle": "Save offline",
+    "updateTitle": "Update offline copies",
+    "progress": "${done: int} / ${total: int}",
+    "downloadSelected": "Save selected offline",
+    "downloadAll": "Save all offline",
+    "copies": "Offline copies",
+    "updateAll": "Update all",
+    "clearSelection": "Clear selection",
+    "selectedCount": "${count: int}",
+    "empty": "No offline copies",
+    "remove": "Delete offline copy",
+    "pages": "${count: int} pages"
+  },
   "friendPage": {
     "title": "Friends",
     "subtitle": "${name} · ${count: int} friends",

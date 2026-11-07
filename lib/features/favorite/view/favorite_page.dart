@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,9 +8,14 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/favorite/bloc/favorite_bloc.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
+import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/favorite/widgets/favorite_card.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
+import 'package:tsdm_client/features/offline_thread/batch/offline_batch_cubit.dart';
+import 'package:tsdm_client/features/offline_thread/batch/offline_batch_dialog.dart';
+import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -73,8 +80,109 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
   final _scrollController = ScrollController();
 
+  /// Threads picked for saving offline (tids); empty when none is being picked.
+  final Set<String> _selected = {};
+
+  /// Threads that have an offline copy now (tids).
+  Set<String> _copied = {};
+
+  /// Whether the thread tab offers the offline batch: the setting is on and an account is in use.
+  bool get _offlineOn =>
+      widget.type == FavoriteType.thread && appOfflineThreads.enabled && appOfflineThreads.currentUid() != null;
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCopies());
+  }
+
+  Future<void> _loadCopies() async {
+    final uid = _offlineOn ? appOfflineThreads.currentUid() : null;
+    if (uid == null) {
+      return;
+    }
+    final copies = await appOfflineThreads.copies(uid);
+    if (mounted) {
+      setState(() => _copied = {for (final c in copies) '${c.tid}'});
+    }
+  }
+
+  /// Every thread of the favorites, the pages not loaded on the screen yet included.
+  Future<List<OfflineBatchJob>> _allThreads(FavoriteState state) async {
+    final items = [...state.items];
+    var url = state.nextPageUrl;
+    final repository = context.repo<FavoriteRepository>();
+    final visited = <String>{};
+    // A page naming itself again would never end.
+    while (url != null && visited.add(url)) {
+      final page = await repository.fetchListPageOf(widget.type, url).run();
+      if (page.isLeft()) {
+        break;
+      }
+      final value = page.toNullable()!;
+      items.addAll(value.items);
+      url = value.nextPageUrl;
+    }
+    return _jobsOf(items);
+  }
+
+  List<OfflineBatchJob> _jobsOf(Iterable<FavoriteItem> items) => [
+    for (final item in items)
+      if (item case FavoriteThread(:final tid, :final title) when int.tryParse(tid) != null)
+        (tid: int.parse(tid), title: title),
+  ];
+
+  Future<void> _download(Future<List<OfflineBatchJob>> Function() jobs) async {
+    await showOfflineBatchDialog(context: context, mode: OfflineBatchMode.download, jobs: jobs);
+    if (mounted) {
+      setState(_selected.clear);
+      await _loadCopies();
+    }
+  }
+
+  Widget _buildOfflineBar(BuildContext context, FavoriteState state) {
+    final tr = context.t.offlineBatch;
+    final selecting = _selected.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+      child: Row(
+        children: [
+          if (selecting) ...[
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: tr.clearSelection,
+              onPressed: () => setState(_selected.clear),
+            ),
+            Text(tr.selectedCount(count: _selected.length)),
+          ],
+          const Spacer(),
+          IconButton(
+            icon: Icon(selecting ? Icons.download_for_offline : Icons.download_for_offline_outlined),
+            tooltip: selecting ? tr.downloadSelected : tr.downloadAll,
+            onPressed: selecting
+                ? () async => _download(() async {
+                    final picked = state.items.where((e) => _selected.contains(e.targetId));
+                    return _jobsOf(picked);
+                  })
+                : () async => _download(() async => _allThreads(state)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.offline_pin_outlined),
+            tooltip: tr.copies,
+            onPressed: () async {
+              await context.pushNamed(ScreenPaths.offlineThreads);
+              if (mounted) {
+                await _loadCopies();
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -103,7 +211,7 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
       _refreshController.finishRefresh();
     }
     final bloc = context.read<FavoriteBloc>();
-    return EasyRefresh.builder(
+    final list = EasyRefresh.builder(
       controller: _refreshController,
       scrollController: _scrollController,
       header: const MaterialHeader(),
@@ -157,12 +265,33 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
                 item,
                 removing: state.removing.contains(item.favid),
                 onRemove: () async => _confirmRemove(context, item),
+                offline: _copied.contains(item.targetId),
+                selected: _selected.contains(item.targetId),
+                onSelect: _offlineOn && item is FavoriteThread
+                    ? () => setState(() => _selected.add(item.targetId))
+                    : null,
+                onToggle: _selected.isEmpty
+                    ? null
+                    : () => setState(() {
+                        if (!_selected.remove(item.targetId)) {
+                          _selected.add(item.targetId);
+                        }
+                      }),
               );
             },
             separatorBuilder: (context, index) => appListSeparator,
           ),
         );
       },
+    );
+    if (!_offlineOn) {
+      return list;
+    }
+    return Column(
+      children: [
+        _buildOfflineBar(context, state),
+        Expanded(child: list),
+      ],
     );
   }
 

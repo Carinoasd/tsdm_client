@@ -1,5 +1,9 @@
 part of 'dao.dart';
 
+/// One thread kept for an account: how many pages of every request, their size, when the newest was loaded and which
+/// pages of the default request are there.
+typedef OfflineThreadCopyRow = ({int tid, int pageCount, int size, DateTime savedAt, List<int> defaultPages});
+
 /// DAO for table [OfflineThread].
 @DriftAccessor(tables: [OfflineThread])
 final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$OfflineThreadDaoMixin {
@@ -93,6 +97,45 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
             ..orderBy([(e) => OrderingTerm.desc(e.page)])
             ..limit(1))
           .getSingleOrNull();
+
+  /// One row per thread kept for user [uid] (most recently used first), read from the index alone: no body is touched.
+  Future<List<OfflineThreadCopyRow>> selectCopies(int uid) async {
+    final lastUsed = offlineThread.lastUsedAt.max();
+    final savedAt = offlineThread.savedAt.max();
+    final pages = offlineThread.page.count();
+    final size = offlineThread.size.sum();
+    final rows =
+        await (selectOnly(offlineThread)
+              ..addColumns([offlineThread.tid, pages, size, savedAt, lastUsed])
+              ..where(offlineThread.uid.equals(uid))
+              ..groupBy([offlineThread.tid])
+              ..orderBy([OrderingTerm.desc(lastUsed), OrderingTerm.desc(offlineThread.tid)]))
+            .get();
+    // The pages of the default request (no order, no author filter), which the batch updates keep up to date.
+    final defaults =
+        await (selectOnly(offlineThread)
+              ..addColumns([offlineThread.tid, offlineThread.page])
+              ..where(
+                offlineThread.uid.equals(uid) & offlineThread.orderType.equals(0) & offlineThread.authorId.equals(0),
+              )
+              ..orderBy([OrderingTerm.asc(offlineThread.page)]))
+            .get();
+    final defaultPages = <int, List<int>>{};
+    for (final row in defaults) {
+      final tid = row.read<int>(offlineThread.tid)!;
+      (defaultPages[tid] ??= <int>[]).add(row.read<int>(offlineThread.page)!);
+    }
+    return [
+      for (final row in rows)
+        (
+          tid: row.read<int>(offlineThread.tid)!,
+          pageCount: row.read(pages) ?? 0,
+          size: row.read(size) ?? 0,
+          savedAt: row.read(savedAt) ?? DateTime.fromMillisecondsSinceEpoch(0),
+          defaultPages: defaultPages[row.read<int>(offlineThread.tid)!] ?? const <int>[],
+        ),
+    ];
+  }
 
   /// Mark the page of the key used at [time].
   Future<void> touch({

@@ -43,6 +43,7 @@ import 'package:tsdm_client/features/notification/view/notification_detail_page.
 import 'package:tsdm_client/features/notification/view/notification_page.dart';
 import 'package:tsdm_client/features/notification/view/notification_search_page.dart';
 import 'package:tsdm_client/features/notification/view/notification_sync_all_page.dart';
+import 'package:tsdm_client/features/offline_thread/view/offline_threads_page.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/packet/view/packet_detail_page.dart';
 import 'package:tsdm_client/features/points/views/points_page.dart';
@@ -248,6 +249,7 @@ final List<RouteBase> _appRoutes = [
           : FavoriteType.thread,
     ),
   ),
+  AppRoute(path: ScreenPaths.offlineThreads, builder: (state) => const OfflineThreadsPage()),
   AppRoute(
     path: ScreenPaths.friend,
     builder: (state) =>

@@ -262,6 +262,20 @@ class ThreadRepository {
     ));
   }
 
+  /// What a saved answer [body] (a copy of the offline repository) tells about its thread: title, replies and pages.
+  /// Null when it can not be read as a thread page.
+  ({String? title, int? replyCount, int totalPages})? summaryOfSaved(String body) {
+    try {
+      final page = _readThreadPage(body, pageNumber: 1).toNullable()?.page;
+      if (page == null) {
+        return null;
+      }
+      return (title: page.title, replyCount: page.replyCount, totalPages: page.totalPages);
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
   /// Fetch the first page of thread [tid], oldest floor first, to learn who started it (the thread page does, when the
   /// thread was opened on a later page and the current account blocks somebody).
   ///
