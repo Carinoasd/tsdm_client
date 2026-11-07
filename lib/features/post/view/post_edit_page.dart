@@ -901,7 +901,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     }
     if (widget.editType == PostEditType.newThread) {
       // A time passed meanwhile would publish the thread now.
-      if (cronPublish case final at? when form?.offersCronPublish ?? false) {
+      if (cronPublish case final at? when !saveDraft && (form?.offersCronPublish ?? false)) {
         if (!cronPublishAhead(at, DateTime.now())) {
           showSnackBar(context: context, message: context.t.postEditPage.cronPublish.passed);
           return;
@@ -1028,7 +1028,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           hongbao: state.content!.form?.hongbao == null ? null : hongbao,
           activity: state.content!.form?.activity == null ? null : activity,
           debate: state.content!.form?.debate == null ? null : debate,
-          cronPublish: (state.content!.form?.offersCronPublish ?? false) ? cronPublish : null,
+          // A draft saved is no publication: not scheduled.
+          cronPublish: (state.content!.form?.offersCronPublish ?? false) && !saveDraft ? cronPublish : null,
         ),
       };
       if (saveDraft) {
@@ -1740,7 +1741,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.scheduled) {
       _stopDraft(delete: true);
-      // Kept a draft until its time: no thread to go to yet, the drafts tell when.
+      // Kept a draft until its time: no thread to go to yet, the drafts tell when. The time shown is the device's
+      // clock of the instant posted (the forum got its own wall clock of it, PostForm.cronPublishDate); the field is
+      // not changed while posting (the editor is locked).
       final tr = context.t.postEditPage.cronPublish;
       final view = await showQuestionDialog(
         context: context,
@@ -2095,6 +2098,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       state.status != PostEditStatus.uploading &&
                       state.status != PostEditStatus.success &&
                       state.status != PostEditStatus.draftUnconfirmed &&
+                      state.status != PostEditStatus.stillDraft &&
+                      state.status != PostEditStatus.scheduled &&
                       state.status != PostEditStatus.identityChanged)
                     IconButton(
                       tooltip: context.t.pollCreate.switchToPoll,

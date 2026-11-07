@@ -54,11 +54,16 @@ Map<String, dynamic> _thread({required int draft}) {
   };
 }
 
-Future<(PostEditState, Map<String, String>)> _post({DateTime? at, int draft = 1, String save = ''}) async {
+Future<(PostEditState, Map<String, String>)> _post({
+  DateTime? at,
+  int draft = 1,
+  String save = '',
+  Map<String, dynamic>? thread,
+}) async {
   final posts = <Map<String, String>>[];
   final repo = PostEditRepository.withTransport(
     currentUid: () => 31,
-    getPage: (url) async => right(_response(url.contains('viewthread') ? _thread(draft: draft) : _cron())),
+    getPage: (url) async => right(_response(url.contains('viewthread') ? thread ?? _thread(draft: draft) : _cron())),
     sendForm: (url, body) async {
       posts.add(body);
       return right(
@@ -178,10 +183,16 @@ void main() {
       expect(body['subject'], '定時發布');
     });
 
-    test('saved as a draft with a time: scheduled as well', () async {
+    test('saved as a draft: a plain draft, never scheduled', () async {
       final (state, body) = await _post(at: _at, save: '1');
-      expect(state.status, PostEditStatus.scheduled);
+      expect(state.status, PostEditStatus.success);
       expect(body['save'], '1');
+      expect(body.containsKey('cronpublish'), isFalse);
+    });
+
+    test('the thread not told (another account served): not reported as published', () async {
+      final (state, _) = await _post(at: _at, thread: {..._thread(draft: 1), 'uid': 32});
+      expect(state.status, PostEditStatus.draftUnconfirmed);
     });
 
     test('a thread the forum published (the time passed meanwhile): published', () async {

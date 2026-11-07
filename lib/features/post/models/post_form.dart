@@ -604,6 +604,7 @@ final class PostForm {
   /// and publishes it at that time (`cron_publish_halfhourly`, every half hour); a time already passed publishes it
   /// now. Not for a red packet thread: the plugin makes the packet with the thread, draft or not.
   bool get offersCronPublish {
+    // `cronpublish` counted only as the checkbox it is on the website.
     final names = {
       for (final input in blockInputs('cronpublish'))
         if (input.name != 'cronpublish' || input.isCheckbox) input.name,

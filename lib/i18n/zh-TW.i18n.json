@@ -1556,7 +1556,7 @@
       "time": "發布時間",
       "passed": "發布時間必須晚於現在",
       "scheduled": "已排程",
-      "scheduledMessage": "將於 $time 發布，在此之前留在草稿箱。要前往「我的帖子 → 草稿箱」查看嗎？"
+      "scheduledMessage": "將於 $time 後發布，在此之前留在草稿箱。要前往「我的帖子 → 草稿箱」查看嗎？"
     },
     "debateDialog": {
       "title": "辯論設定",
