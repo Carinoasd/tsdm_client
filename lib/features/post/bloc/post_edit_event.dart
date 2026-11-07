@@ -46,10 +46,18 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
     required this.price,
     this.draftKey,
     this.rewardPrice,
+    this.activity,
+    this.debate,
   }) : super();
 
   /// The reward price of the first post of an open reward thread ([PostFormEdits.rewardPrice]), null to keep it.
   final int? rewardPrice;
+
+  /// The activity of the first post of an activity thread ([PostFormEdits.activity]), null to post it as served.
+  final ActivityEdits? activity;
+
+  /// The debate of the first post of a debate thread ([PostFormEdits.debate]), null to post it as served.
+  final DebateEdits? debate;
 
   /// Form hash.
   final String formHash;

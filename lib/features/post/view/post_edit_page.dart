@@ -842,34 +842,34 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         return;
       }
     }
-    // A red packet thread needs its packet, an activity its time, category and place, a debate its two points: the
-    // forum refuses the post without them.
+    // An activity needs its time, category and place, a debate its two points (an edit too: the forum checks them
+    // again), a red packet thread its packet: the forum refuses the post without them.
+    final form = state.content!.form;
+    if (form?.activity case final info?) {
+      final set = activity;
+      final problem = set?.check(info);
+      if (set == null || problem != null) {
+        showSnackBar(
+          context: context,
+          message: set == null
+              ? context.t.postEditPage.activityDialog.required
+              : activityIssueText(context, info, problem!),
+        );
+        return;
+      }
+    }
+    if (form?.debate != null) {
+      final set = debate;
+      final problem = set?.check(DateTime.now());
+      if (set == null || problem != null) {
+        showSnackBar(
+          context: context,
+          message: set == null ? context.t.postEditPage.debateDialog.required : debateIssueText(context, problem!),
+        );
+        return;
+      }
+    }
     if (widget.editType == PostEditType.newThread) {
-      final form = state.content!.form;
-      if (form?.activity case final info?) {
-        final set = activity;
-        final problem = set?.check(info);
-        if (set == null || problem != null) {
-          showSnackBar(
-            context: context,
-            message: set == null
-                ? context.t.postEditPage.activityDialog.required
-                : activityIssueText(context, info, problem!),
-          );
-          return;
-        }
-      }
-      if (form?.debate != null) {
-        final set = debate;
-        final problem = set?.check(DateTime.now());
-        if (set == null || problem != null) {
-          showSnackBar(
-            context: context,
-            message: set == null ? context.t.postEditPage.debateDialog.required : debateIssueText(context, problem!),
-          );
-          return;
-        }
-      }
       // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
       if (form?.hongbao case final info? when !saveDraft) {
         final packet = hongbao;
@@ -963,6 +963,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           price: price,
           draftKey: _draftKey?.value,
           rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
+          activity: state.content!.form?.activity == null ? null : activity,
+          debate: state.content!.form?.debate == null ? null : debate,
         ),
         PostEditType.newThread => ThreadPubPostThread(
           ThreadPublishInfo(
@@ -1771,6 +1773,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         // The first post of an open reward thread: its price, which the member may raise.
         if (state.content?.form?.reward case final info? when info.raising) {
           rewardPrice = info.current;
+        }
+        // The first post of an activity or a debate thread: the activity or the debate as it is.
+        if (widget.editType != PostEditType.newThread) {
+          activity = state.content?.form?.activity?.served;
+          debate = state.content?.form?.debate?.served;
         }
       });
 

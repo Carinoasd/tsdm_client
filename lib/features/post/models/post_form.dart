@@ -209,10 +209,12 @@ final class PostFormEdits {
     this.debate,
   });
 
-  /// The activity of a new activity thread ([PostForm.activity]), null to post the served fields.
+  /// The activity of a new activity thread or of the first post of one edited ([PostForm.activity]), null to post the
+  /// served fields.
   final ActivityEdits? activity;
 
-  /// The debate of a new debate thread ([PostForm.debate]), null to post the served fields.
+  /// The debate of a new debate thread or of the first post of one edited ([PostForm.debate]), null to post the served
+  /// fields.
   final DebateEdits? debate;
 
   /// The reward price of a new reward thread, or the raised price of an open one edited by its author
@@ -507,12 +509,38 @@ final class PostForm {
       ? RewardFormInfo.fromJson(json['reward'])
       : null;
 
-  /// The activity settings of a new activity thread (`activity`, [special] 4), null for any other form.
-  ActivityFormInfo? get activity =>
-      special == 4 && action == 'newthread' ? ActivityFormInfo.fromJson(json['activity']) : null;
+  /// The activity settings of a new activity thread, or of the edit of its first post with the image of the activity
+  /// read from the web page ([withActivityImage]) (`activity`, [special] 4); null for any other form.
+  ActivityFormInfo? get activity => switch (action) {
+    'newthread' when special == 4 => ActivityFormInfo.fromJson(json['activity']),
+    'edit' when editsActivity && json.containsKey(activityImageKey) => ActivityFormInfo.fromJson(
+      json['activity'],
+      edit: true,
+    ),
+    _ => null,
+  };
 
-  /// The debate settings of a new debate thread (`debate`, [special] 5), null for any other form.
-  DebateFormInfo? get debate => special == 5 && action == 'newthread' ? DebateFormInfo.fromJson(json['debate']) : null;
+  /// Whether the form is the edit of the first post of an activity thread: the image of the activity is only on the
+  /// web page of the form ([withActivityImage]).
+  bool get editsActivity => action == 'edit' && first && special == 4;
+
+  /// This form with the image of the activity as the web page of the form posts it (`activityaid`, the attachment of
+  /// the activity; null when the page has no such field).
+  ///
+  /// The forum deletes the image of an activity whose edit posts another `activityaid`
+  /// (`extend_thread_activity::before_editpost`), and the plugin serves the field empty; the editor posts the page's.
+  PostForm withActivityImage(String? aid) => PostForm._({...json, activityImageKey: aid});
+
+  /// The key of the `activityaid` read for [withActivityImage] in [json]: the app's, never one of the plugin's.
+  static const activityImageKey = 'app_activity_aid';
+
+  /// The debate settings of a new debate thread or of the edit of its first post (`debate`, [special] 5), null for
+  /// any other form.
+  DebateFormInfo? get debate => switch (action) {
+    'newthread' when special == 5 => DebateFormInfo.fromJson(json['debate']),
+    'edit' when first && special == 5 => DebateFormInfo.fromJson(json['debate'], edit: true),
+    _ => null,
+  };
 
   /// The red packet form of a new red packet thread ([special] 127 of the `hongbao` plugin), read from the web page
   /// and kept under the app's own key [hongbaoKey] ([withHongbao]); null when not read, or for any other form.
@@ -675,6 +703,21 @@ final class PostForm {
         body.addAll(input.submitted);
       }
     }
+    // The member data asked of an applicant, checkboxes the website posts as a list (`userfield[]`): by index, which
+    // PHP reads as the same list (a map carries no name twice, PostFormBody.toMap).
+    final userFields = [
+      for (final (name, value) in body.pairs)
+        if (name == 'userfield[]') value,
+    ];
+    if (userFields.isNotEmpty) {
+      body.removeWhere((name) => name == 'userfield[]');
+      for (final (i, value) in userFields.indexed) {
+        body.add('userfield[$i]', value);
+      }
+    }
+    if (editsActivity && json.containsKey(activityImageKey)) {
+      body.set('activityaid', json[activityImageKey] is String ? json[activityImageKey] as String : null);
+    }
     for (final MapEntry(:key, :value) in tsdmAppMap(_block('attach')?['fields']).entries) {
       if (_text(value) case final String v) {
         body.add(key, v);
@@ -767,7 +810,8 @@ final class PostForm {
   /// a thread plugin's or a thread sort's fields, a replaced editor), one with other plugins' fields ([hookFields])
   /// the web page did not give ([hookValues] null), a scheduled draft ([schedulesPublication]), one posted elsewhere than a same-site post url ([submitUrl]), one
   /// whose body a map cannot carry ([PostFormBody.toMap]), and the thread types the editor does not show: a new thread of a special type (a forum
-  /// allowing special threads only), the first post of a special thread (but a reward or a poll), a post of a trade thread (its goods), as
+  /// allowing special threads only), the first post of a special thread (but a reward, a poll, an activity with its
+  /// image read or a debate), a post of a trade thread (its goods), as
   /// the web page parser decides.
   PostFormSupport editorSupport(String expectedAction) {
     final check = secCheck;
@@ -781,7 +825,10 @@ final class PostForm {
     final ordinary = switch (expectedAction) {
       'newthread' =>
         special == 0 || reward != null || activity != null || debate != null || (isHongbao && hongbao != null),
-      'edit' => first ? special == 0 || reward != null || editsPollAsServed : special != 2,
+      'edit' =>
+        first
+            ? special == 0 || reward != null || editsPollAsServed || activity != null || debate != null
+            : special != 2,
       'reply' => true,
       _ => false,
     };

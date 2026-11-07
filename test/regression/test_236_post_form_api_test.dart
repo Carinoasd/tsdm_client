@@ -259,7 +259,7 @@ void main() {
 
   group('A. the answer', () {
     test('every form fixture is a post form of its action, served to its account', () {
-      expect(_forms, hasLength(23));
+      expect(_forms, hasLength(26));
       for (final name in _forms) {
         final json = _json(name);
         expect(postFormAnswerOf(json), same(json), reason: name);
@@ -513,6 +513,11 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         'edit_reward_open': ('edit', PostFormSupport.supported),
         'edit_reward_resolved': ('edit', PostFormSupport.supported),
         'edit_reward_readonly': ('edit', PostFormSupport.supported),
+        // The first post of an activity: only with the image of the activity read from the web page; of a debate
+        // (test_330).
+        'edit_activity_image': ('edit', PostFormSupport.unsupported),
+        'edit_activity_ranged': ('edit', PostFormSupport.unsupported),
+        'edit_debate': ('edit', PostFormSupport.supported),
         'reply': ('reply', PostFormSupport.supported),
         'reply_quote': ('reply', PostFormSupport.supported),
         'reply_anonymous': ('reply', PostFormSupport.supported),

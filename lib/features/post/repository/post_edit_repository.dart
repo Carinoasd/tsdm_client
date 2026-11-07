@@ -204,11 +204,12 @@ final class PostEditRepository with LoggerMixin {
       final form = PostForm.fromJson(json);
       if (form == null) return right(PostEditFormRefused(tsdmAppText(json['message'])));
       TsdmAppApi.notePostForm();
-      if (form.hookFields.isEmpty && !form.isHongbao) return right(PostEditFormApi(form));
+      if (form.hookFields.isEmpty && !form.isHongbao && !form.editsActivity) return right(PostEditFormApi(form));
       // Other plugins' fields (a moderator's scheduling panel, a forum's tags): the API names them only, so the web
       // page of the form gives their values, posted back as the website would (PostForm.hookValues); a page that
       // cannot leaves the form to the website. The red packet form of a red packet thread is on the web page too
-      // (the API gives no thread plugin's fields; the app knows this plugin's: PostForm.hongbao).
+      // (the API gives no thread plugin's fields; the app knows this plugin's: PostForm.hongbao), and so is the image
+      // of an activity edited (PostForm.withActivityImage).
       switch (await fetchData(url).run()) {
         case Left(value: final IdentityChangedException e):
           return left(e);
@@ -222,6 +223,11 @@ final class PostEditRepository with LoggerMixin {
             } else {
               warning('post form: fields of other plugins not on the web page: ${form.hookFields}');
             }
+          }
+          // The image of the activity edited: the plugin serves `activityaid` empty, which the forum takes as the
+          // image removed (PostForm.withActivityImage). Not read, the form is left to the website.
+          if (form.editsActivity && document.querySelector('form#postform') != null) {
+            read = read.withActivityImage(hookValuesOf(document, const ['activityaid'])?.lastOrNull?.$2);
           }
           if (form.isHongbao) {
             if (HongbaoFormInfo.parse(document) case final info?) {
