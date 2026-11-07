@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/jump_page/widgets/jump_page_dialog.dart';
@@ -574,6 +575,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
               title: Text(context.t.searchPage.title),
               actions: [
                 const OpenInAppPageButton(),
+                IconButton(
+                  icon: const Icon(Icons.sell_outlined),
+                  tooltip: context.t.tagPage.cloudTitle,
+                  onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
+                ),
                 IconButton(
                   icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
                   tooltip: expandForm

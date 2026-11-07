@@ -78,6 +78,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
@@ -253,6 +254,7 @@ final List<RouteBase> _appRoutes = [
     builder: (state) =>
         FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
   ),
+  AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {

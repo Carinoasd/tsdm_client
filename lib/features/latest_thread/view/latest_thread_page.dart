@@ -135,7 +135,15 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
           };
 
           return Scaffold(
-            appBar: AppBar(title: Text(widget.title ?? context.t.latestThreadPage.title)),
+            appBar: AppBar(
+              title: Text(
+                widget.title ??
+                    switch (state.tagName) {
+                      final name? => context.t.tagPage.title(name: name),
+                      null => context.t.latestThreadPage.title,
+                    },
+              ),
+            ),
             body: SafeArea(bottom: false, child: body),
           );
         },

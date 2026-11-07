@@ -1350,6 +1350,11 @@
     "title": "最新主题",
     "empty": "暂时还没有帖子"
   },
+  "tagPage": {
+    "title": "标签：$name",
+    "cloudTitle": "标签",
+    "empty": "暂无标签"
+  },
   "ratePostPage": {
     "title": "评分",
     "description": "给 $username 在 $floor 楼的帖子评分",

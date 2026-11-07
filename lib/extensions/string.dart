@@ -247,6 +247,32 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': queryParameters['touid']!});
     }
 
+    // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the
+    // cloud of all (`misc.php?mod=tag`). The other kinds of the tag page (articles, blogs, doings) and the tag
+    // tools (`op=add|manage|set|search`) stay with the web page.
+    if (mod == 'tag' && const {null, '', 'list', 'detail'}.contains(queryParameters['op'])) {
+      final id = forumIntval(queryParameters['id']);
+      final name = queryParameters['name']?.trim() ?? '';
+      if (id > 0 || name.isNotEmpty) {
+        if (!const {null, '', 'thread'}.contains(queryParameters['type'])) {
+          return null;
+        }
+        final page = forumIntval(queryParameters['page']);
+        final url = Uri.parse('$baseUrl/misc.php').replace(
+          queryParameters: {
+            'mod': 'tag',
+            if (id > 0) 'id': '$id' else 'name': name,
+            'type': 'thread',
+            if (page > 1) 'page': '$page',
+          },
+        );
+        return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': url.toString()});
+      }
+      if (queryParameters['type'] == null) {
+        return const RecognizedRoute(ScreenPaths.tagCloud);
+      }
+    }
+
     if (mod == null && queryParameters.containsKey('gid')) {
       return RecognizedRoute(ScreenPaths.forumGroup, pathParameters: {'gid': queryParameters['gid']!});
     }
