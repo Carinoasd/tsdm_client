@@ -679,6 +679,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               tabController.animateTo(_subredditTabIndex, duration: const Duration(milliseconds: 500));
             },
           ),
+          // The threads were replaced (a refresh, another filter): the one the keyboard was on is another one now.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.filterState != curr.filterState || (prev.refreshing && !curr.refreshing),
+            listener: (context, state) => _keyboardSelection.clear(),
+          ),
           // A refresh that failed keeps the threads on screen and says so.
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure != null,
@@ -709,7 +714,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             }
 
             return KeyboardPageActions(
-              onRefresh: () => context.read<ForumBloc>().add(ForumRefreshRequested()),
+              onRefresh: () {
+                _keyboardSelection.clear();
+                context.read<ForumBloc>().add(ForumRefreshRequested());
+              },
               onNextItem: () => _moveSelection(state, 1),
               onPreviousItem: () => _moveSelection(state, -1),
               canOpenItem: () => _selectedThread(state) != null,

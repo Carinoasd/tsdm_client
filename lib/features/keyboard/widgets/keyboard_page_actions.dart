@@ -75,7 +75,9 @@ class KeyboardPageActions extends StatefulWidget {
 }
 
 class _KeyboardPageActionsState extends State<KeyboardPageActions> {
-  final _focusNode = FocusNode(debugLabel: 'KeyboardPageActions', skipTraversal: true);
+  /// The scope of the page, so a text input giving the focus up (a click outside it) leaves it on the page, below its
+  /// actions, rather than on the route above them.
+  final _scopeNode = FocusScopeNode(debugLabel: 'KeyboardPageActions');
 
   @override
   void initState() {
@@ -94,7 +96,7 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _scopeNode.dispose();
     super.dispose();
   }
 
@@ -110,9 +112,20 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
         if (!mounted || !widget.active || (!force && FocusScope.of(context).focusedChild != null)) {
           return;
         }
-        _focusNode.requestFocus();
+        _scopeNode.requestFocus();
       });
     });
+  }
+
+  /// Enter opens the item moved to only while the focus is on the page itself: a focused button keeps its Enter.
+  bool _canOpenItem() => FocusManager.instance.primaryFocus == _scopeNode && (widget.canOpenItem?.call() ?? true);
+
+  /// A click on the page puts the keys on it, when they are not on it already: two pages side by side (a list and the
+  /// thread beside it) follow the mouse.
+  void _onPointerDown(PointerDownEvent event) {
+    if (!_scopeNode.hasFocus) {
+      _scopeNode.requestFocus();
+    }
   }
 
   @override
@@ -142,7 +155,7 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
           OpenItemIntent: KeyboardAction<OpenItemIntent>(
             onOpenItem,
             singleKey: true,
-            enabledWhen: widget.canOpenItem,
+            enabledWhen: _canOpenItem,
           ),
         if (onNextPage != null) NextPageIntent: KeyboardAction<NextPageIntent>(onNextPage, singleKey: true),
         if (onPreviousPage != null)
@@ -152,7 +165,11 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
           ScrollToStartIntent: KeyboardAction<ScrollToStartIntent>(onScrollToStart, singleKey: true),
         if (onScrollToEnd != null) ScrollToEndIntent: KeyboardAction<ScrollToEndIntent>(onScrollToEnd, singleKey: true),
       },
-      child: Focus(focusNode: _focusNode, child: widget.child),
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _onPointerDown,
+        child: FocusScope(node: _scopeNode, child: widget.child),
+      ),
     );
   }
 }

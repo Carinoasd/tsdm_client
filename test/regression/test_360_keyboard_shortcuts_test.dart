@@ -167,6 +167,76 @@ void main() {
     });
   });
 
+  group('focus', () {
+    testWidgets('the keys come back after a text input gave the focus up', (tester) async {
+      await tester.pumpWidget(app(field: true));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      expect(log, isEmpty);
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await chord(tester, LogicalKeyboardKey.keyR, control: true);
+      expect(log, ['next-item', 'refresh']);
+    });
+
+    testWidgets('a click on a page takes the keys from the page beside it', (tester) async {
+      KeyboardPageActions page(String name) => KeyboardPageActions(
+        onNextItem: () => log.add(name),
+        child: SizedBox(width: 200, height: 200, child: Center(child: Text(name))),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => KeyboardShortcutsHost(
+            onSearch: () {},
+            onSettings: () {},
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: Scaffold(body: Row(children: [page('left'), page('right')])),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.tap(find.text('right'));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.tap(find.text('left'));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      expect(log, ['left', 'right', 'left']);
+    });
+
+    testWidgets('Enter stays with a focused button even with an item to open', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(log, ['open']);
+      log.clear();
+      Focus.of(tester.element(find.text('dialog'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(log, isEmpty);
+      expect(find.text('Dialog'), findsOneWidget);
+    });
+  });
+
+  test('the list tells the keys that are bound', () {
+    final bound = {
+      for (final activator in KeyboardShortcutsHost.shortcuts.keys)
+        if (activator is SingleActivator && activator.trigger != LogicalKeyboardKey.numpadEnter)
+          activator.trigger.keyLabel,
+    };
+    final listed = {
+      // The editors bind their own keys.
+      for (final entry in keyboardShortcutCatalog.where((e) => e.group != KeyboardShortcutGroup.editor))
+        for (final keys in entry.alternatives)
+          for (final key in keys)
+            if (!{primaryModifierToken, 'Shift', 'Esc'}.contains(key)) key,
+    };
+    expect(listed, bound);
+  });
+
   group('on other platforms', () {
     testWidgets('no key is taken', (tester) async {
       KeyboardShortcutsHost.enabledOverride = false;
