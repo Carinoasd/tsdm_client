@@ -427,14 +427,21 @@ final class TradePaid extends TradeOutcome {
   const TradePaid();
 }
 
-/// The forum refused, with its [message] (empty when it gave none); [verification] when it asks for a captcha or a
-/// security question only the website shows; [login] when it asks to log in.
+/// The forum refused, with its [message] (empty when it gave none) and its language [key] (empty without the
+/// plugin); [verification] when it asks for a captcha or a security question only the website shows; [login] when it
+/// asks to log in.
 final class TradeRefused extends TradeOutcome {
   /// Constructor.
-  const TradeRefused(this.message, {this.verification = false, this.login = false});
+  const TradeRefused(this.message, {this.key = '', this.verification = false, this.login = false});
 
   /// The forum's words.
   final String message;
+
+  /// The forum's language key (`trade_password_error`, `trade_credit_lack`…), empty when unknown.
+  final String key;
+
+  /// The payment was refused for the password alone: another password may do.
+  bool get wrongPassword => key == tradePasswordErrorKey;
 
   /// The forum asks for a verification.
   final bool verification;
@@ -450,6 +457,9 @@ final class TradeUnknown extends TradeOutcome {
 }
 
 const _orderCreatedKey = 'trade_order_created';
+
+/// The forum's key of a payment refused for the wrong password.
+const tradePasswordErrorKey = 'trade_password_error';
 const _paidKey = 'trade_orderstatus_updated';
 
 /// The order an url [url] of the forum goes on to (`forum.php?mod=trade&orderid=`), null when it is not one.
@@ -478,10 +488,10 @@ TradeOutcome _outcomeOf(
       return const TradeUnknown();
     }
     if (result.login) {
-      return TradeRefused(result.reason, login: true);
+      return TradeRefused(result.reason, key: result.messageKey, login: true);
     }
     if (result.asksVerification) {
-      return TradeRefused(result.reason, verification: true);
+      return TradeRefused(result.reason, key: result.messageKey, verification: true);
     }
     if (result.messageKey == doneKey) {
       return done(result.url);
@@ -489,7 +499,7 @@ TradeOutcome _outcomeOf(
     if (result.messageKey.isEmpty && result.message.isEmpty) {
       return const TradeUnknown();
     }
-    return TradeRefused(result.message);
+    return TradeRefused(result.message, key: result.messageKey);
   }
   final document = parseHtmlDocument(tsdmAppAnswerText(data));
   final message = tradeMessageOf(document);

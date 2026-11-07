@@ -3126,7 +3126,9 @@
       "payAgain": "重新付款",
       "openOrder": "查看訂單",
       "unknown": "未能確認結果，請在訂單頁查看。",
-      "verification": "論壇要求驗證，請在瀏覽器中完成。"
+      "verification": "論壇要求驗證，請在瀏覽器中完成。",
+      "openOrders": "查看交易記錄",
+      "unknownOrder": "未能確認是否已下單，請在交易記錄中查看。"
     },
     "already": "之前已經完成。"
   },

@@ -289,6 +289,8 @@ void main() {
       expect(_json('pay_password_error')['ok'], 1);
       expect(_json('pay_password_error')['alert'], 'info');
       expect(tradePayOutcomeOf(_json('pay_done')), isA<TradePaid>());
+      expect((tradePayOutcomeOf(_json('pay_password_error')) as TradeRefused).wrongPassword, isTrue);
+      expect((tradePayOutcomeOf(_json('pay_credit_lack')) as TradeRefused).wrongPassword, isFalse);
       expect((tradePayOutcomeOf(_json('pay_password_error')) as TradeRefused).message, '抱歉，您输入的密码不正确，不能修改订单状态');
       expect((tradePayOutcomeOf(_json('pay_credit_lack')) as TradeRefused).message, '抱歉，您的积分不足无法购买');
       // Paid already: the forum's error page.
@@ -503,6 +505,47 @@ void main() {
       expect(find.text(tr.bought), findsOneWidget);
     });
 
+    testWidgets('the lack of credit at the payment: no paying again, the order to look at', (tester) async {
+      final tr = t.specialThread.trade;
+      final forum = _Forum(
+        pages: pages('goods_credit', 'buyform_virtual'),
+        answers: [_json('order_created'), _json('pay_credit_lack')],
+      );
+      await pump(tester, forum, pid: 11179, goods: _listed(pid: 11179, subject: '测试徽章', credit: 10));
+      await tester.tap(find.widgetWithText(FilledButton, tr.buy));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, tr.next));
+      await tester.pumpAndSettle();
+      await enterPassword(tester, 'pw');
+      expect(find.text('抱歉，您的积分不足无法购买'), findsOneWidget);
+      expect(find.text(tr.openOrder), findsOneWidget);
+      expect(find.text(tr.payAgain), findsNothing);
+      expect(forum.posts, hasLength(2));
+    });
+
+    testWidgets('no balance on the form: not bought in the app (the forum does not check it)', (tester) async {
+      final tr = t.specialThread.trade;
+      final forum = _Forum(
+        pages: {
+          tradeGoodsUrl(tid: _tid, pid: 11179): _html('goods_credit'),
+          '$baseUrl/forum.php?mod=trade&tid=$_tid&pid=11179': _html(
+            'buyform_virtual',
+          ).replaceFirst('var currentcredit = 831;', ''),
+        },
+      );
+      expect(
+        TradeBuyForm.parse(
+          parseHtmlDocument(_html('buyform_virtual').replaceFirst('var currentcredit = 831;', '')),
+        )!.balance,
+        isNull,
+      );
+      await pump(tester, forum, pid: 11179, goods: _listed(pid: 11179, subject: '测试徽章', credit: 10));
+      await tester.tap(find.widgetWithText(FilledButton, tr.buy));
+      await tester.pumpAndSettle();
+      expect(find.text(tr.next), findsNothing);
+      expect(forum.posts, isEmpty);
+    });
+
     testWidgets('refused order: the forum words, no payment', (tester) async {
       final tr = t.specialThread.trade;
       final forum = _Forum(pages: pages('goods_credit', 'buyform_virtual'), answers: [_json('order_lack')]);
@@ -532,7 +575,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, tr.next));
       await tester.pumpAndSettle();
       await enterPassword(tester, 'pw');
-      expect(find.text(tr.unknown), findsOneWidget);
+      expect(find.text(tr.unknownOrder), findsOneWidget);
       await tester.tap(find.text(t.general.cancel));
       await tester.pumpAndSettle();
       expect(forum.posts, hasLength(1));

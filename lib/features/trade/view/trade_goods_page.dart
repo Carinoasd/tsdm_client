@@ -220,7 +220,9 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
       if (!_sameAccount(form.servedUid)) {
         return;
       }
-      if (!form.creditOnly) {
+      // The forum places an order without looking at the balance (only its page's script does): without the balance
+      // the website takes it.
+      if (!form.creditOnly || form.balance == null) {
         await _openInBrowser(url);
         return;
       }
@@ -260,8 +262,8 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
           // The order may have been placed: the account's orders tell.
           final open = await showQuestionDialog(
             context: context,
-            title: tr.specialThread.trade.openOrder,
-            message: tr.specialThread.trade.unknown,
+            title: tr.specialThread.trade.openOrders,
+            message: tr.specialThread.trade.unknownOrder,
           );
           if (open ?? false) {
             await _openInBrowser(tradeOrdersUrl);
@@ -287,6 +289,8 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
     var secret = password;
     while (mounted) {
       if (!_sameAccount(form.servedUid)) {
+        // The order of the other account is placed, not paid.
+        await _showMessage(tr.notPaid);
         return;
       }
       final paid = await _send(() => _repository.pay(orderId: orderId, formHash: form.formHash, password: secret));
@@ -298,7 +302,8 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
           showSnackBar(context: context, message: tr.bought);
           await _load();
           return;
-        case TradeRefused(:final message):
+        case TradeRefused(:final message, :final wrongPassword):
+          // Another password only for a wrong one: the lack of credit stays.
           final again = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -306,7 +311,7 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
               content: SelectableText(message.isEmpty ? context.t.specialThread.refused : message),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr.openOrder)),
-                TextButton(onPressed: () => Navigator.pop(context, true), child: Text(tr.payAgain)),
+                if (wrongPassword) TextButton(onPressed: () => Navigator.pop(context, true), child: Text(tr.payAgain)),
               ],
             ),
           );

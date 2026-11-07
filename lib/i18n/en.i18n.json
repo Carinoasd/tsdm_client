@@ -3126,7 +3126,9 @@
       "payAgain": "Pay again",
       "openOrder": "View order",
       "unknown": "Could not confirm the result; check the order page.",
-      "verification": "The forum asks for a verification; finish it in the browser."
+      "verification": "The forum asks for a verification; finish it in the browser.",
+      "openOrders": "View trade records",
+      "unknownOrder": "Could not confirm whether the order was placed; check the trade records."
     },
     "already": "Done already."
   },
