@@ -69,15 +69,25 @@ final class SearchHistoryStore with LoggerMixin {
     }
   }
 
+  /// The last change on its way: changes run one after another, each reading what the one before saved, so two quick
+  /// ones (two chips removed in a row) do not both start from the history before them.
+  Future<void> _last = Future.value();
+
+  Future<List<String>> _change(int uid, List<String> Function(List<String> history) change) {
+    final done = _last.then((_) async => _save(uid, change(await load(uid))));
+    _last = done.then((_) {}, onError: (_) {});
+    return done;
+  }
+
   /// Remember [keyword] searched by account [uid], see [searchHistoryWith]; the history saved is returned.
-  Future<List<String>> add(int uid, String keyword) async => _save(uid, searchHistoryWith(await load(uid), keyword));
+  Future<List<String>> add(int uid, String keyword) => _change(uid, (history) => searchHistoryWith(history, keyword));
 
   /// Forget [keyword] from the history of account [uid]; the history saved is returned.
-  Future<List<String>> remove(int uid, String keyword) async =>
-      _save(uid, (await load(uid)).where((e) => e != keyword).toList());
+  Future<List<String>> remove(int uid, String keyword) =>
+      _change(uid, (history) => history.where((e) => e != keyword).toList());
 
   /// Forget the whole history of account [uid].
-  Future<void> clear(int uid) async => _save(uid, const []);
+  Future<void> clear(int uid) => _change(uid, (_) => const []);
 
   Future<List<String>> _save(int uid, List<String> history) async {
     try {

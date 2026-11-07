@@ -179,7 +179,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
                 authorName: event.authorName,
                 filter: event.filter,
                 searchResult: searchResult,
-                pageNumber: event.pageNumer,
+                // The page shown, as the forum numbered it: the page asks a new search as page 0.
+                pageNumber: searchResult.currentPage,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
               ),

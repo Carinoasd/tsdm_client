@@ -22,6 +22,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
@@ -84,7 +85,8 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       ? SearchHistoryStore(getIt.get<StorageProvider>())
       : null;
 
-  /// The account whose [history] is shown, 0 for the guest.
+  /// The account whose [history] is shown, 0 for the guest: the account the page was opened with (switching accounts
+  /// goes through the app's root, which opens the search page anew).
   int _historyUid = 0;
 
   /// Flag on expand search form.
@@ -295,6 +297,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!mounted) {
       return;
     }
+    if (forumOptions.isEmpty && fids.isEmpty) {
+      // The forum index failed: nothing to pick from.
+      showSnackBar(context: context, message: context.t.general.failedToLoad);
+      return;
+    }
     final picked = await showSearchForumPicker(context, options: forumOptions, selected: {...fids});
     if (picked != null && mounted) {
       setState(() => fids = picked.toList()..sort());
@@ -337,7 +344,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!context.mounted) {
       return;
     }
-    await _search(context, page);
+    await _turnPage(context, SearchJumpPageRequested(page));
   }
 
   /// Search result is guaranteed to not be null before calling this function.
@@ -345,9 +352,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!_hasPreviousPage(state)) {
       return;
     }
-
-    final page = state.searchResult!.currentPage;
-    await _search(context, page - 1);
+    await _turnPage(context, SearchGotoPreviousPageRequested());
   }
 
   /// Search result is guaranteed to not be null before calling this function.
@@ -355,8 +360,17 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!_hasNextPage(state)) {
       return;
     }
-    final page = state.searchResult!.currentPage;
-    await _search(context, page + 1);
+    await _turnPage(context, SearchGotoNextPageRequested());
+  }
+
+  /// Show another page of the search shown, [event]: the bloc asks it with the parameters of that search (its
+  /// keyword, author, forums and filters, the search id the repository keeps), not with what the form holds now, so
+  /// a filter changed without searching does not apply and the forum's interval between new searches is not hit.
+  Future<void> _turnPage(BuildContext context, SearchEvent event) async {
+    context.read<SearchBloc>().add(event);
+    if (scrollController.hasClients) {
+      await scrollController.animateTo(0, curve: Curves.ease, duration: const Duration(microseconds: 500));
+    }
   }
 
   Widget _buildSearchButton(BuildContext context, SearchState state) {
@@ -422,6 +436,14 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       return null;
     }
     final deleteTooltip = MaterialLocalizations.of(context).deleteButtonTooltip;
+    // Part of the keyword field for its taps: a mouse press outside the field takes the focus away (and the history
+    // with it) before the press ends on a chip.
+    return TextFieldTapRegion(
+      child: _historyWrap(context, keywords, all: all, deleteTooltip: deleteTooltip),
+    );
+  }
+
+  Widget _historyWrap(BuildContext context, List<String> keywords, {required bool all, required String deleteTooltip}) {
     return Wrap(
       key: const ValueKey('search-history'),
       spacing: 8,
@@ -711,7 +733,6 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
           if (!filter.titleOnly) {
             setState(() => filter = filter.copyWith(titleOnly: true));
           }
-          lastFilter = lastFilter.copyWith(titleOnly: true);
         },
         builder: (context, state) {
           if (_searchOnBuild) {

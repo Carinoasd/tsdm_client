@@ -321,6 +321,13 @@ void main() {
       expect(await storage.getString(searchHistoryKey(31)), isNull, reason: 'the row goes');
       expect(await store.load(0), ['guest'], reason: 'another account keeps its own');
 
+      // Two quick changes: the second one starts from what the first one saved.
+      for (final k in ['c', 'b', 'a']) {
+        await store.add(31, k);
+      }
+      await Future.wait([store.remove(31, 'a'), store.remove(31, 'b'), store.add(31, 'd')]);
+      expect(await store.load(31), ['d', 'c']);
+
       await storage.saveString(searchHistoryKey(5), '{broken');
       expect(await store.load(5), isEmpty);
       await storage.saveString(searchHistoryKey(5), jsonEncode(['x', 1, ' ', 'x', ' y ']));
@@ -500,6 +507,15 @@ void main() {
         tester.widget<FilterChip>(find.byKey(const ValueKey('search-filter-title-only'))).selected,
         isTrue,
       );
+
+      // The next page is a page of that search (its search id, its filters), not a new search with the chip as it is
+      // now: a new one would come within the interval of the forum.
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await settle(tester);
+      final next = _query(forum.requests.last);
+      expect(next, containsPair('searchid', '4'));
+      expect(next, containsPair('page', '2'));
+      expect(next, isNot(contains('srchtxt')));
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 30));

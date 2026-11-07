@@ -64,9 +64,15 @@ class _ForumPickerDialogState extends State<_ForumPickerDialog> {
     final tr = context.t.searchPage.filter;
     final materialL10n = MaterialLocalizations.of(context);
     final groupStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.primary);
+    final known = {for (final e in widget.options) e.fid};
     final rows = <Widget>[];
-    String? group;
-    for (final option in widget.options) {
+    // Picked forums the index does not list (a forum page the search was opened from) come first, by id.
+    var group = '';
+    for (final option in [
+      for (final fid in widget.selected.where((e) => !known.contains(e)).toList()..sort())
+        (fid: fid, name: tr.forumId(fid: fid), group: '', sub: false),
+      ...widget.options,
+    ]) {
       if (option.group != group) {
         group = option.group;
         rows.add(
