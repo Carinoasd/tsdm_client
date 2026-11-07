@@ -49,20 +49,32 @@ import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_r
 
 const _alice = UserLoginInfo(username: 'Alice', uid: 31);
 
+/// The title field of the editor (the thread type field comes before it).
+final Finder _titleField = find.byWidgetPredicate(
+  (w) => w is TextField && w.decoration?.labelText == '標題',
+);
+
 const _dir = 'test/data/tsdmapp';
 
 Map<String, dynamic> _json(String name) =>
     jsonDecode(File('$_dir/post_v16_$name.json').readAsStringSync()) as Map<String, dynamic>;
 
-/// The form of an ordinary new thread in a forum allowing rewards too.
+/// The thread types of a forum offering them (`post_v16_newthread_types`).
+Map<String, dynamic> _types() => _json('newthread_types')['types'] as Map<String, dynamic>;
+
+/// The form of an ordinary new thread in a forum allowing rewards too, with thread types.
 Map<String, dynamic> _ordinary() {
   final json = _json('newthread');
   json['special'] = {
     ...json['special'] as Map<String, dynamic>,
     'allowed': [0, 1, 3],
   };
+  json['types'] = _types();
   return json;
 }
+
+/// The form of a new reward thread, with thread types.
+Map<String, dynamic> _reward() => {..._json('newthread_reward'), 'types': _types()};
 
 const _packet = HongbaoEdits(
   total: 100,
@@ -86,7 +98,7 @@ final class _Forum implements HttpClientAdapter {
       throw StateError('nothing is posted');
     }
     final query = options.uri.queryParameters;
-    final json = query['special'] == '3' ? _json('newthread_reward') : _ordinary();
+    final json = query['special'] == '3' ? _reward() : _ordinary();
     return ResponseBody.fromString(
       jsonEncode(json),
       200,
@@ -271,7 +283,7 @@ void main() {
       expect(page(tester).threadKind, ThreadKind.reward);
       expect(find.byIcon(Icons.emoji_events), findsOneWidget, reason: 'the reward button, set');
       expect(find.text('50'), findsOneWidget);
-      await tester.enterText(find.byType(TextFormField).first, '改過的標題');
+      await tester.enterText(_titleField, '改過的標題');
       await tester.pump(const Duration(seconds: 3));
       await _io(tester);
       final stored = await _wait(tester, drafts.load(31, LocalDraftKey.newThread('7')));
@@ -285,7 +297,7 @@ void main() {
 
     testWidgets("switching the kind: the draft written last is the next editor's, not offered there", (tester) async {
       await pump(tester, kind: 'normal');
-      await tester.enterText(find.byType(TextFormField).first, '切換前的標題');
+      await tester.enterText(_titleField, '切換前的標題');
       await tester.pump(const Duration(seconds: 3));
       await _io(tester);
       await tester.tap(find.byType(PopupMenuButton<ThreadKind>));
@@ -303,6 +315,34 @@ void main() {
       await _unpump(tester);
     });
 
+    testWidgets('a draft of an ordinary thread is written as one; one written before the kinds is restored in place', (
+      tester,
+    ) async {
+      await pump(tester, kind: 'normal');
+      await tester.enterText(_titleField, '普通帖標題');
+      await tester.pump(const Duration(seconds: 3));
+      await _io(tester);
+      expect((await _wait(tester, drafts.load(31, LocalDraftKey.newThread('7'))))?.threadKind, 'normal');
+      await _unpump(tester);
+
+      drafts.save(
+        31,
+        LocalDraft(
+          key: LocalDraftKey.newThread('7'),
+          body: '舊草稿內文',
+          subject: '舊草稿標題',
+          updatedAt: DateTime(2026, 11, 2),
+        ),
+      );
+      await _wait(tester, drafts.pendingWrites);
+      await pump(tester, kind: 'reward');
+      await tester.tap(find.byKey(const ValueKey('draft-offer-restore')));
+      await _settle(tester);
+      expect(page(tester).threadKind, ThreadKind.reward, reason: 'not switched to an ordinary thread');
+      expect(find.text('舊草稿標題'), findsWidgets);
+      await _unpump(tester);
+    });
+
     testWidgets('a draft written as a reward thread is restored in the reward editor, with its price', (tester) async {
       drafts.save(
         31,
@@ -313,6 +353,10 @@ void main() {
           updatedAt: DateTime(2026, 11, 7),
           threadKind: 'reward',
           rewardPrice: 60,
+          typeId: '5',
+          delta: jsonEncode([
+            {'insert': '從文件來的內文\n'},
+          ]),
         ),
       );
       await _wait(tester, drafts.pendingWrites);
@@ -333,7 +377,12 @@ void main() {
       expect(stored.single.threadKind, 'reward');
       expect(stored.single.rewardPrice, 60);
       expect(forum.requests.where((r) => r.uri.queryParameters['special'] == '3'), isNotEmpty);
+      // The thread type and the editor's own document came along.
+      expect(find.text('其他'), findsWidgets);
       await _unpump(tester);
+      final kept = await _wait(tester, drafts.load(31, LocalDraftKey.newThread('7')));
+      expect(kept?.body, '從文件來的內文');
+      expect(kept?.typeId, '5');
     });
   });
 }

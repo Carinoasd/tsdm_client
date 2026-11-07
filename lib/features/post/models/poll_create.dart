@@ -991,7 +991,16 @@ final class ThreadModeTransfer {
     this.rewardPrice,
     this.hongbao,
     this.restoredDraft = false,
+    this.delta,
+    this.typeId,
   });
+
+  /// The thread editor's own document of [body] (Quill delta JSON, `LocalDraft.delta`), null when only the body is
+  /// known (from the poll editor): it brings back what BBCode does not carry.
+  final String? delta;
+
+  /// The thread type chosen, null for none: chosen again when the form switched to offers it.
+  final String? typeId;
 
   /// The content is the local draft of the new thread the member restored in the editor of another kind: the editor
   /// switched to holds it as its own, never offers it again.

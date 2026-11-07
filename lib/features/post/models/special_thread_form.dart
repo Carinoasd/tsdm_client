@@ -317,7 +317,8 @@ final class HongbaoEdits {
     'blessing': blessing,
   };
 
-  /// The packet kept as [json] ([toJson]), null when it is not one.
+  /// The packet kept as [json] ([toJson]), null when it is not one. A value it does not know is taken as unset (an
+  /// unknown split as [HongbaoSplit.lucky]): the dialog shows the packet before it is posted.
   static HongbaoEdits? fromJson(Object? json) {
     if (json is! Map<String, dynamic>) {
       return null;
