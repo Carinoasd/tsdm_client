@@ -532,6 +532,17 @@
         "detail": "App 的自动同步（电脑版缩到托盘时也算）与安卓的后台消息接收也检查此设备上其他已登录的账号，各自用自己的登录；通知会标出账号，点通知时先切换到该账号再打开通知页",
         "seenNote": "检查其他账号时，论坛会把它们的提醒标成已读（网页上的红点会消失），和打开通知页一样"
       },
+      "noticeCategories": {
+        "title": "通知类别",
+        "reply": "回复",
+        "mention": "@提到我",
+        "rate": "评分／点评",
+        "pm": "私信",
+        "system": "系统通知",
+        "quietHours": "静音时段",
+        "quietStart": "开始",
+        "quietEnd": "结束"
+      },
       "notificationHideContent": {
         "title": "通知不显示内容",
         "detail": "系统通知只显示账号与新消息数量，不显示是谁、做了什么和消息内容"
@@ -2036,6 +2047,13 @@
     }
   },
   "localNotification": {
+    "channels": {
+      "reply": "回复",
+      "mention": "@提到我",
+      "rate": "评分／点评",
+      "pm": "私信",
+      "system": "系统通知"
+    },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
     "ticker": "新提醒",

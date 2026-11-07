@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -16,6 +17,30 @@ import 'package:tsdm_client/utils/platform.dart';
 /// not be fixed in place: this is its replacement with high importance (#13). Keep the id stable from now on; a new
 /// id is only worth it together with deleting the old channel at boot ([deleteLegacyLocalNoticeChannel]).
 const localNoticeChannelId = 'newNoticeChannelV2';
+
+/// The channel of [info]: the one of the newest item it announces, which its title and body name.
+///
+/// A notification announcing several items of different categories is posted in the channel of that headline item, as
+/// it is one notification.
+NoticeCategory noticeCategoryOfInfo(NotificationAutoSyncInfo info) => switch (info) {
+  NotificationAutoSyncInfoPm() => NoticeCategory.pm,
+  NotificationAutoSyncInfoBm() => NoticeCategory.system,
+  NotificationAutoSyncInfoNotice(:final noticeType, :final fromIdType) => noticeCategoryOf(
+    noticeKindOf(type: noticeType, fromIdType: fromIdType),
+  ),
+};
+
+/// Name of the Android channel of [category] with the texts of [translations].
+String noticeChannelName(Translations translations, NoticeCategory category) {
+  final tr = translations.localNotification.channels;
+  return switch (category) {
+    NoticeCategory.reply => tr.reply,
+    NoticeCategory.mention => tr.mention,
+    NoticeCategory.rate => tr.rate,
+    NoticeCategory.pm => tr.pm,
+    NoticeCategory.system => tr.system,
+  };
+}
 
 /// Id of the channel used before [localNoticeChannelId].
 ///
@@ -265,6 +290,10 @@ String localNotificationBodyOf(Translations translations, NotificationAutoSyncIn
 ///
 /// [title], [body], [lines] and [summary] are the texts of the notification ([LocalNotificationContent]): Android
 /// shows [lines] in the inbox style when there are any, the whole [body] otherwise.
+///
+/// With a [category] the notification is posted in the channel of that category (named [channelName]), so the system
+/// settings can switch each category off on its own; without one (the test notification of the settings page) in
+/// [localNoticeChannelId].
 NotificationDetails buildLocalNotificationDetails({
   required String channelName,
   required String channelDescription,
@@ -273,9 +302,10 @@ NotificationDetails buildLocalNotificationDetails({
   String? body,
   List<String> lines = const [],
   String? summary,
+  NoticeCategory? category,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
-    localNoticeChannelId,
+    category?.channelId ?? localNoticeChannelId,
     channelName,
     channelDescription: channelDescription,
     ticker: ticker,
@@ -371,8 +401,10 @@ Future<void> showLocalNotificationWith({
 }) async {
   final tr = translations.localNotification;
   final content = localNotificationContentOf(translations, info, account: account, hideContent: hideContent);
+  final category = noticeCategoryOfInfo(info);
   final nd = buildLocalNotificationDetails(
-    channelName: tr.channelName,
+    channelName: noticeChannelName(translations, category),
+    category: category,
     channelDescription: tr.channelDesc,
     ticker: tr.ticker,
     title: content.title,

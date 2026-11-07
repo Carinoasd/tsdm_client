@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/notification/utils/auto_sync_info.dart';
 import 'package:tsdm_client/features/notification/utils/deleted_personal_messages.dart';
 import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/features/notification/utils/personal_message_sent.dart';
+import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
@@ -636,7 +637,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // ones or copies fetched again.
     //
     // MARK: flnp
-    final latest = autoSyncInfoOf(fresh);
+    final latest = autoSyncInfoOf(fresh, rules: await NotificationPushRules.read(_storageProvider));
     if (latest != null) {
       _infoRepository.updateAutoSyncInfo(latest);
     }

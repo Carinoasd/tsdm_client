@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/local_notice/notification_permission_prompt
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
+import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
@@ -825,6 +826,66 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  /// Which categories the system notifications announce, and the quiet hours.
+  Widget _buildNoticeCategoriesSection(BuildContext context, SettingsState state) {
+    final tr = context.t.settingsPage.behaviorSection.noticeCategories;
+    final map = state.settingsMap;
+    final repo = getIt.get<SettingsRepository>();
+    Widget category(NoticeCategory c, IconData icon, String title, {required bool value}) => SectionSwitchListTile(
+      key: ValueKey('notice-category-${c.name}'),
+      secondary: Icon(icon),
+      title: Text(title),
+      value: value,
+      onChanged: (v) async => repo.setValue(c.settingsKey, v),
+    );
+    Future<void> pick(SettingsKeys<int> key, int minutes) async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: minutes ~/ 60 % 24, minute: minutes % 60),
+        builder: (context, child) =>
+            MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
+      );
+      if (picked != null) {
+        await repo.setValue(key, picked.hour * 60 + picked.minute);
+      }
+    }
+
+    return AppTileGroup(
+      title: tr.title,
+      icon: Icons.notifications_active_outlined,
+      children: [
+        category(NoticeCategory.reply, Icons.reply_outlined, tr.reply, value: map.notifyReply),
+        category(NoticeCategory.mention, Icons.alternate_email_outlined, tr.mention, value: map.notifyMention),
+        category(NoticeCategory.rate, Icons.star_outline, tr.rate, value: map.notifyRate),
+        category(NoticeCategory.pm, Icons.mail_outline, tr.pm, value: map.notifyPersonalMessage),
+        category(NoticeCategory.system, Icons.campaign_outlined, tr.system, value: map.notifySystem),
+        SectionSwitchListTile(
+          key: const ValueKey('notice-quiet-hours'),
+          secondary: const Icon(Icons.bedtime_outlined),
+          title: Text(tr.quietHours),
+          value: map.notifyQuietHours,
+          onChanged: (v) async => repo.setValue(SettingsKeys.notifyQuietHours, v),
+        ),
+        if (map.notifyQuietHours) ...[
+          SectionListTile(
+            key: const ValueKey('notice-quiet-start'),
+            leading: const Icon(Icons.nightlight_outlined),
+            title: Text(tr.quietStart),
+            trailing: _trailingValue(context, DarkSchedule.timeText(map.notifyQuietStart)),
+            onTap: () async => pick(SettingsKeys.notifyQuietStart, map.notifyQuietStart),
+          ),
+          SectionListTile(
+            key: const ValueKey('notice-quiet-end'),
+            leading: const Icon(Icons.wb_sunny_outlined),
+            title: Text(tr.quietEnd),
+            trailing: _trailingValue(context, DarkSchedule.timeText(map.notifyQuietEnd)),
+            onTap: () async => pick(SettingsKeys.notifyQuietEnd, map.notifyQuietEnd),
+          ),
+        ],
+      ],
+    );
+  }
+
   Future<String?> _showSetCheckinFeelingDialog(BuildContext context, String defaultFeeling) async {
     return showDialog<String>(
       context: context,
@@ -1393,6 +1454,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         final end = [
           _buildBehaviorSection(context, state),
           _buildNoticeSyncSection(context, state),
+          if (autoSyncPostsNotifications) _buildNoticeCategoriesSection(context, state),
           _buildStorageSection(context, state),
           _buildAdvanceSection(context, state),
           _buildBackupSection(context, state),

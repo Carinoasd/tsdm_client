@@ -64,6 +64,14 @@ class SettingsMap with SettingsMapMappable {
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
     this.notificationHideContent = false,
+    this.notifyReply = true,
+    this.notifyMention = true,
+    this.notifyRate = true,
+    this.notifyPersonalMessage = true,
+    this.notifySystem = true,
+    this.notifyQuietHours = false,
+    this.notifyQuietStart = 1380,
+    this.notifyQuietEnd = 480,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
     this.offlineThreads = false,
@@ -140,6 +148,30 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the system notifications only show the counts, no content. Not required: backups from older versions
   /// lack it.
   final bool notificationHideContent;
+
+  /// See `SettingsKeys.notifyReply`. Not required: backups from older versions lack it.
+  final bool notifyReply;
+
+  /// See `SettingsKeys.notifyMention`. Not required: backups from older versions lack it.
+  final bool notifyMention;
+
+  /// See `SettingsKeys.notifyRate`. Not required: backups from older versions lack it.
+  final bool notifyRate;
+
+  /// See `SettingsKeys.notifyPersonalMessage`. Not required: backups from older versions lack it.
+  final bool notifyPersonalMessage;
+
+  /// See `SettingsKeys.notifySystem`. Not required: backups from older versions lack it.
+  final bool notifySystem;
+
+  /// See `SettingsKeys.notifyQuietHours`. Not required: backups from older versions lack it.
+  final bool notifyQuietHours;
+
+  /// See `SettingsKeys.notifyQuietStart`. Not required: backups from older versions lack it.
+  final int notifyQuietStart;
+
+  /// See `SettingsKeys.notifyQuietEnd`. Not required: backups from older versions lack it.
+  final int notifyQuietEnd;
   final bool enableDebugOperations;
   final String fontFamily;
   final bool enableEditorBBCodeParser;
@@ -161,6 +193,7 @@ class SettingsMap with SettingsMapMappable {
   /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
   /// versions lack it.
   final bool twoPaneLayout;
+
   /// Sync the reading progress, the quick phrases and the block list across devices. Not required: backups from older
   /// versions lack it.
   final bool crossDeviceSync;
@@ -272,6 +305,14 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableBackgroundMessageService => copyWith(enableBackgroundMessageService: value as bool?),
       SettingsKeys.backgroundSyncAllAccounts => copyWith(backgroundSyncAllAccounts: value as bool?),
       SettingsKeys.notificationHideContent => copyWith(notificationHideContent: value as bool?),
+      SettingsKeys.notifyReply => copyWith(notifyReply: value as bool?),
+      SettingsKeys.notifyMention => copyWith(notifyMention: value as bool?),
+      SettingsKeys.notifyRate => copyWith(notifyRate: value as bool?),
+      SettingsKeys.notifyPersonalMessage => copyWith(notifyPersonalMessage: value as bool?),
+      SettingsKeys.notifySystem => copyWith(notifySystem: value as bool?),
+      SettingsKeys.notifyQuietHours => copyWith(notifyQuietHours: value as bool?),
+      SettingsKeys.notifyQuietStart => copyWith(notifyQuietStart: value as int?),
+      SettingsKeys.notifyQuietEnd => copyWith(notifyQuietEnd: value as int?),
       SettingsKeys.enableDebugOperations => copyWith(enableDebugOperations: value as bool?),
       SettingsKeys.fontFamily => copyWith(fontFamily: value as String?),
       SettingsKeys.enableEditorBBCodeParser => copyWith(enableEditorBBCodeParser: value as bool?),
