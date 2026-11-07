@@ -1926,6 +1926,11 @@
     "shareImage": "分享圖片",
     "failedToShareImage": "無法分享圖片",
     "openInBrowser": "用瀏覽器開啟",
+    "saveAllImages": "儲存全部圖片",
+    "saveScopeFloor": "這一樓",
+    "saveScopePage": "這一頁",
+    "saveAllDone": "已儲存 ${saved: int} 張，失敗 ${failed: int} 張",
+    "saveAllCancelled": "已取消，已儲存 ${saved: int} 張",
     "failedToOpenInBrowser": "無法開啟瀏覽器"
   },
   "init": {

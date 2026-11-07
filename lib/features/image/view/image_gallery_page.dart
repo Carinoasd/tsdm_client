@@ -10,6 +10,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/features/image/utils/image_sizes.dart';
+import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -25,7 +26,12 @@ import 'package:tsdm_client/widgets/copy_content_dialog.dart';
 ///
 /// The route is the one of the single picture ([ScreenPaths.imageDetail], its url in the path) with the pictures as
 /// its extra: the route opened without them (a link, a page restored) shows that picture alone.
-Future<void> openImageGallery(BuildContext context, List<GalleryImage> images, int index) async {
+Future<void> openImageGallery(
+  BuildContext context,
+  List<GalleryImage> images,
+  int index, {
+  List<GalleryImage>? pageImages,
+}) async {
   if (images.isEmpty) {
     return;
   }
@@ -33,7 +39,7 @@ Future<void> openImageGallery(BuildContext context, List<GalleryImage> images, i
   await context.pushNamed(
     ScreenPaths.imageDetail,
     pathParameters: {'imageUrl': images[initial].url},
-    extra: ImageGalleryArgs(images, initial),
+    extra: ImageGalleryArgs(images, initial, pageImages: pageImages),
   );
 }
 
@@ -60,7 +66,7 @@ final class ImageGalleryRoute extends GoRoute {
                 FadeTransition(opacity: animation, child: child),
             child: RootPage(
               ScreenPaths.imageDetail,
-              ImageGalleryPage(images: images, initialIndex: args?.initialIndex ?? 0),
+              ImageGalleryPage(images: images, initialIndex: args?.initialIndex ?? 0, pageImages: args?.pageImages),
             ),
           );
         },
@@ -84,13 +90,16 @@ const _dismissVelocity = 900.0;
 /// The pictures load as they are shown, with their progress, and a failed one is tapped to try again.
 class ImageGalleryPage extends StatefulWidget {
   /// Constructor.
-  const ImageGalleryPage({required this.images, this.initialIndex = 0, super.key});
+  const ImageGalleryPage({required this.images, this.initialIndex = 0, this.pageImages, super.key});
 
   /// The pictures.
   final List<GalleryImage> images;
 
   /// The picture shown first.
   final int initialIndex;
+
+  /// The pictures of the whole page the floor is on, null when not known.
+  final List<GalleryImage>? pageImages;
 
   @override
   State<ImageGalleryPage> createState() => _ImageGalleryPageState();
@@ -342,6 +351,13 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                 tooltip: tr.saveImage,
                 onPressed: () async => saveImageOf(context, image.url),
               ),
+              if (widget.images.length > 1 || (widget.pageImages?.length ?? 0) > 1)
+                IconButton(
+                  key: const ValueKey('image-gallery-save-all'),
+                  icon: const Icon(Icons.download_for_offline_outlined, color: foreground),
+                  tooltip: tr.saveAllImages,
+                  onPressed: () async => saveImagesAskingScope(context, floor: widget.images, page: widget.pageImages),
+                ),
               if (canShareImageFiles)
                 Builder(
                   builder: (context) => IconButton(

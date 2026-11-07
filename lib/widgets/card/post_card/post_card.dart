@@ -11,6 +11,9 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
+import 'package:tsdm_client/features/image/models/gallery_image.dart';
+import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
+import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
@@ -78,6 +81,9 @@ enum _PostCardActions {
 
   /// Render the floor to a picture to save or share ([ShareFloorImagePage]).
   shareAsImage,
+
+  /// Save every picture of the floor, or of its page.
+  saveImages,
 
   /// Open the post link in browser.
   ///
@@ -325,7 +331,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
   }
 
   /// The pictures of the floor's content shown now, for the gallery a tap on one opens.
-  late final _floorImages = FloorImages(widget.post.attachments);
+  late final _floorImages = FloorImages(widget.post.attachments, _pageImages);
+
+  /// The pictures of every floor of this floor's page loaded in the thread (the floor's own outside a thread).
+  List<GalleryImage> _pageImages() {
+    final posts = context.readOrNull<ThreadBloc>()?.state.postList.where((e) => e.page == widget.post.page);
+    return galleryImagesOfPosts(posts ?? [widget.post]);
+  }
 
   @override
   void didUpdateWidget(PostCard oldWidget) {
@@ -450,6 +462,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
       ],
       [
+        if (galleryImagesOfPost(widget.post).isNotEmpty || (threadBloc != null && _pageImages().isNotEmpty))
+          item(
+            _PostCardActions.saveImages,
+            Icons.download_for_offline_outlined,
+            context.t.imageBottomSheet.saveAllImages,
+          ),
         if (widget.post.shareLink != null) ...[
           item(_PostCardActions.share, Icons.share_outlined, context.t.postCard.share),
           item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
@@ -553,6 +571,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             link: shareFloorImageLink(pid: widget.post.postID, tid: thread?.tid, shareLink: widget.post.shareLink),
           ),
         );
+      case _PostCardActions.saveImages:
+        await saveImagesAskingScope(context, floor: galleryImagesOfPost(widget.post), page: _pageImages());
       case _PostCardActions.openInBrowser:
         await launchUrl(Uri.parse(widget.post.shareLink!), mode: LaunchMode.externalApplication);
       case _PostCardActions.openAndCopy:

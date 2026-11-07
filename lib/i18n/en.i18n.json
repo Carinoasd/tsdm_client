@@ -1926,6 +1926,11 @@
     "shareImage": "Share image",
     "failedToShareImage": "Failed to share image",
     "openInBrowser": "Open in browser",
+    "saveAllImages": "Save all images",
+    "saveScopeFloor": "This floor",
+    "saveScopePage": "This page",
+    "saveAllDone": "Saved ${saved: int}, failed ${failed: int}",
+    "saveAllCancelled": "Cancelled, saved ${saved: int}",
     "failedToOpenInBrowser": "Failed to open the browser"
   },
   "init": {
