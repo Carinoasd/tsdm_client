@@ -1238,18 +1238,43 @@
       "keywordEmpty": "关键词不能为空",
       "keywordInvalid": "关键词不能包含\"%\"",
       "author": "作者（uid 或用户名）",
-      "authorInvalid": "作者不能包含\"%\"",
-      "fid": "论坛id（fid）",
-      "fidInvalid": "论坛id必须是不小于0的数字"
+      "authorInvalid": "作者不能包含\"%\""
     },
     "result": {
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
       "noData": "没有找到相关帖子",
-      "hint": "输入关键字、作者或论坛 id 后搜索",
+      "hint": "输入关键字或作者后搜索",
       "noDataHint": "换个关键字试试。",
-      "noDataFiltered": "限定了作者或版块，试试放宽限制。"
+      "noDataFiltered": "限定了作者、版块或时间，试试放宽限制。"
+    },
+    "filter": {
+      "forum": "版块",
+      "forumCount": "$count 个版块",
+      "forumId": "版块 $fid",
+      "clear": "清除",
+      "time": {
+        "all": "不限时间",
+        "day": "一天内",
+        "week": "一周内",
+        "month": "一个月内",
+        "threeMonths": "三个月内",
+        "halfYear": "半年内",
+        "year": "一年内"
+      },
+      "order": {
+        "lastpost": "最后回复",
+        "dateline": "发表时间",
+        "replies": "回复数",
+        "views": "查看数",
+        "descending": "降序",
+        "ascending": "升序"
+      },
+      "titleOnly": "只搜标题"
+    },
+    "history": {
+      "clear": "清除全部"
     }
   },
   "myThreadPage": {
