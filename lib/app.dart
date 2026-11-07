@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -290,6 +291,14 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     if (changed) {
       WidgetsBinding.instance.addPostFrameCallback((_) => debug('frame painted: ${describeViewMetrics(view)}'));
     }
+  }
+
+  /// Opens a page for a keyboard shortcut, unless that page is the one in view already.
+  void _openFromKeyboard(String path) {
+    if (router.routerDelegate.currentConfiguration.uri.path == path) {
+      return;
+    }
+    unawaited(router.pushNamed(path));
   }
 
   @override
@@ -767,7 +776,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                        child: KeyboardShortcutsHost(
+                          onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                          onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                          child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                        ),
                       );
                     },
                   );

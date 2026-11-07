@@ -589,6 +589,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       icon: Icons.desktop_windows_outlined,
       footer: AppNoticeBanner(message: tr.disableHint, selectable: true),
       children: [
+        SectionListTile(
+          leading: const Icon(Icons.keyboard_alt_outlined),
+          title: Text(tr.keyboardShortcuts),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.pushNamed(ScreenPaths.keyboardShortcuts),
+        ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.settings_overscan_outlined),
           title: Text(tr.windowRememberSize.title),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,6 +16,8 @@ import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -86,6 +90,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
 
   /// Controller of current tab: thread, subreddit.
   late TabController tabController;
+
+  /// The thread the keyboard moved to in the thread tab.
+  final _keyboardSelection = KeyboardSelection();
 
   /// Visibility of FAB.
   bool _fabVisible = true;
@@ -405,7 +412,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             SliverList.separated(
               itemCount: normalThreadList.length + 1,
               itemBuilder: (context, index) => index < normalThreadList.length
-                  ? Padding(padding: side, child: NormalThreadCard(normalThreadList[index]))
+                  ? Padding(
+                      padding: side,
+                      child: KeyboardSelectable(
+                        selection: _keyboardSelection,
+                        index: index,
+                        child: NormalThreadCard(normalThreadList[index]),
+                      ),
+                    )
                   : ListFooter(
                       status: listFooterStatus(
                         hasMore: state.canLoadMore && state.currentPage < state.totalPages,
@@ -622,6 +636,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     _subredditScrollController.dispose();
     _subredditRefreshController.dispose();
     tabController.dispose();
+    _keyboardSelection.dispose();
     super.dispose();
   }
 
@@ -630,6 +645,31 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     // The threads, sub forums and actions shown are the ones the account in use may see: loaded again for another
     // account. A wide window shows the thread tapped on the right of the list.
     return TwoPaneLayout(list: AccountReloadScope(child: _buildPage(context)));
+  }
+
+  /// The thread of the thread tab the keyboard is on, null when none.
+  NormalThread? _selectedThread(ForumState state) {
+    final index = _keyboardSelection.index;
+    if (tabController.index != _threadTabIndex || index == null || index >= state.normalThreadList.length) {
+      return null;
+    }
+    return state.normalThreadList[index];
+  }
+
+  void _moveSelection(ForumState state, int delta) {
+    if (tabController.index == _threadTabIndex) {
+      _keyboardSelection.move(delta, state.normalThreadList.length);
+    }
+  }
+
+  void _jumpPage(BuildContext context, ForumState state, int delta) {
+    final page = state.currentPage + delta;
+    if (state.status != ForumStatus.success || page < 1 || page > state.totalPages) {
+      return;
+    }
+    _keyboardSelection.clear();
+    context.read<JumpPageCubit>().markLoading();
+    context.read<ForumBloc>().add(ForumJumpPageRequested(page));
   }
 
   /// The page, under the [AccountReloadScope] of [build].
@@ -682,6 +722,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               tabController.animateTo(_subredditTabIndex, duration: const Duration(milliseconds: 500));
             },
           ),
+          // The threads were replaced (a refresh, another filter): the one the keyboard was on is another one now.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.filterState != curr.filterState || (prev.refreshing && !curr.refreshing),
+            listener: (context, state) => _keyboardSelection.clear(),
+          ),
           // The moderation queue is offered to the forum's moderators.
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.status != curr.status && curr.status == ForumStatus.success,
@@ -716,14 +761,32 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               context.read<JumpPageCubit>().markSuccess();
             }
 
-            return Scaffold(
-              // appBar: PreferredSize(preferredSize: const Size.fromHeight(145), child: _buildListAppBar(context, state)),
-              appBar: _buildListAppBar(context, state),
-              body: NotificationListener<ScrollNotification>(
-                onNotification: _onBodyScrollNotification,
-                child: SafeArea(bottom: false, child: _buildBody(context, state)),
+            return KeyboardPageActions(
+              onRefresh: () {
+                _keyboardSelection.clear();
+                context.read<ForumBloc>().add(ForumRefreshRequested());
+              },
+              onNextItem: () => _moveSelection(state, 1),
+              onPreviousItem: () => _moveSelection(state, -1),
+              canOpenItem: () => _selectedThread(state) != null,
+              onOpenItem: () {
+                if (_selectedThread(state) case final thread?) {
+                  unawaited(
+                    openThread(context, threadID: thread.threadID, title: thread.title, threadType: thread.threadType),
+                  );
+                }
+              },
+              onNextPage: () => _jumpPage(context, state, 1),
+              onPreviousPage: () => _jumpPage(context, state, -1),
+              child: Scaffold(
+                // appBar: PreferredSize(preferredSize: const Size.fromHeight(145), child: _buildListAppBar(context, state)),
+                appBar: _buildListAppBar(context, state),
+                body: NotificationListener<ScrollNotification>(
+                  onNotification: _onBodyScrollNotification,
+                  child: SafeArea(bottom: false, child: _buildBody(context, state)),
+                ),
+                floatingActionButton: _buildFloatingActionButton(context, state),
               ),
-              floatingActionButton: _buildFloatingActionButton(context, state),
             );
           },
         ),

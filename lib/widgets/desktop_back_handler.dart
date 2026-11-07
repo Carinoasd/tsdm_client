@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
 /// Lets desktop users go back with the keyboard and the mouse (GitHub #138).
@@ -47,7 +48,7 @@ class DesktopBackHandler extends StatelessWidget {
     if (focusContext == null || !focusContext.mounted) {
       return false;
     }
-    if (_inTextInput(focusContext)) {
+    if (isInTextInput(focusContext)) {
       return false;
     }
     final route = ModalRoute.of(focusContext);
@@ -65,20 +66,6 @@ class DesktopBackHandler extends StatelessWidget {
     // `maybePop` respects `PopScope` of the page and pops local history entries (a persistent bottom sheet) first.
     unawaited(navigator.maybePop());
     return true;
-  }
-
-  /// Whether [context] is inside a text input: an [EditableText] (text fields) or any other editor that talks to the
-  /// platform text input (the BBCode editor).
-  static bool _inTextInput(BuildContext context) {
-    var found = false;
-    context.visitAncestorElements((element) {
-      if (element is StatefulElement && element.state is TextInputClient) {
-        found = true;
-        return false;
-      }
-      return true;
-    });
-    return found;
   }
 
   void _onPointerDown(PointerDownEvent event) {

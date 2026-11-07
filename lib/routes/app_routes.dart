@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
+import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
@@ -152,6 +153,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.about, builder: (_) => const AboutPage()),
   AppRoute(path: ScreenPaths.activities, builder: (_) => const ActivitiesPage()),
   AppRoute(path: ScreenPaths.license, builder: (_) => const AppLicensePage()),
+  AppRoute(path: ScreenPaths.keyboardShortcuts, builder: (_) => const KeyboardShortcutsPage()),
   AppRoute(
     path: ScreenPaths.forum,
     builder: (state) {

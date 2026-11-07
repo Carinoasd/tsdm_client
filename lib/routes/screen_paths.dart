@@ -140,6 +140,9 @@ class ScreenPaths {
   /// The "me" tab of the home shell: the account in use, its pages, the settings and about the app.
   static const String me = '/me';
 
+  /// The keyboard shortcuts of the desktop app, listed.
+  static const String keyboardShortcuts = '/keyboardShortcuts';
+
   /// Settings page for thread card appearance.
   static const settingsThreadAppearance = NestedPath._('threadAppearance', settings);
 

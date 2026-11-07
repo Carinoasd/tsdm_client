@@ -20,6 +20,7 @@ import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
 import 'package:tsdm_client/features/homepage/widgets/user_operation_dialog.dart';
 import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
@@ -545,22 +546,26 @@ class _HomepagePageState extends State<HomepagePage> {
 
             _refreshController.finishRefresh();
 
-            return LayoutBuilder(
-              builder: (context, constraints) => Scaffold(
-                appBar: AppBar(
-                  title: Text(context.t.homepage.title),
-                  actions: _buildAppBarActions(context, state, constraints.maxWidth),
-                ),
-                body: SafeArea(
-                  left: false,
-                  top: false,
-                  bottom: false,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _handleScrollNotification,
-                    child: AnimatedSwitcher(duration: duration200, child: body),
+            return KeyboardPageActions(
+              active: TickerMode.valuesOf(context).enabled,
+              onRefresh: () => _refresh(context),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scaffold(
+                  appBar: AppBar(
+                    title: Text(context.t.homepage.title),
+                    actions: _buildAppBarActions(context, state, constraints.maxWidth),
                   ),
+                  body: SafeArea(
+                    left: false,
+                    top: false,
+                    bottom: false,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _handleScrollNotification,
+                      child: AnimatedSwitcher(duration: duration200, child: body),
+                    ),
+                  ),
+                  floatingActionButton: _buildFloatingActionButton(context, state),
                 ),
-                floatingActionButton: _buildFloatingActionButton(context, state),
               ),
             );
           },

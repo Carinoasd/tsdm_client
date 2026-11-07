@@ -243,6 +243,45 @@ class PostListState extends State<PostList> with LoggerMixin {
     unawaited(_scrollToTarget());
   }
 
+  /// Scrolls so that the floor after ([direction] > 0) or before ([direction] < 0) the one at the top of the list
+  /// is at the top, for the keyboard. A page of the list is scrolled when there is no such floor built.
+  void scrollByFloor(int direction) {
+    if (!_listScrollController.hasClients) {
+      return;
+    }
+    final position = _listScrollController.position;
+    double? target;
+    for (final cardContext in _cards.values) {
+      if (!cardContext.mounted) {
+        continue;
+      }
+      final box = cardContext.findRenderObject();
+      if (box is! RenderBox || !box.attached) {
+        continue;
+      }
+      final viewport = RenderAbstractViewport.maybeOf(box);
+      if (viewport == null) {
+        continue;
+      }
+      final offset = viewport.getOffsetToReveal(box, 0).offset;
+      if (direction > 0) {
+        if (offset > position.pixels + 1 && (target == null || offset < target)) {
+          target = offset;
+        }
+      } else if (offset < position.pixels - 1 && (target == null || offset > target)) {
+        target = offset;
+      }
+    }
+    target ??= position.pixels + direction.sign * position.viewportDimension * 0.9;
+    unawaited(
+      position.animateTo(
+        target.clamp(position.minScrollExtent, position.maxScrollExtent),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
   /// Key of the slot of the floor with [pid]: the floor where it is rather than its copy as a hot reply.
   String? _keyOfPid(String pid) {
     for (final key in ['floor:$pid', 'hot:$pid']) {

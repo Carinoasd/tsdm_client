@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/notice_block_filter.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -376,7 +377,11 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
         _toggleSearch();
         return true;
       },
-      child: _buildPage(context),
+      child: KeyboardPageActions(
+        active: TickerMode.valuesOf(context).enabled,
+        onRefresh: () => context.read<NotificationBloc>().add(const NotificationUpdateAllRequested(bypassGate: true)),
+        child: _buildPage(context),
+      ),
     );
   }
 
