@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/profile/models/avatar_upload.dart';
 import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -11,6 +12,14 @@ import 'package:universal_html/parsing.dart';
 
 /// Repository to get profile page.
 final class ProfileRepository with LoggerMixin {
+  /// Constructor; [currentUid] tells the account logged in (the app's settings by default) the avatar page is
+  /// checked against.
+  ProfileRepository({int Function()? currentUid}) : _currentUid = currentUid;
+
+  final int Function()? _currentUid;
+
+  int _loginUid() => _currentUid?.call() ?? getIt.get<SettingsRepository>().currentSettings.loginUid;
+
   static const _editAvatarPage = '$baseUrl/home.php?mod=spacecp&ac=avatar';
 
   /// Profile page of the logged user, fetched for the account [_loggedUserUid].
@@ -130,23 +139,54 @@ final class ProfileRepository with LoggerMixin {
     };
   });
 
-  /// Load the current using avatar url from server.
-  AsyncEither<(String, String)> loadAvatarUrl() => getIt
+  /// Load the forum's avatar page: the external avatar url form and the avatar editor, each when printed.
+  ///
+  /// Left with [EditAvatarUrlNotFound] when the page offers neither (the forum's message instead: no permission to
+  /// upload, the login prompt), and with [IdentityChangedException] when it was served to another account than the
+  /// one logged in.
+  AsyncEither<AvatarEditPage> loadAvatarEditPage() => getIt
       .get<NetClientProvider>()
       .get(_editAvatarPage)
-      .mapHttp((v) => parseHtmlDocument(v.data as String))
-      .map(
-        (v) => (
-          v.querySelector('input[name="headedit"]')?.attributes['value'],
-          v.querySelector('input[name="formhash"]')?.attributes['value'],
-        ),
-      )
-      .flatMap(
-        (v) => switch (v) {
-          (final String avatarUrl, final String formHash) => TaskEither.right((avatarUrl, formHash)),
-          (_, _) => TaskEither.left(EditAvatarUrlNotFound()),
-        },
-      );
+      .mapHttp((v) => AvatarEditPage.parse(parseHtmlDocument(tsdmAppAnswerText(v.data))))
+      .flatMap((page) {
+        final uid = _loginUid();
+        if (page.uid != null && page.uid != uid) {
+          return TaskEither<AppException, AvatarEditPage>.left(IdentityChangedException());
+        }
+        if (!page.hasExternal && !page.hasUpload) {
+          return TaskEither<AppException, AvatarEditPage>.left(EditAvatarUrlNotFound());
+        }
+        return TaskEither.right(page);
+      });
+
+  /// Upload the avatar [images] with the forum's avatar editor.
+  ///
+  /// The url the editor posts to is signed for the account and the user agent that opened the page, and only for a
+  /// while, so the page is opened again right before the images are posted (once: never sent twice). The forum then
+  /// opens the page once more, as the editor reloads it after saving, which marks the account as having an avatar.
+  /// Not posted when the account changed, or the page has no editor any more.
+  AsyncVoidEither uploadAvatarImages(AvatarImages images) => loadAvatarEditPage().flatMap((page) {
+    final url = page.uploadUrl;
+    final uid = _loginUid();
+    if (page.uid == null || page.uid != uid) {
+      return TaskEither<AppException, void>.left(IdentityChangedException());
+    }
+    if (url == null) {
+      return TaskEither<AppException, void>.left(EditAvatarUrlNotFound());
+    }
+    return getIt
+        .get<NetClientProvider>()
+        .postForm(url, data: images.toBody(), singleAttempt: true, tsdmAppJson: false)
+        .mapHttp((v) => tsdmAppAnswerText(v.data))
+        .flatMap((body) {
+          final answer = AvatarUploadAnswer.parse(body);
+          if (answer != AvatarUploadAnswer.success) {
+            error('failed to upload avatar: $answer');
+            return TaskEither<AppException, void>.left(EditAvatarUploadFailed(answer.name));
+          }
+          return getIt.get<NetClientProvider>().get(_editAvatarPage).map((_) {});
+        });
+  });
 
   /// Upload the new avatar [url] to server.
   AsyncVoidEither uploadAvatarUrl({required String url, required String formHash}) => getIt

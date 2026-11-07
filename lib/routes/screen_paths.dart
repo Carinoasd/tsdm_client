@@ -125,6 +125,9 @@ class ScreenPaths {
   /// Page to edit current user's profile.
   static const String editUserProfile = '/editUserProfile';
 
+  /// Page to edit current user's signature; pops the signature saved, if any.
+  static const String editSignature = '/editSignature';
+
   /// App settings page.
   ///
   /// A page opened above the home shell (from the "me" tab and the menus of the list pages); it was a tab of the shell

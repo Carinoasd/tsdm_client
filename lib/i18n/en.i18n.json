@@ -2163,7 +2163,11 @@
     "submit": "Submit",
     "clearAvatarTip": "Submit an empty url to remove the avatar",
     "avatarUpdated": "Avatar updated",
-    "viewSharedAvatars": "Want beautiful avatars? Check shared avatars here"
+    "viewSharedAvatars": "Want beautiful avatars? Check shared avatars here",
+    "uploadImage": "Upload image",
+    "cropTitle": "Crop avatar",
+    "uploadFailed": "Upload failed",
+    "imageUnreadable": "Can not read this image"
   },
   "updatePage": {
     "title": "Get updates",
@@ -2621,7 +2625,8 @@
       "aboutMe": "About me",
       "forum": "On the forum"
     },
-    "uploadHint": "Changes stay on this page until you tap the upload button at the top right."
+    "uploadHint": "Changes stay on this page until you tap the upload button at the top right.",
+    "signatureUnavailable": "Your user group can not have a signature"
   },
   "urlInfoBottomSheet": {
     "title": "Url info",

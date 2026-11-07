@@ -3,9 +3,11 @@ import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/profile/models/birthday_info.dart';
 import 'package:tsdm_client/features/profile/models/editable_user_profile.dart';
 import 'package:tsdm_client/features/profile/models/profile_form_api.dart';
+import 'package:tsdm_client/features/profile/models/signature_form.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -107,7 +109,7 @@ final class EditUserProfileRepository with LoggerMixin {
     final api = _apiForm;
     if (api != null && profile.apiKeys != null) {
       return switch (api.bodyWith(profile)) {
-        Right(value: final body) => _upload(api.submitUrl, body, api: api),
+        Right(value: final body) => _upload(api.submitUrl, body, titles: api.titles),
         // A changed value the page does not offer: said by the field, nothing posted.
         Left(value: final field) => AsyncVoidEither.left(
           EditUserProfileUploadFailed(
@@ -156,9 +158,86 @@ final class EditUserProfileRepository with LoggerMixin {
     'profilesubmitbtn': 'true',
   };
 
+  /// Load the signature of the member from the profile editor.
+  ///
+  /// The forum prints the signature in one tab only (the tab whose items hold it), so the editor is asked tab by
+  /// tab: the default tab first, then the others it lists ([signatureProfileTabs]), until one prints the signature.
+  /// Asked as the small form of the forum's app API (plugin 3.0.0); an older plugin, or none, answers the web page,
+  /// read the same way. Left with [EditUserProfileFormNotFound] when no tab prints it (the member's group has no
+  /// signature), with the forum's message when it shows one instead (the login prompt), and when the answer was
+  /// served to another account than the one that asked.
+  AsyncEither<SignatureForm> loadSignature() => AsyncEither(() async {
+    final uid = _currentUid();
+    final tried = <String>{};
+    final queue = <String?>[null];
+    while (queue.isNotEmpty) {
+      final op = queue.removeAt(0);
+      final url = op == null ? '$_pageUrl&ac=profile' : '$_pageUrl&ac=profile&op=$op';
+      final Object? data;
+      switch (await getIt.get<NetClientProvider>().get(withTsdmAppForm(url, page: true)).run()) {
+        case Left(:final value):
+          return left(value);
+        case Right(:final value) when value.statusCode != HttpStatus.ok:
+          return left(HttpRequestFailedException(value.statusCode));
+        case Right(:final value):
+          data = value.data;
+      }
+      final List<String> tabs;
+      switch (smallFormAnswerOf(data, SmallFormKind.profile)) {
+        case final SmallFormAnswer answer when answer.identityProblem(uid) != null:
+          return left(EditUserProfileFormNotFound(reason: answer.identityProblem(uid)));
+        case final SmallFormMessage message:
+          return left(EditUserProfileFormNotFound(reason: message.reason));
+        case final SmallFormFields form:
+          if (SignatureForm.fromApi(form) case final signature?) {
+            return right(signature);
+          }
+          tried.add(tsdmAppText(form.json['op']));
+          tabs = [for (final e in tsdmAppList(form.json['ops'])) tsdmAppText(e['op'])];
+        case null when data is String && tsdmAppAnswerJson(data) == null:
+          // The web page: a forum without the plugin, or with one older than 3.0.0.
+          final doc = parseHtmlDocument(data);
+          final served = parseLoggedUidFromDocument(doc);
+          if (served != uid) {
+            return left(EditUserProfileFormNotFound(reason: served == null ? t.general.needLogin : null));
+          }
+          if (SignatureForm.fromDocument(doc, uid) case final signature?) {
+            return right(signature);
+          }
+          tried.add(op ?? '');
+          tabs = [
+            for (final a in doc.querySelectorAll('a[href*="ac=profile"]'))
+              Uri.tryParse(a.attributes['href'] ?? '')?.queryParameters['op'] ?? '',
+          ];
+        case _:
+          return left(EditUserProfileFormNotFound());
+      }
+      for (final tab in signatureProfileTabs) {
+        if (tabs.contains(tab) && !tried.contains(tab) && !queue.contains(tab)) {
+          queue.add(tab);
+        }
+      }
+      if (op != null) {
+        tried.add(op);
+      }
+    }
+    error('failed to load signature: no tab of the profile editor prints it');
+    return left(EditUserProfileFormNotFound(reason: t.editUserProfilePage.signatureUnavailable));
+  });
+
+  /// Post the signature [value] with its form [form]: the form's own fields and the signature, nothing else, so the
+  /// forum leaves every other field of the tab as it is. Read like [uploadProfile]. Not posted when the account
+  /// changed since the form was loaded.
+  AsyncVoidEither uploadSignature(SignatureForm form, String value) {
+    if (_currentUid() != form.uid) {
+      return AsyncVoidEither.left(IdentityChangedException());
+    }
+    return _upload(form.submitUrl, form.bodyWith(value), titles: {'sightml': t.editUserProfilePage.signature});
+  }
+
   static final _showErrorRe = RegExp(r'''show_error\(\s*["']([^"']+)["']''');
 
-  AsyncVoidEither _upload(String url, Map<String, String> body, {ProfileApiForm? api}) =>
+  AsyncVoidEither _upload(String url, Map<String, String> body, {Map<String, String>? titles}) =>
       getIt.get<NetClientProvider>().postMultipartForm(url, data: body).mapHttp((v) => v.data).flatMap((data) {
         final result = tsdmAppWriteResultOf(data);
         final bool saved;
@@ -184,13 +263,13 @@ final class EditUserProfileRepository with LoggerMixin {
           return TaskEither<AppException, void>.right(null);
         }
         error('failed to upload user profile: $failure');
-        if (api == null) {
+        if (titles == null) {
           return TaskEither<AppException, void>.left(EditUserProfileUploadFailed());
         }
         // The editor of the forum's app API: the forum's words, or the field it refused by the title it printed.
         final refused = result == null ? null : _showErrorRe.firstMatch(result.documentHtml)?.group(1);
         final reason = refused != null
-            ? t.editUserProfilePage.fieldRefused(field: api.titles[refused] ?? refused)
+            ? t.editUserProfilePage.fieldRefused(field: titles[refused] ?? refused)
             : (failure?.trim().isNotEmpty ?? false)
             ? failure!.trim()
             : null;

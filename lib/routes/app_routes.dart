@@ -61,6 +61,7 @@ import 'package:tsdm_client/features/post/view/fast_reply_template_page.dart';
 import 'package:tsdm_client/features/post/view/poll_create_page.dart';
 import 'package:tsdm_client/features/post/view/post_edit_page.dart';
 import 'package:tsdm_client/features/profile/view/edit_avatar_page.dart';
+import 'package:tsdm_client/features/profile/view/edit_signature_page.dart';
 import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
@@ -316,6 +317,7 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => PokemonEquipmentPage(pokemon: state.extra! as Pokemon),
   ),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),
+  AppRoute(path: ScreenPaths.editSignature, builder: (_) => const EditSignaturePage()),
   AppRoute(
     path: ScreenPaths.ratePost,
     builder: (state) {

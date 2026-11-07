@@ -2163,7 +2163,11 @@
     "submit": "提交",
     "clearAvatarTip": "提交一个空链接可以清除当前使用的头像",
     "avatarUpdated": "头像已更新",
-    "viewSharedAvatars": "在找好看头像？点我看公共头像"
+    "viewSharedAvatars": "在找好看头像？点我看公共头像",
+    "uploadImage": "上传图片",
+    "cropTitle": "裁剪头像",
+    "uploadFailed": "上传失败",
+    "imageUnreadable": "无法读取这张图片"
   },
   "updatePage": {
     "title": "获取更新",
@@ -2621,7 +2625,8 @@
       "aboutMe": "关于我",
       "forum": "论坛显示"
     },
-    "uploadHint": "修改只保留在本页，点右上角的上传按钮才会提交到论坛。"
+    "uploadHint": "修改只保留在本页，点右上角的上传按钮才会提交到论坛。",
+    "signatureUnavailable": "当前用户组不能使用个人签名"
   },
   "urlInfoBottomSheet": {
     "title": "链接信息",
