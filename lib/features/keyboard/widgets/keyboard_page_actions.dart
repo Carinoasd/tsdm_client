@@ -94,10 +94,35 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
     }
   }
 
+  /// The scope of the route holding the page.
+  FocusScopeNode? _routeScope;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _routeScope = FocusScope.of(context);
+  }
+
   @override
   void dispose() {
+    // The page goes with the focus (the thread beside a list was replaced): the route gets it back, which gives it to
+    // what had it before, instead of leaving it to the root above every page.
+    final restore = _scopeNode.hasFocus ? _routeScope : null;
+    if (restore != null) {
+      scheduleMicrotask(() {
+        if (restore.context != null) {
+          restore.requestFocus();
+        }
+      });
+    }
     _scopeNode.dispose();
     super.dispose();
+  }
+
+  /// Whether nothing in the route holds the focus, or the route has it for itself.
+  bool _focusIsFree() {
+    final scope = FocusScope.of(context);
+    return scope.focusedChild == null || FocusManager.instance.primaryFocus == scope;
   }
 
   /// Takes the focus once the page is built, unless something inside the route has it (a text field focusing itself
@@ -109,7 +134,7 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // After the other post frame callbacks of the frame: a text field gives itself the focus in one.
       scheduleMicrotask(() {
-        if (!mounted || !widget.active || (!force && FocusScope.of(context).focusedChild != null)) {
+        if (!mounted || !widget.active || (!force && !_focusIsFree())) {
           return;
         }
         _scopeNode.requestFocus();
@@ -123,9 +148,13 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
   /// A click on the page puts the keys on it, when they are not on it already: two pages side by side (a list and the
   /// thread beside it) follow the mouse.
   void _onPointerDown(PointerDownEvent event) {
-    if (!_scopeNode.hasFocus) {
-      _scopeNode.requestFocus();
-    }
+    // After the text input beside gave its focus up: its tap region runs after this listener, and would hand the focus
+    // back to the page it is in.
+    scheduleMicrotask(() {
+      if (mounted && !_scopeNode.hasFocus) {
+        _scopeNode.requestFocus();
+      }
+    });
   }
 
   @override

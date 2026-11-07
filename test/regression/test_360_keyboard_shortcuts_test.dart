@@ -206,6 +206,84 @@ void main() {
       expect(log, ['left', 'right', 'left']);
     });
 
+    testWidgets('a click takes the keys from a text input of the page beside it', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => KeyboardShortcutsHost(
+            onSearch: () {},
+            onSettings: () {},
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: Scaffold(
+            body: Row(
+              children: [
+                KeyboardPageActions(
+                  onNextItem: () => log.add('left'),
+                  child: const SizedBox(width: 300, height: 200, child: TextField(autofocus: true)),
+                ),
+                KeyboardPageActions(
+                  onNextItem: () => log.add('right'),
+                  child: const SizedBox(width: 200, height: 200, child: Center(child: Text('right'))),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('right'));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      expect(log, ['right']);
+    });
+
+    testWidgets('the keys stay with a page when the one beside it that had them is replaced', (tester) async {
+      var generation = 0;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => KeyboardShortcutsHost(
+            onSearch: () {},
+            onSettings: () {},
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return Row(
+                  children: [
+                    KeyboardPageActions(
+                      onNextItem: () => log.add('left'),
+                      child: const SizedBox(width: 200, height: 200, child: Center(child: Text('left'))),
+                    ),
+                    KeyedSubtree(
+                      key: ValueKey(generation),
+                      child: KeyboardPageActions(
+                        onNextItem: () => log.add('right$generation'),
+                        child: const SizedBox(width: 200, height: 200, child: Center(child: Text('right'))),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('right'));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      update(() => generation = 1);
+      await tester.pump();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      expect(log.first, 'right0');
+      expect(log, hasLength(2));
+      expect(log.last, anyOf('left', 'right1'));
+    });
+
     testWidgets('Enter stays with a focused button even with an item to open', (tester) async {
       await tester.pumpWidget(app());
       await tester.pump();
