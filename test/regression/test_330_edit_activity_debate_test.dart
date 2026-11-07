@@ -153,6 +153,8 @@ void main() {
     expect(parseDiscuzDateTime(''), isNull);
     expect(parseDiscuzDateTime('2026-13-01 10:00'), isNull);
     expect(parseDiscuzDateTime('soon'), isNull);
+    expect(parseDiscuzDateTime('2026-02-31 10:00'), isNull);
+    expect(parseDiscuzDateTime('2026-12-05 10:00:30'), DateTime(2026, 12, 5, 10, 0, 30));
     expect(stripSlashes(r'''It\'s \"q\" a\\b'''), 'It\'s "q" a\\b');
     expect(stripSlashes(r'a\0b'), 'a\u0000b');
     expect(stripSlashes(r'end\'), 'end');

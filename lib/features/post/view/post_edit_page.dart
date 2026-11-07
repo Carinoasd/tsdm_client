@@ -864,7 +864,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       if (set == null || problem != null) {
         showSnackBar(
           context: context,
-          message: set == null ? context.t.postEditPage.debateDialog.required : debateIssueText(context, problem!),
+          message: switch (problem) {
+            _ when set == null => context.t.postEditPage.debateDialog.required,
+            // The debate edited has ended: posted with its end, the forum refuses the whole edit.
+            DebateIssue.endPassed when widget.editType != PostEditType.newThread =>
+              context.t.postEditPage.debateDialog.ended,
+            _ => debateIssueText(context, problem!),
+          },
         );
         return;
       }

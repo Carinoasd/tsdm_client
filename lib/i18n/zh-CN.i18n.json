@@ -1553,6 +1553,7 @@
       "end": "结束时间",
       "umpire": "裁判",
       "required": "请先设置辩论",
+      "ended": "辩论已结束：请在辩论设置中改期或清空结束时间",
       "issue": {
         "pointsRequired": "请填写正方和反方观点",
         "endPassed": "结束时间必须晚于现在"

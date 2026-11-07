@@ -559,19 +559,23 @@ String discuzDateTime(DateTime t) =>
     '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')} '
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-/// The date and time [value] as the forum prints it in a form ([discuzDateTime], `Y-m-d H:i`; a date alone is its
-/// midnight), null when it is not one.
+/// The date and time [value] as the forum prints it in a form ([discuzDateTime], `Y-m-d H:i`, seconds taken; a date
+/// alone is its midnight), null when it is not one, or not a day of the calendar.
 DateTime? parseDiscuzDateTime(String? value) {
-  final match = RegExp(r'^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?\s*$').firstMatch(value ?? '');
+  final match = RegExp(
+    r'^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?\s*$',
+  ).firstMatch(value ?? '');
   if (match == null) {
     return null;
   }
   int at(int i) => int.parse(match.group(i) ?? '0');
-  final (year, month, day, hour, minute) = (at(1), at(2), at(3), at(4), at(5));
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+  final (year, month, day, hour, minute, second) = (at(1), at(2), at(3), at(4), at(5), at(6));
+  if (hour > 23 || minute > 59 || second > 59) {
     return null;
   }
-  return DateTime(year, month, day, hour, minute);
+  final time = DateTime(year, month, day, hour, minute, second);
+  // DateTime carries a day past the month's last into the next month: not a date the forum prints.
+  return time.year == year && time.month == month && time.day == day ? time : null;
 }
 
 /// [value] without the backslashes PHP's `addslashes()` puts before `'`, `"`, `\` and NUL (`stripslashes()`).

@@ -214,7 +214,7 @@ final class PostEditRepository with LoggerMixin {
         case Left(value: final IdentityChangedException e):
           return left(e);
         case Left(:final value):
-          warning('post form: the web page for the fields of other plugins failed: $value');
+          warning('post form: the web page of the form failed: $value');
         case Right(value: final document):
           var read = form;
           if (form.hookFields.isNotEmpty) {

@@ -1553,6 +1553,7 @@
       "end": "Ends",
       "umpire": "Umpire",
       "required": "Set the debate first",
+      "ended": "The debate has ended: set a later end in the debate settings, or clear it",
       "issue": {
         "pointsRequired": "Enter both points",
         "endPassed": "The end must be in the future"
