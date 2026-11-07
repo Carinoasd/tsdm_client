@@ -546,6 +546,71 @@ void main() {
       expect(forum.posts, isEmpty);
     });
 
+    testWidgets('the account switched before the payment: the order is placed, not paid, no payment sent', (
+      tester,
+    ) async {
+      final tr = t.specialThread.trade;
+      var uid = 31;
+      final forum = _Forum(pages: pages('goods_credit', 'buyform_virtual'), answers: [_json('order_created')]);
+      final repository = forum.repository;
+      final switching = TradeRepository(
+        getPage: repository.getPage,
+        postForm: (url, body) async {
+          final answer = await repository.postForm(url, body);
+          // Switched while the order was sent.
+          uid = 35;
+          return answer;
+        },
+      );
+      await tester.pumpWidget(
+        BlocProvider<SettingsBloc>.value(
+          value: bloc,
+          child: TranslationProvider(
+            child: MaterialApp(
+              scaffoldMessengerKey: snackbarKey,
+              home: TradeGoodsPage(
+                tid: _tid,
+                pid: 11179,
+                goods: _listed(pid: 11179, subject: '测试徽章', credit: 10),
+                creditUnit: _unit,
+                canBuy: true,
+                repository: switching,
+                currentUid: () => uid,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, tr.buy));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, tr.next));
+      await tester.pumpAndSettle();
+      await enterPassword(tester, 'pw');
+      expect(find.text(tr.notPaid), findsOneWidget);
+      expect(forum.posts, hasLength(1));
+    });
+
+    testWidgets('no verdict on the payment: the order page to look at', (tester) async {
+      final tr = t.specialThread.trade;
+      final forum = _Forum(
+        pages: pages('goods_credit', 'buyform_virtual'),
+        answers: [_json('order_created'), _json('pay_replayed')],
+      );
+      await pump(tester, forum, pid: 11179, goods: _listed(pid: 11179, subject: '测试徽章', credit: 10));
+      await tester.tap(find.widgetWithText(FilledButton, tr.buy));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, tr.next));
+      await tester.pumpAndSettle();
+      await enterPassword(tester, 'pw');
+      expect(find.text(tr.unknown), findsOneWidget);
+      expect(find.text(tr.openOrder), findsOneWidget);
+      expect(find.text(tr.unknownOrder), findsNothing);
+      await tester.tap(find.text(t.general.cancel));
+      await tester.pumpAndSettle();
+      expect(forum.posts, hasLength(2));
+    });
+
     testWidgets('refused order: the forum words, no payment', (tester) async {
       final tr = t.specialThread.trade;
       final forum = _Forum(pages: pages('goods_credit', 'buyform_virtual'), answers: [_json('order_lack')]);
