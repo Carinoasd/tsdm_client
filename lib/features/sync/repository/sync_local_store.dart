@@ -547,6 +547,9 @@ final class MemorySyncLocalStore implements SyncLocalStore {
   /// Accounts whose drafts were lost (their file set aside): read as none, [draftsSeen] forgotten.
   final draftsSetAside = <int>{};
 
+  /// Called after each read of the drafts (the tests change the drafts in the middle of a run).
+  void Function(int uid)? afterDraftsRead;
+
   /// The [draftsSeen] by account.
   final draftsSeenByUid = <int, Set<String>>{};
 
@@ -675,7 +678,9 @@ final class MemorySyncLocalStore implements SyncLocalStore {
       draftsByUid.remove(uid);
       draftsSeenByUid.remove(uid);
     }
-    return (draftsByUid[uid] ?? const {}).values.toList();
+    final drafts = (draftsByUid[uid] ?? const {}).values.toList();
+    afterDraftsRead?.call(uid);
+    return drafts;
   }
 
   @override

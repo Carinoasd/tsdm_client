@@ -610,6 +610,7 @@ final class SyncRepository with LoggerMixin {
     // Drafts: those this device holds (an older copy of the forum's in place of one too large to send), then the
     // deletions: a draft this device held at its last sync of them ([SyncLocalStore.draftsSeen]) and holds no more.
     // A draft of the forum this device never held is not deleted here, whatever the forum's document says.
+    _draftKeysRead = null;
     if (_on(SyncCategory.drafts)) {
       final drafts = await _store.drafts(uid);
       if (drafts != null) {
@@ -647,8 +648,8 @@ final class SyncRepository with LoggerMixin {
   /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
   /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor]
   /// dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits
-  /// dropped first, then the oldest deletion records of visits, then the drafts). Dropping is by time alone, so every device drops the same items of the same document; a dropped item is
-  /// not a deletion.
+  /// dropped first, then the oldest deletion records of visits, then the drafts). Dropping is by time alone, so every
+  /// device drops the same items of the same document; a dropped item is not a deletion.
   SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
     List<MapEntry<String, Map<String, dynamic>>> latest(
@@ -817,6 +818,7 @@ final class SyncRepository with LoggerMixin {
         final save = <LocalDraft>[];
         final delete = <LocalDraftKey>[];
         final items = merged.items('drafts');
+        final skipped = <String>{};
         for (final MapEntry(:key, value: item) in items.entries) {
           final mine = byKey[key];
           final at = SyncDocument.updatedOf(item);
@@ -830,7 +832,8 @@ final class SyncRepository with LoggerMixin {
             continue;
           }
           if (mine == null && (_draftKeysRead?.contains(key) ?? false)) {
-            // Deleted here while the run was on its way: the next run sends the deletion.
+            // Deleted here while the run was on its way: still seen, so the next run sends the deletion.
+            skipped.add(key);
             continue;
           }
           if (draftFromItem(key, item) case final draft?) {
@@ -841,6 +844,7 @@ final class SyncRepository with LoggerMixin {
         final held = {...byKey.keys, for (final d in save) d.key.value}..removeAll([for (final k in delete) k.value]);
         await _store.saveDraftsSeen(uid, {
           ...held,
+          ...skipped,
           for (final MapEntry(:key, :value) in items.entries)
             if (SyncDocument.isDeleted(value)) key,
         });

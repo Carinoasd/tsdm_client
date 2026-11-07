@@ -528,6 +528,28 @@ void main() {
         expect(store.draftsByUid[_uid]!.keys, ['reply:1']);
       });
 
+      test('a draft deleted while a run is on its way is not written back, the next run deletes it', () async {
+        final t = now.millisecondsSinceEpoch;
+        store.draftsByUid[_uid] = {'reply:1': _draft('1', t - 100)};
+        await repo().pull(_uid);
+        // Another device edits it later; this device deletes it right after the run read the drafts.
+        final stored = jsonDecode((api.pullAnswer as SyncPulled).data!) as Map<String, dynamic>;
+        api.remote({
+          ...stored,
+          'drafts': {'reply:1': _draftItem(t - 50, body: 'edited')},
+        }, updated: 9);
+        store.afterDraftsRead = (uid) {
+          store.draftsByUid[uid]!.remove('reply:1');
+          store.afterDraftsRead = null;
+        };
+        await repo().pull(_uid);
+        expect(store.draftsByUid[_uid], isEmpty, reason: 'not written back');
+        expect(store.draftsSeenByUid[_uid], contains('reply:1'));
+        expect(await repo().pull(_uid), SyncOutcome.pushed);
+        expect((api.lastPushed['drafts'] as Map)['reply:1'], SyncDocument.tombstone(t));
+        expect(store.draftsByUid[_uid], isEmpty);
+      });
+
       test('the draft store tells once that a damaged file was set aside', () async {
         final dir = await Directory.systemTemp.createTemp('drafts');
         addTearDown(() => dir.delete(recursive: true));
