@@ -286,6 +286,7 @@ final class PostEditRepository with LoggerMixin {
         hongbao: edits.hongbao,
         activity: edits.activity,
         debate: edits.debate,
+        poll: edits.poll,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {

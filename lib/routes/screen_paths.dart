@@ -397,6 +397,9 @@ class DialogPaths {
   /// Dialog to set the debate of a new debate thread.
   static const String debate = '/dialog/debate';
 
+  /// Dialog to set the poll of the first post of a poll edited.
+  static const String pollSettings = '/dialog/pollSettings';
+
   /// Dialog to let user select thread read perm.
   static const String selectPerm = '/dialog/selectPerm';
 

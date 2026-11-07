@@ -48,7 +48,11 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
     this.rewardPrice,
     this.activity,
     this.debate,
+    this.poll,
   }) : super();
+
+  /// The poll settings of the first post of a poll ([PostFormEdits.poll]), null to post them as served.
+  final PollEdits? poll;
 
   /// The reward price of the first post of an open reward thread ([PostFormEdits.rewardPrice]), null to keep it.
   final int? rewardPrice;

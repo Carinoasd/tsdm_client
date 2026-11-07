@@ -193,6 +193,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                       rewardPrice: event.rewardPrice,
                       activity: event.activity,
                       debate: event.debate,
+                      poll: event.poll,
                     ),
                     expectedTid: event.tid,
                   )

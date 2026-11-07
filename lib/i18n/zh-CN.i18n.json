@@ -1608,6 +1608,11 @@
         "extFieldsTooMany": "扩展资料项最多 $max 项"
       }
     },
+    "pollDialog": {
+      "title": "投票设置",
+      "entryTooltip": "投票",
+      "optionEmpty": "选项不能为空"
+    },
     "debateDialog": {
       "title": "辩论设置",
       "entryTooltip": "辩论",

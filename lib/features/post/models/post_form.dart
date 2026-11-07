@@ -207,7 +207,11 @@ final class PostFormEdits {
     this.hongbao,
     this.activity,
     this.debate,
+    this.poll,
   });
+
+  /// The poll settings of the first post of a poll edited ([PostForm.pollEdit]), null to post them as served.
+  final PollEdits? poll;
 
   /// The activity of a new activity thread or of the first post of one edited ([PostForm.activity]), null to post the
   /// served fields.
@@ -614,6 +618,10 @@ final class PostForm {
         names.contains('polls');
   }
 
+  /// The poll settings of the edit of the first post of a poll whose options the form serves ([editsPollAsServed]),
+  /// which the member may change; null for any other form.
+  late final PollEditFormInfo? pollEdit = editsPollAsServed ? PollEditFormInfo.fromJson(_block('poll')) : null;
+
   /// The highest number of choices of a poll (`poll.max_options`, the site's `maxpolloptions`), null without a poll.
   int? get pollMaxOptions {
     final max = _block('poll')?['max_options'];
@@ -777,12 +785,19 @@ final class PostForm {
         body.set(option.name, checked ? option.value ?? 'on' : null);
       }
     }
+    // The poll settings the member changed: the text of the options, the options added, the most choices, the days, the
+    // two checkboxes (PollEdits.toFields).
+    if ((pollEdit, edits.poll) case (final info?, final set?)) {
+      for (final MapEntry(:key, :value) in set.toFields(info).entries) {
+        body.set(key, value);
+      }
+    }
     // A poll that has ended or was closed prints its days left as words (`poll_finish`, `poll_close`), which the forum
     // stores as no expiry at all (`intval()` 0: the poll reopened for good, as the website's form does); a day before
     // today keeps it ended (`TIMESTAMP + 86400 * -1`), its votes and options as they are. Not its exact state: a poll
     // closed with its thread no longer reopens with it, which the website's form does not keep either. The days are
     // rounded: a poll with less than half a day left prints `0`, the same as one without expiry, and is stored without
-    // one as the website's form does; the form does not tell them apart.
+    // one as the website's form does; the form does not tell them apart. Days the member typed are posted as typed.
     if (editsPollAsServed) {
       final expiration = body.valueOf('expiration');
       if (expiration != null && expiration.trim().isNotEmpty && int.tryParse(expiration.trim()) == null) {

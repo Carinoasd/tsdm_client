@@ -1,3 +1,6 @@
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -925,4 +928,254 @@ final class DebateEdits {
     if (affirm.trim().isEmpty || negate.trim().isEmpty) DebateIssue.pointsRequired,
     if (end case final DateTime end when !end.isAfter(now)) DebateIssue.endPassed,
   };
+}
+
+/// Why the forum would not take the poll settings of an edit as the member set them.
+enum PollEditIssue {
+  /// An option the member may change left empty: the forum would keep it as it is (`before_editpost` drops empty
+  /// options before it reads them).
+  optionEmpty,
+
+  /// An option with a line break.
+  optionLineBreak,
+
+  /// An option longer than the forum stores ([pollOptionStorageGuard]).
+  optionTooLong,
+
+  /// More options than the forum takes (`post_poll_option_toomany`).
+  tooManyOptions,
+
+  /// The most choices is not between 1 and the number of options.
+  maxChoicesInvalid,
+
+  /// The days are not a number of days (the text the form came with, a poll ended or closed, is kept).
+  expiryInvalid,
+}
+
+/// An option of a poll as the edit form of its first post serves it (`poll.options`).
+final class PollEditOption {
+  /// Constructor.
+  const PollEditOption({required this.id, required this.text, required this.displayOrder, required this.readonly});
+
+  /// The option's id (`polloptionid`): the forum keeps the votes of an option by it.
+  final int id;
+
+  /// The text of the option.
+  final String text;
+
+  /// Its place in the list (`displayorder`), as served.
+  final String displayOrder;
+
+  /// The member may not change the text (no `alloweditpoll`: the forum only keeps the order of the options then).
+  final bool readonly;
+}
+
+/// The poll of the edit form of the first post of a poll (`poll` of the forum's app API, plugin 2.9.0,
+/// `postform_poll`): its options and settings, which `extend_thread_poll::before_editpost` lets the author (or a member
+/// whose group has `alloweditpoll`) change.
+///
+/// What the forum does with an edit: an option's text only for a group with `alloweditpoll` (the others keep the text,
+/// votes or not); an option posted under an id the poll does not have is added (`polloption[]` on the website); an
+/// option is never removed (the website offers no way, and the forum drops an empty one before it would remove it);
+/// the most choices is cut to the number of options; the days count from the edit (`TIMESTAMP + 86400 * days`, 0
+/// for none); the two checkboxes are what they are posted.
+final class PollEditFormInfo {
+  /// Constructor.
+  const PollEditFormInfo({
+    required this.options,
+    required this.maxOptions,
+    required this.maxChoices,
+    required this.expiration,
+    required this.visibleAfterVote,
+    required this.overt,
+  });
+
+  /// The `poll` block of the edit form of the first post of a poll, null without options.
+  static PollEditFormInfo? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final options = [
+      for (final option in tsdmAppList(json['options']))
+        if (option['id'] case final num id when id > 0)
+          PollEditOption(
+            id: id.toInt(),
+            text: tsdmAppText(option['text']),
+            displayOrder: tsdmAppText(option['displayorder']),
+            readonly: option['readonly'] == 1,
+          ),
+    ];
+    if (options.isEmpty) {
+      return null;
+    }
+    final values = _servedValues(tsdmAppList(json['inputs']));
+    return PollEditFormInfo(
+      options: options,
+      maxOptions: tsdmAppInt(json['max_options']),
+      maxChoices: values['maxchoices'] ?? '1',
+      expiration: values['expiration'] ?? '',
+      visibleAfterVote: values.containsKey('visibilitypoll'),
+      overt: values.containsKey('overt'),
+    );
+  }
+
+  /// The options of the poll, in order.
+  final List<PollEditOption> options;
+
+  /// The most options a poll may have (`maxpolloptions`), 0 when the form does not tell.
+  final int maxOptions;
+
+  /// The most choices as served.
+  final String maxChoices;
+
+  /// The days left as served: a number (rounded: 0 for none, or for less than half a day left), or the words of a
+  /// poll ended or closed.
+  final String expiration;
+
+  /// Whether the results are shown only to the members who voted (`visibilitypoll` served checked).
+  final bool visibleAfterVote;
+
+  /// Whether the voters are public (`overt` served checked).
+  final bool overt;
+
+  /// Whether the member may change the text of the options.
+  bool get textEditable => options.any((e) => !e.readonly);
+
+  /// The poll as served.
+  PollEdits get served => PollEdits(
+    texts: {for (final option in options) option.id: option.text},
+    maxChoices: maxChoices,
+    expiration: expiration,
+    visibleAfterVote: visibleAfterVote,
+    overt: overt,
+  );
+}
+
+/// The poll settings of the first post of a poll as the member set them in the editor; [toFields] is what the form
+/// posts for them.
+@immutable
+final class PollEdits {
+  /// Constructor.
+  const PollEdits({
+    required this.texts,
+    required this.maxChoices,
+    required this.expiration,
+    required this.visibleAfterVote,
+    required this.overt,
+    this.added = const [],
+  });
+
+  /// The text of each option of the poll, by id.
+  final Map<int, String> texts;
+
+  /// The options added, in order.
+  final List<String> added;
+
+  /// The most choices, as typed.
+  final String maxChoices;
+
+  /// The days, as typed (the served text kept for a poll ended or closed).
+  final String expiration;
+
+  /// Whether the results are shown only to the members who voted.
+  final bool visibleAfterVote;
+
+  /// Whether the voters are public.
+  final bool overt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PollEdits &&
+      const MapEquality<int, String>().equals(texts, other.texts) &&
+      const ListEquality<String>().equals(addedOptions, other.addedOptions) &&
+      maxChoices == other.maxChoices &&
+      expiration == other.expiration &&
+      visibleAfterVote == other.visibleAfterVote &&
+      overt == other.overt;
+
+  @override
+  int get hashCode => Object.hash(
+    const MapEquality<int, String>().hash(texts),
+    const ListEquality<String>().hash(addedOptions),
+    maxChoices,
+    expiration,
+    visibleAfterVote,
+    overt,
+  );
+
+  /// The options added that are not empty.
+  List<String> get addedOptions => [
+    for (final option in added)
+      if (option.trim().isNotEmpty) option.trim(),
+  ];
+
+  /// Every reason the forum would not take these settings against [info]: the issues of the options of the poll by
+  /// id, those of the options added by their index in [added], and the issues of the poll.
+  ({Map<int, PollEditIssue> options, Map<int, PollEditIssue> added, Set<PollEditIssue> poll}) issues(
+    PollEditFormInfo info,
+  ) {
+    PollEditIssue? textIssue(String text, {bool required = false}) {
+      final option = text.trim();
+      if (option.isEmpty) {
+        return required ? PollEditIssue.optionEmpty : null;
+      }
+      if (option.contains('\n') || option.contains('\r')) {
+        return PollEditIssue.optionLineBreak;
+      }
+      if (pollOptionStorageLength(option) > pollOptionStorageGuard) {
+        return PollEditIssue.optionTooLong;
+      }
+      return null;
+    }
+
+    // What the member left as served is not checked: the forum took it, the form posts it back as it is.
+    final options = <int, PollEditIssue>{
+      for (final option in info.options)
+        if (!option.readonly && (texts[option.id] ?? option.text) != option.text)
+          option.id: ?textIssue(texts[option.id] ?? option.text, required: true),
+    };
+    final added = <int, PollEditIssue>{
+      for (final (i, option) in this.added.indexed) i: ?textIssue(option),
+    };
+    final count = info.options.length + addedOptions.length;
+    final choices = RegExp(r'^\d+$').hasMatch(maxChoices.trim()) ? int.tryParse(maxChoices.trim()) : null;
+    return (
+      options: options,
+      added: added,
+      poll: {
+        ...options.values,
+        ...added.values,
+        if (addedOptions.isNotEmpty && info.maxOptions > 0 && count > info.maxOptions) PollEditIssue.tooManyOptions,
+        // The most choices kept is cut by the forum to the options.
+        if (maxChoices != info.maxChoices && (choices == null || choices < 1 || choices > count))
+          PollEditIssue.maxChoicesInvalid,
+        if (expiration != info.expiration && parsePollExpiryDays(expiration) == null) PollEditIssue.expiryInvalid,
+      },
+    );
+  }
+
+  /// The first reason the forum would not take these settings against [info], null when it takes them.
+  PollEditIssue? check(PollEditFormInfo info) => issues(info).poll.firstOrNull;
+
+  /// The fields the form posts for what the member changed against [info] (the rest goes back as served): the text
+  /// of the options the member may change, the options added under ids after the poll's (`displayorder` after the
+  /// last, as the member would number the website's added rows), the most choices, the days (as the forum reads them:
+  /// `00` would end the poll at once) and the two checkboxes.
+  Map<String, String?> toFields(PollEditFormInfo info) {
+    final lastId = info.options.map((e) => e.id).reduce((a, b) => a > b ? a : b);
+    final lastOrder = info.options.map((e) => int.tryParse(e.displayOrder.trim()) ?? 0).reduce((a, b) => a > b ? a : b);
+    return {
+      for (final option in info.options)
+        if (!option.readonly && (texts[option.id] ?? option.text) != option.text)
+          'polloption[${option.id}]': texts[option.id]!.trim(),
+      for (final (i, option) in addedOptions.indexed) ...{
+        'displayorder[${lastId + 1 + i}]': '${lastOrder + 1 + i}',
+        'polloption[${lastId + 1 + i}]': option,
+      },
+      if (maxChoices != info.maxChoices) 'maxchoices': maxChoices.trim(),
+      if (expiration != info.expiration) 'expiration': '${parsePollExpiryDays(expiration) ?? expiration.trim()}',
+      if (visibleAfterVote != info.visibleAfterVote) 'visibilitypoll': visibleAfterVote ? '1' : null,
+      if (overt != info.overt) 'overt': overt ? '1' : null,
+    };
+  }
 }

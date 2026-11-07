@@ -44,6 +44,7 @@ import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/poll_settings_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/reward_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/sec_check_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
@@ -252,6 +253,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   /// The debate of a new debate thread, null until set.
   DebateEdits? debate;
+
+  /// The poll settings of the first post of a poll edited, as served until the member changes them.
+  PollEdits? poll;
 
   /// The reward credits of a new reward thread, null until set; the price of an open reward thread edited, raised by
   /// the member.
@@ -538,9 +542,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return title != _loadedTitle || body != _loadedBody;
   }
 
-  /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent]) while it is being
-  /// edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep editing. Used to
-  /// drop the content right away.
+  /// Whether the poll settings were changed in their dialog: not kept in the local draft, they are lost when leaving.
+  bool get _pollChanged => poll != null && poll != context.read<PostEditBloc>().state.content?.form?.pollEdit?.served;
+
+  /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent], [_pollChanged])
+  /// while it is being edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep
+  /// editing. Used to drop the content right away.
   Future<void> _onLeave(BuildContext context) async {
     if (_leaving) {
       return;
@@ -568,7 +575,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final editing =
         bloc.state.content != null &&
         (bloc.state.status == PostEditStatus.editing || bloc.state.status == PostEditStatus.failedToUpload);
-    if (!editing || !_hasUnsentContent) {
+    if (!editing || !(_hasUnsentContent || _pollChanged)) {
       context.pop();
       return;
     }
@@ -584,7 +591,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       choice = await showLeaveEditDialog(
         context,
         canSaveDraft: canSaveDraft,
-        keepsLocalDraft: _draftKey != null && _draftUid != null && !_draftStopped && LocalDraftStore.app != null,
+        // Only the title and the post are kept on this device: nothing to keep when only the poll settings changed.
+        keepsLocalDraft:
+            _hasUnsentContent &&
+            _draftKey != null &&
+            _draftUid != null &&
+            !_draftStopped &&
+            LocalDraftStore.app != null,
       );
     } finally {
       _leaving = false;
@@ -877,6 +890,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         return;
       }
     }
+    if ((form?.pollEdit, poll) case (final info?, final set?)) {
+      if (set.check(info) case final problem?) {
+        showSnackBar(context: context, message: pollEditIssueText(context, info, problem));
+        return;
+      }
+    }
     if (widget.editType == PostEditType.newThread) {
       // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
       if (form?.hongbao case final info? when !saveDraft) {
@@ -973,6 +992,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
           activity: state.content!.form?.activity == null ? null : activity,
           debate: state.content!.form?.debate == null ? null : debate,
+          poll: state.content!.form?.pollEdit == null ? null : poll,
         ),
         PostEditType.newThread => ThreadPubPostThread(
           ThreadPublishInfo(
@@ -1402,6 +1422,19 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               }
             },
           ),
+        if ((state.content?.form?.pollEdit, poll) case (final info?, final set?))
+          IconButton(
+            icon: const Icon(Icons.poll_outlined),
+            selectedIcon: const Icon(Icons.poll),
+            isSelected: set != info.served,
+            tooltip: context.t.postEditPage.pollDialog.entryTooltip,
+            onPressed: () async {
+              final changed = await showPollSettingsDialog(context, info, set);
+              if (changed != null && mounted) {
+                setState(() => poll = changed);
+              }
+            },
+          ),
         if (state.content?.form?.debate case final info?)
           IconButton(
             icon: const Icon(Icons.balance_outlined),
@@ -1786,6 +1819,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         if (widget.editType != PostEditType.newThread) {
           activity = state.content?.form?.activity?.served;
           debate = state.content?.form?.debate?.served;
+          poll = state.content?.form?.pollEdit?.served;
         }
       });
 
