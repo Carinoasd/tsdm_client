@@ -257,6 +257,18 @@ final class PostEditFailedToUploadResult extends AppException with PostEditFaile
   final String errorText;
 }
 
+/// The forum took the new thread but a plugin then showed a notice instead of going to it: the red packet of a red
+/// packet thread was not made (`hongbao`'s `newthread_submit_end`, a message with no language key the forum's app
+/// API reports as `ok`). The thread is published; its id is unknown.
+@MappableClass()
+final class ThreadPostedWithNoticeException extends AppException with ThreadPostedWithNoticeExceptionMappable {
+  /// Constructor.
+  ThreadPostedWithNoticeException(this.notice) : super(message: 'thread posted, then the forum said: $notice');
+
+  /// What the forum said, plain text.
+  final String notice;
+}
+
 /// The forum refused a post form because it asks for a captcha or a security question (`submit_seccode_invalid`,
 /// `submit_secqaa_invalid`: none was sent, or the answer was wrong): nothing was posted. [check] is what to answer
 /// before posting again, null when the app cannot tell (continue on the website).

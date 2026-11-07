@@ -1464,7 +1464,63 @@
     },
     "titleCount": "${count: int} / ${max: int}",
     "bodyCount": "正文 ${count: int} / ${max: int} 位元組",
-    "bodyCountNoMax": "正文 ${count: int} 位元組"
+    "bodyCountNoMax": "正文 ${count: int} 位元組",
+    "threadKind": {
+      "tooltip": "帖子類型",
+      "normal": "普通帖子",
+      "reward": "懸賞",
+      "hongbao": "紅包"
+    },
+    "rewardDialog": {
+      "title": "設定懸賞",
+      "entryTooltip": "懸賞積分",
+      "price": "懸賞積分",
+      "range": "$min – $max $credit",
+      "min": "最低 $min $credit",
+      "balance": "你有 $have $credit",
+      "afterTax": "稅後支付 $real $credit",
+      "required": "請先設定懸賞積分",
+      "issue": {
+        "empty": "請填寫懸賞積分",
+        "overflow": "不能高於 32767",
+        "belowMin": "不能低於 $min",
+        "aboveMax": "不能高於 $max",
+        "shortage": "積分餘額不足"
+      }
+    },
+    "hongbaoDialog": {
+      "title": "塞入紅包",
+      "entryTooltip": "紅包",
+      "total": "總金額",
+      "balance": "餘額 $balance $credit",
+      "shares": "份數",
+      "sharesLimit": "最多 $max 份，每份至少 $min",
+      "minShare": "每份至少 $min",
+      "split": "拆分方式",
+      "lucky": "拼手氣",
+      "even": "均分",
+      "condReply": "必須回帖後才能搶",
+      "password": "口令",
+      "appoint": "指定領取人",
+      "appointHint": "會員名，多個用逗號分隔",
+      "expire": "有效期",
+      "blessing": "祝福語",
+      "required": "請先設定紅包",
+      "issue": {
+        "totalRequired": "請填寫總金額",
+        "sharesRequired": "請填寫份數",
+        "sharesAboveMax": "最多 $max 份",
+        "totalBelowShares": "每份至少 $min，需 ≥ $need",
+        "notDivisible": "均分時總金額須能被份數整除",
+        "shortage": "餘額不足",
+        "blessingTooLong": "祝福語最多 $max 字",
+        "passwordTooLong": "口令最多 $max 字"
+      }
+    },
+    "postedWithNotice": {
+      "title": "已發表",
+      "message": "帖子應已發表，但論壇說：\n$notice\n\n本機草稿保留，請到「我的主題」確認。"
+    }
   },
   "chatHistoryPage": {
     "title": "交談記錄",

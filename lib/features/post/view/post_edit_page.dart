@@ -33,12 +33,15 @@ import 'package:tsdm_client/features/post/bloc/post_edit_bloc.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/reward_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/sec_check_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/select_perm_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -134,11 +137,15 @@ class PostEditPage extends StatefulWidget {
     required this.tid,
     required this.pid,
     this.pollOffered = false,
+    this.threadKind = ThreadKind.normal,
     this.transfer,
     this.mentionSuggestions,
     this.sharedImages,
     super.key,
   });
+
+  /// The kind of new thread to write (the forum's form of that kind); only used for new threads.
+  final ThreadKind threadKind;
 
   /// Images another app shared to this one, to upload as attachments of this new thread once its form is loaded
   /// (paths of copies in this app's cache, deleted after the upload); null or empty when none.
@@ -236,6 +243,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   ///
   /// Only used when editing thread, not other floors' posts.
   int? price;
+
+  /// The reward credits of a new reward thread, null until set.
+  int? rewardPrice;
+
+  /// The red packet of a new red packet thread, null until set.
+  HongbaoEdits? hongbao;
 
   late BBCodeEditorController bbcodeController;
 
@@ -609,7 +622,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Continue this new thread or this edit on the website.
   Future<void> _openBrowser(BuildContext context) async {
     final url = widget.editType == PostEditType.newThread
-        ? '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}'
+        ? PostEditRepository.newThreadPageUrl(widget.fid, kind: widget.threadKind)
         : _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!);
     try {
       await openInExternalBrowser(Uri.parse(url));
@@ -757,6 +770,33 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       showSnackBar(context: context, message: issue);
       return;
     }
+    // A reward thread needs its price, a red packet thread its packet: the forum refuses the post without them.
+    if (widget.editType == PostEditType.newThread) {
+      final form = state.content!.form;
+      if (form?.reward case final info?) {
+        if (info.check(rewardPrice) case final problem?) {
+          showSnackBar(
+            context: context,
+            message: rewardPrice == null
+                ? context.t.postEditPage.rewardDialog.required
+                : rewardIssueText(context, info, problem),
+          );
+          return;
+        }
+      }
+      // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
+      if (form?.hongbao case final info? when !saveDraft) {
+        final packet = hongbao;
+        if (packet == null) {
+          showSnackBar(context: context, message: context.t.postEditPage.hongbaoDialog.required);
+          return;
+        }
+        if (packet.check(info) case final problem?) {
+          showSnackBar(context: context, message: hongbaoIssueText(context, info, packet, problem));
+          return;
+        }
+      }
+    }
     // Asked after the forum refused the post: the confirmations were given for it already.
     final again = check != null;
     setState(() => _confirming = true);
@@ -857,6 +897,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           draftKey: _draftKey?.value,
           // Only the uploads the post still shows; one the member deleted from it is left unused.
           attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
+          rewardPrice: state.content!.form?.reward == null ? null : rewardPrice,
+          hongbao: state.content!.form?.hongbao == null ? null : hongbao,
         ),
       };
       if (saveDraft) {
@@ -881,7 +923,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         context,
         check,
         wrongAnswer: wrongAnswer,
-        browserUrl: '$baseUrl/forum.php?mod=post&action=newthread&fid=${widget.fid}',
+        browserUrl: PostEditRepository.newThreadPageUrl(widget.fid, kind: widget.threadKind),
       );
     } finally {
       _verifying = false;
@@ -1208,6 +1250,44 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               },
             ),
           ),
+        if (state.content?.form?.reward case final info?)
+          Badge(
+            label: Text('${rewardPrice ?? ''}'),
+            textStyle: Theme.of(context).textTheme.labelSmall,
+            offset: const Offset(-4, 4),
+            isLabelVisible: rewardPrice != null,
+            child: IconButton(
+              icon: const Icon(Icons.emoji_events_outlined),
+              selectedIcon: const Icon(Icons.emoji_events),
+              isSelected: rewardPrice != null,
+              tooltip: context.t.postEditPage.rewardDialog.entryTooltip,
+              onPressed: () async {
+                final set = await showRewardPriceDialog(context, info, rewardPrice);
+                if (set != null && mounted) {
+                  setState(() => rewardPrice = set);
+                }
+              },
+            ),
+          ),
+        if (state.content?.form?.hongbao case final info?)
+          Badge(
+            label: Text('${hongbao?.total ?? ''}'),
+            textStyle: Theme.of(context).textTheme.labelSmall,
+            offset: const Offset(-4, 4),
+            isLabelVisible: hongbao?.total != null,
+            child: IconButton(
+              icon: const Icon(Icons.card_giftcard_outlined),
+              selectedIcon: const Icon(Icons.card_giftcard),
+              isSelected: hongbao != null,
+              tooltip: context.t.postEditPage.hongbaoDialog.entryTooltip,
+              onPressed: () async {
+                final set = await showHongbaoDialog(context, info, hongbao);
+                if (set != null && mounted) {
+                  setState(() => hongbao = set);
+                }
+              },
+            ),
+          ),
       ],
     );
   }
@@ -1306,7 +1386,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               ),
             );
           case PostEditType.newThread:
-            context.read<PostEditBloc>().add(ThreadPubFetchInfoRequested(fid: widget.fid));
+            context.read<PostEditBloc>().add(ThreadPubFetchInfoRequested(fid: widget.fid, kind: widget.threadKind));
         }
       }, message: state.errorText);
     }
@@ -1476,6 +1556,20 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       );
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.success) {
+      if (state.notice case final notice?) {
+        // Taken as far as the forum tells, then the plugin's notice (the red packet was not made): told, back to the
+        // forum; the local draft stays, marked as maybe sent, until the member has seen the thread.
+        _draftMaybeSent = true;
+        _stopDraft(delete: false);
+        final tr = context.t.postEditPage.postedWithNotice;
+        await showMessageSingleButtonDialog(
+          context: context,
+          title: tr.title,
+          message: tr.message(notice: notice),
+        );
+        if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
+        return;
+      }
       // Sent: the local draft goes (the bloc deleted it already, also for a page closed meanwhile).
       _stopDraft(delete: true);
       if (uploadMethod == _UploadMethod.saveDraft) {
@@ -1583,6 +1677,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         transfer != null &&
         transfer.appliesTo(uid: context.read<AuthenticationRepository>().effectiveCurrentUid, fid: widget.fid)) {
       _transfer = transfer;
+      // The attachments uploaded in the editor switched from stay bound to the post.
+      _attachNew.addAll(transfer.attachNew);
     }
   }
 
@@ -1602,6 +1698,64 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               fid: widget.fid,
               subject: threadTitleController.text,
               body: bbcodeController.toForumBBCode(),
+            ),
+    );
+  }
+
+  /// The kinds of new thread the loaded form offers (`special.allowed`, the thread plugins): the ordinary thread, a
+  /// reward when the member may post one, a red packet when the forum has the plugin; only the kind of the page
+  /// when the form does not tell (the web page).
+  List<ThreadKind> _kindsOffered(PostEditState state) {
+    final form = state.content?.form;
+    if (form == null) {
+      return [widget.threadKind];
+    }
+    final allowed = form.specialAllowed;
+    return [
+      if (allowed.contains(0) || widget.threadKind == ThreadKind.normal) ThreadKind.normal,
+      if (allowed.contains(3) || widget.threadKind == ThreadKind.reward) ThreadKind.reward,
+      if (form.threadPlugins.any((e) => e.$1 == ThreadKind.hongbaoPlugin) || widget.threadKind == ThreadKind.hongbao)
+        ThreadKind.hongbao,
+    ];
+  }
+
+  static IconData _kindIcon(ThreadKind kind) => switch (kind) {
+    ThreadKind.normal => Icons.article_outlined,
+    ThreadKind.reward => Icons.emoji_events_outlined,
+    ThreadKind.hongbao => Icons.card_giftcard_outlined,
+  };
+
+  static String _kindLabel(BuildContext context, ThreadKind kind) {
+    final tr = context.t.postEditPage.threadKind;
+    return switch (kind) {
+      ThreadKind.normal => tr.normal,
+      ThreadKind.reward => tr.reward,
+      ThreadKind.hongbao => tr.hongbao,
+    };
+  }
+
+  /// Intentional kind switch: subject and body go to the editor of [kind], which fetches the forum's form of that
+  /// kind; nothing is posted.
+  void _switchKind(BuildContext context, ThreadKind kind) {
+    if (kind == widget.threadKind ||
+        !mounted ||
+        ModalRoute.of(context)?.isActive == false ||
+        !context.read<PostEditRepository>().isCurrent) {
+      return;
+    }
+    final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    context.pushReplacementNamed(
+      ScreenPaths.editPost,
+      pathParameters: {'editType': '${PostEditType.newThread.index}', 'fid': widget.fid},
+      queryParameters: {if (widget.pollOffered) 'poll': '1', 'kind': ?kind.query},
+      extra: uid == null || !initialized
+          ? null
+          : ThreadModeTransfer(
+              uid: uid,
+              fid: widget.fid,
+              subject: threadTitleController.text,
+              body: bbcodeController.toForumBBCode(),
+              attachNew: List.of(_attachNew),
             ),
     );
   }
@@ -1648,7 +1802,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               PostEditType.editPost || PostEditType.editDraft => PostEditLoadDataRequested(
                 _formatDataUrl(fid: widget.fid, tid: widget.tid!, pid: widget.pid!),
               ),
-              PostEditType.newThread => ThreadPubFetchInfoRequested(fid: widget.fid),
+              PostEditType.newThread => ThreadPubFetchInfoRequested(fid: widget.fid, kind: widget.threadKind),
             };
             bloc.add(event);
             return bloc;
@@ -1676,6 +1830,23 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 // phone (#184).
                 bottom: postingAsBarOf(context),
                 actions: [
+                  if (widget.editType == PostEditType.newThread &&
+                      state.status == PostEditStatus.editing &&
+                      _kindsOffered(state).length > 1)
+                    PopupMenuButton<ThreadKind>(
+                      tooltip: context.t.postEditPage.threadKind.tooltip,
+                      icon: Icon(_kindIcon(widget.threadKind)),
+                      enabled: !_confirming,
+                      onSelected: (kind) => _switchKind(context, kind),
+                      itemBuilder: (context) => [
+                        for (final kind in _kindsOffered(state))
+                          CheckedPopupMenuItem(
+                            value: kind,
+                            checked: kind == widget.threadKind,
+                            child: Text(_kindLabel(context, kind)),
+                          ),
+                      ],
+                    ),
                   if (widget.editType == PostEditType.newThread &&
                       widget.pollOffered &&
                       state.status != PostEditStatus.uploading &&

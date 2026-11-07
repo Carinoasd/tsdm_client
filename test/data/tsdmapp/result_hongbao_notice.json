@@ -1,0 +1,17 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1792705300,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "message",
+ "message": "均分模式：總金額須能被份數整除",
+ "message_key": "",
+ "url": "",
+ "handlekey": "",
+ "values": {},
+ "login": 0,
+ "alert": "info"
+}

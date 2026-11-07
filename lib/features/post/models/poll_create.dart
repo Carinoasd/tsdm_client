@@ -981,7 +981,17 @@ final class PollSubmission {
 /// Bound to the account that typed it; the receiving page ignores it for any other account.
 final class ThreadModeTransfer {
   /// Constructor.
-  const ThreadModeTransfer({required this.uid, required this.fid, required this.subject, required this.body});
+  const ThreadModeTransfer({
+    required this.uid,
+    required this.fid,
+    required this.subject,
+    required this.body,
+    this.attachNew = const [],
+  });
+
+  /// The attachments uploaded in the editor switched from, by `aid` ([PostFormEdits.attachNew]); the thread editor
+  /// keeps them bound to the post, the poll editor has none.
+  final List<int> attachNew;
 
   /// Account that typed the content.
   final int uid;

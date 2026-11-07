@@ -110,20 +110,36 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
 @MappableClass()
 final class ThreadPubFetchInfoRequested extends PostEditEvent with ThreadPubFetchInfoRequestedMappable {
   /// Constructor.
-  const ThreadPubFetchInfoRequested({required this.fid});
+  const ThreadPubFetchInfoRequested({required this.fid, this.kind = ThreadKind.normal});
 
   /// Forum id.
   final String fid;
+
+  /// The kind of thread to write: the forum's form of that kind.
+  final ThreadKind kind;
 }
 
 /// Post a new thread to forum.
 @MappableClass()
 final class ThreadPubPostThread extends PostEditEvent with ThreadPubPostThreadMappable {
   /// Constructor.
-  const ThreadPubPostThread(this.info, {this.verification, this.draftKey, this.attachNew = const []});
+  const ThreadPubPostThread(
+    this.info, {
+    this.verification,
+    this.draftKey,
+    this.attachNew = const [],
+    this.rewardPrice,
+    this.hongbao,
+  });
 
   /// All info to post in body.
   final ThreadPublishInfo info;
+
+  /// The reward price of a reward thread ([PostFormEdits.rewardPrice]), null for any other thread.
+  final int? rewardPrice;
+
+  /// The red packet of a red packet thread ([PostFormEdits.hongbao]), null for any other thread.
+  final HongbaoEdits? hongbao;
 
   /// The attachments uploaded while the thread was written, by `aid` ([PostFormEdits.attachNew]).
   final List<int> attachNew;

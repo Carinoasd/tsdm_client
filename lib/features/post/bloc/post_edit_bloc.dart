@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/repository/sec_check_repository.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
@@ -35,7 +36,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       super(const PostEditState()) {
     on<PostEditLoadDataRequested>(_onPostEditLoadDataRequested);
     on<PostEditCompleteEditRequested>(_sending(_onPostEditCompleteEditRequested));
-    on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit));
+    on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit, kind: event.kind));
     on<ThreadPubPostThread>(_sending(_onPostNewThread));
     on<PostEditIdentityChanged>((event, emit) => emit(const PostEditState(status: PostEditStatus.identityChanged)));
     _authenticationSubscription = authenticationChanges?.listen((status) {
@@ -74,7 +75,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
 
   Future<void> _onPostEditLoadDataRequested(PostEditLoadDataRequested event, _Emit emit) async {
     if (!_active(emit) || _submitting) return;
-    emit(state.copyWith(status: PostEditStatus.loading));
+    emit(state.copyWith(status: PostEditStatus.loading, notice: null));
     final answer = await _repo.fetchForm(event.editUrl).run();
     if (!_active(emit)) return;
     _onFormLoaded(answer, emit, action: 'edit');
@@ -254,10 +255,10 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     }
   }
 
-  Future<void> _onFetchNewThreadInfo(String fid, _Emit emit) async {
+  Future<void> _onFetchNewThreadInfo(String fid, _Emit emit, {ThreadKind kind = ThreadKind.normal}) async {
     if (!_active(emit) || _submitting) return;
-    emit(state.copyWith(status: PostEditStatus.loading));
-    final answer = await _repo.prepareForm(fid).run();
+    emit(state.copyWith(status: PostEditStatus.loading, notice: null));
+    final answer = await _repo.prepareForm(fid, kind: kind).run();
     if (!_active(emit)) return;
     _onFormLoaded(answer, emit, action: 'newthread');
   }
@@ -265,7 +266,8 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
   /// The failed upload of [error]: the forum's reason, or what it asks before taking the post ([SecCheck]: the page asks
   /// the user and sends again; none known, the website).
   /// Whether the post may have been taken although [error] came back: the request left and no answer came, or one
-  /// that could not be read.
+  /// that could not be read. A [ThreadPostedWithNoticeException] (the forum took the thread, then a plugin's notice)
+  /// must stay true: the local draft kept for it is marked as maybe sent through this.
   static bool _mayHaveSent(AppException error) =>
       error is! PostEditFailedToUploadResult &&
       error is! PostVerificationRequiredException &&
@@ -322,6 +324,8 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                   options: {for (final option in info.options) option.name: option.checked},
                   save: info.save,
                   attachNew: event.attachNew,
+                  rewardPrice: event.rewardPrice,
+                  hongbao: event.hongbao,
                 ),
                 verification: event.verification,
                 told: told,
@@ -336,11 +340,30 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       case Right():
         // Taken: whatever the page does now (it may be gone), the local draft goes.
         _taken(event.draftKey);
+      case Left(:final value) when value is ThreadPostedWithNoticeException:
+        // Taken as far as the answer tells; the local draft stays, marked as maybe sent, in case it was not (a
+        // plugin's refusal before the thread looks the same); the interval between two posts counts from now.
+        FloodControl.notePosted(_repo.ownerUid);
+        _markMaybeSent(value, event.draftKey);
       case Left(:final value):
         _markMaybeSent(value, event.draftKey);
     }
     if (!_active(emit)) {
       _submitting = false;
+      return;
+    }
+    if (tidEither case Left(value: final ThreadPostedWithNoticeException posted)) {
+      // Published, then the plugin's notice (the red packet was not made): no thread id to go to.
+      _submitting = false;
+      emit(
+        state.copyWith(
+          status: PostEditStatus.success,
+          redirectTid: null,
+          needsBrowser: false,
+          notice: posted.notice,
+          maybeSent: true,
+        ),
+      );
       return;
     }
     if (tidEither.isLeft()) {

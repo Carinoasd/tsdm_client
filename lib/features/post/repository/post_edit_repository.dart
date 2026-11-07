@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dar
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/features/post/utils/submission_result.dart';
@@ -166,7 +167,12 @@ final class PostEditRepository with LoggerMixin {
 
   static const _postSubmitTarget = '$baseUrl/forum.php?mod=post&action=edit&extra=&editsubmit=yes';
 
-  static String _buildThreadInfoUrl(String fid) => '$homePage?mod=post&action=newthread&fid=$fid';
+  static String _buildThreadInfoUrl(String fid, {ThreadKind kind = ThreadKind.normal}) =>
+      '$homePage?mod=post&action=newthread&fid=$fid${kind.formQuery}';
+
+  /// The web page of the form of a new thread of [kind] in forum [fid], for the browser.
+  static String newThreadPageUrl(String fid, {ThreadKind kind = ThreadKind.normal}) =>
+      '$baseUrl/forum.php?mod=post&action=newthread&fid=$fid${kind.formQuery}';
 
   static String _buildThreadPostUrl(String fid) =>
       '$homePage?mod=post&action=newthread&fid=$fid&extra=&topicsubmit=yes';
@@ -198,20 +204,36 @@ final class PostEditRepository with LoggerMixin {
       final form = PostForm.fromJson(json);
       if (form == null) return right(PostEditFormRefused(tsdmAppText(json['message'])));
       TsdmAppApi.notePostForm();
-      if (form.hookFields.isEmpty) return right(PostEditFormApi(form));
+      if (form.hookFields.isEmpty && !form.isHongbao) return right(PostEditFormApi(form));
       // Other plugins' fields (a moderator's scheduling panel, a forum's tags): the API names them only, so the web
       // page of the form gives their values, posted back as the website would (PostForm.hookValues); a page that
-      // cannot leaves the form to the website.
+      // cannot leaves the form to the website. The red packet form of a red packet thread is on the web page too
+      // (the API gives no thread plugin's fields; the app knows this plugin's: PostForm.hongbao).
       switch (await fetchData(url).run()) {
         case Left(value: final IdentityChangedException e):
           return left(e);
         case Left(:final value):
           warning('post form: the web page for the fields of other plugins failed: $value');
         case Right(value: final document):
-          if (hookValuesOf(document, form.hookFields) case final values?) {
-            return right(PostEditFormApi(form.withHookValues(values)));
+          var read = form;
+          if (form.hookFields.isNotEmpty) {
+            if (hookValuesOf(document, form.hookFields) case final values?) {
+              read = read.withHookValues(values);
+            } else {
+              warning('post form: fields of other plugins not on the web page: ${form.hookFields}');
+            }
           }
-          warning('post form: fields of other plugins not on the web page: ${form.hookFields}');
+          if (form.isHongbao) {
+            if (HongbaoFormInfo.parse(document) case final info?) {
+              read = read.withHongbao(info);
+            } else if (HongbaoFormInfo.noticeOf(document) case final notice?) {
+              // The plugin printed why there is no form (off, the group not allowed) instead of it.
+              return right(PostEditFormRefused(notice));
+            } else {
+              warning('post form: the red packet form is not on the web page');
+            }
+          }
+          return right(PostEditFormApi(read));
       }
       return right(PostEditFormApi(form));
     }
@@ -226,8 +248,9 @@ final class PostEditRepository with LoggerMixin {
     return (await fetchData(url).run()).map(PostEditFormPage.new);
   });
 
-  /// [fetchForm] of the form of a new thread in forum [fid].
-  AsyncEither<PostEditFormAnswer> prepareForm(String fid) => fetchForm(_buildThreadInfoUrl(fid));
+  /// [fetchForm] of the form of a new thread of [kind] in forum [fid].
+  AsyncEither<PostEditFormAnswer> prepareForm(String fid, {ThreadKind kind = ThreadKind.normal}) =>
+      fetchForm(_buildThreadInfoUrl(fid, kind: kind));
 
   /// Post the post form [form] (plugin 2.9.0) once, with the member's [edits] over every served value
   /// ([PostForm.bodyWith]), to the url the forum gave (`submit.url`); the result is read as for the web page's form
@@ -253,6 +276,8 @@ final class PostEditRepository with LoggerMixin {
         options: edits.options,
         save: edits.save,
         attachNew: edits.attachNew,
+        rewardPrice: edits.rewardPrice,
+        hongbao: edits.hongbao,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {
@@ -266,7 +291,14 @@ final class PostEditRepository with LoggerMixin {
       // Never offered for editing (PostForm.editorSupport): nothing is sent.
       return left(ThreadPublishLocationNotFoundException());
     }
-    return _submit(url, body, expectedTid: expectedTid, verification: verification, told: told).run();
+    return _submit(
+      url,
+      body,
+      expectedTid: expectedTid,
+      verification: verification,
+      told: told,
+      acceptsNotice: form.isHongbao && edits.hongbao != null,
+    ).run();
   });
 
   /// Fetch edit data from given [url].
@@ -284,12 +316,16 @@ final class PostEditRepository with LoggerMixin {
     });
   });
 
+  /// [acceptsNotice]: a red packet thread: the forum took the thread and the plugin then showed a notice instead of
+  /// going to it (the packet was not made; the plugin's own words, no language key, the forum's app API reports it
+  /// as `ok`): [ThreadPostedWithNoticeException], the thread is published.
   AsyncEither<String> _submit(
     String url,
     Map<String, String> body, {
     String? expectedTid,
     SecCheckAnswer? verification,
     SecCheck? told,
+    bool acceptsNotice = false,
   }) => AsyncEither(() async {
     if (!isCurrent) return left(IdentityChangedException());
     final result = await _post(url, body);
@@ -318,11 +354,22 @@ final class PostEditRepository with LoggerMixin {
     }
     final target = parseSubmissionResult(response, expectedTid: expectedTid);
     if (target != null) return right(target);
+    final apiResult = tsdmAppWriteResultOf(response.data);
+    // The plugin's note after the thread (`showmessage($error, '', [], [], 1)`: a plain text shown as a note, no
+    // language key); a refusal before the thread, the forum's or another plugin's, is an error.
+    if (acceptsNotice &&
+        apiResult != null &&
+        apiResult.kind == TsdmAppWriteKind.message &&
+        apiResult.succeeded &&
+        apiResult.alert == 'info' &&
+        apiResult.messageKey.isEmpty &&
+        apiResult.message.isNotEmpty) {
+      return left(ThreadPostedWithNoticeException(apiResult.message));
+    }
     // The forum's refusal: its 提示信息 page, or the write result of the forum's app API (plugin 2.6.0,
     // [tsdmAppWriteResultOf]) read as that page.
     final document =
-        tsdmAppWriteResultOf(response.data)?.document ??
-        (response.data is String ? parseHtmlDocument(response.data as String) : null);
+        apiResult?.document ?? (response.data is String ? parseHtmlDocument(response.data as String) : null);
     final message = document?.querySelector('#messagetext');
     if (message != null && !message.classes.contains('alert_right')) {
       final text = message.querySelector('p')?.innerText ?? '';

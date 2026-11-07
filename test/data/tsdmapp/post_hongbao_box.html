@@ -1,0 +1,48 @@
+<html><head><script>var discuz_uid = '31';</script></head><body>
+<form method="post" id="postform" action="forum.php?mod=post&amp;action=newthread&amp;fid=7&amp;extra=&amp;topicsubmit=yes">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="posttime" value="1700000000" />
+<input type="hidden" name="special" value="127" />
+<input type="hidden" name="specialextra" value="hongbao" />
+<div class="specialpost s_clear"><style>
+.hb-postbox{border:1px solid #e5c9a0;background:#fff8ef;border-radius:8px;padding:12px 14px;margin:6px 0;font-size:13px;color:#5a3b1a}
+.hb-postbox .hb-row{margin:7px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.hb-postbox label.hb-lb{width:84px;color:#8a5a2b;flex:none}
+.hb-postbox input[type=text],.hb-postbox input[type=number],.hb-postbox input[type=password],.hb-postbox select,.hb-postbox textarea{border:1px solid #e0c39a;border-radius:5px;padding:4px 8px;font-size:13px}
+.hb-postbox .hb-bal{color:#d1302f;font-weight:bold}
+.hb-postbox .hb-hint{color:#a98;font-size:12px}
+.hb-postbox .hb-split label{margin-right:12px;color:#5a3b1a}
+</style>
+<div class="hb-postbox">
+	<div class="hb-row"><label class="hb-lb">總金額</label>
+		<input type="number" name="hb_total" min="1" step="1" style="width:120px" />
+		<span class="hb-hint">目前餘額 <span class="hb-bal">0</span> 威望</span>
+	</div>
+	<div class="hb-row"><label class="hb-lb">份數</label>
+		<input type="number" name="hb_shares" min="1" max="100" step="1" value="1" style="width:80px" />
+		<span class="hb-hint">最多 100 份;每份至少 1</span>
+	</div>
+	<div class="hb-row hb-split"><label class="hb-lb">拆分方式</label>
+		<label><input type="radio" name="hb_split" value="1" checked /> 拼手氣</label>
+		<label><input type="radio" name="hb_split" value="2" /> 均分</label>
+	</div>
+	<div class="hb-row"><label class="hb-lb">搶包門檻</label>
+		<label><input type="checkbox" name="hb_cond" value="1" /> 必須回帖後才能搶</label>
+	</div>
+	<div class="hb-row"><label class="hb-lb">口令</label>
+		<input type="text" name="hb_password" maxlength="64" style="width:160px" autocomplete="off" />
+		<span class="hb-hint">選填;填了就是口令紅包</span>
+	</div>
+	<div class="hb-row"><label class="hb-lb">指定領取人</label>
+		<input type="text" name="hb_appoint" style="width:260px" placeholder="會員名,可多個(逗號分隔)" />
+		<span class="hb-hint">選填;填了只有名單內會員能領</span>
+	</div>
+	<div class="hb-row"><label class="hb-lb">有效期</label>
+		<select name="hb_expire"><option value="1">1 小時</option><option value="6">6 小時</option><option value="12">12 小時</option><option value="24" selected>1 天</option><option value="72">3 天</option><option value="168">7 天</option></select>
+	</div>
+	<div class="hb-row"><label class="hb-lb">祝福語</label>
+		<input type="text" name="hb_blessing" maxlength="50" value="恭喜發財,大吉大利" style="width:260px" />
+	</div>
+	<div class="hb-hint">紅包金額在扣款成功後才鎖定;拼手氣每份金額在領取當下才決定。發表後不可補塞、不可加碼。</div>
+</div>
+</form></body></html>

@@ -159,7 +159,9 @@ final class PostEditContent with PostEditContentMappable {
       price: price == null ? null : int.tryParse(price.value?.trim() ?? '') ?? 0,
       maxPrice: price == null ? null : form.priceMax,
       tags: form.tagsInput?.value ?? '',
-      canSaveDraft: form.canSaveDraft,
+      // A red packet thread is never saved as a forum draft: the packet would not be in it (the plugin makes it only
+      // when the thread is posted from the new thread form), the editor keeps a local draft instead.
+      canSaveDraft: form.canSaveDraft && !form.isHongbao,
       postForm: form.json,
       secCheck: form.secCheck,
     );

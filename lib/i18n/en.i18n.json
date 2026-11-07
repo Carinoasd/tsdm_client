@@ -1464,7 +1464,63 @@
     },
     "titleCount": "${count: int} / ${max: int}",
     "bodyCount": "${count: int} / ${max: int} bytes",
-    "bodyCountNoMax": "${count: int} bytes"
+    "bodyCountNoMax": "${count: int} bytes",
+    "threadKind": {
+      "tooltip": "Thread kind",
+      "normal": "Ordinary thread",
+      "reward": "Reward",
+      "hongbao": "Red packet"
+    },
+    "rewardDialog": {
+      "title": "Set reward",
+      "entryTooltip": "Reward credits",
+      "price": "Reward credits",
+      "range": "$min – $max $credit",
+      "min": "At least $min $credit",
+      "balance": "You have $have $credit",
+      "afterTax": "$real $credit after tax",
+      "required": "Set the reward credits first",
+      "issue": {
+        "empty": "Enter the reward credits",
+        "overflow": "At most 32767",
+        "belowMin": "At least $min",
+        "aboveMax": "At most $max",
+        "shortage": "Not enough credits"
+      }
+    },
+    "hongbaoDialog": {
+      "title": "Red packet",
+      "entryTooltip": "Red packet",
+      "total": "Amount",
+      "balance": "Balance $balance $credit",
+      "shares": "Shares",
+      "sharesLimit": "At most $max shares, at least $min each",
+      "minShare": "At least $min each",
+      "split": "Split",
+      "lucky": "By luck",
+      "even": "Evenly",
+      "condReply": "Reply before grabbing",
+      "password": "Password",
+      "appoint": "Only for",
+      "appointHint": "Member names, separated by commas",
+      "expire": "Expires in",
+      "blessing": "Blessing",
+      "required": "Set the red packet first",
+      "issue": {
+        "totalRequired": "Enter the amount",
+        "sharesRequired": "Enter the shares",
+        "sharesAboveMax": "At most $max shares",
+        "totalBelowShares": "At least $min each: needs ≥ $need",
+        "notDivisible": "An even split needs an amount the shares divide",
+        "shortage": "Not enough credits",
+        "blessingTooLong": "Blessing at most $max characters",
+        "passwordTooLong": "Password at most $max characters"
+      }
+    },
+    "postedWithNotice": {
+      "title": "Posted",
+      "message": "The thread should be posted, but the forum says:\n$notice\n\nThe local draft is kept: check it in My threads."
+    }
   },
   "chatHistoryPage": {
     "title": "Chat History",
