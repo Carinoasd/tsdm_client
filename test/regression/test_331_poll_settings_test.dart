@@ -294,6 +294,8 @@ void main() {
       expect(body.containsKey('expiration'), isFalse);
       expect(body, odd.bodyWith(const PostFormEdits(message: 'm')).toMap());
       // Changed, they are checked.
+      // An option added: the most choices kept is cut by the forum, not checked.
+      expect(_with(info, added: const ['新']).check(info), isNull);
       expect(_with(info, maxChoices: '8').check(info), PollEditIssue.maxChoicesInvalid);
       expect(_with(info, texts: {2002: '長' * 82}).check(info), PollEditIssue.optionTooLong);
     });

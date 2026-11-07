@@ -544,9 +544,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Whether the poll settings were changed in their dialog: not kept in the local draft, they are lost when leaving.
   bool get _pollChanged => poll != null && poll != context.read<PostEditBloc>().state.content?.form?.pollEdit?.served;
 
-  /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent]) while it is being
-  /// edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep editing. Used to
-  /// drop the content right away.
+  /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent], [_pollChanged])
+  /// while it is being edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep
+  /// editing. Used to drop the content right away.
   Future<void> _onLeave(BuildContext context) async {
     if (_leaving) {
       return;
