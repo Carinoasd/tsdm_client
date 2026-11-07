@@ -3003,7 +3003,7 @@
       "appoint": "Named members",
       "expireAt": "Expires $time",
       "noExpire": "No expiry",
-      "mine": "You got $amount $credit",
+      "mine": "You got $amount$credit",
       "best": "Luckiest",
       "why": {
         "disabled": "Red packets are turned off",
@@ -3020,7 +3020,7 @@
       "recordsFailed": "Failed to load",
       "withdraw": "Withdraw",
       "withdrawConfirmTitle": "Withdraw red packet",
-      "withdrawConfirm": "The shares left go back to you",
+      "withdrawConfirm": "The $credit left goes back to you",
       "grabbed": "You got $amount $unit",
       "already": "Already grabbed: $amount $unit",
       "withdrawn": "Withdrawn, $amount $unit refunded"

@@ -121,12 +121,16 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
   final draft = _int(thread['draft']) == 1;
   final pay = thread['pay'] is Map<String, dynamic> ? _map(thread['pay']) : null;
   final timeOffset = tsdmAppTimeOffset(json);
-  final special = ThreadSpecial.fromApi(
+  final special = switch (ThreadSpecial.fromApi(
     json['special'],
     formHash: _text(json['formhash']),
     viewerUid: uid,
     timeOffset: timeOffset,
-  );
+  )) {
+    // The red packet of another thread than this one is none of this page.
+    final HongbaoSpecial packet when packet.tid != tidValue => null,
+    final block => block,
+  };
 
   // The placeholder a rush thread prints for a deleted floor (`deleted` 1: "无效楼层，该帖已经被删除", no author, no
   // content) is left out, as the page parser leaves out a floor without an author.
@@ -272,8 +276,9 @@ Post _withSpecial(Post post, ThreadSpecial? special, {required bool first}) {
     }
     final data = bodyHtmlWithoutSpecialBlock(post.data, special, pid: post.postID);
     // The red packet's card only replaces the plugin's own: when that cannot be cut cleanly the floor stays as the web
-    // page printed it, without the card (two cards for one packet, one of them dead, would be worse).
-    if (special is HongbaoSpecial && data == post.data) {
+    // page printed it, without the card (two cards for one packet, one of them dead, would be worse); so does a cut that
+    // left the plugin's card or envelope behind (markup the cut does not know).
+    if (special is HongbaoSpecial && (data == post.data || _hongbaoLeft.hasMatch(data))) {
       return post;
     }
     return post.copyWith(special: special, data: data);
@@ -285,6 +290,9 @@ Post _withSpecial(Post post, ThreadSpecial? special, {required bool first}) {
   }
   return post;
 }
+
+/// The hongbao plugin's card or envelope ([HongbaoSpecial]) still in a first floor.
+final _hongbaoLeft = RegExp(r'''class=["']hb-entry["']|id=["']hb_mask["']|window\.hongbaoOpen''');
 
 /// [post] with the support of its side in a [debate] ([Post.debateVoteRequest]): the page prints "支持 N" on every
 /// floor taking a side; the app offers it to an account that is not the floor's author ([viewerUid], none for a

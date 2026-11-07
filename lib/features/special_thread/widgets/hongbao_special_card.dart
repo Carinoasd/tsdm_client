@@ -20,6 +20,15 @@ class _HongbaoCardState extends State<_HongbaoCard> {
 
   HongbaoSpecial get _packet => widget.packet;
 
+  @override
+  void didUpdateWidget(covariant _HongbaoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The page read again: what the forum said of the packet before no longer holds.
+    if (!identical(oldWidget.packet, widget.packet)) {
+      _refusal = null;
+    }
+  }
+
   HongbaoRepository get _repository =>
       context.readOrNull<HongbaoRepository>() ?? HongbaoRepository.network(getIt.get<NetClientProvider>());
 
@@ -61,7 +70,7 @@ class _HongbaoCardState extends State<_HongbaoCard> {
     final confirmed = await showQuestionDialog(
       context: context,
       title: tr.withdrawConfirmTitle,
-      message: tr.withdrawConfirm,
+      message: tr.withdrawConfirm(credit: _creditName),
       dangerous: true,
     );
     if (!mounted || !(confirmed ?? false)) {
@@ -226,7 +235,7 @@ class _HongbaoCardState extends State<_HongbaoCard> {
                   sizedBoxW8H8,
                   Flexible(
                     child: Text(
-                      tr.mine(amount: mine.amount, credit: _creditName),
+                      tr.mine(amount: mine.amount, credit: _creditName.isEmpty ? '' : ' $_creditName'),
                       style: textTheme.bodyLarge?.copyWith(color: colorScheme.onErrorContainer),
                     ),
                   ),

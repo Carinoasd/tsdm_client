@@ -286,7 +286,12 @@ void main() {
       );
       expect(parse(base).grabRequest()!.fields['password'], '', reason: 'the field is sent, empty, when none typed');
       final noHash = ThreadSpecial.fromApi(_rawState('sender_password'), viewerUid: 1035)! as HongbaoSpecial;
+      expect(noHash.canGrab, isFalse, reason: 'no button that would send nothing');
+      expect(noHash.canWithdraw, isFalse);
       expect(noHash.grabRequest(), isNull);
+      // A state the app does not know: no block, the floor as printed.
+      expect(ThreadSpecial.fromApi(_rawState('sender_password')..['status'] = 'paused', formHash: 'f1f2f3f4'), isNull);
+      expect(ThreadSpecial.fromApi(_rawState('sender_password')..remove('status'), formHash: 'f1f2f3f4'), isNull);
     });
 
     test('an older plugin (no hongbao special): the floor as the forum printed it', () {
@@ -313,6 +318,22 @@ void main() {
       expect(page.postList.first.special, isNull);
       expect(page.postList.first.data, first['body_html']);
       expect(page.postList.first.data, contains('hb-entry'));
+
+      // A cut that leaves the envelope behind (its id renamed): no card either.
+      final renamed = _thread('sender_active');
+      final renamedFirst = (renamed['posts'] as List).first as Map<String, dynamic>;
+      renamedFirst['body_html'] = (renamedFirst['body_html'] as String).replaceFirst(
+        'class="mask" id="hb_mask"',
+        'class="mask2" id="hb_mask"',
+      );
+      expect(threadPageFromApi(renamed, 1).postList.first.special, isNull);
+      expect(threadPageFromApi(renamed, 1).postList.first.data, renamedFirst['body_html']);
+
+      // The packet of another thread is none of this page.
+      final other = _thread('sender_active');
+      (other['thread'] as Map<String, dynamic>)['tid'] = 9202999;
+      expect(threadPageFromApi(other, 1).special, isNull);
+      expect(threadPageFromApi(other, 1).postList.first.special, isNull);
 
       // Another type's cut leaves the red packet html alone.
       final poll = ThreadSpecial.fromApi({'type': 'poll'})!;
@@ -484,7 +505,7 @@ void main() {
       expect(find.text(tr.withdraw), findsOneWidget);
 
       await pump(tester, SpecialThreadCard(_state('claimed_best'), pid: '1', onReload: () {}));
-      expect(find.text(tr.mine(amount: 1, credit: '威望')), findsOneWidget);
+      expect(find.text(tr.mine(amount: 1, credit: ' 威望')), findsOneWidget);
       expect(find.text(tr.best), findsOneWidget);
       expect(find.text(tr.status.done), findsOneWidget);
       expect(find.text(tr.why.claimed), findsNothing, reason: 'the share says it');
@@ -619,6 +640,15 @@ void main() {
 
       snackbarKey.currentState!.clearSnackBars();
       await tester.pumpAndSettle();
+      // The page read again (a new packet) clears the refusal.
+      final next = threadPageFromApi(_thread('sender_active'), 1).special!;
+      await pump(
+        tester,
+        SpecialThreadCard(next, pid: '1', onReload: () => reloads++),
+        repository: needReply.repository,
+      );
+      expect(find.text('需先在本主題回覆後才能搶'), findsNothing);
+
       final unknown = _FakeForum(['<html></html>']);
       await pump(
         tester,

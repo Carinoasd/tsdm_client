@@ -31,7 +31,7 @@ sealed class ThreadSpecial {
       'reward' => RewardSpecial._fromApi(value, formHash: formHash, viewerUid: uid),
       'activity' => ActivitySpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
       'debate' => DebateSpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
-      'hongbao' => HongbaoSpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
+      'hongbao' => HongbaoSpecial._tryFromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
       _ => null,
     };
   }
@@ -1476,6 +1476,7 @@ final class HongbaoSpecial extends ThreadSpecial {
         'done' => HongbaoStatus.done,
         'withdrawn' => HongbaoStatus.withdrawn,
         'expired' => HongbaoStatus.expired,
+        // `closed`; another is never parsed ([_tryFromApi]).
         _ => HongbaoStatus.closed,
       },
       isSender: _apiFlag(m['is_sender']),
@@ -1486,18 +1487,34 @@ final class HongbaoSpecial extends ThreadSpecial {
               time: _apiWallClock(mine['dateline'], timeOffset),
             )
           : null,
-      // Only with the form to send it (and a password field the app knows: none, or `password`).
-      canGrab: _apiFlag(m['can_grab']) && grabUrl != null && (passwordField.isEmpty || passwordField == 'password'),
+      // Only with the form to send it, a password field the app knows (none, or `password`) and the page's form hash.
+      canGrab:
+          _apiFlag(m['can_grab']) &&
+          grabUrl != null &&
+          (passwordField.isEmpty || passwordField == 'password') &&
+          formHash.isNotEmpty &&
+          tid > 0,
       why: _apiText(m['why']),
       grabUrl: grabUrl,
       passwordField: passwordField,
       canViewRecords: _apiFlag(m['can_view_records']),
       recordsUrl: _hongbaoActionUrl(_apiText(m['records_url']), 'record', tid: tid),
-      canWithdraw: _apiFlag(m['can_withdraw']) && withdrawUrl != null,
+      canWithdraw: _apiFlag(m['can_withdraw']) && withdrawUrl != null && formHash.isNotEmpty && tid > 0,
       withdrawUrl: withdrawUrl,
       timeOffset: timeOffset,
     );
   }
+
+  /// The packet of [m]; null when its `status` is not one the app knows: the floor then stays as the web page
+  /// printed it rather than show a state the card cannot tell.
+  static HongbaoSpecial? _tryFromApi(
+    Map<String, dynamic> m, {
+    required String formHash,
+    required int? viewerUid,
+    required num timeOffset,
+  }) => const {'active', 'done', 'withdrawn', 'expired', 'closed'}.contains(m['status'])
+      ? HongbaoSpecial._fromApi(m, formHash: formHash, viewerUid: viewerUid, timeOffset: timeOffset)
+      : null;
 
   /// The thread (from the forms' `tid`, or the records url), 0 when not told.
   final int tid;

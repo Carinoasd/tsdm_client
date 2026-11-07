@@ -3003,7 +3003,7 @@
       "appoint": "指定領取",
       "expireAt": "$time 到期",
       "noExpire": "不自動到期",
-      "mine": "領到 $amount $credit",
+      "mine": "領到 $amount$credit",
       "best": "手氣最佳",
       "why": {
         "disabled": "紅包功能已關閉",
@@ -3020,7 +3020,7 @@
       "recordsFailed": "讀取失敗",
       "withdraw": "撤回",
       "withdrawConfirmTitle": "撤回紅包",
-      "withdrawConfirm": "剩餘份數退回給你",
+      "withdrawConfirm": "剩餘的$credit退回給你",
       "grabbed": "領到 $amount $unit",
       "already": "已領過 $amount $unit",
       "withdrawn": "已撤回，退回 $amount $unit"
