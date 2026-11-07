@@ -26,7 +26,9 @@ import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart'
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
@@ -601,6 +603,26 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           context.read<ThreadBloc>().add(ThreadRefreshRequested());
         }
     }
+  }
+
+  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done.
+  Future<void> _moderateFloor(BuildContext context, ThreadState state, Post post, FloorModerateAction action) async {
+    final threadBloc = context.read<ThreadBloc>();
+    final done = await showFloorModerateDialog(
+      context,
+      action: action,
+      tid: state.tid!,
+      fid: state.fid!,
+      pid: post.postID,
+    );
+    if (!done || threadBloc.isClosed) {
+      return;
+    }
+    // A deleted reply is gone: the page reloads where it was.
+    if (action != FloorModerateAction.delete) {
+      _scrollToPidOnReload = post.postID;
+    }
+    threadBloc.add(ThreadJumpPageRequested(post.page));
   }
 
   /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
@@ -1512,6 +1534,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                   onJoinDebate: state.replyParameters == null || state.threadClosed
                                       ? null
                                       : _joinDebate,
+                                  onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
+                                      ? (action) => _moderateFloor(context, state, post, action)
+                                      : null,
                                 ),
                               ),
                             ),
