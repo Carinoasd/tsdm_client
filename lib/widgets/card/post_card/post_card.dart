@@ -26,6 +26,8 @@ import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
+import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -95,6 +97,12 @@ enum _PostCardActions {
 
   /// Open the dialog to copy contents.
   openAndCopy,
+
+  /// Copy the content as plain text.
+  copyAsPlainText,
+
+  /// Copy the content as Markdown.
+  copyAsMarkdown,
 
   /// Copy post id.
   copyPid,
@@ -493,6 +501,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
           item(_PostCardActions.openInBrowser, Icons.open_in_browser_outlined, context.t.postCard.openInBrowser),
           item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
+          item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
+          item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
           item(
             _PostCardActions.copyPid,
             Icons.numbers_outlined,
@@ -634,6 +644,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                 .join() ??
             '';
         await showCopySelectContentDialog(context: context, data: data);
+      case _PostCardActions.copyAsPlainText:
+        await copyPostAsText(context, widget.post, PostExportFormat.plainText);
+      case _PostCardActions.copyAsMarkdown:
+        await copyPostAsText(context, widget.post, PostExportFormat.markdown);
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:
