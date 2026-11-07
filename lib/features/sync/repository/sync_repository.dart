@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
+import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// How a sync run ended (for the log and the tests).
@@ -35,8 +39,22 @@ enum SyncOutcome {
   newerSchema,
 }
 
-/// Keeps the reading progress, the quick phrases and the block list of an account the same on every device it logs in
-/// on, through the forum's `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
+/// What a device may leave out of the sync, each on its own switch (the reading progress, the quick phrases and the
+/// block list always go with the sync).
+enum SyncCategory {
+  /// The fast rate templates (`rate_templates`).
+  rateTemplates,
+
+  /// The reading and display settings (`settings`).
+  settings,
+
+  /// The local drafts of the account (`drafts`).
+  drafts,
+}
+
+/// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings and
+/// the local drafts of an account the same on every device it logs in on, through the forum's `sync` action (plugin
+/// 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
 /// wins), applies the result here and writes it back when this device had something newer. [schedulePush] waits a
@@ -54,6 +72,7 @@ final class SyncRepository with LoggerMixin {
     required SyncLocalStore store,
     required bool Function() enabled,
     int? Function()? currentUid,
+    bool Function(SyncCategory category)? categoryEnabled,
     DateTime Function()? now,
     this.debounce = const Duration(seconds: 30),
     this.unsupportedFor = const Duration(hours: 1),
@@ -61,6 +80,7 @@ final class SyncRepository with LoggerMixin {
        _store = store,
        _enabled = enabled,
        _currentUid = currentUid,
+       _categoryEnabled = categoryEnabled,
        _now = now ?? DateTime.now;
 
   final SyncApi _api;
@@ -70,6 +90,10 @@ final class SyncRepository with LoggerMixin {
   /// The account in use now, asked before anything is applied or written: a run of another account (the account was
   /// switched while it waited or was on its way) changes nothing. Null when there is no such account (tests).
   final int? Function()? _currentUid;
+
+  /// Whether a category goes with the sync on this device (all of them when null). One left out is neither read nor
+  /// written here: the forum's section stays as it is.
+  final bool Function(SyncCategory category)? _categoryEnabled;
   final DateTime Function() _now;
 
   /// How long a local change waits before it is written, so a burst of changes is written once.
@@ -79,10 +103,19 @@ final class SyncRepository with LoggerMixin {
   final Duration unsupportedFor;
 
   DateTime? _unsupportedUntil;
+
+  /// Most bytes a document may take: [syncDocumentMaxBytes], less when the forum refused one as too large.
+  int _documentMaxBytes = syncDocumentMaxBytes;
   Timer? _pushTimer;
   int? _pushUid;
   Future<void> _queue = Future.value();
   String? _appliedPhrases;
+  String? _appliedRateTemplates;
+  String? _appliedSettings;
+
+  /// The drafts this device held when its document was last built: a draft deleted since (while the run was on its
+  /// way) is not written back by the apply.
+  Set<String>? _draftKeysRead;
   bool _disposed = false;
 
   /// The time of the last [pull] that reached the forum, null when none did yet.
@@ -171,6 +204,41 @@ final class SyncRepository with LoggerMixin {
       schedulePush(uid);
     }
   }
+
+  /// The fast rate templates changed on this device to [snapshot] ([encodeRateTemplates]): note the time, unless it is
+  /// what the sync wrote itself, and schedule a write for account [uid].
+  Future<void> onRateTemplatesChanged(int? uid, String snapshot) async {
+    if (snapshot == _appliedRateTemplates) {
+      return;
+    }
+    _appliedRateTemplates = null;
+    await _store.saveRateTemplatesUpdated(_now().millisecondsSinceEpoch);
+    if (uid != null) {
+      schedulePush(uid);
+    }
+  }
+
+  /// The synced settings changed on this device to [snapshot] ([encodeSettingsValues]): note the time, unless it is
+  /// what the sync wrote itself, and schedule a write for account [uid].
+  Future<void> onSettingsChanged(int? uid, String snapshot) async {
+    if (snapshot == _appliedSettings) {
+      return;
+    }
+    _appliedSettings = null;
+    await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
+    if (uid != null) {
+      schedulePush(uid);
+    }
+  }
+
+  /// The text the sync compares the fast rate [templates] by.
+  static String encodeRateTemplates(List<FastRateTemplateModel> templates) =>
+      jsonEncode([for (final t in templates) rateTemplateToItem(t)]);
+
+  /// The text the sync compares the synced settings [values] by.
+  static String encodeSettingsValues(Map<String, Object> values) => jsonEncode(values);
+
+  bool _on(SyncCategory category) => _categoryEnabled?.call(category) ?? true;
 
   /// Stop: nothing scheduled runs any more.
   Future<void> dispose() async {
@@ -289,6 +357,8 @@ final class SyncRepository with LoggerMixin {
       return SyncOutcome.newerSchema;
     }
     await _unitePhrasesOnFirstSync(remote);
+    await _uniteRateTemplatesOnFirstSync(remote);
+    await _stampSettingsOnFirstSync(remote);
     final last = await _store.lastSynced(uid);
     final base = SyncDocument.parse(last?.document);
     final local = await _localDocument(uid, base);
@@ -327,6 +397,17 @@ final class SyncRepository with LoggerMixin {
         );
       case SyncTooLarge(:final maxBytes):
         warning('sync: the document (${merged.encodedLength} bytes) is over the forum limit of $maxBytes bytes');
+        if (maxBytes <= 0) {
+          return SyncOutcome.failed;
+        }
+        // The forum keeps less than this version thought: fit to its limit from now on (the drafts within a quarter of
+        // it), and write again after the debounce. Not at once: the plugin keeps
+        // its interval lock after a 413 (unlike a 409), so a write right away is answered 429 (busy).
+        final limit = math.max(0, maxBytes - 2048);
+        if (limit < _documentMaxBytes) {
+          _documentMaxBytes = limit;
+          schedulePush(uid);
+        }
         return SyncOutcome.failed;
       case SyncPushFailed(:final reason):
         debug('sync: push failed: $reason');
@@ -358,6 +439,107 @@ final class SyncRepository with LoggerMixin {
       }
     }
     await _store.savePhrasesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
+  }
+
+  /// The first sync of the fast rate templates on a device (never stamped): like the quick phrases, this device's
+  /// templates and the forum's that it lacks (by name) are united, then stamped as of now (0 when there are none).
+  Future<void> _uniteRateTemplatesOnFirstSync(SyncDocument remote) async {
+    if (!_on(SyncCategory.rateTemplates) || await _store.rateTemplatesUpdated() != null) {
+      return;
+    }
+    var mine = await _store.rateTemplates();
+    final theirs = remote.single('rate_templates');
+    if (mine.isNotEmpty && theirs != null) {
+      final names = {for (final t in mine) t.name};
+      final union = [
+        ...mine,
+        ...rateTemplatesOf(theirs).where((t) => !names.contains(t.name)),
+      ].take(syncRateTemplatesMax).toList();
+      if (union.length != mine.length) {
+        info('sync: first sync, ${union.length - mine.length} rate templates of the forum added to this device');
+        _appliedRateTemplates = encodeRateTemplates(union);
+        await _store.saveRateTemplates(union);
+        mine = union;
+      }
+    }
+    await _store.saveRateTemplatesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
+  }
+
+  /// The first sync of the settings on a device (never stamped). A device with only the defaults takes the forum's
+  /// settings (it counts as changed at 0), or says nothing when the forum has none: a fresh device never undoes
+  /// another's. A device with settings of its own keeps them: the forum's fill in only the settings still at their
+  /// default here, and the result is stamped as of now (then written), so neither device's choices are lost.
+  Future<void> _stampSettingsOnFirstSync(SyncDocument remote) async {
+    if (!_on(SyncCategory.settings) || await _store.settingsUpdated() != null) {
+      return;
+    }
+    final mine = await _store.settingsValues();
+    final defaults = syncedSettingsDefaults();
+    final theirs = remote.single('settings');
+    if (mapEquals(mine, defaults)) {
+      if (theirs != null) {
+        await _store.saveSettingsUpdated(0);
+      }
+      return;
+    }
+    if (theirs != null) {
+      final fill = {
+        for (final MapEntry(:key, :value) in settingsValuesOf(theirs).entries)
+          if (mine.containsKey(key) && mine[key] == defaults[key]) key: value,
+      };
+      final next = syncedSettingsApplied(mine, fill);
+      if (!mapEquals(next, mine)) {
+        info('sync: first sync, settings of the forum taken where this device has the defaults');
+        await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
+        _appliedSettings = encodeSettingsValues(next);
+        await _store.applySettingsValues(fill);
+        return;
+      }
+    }
+    await _store.saveSettingsUpdated(_now().millisecondsSinceEpoch);
+  }
+
+  /// The fast rate templates of the `rate_templates` [item]: the ones this version reads, the first of each name, at
+  /// most [syncRateTemplatesMax].
+  static List<FastRateTemplateModel> rateTemplatesOf(Map<String, dynamic> item) {
+    final names = <String>{};
+    final templates = <FastRateTemplateModel>[];
+    for (final e in item['items'] is List ? item['items'] as List : const []) {
+      final template = rateTemplateFromItem(e);
+      if (template != null && names.add(template.name) && templates.length < syncRateTemplatesMax) {
+        templates.add(template);
+      }
+    }
+    return templates;
+  }
+
+  /// The values of the `settings` [item].
+  static Map<String, dynamic> settingsValuesOf(Map<String, dynamic> item) =>
+      item['values'] is Map<String, dynamic> ? item['values'] as Map<String, dynamic> : const {};
+
+  /// Whether the draft of [key] goes with the sync: every kind but the private messages, kept on their device only
+  /// (the document lies in the forum's table as plain text).
+  static bool syncsDraft(String key) => !key.startsWith('${LocalDraftKind.message.prefix}:');
+
+  static List<LocalDraft>? _synced(List<LocalDraft>? drafts) =>
+      drafts?.where((d) => d.key.kind != LocalDraftKind.message).toList();
+
+  static int _bytesOf(Object? json) => utf8.encode(jsonEncode(json)).length;
+
+  /// The document item of [draft] ([draftToItem]), with the fields of the forum's item [base] this version does not
+  /// read; without its editor document when over [syncDraftMaxBytes], null when still over.
+  static Map<String, dynamic>? _draftItem(LocalDraft draft, Map<String, dynamic>? base) {
+    final item = <String, dynamic>{
+      if (base != null && !SyncDocument.isDeleted(base))
+        for (final MapEntry(:key, :value) in base.entries)
+          if (!syncDraftFields.contains(key)) key: value,
+      ...draftToItem(draft),
+    };
+    if (_bytesOf(item) <= syncDraftMaxBytes) {
+      return item;
+    }
+    item.remove('delta');
+    return _bytesOf(item) <= syncDraftMaxBytes ? item : null;
   }
 
   /// This device's document of account [uid]: what it keeps, and the deletions since [base] (what the forum held last)
@@ -400,13 +582,81 @@ final class SyncRepository with LoggerMixin {
       }
     }
     doc = doc.withItems('blocks', blocks);
+
+    // Rate templates: one item, like the phrases. A category left out keeps the forum's section as it is.
+    if (_on(SyncCategory.rateTemplates)) {
+      final templates = await _store.rateTemplates();
+      final updated = await _store.rateTemplatesUpdated() ?? (templates.isEmpty ? 0 : now);
+      final baseItem = base.single('rate_templates') ?? const <String, dynamic>{};
+      doc = doc.withSingle(
+        'rate_templates',
+        templates.isEmpty && updated == 0 && baseItem.isEmpty
+            ? null
+            : {
+                ...baseItem,
+                'updated': updated,
+                'items': [for (final t in templates.take(syncRateTemplatesMax)) rateTemplateToItem(t)],
+              },
+      );
+    }
+
+    // Settings: one item; values of settings this version does not carry are kept. A device that never stamped them
+    // says nothing (see _stampSettingsOnFirstSync).
+    if (_on(SyncCategory.settings)) {
+      final updated = await _store.settingsUpdated();
+      if (updated != null) {
+        final baseItem = base.single('settings') ?? const <String, dynamic>{};
+        doc = doc.withSingle('settings', {
+          ...baseItem,
+          'updated': updated,
+          'values': {...settingsValuesOf(baseItem), ...await _store.settingsValues()},
+        });
+      }
+    }
+
+    // Drafts: those this device holds (an older copy of the forum's in place of one too large to send), then the
+    // deletions: a draft this device held at its last sync of them ([SyncLocalStore.draftsSeen]) and holds no more.
+    // A draft of the forum this device never held is not deleted here, whatever the forum's document says.
+    _draftKeysRead = null;
+    if (_on(SyncCategory.drafts)) {
+      final drafts = _synced(await _store.drafts(uid));
+      if (drafts != null) {
+        final seen = await _store.draftsSeen(uid) ?? const <String>{};
+        final baseDrafts = base.items('drafts');
+        final items = <String, Map<String, dynamic>>{};
+        for (final draft in drafts) {
+          final key = draft.key.value;
+          if (_draftItem(draft, baseDrafts[key]) ?? baseDrafts[key] case final item?) {
+            items[key] = item;
+          }
+        }
+        final held = {for (final d in drafts) d.key.value};
+        _draftKeysRead = held;
+        for (final key in {...baseDrafts.keys, ...seen}) {
+          if (held.contains(key) || !syncsDraft(key)) {
+            continue;
+          }
+          final item = baseDrafts[key];
+          if (item != null && SyncDocument.isDeleted(item)) {
+            items[key] = item;
+          } else if (seen.contains(key)) {
+            items[key] = SyncDocument.tombstone(now);
+          } else if (item != null) {
+            items[key] = item;
+          }
+        }
+        doc = doc.withItems('drafts', items);
+      }
+    }
     return _fit(doc);
   }
 
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
-  /// deletion records older than [syncTombstoneKeptFor] dropped, and at most [syncDocumentMaxBytes] (the oldest
-  /// visits dropped first, then the oldest deletion records). Dropping is by time alone, so every device drops the
-  /// same items of the same document; a dropped item is not a deletion.
+  /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
+  /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor]
+  /// dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits
+  /// dropped first, then the oldest deletion records of visits, then the drafts). Dropping is by time alone, so every
+  /// device drops the same items of the same document; a dropped item is not a deletion.
   SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
     List<MapEntry<String, Map<String, dynamic>>> latest(
@@ -428,19 +678,45 @@ final class SyncRepository with LoggerMixin {
       for (final e in doc.items('blocks').entries)
         if (!SyncDocument.isDeleted(e.value) || SyncDocument.updatedOf(e.value) >= keepSince) e.key: e.value,
     };
+    // Private messages never go to the forum's table, whoever wrote them there.
+    final draftItems = doc.items('drafts').entries.where((e) => syncsDraft(e.key));
+    final liveDrafts = latest(draftItems.where((e) => !SyncDocument.isDeleted(e.value)), syncDraftsMax);
+    final goneDrafts = latest(
+      draftItems.where((e) => SyncDocument.isDeleted(e.value) && SyncDocument.updatedOf(e.value) >= keepSince),
+      syncDraftTombstonesMax,
+    );
+    Map<String, Map<String, dynamic>> drafts() => {
+      for (final e in liveDrafts) e.key: e.value,
+      for (final e in goneDrafts) e.key: e.value,
+    };
+    final draftsMax = math.min(syncDraftsMaxBytes, _documentMaxBytes ~/ 4);
+    while ((liveDrafts.isNotEmpty || goneDrafts.isNotEmpty) && _bytesOf(drafts()) > draftsMax) {
+      if (liveDrafts.isNotEmpty) {
+        liveDrafts.removeLast();
+      } else {
+        goneDrafts.removeLast();
+      }
+    }
     var fitted = doc
         .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
-        .withItems('blocks', blocks);
-    // Size: the oldest visits go first, then the oldest deletion records.
-    while (fitted.encodedLength > syncDocumentMaxBytes) {
+        .withItems('blocks', blocks)
+        .withItems('drafts', drafts());
+    // Size: the oldest visits go first, then the oldest deletion records, then the drafts.
+    while (fitted.encodedLength > _documentMaxBytes) {
       if (live.isNotEmpty) {
         live.removeLast();
       } else if (gone.isNotEmpty) {
         gone.removeLast();
+      } else if (liveDrafts.isNotEmpty) {
+        liveDrafts.removeLast();
+      } else if (goneDrafts.isNotEmpty) {
+        goneDrafts.removeLast();
       } else {
         break;
       }
-      fitted = fitted.withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value});
+      fitted = fitted
+          .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
+          .withItems('drafts', drafts());
     }
     return fitted;
   }
@@ -510,6 +786,77 @@ final class SyncRepository with LoggerMixin {
     final localBlocks = await _store.blocks(uid);
     if (merged.items('blocks').isNotEmpty && !setEquals(blocks.toSet(), localBlocks.toSet())) {
       await _store.saveBlocks(uid, blocks);
+    }
+
+    // The stamps are written before the values: the change the streams report next is the sync's, not the user's.
+    if (_on(SyncCategory.rateTemplates)) {
+      final item = merged.single('rate_templates');
+      if (item != null && SyncDocument.updatedOf(item) > (await _store.rateTemplatesUpdated() ?? 0)) {
+        await _store.saveRateTemplatesUpdated(SyncDocument.updatedOf(item));
+        final templates = rateTemplatesOf(item);
+        final encoded = encodeRateTemplates(templates);
+        if (encoded != encodeRateTemplates(await _store.rateTemplates())) {
+          _appliedRateTemplates = encoded;
+          await _store.saveRateTemplates(templates);
+        }
+      }
+    }
+
+    if (_on(SyncCategory.settings)) {
+      final item = merged.single('settings');
+      final localUpdated = await _store.settingsUpdated();
+      if (item != null && localUpdated != null && SyncDocument.updatedOf(item) > localUpdated) {
+        await _store.saveSettingsUpdated(SyncDocument.updatedOf(item));
+        final values = settingsValuesOf(item);
+        final current = await _store.settingsValues();
+        final next = syncedSettingsApplied(current, values);
+        if (!mapEquals(next, current)) {
+          _appliedSettings = encodeSettingsValues(next);
+          await _store.applySettingsValues(values);
+        }
+      }
+    }
+
+    // Drafts item by item, each where the merge is later than this device's (the same time leaves this device's own:
+    // it may carry the editor document the forum's copy went without); a draft not in the document stays.
+    if (_on(SyncCategory.drafts)) {
+      final local = _synced(await _store.drafts(uid));
+      if (local != null) {
+        final byKey = {for (final d in local) d.key.value: d};
+        final save = <LocalDraft>[];
+        final delete = <LocalDraftKey>[];
+        final items = merged.items('drafts');
+        final skipped = <String>{};
+        for (final MapEntry(:key, value: item) in items.entries) {
+          final mine = byKey[key];
+          final at = SyncDocument.updatedOf(item);
+          if (SyncDocument.isDeleted(item)) {
+            if (mine != null && mine.updatedAt.millisecondsSinceEpoch <= at) {
+              delete.add(mine.key);
+            }
+            continue;
+          }
+          if (mine != null && mine.updatedAt.millisecondsSinceEpoch >= at) {
+            continue;
+          }
+          if (mine == null && (_draftKeysRead?.contains(key) ?? false)) {
+            // Deleted here while the run was on its way: still seen, so the next run sends the deletion.
+            skipped.add(key);
+            continue;
+          }
+          if (draftFromItem(key, item) case final draft?) {
+            save.add(draft);
+          }
+        }
+        await _store.applyDrafts(uid, save: save, delete: delete);
+        final held = {...byKey.keys, for (final d in save) d.key.value}..removeAll([for (final k in delete) k.value]);
+        await _store.saveDraftsSeen(uid, {
+          ...held,
+          ...skipped,
+          for (final MapEntry(:key, :value) in items.entries)
+            if (SyncDocument.isDeleted(value)) key,
+        });
+      }
     }
   }
 }

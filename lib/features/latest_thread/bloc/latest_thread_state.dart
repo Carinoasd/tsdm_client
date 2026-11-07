@@ -28,6 +28,7 @@ final class LatestThreadState with LatestThreadStateMappable {
     this.loadingMore = false,
     this.loadMoreFailed = false,
     this.failure,
+    this.tagName,
   });
 
   /// Status.
@@ -55,4 +56,7 @@ final class LatestThreadState with LatestThreadStateMappable {
   /// Why the last load failed: the first page ([LatestThreadStatus.failed]), the next page ([loadMoreFailed]), or a
   /// refresh that kept the threads shown. Null once a load succeeded.
   final LoadFailure? failure;
+
+  /// Name of the tag when the page lists the threads of one (`misc.php?mod=tag&id=…`), as the page names it.
+  final String? tagName;
 }

@@ -59,6 +59,7 @@ dependencies:
   go_router: ^17.1.0
   html: ^0.15.5+1
   http: ^1.6.0
+  image: ^4.7.2
   image_picker: ^1.2.1
   json_annotation: ^4.9.0
   loading_indicator_m3e: ^0.1.1

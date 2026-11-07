@@ -27,6 +27,10 @@ import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart'
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
@@ -40,6 +44,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
@@ -210,6 +215,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Whether the user scrolled the list (not only the page doing it).
   bool _userScrolled = false;
+
+  /// The account and forum [_moderates] was asked for (`uid:fid`), null before.
+  String? _moderatorAsked;
+
+  /// The account logged in moderates the forum the thread is in, as the forum says: the management is offered.
+  bool _moderates = false;
 
   /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
   StreamSubscription<ReadingProgressState>? _progressWait;
@@ -539,6 +550,81 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         }
         return (title: neutral, body: const CenteredCircularIndicator());
     }
+  }
+
+  /// Ask the forum whether the account logged in moderates the forum of the thread in [state], once per account and
+  /// forum (a move puts the thread in another one): the management is offered only then.
+  void _askModerator(BuildContext context, ThreadState state) {
+    final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    final fid = state.fid;
+    final key = uid == null || fid == null || state.isOffline ? null : '$uid:$fid';
+    if (key == _moderatorAsked) {
+      return;
+    }
+    _moderatorAsked = key;
+    if (_moderates) {
+      setState(() => _moderates = false);
+    }
+    if (key == null) {
+      return;
+    }
+    ModerateRepository.network().isModerator(fid!).then((moderates) {
+      if (!mounted || _moderatorAsked != key) {
+        return;
+      }
+      if (moderates == null) {
+        // The request failed: asked again at the next load (a refresh).
+        _moderatorAsked = null;
+      } else if (moderates != _moderates) {
+        setState(() => _moderates = moderates);
+      }
+    }).ignore();
+  }
+
+  /// Offer the management of the thread in [state]; reload the thread it changed, leave the thread it deleted.
+  Future<void> _moderate(BuildContext context, ThreadState state) async {
+    final done = await showThreadModerateSheet(
+      context,
+      tid: state.tid!,
+      fid: state.fid!,
+      closed: state.threadSoftClosed,
+    );
+    if (!context.mounted || done == null) {
+      return;
+    }
+    switch (done) {
+      case ModerateDone.changed:
+        context.read<ThreadBloc>().add(ThreadRefreshRequested());
+      case ModerateDone.deleted:
+        final pane = TwoPaneScope.detailOf(context);
+        if (pane != null && pane.pop()) {
+          return;
+        }
+        // Nothing to go back to: the thread shows the forum's word that it is gone.
+        if (!await Navigator.of(context).maybePop() && context.mounted) {
+          context.read<ThreadBloc>().add(ThreadRefreshRequested());
+        }
+    }
+  }
+
+  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done.
+  Future<void> _moderateFloor(BuildContext context, ThreadState state, Post post, FloorModerateAction action) async {
+    final threadBloc = context.read<ThreadBloc>();
+    final done = await showFloorModerateDialog(
+      context,
+      action: action,
+      tid: state.tid!,
+      fid: state.fid!,
+      pid: post.postID,
+    );
+    if (!done || threadBloc.isClosed) {
+      return;
+    }
+    // A deleted reply is gone: the page reloads where it was.
+    if (action != FloorModerateAction.delete) {
+      _scrollToPidOnReload = post.postID;
+    }
+    threadBloc.add(ThreadJumpPageRequested(post.page));
   }
 
   /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
@@ -1487,6 +1573,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                   onJoinDebate: state.replyParameters == null || state.threadClosed
                                       ? null
                                       : _joinDebate,
+                                  onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
+                                      ? (action) => _moderateFloor(context, state, post, action)
+                                      : null,
                                 ),
                               ),
                             ),
@@ -1835,6 +1924,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
+                _askModerator(context, state);
                 // Not on a page without floors (a message, no permission): a later load (after logging in) still
                 // lands on the last floor.
                 if (_landOnLastPost && state.postList.isNotEmpty) {
@@ -2051,11 +2141,23 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             description: context.t.threadPage.jumpToFloor.menu,
                             onSelected: () async => _askJumpToFloor(context, state),
                           ),
+                        if (state.postList.isNotEmpty)
+                          MenuCustomItem(
+                            icon: Icons.file_download_outlined,
+                            description: context.t.threadExport.menu,
+                            onSelected: () async => exportThread(context, state),
+                          ),
                         MenuCustomItem(
                           icon: Icons.numbers_outlined,
                           description: context.t.threadPage.copyTid(tid: state.tid!),
                           onSelected: () async => copyToClipboard(context, state.tid!),
                         ),
+                        if (_moderates && !state.isOffline && state.fid != null)
+                          MenuCustomItem(
+                            icon: Icons.admin_panel_settings_outlined,
+                            description: context.t.moderate.menu,
+                            onSelected: () async => _moderate(context, state),
+                          ),
                       ],
                     ],
                   );

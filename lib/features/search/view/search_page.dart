@@ -2,16 +2,28 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/forum/utils/group.dart';
+import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/jump_page/widgets/jump_page_dialog.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/search/bloc/search_bloc.dart';
+import 'package:tsdm_client/features/search/models/models.dart';
+import 'package:tsdm_client/features/search/repository/search_history_store.dart';
 import 'package:tsdm_client/features/search/repository/search_repository.dart';
+import 'package:tsdm_client/features/search/widgets/search_filter_bar.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
@@ -37,7 +49,7 @@ class SearchPage extends StatefulWidget {
   /// Preferred over [authorUid] when both are given, see [buildSearchQuery].
   final String? authorName;
 
-  /// Forum id to search.
+  /// Forum id to search, several joined by `_` ([searchForumIdsValue]).
   final String? fid;
 
   /// Page number of search result.
@@ -51,12 +63,32 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   final formKey = GlobalKey<FormState>();
   final keywordController = TextEditingController();
   final authorController = TextEditingController();
-  final fidController = TextEditingController(text: '0');
+  final keywordFocus = FocusNode();
   final scrollController = ScrollController();
 
-  /// Flags on limiting author or fid.
+  /// Flags on limiting author.
   bool unlimitedAuthor = true;
-  bool unlimitedFid = true;
+
+  /// The forums to search in, empty for any forum.
+  List<int> fids = const [];
+
+  /// Time range, order and title only of the next search.
+  SearchFilter filter = const SearchFilter();
+
+  /// The forums the search can be limited to, from the forum index; empty until it loaded.
+  List<SearchForumOption> forumOptions = const [];
+
+  /// The keywords searched before by the current account, the latest first.
+  List<String> history = const [];
+
+  /// Where [history] is kept, null when there is no storage (tests).
+  final SearchHistoryStore? _historyStore = getIt.isRegistered<StorageProvider>()
+      ? SearchHistoryStore(getIt.get<StorageProvider>())
+      : null;
+
+  /// The account whose [history] is shown, 0 for the guest: the account the page was opened with (switching accounts
+  /// goes through the app's root, which opens the search page anew).
+  int _historyUid = 0;
 
   /// Flag on expand search form.
   ///
@@ -70,6 +102,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   String lastAuthorUid = '0';
   String lastAuthorName = '';
   String lastFid = '0';
+  SearchFilter lastFilter = const SearchFilter();
 
   /// Run the search once the page is built, when opened with an author from a profile page.
   bool _searchOnBuild = false;
@@ -85,10 +118,17 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     // Set to the fid passed from outside.
     // This may by opening the search page from a forum page.
     if (widget.fid != null) {
-      setState(() {
-        fidController.text = widget.fid!;
-        unlimitedFid = false;
-      });
+      fids = searchForumIdsOf(widget.fid!);
+    }
+    if (widget.keyword case final String keyword when keyword.isNotEmpty) {
+      keywordController.text = keyword;
+    }
+    keywordFocus.addListener(() => setState(() {}));
+    _historyUid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid ?? 0;
+    unawaited(_loadHistory());
+    // The names of the forums the page was opened with; otherwise the index is asked when the picker opens.
+    if (fids.isNotEmpty) {
+      unawaited(_loadForumOptions());
     }
     final author = switch ((widget.authorName, widget.authorUid)) {
       (final String name, _) when name.isNotEmpty => name,
@@ -112,7 +152,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   void dispose() {
     keywordController.dispose();
     authorController.dispose();
-    fidController.dispose();
+    keywordFocus.dispose();
     scrollController.dispose();
     super.dispose();
   }
@@ -127,15 +167,23 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     required String authorUid,
     required String authorName,
     required String fid,
+    required SearchFilter filter,
     required int page,
   }) async {
     debug(
       'search with args: keyword=$keyword, authorUid=$authorUid, authorName=$authorName, '
-      'fid=$fid, page=$page',
+      'fid=$fid, filter=$filter, page=$page',
     );
 
     context.read<SearchBloc>().add(
-      SearchRequested(keyword: keyword, uid: authorUid, authorName: authorName, fid: fid, pageNumer: page),
+      SearchRequested(
+        keyword: keyword,
+        uid: authorUid,
+        authorName: authorName,
+        fid: fid,
+        filter: filter,
+        pageNumer: page,
+      ),
     );
 
     // Only return to top when attached (not the first search).
@@ -150,10 +198,8 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// Always validate search parameters.
   Future<void> _search(BuildContext context, [int page = 0]) async {
     if (formKey.currentState == null) {
-      // Collapsed.
-      // If lastKeyword is not empty, indicates there is a valid last search.
-      // User want to jump to another page so use the last used parameters
-      // and parameter page.
+      // Collapsed: the search shown is asked again with the parameters it was asked with (the page switches do not
+      // come here, they go through the bloc, see _turnPage).
       if (lastKeyword.isNotEmpty || lastAuthorUid != '0' || lastAuthorName.isNotEmpty || lastFid != '0') {
         await _doSearch(
           context,
@@ -161,6 +207,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
           authorUid: lastAuthorUid,
           authorName: lastAuthorName,
           fid: lastFid,
+          filter: lastFilter,
           page: page,
         );
       }
@@ -174,15 +221,98 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
 
     final keyword = keywordController.text;
     final (authorUid, authorName) = _authorOf(authorController.text);
-    final fid = switch (fidController.text) {
-      '' => '0',
-      _ => fidController.text,
-    };
-    await _doSearch(context, keyword: keyword, authorUid: authorUid, authorName: authorName, fid: fid, page: page);
+    final fid = searchForumIdsValue(fids);
+    keywordFocus.unfocus();
+    // Remembered when asked, not only when found: a search the forum held back for its interval is asked again.
+    unawaited(_addHistory(keyword));
+    await _doSearch(
+      context,
+      keyword: keyword,
+      authorUid: authorUid,
+      authorName: authorName,
+      fid: fid,
+      filter: filter,
+      page: page,
+    );
     lastKeyword = keyword;
     lastAuthorUid = authorUid;
     lastAuthorName = authorName;
     lastFid = fid;
+    lastFilter = filter;
+  }
+
+  Future<void> _loadHistory() async {
+    final store = _historyStore;
+    if (store == null) {
+      return;
+    }
+    final uid = _historyUid;
+    final loaded = await store.load(uid);
+    if (mounted && uid == _historyUid) {
+      setState(() => history = loaded);
+    }
+  }
+
+  Future<void> _addHistory(String keyword) async {
+    if (keyword.trim().isEmpty) {
+      return;
+    }
+    setState(() => history = searchHistoryWith(history, keyword));
+    await _historyStore?.add(_historyUid, keyword);
+  }
+
+  Future<void> _removeHistory(String keyword) async {
+    setState(() => history = history.where((e) => e != keyword).toList());
+    await _historyStore?.remove(_historyUid, keyword);
+  }
+
+  Future<void> _clearHistory() async {
+    setState(() => history = const []);
+    await _historyStore?.clear(_historyUid);
+  }
+
+  /// The forums of the forum index (the cached homepage, fetched when there is none) as the forum picker lists them.
+  Future<void> _loadForumOptions() async {
+    final repository = context.readOrNull<ForumHomeRepository>();
+    if (repository == null) {
+      return;
+    }
+    final groups = (await repository.fetchHomePage().run()).fold(
+      (_) => const <ForumGroup>[],
+      (page) => switch (page) {
+        ForumHomeWebPage(:final document) => buildGroupListFromDocument(document),
+        ForumHomeApiPage(:final json) => forumGroupsFromApi(json),
+      },
+    );
+    if (mounted) {
+      setState(() => forumOptions = searchForumOptions(groups));
+    }
+  }
+
+  Future<void> _pickForums() async {
+    if (forumOptions.isEmpty) {
+      await _loadForumOptions();
+    }
+    if (!mounted) {
+      return;
+    }
+    if (forumOptions.isEmpty && fids.isEmpty) {
+      // The forum index failed: nothing to pick from.
+      showSnackBar(context: context, message: context.t.general.failedToLoad);
+      return;
+    }
+    final picked = await showSearchForumPicker(context, options: forumOptions, selected: {...fids});
+    if (picked != null && mounted) {
+      setState(() => fids = picked.toList()..sort());
+    }
+  }
+
+  /// Fill the keyword field with [keyword] from the history and search it.
+  Future<void> _searchHistory(BuildContext context, String keyword) async {
+    keywordController
+      ..text = keyword
+      ..selection = TextSelection.collapsed(offset: keyword.length);
+    await _search(context);
   }
 
   /// Whether has previous pages in search result.
@@ -213,7 +343,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!context.mounted) {
       return;
     }
-    await _search(context, page);
+    await _turnPage(context, SearchJumpPageRequested(page));
   }
 
   /// Search result is guaranteed to not be null before calling this function.
@@ -221,9 +351,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!_hasPreviousPage(state)) {
       return;
     }
-
-    final page = state.searchResult!.currentPage;
-    await _search(context, page - 1);
+    await _turnPage(context, SearchGotoPreviousPageRequested());
   }
 
   /// Search result is guaranteed to not be null before calling this function.
@@ -231,8 +359,17 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     if (!_hasNextPage(state)) {
       return;
     }
-    final page = state.searchResult!.currentPage;
-    await _search(context, page + 1);
+    await _turnPage(context, SearchGotoNextPageRequested());
+  }
+
+  /// Show another page of the search shown, [event]: the bloc asks it with the parameters of that search (its
+  /// keyword, author, forums and filters, the search id the repository keeps), not with what the form holds now, so
+  /// a filter changed without searching does not apply and the forum's interval between new searches is not hit.
+  Future<void> _turnPage(BuildContext context, SearchEvent event) async {
+    context.read<SearchBloc>().add(event);
+    if (scrollController.hasClients) {
+      await scrollController.animateTo(0, curve: Curves.ease, duration: const Duration(microseconds: 500));
+    }
   }
 
   Widget _buildSearchButton(BuildContext context, SearchState state) {
@@ -285,43 +422,73 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     return ('0', author);
   }
 
-  String? _validateFid(BuildContext context, String? v) {
-    // Allow empty value because the default parameter in searching
-    // is zero.
-    if (v!.isEmpty) {
-      setState(() {
-        fidController.text = '0';
-        unlimitedFid = true;
-      });
+  /// The keywords searched before while the keyword field has the focus: all of them for an empty field (each one
+  /// removable, all clearable), the ones starting with what is typed otherwise. Null when there are none to show.
+  Widget? _buildHistory(BuildContext context) {
+    if (!keywordFocus.hasFocus) {
       return null;
     }
-    final i = int.tryParse(v);
-    if (i == null || i < 0) {
-      return context.t.searchPage.form.fidInvalid;
+    final typed = keywordController.text;
+    final all = typed.trim().isEmpty;
+    final keywords = all ? history : searchHistorySuggestions(history, typed);
+    if (keywords.isEmpty) {
+      return null;
     }
-    return null;
+    final deleteTooltip = MaterialLocalizations.of(context).deleteButtonTooltip;
+    // Part of the keyword field for its taps: a mouse press outside the field takes the focus away (and the history
+    // with it) before the press ends on a chip.
+    return TextFieldTapRegion(
+      child: _historyWrap(context, keywords, all: all, deleteTooltip: deleteTooltip),
+    );
+  }
+
+  Widget _historyWrap(BuildContext context, List<String> keywords, {required bool all, required String deleteTooltip}) {
+    return Wrap(
+      key: const ValueKey('search-history'),
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final keyword in keywords)
+          InputChip(
+            key: ValueKey('search-history-$keyword'),
+            avatar: const Icon(Icons.history),
+            label: Text(keyword, maxLines: 1, overflow: TextOverflow.ellipsis),
+            onPressed: () async => _searchHistory(context, keyword),
+            onDeleted: all ? () async => _removeHistory(keyword) : null,
+            deleteButtonTooltipMessage: deleteTooltip,
+          ),
+        if (all)
+          TextButton.icon(
+            key: const ValueKey('search-history-clear'),
+            icon: const Icon(Icons.delete_sweep_outlined),
+            label: Text(context.t.searchPage.history.clear),
+            onPressed: () async => _clearHistory(),
+          ),
+      ],
+    );
   }
 
   Widget _buildSearchForm(BuildContext context, SearchState state) {
     final keywordField = TextFormField(
       autofocus: true,
       controller: keywordController,
+      focusNode: keywordFocus,
+      textInputAction: TextInputAction.search,
+      onChanged: (_) => setState(() {}),
+      onFieldSubmitted: (_) async => _search(context),
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.abc_outlined),
         labelText: context.t.searchPage.form.keyword,
       ),
       validator: (v) {
-        // FIXME: Extra validation not graceful at all.
-        // Purpose is to skip keyword validation when both author and forum id are valid and not `any`.
-        // The server allows searching without keyword when author or forum id is set.
-        // If author or forum id is not valid, it's unnecessary to validate keyword.
-        if (_validateAuthor(context, authorController.text) != null ||
-            _validateFid(context, fidController.text) != null) {
+        // An invalid author tells itself, the keyword is not checked then.
+        if (_validateAuthor(context, authorController.text) != null) {
           return null;
         }
-        // Validation only fails when running with keyword field, in other words author and forum id are `any`.
-        // It's fine to have an empty keyword when author or forum id is not `any`.
-        if (v == null || v.isEmpty && authorController.text.trim().isEmpty && fidController.text == '0') {
+        // The forum searches without a keyword when an author or a time range is given; forums alone get its empty
+        // search form back.
+        if (v == null || v.isEmpty && authorController.text.trim().isEmpty && filter.timeRange == SearchTimeRange.all) {
           return context.t.searchPage.form.keywordEmpty;
         }
         if (v.contains('%')) {
@@ -344,23 +511,16 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       },
       validator: (v) => _validateAuthor(context, v),
     );
-    final fidField = TextFormField(
-      controller: fidController,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.forum_outlined),
-        labelText: context.t.searchPage.form.fid,
-        suffixText: unlimitedFid ? context.t.searchPage.form.any : null,
-      ),
-      onChanged: (v) {
-        setState(() {
-          unlimitedFid = fidController.text == '0';
-        });
-      },
-      validator: (v) => _validateFid(context, v),
+    final filterBar = SearchFilterBar(
+      filter: filter,
+      fids: fids,
+      forumNames: {for (final e in forumOptions) e.fid: e.name},
+      onFilterChanged: (v) => setState(() => filter = v),
+      onPickForums: () async => _pickForums(),
     );
+    final historyView = _buildHistory(context);
 
-    // One surface: keyword on its own line, the two filters side by side when there is room, the button last.
+    // One surface: the keyword with the history under it while it is typed in, the author, the filters, the button.
     return AppSurface(
       padding: edgeInsetsL16T16R16B16,
       child: Form(
@@ -376,22 +536,24 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
                   icon: Icons.manage_search_outlined,
                   padding: const EdgeInsets.only(bottom: 12),
                 ),
-                keywordField,
-                sizedBoxW12H12,
                 if (wide)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: authorField),
+                      Expanded(child: keywordField),
                       sizedBoxW12H12,
-                      Expanded(child: fidField),
+                      Expanded(child: authorField),
                     ],
                   )
                 else ...[
-                  authorField,
+                  keywordField,
+                  if (historyView != null) ...[sizedBoxW8H8, historyView],
                   sizedBoxW12H12,
-                  fidField,
+                  authorField,
                 ],
+                if (wide && historyView != null) ...[sizedBoxW8H8, historyView],
+                sizedBoxW12H12,
+                filterBar,
                 sizedBoxW16H16,
                 _buildSearchButton(context, state),
               ],
@@ -491,7 +653,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
           );
         } else if (results == null || results.isEmpty) {
           // Nothing found, and what to try: other words, or the search without its author or forum limit.
-          final limited = state.uid != '0' || state.authorName.isNotEmpty || state.fid != '0';
+          final limited =
+              state.uid != '0' ||
+              state.authorName.isNotEmpty ||
+              state.fid != '0' ||
+              state.filter.timeRange != SearchTimeRange.all;
           resultSliver = SliverFillRemaining(
             hasScrollBody: false,
             child: AppStateView(
@@ -558,7 +724,15 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
         RepositoryProvider(create: (_) => SearchRepository()),
         BlocProvider(create: (context) => SearchBloc(searchRepository: context.repo())),
       ],
-      child: BlocBuilder<SearchBloc, SearchState>(
+      child: BlocConsumer<SearchBloc, SearchState>(
+        // The forum searched the titles though the full text was asked for (the user group may not search it): the
+        // chip goes back to what was searched.
+        listenWhen: (prev, curr) => curr.searchResult != prev.searchResult && curr.searchResult?.fullText == false,
+        listener: (context, state) {
+          if (!filter.titleOnly) {
+            setState(() => filter = filter.copyWith(titleOnly: true));
+          }
+        },
         builder: (context, state) {
           if (_searchOnBuild) {
             _searchOnBuild = false;
@@ -574,6 +748,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
               title: Text(context.t.searchPage.title),
               actions: [
                 const OpenInAppPageButton(),
+                IconButton(
+                  icon: const Icon(Icons.sell_outlined),
+                  tooltip: context.t.tagPage.cloudTitle,
+                  onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
+                ),
                 IconButton(
                   icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
                   tooltip: expandForm

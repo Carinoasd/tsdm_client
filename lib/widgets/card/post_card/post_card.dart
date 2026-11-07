@@ -11,7 +11,13 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
+import 'package:tsdm_client/features/image/models/gallery_image.dart';
+import 'package:tsdm_client/features/image/utils/image_actions.dart';
+import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
+import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -20,6 +26,8 @@ import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
+import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -79,6 +87,9 @@ enum _PostCardActions {
   /// Render the floor to a picture to save or share ([ShareFloorImagePage]).
   shareAsImage,
 
+  /// Save every picture of the floor, or of its page.
+  saveImages,
+
   /// Open the post link in browser.
   ///
   /// Use the anchor not works on mobile UI no matter it always is or originally was `findpost`.
@@ -87,6 +98,12 @@ enum _PostCardActions {
   /// Open the dialog to copy contents.
   openAndCopy,
 
+  /// Copy the content as plain text.
+  copyAsPlainText,
+
+  /// Copy the content as Markdown.
+  copyAsMarkdown,
+
   /// Copy post id.
   copyPid,
 
@@ -94,6 +111,15 @@ enum _PostCardActions {
   ///
   /// Only available when the forum offered the report link of this floor to the account that read the page (#127).
   report,
+
+  /// Warn the author for the floor, or take it back (moderators, [PostCard.onModerate]).
+  moderateWarn,
+
+  /// Hide the floor, or show it again (moderators).
+  moderateBan,
+
+  /// Delete the reply (moderators, not the first floor).
+  moderateDelete,
 }
 
 /// Card for a [Post] model.
@@ -101,7 +127,7 @@ enum _PostCardActions {
 /// Usually inside a ThreadPage.
 class PostCard extends StatefulWidget {
   /// Constructor.
-  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, super.key});
+  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, this.onModerate, super.key});
 
   /// [Post] model to show.
   final Post post;
@@ -115,6 +141,10 @@ class PostCard extends StatefulWidget {
 
   /// Reply on side `stand` of a debate thread (the debate card's "加入正方／反方"); null where the account cannot reply.
   final void Function(int stand)? onJoinDebate;
+
+  /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
+  /// thread's forum.
+  final void Function(FloorModerateAction action)? onModerate;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -325,7 +355,17 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
   }
 
   /// The pictures of the floor's content shown now, for the gallery a tap on one opens.
-  late final _floorImages = FloorImages(widget.post.attachments);
+  late final _floorImages = FloorImages(widget.post.attachments, _pageImages);
+
+  /// The pictures of every floor of this floor's page loaded in the thread (the floor's own outside a thread).
+  List<GalleryImage> _pageImages() {
+    // Asked for from the gallery over the thread: the card may be gone by then.
+    if (!mounted) {
+      return galleryImagesOfPost(widget.post);
+    }
+    final posts = context.readOrNull<ThreadBloc>()?.state.postList.where((e) => e.page == widget.post.page);
+    return galleryImagesOfPosts(posts ?? [widget.post]);
+  }
 
   @override
   void didUpdateWidget(PostCard oldWidget) {
@@ -450,17 +490,39 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
       ],
       [
+        if (galleryImagesOfPost(widget.post).isNotEmpty)
+          item(
+            _PostCardActions.saveImages,
+            Icons.download_for_offline_outlined,
+            context.t.imageBottomSheet.saveAllImages,
+          ),
         if (widget.post.shareLink != null) ...[
           item(_PostCardActions.share, Icons.share_outlined, context.t.postCard.share),
           item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
           item(_PostCardActions.openInBrowser, Icons.open_in_browser_outlined, context.t.postCard.openInBrowser),
           item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
+          item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
+          item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
           item(
             _PostCardActions.copyPid,
             Icons.numbers_outlined,
             context.t.postCard.copyPid(pid: widget.post.postID),
           ),
         ],
+      ],
+      [
+        if (online && widget.onModerate != null)
+          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
+            item(
+              switch (action) {
+                FloorModerateAction.warn => _PostCardActions.moderateWarn,
+                FloorModerateAction.ban => _PostCardActions.moderateBan,
+                FloorModerateAction.delete => _PostCardActions.moderateDelete,
+              },
+              floorModerateIcon(action),
+              floorModerateName(context, action),
+              color: action == FloorModerateAction.delete ? colorScheme.error : null,
+            ),
       ],
       [
         if (online && widget.post.reportTarget != null)
@@ -553,6 +615,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             link: shareFloorImageLink(pid: widget.post.postID, tid: thread?.tid, shareLink: widget.post.shareLink),
           ),
         );
+      case _PostCardActions.saveImages:
+        await saveImagesAskingScope(
+          context,
+          floor: galleryImagesOfPost(widget.post),
+          page: _pageImages,
+          origin: shareOriginOf(context),
+        );
       case _PostCardActions.openInBrowser:
         await launchUrl(Uri.parse(widget.post.shareLink!), mode: LaunchMode.externalApplication);
       case _PostCardActions.openAndCopy:
@@ -575,10 +644,20 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                 .join() ??
             '';
         await showCopySelectContentDialog(context: context, data: data);
+      case _PostCardActions.copyAsPlainText:
+        await copyPostAsText(context, widget.post, PostExportFormat.plainText);
+      case _PostCardActions.copyAsMarkdown:
+        await copyPostAsText(context, widget.post, PostExportFormat.markdown);
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:
         await showPostReportDialog(context, widget.post);
+      case _PostCardActions.moderateWarn:
+        widget.onModerate?.call(FloorModerateAction.warn);
+      case _PostCardActions.moderateBan:
+        widget.onModerate?.call(FloorModerateAction.ban);
+      case _PostCardActions.moderateDelete:
+        widget.onModerate?.call(FloorModerateAction.delete);
     }
   }
 

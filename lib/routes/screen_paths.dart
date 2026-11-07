@@ -24,6 +24,9 @@ class ScreenPaths {
   /// Show the group specified by group id `gid`.
   static const String forumGroup = '/forumGroup/:gid';
 
+  /// Cloud of the forum's tags.
+  static const String tagCloud = '/tags';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Only the very first part of page.
@@ -125,6 +128,9 @@ class ScreenPaths {
   /// Page to edit current user's profile.
   static const String editUserProfile = '/editUserProfile';
 
+  /// Page to edit current user's signature; pops the signature saved, if any.
+  static const String editSignature = '/editSignature';
+
   /// App settings page.
   ///
   /// A page opened above the home shell (from the "me" tab and the menus of the list pages); it was a tab of the shell
@@ -162,6 +168,9 @@ class ScreenPaths {
   /// `overrideWithExactOrder`: set the exact thread order type, this value
   /// is usually specified by the original source (in url).
   static const String threadV1 = '/thread/v1';
+
+  /// A goods of a trade thread: its page and buying it (pushed by the goods list, no route of its own).
+  static const String tradeGoods = '/tradeGoods';
 
   /// Notice page, the notifications tab of the home shell.
   ///
@@ -243,6 +252,9 @@ class ScreenPaths {
   ///
   /// https://tsdm39.com/home.php?mod=space&do=favorite&type=thread
   static const String favorite = '/favorite';
+
+  /// Page listing the threads kept for reading without network ("離線副本"), with the update of all of them.
+  static const String offlineThreads = '/offlineThreads';
 
   /// Page to show the friends list of a user.
   ///
@@ -453,6 +465,9 @@ class DialogPaths {
 
   /// Dialog to select how many threads the offline copies are kept for.
   static const String offlineThreadsLimit = '/dialog/offlineThreadsLimit';
+
+  /// Dialog showing the progress of saving the favorites offline or updating the offline copies.
+  static const String offlineBatch = '/dialog/offlineBatch';
 
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';

@@ -29,6 +29,7 @@ class SearchState with SearchStateMappable {
     this.fid = '0',
     this.uid = '0',
     this.authorName = '',
+    this.filter = const SearchFilter(),
     this.searchResult,
     this.pageNumber = 1,
     this.hasNextPage = false,
@@ -55,6 +56,9 @@ class SearchState with SearchStateMappable {
 
   /// Search for which user, by name. Empty for any user.
   final String authorName;
+
+  /// Time range, order and title only of the search.
+  final SearchFilter filter;
 
   /// Current search page number.
   final int pageNumber;

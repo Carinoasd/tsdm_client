@@ -34,6 +34,7 @@ Map<String, dynamic>? searchApiAnswerOf(Object? data) {
 /// "找到 … 相关内容 N 个"), `threads` the rows of the page as [SearchedThread.fromApi] builds them (a row without a
 /// thread or a subject dropped, as the page parser drops a malformed row, [tsdmAppIsThreadRow]). A search without a
 /// result is a page of its own (`count` 0, `threads` empty): the forum prints the results page then, not a message.
+/// `fulltext` tells whether the full text was searched ([SearchResult.fullText]).
 SearchResult searchResultFromApi(Map<String, dynamic> json) {
   final page = tsdmAppInt(json['page']);
   final pages = tsdmAppInt(json['pages']);
@@ -45,6 +46,7 @@ SearchResult searchResultFromApi(Map<String, dynamic> json) {
     data: tsdmAppList(
       json['threads'],
     ).where(tsdmAppIsThreadRow).map((e) => SearchedThread.fromApi(e, timeOffset: timeOffset)).toList(),
+    fullText: json['fulltext'] is num ? tsdmAppInt(json['fulltext']) == 1 : null,
   );
 }
 

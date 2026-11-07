@@ -1,9 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/profile/bloc/edit_avatar_bloc.dart';
+import 'package:tsdm_client/features/profile/models/avatar_upload.dart';
+import 'package:tsdm_client/features/profile/widgets/avatar_crop_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -29,6 +32,9 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
 
   /// Url of the avatar intend to preview before submit to server.
   String? _previewUrl;
+
+  /// Cropping the picked image into the avatar's images.
+  bool _encoding = false;
 
   Widget _buildContent(BuildContext context, EditAvatarState state) {
     final tr = context.t.editAvatarPage;
@@ -70,6 +76,10 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
       ),
     );
 
+    final busy = _encoding || state.status == EditAvatarStatus.uploading;
+    final hasExternal = state.formHash != null;
+    final external = (state.avatarUrl?.isNotEmpty ?? false) ? state.avatarUrl : null;
+
     // Form pages stay at most [appFormMaxWidth] wide, centered on wide windows. The current avatar and the preview
     // sit side by side (wrapping on narrow phones), so the change is compared before it is submitted.
     return AppCenteredList(
@@ -89,67 +99,107 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
                   children: [
                     avatarBlock(
                       tr.currentAvatar,
-                      (state.avatarUrl?.isNotEmpty ?? false) ? state.avatarUrl : null,
+                      external ?? state.currentAvatar,
                       Icons.no_photography_outlined,
                       tr.noAvatar,
                     ),
-                    avatarBlock(tr.preview, _previewUrl, Icons.preview_outlined, null),
+                    if (hasExternal) avatarBlock(tr.preview, _previewUrl, Icons.preview_outlined, null),
                   ],
                 ),
+                if (state.canUpload) ...[
+                  sizedBoxW12H12,
+                  FilledButton.tonalIcon(
+                    icon: busy ? sizedCircularProgressIndicator : const Icon(Icons.add_photo_alternate_outlined),
+                    onPressed: busy ? null : () async => _pickAndUpload(context),
+                    label: Text(tr.uploadImage),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: appSurfaceGap),
-          AppFormSection(
-            title: tr.avatarUrl,
-            icon: Icons.link_outlined,
-            children: [
-              TextField(
-                controller: _avatarController,
-                decoration: appFieldDecoration(label: tr.avatarUrl, icon: Icons.image_outlined),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      icon: const Icon(Icons.preview_outlined),
-                      onPressed: state.status == EditAvatarStatus.uploading || _avatarController.text.isEmpty
-                          ? null
-                          : () => setState(() => _previewUrl = _avatarController.text),
-                      label: Text(tr.preview),
-                    ),
-                  ),
-                  sizedBoxW8H8,
-                  Expanded(
-                    child: FilledButton.icon(
-                      icon: state.status == EditAvatarStatus.uploading
-                          ? sizedCircularProgressIndicator
-                          : const Icon(Icons.cloud_upload_outlined),
-                      onPressed: state.formHash == null || state.status == EditAvatarStatus.uploading
-                          ? null
-                          : () {
-                              context.read<EditAvatarBloc>().add(
-                                EditAvatarUploadRequested(avatarUrl: _avatarController.text, formHash: state.formHash!),
-                              );
-                            },
-                      label: Text(tr.submit),
-                    ),
-                  ),
-                ],
-              ),
-              AppNoticeBanner(message: tr.clearAvatarTip),
-              Align(
-                child: TextButton.icon(
-                  icon: const Icon(Icons.collections_outlined),
-                  label: Text(tr.viewSharedAvatars),
-                  onPressed: () async => context.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': '1106488'}),
+          if (hasExternal) ...[
+            const SizedBox(height: appSurfaceGap),
+            AppFormSection(
+              title: tr.avatarUrl,
+              icon: Icons.link_outlined,
+              children: [
+                TextField(
+                  controller: _avatarController,
+                  decoration: appFieldDecoration(label: tr.avatarUrl, icon: Icons.image_outlined),
                 ),
-              ),
-            ],
-          ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        icon: const Icon(Icons.preview_outlined),
+                        onPressed: state.status == EditAvatarStatus.uploading || _avatarController.text.isEmpty
+                            ? null
+                            : () => setState(() => _previewUrl = _avatarController.text),
+                        label: Text(tr.preview),
+                      ),
+                    ),
+                    sizedBoxW8H8,
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: state.status == EditAvatarStatus.uploading
+                            ? sizedCircularProgressIndicator
+                            : const Icon(Icons.cloud_upload_outlined),
+                        onPressed: state.formHash == null || state.status == EditAvatarStatus.uploading
+                            ? null
+                            : () {
+                                context.read<EditAvatarBloc>().add(
+                                  EditAvatarUploadRequested(
+                                    avatarUrl: _avatarController.text,
+                                    formHash: state.formHash!,
+                                  ),
+                                );
+                              },
+                        label: Text(tr.submit),
+                      ),
+                    ),
+                  ],
+                ),
+                AppNoticeBanner(message: tr.clearAvatarTip),
+                Align(
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.collections_outlined),
+                    label: Text(tr.viewSharedAvatars),
+                    onPressed: () async => context.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': '1106488'}),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// Pick an image, crop its square, and upload it with the forum's avatar editor.
+  Future<void> _pickAndUpload(BuildContext context) async {
+    final picked = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+    final bytes = picked?.files.singleOrNull?.bytes;
+    if (bytes == null || !context.mounted) {
+      return;
+    }
+    final crop = await AvatarCropPage.show(context, bytes);
+    if (crop == null || !context.mounted) {
+      return;
+    }
+    setState(() => _encoding = true);
+    final images = await AvatarImages.crop(bytes, left: crop.left, top: crop.top, side: crop.side);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _encoding = false);
+    if (!context.mounted) {
+      return;
+    }
+    if (images == null) {
+      showSnackBar(context: context, message: context.t.editAvatarPage.imageUnreadable);
+      return;
+    }
+    context.read<EditAvatarBloc>().add(EditAvatarImageUploadRequested(images));
   }
 
   @override
@@ -171,7 +221,11 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
       child: BlocConsumer<EditAvatarBloc, EditAvatarState>(
         listenWhen: (prev, _) => prev.status == EditAvatarStatus.loading || prev.status == EditAvatarStatus.uploading,
         listener: (context, state) {
-          if (state.status == EditAvatarStatus.waitingForUpload) {
+          if (state.uploadFailure case final String reason?) {
+            // The image upload failed; a refused image removed the avatar the forum had, so the page is read again.
+            showSnackBar(context: context, message: reason);
+            context.read<EditAvatarBloc>().add(const EditAvatarLoadInfoRequested());
+          } else if (state.status == EditAvatarStatus.waitingForUpload) {
             // Finished the loading state.
             setState(() {
               _avatarController.text = state.draftUrl ?? state.avatarUrl ?? '';

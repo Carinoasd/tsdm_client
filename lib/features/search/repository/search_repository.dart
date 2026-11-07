@@ -12,22 +12,49 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
+/// The forums [fids] as the `fid` of a search ([buildSearchQuery]): '0' for any forum, else the ids joined by `_`
+/// (in order, each once), the list form the forum takes for `srchfid` besides the `srchfid[]` array.
+String searchForumIdsValue(Iterable<int> fids) {
+  final ids = {...fids.where((e) => e > 0)}.toList()..sort();
+  return ids.isEmpty ? '0' : ids.join('_');
+}
+
+/// The forums of the `fid` [value] of a search ([searchForumIdsValue]), empty for any forum.
+List<int> searchForumIdsOf(String value) => [
+  for (final e in value.split('_'))
+    if (int.tryParse(e.trim()) case final int fid when fid > 0) fid,
+];
+
 /// Query parameters of a new forum search, see [SearchRepository] for the meaning of each one.
+///
+/// One forum goes as `srchfid[]`, several as `srchfid` with the ids joined by `_` ([searchForumIdsValue]): the forum
+/// splits a plain `srchfid` at `_` while an array item `2_6` would be read as the number 2. The [filter] adds only what
+/// differs from the forum's defaults (any time, the last post first, the titles).
 Map<String, String> buildSearchQuery({
   required String keyword,
   required String fid,
   required String uid,
   required String authorName,
   required int pageNumber,
-}) => <String, String>{
-  'mod': 'forum',
-  'srchtxt': keyword,
-  if (authorName.isNotEmpty) 'srchuname': authorName,
-  if (uid.isNotEmpty && uid != '0') 'srchuid': uid,
-  if (fid.isNotEmpty && fid != '0') 'srchfid[]': fid,
-  'searchsubmit': 'yes',
-  if (pageNumber > 1) 'page': '$pageNumber',
-};
+  SearchFilter filter = const SearchFilter(),
+}) {
+  final fids = searchForumIdsOf(fid);
+  return <String, String>{
+    'mod': 'forum',
+    'srchtxt': keyword,
+    if (authorName.isNotEmpty) 'srchuname': authorName,
+    if (uid.isNotEmpty && uid != '0') 'srchuid': uid,
+    if (fids.length == 1) 'srchfid[]': '${fids.single}' else if (fids.length > 1) 'srchfid': searchForumIdsValue(fids),
+    if (filter.timeRange != SearchTimeRange.all) 'srchfrom': '${filter.timeRange.seconds}',
+    if (!filter.titleOnly) 'srchtype': 'fulltext',
+    if (filter.orderBy != SearchOrderBy.lastpost || filter.ascending) ...{
+      'orderby': filter.orderByValue,
+      'ascdesc': filter.ascDescValue,
+    },
+    'searchsubmit': 'yes',
+    if (pageNumber > 1) 'page': '$pageNumber',
+  };
+}
 
 /// Seconds to wait before searching again, when the forum's refusal [message] says the search came too early: "抱歉，
 /// 您在 20 秒内只能进行一次搜索" (the site's `searchctrl`, 20 seconds on TSDM) gives its seconds, "搜索过于频繁" and the
@@ -56,10 +83,14 @@ int? searchRateLimitSeconds(String message) {
 /// * A new search is a GET request `search.php?mod=forum&srchtxt=KEYWORD&searchsubmit=yes` (form hash is NOT
 ///   required for GET), optionally with `srchuname=NAME` (author, the field the search form itself sends),
 ///   `srchuid=UID` (author) and `srchfid[]=FID` (forum). The keyword may be empty when an author or a forum is given,
-///   the server then lists everything by that author or in that forum.
+///   the server then lists everything by that author. `srchfrom=SECONDS` limits the search to threads with a post in
+///   that many seconds before now (with an empty keyword too); a keyword is needed for a forum alone, which the server
+///   otherwise answers with the empty search form. `srchtype=fulltext` asks for the full text (a group without the
+///   permission gets the titles), `orderby` / `ascdesc` the order, see [SearchFilter].
 /// * The server caches the search result and assigns a `searchid`, other pages of the same search are fetched
-///   through `search.php?mod=forum&searchid=ID&orderby=lastpost&ascdesc=desc&searchsubmit=yes&page=N`. The
-///   `searchid` is parsed from the page links in the result page.
+///   through `search.php?mod=forum&searchid=ID&orderby=lastpost&ascdesc=desc&searchsubmit=yes&page=N`, the order
+///   given with every page (it is not part of the cached search). The `searchid` is parsed from the page links in the
+///   result page.
 /// * Starting a new search too frequently is rejected by server ("搜索过于频繁"), so the search id is cached here and
 ///   reused when only page number changes.
 ///
@@ -73,7 +104,7 @@ class SearchRepository with LoggerMixin {
   static const _searchUrl = '$baseUrl/search.php';
 
   /// Parameters of the last search, used to reuse [_searchId].
-  (String keyword, String fid, String uid, String authorName)? _lastParameters;
+  (String keyword, String fid, String uid, String authorName, SearchFilter filter)? _lastParameters;
 
   /// Search id assigned by server for the last search.
   String? _searchId;
@@ -81,27 +112,32 @@ class SearchRepository with LoggerMixin {
   /// An search action with given parameters:
   ///
   /// * [keyword]: Query keyword.
-  /// * [fid]: Forum id, 0 represents any forum.
+  /// * [fid]: Forum id, 0 represents any forum; several joined by `_` ([searchForumIdsValue]).
   /// * [uid]: Author user id, 0 represents any user.
   /// * [authorName]: Author user name, empty represents any user. Passed along with [uid] whenever known: a bare uid
   ///   found nothing for testers on the forum while the name is what the search form itself sends.
-  /// * [pageNumber]: Page number of search result.
+  /// * [pageNumber]: Page number of search result: 0 asks a new search, 1 or more a page of the cached search when
+  ///   the other parameters are the same (a new search otherwise).
+  /// * [filter]: Time range, order and title only, see [SearchFilter].
   AsyncEither<SearchResult> searchWithParameters({
     required String keyword,
     required String fid,
     required String uid,
     required int pageNumber,
     String authorName = '',
+    SearchFilter filter = const SearchFilter(),
   }) => AsyncEither(() async {
-    final parameters = (keyword, fid, uid, authorName);
+    final parameters = (keyword, fid, uid, authorName, filter);
     final Map<String, String> queryParameters;
-    if (pageNumber > 1 && _searchId != null && _lastParameters == parameters) {
-      // Other pages of the cached search.
+    // A page of the search shown (the search page asks a new search as page 0, its page switches ask pages from 1):
+    // the cached search, page 1 included.
+    if (pageNumber >= 1 && _searchId != null && _lastParameters == parameters) {
+      // A page of the cached search.
       queryParameters = <String, String>{
         'mod': 'forum',
         'searchid': _searchId!,
-        'orderby': 'lastpost',
-        'ascdesc': 'desc',
+        'orderby': filter.orderByValue,
+        'ascdesc': filter.ascDescValue,
         'searchsubmit': 'yes',
         'page': '$pageNumber',
       };
@@ -112,6 +148,7 @@ class SearchRepository with LoggerMixin {
         uid: uid,
         authorName: authorName,
         pageNumber: pageNumber,
+        filter: filter,
       );
     }
 
@@ -155,8 +192,11 @@ class SearchRepository with LoggerMixin {
 
     final document = tsdmAppPageDocument(resp.data);
 
-    // Server side error, e.g. "抱歉，您的搜索过于频繁" or "没有找到匹配结果".
-    final errorText = document.querySelector('div#messagetext > p')?.innerText.trim();
+    // Server side error, e.g. "抱歉，您的搜索过于频繁" or "没有找到匹配结果". The message carries the script of the page's
+    // redirect (`<p>抱歉，您在 10 秒内只能进行一次搜索<script>setTimeout(…)</script></p>`), which is no word of it.
+    final messageNode = document.querySelector('div#messagetext > p');
+    messageNode?.querySelectorAll('script').forEach((e) => e.remove());
+    final errorText = messageNode?.innerText.trim();
     if (errorText != null && !errorText.contains('没有找到')) {
       error('search failed: $errorText');
       return left(ServerRespondedErrorException(errorText));

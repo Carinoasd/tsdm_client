@@ -18,6 +18,8 @@ import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
+import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -104,6 +106,40 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// The bloc of this page, created by the provider in [build]. Created again for another account (see
   /// [AccountReloadScope]); the new one keeps the filter of this one.
   ForumBloc? _forumBloc;
+
+  /// The account and forum [_moderates] was asked for (`uid:fid`), null before.
+  String? _moderatorAsked;
+
+  /// The account logged in moderates this forum, as the forum says: its moderation queue is offered.
+  bool _moderates = false;
+
+  /// Ask the forum whether the account logged in moderates this forum, once per account.
+  void _askModerator(BuildContext context) {
+    final uid = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid;
+    final fid = int.tryParse(widget.fid);
+    final key = uid == null || fid == null ? null : '$uid:$fid';
+    if (key == _moderatorAsked) {
+      return;
+    }
+    _moderatorAsked = key;
+    if (_moderates) {
+      setState(() => _moderates = false);
+    }
+    if (key == null) {
+      return;
+    }
+    ModerateRepository.network().isModerator(fid!).then((moderates) {
+      if (!mounted || _moderatorAsked != key) {
+        return;
+      }
+      if (moderates == null) {
+        // The request failed: asked again at the next load.
+        _moderatorAsked = null;
+      } else if (moderates != _moderates) {
+        setState(() => _moderates = moderates);
+      }
+    }).ignore();
+  }
 
   void _updateFabVisibilityByTabIndex() {
     if (tabController.index == _threadTabIndex) {
@@ -202,6 +238,13 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           description: context.t.forumPage.copyFid(fid: widget.fid),
           onSelected: () async => copyToClipboard(context, widget.fid),
         ),
+        if (_moderates)
+          MenuCustomItem(
+            icon: Icons.fact_check_outlined,
+            description: context.t.moderate.queue,
+            onSelected: () async =>
+                openModerateQueue(context, fid: int.parse(widget.fid), title: widget.title ?? state.title),
+          ),
       ],
     );
   }
@@ -683,6 +726,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.filterState != curr.filterState || (prev.refreshing && !curr.refreshing),
             listener: (context, state) => _keyboardSelection.clear(),
+          ),
+          // The moderation queue is offered to the forum's moderators.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.status != curr.status && curr.status == ForumStatus.success,
+            listener: (context, state) => _askModerator(context),
           ),
           // A refresh that failed keeps the threads on screen and says so.
           BlocListener<ForumBloc, ForumState>(

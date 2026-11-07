@@ -212,17 +212,32 @@ void main() {
   late DateTime now;
   late SavedAnswerStore store;
 
+  /// Ends the store of the test: it reads and writes nothing any more.
+  late void Function() closeStore;
+
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
     await LocaleSettings.setLocale(AppLocale.en);
   });
   setUp(() {
     TsdmAppApi.reset();
-    tmp = Directory.systemTemp.createTempSync('tsdm_saved_answers_');
+    final dir = tmp = Directory.systemTemp.createTempSync('tsdm_saved_answers_');
     now = DateTime(2026, 10, 23, 9);
-    store = SavedAnswerStore(directory: () async => tmp, now: () => now);
+    // The store keeps to the directory of its own test, and only while the test runs: a page a test left on its way
+    // (an answer arriving after its last check) is saved after the next test started, and it went to that test's
+    // directory then, racing the pages that test saved (`tmp` is set again for every test). The saved page was lost
+    // now and then, and the test waiting for it timed out.
+    var open = true;
+    closeStore = () => open = false;
+    store = SavedAnswerStore(
+      directory: () async => open ? dir : throw StateError('the test of this store is over'),
+      now: () => now,
+    );
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() {
+    closeStore();
+    tmp.deleteSync(recursive: true);
+  });
 
   group('1. the saved answers', () {
     test('handed back to the account they were served to, the guest apart', () async {
@@ -316,7 +331,17 @@ void main() {
     late ForumHomeRepository forumHome;
     late GuideFeed guide;
 
+    /// A test of the page ([testWidgets]): it waits for what it left on its way itself (`drainPage`).
+    var pageTest = false;
+
+    /// Wait for what a test left on its way: the daily rewards of its last page, its last writes.
+    Future<void> drain() async {
+      await forumHome.dailyRewardsDone;
+      await store.pendingWrites;
+    }
+
     setUp(() async {
+      pageTest = false;
       db = AppDatabase(NativeDatabase.memory());
       storage = StorageProvider(db, {}, {});
       settings = SettingsRepository(storage);
@@ -342,6 +367,11 @@ void main() {
       guide = GuideFeed(savedAnswers: store);
     });
     tearDown(() async {
+      // Nothing of the test runs on into the next one.
+      // Bounded: a test that failed while a page was held leaves it held; the closed store keeps the next test safe.
+      if (!pageTest) {
+        await drain().timeout(const Duration(seconds: 5), onTimeout: () {});
+      }
       await forumHome.dispose();
       await auth.close();
       await getIt.get<ImageCacheProvider>().dispose();
@@ -360,6 +390,17 @@ void main() {
       addTearDown(bloc.close);
       return bloc;
     }
+
+    /// The first state [bloc] emits after [trigger] that [where] takes, or that is no page shown (loading, failed, a
+    /// login asked): listened to before [trigger] runs, and checked by the caller, so a load that goes another way
+    /// fails at once with the state it went to instead of waiting for the test to time out.
+    Future<HomepageState> next(HomepageBloc bloc, void Function() trigger, [bool Function(HomepageState)? where]) {
+      final state = bloc.stream.firstWhere((s) => where == null || where(s) || s.status != HomepageStatus.success);
+      trigger();
+      return state;
+    }
+
+    bool isFresh(HomepageState s) => s.status == HomepageStatus.success && s.savedAt == null;
 
     /// The pages saved for Alice by an earlier start, [age] ago ([homepage] of `forum.php`).
     Future<void> savedEarlier({Duration age = const Duration(hours: 3), Map<String, dynamic>? homepage}) async {
@@ -404,8 +445,7 @@ void main() {
       final states = <HomepageState>[];
       final sub = bloc.stream.listen(states.add);
       addTearDown(sub.cancel);
-      bloc.add(HomepageLoadRequested());
-      final saved = await bloc.stream.firstWhere((s) => s.savedAt != null);
+      final saved = await next(bloc, () => bloc.add(HomepageLoadRequested()), (s) => s.savedAt != null);
       expect(saved.status, HomepageStatus.success);
       expect(saved.savedAt, now.subtract(const Duration(hours: 3)));
       expect(saved.loggedUserInfo?.username, 'alice');
@@ -421,8 +461,9 @@ void main() {
       expect(forum.requests.where((e) => e.queryParameters['mod'] == 'guide'), hasLength(1), reason: 'asked along');
       expect(forum.hold!.isCompleted, isFalse);
 
-      forum.hold!.complete();
-      final fresh = await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success && s.savedAt == null);
+      final fresh = await next(bloc, forum.hold!.complete, isFresh);
+      expect(fresh.status, HomepageStatus.success);
+      expect(fresh.savedAt, isNull);
       expect(fresh.forumStatus.todayCount, '4242');
       expect(fresh.dailyRedPacket?.dateFlag, isNotNull);
       expect(auth.currentUser?.uid, 4242);
@@ -432,22 +473,25 @@ void main() {
     test('3. the fresh page failed: the saved one stays with a retry, which asks again', () async {
       await savedEarlier();
       forum.offline = true;
-      final bloc = homepage()..add(HomepageLoadRequested());
-      final failed = await bloc.stream.firstWhere((s) => s.refreshFailed);
+      final bloc = homepage();
+      final failed = await next(bloc, () => bloc.add(HomepageLoadRequested()), (s) => s.refreshFailed);
       expect(failed.status, HomepageStatus.success);
       expect(failed.savedAt, isNotNull);
+      expect(failed.refreshFailed, isTrue);
 
       forum.offline = false;
-      bloc.add(HomepageLoadRequested());
-      final fresh = await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success && s.savedAt == null);
+      final fresh = await next(bloc, () => bloc.add(HomepageLoadRequested()), isFresh);
+      expect(fresh.status, HomepageStatus.success);
+      expect(fresh.savedAt, isNull);
       expect(fresh.refreshFailed, isFalse);
     });
 
     test('3. the forum says the session is dead: the login card replaces the saved page', () async {
       await savedEarlier();
       forum.index = () => _json('index_v5_guest.json');
-      final bloc = homepage()..add(HomepageLoadRequested());
-      final login = await bloc.stream.firstWhere((s) => s.status == HomepageStatus.needLogin);
+      final bloc = homepage();
+      final login = await next(bloc, () => bloc.add(HomepageLoadRequested()), (_) => false);
+      expect(login.status, HomepageStatus.needLogin);
       expect(login.savedAt, isNull);
       expect(login.loggedUserInfo?.username ?? '', isEmpty);
     });
@@ -455,28 +499,34 @@ void main() {
     test('3. too old, or nothing saved: the page loads as before', () async {
       await savedEarlier(age: const Duration(hours: 25));
       forum.hold = Completer<void>();
-      final bloc = homepage()..add(HomepageLoadRequested());
-      expect((await bloc.stream.first).status, HomepageStatus.loading);
-      forum.hold!.complete();
-      await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success);
+      final bloc = homepage();
+      expect((await next(bloc, () => bloc.add(HomepageLoadRequested()))).status, HomepageStatus.loading);
+      final loaded = await next(bloc, forum.hold!.complete, (_) => true);
+      expect(loaded.status, HomepageStatus.success);
+      expect(loaded.savedAt, isNull);
     });
 
     test('3. an account switched to shows its own saved page, never the previous one', () async {
       await savedEarlier();
-      final bloc = homepage()..add(HomepageLoadRequested());
-      await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success && s.savedAt == null);
+      final bloc = homepage();
+      final first = await next(bloc, () => bloc.add(HomepageLoadRequested()), isFresh);
+      expect(first.status, HomepageStatus.success);
+      expect(first.savedAt, isNull);
 
       // Bob has no saved page: the page loads as before, nothing of Alice's shows.
       await cookie.updateUserInfo(_bob);
       forum
         ..index = _bobIndex
         ..hold = Completer<void>();
-      bloc.add(HomepageRefreshRequested(userLoginInfo: _bob));
-      final switched = await bloc.stream.first;
+      final switched = await next(bloc, () => bloc.add(HomepageRefreshRequested(userLoginInfo: _bob)));
       expect(switched.status, HomepageStatus.loading);
-      forum.hold!.complete();
-      forum.hold = null;
-      await bloc.stream.firstWhere((s) => s.status == HomepageStatus.success && s.loggedUserInfo?.username == 'Bob');
+      final bob = await next(bloc, () {
+        forum.hold!.complete();
+        forum.hold = null;
+      }, (_) => true);
+      expect(bob.status, HomepageStatus.success);
+      expect(bob.loggedUserInfo?.username, 'Bob');
+      await forumHome.dailyRewardsDone;
       await store.pendingWrites;
 
       // Back to Alice: her saved page shows at once, then hers fresh.
@@ -485,11 +535,15 @@ void main() {
       forum
         ..index = _index
         ..hold = Completer<void>();
-      bloc.add(HomepageRefreshRequested(userLoginInfo: _alice));
-      final back = await bloc.stream.firstWhere((s) => s.status != HomepageStatus.success || s.savedAt != null);
+      final back = await next(bloc, () => bloc.add(HomepageRefreshRequested(userLoginInfo: _alice)), (_) => true);
+      expect(back.status, HomepageStatus.success);
       expect(back.savedAt, isNotNull);
       expect(back.loggedUserInfo?.username, 'alice');
-      forum.hold!.complete();
+      // Her fresh page arrives within the test: nothing of it runs on into the next one.
+      final fresh = await next(bloc, forum.hold!.complete, isFresh);
+      expect(fresh.status, HomepageStatus.success);
+      expect(fresh.savedAt, isNull);
+      expect(fresh.loggedUserInfo?.username, 'alice');
 
       // Bob's page was saved for Bob only.
       expect((await forumHome.savedPageOf(4243))?.page.servedUid, 4243);
@@ -502,8 +556,8 @@ void main() {
       forum
         ..index = (() => _json('index_v5_guest.json'))
         ..hold = Completer<void>();
-      final bloc = homepage()..add(HomepageLoadRequested());
-      expect((await bloc.stream.first).status, HomepageStatus.needLogin);
+      final bloc = homepage();
+      expect((await next(bloc, () => bloc.add(HomepageLoadRequested()))).status, HomepageStatus.needLogin);
       forum.hold!.complete();
       for (var i = 0; i < 50 && !forumHome.hasCache(); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -523,6 +577,7 @@ void main() {
       Map<String, dynamic> noSlides() => _index({'slides': <Object?>[]});
 
       setUp(() {
+        pageTest = true;
         forum.index = noSlides;
         blocks = UserBlockRepository(storage);
         info = NotificationInfoRepository();
@@ -541,6 +596,17 @@ void main() {
           await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
           await tester.pump(const Duration(milliseconds: 50));
         }
+      }
+
+      /// [drain] in a test of the page: what it waits for moves on in the fake time of the test, pumped here.
+      Future<void> drainPage(WidgetTester tester) async {
+        var drained = false;
+        unawaited(drain().then((_) => drained = true));
+        for (var i = 0; i < 250 && !drained; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+          await tester.pump();
+        }
+        expect(drained, isTrue, reason: 'nothing of the test runs on into the next one');
       }
 
       Future<void> openHomepage(WidgetTester tester) async {
@@ -610,6 +676,7 @@ void main() {
         await settle(tester);
         expect(find.byKey(const ValueKey('homepage-saved-note')), findsNothing);
         expect(tester.takeException(), isNull);
+        await drainPage(tester);
       });
 
       testWidgets('updating failed: the saved page stays, with a retry', (tester) async {
@@ -624,6 +691,7 @@ void main() {
         await settle(tester);
         expect(find.byKey(const ValueKey('homepage-saved-note')), findsNothing);
         expect(tester.takeException(), isNull);
+        await drainPage(tester);
       });
     });
   });

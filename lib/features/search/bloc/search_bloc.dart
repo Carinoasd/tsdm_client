@@ -96,6 +96,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           uid: state.uid,
           authorName: state.authorName,
           pageNumber: page,
+          filter: state.filter,
         )
         .match(
           (e) {
@@ -122,6 +123,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
                   totalPages: more.totalPages,
                   count: more.count ?? result.count,
                   data: [...?result.data, ...?more.data?.where((e) => !known.contains(e.tid))],
+                  fullText: more.fullText ?? result.fullText,
                 ),
                 hasPreviousPage: more.currentPage > 1,
                 hasNextPage: more.currentPage < more.totalPages,
@@ -152,6 +154,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
           uid: event.uid,
           authorName: event.authorName,
           pageNumber: event.pageNumer,
+          filter: event.filter,
         )
         .match(
           (e) {
@@ -174,8 +177,10 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
                 fid: event.fid,
                 uid: event.uid,
                 authorName: event.authorName,
+                filter: event.filter,
                 searchResult: searchResult,
-                pageNumber: event.pageNumer,
+                // The page shown, as the forum numbered it: the page asks a new search as page 0.
+                pageNumber: searchResult.currentPage,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
               ),
@@ -204,7 +209,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
       ),
     );
     await await _searchRepository
-        .searchWithParameters(keyword: state.keyword!, fid: state.fid, uid: state.uid, pageNumber: event.pageNumber)
+        .searchWithParameters(
+          keyword: state.keyword!,
+          fid: state.fid,
+          uid: state.uid,
+          authorName: state.authorName,
+          pageNumber: event.pageNumber,
+          filter: state.filter,
+        )
         .match(
           (e) {
             handle(e);
@@ -222,7 +234,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: event.pageNumber,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
@@ -247,7 +259,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
       ),
     );
     await await _searchRepository
-        .searchWithParameters(keyword: state.keyword!, fid: state.fid, uid: state.uid, pageNumber: state.pageNumber + 1)
+        .searchWithParameters(
+          keyword: state.keyword!,
+          fid: state.fid,
+          uid: state.uid,
+          authorName: state.authorName,
+          pageNumber: state.pageNumber + 1,
+          filter: state.filter,
+        )
         .match(
           (e) {
             handle(e);
@@ -265,7 +284,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: state.pageNumber + 1,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
@@ -295,7 +314,14 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
       ),
     );
     await await _searchRepository
-        .searchWithParameters(keyword: state.keyword!, fid: state.fid, uid: state.uid, pageNumber: state.pageNumber - 1)
+        .searchWithParameters(
+          keyword: state.keyword!,
+          fid: state.fid,
+          uid: state.uid,
+          authorName: state.authorName,
+          pageNumber: state.pageNumber - 1,
+          filter: state.filter,
+        )
         .match(
           (e) {
             handle(e);
@@ -313,7 +339,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: state.pageNumber - 1,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,

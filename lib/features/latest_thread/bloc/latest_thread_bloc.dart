@@ -119,6 +119,7 @@ final class LatestThreadBloc extends Bloc<LatestThreadEvent, LatestThreadState> 
                 threadList: threadList ?? const [],
                 pageNumber: 1,
                 nextPageUrl: nextPageUrl,
+                tagName: _tagNameOf(v),
                 refreshing: false,
                 failure: null,
               ),
@@ -126,6 +127,16 @@ final class LatestThreadBloc extends Bloc<LatestThreadEvent, LatestThreadState> 
           },
         )
         .run();
+  }
+
+  /// The tag a tag page lists the threads of: the heading "标签: name", null for any other page.
+  String? _tagNameOf(TsdmAppPageAnswer answer) {
+    if (answer is! TsdmAppWebPage || answer.document.querySelector('h1.mt > i.fico-tag') == null) {
+      return null;
+    }
+    final heading = answer.document.querySelector('h1.mt')?.text?.trim() ?? '';
+    final name = heading.replaceFirst(RegExp('^[^:：]*[:：]'), '').trim();
+    return name.isEmpty ? null : name;
   }
 
   /// The thread list and the next page url of the page [answer] fetched from [url]: the structured answer of the
@@ -146,6 +157,14 @@ final class LatestThreadBloc extends Bloc<LatestThreadEvent, LatestThreadState> 
     final List<LatestThread> data;
     if (tbodyList.isNotEmpty) {
       data = tbodyList.map(LatestThread.fromTBody).where((e) => e.isValid).toList();
+    } else if (document.querySelector('h1.mt > i.fico-tag') != null) {
+      // A tag page: plain table rows, one thread each.
+      data = document
+          .querySelectorAll('div.bm_c table tr')
+          .where((e) => e.querySelector('td.icn') != null)
+          .map(LatestThread.fromTBody)
+          .where((e) => e.isValid)
+          .toList();
     } else {
       data =
           document

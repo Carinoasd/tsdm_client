@@ -1,0 +1,20 @@
+{
+ "ok": 0,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "抱歉，有效期无效, 有效期应该介于2026-11-07至2027-05-06之间",
+ "message_key": "admin_expiration_invalid",
+ "url": "",
+ "handlekey": "mods",
+ "values": {
+  "min": "2026-11-07",
+  "max": "2027-05-06"
+ },
+ "login": 0,
+ "alert": "error"
+}

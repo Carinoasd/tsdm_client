@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/notification/utils/auto_sync_info.dart';
 import 'package:tsdm_client/features/notification/utils/deleted_personal_messages.dart';
 import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/features/notification/utils/personal_message_sent.dart';
+import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
@@ -622,6 +623,9 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // so notices of locally blocked users and conversations with them (or all attributed ones while the list can not
     // be read) never reach the badge. Counting the raw lists above overwrote the filtered badge whenever the notification page was not open to
     // correct it. Skipped when the account changed meanwhile.
+    //
+    // The push rules are read before the account check: nothing between the check and the emit may await.
+    final rules = await NotificationPushRules.read(_storageProvider);
     await _publishUnreadCounts(uid);
     if (_authRepo.currentUser?.uid != uid) {
       _dropAfterAccountChange(emit);
@@ -636,7 +640,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
     // ones or copies fetched again.
     //
     // MARK: flnp
-    final latest = autoSyncInfoOf(fresh);
+    final latest = autoSyncInfoOf(fresh, rules: rules);
     if (latest != null) {
       _infoRepository.updateAutoSyncInfo(latest);
     }
