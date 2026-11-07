@@ -25,7 +25,15 @@ enum EditAvatarStatus {
 @MappableClass()
 final class EditAvatarState with EditAvatarStateMappable {
   /// Constructor.
-  const EditAvatarState({this.status = EditAvatarStatus.initial, this.avatarUrl, this.draftUrl, this.formHash});
+  const EditAvatarState({
+    this.status = EditAvatarStatus.initial,
+    this.avatarUrl,
+    this.draftUrl,
+    this.formHash,
+    this.canUpload = false,
+    this.currentAvatar,
+    this.uploadFailure,
+  });
 
   /// Current status.
   final EditAvatarStatus status;
@@ -36,6 +44,15 @@ final class EditAvatarState with EditAvatarStateMappable {
   /// The url user inputted but not submitted to server yet, because of a network error or something else...
   final String? draftUrl;
 
-  /// The used form hash.
+  /// The used form hash; null when the page has no external avatar form.
   final String? formHash;
+
+  /// Whether the page has the avatar editor of the forum, to upload an image.
+  final bool canUpload;
+
+  /// The avatar the forum shows now (the uploaded one).
+  final String? currentAvatar;
+
+  /// Why the last image upload failed, null when it did not.
+  final String? uploadFailure;
 }

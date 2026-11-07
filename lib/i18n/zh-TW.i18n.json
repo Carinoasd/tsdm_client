@@ -2189,7 +2189,11 @@
     "submit": "提交",
     "clearAvatarTip": "提交一個空連結可以清除目前使用的頭像",
     "avatarUpdated": "頭像已更新",
-    "viewSharedAvatars": "在找好看頭像？點我看公共頭像"
+    "viewSharedAvatars": "在找好看頭像？點我看公共頭像",
+    "uploadImage": "上傳圖片",
+    "cropTitle": "裁剪頭像",
+    "uploadFailed": "上傳失敗",
+    "imageUnreadable": "無法讀取這張圖片"
   },
   "updatePage": {
     "title": "取得更新",
@@ -2647,7 +2651,8 @@
       "aboutMe": "關於我",
       "forum": "論壇顯示"
     },
-    "uploadHint": "修改只保留在本頁，按右上角的上傳按鈕才會送到論壇。"
+    "uploadHint": "修改只保留在本頁，按右上角的上傳按鈕才會送到論壇。",
+    "signatureUnavailable": "目前使用者組不能使用個人簽名"
   },
   "urlInfoBottomSheet": {
     "title": "連結訊息",

@@ -612,6 +612,16 @@ final class EditAvatarUrlNotFound extends AppException with EditAvatarUrlNotFoun
   EditAvatarUrlNotFound() : super(message: 'avatar url not found');
 }
 
+/// The forum did not take the avatar uploaded with its avatar editor.
+@MappableClass()
+final class EditAvatarUploadFailed extends AppException with EditAvatarUploadFailedMappable {
+  /// Constructor.
+  EditAvatarUploadFailed(this.answer) : super(message: 'avatar upload failed: $answer');
+
+  /// What the forum answered, the name of an `AvatarUploadAnswer`.
+  final String answer;
+}
+
 /// Failed to find the user profile form in edit page.
 @MappableClass()
 final class EditUserProfileFormNotFound extends AppException with EditUserProfileFormNotFoundMappable {

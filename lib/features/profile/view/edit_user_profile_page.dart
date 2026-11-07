@@ -142,6 +142,18 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
           ),
   );
 
+  /// Open the signature editor; the signature it saved replaces the one shown, the other edits stay as they are.
+  Future<void> _editSignature(BuildContext context) async {
+    final saved = await context.pushNamed<String>(ScreenPaths.editSignature);
+    if (saved == null || !context.mounted) {
+      return;
+    }
+    final current = context.read<EditUserProfileBloc>().state.profile;
+    if (current != null && current.shows(_Keys.signature)) {
+      _save(context, current.copyWith(signature: saved));
+    }
+  }
+
   void _save(BuildContext context, eup.UserProfile profile) =>
       context.read<EditUserProfileBloc>().add(EditUserProfileSaveProfileRequested(profile));
 
@@ -436,16 +448,26 @@ class _EditUserProfilePageState extends State<EditUserProfilePage> {
             editable: profile.canEdit(_Keys.customTitle),
             onValueUpdated: (p, v) => p.copyWith(customTitle: v),
           ),
+        // The signature has its own editor (BBCode, the group's limit), which saves it by itself; it may live in
+        // another tab of the forum's editor than the fields here.
         if (profile.shows(_Keys.signature))
-          _textTile(
+          _buildProfileListTile<String?>(
             context: context,
-            profile: profile,
             icon: Icons.draw_outlined,
             title: tr.signature,
+            subtitle: profile.signature ?? '',
             value: profile.signature,
-            editable: profile.canEdit(_Keys.signature),
-            onValueUpdated: (p, v) => p.copyWith(signature: v),
-            multiline: true,
+            onTap: !profile.canEdit(_Keys.signature) ? null : (_) async => _editSignature(context),
+          )
+        else
+          ListTile(
+            leading: const Icon(Icons.draw_outlined),
+            title: Text(tr.signature),
+            trailing: const Icon(Icons.chevron_right),
+            contentPadding: edgeInsetsL16R16,
+            onTap: context.read<EditUserProfileBloc>().state.status == .submitting
+                ? null
+                : () async => _editSignature(context),
           ),
         // Page style is not editable on Discuz X5 (no "styleid" select in form), hide it if no style available.
         if (profile.availablePageStyles.isNotEmpty)
