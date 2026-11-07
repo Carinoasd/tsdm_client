@@ -503,6 +503,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         'edit_reply': ('edit', PostFormSupport.supported),
         'edit_attach': ('edit', PostFormSupport.supported),
         'edit_draft': ('edit', PostFormSupport.unsupported),
+        // fid 2 as edit_first; without them the first post of a poll is taken, the poll posted as served (test_292).
         'edit_poll': ('edit', PostFormSupport.unsupported),
         'edit_json': ('edit', PostFormSupport.unsupported),
         // The first post of a reward thread: its price raised, or kept as served (test_291).
@@ -519,7 +520,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         expect(_form(name).editorSupport(action), support, reason: name);
       }
       // The same forms where no other plugin prints fields are taken.
-      for (final name in ['edit_first', 'edit_draft']) {
+      for (final name in ['edit_first', 'edit_draft', 'edit_poll']) {
         expect(PostForm.fromJson(_unhooked(name))!.editorSupport('edit'), PostFormSupport.supported, reason: name);
       }
       expect(_form('newthread_hook').hookFields, ['fpbt_book', 'fpbt_author']);
@@ -966,7 +967,6 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         ('newthread_sort', const ThreadPubFetchInfoRequested(fid: '25')),
         ('newthread_poll', const ThreadPubFetchInfoRequested(fid: '2')),
         ('edit_json', const PostEditLoadDataRequested(_editUrl)),
-        ('edit_poll', const PostEditLoadDataRequested(_editUrl)),
       ]) {
         final bloc = await _load(_Harness(page: (_) => _json(name)), event);
         expect(bloc.state.status, PostEditStatus.unsupported, reason: name);
