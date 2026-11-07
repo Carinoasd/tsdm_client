@@ -499,6 +499,7 @@
     },
     "windowSection": {
       "title": "視窗",
+      "keyboardShortcuts": "鍵盤快捷鍵",
       "disableHint": "在啟動時增加參數\"--no-window-configs\"將會停用該部分設置，如果軟體開啟後看不到窗口，可以嘗試增加此參數",
       "windowRememberSize": {
         "title": "記住視窗大小",
@@ -3164,5 +3165,35 @@
   },
   "appShortcuts": {
     "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
+  },
+  "keyboardShortcutsPage": {
+    "title": "鍵盤快捷鍵",
+    "groups": {
+      "global": "全域",
+      "thread": "帖子頁",
+      "list": "列表",
+      "editor": "編輯器"
+    },
+    "commands": {
+      "search": "搜尋",
+      "settings": "設定",
+      "back": "關閉對話框、返回",
+      "refresh": "重新整理",
+      "nextFloor": "下一樓",
+      "previousFloor": "上一樓",
+      "nextPage": "下一頁",
+      "previousPage": "上一頁",
+      "reply": "回覆",
+      "top": "到頂部",
+      "bottom": "到底部",
+      "copyLink": "複製帖子連結",
+      "nextItem": "下一項",
+      "previousItem": "上一項",
+      "openItem": "開啟選取的項目",
+      "send": "送出",
+      "bold": "粗體",
+      "italic": "斜體",
+      "underline": "底線"
+    }
   }
 }

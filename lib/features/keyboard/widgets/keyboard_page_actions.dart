@@ -1,0 +1,158 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
+
+/// Lets a page answer the keys of [KeyboardShortcutsHost]: every callback given is the page's own reaction to the
+/// matching key; the keys with no callback are left alone.
+///
+/// The plain keys (J, K, N, P, R, Enter, Home, End) do nothing while a text input has the focus. The page takes the
+/// focus when it is built, so the keys work before anything was clicked.
+///
+/// Only the page in view answers: a page behind another keeps the focus out of its subtree. Where the page is a tab
+/// kept alive off screen, [active] tells whether the tab is the one shown.
+class KeyboardPageActions extends StatefulWidget {
+  /// Constructor.
+  const KeyboardPageActions({
+    required this.child,
+    this.active = true,
+    this.onRefresh,
+    this.onNextItem,
+    this.onPreviousItem,
+    this.onOpenItem,
+    this.canOpenItem,
+    this.onNextPage,
+    this.onPreviousPage,
+    this.onReply,
+    this.onScrollToStart,
+    this.onScrollToEnd,
+    this.onCopyLink,
+    super.key,
+  });
+
+  /// The page.
+  final Widget child;
+
+  /// Whether the page is the one in view.
+  final bool active;
+
+  /// Reload (F5, Ctrl+R).
+  final VoidCallback? onRefresh;
+
+  /// J.
+  final VoidCallback? onNextItem;
+
+  /// K.
+  final VoidCallback? onPreviousItem;
+
+  /// Enter.
+  final VoidCallback? onOpenItem;
+
+  /// Whether Enter has an item to open: else it is left to the focused button.
+  final bool Function()? canOpenItem;
+
+  /// N.
+  final VoidCallback? onNextPage;
+
+  /// P.
+  final VoidCallback? onPreviousPage;
+
+  /// R.
+  final VoidCallback? onReply;
+
+  /// Home.
+  final VoidCallback? onScrollToStart;
+
+  /// End.
+  final VoidCallback? onScrollToEnd;
+
+  /// Ctrl+Shift+C.
+  final VoidCallback? onCopyLink;
+
+  @override
+  State<KeyboardPageActions> createState() => _KeyboardPageActionsState();
+}
+
+class _KeyboardPageActionsState extends State<KeyboardPageActions> {
+  final _focusNode = FocusNode(debugLabel: 'KeyboardPageActions', skipTraversal: true);
+
+  @override
+  void initState() {
+    super.initState();
+    _takeFocusWhenFree();
+  }
+
+  @override
+  void didUpdateWidget(KeyboardPageActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      // The tab came to the front: the focus of the tab that was in front is not to keep the keys.
+      _takeFocusWhenFree(force: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  /// Takes the focus once the page is built, unless something inside the route has it (a text field focusing itself
+  /// at once, the search box) or the page is not the one in view; [force] takes it from whatever has it.
+  void _takeFocusWhenFree({bool force = false}) {
+    if (!widget.active || !keyboardShortcutsEnabled) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // After the other post frame callbacks of the frame: a text field gives itself the focus in one.
+      scheduleMicrotask(() {
+        if (!mounted || !widget.active || (!force && FocusScope.of(context).focusedChild != null)) {
+          return;
+        }
+        _focusNode.requestFocus();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final widget = this.widget;
+    if (!keyboardShortcutsEnabled) {
+      return widget.child;
+    }
+    final onRefresh = widget.onRefresh;
+    final onCopyLink = widget.onCopyLink;
+    final onNextItem = widget.onNextItem;
+    final onPreviousItem = widget.onPreviousItem;
+    final onOpenItem = widget.onOpenItem;
+    final onNextPage = widget.onNextPage;
+    final onPreviousPage = widget.onPreviousPage;
+    final onReply = widget.onReply;
+    final onScrollToStart = widget.onScrollToStart;
+    final onScrollToEnd = widget.onScrollToEnd;
+    return Actions(
+      actions: {
+        if (onRefresh != null) RefreshPageIntent: KeyboardAction<RefreshPageIntent>(onRefresh),
+        if (onCopyLink != null) CopyPageLinkIntent: KeyboardAction<CopyPageLinkIntent>(onCopyLink),
+        if (onNextItem != null) NextItemIntent: KeyboardAction<NextItemIntent>(onNextItem, singleKey: true),
+        if (onPreviousItem != null)
+          PreviousItemIntent: KeyboardAction<PreviousItemIntent>(onPreviousItem, singleKey: true),
+        if (onOpenItem != null)
+          OpenItemIntent: KeyboardAction<OpenItemIntent>(
+            onOpenItem,
+            singleKey: true,
+            enabledWhen: widget.canOpenItem,
+          ),
+        if (onNextPage != null) NextPageIntent: KeyboardAction<NextPageIntent>(onNextPage, singleKey: true),
+        if (onPreviousPage != null)
+          PreviousPageIntent: KeyboardAction<PreviousPageIntent>(onPreviousPage, singleKey: true),
+        if (onReply != null) StartReplyIntent: KeyboardAction<StartReplyIntent>(onReply, singleKey: true),
+        if (onScrollToStart != null)
+          ScrollToStartIntent: KeyboardAction<ScrollToStartIntent>(onScrollToStart, singleKey: true),
+        if (onScrollToEnd != null) ScrollToEndIntent: KeyboardAction<ScrollToEndIntent>(onScrollToEnd, singleKey: true),
+      },
+      child: Focus(focusNode: _focusNode, child: widget.child),
+    );
+  }
+}

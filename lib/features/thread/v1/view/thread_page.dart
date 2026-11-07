@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart'
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
@@ -787,6 +788,43 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     _setImmersive(hidden: !_immersive);
+  }
+
+  /// Scrolls to the start of the thread; the pages above the floors on screen are not loaded (or were dropped): the
+  /// thread is opened at its start then.
+  Future<void> _backToTop(BuildContext context) async {
+    _appBarCollapser.show();
+    final bloc = context.read<ThreadBloc>();
+    if (bloc.state.canLoadPrevious || !(_postListKey.currentState?.startsAtThreadTop ?? true)) {
+      bloc.add(const ThreadJumpPageRequested(1));
+      return;
+    }
+    if (!_listScrollController.hasClients) {
+      return;
+    }
+    await _listScrollController.animateTo(
+      _listScrollController.position.minScrollExtent,
+      curve: Curves.ease,
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  /// Scrolls to the end of what is loaded; the last page is opened when more follows.
+  Future<void> _scrollToBottom(BuildContext context) async {
+    _appBarCollapser.show();
+    final bloc = context.read<ThreadBloc>();
+    if (bloc.state.canLoadMore) {
+      bloc.add(const ThreadJumpPageRequested(lastPageAsked, pageFallback: 1));
+      return;
+    }
+    if (!_listScrollController.hasClients) {
+      return;
+    }
+    await _listScrollController.animateTo(
+      _listScrollController.position.maxScrollExtent,
+      curve: Curves.ease,
+      duration: const Duration(milliseconds: 500),
+    );
   }
 
   /// A swipe across the floors (the `threadSwipePaging` setting): the page after the one in view, or the one before;
@@ -1972,23 +2010,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                     onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
                     onCopyUrl: () async => copyToClipboard(context, threadUrl!),
                     onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
-                    onBackToTop: () async {
-                      _appBarCollapser.show();
-                      final bloc = context.read<ThreadBloc>();
-                      // Pages above the floors on screen are not loaded (or were dropped): open the thread at its start.
-                      if (bloc.state.canLoadPrevious || !(_postListKey.currentState?.startsAtThreadTop ?? true)) {
-                        bloc.add(const ThreadJumpPageRequested(1));
-                        return;
-                      }
-                      if (!_listScrollController.hasClients) {
-                        return;
-                      }
-                      await _listScrollController.animateTo(
-                        _listScrollController.position.minScrollExtent,
-                        curve: Curves.ease,
-                        duration: const Duration(milliseconds: 500),
-                      );
-                    },
+                    onBackToTop: () async => _backToTop(context),
                     onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
                     customMenuItems: [
                       if (state.postList.isNotEmpty)
@@ -2054,17 +2076,28 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // not rebuilt.
             // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own
             // (`canCloseQuietly`), and the back swipe still closes it.
-            return MentionSuggestionsScope(
-              suggestions: mentionSuggestions,
-              child: BackButtonListener(
-                onBackButtonPressed: _onBackPressed,
-                child: AnimatedBuilder(
-                  animation: _appBarController,
-                  builder: (context, _) => Scaffold(
-                    // Required by chat_bottom_container in the reply bar.
-                    resizeToAvoidBottomInset: false,
-                    appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
-                    body: body,
+            return KeyboardPageActions(
+              onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+              onNextItem: () => _postListKey.currentState?.scrollByFloor(1),
+              onPreviousItem: () => _postListKey.currentState?.scrollByFloor(-1),
+              onNextPage: () => _swipePage(ThreadSwipe.next),
+              onPreviousPage: () => _swipePage(ThreadSwipe.previous),
+              onReply: _replyToThread,
+              onScrollToStart: () => unawaited(_backToTop(context)),
+              onScrollToEnd: () => unawaited(_scrollToBottom(context)),
+              onCopyLink: () => unawaited(copyToClipboard(context, threadUrl!)),
+              child: MentionSuggestionsScope(
+                suggestions: mentionSuggestions,
+                child: BackButtonListener(
+                  onBackButtonPressed: _onBackPressed,
+                  child: AnimatedBuilder(
+                    animation: _appBarController,
+                    builder: (context, _) => Scaffold(
+                      // Required by chat_bottom_container in the reply bar.
+                      resizeToAvoidBottomInset: false,
+                      appBar: CollapsingAppBar(shown: _appBarController.value, child: appBar),
+                      body: body,
+                    ),
                   ),
                 ),
               ),

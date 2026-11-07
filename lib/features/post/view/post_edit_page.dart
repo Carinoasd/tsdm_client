@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_autosaver.dart';
@@ -1812,6 +1813,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       child: BlocConsumer<PostEditBloc, PostEditState>(
         listener: (context, state) async => _onListen(context, state),
         builder: (context, state) {
+          bool canPublish() =>
+              !(_confirming ||
+                  _uploadingSharedImages ||
+                  _waitingSeconds > 0 ||
+                  !context.read<PostEditBloc>().canSubmit);
           // Below the bloc: leaving asks what to do with content not sent yet, and may save it as a draft.
           return PopScope(
             canPop: false,
@@ -1821,84 +1827,102 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               }
               await _onLeave(context);
             },
-            child: Scaffold(
-              // Required by chat_bottom_container in the reply bar.
-              resizeToAvoidBottomInset: false,
-              appBar: AppBar(
-                title: Text(title),
-                // Under the title, not among the actions: beside three buttons a name squeezed the title away on a
-                // phone (#184).
-                bottom: postingAsBarOf(context),
-                actions: [
-                  if (widget.editType == PostEditType.newThread &&
-                      state.status == PostEditStatus.editing &&
-                      _kindsOffered(state).length > 1)
-                    PopupMenuButton<ThreadKind>(
-                      tooltip: context.t.postEditPage.threadKind.tooltip,
-                      icon: Icon(_kindIcon(widget.threadKind)),
-                      enabled: !_confirming,
-                      onSelected: (kind) => _switchKind(context, kind),
-                      itemBuilder: (context) => [
-                        for (final kind in _kindsOffered(state))
-                          CheckedPopupMenuItem(
-                            value: kind,
-                            checked: kind == widget.threadKind,
-                            child: Text(_kindLabel(context, kind)),
-                          ),
-                      ],
-                    ),
-                  if (widget.editType == PostEditType.newThread &&
-                      widget.pollOffered &&
-                      state.status != PostEditStatus.uploading &&
-                      state.status != PostEditStatus.success &&
-                      state.status != PostEditStatus.draftUnconfirmed &&
-                      state.status != PostEditStatus.identityChanged)
+            child: _wrapWithSendShortcut(
+              onSend: () {
+                if (canPublish()) {
+                  unawaited(_onFinish(context, state));
+                }
+              },
+              child: Scaffold(
+                // Required by chat_bottom_container in the reply bar.
+                resizeToAvoidBottomInset: false,
+                appBar: AppBar(
+                  title: Text(title),
+                  // Under the title, not among the actions: beside three buttons a name squeezed the title away on a
+                  // phone (#184).
+                  bottom: postingAsBarOf(context),
+                  actions: [
+                    if (widget.editType == PostEditType.newThread &&
+                        state.status == PostEditStatus.editing &&
+                        _kindsOffered(state).length > 1)
+                      PopupMenuButton<ThreadKind>(
+                        tooltip: context.t.postEditPage.threadKind.tooltip,
+                        icon: Icon(_kindIcon(widget.threadKind)),
+                        enabled: !_confirming,
+                        onSelected: (kind) => _switchKind(context, kind),
+                        itemBuilder: (context) => [
+                          for (final kind in _kindsOffered(state))
+                            CheckedPopupMenuItem(
+                              value: kind,
+                              checked: kind == widget.threadKind,
+                              child: Text(_kindLabel(context, kind)),
+                            ),
+                        ],
+                      ),
+                    if (widget.editType == PostEditType.newThread &&
+                        widget.pollOffered &&
+                        state.status != PostEditStatus.uploading &&
+                        state.status != PostEditStatus.success &&
+                        state.status != PostEditStatus.draftUnconfirmed &&
+                        state.status != PostEditStatus.identityChanged)
+                      IconButton(
+                        tooltip: context.t.pollCreate.switchToPoll,
+                        icon: const Icon(Icons.poll_outlined),
+                        onPressed: _confirming ? null : () => _switchToPoll(context),
+                      ),
+                    if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
+                      IconButton(
+                        onPressed:
+                            _confirming ||
+                                _uploadingSharedImages ||
+                                _waitingSeconds > 0 ||
+                                !context.read<PostEditBloc>().canSubmit
+                            ? null
+                            : () async => _onFinish(context, state, saveDraft: true),
+                        icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft
+                            ? sizedCircularProgressIndicator
+                            : Icon(MdiIcons.contentSaveEditOutline, color: Theme.of(context).colorScheme.secondary),
+                        tooltip: context.t.postEditPage.saveAsDraft,
+                      ),
+                    ],
                     IconButton(
-                      tooltip: context.t.pollCreate.switchToPoll,
-                      icon: const Icon(Icons.poll_outlined),
-                      onPressed: _confirming ? null : () => _switchToPoll(context),
-                    ),
-                  if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
-                    IconButton(
-                      onPressed:
-                          _confirming ||
-                              _uploadingSharedImages ||
-                              _waitingSeconds > 0 ||
-                              !context.read<PostEditBloc>().canSubmit
-                          ? null
-                          : () async => _onFinish(context, state, saveDraft: true),
-                      icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft
+                      key: const ValueKey('post-edit-publish'),
+                      // Refused as too soon after the previous post: the seconds the forum still waits.
+                      tooltip: _waitingSeconds > 0
+                          ? context.t.replyBar.floodWait(seconds: _waitingSeconds)
+                          : context.t.postEditPage.publish,
+                      icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.publish
                           ? sizedCircularProgressIndicator
-                          : Icon(MdiIcons.contentSaveEditOutline, color: Theme.of(context).colorScheme.secondary),
-                      tooltip: context.t.postEditPage.saveAsDraft,
+                          : _waitingSeconds > 0
+                          ? Text('${_waitingSeconds}s', key: const ValueKey('post-edit-countdown'))
+                          : const Icon(Icons.send),
+                      onPressed: canPublish() ? () async => _onFinish(context, state) : null,
                     ),
                   ],
-                  IconButton(
-                    key: const ValueKey('post-edit-publish'),
-                    // Refused as too soon after the previous post: the seconds the forum still waits.
-                    tooltip: _waitingSeconds > 0
-                        ? context.t.replyBar.floodWait(seconds: _waitingSeconds)
-                        : context.t.postEditPage.publish,
-                    icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.publish
-                        ? sizedCircularProgressIndicator
-                        : _waitingSeconds > 0
-                        ? Text('${_waitingSeconds}s', key: const ValueKey('post-edit-countdown'))
-                        : const Icon(Icons.send),
-                    onPressed:
-                        _confirming ||
-                            _uploadingSharedImages ||
-                            _waitingSeconds > 0 ||
-                            !context.read<PostEditBloc>().canSubmit
-                        ? null
-                        : () async => _onFinish(context, state),
-                  ),
-                ],
+                ),
+                body: SafeArea(bottom: false, child: _buildBody(context, state)),
               ),
-              body: SafeArea(bottom: false, child: _buildBody(context, state)),
             ),
           );
         },
       ),
+    );
+  }
+
+  /// Ctrl+Enter (Cmd+Enter) publishes while the title or the editor has the focus; desktop only, as on mobile the input
+  /// method owns the Enter key.
+  Widget _wrapWithSendShortcut({required VoidCallback onSend, required Widget child}) {
+    if (!keyboardShortcutsEnabled) {
+      return child;
+    }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): onSend,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter, control: true): onSend,
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true): onSend,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter, meta: true): onSend,
+      },
+      child: child,
     );
   }
 }

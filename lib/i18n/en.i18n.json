@@ -499,6 +499,7 @@
     },
     "windowSection": {
       "title": "Window",
+      "keyboardShortcuts": "Keyboard shortcuts",
       "disableHint": "Add cmdline args \"--no-window-configs\" will disable this settings section, which is useful when window is missing after startup.",
       "windowRememberSize": {
         "title": "Remember window size",
@@ -3164,5 +3165,35 @@
   },
   "appShortcuts": {
     "checkinNotVerified": "The login is not verified yet, check in later"
+  },
+  "keyboardShortcutsPage": {
+    "title": "Keyboard shortcuts",
+    "groups": {
+      "global": "Everywhere",
+      "thread": "Thread",
+      "list": "Lists",
+      "editor": "Editor"
+    },
+    "commands": {
+      "search": "Search",
+      "settings": "Settings",
+      "back": "Close dialog, go back",
+      "refresh": "Refresh",
+      "nextFloor": "Next floor",
+      "previousFloor": "Previous floor",
+      "nextPage": "Next page",
+      "previousPage": "Previous page",
+      "reply": "Reply",
+      "top": "Go to top",
+      "bottom": "Go to bottom",
+      "copyLink": "Copy thread link",
+      "nextItem": "Next item",
+      "previousItem": "Previous item",
+      "openItem": "Open selected item",
+      "send": "Send",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline"
+    }
   }
 }

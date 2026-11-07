@@ -499,6 +499,7 @@
     },
     "windowSection": {
       "title": "窗口",
+      "keyboardShortcuts": "键盘快捷键",
       "disableHint": "在启动时增加参数\"--no-window-configs\"将会禁用该部分设置。如果软件开启后看不到窗口，可以尝试增加此参数。",
       "windowRememberSize": {
         "title": "记住窗口大小",
@@ -3164,5 +3165,35 @@
   },
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
+  },
+  "keyboardShortcutsPage": {
+    "title": "键盘快捷键",
+    "groups": {
+      "global": "全局",
+      "thread": "帖子页",
+      "list": "列表",
+      "editor": "编辑器"
+    },
+    "commands": {
+      "search": "搜索",
+      "settings": "设置",
+      "back": "关闭对话框、返回",
+      "refresh": "刷新",
+      "nextFloor": "下一楼",
+      "previousFloor": "上一楼",
+      "nextPage": "下一页",
+      "previousPage": "上一页",
+      "reply": "回复",
+      "top": "到顶部",
+      "bottom": "到底部",
+      "copyLink": "复制帖子链接",
+      "nextItem": "下一项",
+      "previousItem": "上一项",
+      "openItem": "打开选中的项目",
+      "send": "发送",
+      "bold": "粗体",
+      "italic": "斜体",
+      "underline": "下划线"
+    }
   }
 }

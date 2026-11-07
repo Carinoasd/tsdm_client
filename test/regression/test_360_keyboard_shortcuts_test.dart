@@ -1,0 +1,254 @@
+// Calls on the selection read better one per line.
+// ignore_for_file: cascade_invocations
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tsdm_client/features/keyboard/models/keyboard_shortcut_catalog.dart';
+import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
+
+/// Keyboard shortcuts of the desktop app: every key reaches the page that answers it on desktop only, the plain keys
+/// stay with a focused text input, and the list page tells them all.
+void main() {
+  late List<String> log;
+  var canOpen = true;
+
+  setUp(() {
+    KeyboardShortcutsHost.enabledOverride = true;
+    log = [];
+    canOpen = true;
+  });
+  tearDown(() => KeyboardShortcutsHost.enabledOverride = null);
+
+  Widget app({bool field = false}) => MaterialApp(
+    builder: (context, child) => KeyboardShortcutsHost(
+      onSearch: () => log.add('search'),
+      onSettings: () => log.add('settings'),
+      child: child ?? const SizedBox.shrink(),
+    ),
+    home: KeyboardPageActions(
+      onRefresh: () => log.add('refresh'),
+      onNextItem: () => log.add('next-item'),
+      onPreviousItem: () => log.add('previous-item'),
+      onOpenItem: () => log.add('open'),
+      canOpenItem: () => canOpen,
+      onNextPage: () => log.add('next-page'),
+      onPreviousPage: () => log.add('previous-page'),
+      onReply: () => log.add('reply'),
+      onScrollToStart: () => log.add('start'),
+      onScrollToEnd: () => log.add('end'),
+      onCopyLink: () => log.add('copy-link'),
+      child: Scaffold(
+        body: Column(
+          children: [
+            if (field) const TextField(key: Key('field'), autofocus: true),
+            Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => const AlertDialog(title: Text('Dialog')),
+                ),
+                child: const Text('dialog'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Future<void> chord(
+    WidgetTester tester,
+    LogicalKeyboardKey key, {
+    bool control = false,
+    bool meta = false,
+    bool shift = false,
+  }) async {
+    if (control) await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    if (meta) await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(key);
+    if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    if (meta) await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    if (control) await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+  }
+
+  group('on desktop', () {
+    testWidgets('every plain key reaches the page', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      for (final key in [
+        LogicalKeyboardKey.keyJ,
+        LogicalKeyboardKey.keyK,
+        LogicalKeyboardKey.keyN,
+        LogicalKeyboardKey.keyP,
+        LogicalKeyboardKey.keyR,
+        LogicalKeyboardKey.enter,
+        LogicalKeyboardKey.home,
+        LogicalKeyboardKey.end,
+        LogicalKeyboardKey.f5,
+      ]) {
+        await tester.sendKeyEvent(key);
+      }
+      await tester.pump();
+      expect(log, [
+        'next-item',
+        'previous-item',
+        'next-page',
+        'previous-page',
+        'reply',
+        'open',
+        'start',
+        'end',
+        'refresh',
+      ]);
+    });
+
+    testWidgets('Ctrl and Cmd combinations', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await chord(tester, LogicalKeyboardKey.keyF, control: true);
+      await chord(tester, LogicalKeyboardKey.keyF, meta: true);
+      await chord(tester, LogicalKeyboardKey.comma, control: true);
+      await chord(tester, LogicalKeyboardKey.keyR, control: true);
+      await chord(tester, LogicalKeyboardKey.keyC, control: true, shift: true);
+      expect(log, ['search', 'search', 'settings', 'refresh', 'copy-link']);
+    });
+
+    testWidgets('a combination is not the plain key', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await chord(tester, LogicalKeyboardKey.keyJ, control: true);
+      await chord(tester, LogicalKeyboardKey.keyR, control: true, shift: true);
+      expect(log, isEmpty);
+    });
+
+    testWidgets('Enter is left to the focused button when nothing is selected', (tester) async {
+      canOpen = false;
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(log, isEmpty);
+    });
+
+    testWidgets('a text input keeps the plain keys but not the combinations', (tester) async {
+      await tester.pumpWidget(app(field: true));
+      await tester.pump();
+      for (final key in [
+        LogicalKeyboardKey.keyJ,
+        LogicalKeyboardKey.keyK,
+        LogicalKeyboardKey.keyN,
+        LogicalKeyboardKey.keyP,
+        LogicalKeyboardKey.keyR,
+        LogicalKeyboardKey.enter,
+        LogicalKeyboardKey.home,
+        LogicalKeyboardKey.end,
+      ]) {
+        await tester.sendKeyEvent(key);
+      }
+      expect(log, isEmpty);
+      await chord(tester, LogicalKeyboardKey.keyR, control: true);
+      await chord(tester, LogicalKeyboardKey.keyF, control: true);
+      expect(log, ['refresh', 'search']);
+    });
+
+    testWidgets('nothing happens above a dialog', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await tester.tap(find.text('dialog'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await chord(tester, LogicalKeyboardKey.keyF, control: true);
+      expect(log, isEmpty);
+    });
+  });
+
+  group('on other platforms', () {
+    testWidgets('no key is taken', (tester) async {
+      KeyboardShortcutsHost.enabledOverride = false;
+      await tester.pumpWidget(app());
+      await tester.pump();
+      for (final key in [LogicalKeyboardKey.keyJ, LogicalKeyboardKey.keyR, LogicalKeyboardKey.f5]) {
+        await tester.sendKeyEvent(key);
+      }
+      await chord(tester, LogicalKeyboardKey.keyF, control: true);
+      await chord(tester, LogicalKeyboardKey.keyR, control: true);
+      expect(log, isEmpty);
+    });
+  });
+
+  group('selection', () {
+    test('moves within the list and starts at its ends', () {
+      final selection = KeyboardSelection();
+      selection.move(-1, 3);
+      expect(selection.index, 2);
+      selection.move(1, 3);
+      expect(selection.index, 2);
+      selection.move(-1, 3);
+      expect(selection.index, 1);
+      selection.move(1, 0);
+      expect(selection.index, 1);
+      selection.clear();
+      expect(selection.index, isNull);
+      selection.move(1, 3);
+      expect(selection.index, 0);
+    });
+
+    testWidgets('the selected item is outlined', (tester) async {
+      final selection = KeyboardSelection();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ListView(
+            children: [
+              for (var i = 0; i < 3; i++)
+                KeyboardSelectable(
+                  selection: selection,
+                  index: i,
+                  child: SizedBox(height: 50, child: Text('item $i')),
+                ),
+            ],
+          ),
+        ),
+      );
+      BoxDecoration? outline(int i) {
+        final boxes = find.ancestor(of: find.text('item $i'), matching: find.byType(DecoratedBox));
+        return boxes
+            .evaluate()
+            .map((e) => (e.widget as DecoratedBox).decoration)
+            .whereType<BoxDecoration>()
+            .firstOrNull;
+      }
+
+      expect(outline(1), isNull);
+      selection.move(1, 3);
+      selection.move(1, 3);
+      await tester.pumpAndSettle();
+      expect(outline(0), isNull);
+      expect(outline(1)?.border, isNotNull);
+    });
+  });
+
+  group('the list page', () {
+    testWidgets('tells every shortcut of the catalog', (tester) async {
+      await LocaleSettings.setLocale(AppLocale.en);
+      tester.view.physicalSize = const Size(900, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(TranslationProvider(child: const MaterialApp(home: KeyboardShortcutsPage())));
+      await tester.pumpAndSettle();
+      expect(find.byType(ListTile), findsNWidgets(keyboardShortcutCatalog.length));
+      expect(find.text('Next floor'), findsOneWidget);
+      expect(find.text('Ctrl'), findsWidgets);
+    });
+
+    test('names the primary modifier of the platform', () {
+      expect(KeyboardShortcutsPage.keyLabel(primaryModifierToken, mac: true), 'Cmd');
+      expect(KeyboardShortcutsPage.keyLabel(primaryModifierToken, mac: false), 'Ctrl');
+      expect(KeyboardShortcutsPage.keyLabel('F5', mac: false), 'F5');
+    });
+  });
+}
