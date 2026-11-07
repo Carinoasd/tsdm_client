@@ -1052,6 +1052,10 @@ class StorageProvider with LoggerMixin {
   Future<int> deleteOfflineThread({required int uid, required int tid}) async =>
       OfflineThreadDao(_db).deleteThread(uid: uid, tid: tid);
 
+  /// Delete the pages of the default request of thread [tid] for user [uid] after page [page].
+  Future<int> deleteOfflineThreadPagesAfter({required int uid, required int tid, required int page}) async =>
+      OfflineThreadDao(_db).deletePagesAfter(uid: uid, tid: tid, page: page);
+
   /// Delete every saved page of user [uid].
   Future<int> deleteOfflineThreadsByUid(int uid) async => OfflineThreadDao(_db).deleteByUid(uid);
 

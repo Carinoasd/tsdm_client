@@ -110,23 +110,29 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
     }
   }
 
-  /// Every thread of the favorites, the pages not loaded on the screen yet included.
-  Future<List<OfflineBatchJob>> _allThreads(FavoriteState state) async {
+  /// Every thread of the favorites, the pages not loaded on the screen yet included: asked one after the other with the
+  /// batch's pause ([next]), and stopped by its cancel. A page that fails ends the list there, with the reason.
+  Future<OfflineBatchList> _allThreads(FavoriteState state, Future<bool> Function() next) async {
     final items = [...state.items];
     var url = state.nextPageUrl;
+    String? failure;
     final repository = context.repo<FavoriteRepository>();
+    final failedToLoad = context.t.general.failedToLoad;
     final visited = <String>{};
     // A page naming itself again would never end.
     while (url != null && visited.add(url)) {
-      final page = await repository.fetchListPageOf(widget.type, url).run();
-      if (page.isLeft()) {
+      if (!await next()) {
         break;
       }
-      final value = page.toNullable()!;
-      items.addAll(value.items);
-      url = value.nextPageUrl;
+      final page = (await repository.fetchListPageOf(widget.type, url).run()).toNullable();
+      if (page == null) {
+        failure = failedToLoad;
+        break;
+      }
+      items.addAll(page.items);
+      url = page.nextPageUrl;
     }
-    return _jobsOf(items);
+    return (jobs: _jobsOf(items), failure: failure);
   }
 
   List<OfflineBatchJob> _jobsOf(Iterable<FavoriteItem> items) => [
@@ -135,7 +141,7 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
         (tid: int.parse(tid), title: title),
   ];
 
-  Future<void> _download(Future<List<OfflineBatchJob>> Function() jobs) async {
+  Future<void> _download(Future<OfflineBatchList> Function(Future<bool> Function() next) jobs) async {
     await showOfflineBatchDialog(context: context, mode: OfflineBatchMode.download, jobs: jobs);
     if (mounted) {
       setState(_selected.clear);
@@ -163,11 +169,11 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
             icon: Icon(selecting ? Icons.download_for_offline : Icons.download_for_offline_outlined),
             tooltip: selecting ? tr.downloadSelected : tr.downloadAll,
             onPressed: selecting
-                ? () async => _download(() async {
+                ? () async => _download((_) async {
                     final picked = state.items.where((e) => _selected.contains(e.targetId));
-                    return _jobsOf(picked);
+                    return (jobs: _jobsOf(picked), failure: null);
                   })
-                : () async => _download(() async => _allThreads(state)),
+                : () async => _download((next) async => _allThreads(state, next)),
           ),
           IconButton(
             icon: const Icon(Icons.offline_pin_outlined),

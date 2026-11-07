@@ -19,7 +19,7 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 Future<void> showOfflineBatchDialog({
   required BuildContext context,
   required OfflineBatchMode mode,
-  required Future<List<OfflineBatchJob>> Function() jobs,
+  required Future<OfflineBatchList> Function(Future<bool> Function() next) jobs,
 }) async {
   final uid = appOfflineThreads.currentUid();
   if (uid == null || !appOfflineThreads.enabled) {
@@ -88,6 +88,8 @@ class _OfflineBatchDialog extends StatelessWidget {
                     children: [
                       AppInfoPill(icon: Icons.cloud_done_outlined, label: '${state.saved}'),
                       AppInfoPill(icon: Icons.skip_next_outlined, label: '${state.skipped}'),
+                      if (state.overLimit > 0)
+                        AppInfoPill(icon: Icons.inventory_2_outlined, label: '${state.overLimit}'),
                       AppInfoPill(icon: Icons.error_outline, label: '${state.failures.length}'),
                     ],
                   ),
@@ -102,13 +104,19 @@ class _OfflineBatchDialog extends StatelessWidget {
                             ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
-                              title: Text(failure.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              subtitle: Text(
-                                failure.reason,
+                              title: Text(
+                                failure.title.isEmpty ? failure.reason : failure.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: theme.colorScheme.error),
                               ),
+                              subtitle: failure.title.isEmpty
+                                  ? null
+                                  : Text(
+                                      failure.reason,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: theme.colorScheme.error),
+                                    ),
                             ),
                         ],
                       ),

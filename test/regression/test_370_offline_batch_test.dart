@@ -49,8 +49,17 @@ final class _FakeSource implements OfflineBatchSource {
   /// Thrown instead of an answer when set.
   Exception? abortWith;
 
+  /// Pages deleted by the batch: (tid, after page).
+  final List<(int, int)> dropped = [];
+
+  @override
+  Future<int> copyCount() async => copies.length;
+
   @override
   Future<OfflineCopyFacts?> copyOf(int tid) async => copies[tid];
+
+  @override
+  Future<void> dropPagesAfter(int tid, int page) async => dropped.add((tid, page));
 
   @override
   Future<OfflineThreadFacts> fetch(int tid, int page) async {
@@ -96,7 +105,7 @@ void main() {
       final states = <OfflineBatchState>[];
       run.cubit.stream.listen(states.add);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(source.requests, [(1, 1), (1, 2), (2, 1)]);
       expect(run.waits, [const Duration(seconds: 2), const Duration(seconds: 2)]);
@@ -115,7 +124,7 @@ void main() {
         ..copies[1] = (facts: (title: 't1', replyCount: 5, totalPages: 1), pages: [1]);
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(source.requests, [(2, 1)]);
       expect((run.cubit.state.saved, run.cubit.state.skipped), (1, 1));
@@ -125,7 +134,7 @@ void main() {
       final source = _FakeSource()..forum[1] = (replies: 900, pages: 45);
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(1)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(1)], failure: null));
 
       expect(run.cubit.state.total, 1);
       expect(source.requests.length, 20);
@@ -140,7 +149,7 @@ void main() {
         ..failing[2] = 'refused';
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(2), _job(3)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2), _job(3)], failure: null));
 
       final state = run.cubit.state;
       expect(state.status, OfflineBatchStatus.done);
@@ -162,7 +171,7 @@ void main() {
       };
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(run.cubit.state.failures.map((f) => f.tid), [1]);
       expect(run.cubit.state.saved, 1);
@@ -176,10 +185,88 @@ void main() {
         ..forum[3] = (replies: 1, pages: 1);
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(2), _job(3)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2), _job(3)], failure: null));
 
       expect(source.requests, [(1, 1), (2, 1)]);
-      expect((run.cubit.state.saved, run.cubit.state.skipped), (2, 1));
+      expect((run.cubit.state.saved, run.cubit.state.overLimit), (2, 1));
+    });
+
+    test(
+      'a copy cut short by a failure or a cancel is completed by the next download, a whole one is skipped',
+      () async {
+        final source = _FakeSource()
+          ..forum[1] = (replies: 5, pages: 4)
+          ..forum[2] = (replies: 5, pages: 2)
+          ..copies[1] = (facts: (title: 't1', replyCount: 5, totalPages: 4), pages: [1, 2])
+          ..copies[2] = (facts: (title: 't2', replyCount: 5, totalPages: 2), pages: [1, 2]);
+        final run = _cubit(source, OfflineBatchMode.download);
+
+        await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
+
+        // Page one tells how many pages there are; only the missing ones are loaded after it.
+        expect(source.requests, [(1, 1), (1, 3), (1, 4)]);
+        expect((run.cubit.state.saved, run.cubit.state.skipped), (1, 1));
+      },
+    );
+
+    test('a thread kept for another request only gets its default pages', () async {
+      final source = _FakeSource()
+        ..forum[1] = (replies: 5, pages: 2)
+        ..copies[1] = (facts: (title: null, replyCount: null, totalPages: 0), pages: []);
+      final run = _cubit(source, OfflineBatchMode.download);
+
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
+
+      expect(source.requests, [(1, 1), (1, 2)]);
+    });
+
+    test('the copies already kept use up the limit: no new thread pushes them out', () async {
+      final source = _FakeSource(limit: 3)
+        ..forum[1] = (replies: 1, pages: 1)
+        ..forum[2] = (replies: 1, pages: 1)
+        ..forum[3] = (replies: 1, pages: 1)
+        ..forum[4] = (replies: 1, pages: 1)
+        ..copies[10] = (facts: (title: 'a', replyCount: 1, totalPages: 1), pages: [1])
+        ..copies[11] = (facts: (title: 'b', replyCount: 1, totalPages: 1), pages: [1])
+        ..copies[4] = (facts: (title: 'd', replyCount: 1, totalPages: 1), pages: [1]);
+      final run = _cubit(source, OfflineBatchMode.download);
+
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2), _job(4)], failure: null));
+
+      // Three kept of three: nothing new fits; the thread with a copy is just skipped.
+      expect(source.requests, isEmpty);
+      expect((run.cubit.state.saved, run.cubit.state.skipped, run.cubit.state.overLimit), (0, 1, 2));
+    });
+
+    test('a list short of threads says why and the batch goes on with those it has', () async {
+      final source = _FakeSource()..forum[1] = (replies: 1, pages: 1);
+      final run = _cubit(source, OfflineBatchMode.download);
+
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: 'page 2'));
+
+      expect(run.cubit.state.status, OfflineBatchStatus.done);
+      expect(run.cubit.state.saved, 1);
+      expect(run.cubit.state.failures, [(tid: 0, title: '', reason: 'page 2')]);
+    });
+
+    test('the list is asked with the batch pause, and cancel reaches it', () async {
+      final source = _FakeSource();
+      final run = _cubit(source, OfflineBatchMode.download);
+      final answers = <bool>[];
+
+      await run.cubit.start((next) async {
+        answers
+          ..add(await next())
+          ..add(await next());
+        run.cubit.cancel();
+        answers.add(await next());
+        return (jobs: <OfflineBatchJob>[], failure: null);
+      });
+
+      expect(answers, [true, true, false]);
+      // No pause before the first request of the batch, one before each after it.
+      expect(run.waits.length, 2);
+      expect(run.cubit.state.status, OfflineBatchStatus.canceled);
     });
 
     test('cancel stops after the request in flight; nothing is asked after it', () async {
@@ -193,7 +280,7 @@ void main() {
         }
       };
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(run.cubit.state.status, OfflineBatchStatus.canceled);
       expect(source.requests, [(1, 1), (1, 2)]);
@@ -204,9 +291,9 @@ void main() {
       final source = _FakeSource()..forum[1] = (replies: 1, pages: 1);
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async {
+      await run.cubit.start((_) async {
         run.cubit.cancel();
-        return [_job(1)];
+        return (jobs: [_job(1)], failure: null);
       });
 
       expect(run.cubit.state.status, OfflineBatchStatus.canceled);
@@ -220,7 +307,7 @@ void main() {
         ..abortWith = const OfflineBatchAborted();
       final run = _cubit(source, OfflineBatchMode.download);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(run.cubit.state.status, OfflineBatchStatus.aborted);
       expect(run.cubit.state.failures, isEmpty);
@@ -229,7 +316,7 @@ void main() {
     test('a list that can not be made ends the batch', () async {
       final run = _cubit(_FakeSource(), OfflineBatchMode.download);
 
-      await run.cubit.start(() async => throw StateError('no list'));
+      await run.cubit.start((_) async => throw StateError('no list'));
 
       expect(run.cubit.state.status, OfflineBatchStatus.aborted);
     });
@@ -247,7 +334,7 @@ void main() {
         ..copies[2] = copy(25, 2, [1, 2]);
       final run = _cubit(source, OfflineBatchMode.update);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       // Thread 1: the first page only. Thread 2: the first page, the page that was the last one and the new one.
       expect(source.requests, [(1, 1), (2, 1), (2, 2), (2, 3)]);
@@ -260,9 +347,10 @@ void main() {
         ..copies[1] = copy(60, 4, [1, 3, 4]);
       final run = _cubit(source, OfflineBatchMode.update);
 
-      await run.cubit.start(() async => [_job(1)]);
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
 
-      expect(source.requests.map((r) => r.$2), [1, 3, 4, 5, 6]);
+      // The page the copy lacks (2) is loaded too.
+      expect(source.requests.map((r) => r.$2), [1, 2, 3, 4, 5, 6]);
     });
 
     test('more pages and the same replies is a change; a copy with no count is loaded again', () async {
@@ -273,17 +361,53 @@ void main() {
         ..copies[2] = (facts: (title: 't', replyCount: null, totalPages: 1), pages: [1]);
       final run = _cubit(source, OfflineBatchMode.update);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(source.requests, [(1, 1), (1, 2), (2, 1)]);
       expect(run.cubit.state.saved, 2);
+    });
+
+    test('a copy cut short is completed even when nothing is new', () async {
+      final source = _FakeSource()
+        ..forum[1] = (replies: 40, pages: 3)
+        ..copies[1] = copy(40, 3, [1, 3]);
+      final run = _cubit(source, OfflineBatchMode.update);
+
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
+
+      expect(source.requests, [(1, 1), (1, 2)]);
+      expect(run.cubit.state.saved, 1);
+    });
+
+    test('a thread kept for another request only is left alone, with no request', () async {
+      final source = _FakeSource()
+        ..forum[1] = (replies: 40, pages: 3)
+        ..copies[1] = copy(0, 0, []);
+      final run = _cubit(source, OfflineBatchMode.update);
+
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
+
+      expect(source.requests, isEmpty);
+      expect(run.cubit.state.skipped, 1);
+    });
+
+    test('pages past the last one of a thread that got shorter are deleted', () async {
+      final source = _FakeSource()
+        ..forum[1] = (replies: 12, pages: 2)
+        ..copies[1] = copy(40, 4, [1, 2, 3, 4]);
+      final run = _cubit(source, OfflineBatchMode.update);
+
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
+
+      expect(source.requests, [(1, 1), (1, 2)]);
+      expect(source.dropped, [(1, 2)]);
     });
 
     test('a thread whose copy is gone is left alone', () async {
       final source = _FakeSource()..forum[1] = (replies: 5, pages: 1);
       final run = _cubit(source, OfflineBatchMode.update);
 
-      await run.cubit.start(() async => [_job(1)]);
+      await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
 
       expect(source.requests, isEmpty);
       expect(run.cubit.state.skipped, 1);
@@ -298,7 +422,7 @@ void main() {
         ..failing[1] = 'gone';
       final run = _cubit(source, OfflineBatchMode.update);
 
-      await run.cubit.start(() async => [_job(1), _job(2)]);
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
       expect(run.cubit.state.failures.map((f) => f.tid), [1]);
       expect(run.cubit.state.saved, 1);
@@ -308,8 +432,8 @@ void main() {
   test('starts once', () async {
     final run = _cubit(_FakeSource()..forum[1] = (replies: 1, pages: 1), OfflineBatchMode.download);
 
-    await run.cubit.start(() async => [_job(1)]);
-    await run.cubit.start(() async => [_job(1), _job(2)]);
+    await run.cubit.start((_) async => (jobs: [_job(1)], failure: null));
+    await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
 
     expect(run.cubit.state.total, 1);
   });
@@ -361,6 +485,39 @@ void main() {
       },
     );
 
+    test('the page loaded the longest ago is the probe of a copy', () async {
+      final old = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+      final fresh = DateTime.fromMillisecondsSinceEpoch(1800000000000);
+      await save(35, 1, 1, at: fresh);
+      await save(35, 1, 2, at: old);
+      await save(35, 1, 3, at: fresh);
+      await save(35, 1, 9, orderType: 2, at: old);
+      await save(35, 2, 4, authorId: 36, at: old);
+
+      final copies = {for (final c in await offline.copies(35)) c.tid: c};
+
+      expect(copies[1]!.probePage, 2);
+      expect(copies[1]!.defaultPages, [1, 2, 3]);
+      // Kept for another request only: no default page, no probe.
+      expect(copies[2]!.probePage, isNull);
+      expect(copies[2]!.defaultPages, isEmpty);
+    });
+
+    test('pages after the last one of the default request are deleted, the other requests are kept', () async {
+      for (final page in [1, 2, 3]) {
+        await save(35, 1, page);
+      }
+      await save(35, 1, 5, orderType: 2);
+      await save(36, 1, 3);
+
+      await offline.removePagesAfter(uid: 35, tid: 1, page: 2);
+
+      final copy = (await offline.copies(35)).single;
+      expect(copy.defaultPages, [1, 2]);
+      expect(copy.pageCount, 3);
+      expect(await offline.copies(36), hasLength(1));
+    });
+
     test('peeking does not mark the page used', () async {
       await save(35, 1, 1, body: 'one');
       await save(35, 2, 1, body: 'two');
@@ -373,11 +530,12 @@ void main() {
     });
 
     test('the facts of a copy are read from a saved page without marking it used', () async {
-      final source = AppOfflineBatchSource(uid: 35, offline: offline);
-      expect(await source.copyOf(1), isNull);
+      expect(await AppOfflineBatchSource(uid: 35, offline: offline).copyOf(1), isNull);
       await save(35, 1, 2, body: File('test/data/tsdmapp/thread_v3_plain.json').readAsStringSync());
       await save(35, 2, 1, body: 'not a thread page');
 
+      // The copies are read once per batch: a source made after the saves.
+      final source = AppOfflineBatchSource(uid: 35, offline: offline);
       final copy = (await source.copyOf(1))!;
       final unreadable = (await source.copyOf(2))!;
 

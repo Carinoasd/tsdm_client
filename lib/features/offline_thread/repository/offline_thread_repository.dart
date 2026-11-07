@@ -256,6 +256,15 @@ class OfflineThreadRepository with LoggerMixin {
     return _writes;
   }
 
+  /// Delete the pages of the default request of thread [tid] of account [uid] after page [page], after the writes
+  /// queued before: the thread has fewer pages now.
+  Future<void> removePagesAfter({required int uid, required int tid, required int page}) {
+    _queue('delete the pages of $tid after $page', () async {
+      await _store.deleteOfflineThreadPagesAfter(uid: uid, tid: tid, page: page);
+    });
+    return _writes;
+  }
+
   /// Completes once every write queued so far is done.
   Future<void> get writesDone => _writes;
 

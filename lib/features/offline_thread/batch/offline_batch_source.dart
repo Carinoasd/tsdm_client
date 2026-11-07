@@ -38,8 +38,15 @@ abstract interface class OfflineBatchSource {
   /// How many pages of one thread are kept at most.
   int get pagesPerThread;
 
-  /// The copy of thread [tid] kept now, null when none.
+  /// How many threads are kept now.
+  Future<int> copyCount();
+
+  /// The copy of thread [tid] kept now, null when none. `pages` lists the pages of the default request only: empty
+  /// for a thread kept for another request (the author's floors only, say).
   Future<OfflineCopyFacts?> copyOf(int tid);
+
+  /// Delete the pages of thread [tid] after page [page]: the thread has fewer pages now.
+  Future<void> dropPagesAfter(int tid, int page);
 
   /// Load page [page] of thread [tid] (default order, nobody's posts only) from the forum; the thread repository
   /// saves it as the copy. Throws [OfflineFetchFailure] or [OfflineBatchAborted].
@@ -73,23 +80,35 @@ final class AppOfflineBatchSource with LoggerMixin implements OfflineBatchSource
     }
   }
 
+  /// The threads kept, read once: the batch loads each thread once, and what it saves is not asked about again.
+  Map<int, OfflineThreadCopy>? _copies;
+
+  Future<Map<int, OfflineThreadCopy>> _loadCopies() async =>
+      _copies ??= {for (final copy in await _offline.copies(uid)) copy.tid: copy};
+
+  @override
+  Future<int> copyCount() async => (await _loadCopies()).length;
+
   @override
   Future<OfflineCopyFacts?> copyOf(int tid) async {
-    final copies = await _offline.copies(uid);
-    final copy = copies.where((e) => e.tid == tid).firstOrNull;
+    final copy = (await _loadCopies())[tid];
     if (copy == null) {
       return null;
     }
-    // Any page tells the replies and pages of the thread as it was when it was loaded; the lowest one is the oldest
-    // request-free page the user has.
     final pages = copy.defaultPages;
-    final probe = pages.isEmpty ? 1 : pages.first;
-    final saved = await _offline.peek(OfflineThreadKey(uid: uid, tid: tid, page: probe, orderType: 0, authorId: 0));
+    final probe = copy.probePage;
+    // The page loaded the longest ago tells the replies and pages the copy was made with: a change since shows in it.
+    final saved = probe == null
+        ? null
+        : await _offline.peek(OfflineThreadKey(uid: uid, tid: tid, page: probe, orderType: 0, authorId: 0));
     final facts = saved == null ? null : _threads.summaryOfSaved(saved.body);
-    if (facts == null) {
-      return (facts: (title: null, replyCount: null, totalPages: 0), pages: pages);
-    }
-    return (facts: facts, pages: pages);
+    return (facts: facts ?? (title: null, replyCount: null, totalPages: 0), pages: pages);
+  }
+
+  @override
+  Future<void> dropPagesAfter(int tid, int page) async {
+    _checkAccount();
+    await _offline.removePagesAfter(uid: uid, tid: tid, page: page);
   }
 
   @override

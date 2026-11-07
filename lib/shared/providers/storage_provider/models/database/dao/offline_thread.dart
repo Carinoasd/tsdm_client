@@ -2,7 +2,17 @@ part of 'dao.dart';
 
 /// One thread kept for an account: how many pages of every request, their size, when the newest was loaded and which
 /// pages of the default request are there.
-typedef OfflineThreadCopyRow = ({int tid, int pageCount, int size, DateTime savedAt, List<int> defaultPages});
+///
+/// `probePage` is the page of the default request that was loaded the longest ago (the highest page of those), null
+/// when there is none: what it tells about the thread (replies, pages) is the oldest, so any change since shows.
+typedef OfflineThreadCopyRow = ({
+  int tid,
+  int pageCount,
+  int size,
+  DateTime savedAt,
+  List<int> defaultPages,
+  int? probePage,
+});
 
 /// DAO for table [OfflineThread].
 @DriftAccessor(tables: [OfflineThread])
@@ -114,16 +124,24 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
     // The pages of the default request (no order, no author filter), which the batch updates keep up to date.
     final defaults =
         await (selectOnly(offlineThread)
-              ..addColumns([offlineThread.tid, offlineThread.page])
+              ..addColumns([offlineThread.tid, offlineThread.page, offlineThread.savedAt])
               ..where(
                 offlineThread.uid.equals(uid) & offlineThread.orderType.equals(0) & offlineThread.authorId.equals(0),
               )
               ..orderBy([OrderingTerm.asc(offlineThread.page)]))
             .get();
     final defaultPages = <int, List<int>>{};
+    final probes = <int, ({int page, DateTime savedAt})>{};
     for (final row in defaults) {
       final tid = row.read<int>(offlineThread.tid)!;
-      (defaultPages[tid] ??= <int>[]).add(row.read<int>(offlineThread.page)!);
+      final page = row.read<int>(offlineThread.page)!;
+      final at = row.read<DateTime>(offlineThread.savedAt)!;
+      (defaultPages[tid] ??= <int>[]).add(page);
+      // Pages come in ascending order: a tie goes to the later (higher) page.
+      final probe = probes[tid];
+      if (probe == null || !at.isAfter(probe.savedAt)) {
+        probes[tid] = (page: page, savedAt: at);
+      }
     }
     return [
       for (final row in rows)
@@ -133,6 +151,7 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
           size: row.read(size) ?? 0,
           savedAt: row.read(savedAt) ?? DateTime.fromMillisecondsSinceEpoch(0),
           defaultPages: defaultPages[row.read<int>(offlineThread.tid)!] ?? const <int>[],
+          probePage: probes[row.read<int>(offlineThread.tid)!]?.page,
         ),
     ];
   }
@@ -170,6 +189,19 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
   /// Delete every saved page of thread [tid] for user [uid].
   Future<int> deleteThread({required int uid, required int tid}) async =>
       (delete(offlineThread)..where((e) => e.uid.equals(uid) & e.tid.equals(tid))).go();
+
+  /// Delete the pages of the default request (no order, no author filter) of thread [tid] for user [uid] after page
+  /// [page]: the thread has fewer pages than it had. Returns the number of pages deleted.
+  Future<int> deletePagesAfter({required int uid, required int tid, required int page}) async =>
+      (delete(offlineThread)..where(
+            (e) =>
+                e.uid.equals(uid) &
+                e.tid.equals(tid) &
+                e.orderType.equals(0) &
+                e.authorId.equals(0) &
+                e.page.isBiggerThanValue(page),
+          ))
+          .go();
 
   /// Delete every saved page of user [uid].
   Future<int> deleteByUid(int uid) async => (delete(offlineThread)..where((e) => e.uid.equals(uid))).go();

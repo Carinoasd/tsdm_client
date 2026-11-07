@@ -78,7 +78,7 @@ class _OfflineThreadsPageState extends State<OfflineThreadsPage> {
     await showOfflineBatchDialog(
       context: context,
       mode: OfflineBatchMode.update,
-      jobs: () async => [for (final e in items) (tid: e.tid, title: e.title)],
+      jobs: (_) async => (jobs: [for (final e in items) (tid: e.tid, title: e.title)], failure: null),
     );
     await _load();
   }
