@@ -549,7 +549,7 @@ final class PostForm {
       blockInputs('cronpublish').any((e) => e.name == 'cronpublish' && e.isCheckbox && e.checked);
 
   /// Whether the form is the edit of the first post of a poll whose options it serves (`poll.options`, each with its
-  /// `polloptionid[ID]`, `displayorder[ID]`, `polloption[ID]` and `pollimage[ID]` fields), posted back as served
+  /// `polloptionid[ID]`, `displayorder[ID]` and `polloption[ID]` fields; `pollimage[ID]` sent when served), posted back as served
   /// ([body]): the forum (`extend_thread_poll::before_editpost`) keeps every option by its id, its votes with it, and
   /// the settings as the page prints them, as the website's form does when the member changes none of them.
   ///
@@ -705,7 +705,10 @@ final class PostForm {
     }
     // A poll that has ended or was closed prints its days left as words (`poll_finish`, `poll_close`), which the forum
     // stores as no expiry at all (`intval()` 0: the poll reopened for good, as the website's form does); a day before
-    // today keeps it ended (`TIMESTAMP + 86400 * -1`), its votes and options as they are.
+    // today keeps it ended (`TIMESTAMP + 86400 * -1`), its votes and options as they are. Not its exact state: a poll
+    // closed with its thread no longer reopens with it, which the website's form does not keep either. The days are
+    // rounded: a poll with less than half a day left prints `0`, the same as one without expiry, and is stored without
+    // one as the website's form does; the form does not tell them apart.
     if (editsPollAsServed) {
       final expiration = body.valueOf('expiration');
       if (expiration != null && expiration.trim().isNotEmpty && int.tryParse(expiration.trim()) == null) {

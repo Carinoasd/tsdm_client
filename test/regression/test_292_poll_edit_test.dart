@@ -132,6 +132,25 @@ void main() {
         PostFormSupport.unsupported,
       );
       expect(PostForm.fromJson({..._poll(), 'poll': null})!.editorSupport('edit'), PostFormSupport.unsupported);
+      // Without `polls` the forum reads no poll edit; the option ids are numbers in the plugin's answer.
+      final noPolls = PostForm.fromJson(
+        _withPoll({
+          'inputs': [
+            for (final input in inputs)
+              if ((input as Map<String, dynamic>)['name'] != 'polls') input,
+          ],
+        }),
+      )!;
+      expect(noPolls.editorSupport('edit'), PostFormSupport.unsupported);
+      final textIds = PostForm.fromJson(
+        _withPoll({
+          'options': [
+            for (final option in (_poll()['poll'] as Map<String, dynamic>)['options'] as List<dynamic>)
+              {...option as Map<String, dynamic>, 'id': '${option['id']}'},
+          ],
+        }),
+      )!;
+      expect(textIds.editorSupport('edit'), PostFormSupport.unsupported);
     });
 
     test('an ended or closed poll stays ended: a day before today, not the words the page prints', () {
@@ -144,7 +163,8 @@ void main() {
         expect(form.body().toMap()!['expiration'], words, reason: 'as the page serves it');
         expect(form.bodyWith(const PostFormEdits(message: 'm')).toMap()!['expiration'], '-1', reason: words);
       }
-      // No expiry, or days left: as served.
+      // No expiry, or days left: as served. `0` is also what a poll with less than half a day left prints (the days
+      // rounded): stored without expiry, as the website's form does.
       for (final days in ['0', '3']) {
         final form = PostForm.fromJson(_withPoll({'inputs': inputs(days)}))!;
         expect(form.bodyWith(const PostFormEdits(message: 'm')).toMap()!['expiration'], days);
