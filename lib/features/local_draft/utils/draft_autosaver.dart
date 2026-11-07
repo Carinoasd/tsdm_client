@@ -95,7 +95,7 @@ final class DraftAutosaver implements DraftFlusher {
   static String _id(int uid, LocalDraftKey key) => '$uid|${key.value}';
 
   static String _signature(LocalDraft draft) =>
-      '${draft.subject ?? ''}\u0000${draft.body}\u0000${draft.delta ?? ''}\u0000${draft.maybeSent}';
+      '${draft.subject ?? ''}\u0000${draft.body}\u0000${draft.delta ?? ''}\u0000${draft.maybeSent}\u0000${draft.settings}';
 
   /// The text changed: write it once [interval] passed (the changes of that time together).
   void changed() {
@@ -170,6 +170,9 @@ final class DraftAutosaver implements DraftFlusher {
       title: draft.title,
       typeId: draft.typeId,
       maybeSent: draft.maybeSent,
+      threadKind: draft.threadKind,
+      rewardPrice: draft.rewardPrice,
+      hongbao: draft.hongbao,
     );
     final signature = _signature(saved);
     if (_written[id] == signature || _sent[id] == signature) {
@@ -261,6 +264,9 @@ final class DraftAutosaver implements DraftFlusher {
             quote: current.quote,
             title: current.title,
             typeId: current.typeId,
+            threadKind: current.threadKind,
+            rewardPrice: current.rewardPrice,
+            hongbao: current.hongbao,
           ),
         );
       }
@@ -304,6 +310,9 @@ final class DraftAutosaver implements DraftFlusher {
           updatedAt: current.updatedAt,
           delta: current.delta,
           subject: current.subject,
+          threadKind: current.threadKind,
+          rewardPrice: current.rewardPrice,
+          hongbao: current.hongbao,
         ),
       );
     }

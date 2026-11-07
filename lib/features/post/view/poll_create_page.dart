@@ -85,12 +85,16 @@ class _PollCreatePageState extends State<PollCreatePage> {
   /// Route hosting this page; once it is popped, replaced or removed the session ends.
   ModalRoute<Object?>? _route;
 
+  /// What the thread editor switched from handed over (for this account and forum), passed on when switching back.
+  ThreadModeTransfer? _carried;
+
   @override
   void initState() {
     super.initState();
     final auth = context.read<AuthenticationRepository>();
     final transfer = widget.transfer;
     if (transfer != null && transfer.appliesTo(uid: auth.effectiveCurrentUid, fid: widget.fid)) {
+      _carried = transfer;
       _subject.text = transfer.subject;
       _body.text = transfer.body;
     }
@@ -242,7 +246,15 @@ class _PollCreatePageState extends State<PollCreatePage> {
       queryParameters: {'poll': '1'},
       extra: uid == null
           ? null
-          : ThreadModeTransfer(uid: uid, fid: widget.fid, subject: _subject.text, body: _body.text),
+          : ThreadModeTransfer(
+              uid: uid,
+              fid: widget.fid,
+              subject: _subject.text,
+              body: _body.text,
+              // The settings of the other kinds the member came with, for when they are back there.
+              rewardPrice: _carried?.rewardPrice,
+              hongbao: _carried?.hongbao,
+            ),
     );
   }
 

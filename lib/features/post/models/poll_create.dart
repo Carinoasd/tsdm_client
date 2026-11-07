@@ -3,6 +3,7 @@ import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -987,7 +988,21 @@ final class ThreadModeTransfer {
     required this.subject,
     required this.body,
     this.attachNew = const [],
+    this.rewardPrice,
+    this.hongbao,
+    this.restoredDraft = false,
   });
+
+  /// The content is the local draft of the new thread the member restored in the editor of another kind: the editor
+  /// switched to holds it as its own, never offers it again.
+  final bool restoredDraft;
+
+  /// The reward price set in a reward thread's editor, null for none: carried through the other kinds, set again
+  /// when the member is back on a reward thread ([PostForm.reward] only posts it there).
+  final int? rewardPrice;
+
+  /// The red packet set in a red packet thread's editor, null for none: carried as [rewardPrice].
+  final HongbaoEdits? hongbao;
 
   /// The attachments uploaded in the editor switched from, by `aid` ([PostFormEdits.attachNew]); the thread editor
   /// keeps them bound to the post, the poll editor has none.

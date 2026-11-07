@@ -302,6 +302,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Writes the local draft.
   late final DraftAutosaver _drafts = DraftAutosaver(read: _draftSnapshot);
 
+  /// The kind of new thread this editor is switching to ([_switchKind]): the draft it writes last is that editor's.
+  ThreadKind? _leavingFor;
+
   /// Nothing more is kept for the local draft: sent, discarded, or another account took over.
   bool _draftStopped = false;
 
@@ -350,6 +353,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         title: _draftTitle,
         typeId: threadType?.typeID,
         maybeSent: _draftMaybeSent,
+        threadKind: widget.editType == PostEditType.newThread ? (_leavingFor ?? widget.threadKind).query : null,
+        rewardPrice: rewardPrice,
+        hongbao: hongbao?.toJson(),
       ),
     );
   }
@@ -362,6 +368,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     _draftLooked = true;
+    // The editor opened with the draft restored in the editor of another kind: it is this one's.
+    if (_transfer?.restoredDraft ?? false) {
+      return;
+    }
     await _drafts.offerStored(uid, (k) => k == key);
   }
 
@@ -369,7 +379,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   ///
   /// The draft of an edit is put over the post as loaded now: asked first, with the time the draft was saved (the post
   /// may have been edited on the forum since).
-  Future<void> _restoreDraft(PostEditState state) async {
+  Future<void> _restoreDraft(BuildContext context, PostEditState state) async {
     final offered = _drafts.offer.value?.draft;
     if (offered == null) {
       return;
@@ -381,7 +391,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         title: tr.restoreEditTitle,
         message: tr.restoreEditMessage(time: offered.updatedAt.yyyyMMDDHHMM()),
       );
-      if (!(ok ?? false) || !mounted) {
+      if (!(ok ?? false) || !mounted || !context.mounted) {
         return;
       }
     }
@@ -389,7 +399,37 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (draft == null) {
       return;
     }
+    // A new thread written as another kind: its editor opens with it (this one writes nothing more over it).
+    final kind = ThreadKind.fromQuery(draft.threadKind);
+    if (widget.editType == PostEditType.newThread &&
+        kind != widget.threadKind &&
+        _kindsOffered(state).contains(kind) &&
+        _draftUid != null) {
+      _draftStopped = true;
+      _switchKind(
+        context,
+        kind,
+        transfer: ThreadModeTransfer(
+          uid: _draftUid!,
+          fid: widget.fid,
+          subject: draft.subject ?? '',
+          body: draft.body,
+          attachNew: List.of(_attachNew),
+          rewardPrice: draft.rewardPrice ?? rewardPrice,
+          hongbao: HongbaoEdits.fromJson(draft.hongbao) ?? hongbao,
+          restoredDraft: true,
+        ),
+      );
+      return;
+    }
     setState(() {
+      // The settings of the kinds: the reward price of an edit only where the member may raise it.
+      if (widget.editType == PostEditType.newThread || (state.content?.form?.reward?.raising ?? false)) {
+        rewardPrice = draft.rewardPrice ?? rewardPrice;
+      }
+      if (widget.editType == PostEditType.newThread) {
+        hongbao = HongbaoEdits.fromJson(draft.hongbao) ?? hongbao;
+      }
       if (draft.subject case final String subject) {
         threadTitleController.text = subject;
         threadTitleRestLength =
@@ -1268,6 +1308,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 final set = await showRewardPriceDialog(context, info, rewardPrice);
                 if (set != null && mounted) {
                   setState(() => rewardPrice = set);
+                  _drafts.changed();
                 }
               },
             ),
@@ -1287,6 +1328,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 final set = await showHongbaoDialog(context, info, hongbao);
                 if (set != null && mounted) {
                   setState(() => hongbao = set);
+                  _drafts.changed();
                 }
               },
             ),
@@ -1430,7 +1472,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       padding: horizontal.add(edgeInsetsT12),
                       child: DraftOfferBanner(
                         draft: offer.draft,
-                        onRestore: () async => _restoreDraft(state),
+                        onRestore: () async => _restoreDraft(context, state),
                         onDiscard: _drafts.discardOffer,
                       ),
                     ),
@@ -1686,6 +1728,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       _transfer = transfer;
       // The attachments uploaded in the editor switched from stay bound to the post.
       _attachNew.addAll(transfer.attachNew);
+      // The settings of the kinds the member set, posted only on the form of their kind (PostForm.bodyWith).
+      rewardPrice = transfer.rewardPrice;
+      hongbao = transfer.hongbao;
     }
   }
 
@@ -1705,6 +1750,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               fid: widget.fid,
               subject: threadTitleController.text,
               body: bbcodeController.toForumBBCode(),
+              rewardPrice: rewardPrice,
+              hongbao: hongbao,
             ),
     );
   }
@@ -1742,8 +1789,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   }
 
   /// Intentional kind switch: subject and body go to the editor of [kind], which fetches the forum's form of that
-  /// kind; nothing is posted.
-  void _switchKind(BuildContext context, ThreadKind kind) {
+  /// kind; nothing is posted. The reward price and the red packet set go along: posted on the form of their kind only,
+  /// set again when the member is back there. [transfer] instead of what this editor holds (a restored local draft).
+  void _switchKind(BuildContext context, ThreadKind kind, {ThreadModeTransfer? transfer}) {
     if (kind == widget.threadKind ||
         !mounted ||
         ModalRoute.of(context)?.isActive == false ||
@@ -1751,19 +1799,23 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    _leavingFor = kind;
     context.pushReplacementNamed(
       ScreenPaths.editPost,
       pathParameters: {'editType': '${PostEditType.newThread.index}', 'fid': widget.fid},
       queryParameters: {if (widget.pollOffered) 'poll': '1', 'kind': ?kind.query},
       extra: uid == null || !initialized
           ? null
-          : ThreadModeTransfer(
-              uid: uid,
-              fid: widget.fid,
-              subject: threadTitleController.text,
-              body: bbcodeController.toForumBBCode(),
-              attachNew: List.of(_attachNew),
-            ),
+          : transfer ??
+                ThreadModeTransfer(
+                  uid: uid,
+                  fid: widget.fid,
+                  subject: threadTitleController.text,
+                  body: bbcodeController.toForumBBCode(),
+                  attachNew: List.of(_attachNew),
+                  rewardPrice: rewardPrice,
+                  hongbao: hongbao,
+                ),
     );
   }
 

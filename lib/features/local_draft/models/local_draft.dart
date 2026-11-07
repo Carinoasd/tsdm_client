@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 /// What a local draft is written for.
@@ -141,6 +143,9 @@ final class LocalDraft {
     this.title,
     this.typeId,
     this.maybeSent = false,
+    this.threadKind,
+    this.rewardPrice,
+    this.hongbao,
   });
 
   /// The draft written as [json] under [key], null when it is not one.
@@ -168,6 +173,9 @@ final class LocalDraft {
       title: text('title'),
       typeId: text('typeId'),
       maybeSent: json['maybeSent'] == true,
+      threadKind: text('threadKind'),
+      rewardPrice: json['rewardPrice'] is int ? json['rewardPrice'] as int : null,
+      hongbao: json['hongbao'] is Map<String, dynamic> ? json['hongbao'] as Map<String, dynamic> : null,
     );
   }
 
@@ -207,6 +215,16 @@ final class LocalDraft {
   /// The thread type chosen for a new thread, when one was.
   final String? typeId;
 
+  /// The kind of new thread it was written as (`ThreadKind.query`: `reward`, `hongbao`), null for an ordinary one
+  /// and for other targets.
+  final String? threadKind;
+
+  /// The reward price set for a reward thread, when one was.
+  final int? rewardPrice;
+
+  /// The red packet set for a red packet thread (`HongbaoEdits.toJson`), when one was.
+  final Map<String, dynamic>? hongbao;
+
   /// Sending it failed after the request left (no answer came): the forum may have taken it, the user should look
   /// before sending it again.
   final bool maybeSent;
@@ -214,9 +232,14 @@ final class LocalDraft {
   /// Whether nothing was written: no title and no post.
   bool get isEmpty => body.trim().isEmpty && (subject?.trim().isEmpty ?? true);
 
-  /// Whether [other] holds the same title and post (whatever its time and target).
+  /// Whether [other] holds the same title and post (whatever its time, its target and the kind of thread: an editor
+  /// switched to another kind holds the same draft).
   bool sameContent(LocalDraft? other) =>
       other != null && other.body == body && (other.subject ?? '') == (subject ?? '') && other.delta == delta;
+
+  /// The kind and the settings of the thread ([threadKind], [rewardPrice], [hongbao]) as one comparable text: a change
+  /// of them is written.
+  String get settings => jsonEncode({'kind': threadKind, 'reward': rewardPrice, 'hongbao': hongbao});
 
   /// This draft under [key].
   LocalDraft withKey(LocalDraftKey key) => copyWith(key: key);
@@ -236,6 +259,9 @@ final class LocalDraft {
     title: title,
     typeId: typeId,
     maybeSent: maybeSent ?? this.maybeSent,
+    threadKind: threadKind,
+    rewardPrice: rewardPrice,
+    hongbao: hongbao,
   );
 
   /// The draft as written in the file (its key is the name it is written under).
@@ -252,6 +278,9 @@ final class LocalDraft {
     'title': ?title,
     'typeId': ?typeId,
     if (maybeSent) 'maybeSent': true,
+    'threadKind': ?threadKind,
+    'rewardPrice': ?rewardPrice,
+    'hongbao': ?hongbao,
   };
 
   @override
