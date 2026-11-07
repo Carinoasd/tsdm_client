@@ -1,3 +1,5 @@
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -1051,6 +1053,7 @@ final class PollEditFormInfo {
 
 /// The poll settings of the first post of a poll as the member set them in the editor; [toFields] is what the form
 /// posts for them.
+@immutable
 final class PollEdits {
   /// Constructor.
   const PollEdits({
@@ -1080,6 +1083,26 @@ final class PollEdits {
   /// Whether the voters are public.
   final bool overt;
 
+  @override
+  bool operator ==(Object other) =>
+      other is PollEdits &&
+      const MapEquality<int, String>().equals(texts, other.texts) &&
+      const ListEquality<String>().equals(added, other.added) &&
+      maxChoices == other.maxChoices &&
+      expiration == other.expiration &&
+      visibleAfterVote == other.visibleAfterVote &&
+      overt == other.overt;
+
+  @override
+  int get hashCode => Object.hash(
+    const MapEquality<int, String>().hash(texts),
+    const ListEquality<String>().hash(added),
+    maxChoices,
+    expiration,
+    visibleAfterVote,
+    overt,
+  );
+
   /// The options added that are not empty.
   List<String> get addedOptions => [
     for (final option in added)
@@ -1105,9 +1128,11 @@ final class PollEdits {
       return null;
     }
 
+    // What the member left as served is not checked: the forum took it, the form posts it back as it is.
     final options = <int, PollEditIssue>{
       for (final option in info.options)
-        if (!option.readonly) option.id: ?textIssue(texts[option.id] ?? option.text, required: true),
+        if (!option.readonly && (texts[option.id] ?? option.text) != option.text)
+          option.id: ?textIssue(texts[option.id] ?? option.text, required: true),
     };
     final added = <int, PollEditIssue>{
       for (final (i, option) in this.added.indexed) i: ?textIssue(option),
@@ -1120,8 +1145,10 @@ final class PollEdits {
       poll: {
         ...options.values,
         ...added.values,
-        if (info.maxOptions > 0 && count > info.maxOptions) PollEditIssue.tooManyOptions,
-        if (choices == null || choices < 1 || choices > count) PollEditIssue.maxChoicesInvalid,
+        if (addedOptions.isNotEmpty && info.maxOptions > 0 && count > info.maxOptions) PollEditIssue.tooManyOptions,
+        if ((maxChoices != info.maxChoices || addedOptions.isNotEmpty) &&
+            (choices == null || choices < 1 || choices > count))
+          PollEditIssue.maxChoicesInvalid,
         if (expiration != info.expiration && parsePollExpiryDays(expiration) == null) PollEditIssue.expiryInvalid,
       },
     );
@@ -1130,23 +1157,25 @@ final class PollEdits {
   /// The first reason the forum would not take these settings against [info], null when it takes them.
   PollEditIssue? check(PollEditFormInfo info) => issues(info).poll.firstOrNull;
 
-  /// The fields the form posts for these settings against [info]: the text of the options the member may change, the
-  /// options added under ids after the poll's (`displayorder` after the last, as the website's added rows would be
-  /// numbered by the member), the most choices, the days and the two checkboxes.
+  /// The fields the form posts for what the member changed against [info] (the rest goes back as served): the text
+  /// of the options the member may change, the options added under ids after the poll's (`displayorder` after the
+  /// last, as the member would number the website's added rows), the most choices, the days (as the forum reads them:
+  /// `00` would end the poll at once) and the two checkboxes.
   Map<String, String?> toFields(PollEditFormInfo info) {
     final lastId = info.options.map((e) => e.id).reduce((a, b) => a > b ? a : b);
     final lastOrder = info.options.map((e) => int.tryParse(e.displayOrder.trim()) ?? 0).reduce((a, b) => a > b ? a : b);
     return {
       for (final option in info.options)
-        if (!option.readonly) 'polloption[${option.id}]': (texts[option.id] ?? option.text).trim(),
+        if (!option.readonly && (texts[option.id] ?? option.text) != option.text)
+          'polloption[${option.id}]': texts[option.id]!.trim(),
       for (final (i, option) in addedOptions.indexed) ...{
         'displayorder[${lastId + 1 + i}]': '${lastOrder + 1 + i}',
         'polloption[${lastId + 1 + i}]': option,
       },
-      'maxchoices': maxChoices.trim(),
-      'expiration': expiration.trim(),
-      'visibilitypoll': visibleAfterVote ? '1' : null,
-      'overt': overt ? '1' : null,
+      if (maxChoices != info.maxChoices) 'maxchoices': maxChoices.trim(),
+      if (expiration != info.expiration) 'expiration': '${parsePollExpiryDays(expiration) ?? expiration.trim()}',
+      if (visibleAfterVote != info.visibleAfterVote) 'visibilitypoll': visibleAfterVote ? '1' : null,
+      if (overt != info.overt) 'overt': overt ? '1' : null,
     };
   }
 }

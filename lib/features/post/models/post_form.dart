@@ -620,7 +620,7 @@ final class PostForm {
 
   /// The poll settings of the edit of the first post of a poll whose options the form serves ([editsPollAsServed]),
   /// which the member may change; null for any other form.
-  PollEditFormInfo? get pollEdit => editsPollAsServed ? PollEditFormInfo.fromJson(_block('poll')) : null;
+  late final PollEditFormInfo? pollEdit = editsPollAsServed ? PollEditFormInfo.fromJson(_block('poll')) : null;
 
   /// The highest number of choices of a poll (`poll.max_options`, the site's `maxpolloptions`), null without a poll.
   int? get pollMaxOptions {

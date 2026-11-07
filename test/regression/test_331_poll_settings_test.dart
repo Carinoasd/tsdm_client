@@ -262,6 +262,87 @@ void main() {
       expect(_with(info, expiration: '0').check(info), isNull);
       expect(_with(info, expiration: '-1').check(info), PollEditIssue.expiryInvalid);
     });
+
+    test('only what the member changed is checked and posted', () {
+      final json = _json('post_v16_edit_poll_editable');
+      final poll = json['poll'] as Map<String, dynamic>;
+      // A form whose own values would not pass (most choices above the options, an option too long) and that lacks
+      // the days: posted back as served when the member changes none of it.
+      final odd = PostForm.fromJson({
+        ...json,
+        'poll': {
+          ...poll,
+          'options': [
+            for (final option in (poll['options'] as List).cast<Map<String, dynamic>>())
+              option['id'] == 2002 ? {...option, 'text': '長' * 81} : option,
+          ],
+          'inputs': [
+            for (final input in (poll['inputs'] as List).cast<Map<String, dynamic>>())
+              if (input['name'] != 'expiration')
+                switch (input['name']) {
+                  'maxchoices' => {...input, 'value': '9'},
+                  'polloption[2002]' => {...input, 'value': '長' * 81},
+                  _ => input,
+                },
+          ],
+        },
+      })!;
+      final info = odd.pollEdit!;
+      expect(info.served.check(info), isNull);
+      final body = odd.bodyWith(PostFormEdits(message: 'm', poll: info.served)).toMap()!;
+      expect(body['maxchoices'], '9');
+      expect(body.containsKey('expiration'), isFalse);
+      expect(body, odd.bodyWith(const PostFormEdits(message: 'm')).toMap());
+      // Changed, they are checked.
+      expect(_with(info, maxChoices: '8').check(info), PollEditIssue.maxChoicesInvalid);
+      expect(_with(info, texts: {2002: '長' * 82}).check(info), PollEditIssue.optionTooLong);
+    });
+
+    test('the days as the forum reads them: 00 is no expiry, not a poll ended at once', () {
+      final form = _editable();
+      final info = form.pollEdit!;
+      expect(_with(info, expiration: '00').check(info), isNull);
+      expect(
+        form
+            .bodyWith(
+              PostFormEdits(
+                message: 'm',
+                poll: _with(info, expiration: '00'),
+              ),
+            )
+            .toMap()!['expiration'],
+        '0',
+      );
+      expect(
+        form
+            .bodyWith(
+              PostFormEdits(
+                message: 'm',
+                poll: _with(info, expiration: ''),
+              ),
+            )
+            .toMap()!['expiration'],
+        '0',
+      );
+      expect(
+        form
+            .bodyWith(
+              PostFormEdits(
+                message: 'm',
+                poll: _with(info, expiration: '07'),
+              ),
+            )
+            .toMap()!['expiration'],
+        '7',
+      );
+    });
+
+    test('settings equal when nothing changed', () {
+      final info = _editable().pollEdit!;
+      expect(_with(info), info.served);
+      expect(_with(info, added: const ['新']), isNot(info.served));
+      expect(_with(info, overt: true), isNot(info.served));
+    });
   });
 
   group('the editor', () {
@@ -315,8 +396,26 @@ void main() {
     expect(result, isNull);
 
     await tester.enterText(field('選項 2'), '乙');
+    // Two rows added, the second too long: its issue follows its row when the row above it goes.
     await tester.tap(find.text('新增選項'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('新增選項'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field('選項 5'), '');
+    await tester.enterText(field('選項 6'), '長' * 81);
+    await tester.tap(find.text('確定'));
+    await tester.pumpAndSettle();
+    String tooLong() {
+      final row = field('選項 6').evaluate().isEmpty ? field('選項 5') : field('選項 6');
+      return tester.widget<TextField>(row).decoration!.errorText!;
+    }
+
+    expect(tooLong(), startsWith('選項過長'));
+    await tester.tap(find.byTooltip('移除這個選項').first);
+    await tester.pumpAndSettle();
+    expect(field('選項 6'), findsNothing);
+    expect(tooLong(), startsWith('選項過長'));
+    expect(tester.widget<TextField>(field('選項 5')).controller!.text, '長' * 81);
     await tester.enterText(field('選項 5'), '戊');
     await tester.enterText(field('最多可選'), '5');
     await tester.tap(find.text('公開投票參與人'));

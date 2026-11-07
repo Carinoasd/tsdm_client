@@ -538,7 +538,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (_loadedTitle == null || _loadedBody == null) {
       return false;
     }
-    return title != _loadedTitle || body != _loadedBody;
+    return title != _loadedTitle ||
+        body != _loadedBody ||
+        // The poll settings changed in their dialog.
+        (poll != null && poll != context.read<PostEditBloc>().state.content?.form?.pollEdit?.served);
   }
 
   /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent]) while it is being
@@ -1415,6 +1418,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         if ((state.content?.form?.pollEdit, poll) case (final info?, final set?))
           IconButton(
             icon: const Icon(Icons.poll_outlined),
+            selectedIcon: const Icon(Icons.poll),
+            isSelected: set != info.served,
             tooltip: context.t.postEditPage.pollDialog.entryTooltip,
             onPressed: () async {
               final changed = await showPollSettingsDialog(context, info, set);

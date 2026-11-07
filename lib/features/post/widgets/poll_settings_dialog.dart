@@ -177,8 +177,16 @@ class _PollSettingsDialogState extends State<_PollSettingsDialog> {
           TextField(
             controller: expiration,
             keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: tr.expiry,
+              // Back to the days, or the words of a poll ended, the form came with.
+              suffixIcon: expiration.text == info.expiration
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.undo),
+                      onPressed: () => setState(() => expiration.text = info.expiration),
+                    ),
               errorMaxLines: 3,
               errorText: (issues?.poll.contains(PollEditIssue.expiryInvalid) ?? false)
                   ? text(PollEditIssue.expiryInvalid)
