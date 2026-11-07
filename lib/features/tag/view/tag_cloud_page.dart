@@ -44,10 +44,16 @@ class _TagCloudPageState extends State<TagCloudPage> {
       return;
     }
     result.match(
-      (e) => setState(() {
-        _loading = false;
-        _failure = LoadFailure.of(e);
-      }),
+      (e) {
+        setState(() {
+          _loading = false;
+          _failure = LoadFailure.of(e);
+        });
+        // The tags on screen stay when a refresh fails; say so.
+        if (_tags != null) {
+          showRefreshFailedSnackBar(context, _failure, onRetry: _load);
+        }
+      },
       (tags) => setState(() {
         _loading = false;
         _tags = tags;

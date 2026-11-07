@@ -140,6 +140,8 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
                 widget.title ??
                     switch (state.tagName) {
                       final name? => context.t.tagPage.title(name: name),
+                      // A tag page is named before the page tells the tag (loading, failed).
+                      null when widget.url.contains('mod=tag') => context.t.tagPage.cloudTitle,
                       null => context.t.latestThreadPage.title,
                     },
               ),

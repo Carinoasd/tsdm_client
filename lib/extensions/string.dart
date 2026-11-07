@@ -250,6 +250,7 @@ extension ParseUrl on String {
     // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the
     // cloud of all (`misc.php?mod=tag`). The other kinds of the tag page (articles, blogs, doings) and the tag
     // tools (`op=add|manage|set|search`) stay with the web page.
+    // (`op` list and detail are the forum's own names of the two tag pages.)
     if (mod == 'tag' && const {null, '', 'list', 'detail'}.contains(queryParameters['op'])) {
       final id = forumIntval(queryParameters['id']);
       final name = queryParameters['name']?.trim() ?? '';

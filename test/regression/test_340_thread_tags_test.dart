@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +38,7 @@ final class _FakeTagRepository extends TagRepository {
   int calls = 0;
 
   @override
-  AsyncEither<List<ForumTag>> fetchCloud() => AsyncEither.fromEither(answers[calls++ % answers.length]);
+  AsyncEither<List<ForumTag>> fetchCloud() => AsyncEither.fromEither(answers[min(calls++, answers.length - 1)]);
 }
 
 void main() {
@@ -83,6 +84,13 @@ void main() {
       expect(find.byType(ActionChip), findsNWidgets(14));
       expect(find.text('无损 3'), findsOneWidget);
       expect(find.text(t.tagPage.cloudTitle), findsOneWidget);
+
+      // A refresh that fails keeps the tags and says so.
+      repository.answers.add(Either.left(HttpRequestFailedException(500)));
+      await tester.drag(find.byType(ListView), const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(find.byType(ActionChip), findsNWidgets(14));
+      expect(find.byType(SnackBar), findsOneWidget);
     });
   });
 
