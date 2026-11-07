@@ -4,11 +4,13 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
 /// An answer of the forum: the http status and the body as dio decoded it (a JSON object, or text).
@@ -191,11 +193,12 @@ final class ModerateRepository with LoggerMixin {
     };
   });
 
-  /// The forum's verdict in answer [data] to a management request.
-  static ModerateOutcome outcomeOf(Object? data) {
+  /// The forum's verdict in answer [data] to a management request; [successKey] is the language key of its success
+  /// (`admin_succeed` for a thread or a floor, `modcp_mod_succeed` for the moderation queue).
+  static ModerateOutcome outcomeOf(Object? data, {String successKey = 'admin_succeed'}) {
     if (tsdmAppWriteResultOf(data) case final result?) {
       // Told by the language key, not by the words.
-      if (result.succeeded && result.messageKey == 'admin_succeed') {
+      if (result.succeeded && result.messageKey == successKey) {
         return ModerateSucceeded(result.message);
       }
       return ModerateRefused(result.reason);
@@ -209,6 +212,208 @@ final class ModerateRepository with LoggerMixin {
     }
     return const ModerateRefused('');
   }
+
+  /// Ask the window of [action] on floor [pid] of thread [tid] in forum [fid].
+  ///
+  /// As [fetchWindow]: the app API's `page`, or the AJAX fragment without the plugin; the forum's refusal is a
+  /// [FloorModerateWindowRefused] with its words, a window served to another account an [IdentityChangedException].
+  AsyncEither<FloorModerateWindow> fetchFloorWindow(
+    FloorModerateAction action, {
+    required String tid,
+    required int fid,
+    required String pid,
+  }) => AsyncEither(() async {
+    final uid = _currentUid();
+    final resp = await _get(withTsdmAppJsonWrite(FloorModerateForm.windowUrl(action, tid: tid, fid: fid, pid: pid)));
+    switch (resp) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return left(HttpRequestFailedException(value.statusCode));
+      case Right(:final value):
+        if (_currentUid() != uid) {
+          return left(IdentityChangedException());
+        }
+        return floorWindowOf(value.data, action, tid: tid, fid: fid, pid: pid, uid: uid);
+    }
+  });
+
+  /// The window of [action] on floor [pid] in answer [data], asked by account [uid].
+  static Either<AppException, FloorModerateWindow> floorWindowOf(
+    Object? data,
+    FloorModerateAction action, {
+    required String tid,
+    required int fid,
+    required String pid,
+    required int uid,
+  }) {
+    final result = tsdmAppWriteResultOf(data);
+    if (result != null) {
+      if (result.uid != uid) {
+        return left(IdentityChangedException());
+      }
+      if (result.kind != TsdmAppWriteKind.page) {
+        // A refusal, or the redirect of the first floor to the thread's deletion: no window of this floor.
+        return right(FloorModerateWindowRefused(result.kind == TsdmAppWriteKind.redirect ? '' : result.reason));
+      }
+      final form = FloorModerateForm.parse(result.document, action, tid: tid, fid: fid, pid: pid, uid: uid);
+      return form == null ? left(HttpRequestFailedException(HttpStatus.ok)) : right(FloorModerateWindowReady(form));
+    }
+    final text = _ajaxText(tsdmAppAnswerText(data));
+    // The account was checked around the request (fetchFloorWindow): the window is that account's.
+    final form = FloorModerateForm.parse(parseHtmlDocument(text), action, tid: tid, fid: fid, pid: pid, uid: uid);
+    if (form != null) {
+      return right(FloorModerateWindowReady(form));
+    }
+    if (_errorHandleRe.firstMatch(text)?.namedGroup('error') case final error?) {
+      return right(FloorModerateWindowRefused(_unescape(error)));
+    }
+    return left(HttpRequestFailedException(HttpStatus.ok));
+  }
+
+  /// Send the window [form] of a floor with [reason] and [notify], once; never when the account changed since the
+  /// window was served ([IdentityChangedException]). Succeeded on `admin_succeed` only.
+  AsyncEither<ModerateOutcome> submitFloor(FloorModerateForm form, {String reason = '', bool notify = false}) =>
+      AsyncEither(() async {
+        final uid = _currentUid();
+        if (uid <= 0 || form.uid != uid) {
+          return left(IdentityChangedException());
+        }
+        final resp = await _post(form.submitUrl, form.body(reason: reason, notify: notify));
+        return switch (resp) {
+          Left(:final value) => left(value),
+          Right(:final value) when value.statusCode != HttpStatus.ok => left(
+            HttpRequestFailedException(value.statusCode),
+          ),
+          Right(:final value) => right(outcomeOf(value.data)),
+        };
+      });
+
+  /// Read page [page] of list [kind] of the moderation queue of forum [fid] (the moderation panel's web page; the
+  /// plugin leaves it as it is).
+  ///
+  /// The panel's login form is a [ModerateQueueNeedsLogin]; its refusal (no access, locked, no permission) a
+  /// [ModerateQueueRefused] with its words. A page served to another account is an [IdentityChangedException].
+  AsyncEither<ModerateQueueAnswer> fetchQueue(ModerateQueueKind kind, {required int fid, int page = 1}) =>
+      AsyncEither(() async {
+        final uid = _currentUid();
+        if (uid <= 0) {
+          return left(IdentityChangedException());
+        }
+        final resp = await _get(ModerateQueueList.url(kind, fid: fid, page: page));
+        switch (resp) {
+          case Left(:final value):
+            return left(value);
+          case Right(:final value) when value.statusCode != HttpStatus.ok:
+            return left(HttpRequestFailedException(value.statusCode));
+          case Right(:final value):
+            if (_currentUid() != uid) {
+              return left(IdentityChangedException());
+            }
+            return queueOf(value.data, kind, fid: fid, uid: uid, page: page);
+        }
+      });
+
+  /// The list [kind] of forum [fid] in answer [data], asked by account [uid].
+  static Either<AppException, ModerateQueueAnswer> queueOf(
+    Object? data,
+    ModerateQueueKind kind, {
+    required int fid,
+    required int uid,
+    int page = 1,
+  }) {
+    final doc = parseHtmlDocument(tsdmAppAnswerText(data));
+    if (moderatePageUid(doc) case final served? when served != uid) {
+      return left(IdentityChangedException());
+    }
+    if (moderatePanelLoginFormHash(doc) case final formHash?) {
+      return right(ModerateQueueNeedsLogin(formHash: formHash));
+    }
+    if (parseModerateQueue(doc, kind, fid: fid, uid: uid, page: page) case final list?) {
+      return right(ModerateQueueReady(list));
+    }
+    final message = moderatePageMessage(doc);
+    if (message.isNotEmpty) {
+      return right(ModerateQueueRefused(message));
+    }
+    return left(HttpRequestFailedException(HttpStatus.ok));
+  }
+
+  /// Log in to the moderation panel with the account's [password], on the login form of form hash [formHash] (forum
+  /// [fid]), once. The password is sent only here and kept nowhere.
+  AsyncEither<ModeratePanelLogin> loginPanel({
+    required String formHash,
+    required int fid,
+    required String password,
+  }) => AsyncEither(() async {
+    final uid = _currentUid();
+    if (uid <= 0) {
+      return left(IdentityChangedException());
+    }
+    final resp = await _post('$baseUrl/forum.php?mod=modcp&action=login', {
+      'formhash': formHash,
+      'fid': '$fid',
+      'submit': 'yes',
+      'login_panel': 'yes',
+      'cppwd': password,
+    });
+    return switch (resp) {
+      Left(:final value) => left(value),
+      // The forum sends the account on to the panel (the redirect is not followed for a post).
+      Right(:final value) when value.statusCode >= 300 && value.statusCode < 400 => right(
+        const ModeratePanelLoggedIn(),
+      ),
+      Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
+      Right(:final value) => _currentUid() != uid ? left(IdentityChangedException()) : right(panelLoginOf(value.data)),
+    };
+  });
+
+  /// How the panel answered a password in [data].
+  static ModeratePanelLogin panelLoginOf(Object? data) {
+    final uh.Document doc;
+    if (tsdmAppWriteResultOf(data) case final result?) {
+      switch (result.kind) {
+        case TsdmAppWriteKind.redirect:
+          return const ModeratePanelLoggedIn();
+        case TsdmAppWriteKind.message || TsdmAppWriteKind.handle:
+          return ModeratePanelRefused(result.reason);
+        case TsdmAppWriteKind.page:
+          doc = result.document;
+      }
+    } else {
+      doc = parseHtmlDocument(tsdmAppAnswerText(data));
+    }
+    if (moderatePanelLoginFormHash(doc) != null) {
+      return const ModeratePanelWrongPassword();
+    }
+    if (moderatePageMessage(doc) case final message
+        when message.isNotEmpty && doc.querySelector('div#messagetext') != null) {
+      return ModeratePanelRefused(message);
+    }
+    // The page the forum sent the account on to: the panel.
+    return const ModeratePanelLoggedIn();
+  }
+
+  /// Do [action] on [item] of list [page] with [reason], once; never when the account changed since the list was
+  /// served ([IdentityChangedException]). Succeeded on `modcp_mod_succeed` only; an answer the app can not read (the
+  /// panel's session ended: its login form, or the forum's error page) is a refusal without words.
+  AsyncEither<ModerateOutcome> submitQueue(
+    ModerateQueueList page,
+    ModerateQueueAction action,
+    ModerateQueueItem item, {
+    String reason = '',
+  }) => AsyncEither(() async {
+    final uid = _currentUid();
+    if (uid <= 0 || page.uid != uid) {
+      return left(IdentityChangedException());
+    }
+    final resp = await _post(page.submitUrl, page.body(action, item, reason: reason));
+    return switch (resp) {
+      Left(:final value) => left(value),
+      Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
+      Right(:final value) => right(outcomeOf(value.data, successKey: 'modcp_mod_succeed')),
+    };
+  });
 
   /// The html inside the AJAX answer [text] (`<root><![CDATA[…]]></root>`), [text] itself when it is not one.
   static String _ajaxText(String text) {

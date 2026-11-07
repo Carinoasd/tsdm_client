@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "message",
+  "message": "抱歉，由于密码尝试次数过多，管理面板已锁定 管理版面将于 2026-11-7 22:47 解除锁定",
+  "message_key": "admin_cpanel_locked",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

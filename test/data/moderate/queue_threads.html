@@ -1,0 +1,156 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<script type="text/javascript">
+modclickcount = 0;
+function recountobj() {
+modclickcount = 0;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+modclickcount++;
+}
+}
+$('modlayercount').innerHTML = modclickcount;
+}
+function modcheckall() {
+var count = 0;
+count = checkall($('moderate'), 'moderate', 'chkall');
+$('modlayercount').innerHTML = count;
+}
+function toggle_post(id) {
+var obj = $('list_note_' + id);
+obj.style.display='block';
+obj.style.height = obj.style.height == '155px' ? 'auto' : '155px' ;
+}
+ function modthreads(operation) {
+var checked = 0;
+var operation = !operation ? '' : operation;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+checked = 1;
+break;
+}
+}
+if(!checked) {
+alert('请先选择操作对象！');
+} else {
+$('moderate').modact.value = operation;
+$('moderate').infloat.value = 'yes';
+showWindow('mods', 'moderate', 'post');
+}
+}
+</script>
+
+<div class="bm bw0 mdcp">
+<h1 class="mt">审核</h1>
+<ul class="tb cl">
+<li class="a"><a href="forum.php?mod=modcp&action=moderate&op=threads&amp;fid=10" hidefocus="true">主题</a></li>
+<li><a href="forum.php?mod=modcp&action=moderate&op=replies&amp;fid=10" hidefocus="true">回复</a></li>
+<li><a href="forum.php?mod=modcp&action=moderate&op=members" hidefocus="true">用户</a></li>
+</ul>
+
+<div class="exfm">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=moderate&op=threads">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="10%">版块选择: </th>
+<th>
+<span class="ftid">
+<select name="fid" id="fid" width="124" class="ps">
+<option value="0">全部</option><option value="2" >📢 公告 & 新手報到</option>
+<option value="9" >手遊情報站</option>
+<option value="10" selected>测试版块</option>
+<option value="15" >GLTEST 子版塊（型別 sub）</option>
+</select>
+</span>
+</th>
+<th width="10%">帖子范围: </th>
+<td>
+<span class="ftid">
+<select name="filter" id="filter" width="124" class="ps">
+<option value="0" selected="selected">未审核主题</option>
+<option value="-3" >已忽略主题</option>
+</select>
+</span>
+</td>
+</tr>
+<tr>
+<td><label><input name="showcensor" type="checkbox" class="checkbox" value="yes" /><p style="display: inline;">显示过滤词</p></label></td>
+<td colspan="3"><button type="submit" name="submit" id="searchsubmit" class="pn" value="true"><strong>提交</strong></button></td>
+</tr>
+</table>
+</form>
+</div>
+
+<form method="post" autocomplete="off" name="moderate" id="moderate" action="forum.php?mod=modcp&action=moderate&op=threads" class="s_clear">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="fid" value="10" />
+<input type="hidden" name="modact" value="" />
+<input type="hidden" name="infloat" value="" />
+<input type="hidden" name="dosubmit" value="yes" />
+<input type="hidden" name="filter" value="0" />
+<input type="hidden" name="posttableid" value="" /><div class="um " id="pid_1234572">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=viewthread&amp;tid=1234572&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234572&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234572&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234572&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234572&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(1234572);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_1234572" class="pc" value="1234572" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=10" target="_blank" class="xi2 xw1">测试版块</a> &rsaquo; <span class="xw1">测试待审主題 2</span></p>
+<p class="pbn">
+<span class="xi2"><a href="home.php?mod=space&uid=32" target="_blank">测试会员</a></span>
+<span class="xg1">发表于 2026-11-7 22:26</span>
+<div id="list_note_1234572" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+待審核主題 2 的內容，用來測試審核隊列。  </div>
+</p>
+</div>
+<div class="um alt" id="pid_1234571">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=viewthread&amp;tid=1234571&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234571&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234571&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234571&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=threads&amp;posttableid=&amp;moderate[]=1234571&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(1234571);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_1234571" class="pc" value="1234571" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=10" target="_blank" class="xi2 xw1">测试版块</a> &rsaquo; <span class="xw1">测试待审主題 1</span></p>
+<p class="pbn">
+<span class="xi2"><a href="home.php?mod=space&uid=32" target="_blank">测试会员</a></span>
+<span class="xg1">发表于 2026-11-7 22:26</span>
+<div id="list_note_1234571" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+待審核主題 1 的內容，用來測試審核隊列。  </div>
+</p>
+</div>
+<div class="um bw0 cl">
+<label for="chkall"><input type="checkbox" class="pc" name="chkall" id="chkall" onclick="modcheckall()" />全选</label>
+<button onclick="modthreads('validate'); return false;" class="pn"><strong>通过</strong></button>
+<button onclick="modthreads('delete'); return false;" class="pn"><strong>删除</strong></button>
+<button onclick="modthreads('dismiss'); return false;" class="pn"><strong>驳回</strong></button>
+<button onclick="modthreads('ignore'); return false;" class="pn"><strong>忽略</strong></button>
+<label>当前已选定 <span id="modlayercount">0</span> 个</label>
+</div>
+</form>
+</div>
+
+<script type="text/javascript" reload="1">
+if($('filter')) {
+simulateSelect('filter');
+}
+if($('fid')) {
+simulateSelect('fid');
+}
+if($('posttableid')) {
+simulateSelect('posttableid');
+}
+</script></div>
+</div>
+</body></html>

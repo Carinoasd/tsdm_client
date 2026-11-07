@@ -1,0 +1,17 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "redirect",
+  "message": "",
+  "message_key": "",
+  "url": "https://forum.test/forum.php?mod=topicadmin&action=moderate&operation=delete&optgroup=3&fid=10&moderate[]=1234567&inajax=yes&infloat=yes&handlekey=mods",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": ""
+}

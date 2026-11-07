@@ -16,6 +16,8 @@ import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
 import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -101,6 +103,15 @@ enum _PostCardActions {
   ///
   /// Only available when the forum offered the report link of this floor to the account that read the page (#127).
   report,
+
+  /// Warn the author for the floor, or take it back (moderators, [PostCard.onModerate]).
+  moderateWarn,
+
+  /// Hide the floor, or show it again (moderators).
+  moderateBan,
+
+  /// Delete the reply (moderators, not the first floor).
+  moderateDelete,
 }
 
 /// Card for a [Post] model.
@@ -108,7 +119,7 @@ enum _PostCardActions {
 /// Usually inside a ThreadPage.
 class PostCard extends StatefulWidget {
   /// Constructor.
-  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, super.key});
+  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, this.onModerate, super.key});
 
   /// [Post] model to show.
   final Post post;
@@ -122,6 +133,10 @@ class PostCard extends StatefulWidget {
 
   /// Reply on side `stand` of a debate thread (the debate card's "加入正方／反方"); null where the account cannot reply.
   final void Function(int stand)? onJoinDebate;
+
+  /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
+  /// thread's forum.
+  final void Function(FloorModerateAction action)? onModerate;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -486,6 +501,20 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         ],
       ],
       [
+        if (online && widget.onModerate != null)
+          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
+            item(
+              switch (action) {
+                FloorModerateAction.warn => _PostCardActions.moderateWarn,
+                FloorModerateAction.ban => _PostCardActions.moderateBan,
+                FloorModerateAction.delete => _PostCardActions.moderateDelete,
+              },
+              floorModerateIcon(action),
+              floorModerateName(context, action),
+              color: action == FloorModerateAction.delete ? colorScheme.error : null,
+            ),
+      ],
+      [
         if (online && widget.post.reportTarget != null)
           item(_PostCardActions.report, Icons.flag_outlined, context.t.postReport.menu, color: colorScheme.error),
       ],
@@ -609,6 +638,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:
         await showPostReportDialog(context, widget.post);
+      case _PostCardActions.moderateWarn:
+        widget.onModerate?.call(FloorModerateAction.warn);
+      case _PostCardActions.moderateBan:
+        widget.onModerate?.call(FloorModerateAction.ban);
+      case _PostCardActions.moderateDelete:
+        widget.onModerate?.call(FloorModerateAction.delete);
     }
   }
 
