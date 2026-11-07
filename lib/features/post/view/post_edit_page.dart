@@ -866,8 +866,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           context: context,
           message: switch (problem) {
             _ when set == null => context.t.postEditPage.debateDialog.required,
-            // The debate edited has ended: posted with its end, the forum refuses the whole edit.
-            DebateIssue.endPassed when widget.editType != PostEditType.newThread =>
+            // The debate edited has ended (its end as it is): posted with it, the forum refuses the whole edit.
+            DebateIssue.endPassed
+                when widget.editType == PostEditType.editPost && set.end == form?.debate?.served?.end =>
               context.t.postEditPage.debateDialog.ended,
             _ => debateIssueText(context, problem!),
           },
