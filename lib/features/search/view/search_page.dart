@@ -197,10 +197,8 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// Always validate search parameters.
   Future<void> _search(BuildContext context, [int page = 0]) async {
     if (formKey.currentState == null) {
-      // Collapsed.
-      // If lastKeyword is not empty, indicates there is a valid last search.
-      // User want to jump to another page so use the last used parameters
-      // and parameter page.
+      // Collapsed: the search shown is asked again with the parameters it was asked with (the page switches do not
+      // come here, they go through the bloc, see _turnPage).
       if (lastKeyword.isNotEmpty || lastAuthorUid != '0' || lastAuthorName.isNotEmpty || lastFid != '0') {
         await _doSearch(
           context,

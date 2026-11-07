@@ -213,6 +213,10 @@ void main() {
       expect(next, containsPair('page', '2'));
       expect(next, isNot(contains('srchtxt')));
 
+      // Back to the first page: still the cached search.
+      await repo.searchWithParameters(keyword: '測試', fid: '2_6', uid: '0', pageNumber: 1, filter: _filtered).run();
+      expect(_query(forum.requests.last), allOf(containsPair('searchid', '4'), containsPair('page', '1')));
+
       // Another time range is another search, not a page of the one before.
       const week = SearchFilter(orderBy: SearchOrderBy.replies, ascending: true, timeRange: SearchTimeRange.week);
       await repo.searchWithParameters(keyword: '測試', fid: '2_6', uid: '0', pageNumber: 2, filter: week).run();
@@ -255,7 +259,12 @@ void main() {
     });
 
     test('the bloc keeps the filters for every page and tells the wait of the forum', () async {
-      forum.answer = (uri) => _file('tsdmapp/search_v6_filtered.json');
+      // The page asked, as the forum numbers it.
+      final answer = jsonDecode(_file('tsdmapp/search_v6_filtered.json').body) as Map<String, dynamic>;
+      forum.answer = (uri) => (
+        body: jsonEncode({...answer, 'page': int.tryParse(uri.queryParameters['page'] ?? '') ?? 1}),
+        json: true,
+      );
       final bloc = SearchBloc(searchRepository: SearchRepository())
         ..add(const SearchRequested(keyword: '測試', fid: '2_6', uid: '0', pageNumer: 1, filter: _filtered));
       var state = await bloc.stream.firstWhere((s) => s.status == SearchStatus.success);

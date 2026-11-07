@@ -234,7 +234,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: event.pageNumber,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
@@ -284,7 +284,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: state.pageNumber + 1,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,
@@ -339,7 +339,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> with LoggerMixin {
             emit(
               state.copyWith(
                 status: SearchStatus.success,
-                pageNumber: state.pageNumber - 1,
+                pageNumber: searchResult.currentPage,
                 searchResult: searchResult,
                 hasPreviousPage: searchResult.currentPage > 1,
                 hasNextPage: searchResult.currentPage < searchResult.totalPages,

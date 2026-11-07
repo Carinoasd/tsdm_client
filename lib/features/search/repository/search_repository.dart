@@ -128,7 +128,9 @@ class SearchRepository with LoggerMixin {
   }) => AsyncEither(() async {
     final parameters = (keyword, fid, uid, authorName, filter);
     final Map<String, String> queryParameters;
-    if (pageNumber > 1 && _searchId != null && _lastParameters == parameters) {
+    // A page of the search shown (the search page asks a new search as page 0, its page switches ask pages from 1):
+    // the cached search, page 1 included.
+    if (pageNumber >= 1 && _searchId != null && _lastParameters == parameters) {
       // Other pages of the cached search.
       queryParameters = <String, String>{
         'mod': 'forum',
