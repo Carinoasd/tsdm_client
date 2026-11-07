@@ -878,7 +878,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           perm: threadPerm?.perm,
           price: price,
           draftKey: _draftKey?.value,
-          rewardPrice: state.content!.form?.reward?.editable ?? false ? rewardPrice : null,
+          rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
         ),
         PostEditType.newThread => ThreadPubPostThread(
           ThreadPublishInfo(

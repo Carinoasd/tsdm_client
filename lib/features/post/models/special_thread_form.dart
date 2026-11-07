@@ -41,7 +41,8 @@ enum ThreadKind {
   static const hongbaoPlugin = 'hongbao';
 }
 
-/// Why a reward price is refused, as the forum refuses it (`extend_thread_reward::before_newthread`).
+/// Why a reward price is refused, as the forum refuses it (`extend_thread_reward::before_newthread`, and
+/// `before_editpost` for a raised one).
 enum RewardPriceIssue {
   /// No price, or below 1.
   empty,
@@ -94,7 +95,7 @@ final class RewardFormInfo {
     required this.expirationDays,
     this.state = RewardFormState.newThread,
     this.current,
-  });
+  }) : assert(state != RewardFormState.open || current != null, 'an open reward thread has its price');
 
   /// The `reward` block of a post form; null when it is not one of a reward thread (`state` `none` or unknown), or a
   /// form that lets the member set the price (`new`, `open`) lacks the price field.
