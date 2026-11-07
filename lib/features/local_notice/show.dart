@@ -370,7 +370,7 @@ Future<void> showLocalNotification(
         : null;
     final id = account != null && account.named ? localNoticeIdOf(account.uid) : localNoticeId;
     talker.info(
-      'push local notification id=$id channel=$localNoticeChannelId enabled=$enabled: ${info.runtimeType}',
+      'push local notification id=$id channel=${noticeCategoryOfInfo(info).channelId} enabled=$enabled: ${info.runtimeType}',
     );
     await showLocalNotificationWith(
       plugin: flnp,
