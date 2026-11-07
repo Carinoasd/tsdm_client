@@ -61,8 +61,9 @@ const int syncDraftsMaxBytes = 16 * 1024;
 /// settings the later one does not hold are kept from the other). `settings`
 /// holds the reading and display settings of `syncedSettings` by their stored name (a theme index, a text scale, a
 /// switch), never one tied to the device. `drafts` holds the local drafts of the account by their key
-/// (`reply:<tid>`, `floor:<tid>:<pid>`, `pm:<uid>`, `thread:<fid>`, `edit:<pid>`, a backup with `~<stamp>`): the latest
-/// [syncDraftsMax] within [syncDraftsMaxBytes], none over [syncDraftMaxBytes]. Each of the three can be left out of
+/// (`reply:<tid>`, `floor:<tid>:<pid>`, `thread:<fid>`, `edit:<pid>`, a backup with `~<stamp>`; never a private
+/// message, `pm:<uid>`, which stays on its device): the latest [syncDraftsMax] within [syncDraftsMaxBytes], none over
+/// [syncDraftMaxBytes]. Each of the three can be left out of
 /// the sync on a device (its section is then neither read nor written there).
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an

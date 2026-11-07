@@ -517,6 +517,13 @@ final class SyncRepository with LoggerMixin {
   static Map<String, dynamic> settingsValuesOf(Map<String, dynamic> item) =>
       item['values'] is Map<String, dynamic> ? item['values'] as Map<String, dynamic> : const {};
 
+  /// Whether the draft of [key] goes with the sync: every kind but the private messages, kept on their device only
+  /// (the document lies in the forum's table as plain text).
+  static bool syncsDraft(String key) => !key.startsWith('${LocalDraftKind.message.prefix}:');
+
+  static List<LocalDraft>? _synced(List<LocalDraft>? drafts) =>
+      drafts?.where((d) => d.key.kind != LocalDraftKind.message).toList();
+
   static int _bytesOf(Object? json) => utf8.encode(jsonEncode(json)).length;
 
   /// The document item of [draft] ([draftToItem]), with the fields of the forum's item [base] this version does not
@@ -612,7 +619,7 @@ final class SyncRepository with LoggerMixin {
     // A draft of the forum this device never held is not deleted here, whatever the forum's document says.
     _draftKeysRead = null;
     if (_on(SyncCategory.drafts)) {
-      final drafts = await _store.drafts(uid);
+      final drafts = _synced(await _store.drafts(uid));
       if (drafts != null) {
         final seen = await _store.draftsSeen(uid) ?? const <String>{};
         final baseDrafts = base.items('drafts');
@@ -626,7 +633,7 @@ final class SyncRepository with LoggerMixin {
         final held = {for (final d in drafts) d.key.value};
         _draftKeysRead = held;
         for (final key in {...baseDrafts.keys, ...seen}) {
-          if (held.contains(key)) {
+          if (held.contains(key) || !syncsDraft(key)) {
             continue;
           }
           final item = baseDrafts[key];
@@ -671,7 +678,8 @@ final class SyncRepository with LoggerMixin {
       for (final e in doc.items('blocks').entries)
         if (!SyncDocument.isDeleted(e.value) || SyncDocument.updatedOf(e.value) >= keepSince) e.key: e.value,
     };
-    final draftItems = doc.items('drafts').entries;
+    // Private messages never go to the forum's table, whoever wrote them there.
+    final draftItems = doc.items('drafts').entries.where((e) => syncsDraft(e.key));
     final liveDrafts = latest(draftItems.where((e) => !SyncDocument.isDeleted(e.value)), syncDraftsMax);
     final goneDrafts = latest(
       draftItems.where((e) => SyncDocument.isDeleted(e.value) && SyncDocument.updatedOf(e.value) >= keepSince),
@@ -812,7 +820,7 @@ final class SyncRepository with LoggerMixin {
     // Drafts item by item, each where the merge is later than this device's (the same time leaves this device's own:
     // it may carry the editor document the forum's copy went without); a draft not in the document stays.
     if (_on(SyncCategory.drafts)) {
-      final local = await _store.drafts(uid);
+      final local = _synced(await _store.drafts(uid));
       if (local != null) {
         final byKey = {for (final d in local) d.key.value: d};
         final save = <LocalDraft>[];

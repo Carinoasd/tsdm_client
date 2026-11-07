@@ -528,6 +528,30 @@ void main() {
         expect(store.draftsByUid[_uid]!.keys, ['reply:1']);
       });
 
+      test('private message drafts stay on their device, in either direction', () async {
+        final t = now.millisecondsSinceEpoch;
+        store.draftsByUid[_uid] = {
+          'pm:77': LocalDraft(
+            key: LocalDraftKey.message('77'),
+            body: 'secret',
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(t),
+          ),
+          'reply:1': _draft('1', t),
+        };
+        // A document holding one (written by another build): not taken, and dropped from what is written back.
+        api.remote({
+          'drafts': {'pm:88': _draftItem(t, body: 'theirs'), 'pm:77': SyncDocument.tombstone(t + 10)},
+        });
+        expect(await repo().pull(_uid), SyncOutcome.pushed);
+        final drafts = api.lastPushed['drafts'] as Map;
+        expect(drafts.keys, ['reply:1']);
+        expect(store.draftsByUid[_uid]!.keys.toSet(), {'pm:77', 'reply:1'});
+        expect(store.draftsSeenByUid[_uid], {'reply:1'});
+        // Deleted here: no deletion sent either.
+        store.draftsByUid[_uid]!.remove('pm:77');
+        expect(await repo().pull(_uid), SyncOutcome.upToDate);
+      });
+
       test('a draft deleted while a run is on its way is not written back, the next run deletes it', () async {
         final t = now.millisecondsSinceEpoch;
         store.draftsByUid[_uid] = {'reply:1': _draft('1', t - 100)};
