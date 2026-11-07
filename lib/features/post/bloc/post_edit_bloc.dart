@@ -266,7 +266,8 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
   /// The failed upload of [error]: the forum's reason, or what it asks before taking the post ([SecCheck]: the page asks
   /// the user and sends again; none known, the website).
   /// Whether the post may have been taken although [error] came back: the request left and no answer came, or one
-  /// that could not be read.
+  /// that could not be read. A [ThreadPostedWithNoticeException] (the forum took the thread, then a plugin's notice)
+  /// must stay true: the local draft kept for it is marked as maybe sent through this.
   static bool _mayHaveSent(AppException error) =>
       error is! PostEditFailedToUploadResult &&
       error is! PostVerificationRequiredException &&
