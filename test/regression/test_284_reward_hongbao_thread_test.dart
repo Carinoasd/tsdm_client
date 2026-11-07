@@ -454,7 +454,8 @@ void main() {
       expect(state.status, PostEditStatus.success);
       expect(state.redirectTid, isNull);
       expect(state.notice, '均分模式：總金額須能被份數整除');
-      expect(state.maybeSent, isFalse);
+      // The local draft stays and is marked as maybe sent: the page keeps it with the mark.
+      expect(state.maybeSent, isTrue);
     });
 
     test('a plain-text refusal before the thread (an error) is a failed upload, the draft kept', () async {
@@ -470,30 +471,24 @@ void main() {
       expect(state.notice, isNull);
     });
 
-    test('a red packet thread saved as a draft goes without the packet', () async {
-      final harness = _hongbaoForum(post: (_, _) => _redirectTo(9202753));
+    test('a red packet thread is never a forum draft, and a draft body carries no packet', () async {
+      final harness = _hongbaoForum();
       final bloc = await _load(harness, const ThreadPubFetchInfoRequested(fid: '7', kind: ThreadKind.hongbao));
-      final info = _info(bloc.state.content!);
-      final draft = ThreadPublishInfo(
-        formHash: info.formHash,
-        postTime: info.postTime,
-        delAttachOp: info.delAttachOp,
-        wysiwyg: info.wysiwyg,
-        fid: info.fid,
-        threadType: null,
-        checkbox: info.checkbox,
-        subject: info.subject,
-        message: info.message,
-        price: null,
-        perm: null,
-        save: '1',
-        options: const [],
-      );
-      await _post(bloc, ThreadPubPostThread(draft, hongbao: const HongbaoEdits(total: 4, shares: 2)));
-      final (_, body) = harness.posts.single;
-      expect(body['save'], '1');
-      expect(body.keys.where((k) => k.startsWith('hb_')), isEmpty);
-      expect(body['specialextra'], 'hongbao');
+      final content = bloc.state.content!;
+      // The form allows drafts (`draft.can_save`), the editor does not offer one for a red packet thread.
+      expect(content.form!.canSaveDraft, isTrue);
+      expect(content.canSaveDraft, isFalse);
+      final draft = content.form!
+          .bodyWith(const PostFormEdits(message: 'm', save: '1', hongbao: HongbaoEdits(total: 4, shares: 2)))
+          .toMap()!;
+      expect(draft['save'], '1');
+      expect(draft.keys.where((k) => k.startsWith('hb_')), isEmpty);
+      expect(draft['specialextra'], 'hongbao');
+      // The ordinary thread of the same forum still may be saved as a draft.
+      final ordinary = PostEditContent.fromPostForm(
+        PostForm.fromJson({..._json('post_v16_newthread'), 'hook_fields': <Object?>[]})!,
+      )!;
+      expect(ordinary.canSaveDraft, isTrue);
     });
 
     test('the same answer to an ordinary thread is still a refusal', () async {

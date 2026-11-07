@@ -1558,7 +1558,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     } else if (state.status == PostEditStatus.success) {
       if (state.notice case final notice?) {
         // Taken as far as the forum tells, then the plugin's notice (the red packet was not made): told, back to the
-        // forum; the local draft stays until the member has seen the thread.
+        // forum; the local draft stays, marked as maybe sent, until the member has seen the thread.
+        _draftMaybeSent = true;
         _stopDraft(delete: false);
         final tr = context.t.postEditPage.postedWithNotice;
         await showMessageSingleButtonDialog(

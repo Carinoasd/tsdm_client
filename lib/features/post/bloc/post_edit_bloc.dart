@@ -339,10 +339,11 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       case Right():
         // Taken: whatever the page does now (it may be gone), the local draft goes.
         _taken(event.draftKey);
-      case Left(value: ThreadPostedWithNoticeException()):
-        // Taken as far as the answer tells; the local draft stays in case it was not (a plugin's refusal before
-        // the thread looks the same), the interval between two posts counts from now.
+      case Left(:final value) when value is ThreadPostedWithNoticeException:
+        // Taken as far as the answer tells; the local draft stays, marked as maybe sent, in case it was not (a
+        // plugin's refusal before the thread looks the same); the interval between two posts counts from now.
         FloodControl.notePosted(_repo.ownerUid);
+        _markMaybeSent(value, event.draftKey);
       case Left(:final value):
         _markMaybeSent(value, event.draftKey);
     }
@@ -354,7 +355,13 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       // Published, then the plugin's notice (the red packet was not made): no thread id to go to.
       _submitting = false;
       emit(
-        state.copyWith(status: PostEditStatus.success, redirectTid: null, needsBrowser: false, notice: posted.notice),
+        state.copyWith(
+          status: PostEditStatus.success,
+          redirectTid: null,
+          needsBrowser: false,
+          notice: posted.notice,
+          maybeSent: true,
+        ),
       );
       return;
     }
