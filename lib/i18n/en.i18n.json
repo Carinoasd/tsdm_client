@@ -1542,13 +1542,15 @@
       "min": "At least $min $credit",
       "balance": "You have $have $credit",
       "afterTax": "$real $credit after tax",
+      "raiseCost": "$real $credit more to pay",
       "required": "Set the reward credits first",
       "issue": {
         "empty": "Enter the reward credits",
         "overflow": "At most 32767",
         "belowMin": "At least $min",
         "aboveMax": "At most $max",
-        "shortage": "Not enough credits"
+        "shortage": "Not enough credits",
+        "fall": "At least the current $current"
       }
     },
     "hongbaoDialog": {

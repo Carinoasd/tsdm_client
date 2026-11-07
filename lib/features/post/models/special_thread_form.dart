@@ -41,7 +41,8 @@ enum ThreadKind {
   static const hongbaoPlugin = 'hongbao';
 }
 
-/// Why a reward price is refused, as the forum refuses it (`extend_thread_reward::before_newthread`).
+/// Why a reward price is refused, as the forum refuses it (`extend_thread_reward::before_newthread`, and
+/// `before_editpost` for a raised one).
 enum RewardPriceIssue {
   /// No price, or below 1.
   empty,
@@ -55,12 +56,31 @@ enum RewardPriceIssue {
   /// Above the group's maximum.
   aboveMax,
 
-  /// The price with its tax is more than the member has.
+  /// The price with its tax is more than the member has: for an edit, what is added to the price with its tax.
   shortage,
+
+  /// Below the price of the thread: an edit may only raise it (`reward_credits_fall`).
+  fall,
 }
 
-/// The reward settings of a new thread form (`reward` of the forum's app API, plugin 2.9.0, `post_reward.php`): the
-/// group's price range, the credit paid, what the member has and the tax.
+/// What the `reward` block of a post form lets the member do (`state`).
+enum RewardFormState {
+  /// A new reward thread: the price is set.
+  newThread,
+
+  /// The first post of an open reward thread edited by its author: the price may be raised.
+  open,
+
+  /// The first post of a reward thread whose best answer is chosen, edited by its author: the price is kept.
+  resolved,
+
+  /// The first post of a reward thread edited by someone else (a moderator): the price is kept.
+  readonly,
+}
+
+/// The reward settings of a post form (`reward` of the forum's app API, plugin 2.9.0, `post_reward.php`): the group's
+/// price range, the credit paid, what the member has and the tax; for the edit of the first post of a reward thread,
+/// the price of the thread and whether the member may raise it ([state]).
 final class RewardFormInfo {
   /// Constructor.
   const RewardFormInfo({
@@ -73,24 +93,41 @@ final class RewardFormInfo {
     required this.have,
     required this.tax,
     required this.expirationDays,
-  });
+    this.state = RewardFormState.newThread,
+    this.current,
+  }) : assert(state != RewardFormState.open || current != null, 'an open reward thread has its price');
 
-  /// The `reward` block of a new thread form; null when it is not the form of a new reward thread (`state` not
-  /// `new`), or the price field is missing.
+  /// The `reward` block of a post form; null when it is not one of a reward thread (`state` `none` or unknown), or a
+  /// form that lets the member set the price (`new`, `open`) lacks the price field.
   static RewardFormInfo? fromJson(Object? json) {
-    if (json is! Map<String, dynamic> || json['state'] != 'new') {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final state = switch (json['state']) {
+      'new' => RewardFormState.newThread,
+      'open' => RewardFormState.open,
+      'resolved' => RewardFormState.resolved,
+      'readonly' => RewardFormState.readonly,
+      _ => null,
+    };
+    if (state == null) {
       return null;
     }
     final inputs = tsdmAppList(json['inputs']);
     final price = inputs.where((e) => e['name'] == 'rewardprice').firstOrNull;
-    if (price == null) {
+    final editable = state == RewardFormState.newThread || state == RewardFormState.open;
+    if (editable && (price == null || price['type'] != 'text')) {
+      return null;
+    }
+    final current = json['price'];
+    if (state == RewardFormState.open && (current is! num || current <= 0)) {
       return null;
     }
     final credit = tsdmAppMap(json['credit']);
     final tax = json['tax'];
     return RewardFormInfo(
       inputName: 'rewardprice',
-      served: int.tryParse(tsdmAppText(price['value']).trim()),
+      served: price == null ? null : int.tryParse(tsdmAppText(price['value']).trim()),
       min: tsdmAppInt(json['min']),
       max: tsdmAppInt(json['max']),
       creditTitle: tsdmAppText(credit['title']),
@@ -98,6 +135,8 @@ final class RewardFormInfo {
       have: json['have'] is num ? (json['have'] as num).toInt() : null,
       tax: tax is num ? tax.toDouble() : 0,
       expirationDays: tsdmAppInt(json['expiration_days']),
+      state: state,
+      current: current is num && state != RewardFormState.newThread ? current.toInt() : null,
     );
   }
 
@@ -107,8 +146,24 @@ final class RewardFormInfo {
   /// The name of the price field.
   final String inputName;
 
-  /// The price the form came with (the group's minimum), null when it is not a number.
+  /// The price the form came with (the group's minimum for a new thread, the thread's price for an edit), null when it
+  /// is not a number or the form has no price field.
   final int? served;
+
+  /// What the member may do with the price.
+  final RewardFormState state;
+
+  /// The price of the thread edited (`price`; negative once the best answer is chosen), null for a new thread.
+  final int? current;
+
+  /// Whether the member sets the price: a new thread, or an open one edited by its author.
+  bool get editable => state == RewardFormState.newThread || state == RewardFormState.open;
+
+  /// Whether the price is raised from [current]: the edit of an open reward thread.
+  bool get raising => state == RewardFormState.open;
+
+  /// The lowest price the forum takes: the group's minimum, for an edit not below [current] either.
+  int get floor => raising && current! > min ? current! : min;
 
   /// The group's minimum price.
   final int min;
@@ -138,10 +193,21 @@ final class RewardFormInfo {
   /// What [price] costs with the tax, as the forum computes it (`$rewardprice + ceil($rewardprice * $creditstax)`).
   int realPrice(int price) => price + (price * tax).ceil();
 
-  /// Why the forum would refuse [price], null when it takes it.
+  /// What the member pays for [price] with the tax: all of it for a new thread, what it adds to [current] for an edit
+  /// (`extend_thread_reward::before_editpost`: `ceil(Δ + Δ * $creditstax)`).
+  int cost(int price) => realPrice(raising ? price - (current ?? 0) : price);
+
+  /// Why the forum would refuse [price], null when it takes it. An edit keeping the price is not checked
+  /// (`extend_thread_reward::before_editpost` checks a changed price only): it neither raises nor charges.
   RewardPriceIssue? check(int? price) {
+    if (raising && price == current) {
+      return null;
+    }
     if (price == null || price < 1) {
       return RewardPriceIssue.empty;
+    }
+    if (raising && price < current!) {
+      return RewardPriceIssue.fall;
     }
     if (price > overflow) {
       return RewardPriceIssue.overflow;
@@ -152,7 +218,7 @@ final class RewardFormInfo {
     if (max > 0 && price > max) {
       return RewardPriceIssue.aboveMax;
     }
-    if (have case final int have when realPrice(price) > have) {
+    if (have case final int have when cost(price) > have) {
       return RewardPriceIssue.shortage;
     }
     return null;

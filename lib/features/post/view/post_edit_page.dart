@@ -245,7 +245,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Only used when editing thread, not other floors' posts.
   int? price;
 
-  /// The reward credits of a new reward thread, null until set.
+  /// The reward credits of a new reward thread, null until set; the price of an open reward thread edited, raised by
+  /// the member.
   int? rewardPrice;
 
   /// The red packet of a new red packet thread, null until set.
@@ -771,20 +772,21 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       showSnackBar(context: context, message: issue);
       return;
     }
-    // A reward thread needs its price, a red packet thread its packet: the forum refuses the post without them.
+    // A reward thread needs its price (an edit only a price the forum takes: raised, within the group's range, paid).
+    if (state.content!.form?.reward case final info? when info.editable) {
+      if (info.check(rewardPrice) case final problem?) {
+        showSnackBar(
+          context: context,
+          message: rewardPrice == null
+              ? context.t.postEditPage.rewardDialog.required
+              : rewardIssueText(context, info, problem),
+        );
+        return;
+      }
+    }
+    // A red packet thread needs its packet: the forum refuses the post without it.
     if (widget.editType == PostEditType.newThread) {
       final form = state.content!.form;
-      if (form?.reward case final info?) {
-        if (info.check(rewardPrice) case final problem?) {
-          showSnackBar(
-            context: context,
-            message: rewardPrice == null
-                ? context.t.postEditPage.rewardDialog.required
-                : rewardIssueText(context, info, problem),
-          );
-          return;
-        }
-      }
       // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
       if (form?.hongbao case final info? when !saveDraft) {
         final packet = hongbao;
@@ -877,6 +879,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           perm: threadPerm?.perm,
           price: price,
           draftKey: _draftKey?.value,
+          rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
         ),
         PostEditType.newThread => ThreadPubPostThread(
           ThreadPublishInfo(
@@ -1251,7 +1254,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               },
             ),
           ),
-        if (state.content?.form?.reward case final info?)
+        if (state.content?.form?.reward case final info? when info.editable)
           Badge(
             label: Text('${rewardPrice ?? ''}'),
             textStyle: Theme.of(context).textTheme.labelSmall,
@@ -1641,6 +1644,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         threadTypeController.text = threadType?.name ?? '';
         threadPerm = state.content?.permList?.where((e) => e.selected).lastOrNull;
         price = state.content?.price;
+        // The first post of an open reward thread: its price, which the member may raise.
+        if (state.content?.form?.reward case final info? when info.raising) {
+          rewardPrice = info.current;
+        }
       });
 
       init = true;

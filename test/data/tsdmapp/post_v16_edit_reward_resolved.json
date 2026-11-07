@@ -1,0 +1,313 @@
+{
+ "ok": 1,
+ "api": 1,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "post",
+ "schema": 16,
+ "action": "edit",
+ "float": 0,
+ "fid": 7,
+ "tid": 9600031,
+ "pid": 9700031,
+ "page": 0,
+ "forum": {
+  "fid": 7,
+  "name": "神作殿堂",
+  "allowspecialonly": 0
+ },
+ "thread": {
+  "tid": 9600031,
+  "subject": "BU thread區 C 的懸賞主題（1789158946626）",
+  "special": 3,
+  "displayorder": 0,
+  "draft": 0,
+  "closed": 0,
+  "authorid": 31,
+  "anonymous": 0
+ },
+ "first": 1,
+ "moderated": null,
+ "submit": {
+  "url": "forum.php?mod=post&action=edit&extra=&editsubmit=yes",
+  "method": "POST",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "posttime": "1700000000",
+   "delattachop": "0",
+   "wysiwyg": "1",
+   "fid": "7",
+   "tid": "9600031",
+   "pid": "9700031",
+   "page": "",
+   "special": "3",
+   "editsubmit": "true",
+   "save": ""
+  }
+ },
+ "subject": {
+  "shown": 1,
+  "value": "BU thread區 C 的懸賞主題（1789158946626）",
+  "max": null,
+  "min": null,
+  "unit": "dstrlen",
+  "hard_max": 255,
+  "reply_default": null
+ },
+ "message": {
+  "value": "BU thread區 TR 一樓內文 C（1789158946626）",
+  "min": null,
+  "max": null,
+  "unit": "bytes",
+  "min_excludes_quote": 1,
+  "json": 0
+ },
+ "quote_html": null,
+ "types": null,
+ "stand": null,
+ "special": {
+  "current": 3,
+  "specialextra": "",
+  "sortid": 0,
+  "allowed": null,
+  "threadplugins": null,
+  "threadsorts": null
+ },
+ "editor": {
+  "mode": 1,
+  "html": 0,
+  "smilies": 1,
+  "bbcode": 1,
+  "imgcode": 1,
+  "hide": 1,
+  "at": 0
+ },
+ "options": [
+  {
+   "name": "isanonymous",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "使用匿名发帖"
+  },
+  {
+   "name": "hiddenreplies",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "回帖仅作者可见"
+  },
+  {
+   "name": "allownoticeauthor",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "接收回复通知"
+  },
+  {
+   "name": "usesig",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 1,
+   "disabled": 0,
+   "label": "使用个人签名"
+  },
+  {
+   "name": "htmlon",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "HTML 代码"
+  },
+  {
+   "name": "parseurloff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用链接识别"
+  },
+  {
+   "name": "smileyoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用表情"
+  },
+  {
+   "name": "bbcodeoff",
+   "type": "checkbox",
+   "value": "1",
+   "checked": 0,
+   "disabled": 0,
+   "label": "禁用编辑器代码"
+  },
+  {
+   "name": "imgcontent",
+   "type": "checkbox",
+   "value": "0",
+   "checked": 0,
+   "disabled": 1,
+   "label": "内容生成图片"
+  }
+ ],
+ "readperm": {
+  "name": "readperm",
+  "type": "select",
+  "value": "",
+  "choices": [
+   {
+    "value": "",
+    "label": "不限"
+   },
+   {
+    "value": "1",
+    "label": "游客"
+   },
+   {
+    "value": "10",
+    "label": "新手上路"
+   },
+   {
+    "value": "20",
+    "label": "AG效能組"
+   },
+   {
+    "value": "20",
+    "label": "AG低權組"
+   },
+   {
+    "value": "20",
+    "label": "注册会员"
+   },
+   {
+    "value": "30",
+    "label": "中级会员"
+   },
+   {
+    "value": "30",
+    "label": "字幕組"
+   },
+   {
+    "value": "50",
+    "label": "高级会员"
+   },
+   {
+    "value": "70",
+    "label": "金牌会员"
+   },
+   {
+    "value": "90",
+    "label": "论坛元老"
+   },
+   {
+    "value": "100",
+    "label": "实习版主"
+   },
+   {
+    "value": "100",
+    "label": "审核员"
+   },
+   {
+    "value": "100",
+    "label": "版主"
+   },
+   {
+    "value": "150",
+    "label": "网站编辑"
+   },
+   {
+    "value": "150",
+    "label": "超级版主"
+   },
+   {
+    "value": "175",
+    "label": "區版主"
+   },
+   {
+    "value": "200",
+    "label": "信息监察员"
+   },
+   {
+    "value": "200",
+    "label": "管理员"
+   },
+   {
+    "value": "255",
+    "label": "最高权限"
+   }
+  ]
+ },
+ "price": null,
+ "tags": null,
+ "replycredit": null,
+ "rushreply": null,
+ "cronpublish": null,
+ "can_delete": 0,
+ "mygroup": null,
+ "attach": {
+  "file": 1,
+  "image": 1,
+  "exts": "chm,pdf,zip,rar,tar,gz,bzip2,gif,jpg,jpeg,png",
+  "maxsize": 2048000,
+  "today": 1,
+  "today_left": null,
+  "today_size_left": null,
+  "setperm": 1,
+  "upload": {
+   "url": "misc.php?mod=swfupload&action=swfupload&operation=upload&fid=7",
+   "uid": 31,
+   "hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+   "max_kb": 2000,
+   "limit": 0,
+   "image": 1,
+   "file": 1,
+   "image_exts": "*.jpg;*.jpeg;*.gif;*.png",
+   "file_exts": "*.chm;*.pdf;*.zip;*.rar;*.tar;*.gz;*.bzip2;*.gif;*.jpg;*.jpeg;*.png"
+  },
+  "used": [],
+  "unused": [],
+  "fields": {},
+  "list_shown": 1
+ },
+ "draft": {
+  "field": 1,
+  "can_save": 0,
+  "count": null,
+  "publish": 0
+ },
+ "seccheck": null,
+ "poll": null,
+ "trade": null,
+ "reward": {
+  "state": "resolved",
+  "price": -1,
+  "min": 1,
+  "max": 0,
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "have": null,
+  "tax": 0.2,
+  "expiration_days": 30,
+  "inputs": [
+   {
+    "name": "rewardprice",
+    "type": "hidden",
+    "value": "-1"
+   }
+  ]
+ },
+ "activity": null,
+ "debate": null,
+ "hook_fields": [],
+ "unsupported": []
+}

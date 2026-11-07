@@ -259,7 +259,7 @@ void main() {
 
   group('A. the answer', () {
     test('every form fixture is a post form of its action, served to its account', () {
-      expect(_forms, hasLength(18));
+      expect(_forms, hasLength(21));
       for (final name in _forms) {
         final json = _json(name);
         expect(postFormAnswerOf(json), same(json), reason: name);
@@ -505,6 +505,10 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         'edit_draft': ('edit', PostFormSupport.unsupported),
         'edit_poll': ('edit', PostFormSupport.unsupported),
         'edit_json': ('edit', PostFormSupport.unsupported),
+        // The first post of a reward thread: its price raised, or kept as served (test_291).
+        'edit_reward_open': ('edit', PostFormSupport.supported),
+        'edit_reward_resolved': ('edit', PostFormSupport.supported),
+        'edit_reward_readonly': ('edit', PostFormSupport.supported),
         'reply': ('reply', PostFormSupport.supported),
         'reply_quote': ('reply', PostFormSupport.supported),
         'reply_anonymous': ('reply', PostFormSupport.supported),

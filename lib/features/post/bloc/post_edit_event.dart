@@ -45,7 +45,11 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
     required this.perm,
     required this.price,
     this.draftKey,
+    this.rewardPrice,
   }) : super();
+
+  /// The reward price of the first post of an open reward thread ([PostFormEdits.rewardPrice]), null to keep it.
+  final int? rewardPrice;
 
   /// Form hash.
   final String formHash;
