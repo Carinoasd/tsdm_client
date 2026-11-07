@@ -151,8 +151,10 @@ final class EditUserProfileRepository with LoggerMixin {
     _Keys.favoriteBangumi: profile.favoriteBangumi ?? '',
     _Keys.favoriteBangumi.visibility(): profile.favoriteBangumiVisibility.value.toString(),
     _Keys.pageStyle: profile.pageStyle?.value.toString() ?? '0',
-    _Keys.customTitle: profile.customTitle ?? '',
-    _Keys.signature: profile.signature ?? '',
+    // Only when the page printed them: the forum saves these two whatever tab a post is for, so an empty one would
+    // clear what another tab holds (the signature of a default Discuz! X5 lives in the 个人信息 tab).
+    _Keys.customTitle: ?profile.customTitle,
+    _Keys.signature: ?profile.signature,
     _Keys.timezone: profile.timeZone?.value ?? '0',
     'profilesubmit': 'true',
     'profilesubmitbtn': 'true',
@@ -170,11 +172,13 @@ final class EditUserProfileRepository with LoggerMixin {
     final uid = _currentUid();
     final tried = <String>{};
     final queue = <String?>[null];
+    // Asked as the web page from then on: the plugin could not tell a tab (`unknown`).
+    var web = false;
     while (queue.isNotEmpty) {
       final op = queue.removeAt(0);
       final url = op == null ? '$_pageUrl&ac=profile' : '$_pageUrl&ac=profile&op=$op';
       final Object? data;
-      switch (await getIt.get<NetClientProvider>().get(withTsdmAppForm(url, page: true)).run()) {
+      switch (await getIt.get<NetClientProvider>().get(web ? url : withTsdmAppForm(url, page: true)).run()) {
         case Left(:final value):
           return left(value);
         case Right(:final value) when value.statusCode != HttpStatus.ok:
@@ -209,6 +213,11 @@ final class EditUserProfileRepository with LoggerMixin {
             for (final a in doc.querySelectorAll('a[href*="ac=profile"]'))
               Uri.tryParse(a.attributes['href'] ?? '')?.queryParameters['op'] ?? '',
           ];
+        case null when !web && isSmallFormUnknown(data):
+          // As the profile editor does: the same tab again, as the web page.
+          web = true;
+          queue.insert(0, op);
+          continue;
         case _:
           return left(EditUserProfileFormNotFound());
       }

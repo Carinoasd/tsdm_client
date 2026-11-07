@@ -24,6 +24,7 @@ import 'package:image/image.dart' as img;
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/profile/bloc/edit_avatar_bloc.dart';
 import 'package:tsdm_client/features/profile/models/avatar_upload.dart';
 import 'package:tsdm_client/features/profile/models/signature_form.dart';
 import 'package:tsdm_client/features/profile/repository/edit_user_profile_repository.dart';
@@ -287,6 +288,17 @@ void main() {
       expect(_query(forum.requests.last)['op'], 'info');
     });
 
+    test('a tab the plugin could not tell: asked again as the web page', () async {
+      final info = _read('signature_info_x5.html');
+      final forum = _Forum(
+        (r) => _asksForm(r) ? _api({'ok': 0, 'error': 'unknown', 'form': 'profile', 'uid': 31}) : _html(info),
+      );
+      _use(forum);
+      final form = _right(await EditUserProfileRepository(currentUid: () => 31).loadSignature().run());
+      expect(form.value, startsWith('[b]测试签名'));
+      expect(forum.requests.map(_asksForm).toList(), [true, false]);
+    });
+
     test('a page of another account is never used; a form of another account is never posted', () async {
       _use(_Forum((_) => _api(_json('signature_info_v17.json'))));
       expect(
@@ -303,6 +315,36 @@ void main() {
         isA<IdentityChangedException>(),
       );
       expect(forum.requests, isEmpty);
+    });
+
+    test('the profile of a web page without the signature does not post one (it would clear it)', () async {
+      final doc = parseHtmlDocument(File('test/data/profile_edit_form_x5.html').readAsStringSync());
+      doc.querySelector('td#td_sightml')!.remove();
+      doc.querySelector('td#td_customstatus')?.remove();
+      final page = doc.documentElement!.outerHtml!;
+      final forum = _Forum(
+        (r) => r.method == 'POST'
+            ? _html("<script type=\"text/javascript\">parent.show_success('');</script>")
+            : _html(page),
+      );
+      _use(forum);
+      final repo = EditUserProfileRepository(currentUid: () => 35);
+      final profile = _right(await repo.loadProfile().run());
+      expect(profile.apiKeys, isNull);
+      expect(profile.signature, isNull);
+      _right(await repo.uploadProfile(profile).run());
+      final sent = _multipart(forum.requests.last);
+      expect(sent, isNot(contains('sightml')));
+      expect(sent, isNot(contains('customstatus')));
+      expect(sent, containsPair('profilesubmit', 'true'));
+    });
+
+    test('the image upload event can be told and compared (logged by the bloc observer)', () async {
+      final images = (await AvatarImages.crop(_png(8, 8), left: 0, top: 0, side: 8))!;
+      final event = EditAvatarImageUploadRequested(images);
+      expect(event.toString, returnsNormally);
+      expect(event == EditAvatarImageUploadRequested(images), isTrue);
+      expect(() => event.hashCode, returnsNormally);
     });
 
     test('a refused signature (the word filter) is told by its title', () async {
