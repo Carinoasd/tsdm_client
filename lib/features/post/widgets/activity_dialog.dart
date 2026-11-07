@@ -34,10 +34,11 @@ String activityIssueText(BuildContext context, ActivityFormInfo info, ActivityIs
 Future<DateTime?> pickDateTime(BuildContext context, DateTime? initial) async {
   final now = DateTime.now();
   final from = initial ?? now;
+  final first = DateTime(now.year - 1);
   final date = await showDatePicker(
     context: context,
-    initialDate: from,
-    firstDate: DateTime(now.year - 1),
+    initialDate: from.isBefore(first) ? first : from,
+    firstDate: first,
     lastDate: DateTime(now.year + 10),
   );
   if (date == null || !context.mounted) {
@@ -59,8 +60,12 @@ class DateTimeField extends StatelessWidget {
     required this.onChanged,
     this.onCleared,
     this.errorText,
+    this.fallback,
     super.key,
   });
+
+  /// Where the picker starts when nothing is set (the start, for an end), now when null.
+  final DateTime? fallback;
 
   /// The name of the field.
   final String label;
@@ -82,7 +87,7 @@ class DateTimeField extends StatelessWidget {
     final value = this.value;
     return InkWell(
       onTap: () async {
-        final picked = await pickDateTime(context, value);
+        final picked = await pickDateTime(context, value ?? fallback);
         if (picked != null) {
           onChanged(picked);
         }
@@ -183,10 +188,10 @@ class _ActivityDialogState extends State<_ActivityDialog> {
     extFields: extFields.text,
   );
 
-  /// The issue of the activity when it is one of [of], so each field shows its own.
+  /// The issue of the activity among [of] (the ones of a field), so every field shows its own at once.
   String? _issue(Set<ActivityIssue> of) {
-    final issue = edits.check(widget.info);
-    return issue != null && of.contains(issue) ? activityIssueText(context, widget.info, issue) : null;
+    final issue = edits.issues(widget.info).where(of.contains).firstOrNull;
+    return issue == null ? null : activityIssueText(context, widget.info, issue);
   }
 
   String? Function(String?) _validator(Set<ActivityIssue> of) =>
@@ -239,6 +244,7 @@ class _ActivityDialogState extends State<_ActivityDialog> {
             DateTimeField(
               label: tr.end,
               value: end,
+              fallback: start,
               onChanged: (v) => setState(() => end = v),
               onCleared: () => setState(() => end = null),
               errorText: _checked ? _issue(const {ActivityIssue.endBeforeStart}) : null,

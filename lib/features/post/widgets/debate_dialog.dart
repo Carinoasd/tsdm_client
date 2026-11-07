@@ -71,10 +71,7 @@ class _DebateDialogState extends State<_DebateDialog> {
   DebateEdits get edits =>
       DebateEdits(affirm: affirm.text.trim(), negate: negate.text.trim(), end: end, umpire: umpire.text.trim());
 
-  String? _issue(DebateIssue of) {
-    final issue = edits.check(DateTime.now());
-    return issue == of ? debateIssueText(context, issue!) : null;
-  }
+  String? _issue(DebateIssue of) => edits.issues(DateTime.now()).contains(of) ? debateIssueText(context, of) : null;
 
   @override
   Widget build(BuildContext context) {

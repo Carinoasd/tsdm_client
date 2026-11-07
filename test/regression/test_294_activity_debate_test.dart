@@ -162,6 +162,10 @@ void main() {
       );
       expect(_activity(category: ' ').check(info), ActivityIssue.classRequired);
       expect(_activity(place: '').check(info), ActivityIssue.placeRequired);
+      expect(
+        const ActivityEdits(category: '', start: null, place: '').issues(info),
+        {ActivityIssue.classRequired, ActivityIssue.placeRequired, ActivityIssue.startRequired},
+      );
       expect(_activity(end: DateTime(2026, 11, 30)).check(info), ActivityIssue.endBeforeStart);
       expect(_activity(end: _start).check(info), isNull, reason: 'the forum refuses a start after the end only');
       // No extra field allowed (`activityextnum` 0); numbers and empty lines do not count.
@@ -364,7 +368,9 @@ void main() {
       );
       await tester.tap(find.text('確定'));
       await tester.pumpAndSettle();
+      // Every field its own issue at once.
       expect(find.text('請填寫活動類別'), findsOneWidget);
+      expect(find.text('請填寫活動地點'), findsOneWidget);
       expect(result(), isNull);
       await tester.enterText(field('活動類別'), '公益活动');
       await tester.enterText(field('活動地點'), '測試地點');

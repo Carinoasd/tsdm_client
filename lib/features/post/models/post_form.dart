@@ -712,7 +712,7 @@ final class PostForm {
         body.set(key, value);
       }
       // The list of the website's checkboxes, by index: a map carries no name twice (PostFormBody.toMap).
-      body.removeWhere((name) => name == 'userfield[]' || name.startsWith('userfield['));
+      body.removeWhere((name) => name.startsWith('userfield['));
       for (final (i, value) in set.userFieldValues(info).indexed) {
         body.add('userfield[$i]', value);
       }

@@ -743,26 +743,30 @@ final class ActivityEdits {
       if (userFields.contains(value)) value,
   ];
 
-  /// Why the forum would refuse this activity against [info], null when it takes it.
-  ActivityIssue? check(ActivityFormInfo info) {
+  /// Every reason the forum would refuse this activity against [info], each field its own.
+  Set<ActivityIssue> issues(ActivityFormInfo info) {
     final start = this.start;
     final end = this.end;
-    if (start == null) {
-      return ActivityIssue.startRequired;
-    }
-    if (end != null && end.isBefore(start)) {
-      return ActivityIssue.endBeforeStart;
-    }
-    if (category.trim().isEmpty) {
-      return ActivityIssue.classRequired;
-    }
-    if (place.trim().isEmpty) {
-      return ActivityIssue.placeRequired;
-    }
-    if (extFieldList.length > info.extNum) {
-      return ActivityIssue.extFieldsTooMany;
-    }
-    return null;
+    return {
+      if (category.trim().isEmpty) ActivityIssue.classRequired,
+      if (place.trim().isEmpty) ActivityIssue.placeRequired,
+      if (start == null) ActivityIssue.startRequired,
+      if (start != null && end != null && end.isBefore(start)) ActivityIssue.endBeforeStart,
+      if (extFieldList.length > info.extNum) ActivityIssue.extFieldsTooMany,
+    };
+  }
+
+  /// Why the forum would refuse this activity against [info], null when it takes it: the first of [issues], in the
+  /// order the forum checks.
+  ActivityIssue? check(ActivityFormInfo info) {
+    final found = issues(info);
+    return const [
+      ActivityIssue.startRequired,
+      ActivityIssue.endBeforeStart,
+      ActivityIssue.classRequired,
+      ActivityIssue.placeRequired,
+      ActivityIssue.extFieldsTooMany,
+    ].where(found.contains).firstOrNull;
   }
 }
 
@@ -826,13 +830,11 @@ final class DebateEdits {
 
   /// Why the forum would refuse this debate at [now], null when it takes it (an umpire who is no member is only
   /// known by the forum).
-  DebateIssue? check(DateTime now) {
-    if (affirm.trim().isEmpty || negate.trim().isEmpty) {
-      return DebateIssue.pointsRequired;
-    }
-    if (end case final DateTime end when !end.isAfter(now)) {
-      return DebateIssue.endPassed;
-    }
-    return null;
-  }
+  DebateIssue? check(DateTime now) => issues(now).firstOrNull;
+
+  /// Every reason the forum would refuse this debate at [now], in the order it checks.
+  Set<DebateIssue> issues(DateTime now) => {
+    if (affirm.trim().isEmpty || negate.trim().isEmpty) DebateIssue.pointsRequired,
+    if (end case final DateTime end when !end.isAfter(now)) DebateIssue.endPassed,
+  };
 }
