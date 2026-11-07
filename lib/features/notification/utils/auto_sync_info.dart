@@ -2,12 +2,13 @@ import 'package:collection/collection.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
+import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:universal_html/parsing.dart';
 
 /// Length of the texts of a notification.
 const _msgLength = 40;
 
-/// What to announce for the [fresh] part of a sync, null when there is nothing new.
+/// What to announce for the `all` part of a sync, null when there is nothing new.
 ///
 /// One notification per sync: a private message first, then a broadcast message, then a notice, each carrying the
 /// counts of everything new, and one line per new notification, newest first ([NotificationAutoSyncInfo.lines]).
@@ -16,8 +17,17 @@ const _msgLength = 40;
 ///
 /// The one announced of its kind is the newest: the forum lists notices, conversations and broadcast messages newest
 /// first, so the last of a list is the oldest one; the time decides, whatever the order of the lists.
-NotificationAutoSyncInfo? autoSyncInfoOf(NotificationV2 fresh) {
-  final now = DateTime.now().millisecondsSinceEpoch;
+///
+/// Only what `rules` allow is announced, the counts included: the categories switched off are left out, and nothing
+/// at all is announced inside the quiet hours. `at` is the time of the sync, now when not given.
+NotificationAutoSyncInfo? autoSyncInfoOf(
+  NotificationV2 all, {
+  NotificationPushRules rules = NotificationPushRules.all,
+  DateTime? at,
+}) {
+  final time = at ?? DateTime.now();
+  final fresh = rules.apply(all, time);
+  final now = time.millisecondsSinceEpoch;
   final lines = _linesOf(fresh);
   final notice = fresh.noticeList.length;
   final personalMessage = fresh.personalMessageList.length;

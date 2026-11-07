@@ -196,6 +196,30 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// center showed who did what, and no expanded list of items.
   notificationHideContent<bool>(name: 'notificationHideContent', type: bool, defaultValue: false),
 
+  /// Announce replies (and quotes) of the auto sync in system notifications.
+  notifyReply<bool>(name: 'notifyReply', type: bool, defaultValue: true),
+
+  /// Announce @ mentions of the auto sync in system notifications.
+  notifyMention<bool>(name: 'notifyMention', type: bool, defaultValue: true),
+
+  /// Announce ratings and comments of the auto sync in system notifications.
+  notifyRate<bool>(name: 'notifyRate', type: bool, defaultValue: true),
+
+  /// Announce private messages of the auto sync in system notifications.
+  notifyPersonalMessage<bool>(name: 'notifyPersonalMessage', type: bool, defaultValue: true),
+
+  /// Announce system notices, broadcast messages and every other notice kind of the auto sync in system notifications.
+  notifySystem<bool>(name: 'notifySystem', type: bool, defaultValue: true),
+
+  /// Do not post system notifications between [notifyQuietStart] and [notifyQuietEnd]; what arrives meanwhile is not announced afterwards.
+  notifyQuietHours<bool>(name: 'notifyQuietHours', type: bool, defaultValue: false),
+
+  /// Start of the quiet hours, minutes after midnight (default 23:00).
+  notifyQuietStart<int>(name: 'notifyQuietStart', type: int, defaultValue: 1380),
+
+  /// End of the quiet hours, minutes after midnight (default 08:00); may be before the start (past midnight).
+  notifyQuietEnd<int>(name: 'notifyQuietEnd', type: int, defaultValue: 480),
+
   /// Enable operations for debugging.
   enableDebugOperations<bool>(name: 'enableDebugOperations', type: bool, defaultValue: false),
 

@@ -535,6 +535,17 @@
         "detail": "App 的自動同步（電腦版縮到系統匣時也算）與安卓的後台訊息接收也檢查這台裝置上其他已登入的帳號，各自用自己的登入；通知會標出帳號，點通知時先切換到該帳號再開啟通知頁",
         "seenNote": "檢查其他帳號時，論壇會把它們的提醒標成已讀（網頁上的紅點會消失），和打開通知頁一樣"
       },
+      "noticeCategories": {
+        "title": "通知類別",
+        "reply": "回覆",
+        "mention": "@提到我",
+        "rate": "評分／點評",
+        "pm": "私訊",
+        "system": "系統通知",
+        "quietHours": "靜音時段",
+        "quietStart": "開始",
+        "quietEnd": "結束"
+      },
       "notificationHideContent": {
         "title": "通知不顯示內容",
         "detail": "系統通知只顯示帳號與新訊息數量，不顯示是誰、做了什麼和訊息內容"
@@ -2044,6 +2055,13 @@
     }
   },
   "localNotification": {
+    "channels": {
+      "reply": "回覆",
+      "mention": "@提到我",
+      "rate": "評分／點評",
+      "pm": "私訊",
+      "system": "系統通知"
+    },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
     "ticker": "新提醒",
