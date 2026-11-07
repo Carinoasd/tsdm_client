@@ -1846,6 +1846,24 @@
       "unsupported": "The app does not support this report form. Nothing was sent; continue in the browser."
     }
   },
+  "moderate": {
+    "menu": "Moderate",
+    "stick": "Stick",
+    "digest": "Digest",
+    "close": "Close thread",
+    "open": "Open thread",
+    "move": "Move",
+    "delete": "Delete thread",
+    "expiration": "Until",
+    "noExpiration": "No end",
+    "reason": "Reason",
+    "notifyAuthor": "Notify the author",
+    "moveTo": "Move to",
+    "moveNormal": "Move",
+    "moveRedirect": "Leave a redirect",
+    "done": "Done",
+    "failed": "Failed"
+  },
   "packetCard": {
     "title": "Packet",
     "detail": "You found a packet!",

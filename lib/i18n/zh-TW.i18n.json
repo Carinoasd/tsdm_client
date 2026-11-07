@@ -1846,6 +1846,24 @@
       "unsupported": "App 不支援此檢舉表單，未送出；請改用瀏覽器。"
     }
   },
+  "moderate": {
+    "menu": "管理",
+    "stick": "置頂",
+    "digest": "精華",
+    "close": "關閉主題",
+    "open": "打開主題",
+    "move": "移動",
+    "delete": "刪除主題",
+    "expiration": "有效期",
+    "noExpiration": "永久",
+    "reason": "操作原因",
+    "notifyAuthor": "通知作者",
+    "moveTo": "目標版塊",
+    "moveNormal": "移動主題",
+    "moveRedirect": "保留轉向",
+    "done": "管理操作成功",
+    "failed": "操作失敗"
+  },
   "packetCard": {
     "title": "紅包",
     "detail": "你找到一個紅包了！",
