@@ -1765,6 +1765,22 @@
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
   },
+  "threadExport": {
+    "copyPlain": "Copy as plain text",
+    "copyMarkdown": "Copy as Markdown",
+    "menu": "Export thread",
+    "plain": "Plain text",
+    "markdown": "Markdown",
+    "loaded": "Loaded floors",
+    "all": "All pages",
+    "save": "Save",
+    "share": "Share",
+    "cancel": "Cancel",
+    "progress": "Loading page ${page: int} / ${total: int}",
+    "failed": "Export failed",
+    "saved": "Saved to ${filePath: String}",
+    "dialog": "Export thread"
+  },
   "shareFloorImage": {
     "title": "Share as image",
     "save": "Save",

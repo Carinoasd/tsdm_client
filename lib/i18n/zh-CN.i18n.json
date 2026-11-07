@@ -1765,6 +1765,22 @@
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
   },
+  "threadExport": {
+    "copyPlain": "复制为纯文本",
+    "copyMarkdown": "复制为 Markdown",
+    "menu": "导出整帖",
+    "plain": "纯文本",
+    "markdown": "Markdown",
+    "loaded": "已加载的楼层",
+    "all": "全部页",
+    "save": "保存",
+    "share": "分享",
+    "cancel": "取消",
+    "progress": "正在读取第 ${page: int} / ${total: int} 页",
+    "failed": "导出失败",
+    "saved": "已保存至 ${filePath: String}",
+    "dialog": "导出整帖"
+  },
   "shareFloorImage": {
     "title": "分享为图片",
     "save": "保存",

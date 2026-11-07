@@ -39,6 +39,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
@@ -2028,6 +2029,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             icon: Icons.format_list_numbered_outlined,
                             description: context.t.threadPage.jumpToFloor.menu,
                             onSelected: () async => _askJumpToFloor(context, state),
+                          ),
+                        if (state.postList.isNotEmpty)
+                          MenuCustomItem(
+                            icon: Icons.file_download_outlined,
+                            description: context.t.threadExport.menu,
+                            onSelected: () async => exportThread(context, state),
                           ),
                         MenuCustomItem(
                           icon: Icons.numbers_outlined,
