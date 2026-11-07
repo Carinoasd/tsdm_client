@@ -1532,7 +1532,9 @@
       "tooltip": "Thread kind",
       "normal": "Ordinary thread",
       "reward": "Reward",
-      "hongbao": "Red packet"
+      "hongbao": "Red packet",
+      "activity": "Activity",
+      "debate": "Debate"
     },
     "rewardDialog": {
       "title": "Set reward",
@@ -1580,6 +1582,43 @@
         "shortage": "Not enough credits",
         "blessingTooLong": "Blessing at most $max characters",
         "passwordTooLong": "Password at most $max characters"
+      }
+    },
+    "activityDialog": {
+      "title": "Set activity",
+      "entryTooltip": "Activity",
+      "category": "Category",
+      "start": "Starts",
+      "end": "Ends",
+      "place": "Place",
+      "city": "City",
+      "number": "Members needed",
+      "gender": "Gender",
+      "credit": "Credits to apply",
+      "cost": "Cost per member",
+      "expiration": "Applications close",
+      "userFields": "Applicants fill in",
+      "extFields": "Extra fields (one per line)",
+      "required": "Set the activity first",
+      "issue": {
+        "classRequired": "Enter the category",
+        "startRequired": "Pick the start",
+        "endBeforeStart": "The end cannot be before the start",
+        "placeRequired": "Enter the place",
+        "extFieldsTooMany": "At most $max extra fields"
+      }
+    },
+    "debateDialog": {
+      "title": "Set debate",
+      "entryTooltip": "Debate",
+      "affirm": "Point for",
+      "negate": "Point against",
+      "end": "Ends",
+      "umpire": "Umpire",
+      "required": "Set the debate first",
+      "issue": {
+        "pointsRequired": "Enter both points",
+        "endPassed": "The end must be in the future"
       }
     },
     "postedWithNotice": {

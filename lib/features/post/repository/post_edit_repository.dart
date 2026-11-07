@@ -278,6 +278,8 @@ final class PostEditRepository with LoggerMixin {
         attachNew: edits.attachNew,
         rewardPrice: edits.rewardPrice,
         hongbao: edits.hongbao,
+        activity: edits.activity,
+        debate: edits.debate,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {

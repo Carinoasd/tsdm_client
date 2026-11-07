@@ -391,6 +391,12 @@ class DialogPaths {
   /// Dialog to set the red packet of a new red packet thread.
   static const String hongbao = '/dialog/hongbao';
 
+  /// Dialog to set the activity of a new activity thread.
+  static const String activity = '/dialog/activity';
+
+  /// Dialog to set the debate of a new debate thread.
+  static const String debate = '/dialog/debate';
+
   /// Dialog to let user select thread read perm.
   static const String selectPerm = '/dialog/selectPerm';
 
