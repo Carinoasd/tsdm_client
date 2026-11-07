@@ -40,6 +40,8 @@
    "before": "«热门回复的内文\n第二行»\n",
    "after": "«热门回复的内文\n  第二行»\n"
   },
+  "test/data/tsdmapp/hongbao/thread_password_active.json#11174": "«￼\nHB口令測試B body»\n«口令包B»\n«拼手氣紅包 · 剩 3/3 份 · 點擊領取»\n",
+  "test/data/tsdmapp/hongbao/thread_sender_active.json#11166": "«￼\nAPP回帖57875（tsdmapp 3.5.0 驗收用的紅包帖）»\n«APP回帖57875»\n«拼手氣紅包 · 剩 1/2 份 · 點擊領取»\n",
   "test/data/tsdmapp/pm_v11_chat.json#message0": "«BU pm GC1 第一則 由 B 發（gc1b1_1789176308198）»\n",
   "test/data/tsdmapp/pm_v11_chat.json#message1": "«BU pm GC1 B 的新發言（gc1b2_1789176308198）»\n",
   "test/data/tsdmapp/pm_v11_chat.json#message2": "«BU pm GC1 C 的新發言（gc1c1_1789176308198）»\n",
@@ -420,25 +422,25 @@
   "test/data/tsdmapp/thread_v3_long_p2.json#100036": "«第17號\n[master]\n[node1]7[/node1]\n[node5]2[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
   "test/data/tsdmapp/thread_v3_long_p2.json#100037": "«第18號\n[master]\n[node1]8[/node1]\n[node5]3[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
   "test/data/tsdmapp/thread_v3_long_p2.json#100038": "«第19號\n[master]\n[node1]9[/node1]\n[node5]4[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100319": "«第300號\n[master]\n[node1]0[/node1]\n[node5]0[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100318": "«第299號\n[master]\n[node1]9[/node1]\n[node5]4[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100317": "«第298號\n[master]\n[node1]8[/node1]\n[node5]3[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100316": "«第297號\n[master]\n[node1]7[/node1]\n[node5]2[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100315": "«第296號\n[master]\n[node1]6[/node1]\n[node5]1[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100314": "«第295號\n[master]\n[node1]5[/node1]\n[node5]0[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
-  "test/data/tsdmapp/thread_v3_long_reverse.json#100313": "«第294號\n[master]\n[node1]4[/node1]\n[node5]4[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
   "test/data/tsdmapp/thread_v3_long_reverse.json#100312": "«第293號\n[master]\n[node1]3[/node1]\n[node5]3[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100313": "«第294號\n[master]\n[node1]4[/node1]\n[node5]4[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100314": "«第295號\n[master]\n[node1]5[/node1]\n[node5]0[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100315": "«第296號\n[master]\n[node1]6[/node1]\n[node5]1[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100316": "«第297號\n[master]\n[node1]7[/node1]\n[node5]2[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100317": "«第298號\n[master]\n[node1]8[/node1]\n[node5]3[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100318": "«第299號\n[master]\n[node1]9[/node1]\n[node5]4[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
+  "test/data/tsdmapp/thread_v3_long_reverse.json#100319": "«第300號\n[master]\n[node1]0[/node1]\n[node5]0[/node5]\n[node6]甲組[/node6]\n[/master]\n以上，謝謝版主。»\n",
   "test/data/tsdmapp/thread_v3_moderated.json#4663": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«￼本主题由 管理团队 于 昨天 09:55\n打开»\n",
   "test/data/tsdmapp/thread_v3_paid.json#3055": "",
   "test/data/tsdmapp/thread_v3_plain.json#3938": "«此主題僅供 Rulebot 1.1 多版塊隔離驗證，透過 Discuz 原生流程建立；驗證完畢保留測試證據。»\n",
-  "test/data/tsdmapp/thread_v3_plain.json#3954": {
-   "before": "«NC984059ag_mid粗體￼廣告連結紅字[img]@ag_low2»\n",
-   "after": "«NC984059ag_mid 粗體 ￼廣告連結 紅字 [img] @ag_low2»\n"
-  },
   "test/data/tsdmapp/thread_v3_plain.json#3942": "«[Rulebot local acceptance FID2] 多版驗收答案：這是 FID2 的獨立規則。»\n",
   "test/data/tsdmapp/thread_v3_plain.json#3951": {
    "before": "«NC650591ag_mid粗體￼廣告連結紅字[img]@ag_low2»\n",
    "after": "«NC650591ag_mid 粗體 ￼廣告連結 紅字 [img] @ag_low2»\n"
+  },
+  "test/data/tsdmapp/thread_v3_plain.json#3954": {
+   "before": "«NC984059ag_mid粗體￼廣告連結紅字[img]@ag_low2»\n",
+   "after": "«NC984059ag_mid 粗體 ￼廣告連結 紅字 [img] @ag_low2»\n"
   },
   "test/data/tsdmapp/thread_v3_poll.json#3217": "«投票增強驗收用帖。»\n",
   "test/data/tsdmapp/thread_v3_rush_deleted.json#3206": "«這是搶樓主題的 1 樓，每人限回 3 樓，長度足夠通過檢查。»\n",
