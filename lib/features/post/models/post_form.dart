@@ -549,9 +549,10 @@ final class PostForm {
       blockInputs('cronpublish').any((e) => e.name == 'cronpublish' && e.isCheckbox && e.checked);
 
   /// Whether the form is the edit of the first post of a poll whose options it serves (`poll.options`, each with its
-  /// `polloptionid[ID]`, `displayorder[ID]` and `polloption[ID]` fields; `pollimage[ID]` sent when served), posted back as served
-  /// ([body]): the forum (`extend_thread_poll::before_editpost`) keeps every option by its id, its votes with it, and
-  /// the settings as the page prints them, as the website's form does when the member changes none of them.
+  /// `polloptionid[ID]`, `displayorder[ID]` and `polloption[ID]` fields; `pollimage[ID]` sent when served), posted
+  /// back as served ([body]): the forum (`extend_thread_poll::before_editpost`) keeps every option by its id, its
+  /// votes with it, and the settings as the page prints them, as the website's form does when the member changes none
+  /// of them.
   ///
   /// False without options: the form of a member who may not edit the poll, or one the forum would read as no poll
   /// at all (`polls` with no option drops the poll from the thread).
