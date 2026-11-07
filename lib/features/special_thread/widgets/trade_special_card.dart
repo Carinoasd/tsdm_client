@@ -2,12 +2,32 @@ part of 'special_thread_card.dart';
 
 /// The goods of a trade thread in the page's order: picture, name, recommended and quality, price in money and in
 /// the site's trade credit with the original price struck through, the time left or the end of the trade, a deleted
-/// goods as the page says it. A goods opens its page in the browser, where buying, bargaining, the quantity, the
-/// shipping and the seller's contact are (the thread page does not carry them); so do sorting and adding goods.
+/// goods as the page says it. A goods opens its page in the app ([openTradeGoodsPage]: the details the thread page
+/// does not carry, buying a goods sold for credit, only with [onReload]: not in an offline copy nor a notice's post);
+/// sorting and adding goods open the web page.
 class _TradeCard extends StatelessWidget {
-  const _TradeCard(this.trade);
+  const _TradeCard(this.trade, {this.onReload});
 
   final TradeSpecial trade;
+
+  /// Reload the thread page after a purchase; null: no buying here.
+  final VoidCallback? onReload;
+
+  Future<void> _open(BuildContext context, TradeGoods goods) async {
+    final target = tradeGoodsOfUrl(goods.url);
+    if (target == null) {
+      return _openInBrowser(context, goods.url!);
+    }
+    return openTradeGoodsPage(
+      context,
+      tid: target.tid,
+      pid: target.pid,
+      goods: goods,
+      creditUnit: trade.creditUnit,
+      canBuy: onReload != null,
+      onBought: onReload,
+    );
+  }
 
   String _price(BuildContext context, num money, int credit) {
     final tr = context.t.specialThread.trade;
@@ -93,7 +113,7 @@ class _TradeCard extends StatelessWidget {
               ],
             ),
           ),
-          if (goods.url != null) Icon(Icons.open_in_browser_outlined, size: 18, color: colorScheme.outline),
+          if (goods.url != null) Icon(Icons.chevron_right, size: 20, color: colorScheme.outline),
         ],
       ),
     );
@@ -102,7 +122,7 @@ class _TradeCard extends StatelessWidget {
     }
     return InkWell(
       borderRadius: BorderRadius.circular(appInnerRadius),
-      onTap: () async => _openInBrowser(context, goods.url!),
+      onTap: () async => _open(context, goods),
       child: body,
     );
   }
@@ -122,11 +142,6 @@ class _TradeCard extends StatelessWidget {
             sizedBoxW8H8,
           ],
           for (final goods in trade.goods) ...[_goods(context, goods), sizedBoxW8H8],
-          if (trade.goods.any((e) => e.url != null))
-            Text(
-              tr.openHint,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline),
-            ),
           if ((trade.canManage && trade.manageUrl != null) || (trade.canAdd && trade.addUrl != null))
             Wrap(
               spacing: 8,

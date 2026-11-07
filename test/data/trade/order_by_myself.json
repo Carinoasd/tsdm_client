@@ -1,0 +1,1 @@
+{"ok": 0, "api": 1, "time": 1700000000, "uid": 33, "formhash": "f1f2f3f4", "type": "result", "schema": 13, "kind": "message", "message": "抱歉，您无法购买自己的商品", "message_key": "trade_by_myself", "url": "", "handlekey": "", "values": {}, "login": 0, "alert": "error"}
