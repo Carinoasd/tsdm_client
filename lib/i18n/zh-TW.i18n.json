@@ -1550,6 +1550,14 @@
       "entryTooltip": "投票",
       "optionEmpty": "選項不能為空白"
     },
+    "cronPublish": {
+      "title": "定時發布",
+      "entryTooltip": "定時發布",
+      "time": "發布時間",
+      "passed": "發布時間必須晚於現在",
+      "scheduled": "已排程",
+      "scheduledMessage": "將於 $time 發布，在此之前留在草稿箱。要前往「我的帖子 → 草稿箱」查看嗎？"
+    },
     "debateDialog": {
       "title": "辯論設定",
       "entryTooltip": "辯論",

@@ -332,6 +332,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                   hongbao: event.hongbao,
                   activity: event.activity,
                   debate: event.debate,
+                  cronPublish: event.cronPublish,
                 ),
                 verification: event.verification,
                 told: told,
@@ -378,12 +379,20 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       return;
     }
     final tid = _tidRe.firstMatch(tidEither.unwrap())?.namedGroup('tid');
-    final confirmed = info.save != '1' || await _repo.confirmsDraft(tidEither.unwrap());
+    // Published later: the forum keeps the thread a draft until its time, which the thread tells; a time passed
+    // meanwhile published it now.
+    final scheduled =
+        event.cronPublish != null &&
+        (form?.offersCronPublish ?? false) &&
+        await _repo.confirmsDraft(tidEither.unwrap());
+    final confirmed = scheduled || info.save != '1' || await _repo.confirmsDraft(tidEither.unwrap());
     _submitting = false;
     if (_active(emit)) {
       emit(
         state.copyWith(
-          status: confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed,
+          status: scheduled
+              ? PostEditStatus.scheduled
+              : (confirmed ? PostEditStatus.success : PostEditStatus.draftUnconfirmed),
           redirectTid: tid,
           needsBrowser: false,
         ),

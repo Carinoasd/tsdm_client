@@ -208,10 +208,14 @@ final class PostFormEdits {
     this.activity,
     this.debate,
     this.poll,
+    this.cronPublish,
   });
 
   /// The poll settings of the first post of a poll edited ([PostForm.pollEdit]), null to post them as served.
   final PollEdits? poll;
+
+  /// When a new thread is published ([PostForm.offersCronPublish]), null for now: the forum keeps it a draft until then.
+  final DateTime? cronPublish;
 
   /// The activity of a new activity thread or of the first post of one edited ([PostForm.activity]), null to post the
   /// served fields.
@@ -595,6 +599,23 @@ final class PostForm {
   bool get schedulesPublication =>
       blockInputs('cronpublish').any((e) => e.name == 'cronpublish' && e.isCheckbox && e.checked);
 
+  /// Whether the member may set when a new thread is published (`cronpublish` with its date, the group's
+  /// `allowsetpublishdate`): the forum (newthread.php) keeps a thread whose time is ahead a draft (`save` forced to 1)
+  /// and publishes it at that time (`cron_publish_halfhourly`, every half hour); a time already passed publishes it
+  /// now. Not for a red packet thread: the plugin makes the packet with the thread, draft or not.
+  bool get offersCronPublish {
+    final names = {
+      for (final input in blockInputs('cronpublish'))
+        if (input.name != 'cronpublish' || input.isCheckbox) input.name,
+    };
+    return action == 'newthread' && !isHongbao && names.containsAll(const ['cronpublish', 'cronpublishdate']);
+  }
+
+  /// The time [at] as the forum reads `cronpublishdate`: `strtotime()` in the member's time zone, the wall clock of
+  /// the offset the answer gives ([tsdmAppTimeOffset], the forum's +8 when it names none).
+  String cronPublishDate(DateTime at) =>
+      discuzDateTime(tsdmAppWallClockTime(at.millisecondsSinceEpoch ~/ 1000, tsdmAppTimeOffset(json))!);
+
   /// Whether the form is the edit of the first post of a poll whose options it serves (`poll.options`, each with its
   /// `polloptionid[ID]`, `displayorder[ID]` and `polloption[ID]` fields; `pollimage[ID]` sent when served), posted
   /// back as served ([body]): the forum (`extend_thread_poll::before_editpost`) keeps every option by its id, its
@@ -803,6 +824,13 @@ final class PostForm {
       if (expiration != null && expiration.trim().isNotEmpty && int.tryParse(expiration.trim()) == null) {
         body.set('expiration', '-1');
       }
+    }
+    // A new thread published later: posted with its time, the forum keeps it a draft until then.
+    if (edits.cronPublish case final at? when offersCronPublish) {
+      final checkbox = blockInputs('cronpublish').firstWhere((e) => e.name == 'cronpublish');
+      body
+        ..set('cronpublish', checkbox.value ?? 'true')
+        ..set('cronpublishdate', cronPublishDate(at));
     }
     // The website's 保存草稿 button sets `save` to 1; publishing posts the served value.
     if (edits.save == '1' && canSaveDraft) {

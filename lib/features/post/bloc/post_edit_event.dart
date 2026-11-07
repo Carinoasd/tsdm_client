@@ -148,7 +148,11 @@ final class ThreadPubPostThread extends PostEditEvent with ThreadPubPostThreadMa
     this.hongbao,
     this.activity,
     this.debate,
+    this.cronPublish,
   });
+
+  /// When the thread is published ([PostFormEdits.cronPublish]), null for now.
+  final DateTime? cronPublish;
 
   /// The activity of an activity thread ([PostFormEdits.activity]), null for any other thread.
   final ActivityEdits? activity;

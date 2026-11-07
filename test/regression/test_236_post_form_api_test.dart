@@ -259,7 +259,7 @@ void main() {
 
   group('A. the answer', () {
     test('every form fixture is a post form of its action, served to its account', () {
-      expect(_forms, hasLength(27));
+      expect(_forms, hasLength(28));
       for (final name in _forms) {
         final json = _json(name);
         expect(postFormAnswerOf(json), same(json), reason: name);
@@ -501,6 +501,8 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         // An activity and a debate with their settings (test_294).
         'newthread_activity': ('newthread', PostFormSupport.supported),
         'newthread_debate': ('newthread', PostFormSupport.supported),
+        // A group allowed to set when the thread is published (test_332).
+        'newthread_cronpublish': ('newthread', PostFormSupport.supported),
         // fid 2: another plugin prints its fields on the form of a first post (`hook_fields`).
         'edit_first': ('edit', PostFormSupport.unsupported),
         'edit_reply': ('edit', PostFormSupport.supported),

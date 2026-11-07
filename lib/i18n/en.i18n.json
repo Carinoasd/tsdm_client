@@ -1550,6 +1550,14 @@
       "entryTooltip": "Poll",
       "optionEmpty": "An option cannot be empty"
     },
+    "cronPublish": {
+      "title": "Publish later",
+      "entryTooltip": "Publish later",
+      "time": "Publish at",
+      "passed": "The time must be later than now",
+      "scheduled": "Scheduled",
+      "scheduledMessage": "It will be published at $time and stays in the drafts until then. Go to My threads → Drafts?"
+    },
     "debateDialog": {
       "title": "Set debate",
       "entryTooltip": "Debate",

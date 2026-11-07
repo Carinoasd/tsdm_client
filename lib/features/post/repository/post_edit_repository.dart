@@ -287,6 +287,7 @@ final class PostEditRepository with LoggerMixin {
         activity: edits.activity,
         debate: edits.debate,
         poll: edits.poll,
+        cronPublish: edits.cronPublish,
       ),
     );
     if (told != null && (verification == null || !verification.covers(told))) {

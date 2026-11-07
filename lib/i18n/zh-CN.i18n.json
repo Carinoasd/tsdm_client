@@ -1550,6 +1550,14 @@
       "entryTooltip": "投票",
       "optionEmpty": "选项不能为空"
     },
+    "cronPublish": {
+      "title": "定时发布",
+      "entryTooltip": "定时发布",
+      "time": "发布时间",
+      "passed": "发布时间必须晚于现在",
+      "scheduled": "已排程",
+      "scheduledMessage": "将于 $time 发布，在此之前留在草稿箱。要前往「我的帖子 → 草稿箱」查看吗？"
+    },
     "debateDialog": {
       "title": "辩论设置",
       "entryTooltip": "辩论",
