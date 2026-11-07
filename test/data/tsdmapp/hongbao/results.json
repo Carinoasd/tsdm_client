@@ -1,0 +1,264 @@
+{
+ "g_already": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058943,
+  "uid": 1031,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "amount": "1",
+   "unit": "威望",
+   "best": "1",
+   "iscat": "0",
+   "already": "1",
+   "canwd": "0"
+  },
+  "login": 0,
+  "alert": "right"
+ },
+ "g_badpw": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058956,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "口令錯誤,再試試",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "badpw"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "g_done": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058942,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "紅包已被搶光",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "done"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "g_guest": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058943,
+  "uid": 0,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "請先登入再領取",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "login"
+  },
+  "login": 1,
+  "alert": "error"
+ },
+ "g_needreply": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058942,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "需先在本主題回覆後才能搶",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "needreply"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "g_noformhash": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058943,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "請求已過期,請重新整理頁面",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "formhash"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "g_pw_success": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058956,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "amount": "1",
+   "unit": "威望",
+   "best": "1",
+   "iscat": "1",
+   "already": "0",
+   "canwd": "0"
+  },
+  "login": 0,
+  "alert": "right"
+ },
+ "g_success": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058948,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "amount": "2",
+   "unit": "威望",
+   "best": "1",
+   "iscat": "1",
+   "already": "0",
+   "canwd": "0"
+  },
+  "login": 0,
+  "alert": "right"
+ },
+ "g_withdrawn": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058942,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "紅包已被撤回",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "withdrawn"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "g_withdrawn2": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058948,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "紅包已被撤回",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_grab",
+  "values": {
+   "reason": "withdrawn"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "w_ended": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058948,
+  "uid": 1031,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "紅包已結束,無法撤回",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_withdraw",
+  "values": {
+   "reason": "ended"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "w_notsender": {
+  "ok": 0,
+  "api": 1,
+  "time": 1794058943,
+  "uid": 1033,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "只有發送者能撤回這個紅包",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_withdraw",
+  "values": {
+   "reason": "notsender"
+  },
+  "login": 0,
+  "alert": "error"
+ },
+ "w_success": {
+  "ok": 1,
+  "api": 1,
+  "time": 1794058948,
+  "uid": 1031,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "hongbao_withdraw",
+  "values": {
+   "refunded": "1"
+  },
+  "login": 0,
+  "alert": "right"
+ }
+}

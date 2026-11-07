@@ -14,7 +14,8 @@ sealed class ThreadSpecial {
   const ThreadSpecial({required this.formHash, required this.viewerUid});
 
   /// The special block of an answer's `special` [value] with the answer's [formHash] and [viewerUid] (`uid`, 0 for a
-  /// guest); null when there is none or its `type` is not one of the five.
+  /// guest); null when there is none or its `type` is not one of the five, or the red packet of plugin 3.5.0
+  /// (`schema: 18`, [HongbaoSpecial]).
   ///
   /// [timeOffset] is the answer's `timeoffset`: the times the app shows as dates (the end of a poll, the activity's
   /// time and deadline, an application's time, the end of a debate) are the forum's wall clock with it, as the page
@@ -30,6 +31,7 @@ sealed class ThreadSpecial {
       'reward' => RewardSpecial._fromApi(value, formHash: formHash, viewerUid: uid),
       'activity' => ActivitySpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
       'debate' => DebateSpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
+      'hongbao' => HongbaoSpecial._fromApi(value, formHash: formHash, viewerUid: uid, timeOffset: timeOffset),
       _ => null,
     };
   }
@@ -1337,6 +1339,313 @@ SpecialRequest? debateVotePostRequest(SpecialActionTemplate? template, int pid, 
     doneKeys: const {'debate_poll_succeed'},
     alreadyKeys: const {'debate_poll_voted'},
   );
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Red packet (plugin 3.5.0).
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// The state of a red packet (`status`).
+enum HongbaoStatus {
+  /// Shares left to grab.
+  active,
+
+  /// Every share taken (also an active packet without shares left).
+  done,
+
+  /// Withdrawn by its sender, the rest refunded.
+  withdrawn,
+
+  /// Expired, the rest refunded.
+  expired,
+
+  /// Closed by an administrator.
+  closed,
+}
+
+/// The share the account grabbed of a red packet (`mine`).
+final class HongbaoMine {
+  /// Constructor.
+  const HongbaoMine({required this.amount, required this.best, required this.time});
+
+  /// The credits it got.
+  final int amount;
+
+  /// Its share is the luckiest one so far.
+  final bool best;
+
+  /// When, as the forum's wall clock; null when not told.
+  final DateTime? time;
+}
+
+/// The red packet of a thread of the hongbao thread plugin (plugin 3.5.0, `type: hongbao`, `schema: 18`): the card
+/// the plugin prints in the first floor (`div.hb-entry`), its state, and what the account the page was served to may
+/// do with it. The plugin never gives an amount before a share is opened: neither the total nor what is left, only
+/// the shares, and the account's own share ([mine]). A password is only told to exist ([hasPassword]), the members a
+/// packet is appointed to only whether the account is one of them ([appointed]).
+final class HongbaoSpecial extends ThreadSpecial {
+  /// Constructor.
+  const HongbaoSpecial({
+    required super.formHash,
+    required super.viewerUid,
+    required this.tid,
+    required this.packetId,
+    required this.senderUid,
+    required this.senderName,
+    required this.senderAvatar,
+    required this.blessing,
+    required this.even,
+    required this.credit,
+    required this.shares,
+    required this.claimedShares,
+    required this.remainShares,
+    required this.needReply,
+    required this.replied,
+    required this.hasPassword,
+    required this.appoint,
+    required this.appointed,
+    required this.time,
+    required this.expireTime,
+    required this.expired,
+    required this.status,
+    required this.isSender,
+    required this.mine,
+    required this.canGrab,
+    required this.why,
+    required this.grabUrl,
+    required this.passwordField,
+    required this.canViewRecords,
+    required this.recordsUrl,
+    required this.canWithdraw,
+    required this.withdrawUrl,
+    required this.timeOffset,
+  });
+
+  factory HongbaoSpecial._fromApi(
+    Map<String, dynamic> m, {
+    required String formHash,
+    required int? viewerUid,
+    required num timeOffset,
+  }) {
+    final sender = m['sender'] is Map<String, dynamic>
+        ? m['sender'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final grab = m['grab'] is Map<String, dynamic> ? m['grab'] as Map<String, dynamic> : null;
+    final withdraw = m['withdraw'] is Map<String, dynamic> ? m['withdraw'] as Map<String, dynamic> : null;
+    final mine = m['mine'];
+    final tid = switch (grab ?? withdraw) {
+      final Map<String, dynamic> form => _apiInt(_specialFields(form['fields'])['tid']),
+      null => _apiInt(Uri.tryParse(_apiText(m['records_url']))?.queryParameters['tid']),
+    };
+    final grabUrl = grab == null || _apiText(grab['method']).toUpperCase() != 'POST'
+        ? null
+        : _hongbaoActionUrl(_apiText(grab['action']), 'grab', fields: _specialFields(grab['fields']), tid: tid);
+    final withdrawUrl = withdraw == null || _apiText(withdraw['method']).toUpperCase() != 'POST'
+        ? null
+        : _hongbaoActionUrl(
+            _apiText(withdraw['action']),
+            'withdraw',
+            fields: _specialFields(withdraw['fields']),
+            tid: tid,
+          );
+    final passwordField = grab == null ? '' : _apiText(grab['password']);
+    return HongbaoSpecial(
+      formHash: formHash,
+      viewerUid: viewerUid,
+      tid: tid,
+      packetId: _apiInt(m['packetid']),
+      senderUid: _apiInt(sender['uid']),
+      senderName: _apiText(sender['username']),
+      senderAvatar: _apiImageUrl(sender['avatar']),
+      blessing: _apiText(m['blessing']),
+      even: _apiText(m['split']) == 'even',
+      credit: SpecialCredit.fromApi(m['credit']),
+      shares: _apiInt(m['shares']),
+      claimedShares: _apiInt(m['claimed_shares']),
+      remainShares: _apiInt(m['remain_shares']),
+      needReply: _apiFlag(m['need_reply']),
+      replied: m['replied'] is num ? _apiFlag(m['replied']) : null,
+      hasPassword: _apiFlag(m['has_password']),
+      appoint: _apiFlag(m['appoint']),
+      appointed: m['appointed'] is num ? _apiFlag(m['appointed']) : null,
+      time: _apiWallClock(m['dateline'], timeOffset),
+      expireTime: _apiWallClock(m['expiretime'], timeOffset),
+      expired: _apiFlag(m['expired']),
+      status: switch (_apiText(m['status'])) {
+        'active' => HongbaoStatus.active,
+        'done' => HongbaoStatus.done,
+        'withdrawn' => HongbaoStatus.withdrawn,
+        'expired' => HongbaoStatus.expired,
+        _ => HongbaoStatus.closed,
+      },
+      isSender: _apiFlag(m['is_sender']),
+      mine: mine is Map<String, dynamic>
+          ? HongbaoMine(
+              amount: _apiInt(mine['amount']),
+              best: _apiFlag(mine['best']),
+              time: _apiWallClock(mine['dateline'], timeOffset),
+            )
+          : null,
+      // Only with the form to send it (and a password field the app knows: none, or `password`).
+      canGrab: _apiFlag(m['can_grab']) && grabUrl != null && (passwordField.isEmpty || passwordField == 'password'),
+      why: _apiText(m['why']),
+      grabUrl: grabUrl,
+      passwordField: passwordField,
+      canViewRecords: _apiFlag(m['can_view_records']),
+      recordsUrl: _hongbaoActionUrl(_apiText(m['records_url']), 'record', tid: tid),
+      canWithdraw: _apiFlag(m['can_withdraw']) && withdrawUrl != null,
+      withdrawUrl: withdrawUrl,
+      timeOffset: timeOffset,
+    );
+  }
+
+  /// The thread (from the forms' `tid`, or the records url), 0 when not told.
+  final int tid;
+
+  /// The packet's id.
+  final int packetId;
+
+  /// Its sender, 0 when unknown.
+  final int senderUid;
+
+  /// The sender's name.
+  final String senderName;
+
+  /// The sender's avatar (absolute), null when none.
+  final String? senderAvatar;
+
+  /// The blessing, plain text.
+  final String blessing;
+
+  /// Every share the same amount (均分); a random amount each (拼手气) otherwise.
+  final bool even;
+
+  /// The credit it is paid in, null when the site has no such credit.
+  final SpecialCredit? credit;
+
+  /// How many shares.
+  final int shares;
+
+  /// The shares taken.
+  final int claimedShares;
+
+  /// The shares left (0 once withdrawn, expired or closed).
+  final int remainShares;
+
+  /// A reader must reply in the thread before grabbing.
+  final bool needReply;
+
+  /// The account replied (the sender counts as replied); null when no reply is needed, or for a guest.
+  final bool? replied;
+
+  /// A password is asked when grabbing.
+  final bool hasPassword;
+
+  /// Only the members the sender named may grab.
+  final bool appoint;
+
+  /// The account is one of them (the sender counts as one); null when nobody is named, or for a guest.
+  final bool? appointed;
+
+  /// When it was sent, as the forum's wall clock.
+  final DateTime? time;
+
+  /// When it expires, as the forum's wall clock; null when it never expires on its own.
+  final DateTime? expireTime;
+
+  /// It expired (or its time is past).
+  final bool expired;
+
+  /// Its state.
+  final HongbaoStatus status;
+
+  /// The account sent it.
+  final bool isSender;
+
+  /// The account's share, null when it has none.
+  final HongbaoMine? mine;
+
+  /// The account may grab a share now (a password is checked only when sent).
+  final bool canGrab;
+
+  /// Why it may not, the first of the plugin's checks that fails: `disabled`, `login`, `self`, `claimed`,
+  /// `withdrawn`, `expired`, `closed`, `appoint`, `needreply`, `done`; empty when it may.
+  final String why;
+
+  /// Where grabbing is posted (the forum's `plugin.php?id=hongbao:grab`), null when it may not.
+  final String? grabUrl;
+
+  /// The name of the password field (`password`), empty when the packet has none.
+  final String passwordField;
+
+  /// The account may read who grabbed what (its sender, or a member who grabbed a share).
+  final bool canViewRecords;
+
+  /// The records (the forum's `plugin.php?id=hongbao:record&tid=…`), null when not told or foreign.
+  final String? recordsUrl;
+
+  /// The sender may withdraw what is left.
+  final bool canWithdraw;
+
+  /// Where withdrawing is posted (the forum's `plugin.php?id=hongbao:withdraw`), null when it may not.
+  final String? withdrawUrl;
+
+  /// The answer's `timeoffset`, for the times of the records.
+  final num timeOffset;
+
+  /// The request grabbing a share with [password] (for a packet with one, [hasPassword]); null when the account may
+  /// not grab, or there is no form hash.
+  SpecialRequest? grabRequest({String password = ''}) {
+    final url = grabUrl;
+    if (!canGrab || url == null || formHash.isEmpty || tid <= 0) {
+      return null;
+    }
+    return SpecialRequest(
+      method: SpecialRequestMethod.post,
+      url: url,
+      fields: {'tid': '$tid', 'formhash': formHash, if (passwordField.isNotEmpty) passwordField: password},
+      viewerUid: viewerUid,
+      doneKeys: const {},
+    );
+  }
+
+  /// The request withdrawing what is left; null when the account may not, or there is no form hash.
+  SpecialRequest? withdrawRequest() {
+    final url = withdrawUrl;
+    if (!canWithdraw || url == null || formHash.isEmpty || tid <= 0) {
+      return null;
+    }
+    return SpecialRequest(
+      method: SpecialRequestMethod.post,
+      url: url,
+      fields: {'tid': '$tid', 'formhash': formHash},
+      viewerUid: viewerUid,
+      doneKeys: const {},
+    );
+  }
+}
+
+/// The url [relative] (an answer's `action` or `records_url`) on the forum's canonical host, when it is the forum's
+/// `plugin.php?id=hongbao:[module]` for thread [tid] (its `tid`, in the url for the records, in [fields] for a form);
+/// null for anything else, so that no answer can make the app send a form elsewhere.
+String? _hongbaoActionUrl(String relative, String module, {required int tid, Map<String, String>? fields}) {
+  if (relative.trim().isEmpty || tid <= 0) {
+    return null;
+  }
+  final uri = Uri.tryParse(relative.trim());
+  if (uri == null || !uri.isForumOrRelative || uri.userInfo.isNotEmpty || uri.hasFragment) {
+    return null;
+  }
+  final absolute = uri.hasScheme ? uri.toCanonicalForumUri() : Uri.parse('$baseUrl/').resolveUri(uri);
+  final query = absolute.queryParameters;
+  if (absolute.path != '/plugin.php' || query['id'] != 'hongbao:$module') {
+    return null;
+  }
+  final named = fields == null ? query['tid'] : fields['tid'];
+  if (named != '$tid' || (fields != null && query.containsKey('tid'))) {
+    return null;
+  }
+  return absolute.toString();
 }
 
 /// Accepting floor [pid] as the answer of a bounty with the form [form] (the page's `form#modactions` posted to

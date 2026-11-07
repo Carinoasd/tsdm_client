@@ -6,6 +6,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/special_thread/repository/hongbao_repository.dart';
 import 'package:tsdm_client/features/special_thread/repository/special_thread_repository.dart';
 import 'package:tsdm_client/features/special_thread/widgets/special_form_dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
@@ -13,6 +14,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -24,6 +26,7 @@ import 'package:tsdm_client/widgets/munched_html.dart';
 
 part 'activity_special_card.dart';
 part 'debate_special_card.dart';
+part 'hongbao_special_card.dart';
 part 'reward_special_card.dart';
 part 'trade_special_card.dart';
 
@@ -36,7 +39,8 @@ part 'trade_special_card.dart';
 /// * activity: the details, the account's application, applying (the forum's form, [showSpecialFormDialog]),
 ///   cancelling, the applicants; managing opens the web page;
 /// * debate: both sides with their points, votes and debaters, the verdict, voting; the umpire's tools open the web
-///   page.
+///   page;
+/// * red packet (plugin 3.5.0): the packet, grabbing, its records, withdrawing ([HongbaoRepository]).
 ///
 /// The actions send the forum's own forms ([SpecialThreadRepository]) for the account the page was served to only;
 /// the forum's verdict is shown with its message, and a done action reloads the thread page through [onReload]. Null
@@ -69,8 +73,10 @@ class SpecialThreadCard extends StatelessWidget {
   final String? webUrl;
 
   /// Whether the card goes above the floor's content: the web page prints the bounty and the activity details before
-  /// the content, the poll, the goods and the debate's sides after it.
-  static bool aboveContent(ThreadSpecial special) => special is RewardSpecial || special is ActivitySpecial;
+  /// the content, the poll, the goods and the debate's sides after it. The hongbao plugin prints its red packet before
+  /// the content too.
+  static bool aboveContent(ThreadSpecial special) =>
+      special is RewardSpecial || special is ActivitySpecial || special is HongbaoSpecial;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +89,7 @@ class SpecialThreadCard extends StatelessWidget {
       final RewardSpecial reward => _RewardCard(reward),
       final ActivitySpecial activity => _ActivityCard(activity, onReload: reload, webUrl: webUrl),
       final DebateSpecial debate => _DebateCard(debate, onReload: reload, onJoin: offline ? null : onJoinDebate),
+      final HongbaoSpecial packet => _HongbaoCard(packet, onReload: reload),
     };
   }
 }
