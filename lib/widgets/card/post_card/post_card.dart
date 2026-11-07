@@ -20,7 +20,8 @@ import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
-import 'package:tsdm_client/features/thread/v1/utils/post_export.dart';
+import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -585,9 +586,9 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             '';
         await showCopySelectContentDialog(context: context, data: data);
       case _PostCardActions.copyAsPlainText:
-        await copyToClipboard(context, postHtmlToText(widget.post.data, format: PostExportFormat.plainText));
+        await copyPostAsText(context, widget.post, PostExportFormat.plainText);
       case _PostCardActions.copyAsMarkdown:
-        await copyToClipboard(context, postHtmlToText(widget.post.data, format: PostExportFormat.markdown));
+        await copyPostAsText(context, widget.post, PostExportFormat.markdown);
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:

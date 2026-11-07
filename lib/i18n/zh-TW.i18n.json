@@ -1779,7 +1779,11 @@
     "progress": "正在讀取第 ${page: int} / ${total: int} 頁",
     "failed": "匯出失敗",
     "saved": "已儲存至 ${filePath: String}",
-    "dialog": "匯出整帖"
+    "labelFold": "[折疊]",
+    "labelHidden": "[隱藏]",
+    "labelImage": "[圖片]",
+    "labelMedia": "[媒體]",
+    "labelSmiley": "表情"
   },
   "shareFloorImage": {
     "title": "分享為圖片",

@@ -60,6 +60,23 @@ void main() {
       expect(_md('- not a list<br># not a heading'), contains(r'\# not a heading'));
     });
 
+    test('what would read as a list, a heading, a rule or html is escaped', () {
+      expect(
+        _md('1. not a list<br>2) nor this'),
+        r'1\. not a list  '
+        '\n'
+        r'2\) nor this',
+      );
+      expect(_md('title<br>=======<br>---'), 'title  \n\\=======  \n\\---');
+      expect(_md('a &lt;b&gt;x&lt;/b&gt; &amp;copy; &amp; b'), r'a \<b>x\</b> \&copy; & b');
+      expect(_txt('a &lt;b&gt; 1. x'), 'a <b> 1. x');
+    });
+
+    test('bold next to punctuation is html, which Markdown takes where ** would not close', () {
+      expect(_md('文字<b>「粗體」</b>文字'), '文字<strong>「粗體」</strong>文字');
+      expect(_md('文字<b>粗體</b>文字'), '文字**粗體**文字');
+    });
+
     test('white space collapses as on the page and a line break stays', () {
       expect(_txt('a  \n  b<br>\n  c'), 'a b\nc');
       expect(_md('a<br>b'), 'a  \nb');
@@ -133,8 +150,9 @@ void main() {
 
     test('a fold the post made itself keeps its title and marks its content', () {
       final txt = _txt(_fixture('render_regression/floors/h05-blocks.html'));
-      expect(txt, contains('想界前命这解外'));
-      expect(txt, contains('$exportFoldMark\n> 以他低用口据具许被\n> 门质动'));
+      expect(txt, contains('$exportFoldMark 想界前命这解外 （员导造百/思没）\n> 以他低用口据具许被\n> 门质动'));
+      // The title is the fold's, not text left in its place.
+      expect('想界前命这解外'.allMatches(txt), hasLength(1));
     });
 
     test('the content a reply unlocks is marked', () {
@@ -221,6 +239,37 @@ void main() {
       );
       expect('#2  bob'.allMatches(txt), hasLength(1));
       expect('#1  op_user'.allMatches(txt), hasLength(1));
+    });
+
+    test('a hot reply whose floor is not among the floors stays', () {
+      final txt = buildThreadExport(
+        title: 't',
+        posts: [
+          _post(1, 'one'),
+          _post(9, 'copy', author: 'carol', hot: true, pid: '999'),
+        ],
+        format: PostExportFormat.plainText,
+      );
+      expect(txt, contains('#9  carol'));
+      expect(txt, contains('copy'));
+    });
+
+    test('the marks come from the labels given', () {
+      const labels = PostExportLabels(
+        fold: '[Fold]',
+        hidden: '[Hidden]',
+        image: '[Image]',
+        media: '[Media]',
+        smiley: 'emoji',
+      );
+      expect(
+        postHtmlToText(
+          '<div class="locked">x</div><img src="https://h.test/a.png"><img smilieid="1">',
+          format: PostExportFormat.plainText,
+          labels: labels,
+        ),
+        '[Hidden] x\n\n[Image] https://h.test/a.png [emoji]',
+      );
     });
 
     test('file names are made of the title and the thread id', () {

@@ -1779,7 +1779,11 @@
     "progress": "Loading page ${page: int} / ${total: int}",
     "failed": "Export failed",
     "saved": "Saved to ${filePath: String}",
-    "dialog": "Export thread"
+    "labelFold": "[Fold]",
+    "labelHidden": "[Hidden]",
+    "labelImage": "[Image]",
+    "labelMedia": "[Media]",
+    "labelSmiley": "emoji"
   },
   "shareFloorImage": {
     "title": "Share as image",

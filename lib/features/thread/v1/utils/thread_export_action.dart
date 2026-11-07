@@ -17,8 +17,62 @@ import 'package:tsdm_client/features/thread/v1/utils/post_export.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+
+/// Floors under which the export is built on the UI isolate: starting an isolate costs more than it saves.
+const _inlineFloors = 40;
+
+/// The wait between two pages of an export of every page: a thread of hundreds of pages in a burst could be taken for
+/// flooding by the forum.
+const _pageInterval = Duration(milliseconds: 300);
+
+/// The marks of the exported text in the language of the app.
+PostExportLabels exportLabelsOf(BuildContext context) {
+  final tr = context.t.threadExport;
+  return PostExportLabels(
+    fold: tr.labelFold,
+    hidden: tr.labelHidden,
+    image: tr.labelImage,
+    media: tr.labelMedia,
+    smiley: tr.labelSmiley,
+  );
+}
+
+/// Copy the content of [post] to the clipboard as [format]; nothing when it has no text.
+Future<void> copyPostAsText(BuildContext context, Post post, PostExportFormat format) async {
+  final text = postHtmlToText(post.data, format: format, labels: exportLabelsOf(context));
+  if (text.isEmpty) {
+    return;
+  }
+  await copyToClipboard(context, text);
+}
+
+@immutable
+final class _ExportJob {
+  const _ExportJob({
+    required this.title,
+    required this.floors,
+    required this.format,
+    required this.url,
+    required this.labels,
+  });
+
+  final String title;
+  final List<ExportFloor> floors;
+  final PostExportFormat format;
+  final String url;
+  final PostExportLabels labels;
+}
+
+String _runExport(_ExportJob job) => buildThreadExportOfFloors(
+  title: job.title,
+  floors: job.floors,
+  format: job.format,
+  url: job.url,
+  labels: job.labels,
+);
 
 /// What the export dialog asks.
 @immutable
@@ -65,12 +119,18 @@ Future<void> exportThread(BuildContext context, ThreadState state) async {
     return;
   }
   final title = state.title ?? tid;
-  final text = buildThreadExport(
+  // Thousands of floors are parsed one by one: off the UI isolate.
+  final job = _ExportJob(
     title: title,
-    posts: posts,
+    floors: posts.map(exportFloorOf).toList(),
     format: choice.format,
     url: '$baseUrl/forum.php?mod=viewthread&tid=$tid',
+    labels: exportLabelsOf(context),
   );
+  final text = posts.length < _inlineFloors ? _runExport(job) : await compute(_runExport, job);
+  if (!context.mounted) {
+    return;
+  }
   final fileName = threadExportFileName(title: title, tid: tid, format: choice.format);
   await writeExportFile(
     context,
@@ -136,6 +196,12 @@ Future<List<Post>?> _loadAllPages(BuildContext context, ThreadRepository reposit
         return null;
       }
       progress.value = (page: page, total: total);
+      if (page > 1) {
+        await Future<void>.delayed(_pageInterval);
+        if (cancelled) {
+          return null;
+        }
+      }
       final answer = await repository
           .fetchThreadPage(
             tid: state.tid,

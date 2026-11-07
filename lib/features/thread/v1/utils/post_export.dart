@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
@@ -28,81 +29,144 @@ enum PostExportFormat {
   };
 }
 
-/// Mark of a fold (a spoiler, a `<details>`, a fold the post made itself) in the exported text.
+/// The words the exported text marks things with. The defaults are the traditional Chinese ones.
+@immutable
+final class PostExportLabels {
+  /// Constructor.
+  const PostExportLabels({
+    this.fold = exportFoldMark,
+    this.hidden = exportHiddenMark,
+    this.image = exportImageMark,
+    this.media = exportMediaMark,
+    this.smiley = exportSmileyFallback,
+  });
+
+  /// Mark of a fold (a spoiler, a `<details>`, a fold the post made itself).
+  final String fold;
+
+  /// Mark of the content the forum hides until the reader replies, buys or has the rights.
+  final String hidden;
+
+  /// Mark of an image in plain text; Markdown has its own syntax.
+  final String image;
+
+  /// Mark of a player or other media.
+  final String media;
+
+  /// Name of a smiley that tells none.
+  final String smiley;
+}
+
+/// Default of [PostExportLabels.fold].
 const exportFoldMark = '[折疊]';
 
-/// Mark of the content the forum hides until the reader replies, buys or has the rights.
+/// Default of [PostExportLabels.hidden].
 const exportHiddenMark = '[隱藏]';
 
-/// Mark of an image in plain text; Markdown has its own syntax.
+/// Default of [PostExportLabels.image].
 const exportImageMark = '[圖片]';
 
-/// Mark of a player or other media in the text.
+/// Default of [PostExportLabels.media].
 const exportMediaMark = '[媒體]';
 
-/// Name of a smiley that tells none.
+/// Default of [PostExportLabels.smiley].
 const exportSmileyFallback = '表情';
 
 /// The content [html] of a floor as [format].
 ///
 /// What the web page does not show is left out as the floor's content leaves it out ([HiddenContent]: scripts, styles,
 /// the jammer text, what the style hides), but what the page shows after a click is kept and marked: a fold gets
-/// [exportFoldMark] and its content goes into a quote, the content a reply or a purchase unlocks gets
-/// [exportHiddenMark]. A smiley is `[name]`.
-String postHtmlToText(String html, {required PostExportFormat format}) {
+/// [PostExportLabels.fold] and its content goes into a quote, the content a reply or a purchase unlocks gets
+/// [PostExportLabels.hidden]. A smiley is `[name]`.
+String postHtmlToText(
+  String html, {
+  required PostExportFormat format,
+  PostExportLabels labels = const PostExportLabels(),
+}) {
   final body = parseHtmlDocument(html).body;
   if (body == null) {
     return '';
   }
-  return _Renderer(format, body).render();
+  return _Renderer(format, labels, body).render();
 }
+
+/// A floor as the export needs it: plain values, so a list of them goes to an isolate.
+typedef ExportFloor = ({String pid, bool hot, int? floor, String author, DateTime? time, String html});
+
+/// [post] as an [ExportFloor].
+ExportFloor exportFloorOf(Post post) => (
+  pid: post.postID,
+  hot: post.hot,
+  floor: post.shownFloor,
+  author: post.author.name,
+  time: post.publishTime,
+  html: post.data,
+);
 
 /// The floors [posts] and the thread's [title] written as one file in [format].
 ///
-/// The copies of a floor a hot reply makes ([Post.hot]) and a floor met twice (pages loaded over each other) are left
-/// out. Each floor has its floor number, author and time.
+/// The copy of a floor a hot reply makes ([Post.hot]) is left out when the floor itself is among [posts], and a floor
+/// met twice (pages loaded over each other) is written once. Each floor has its floor number, author and time.
 String buildThreadExport({
   required String title,
   required List<Post> posts,
   required PostExportFormat format,
   String? url,
+  PostExportLabels labels = const PostExportLabels(),
+}) => buildThreadExportOfFloors(
+  title: title,
+  floors: posts.map(exportFloorOf).toList(),
+  format: format,
+  url: url,
+  labels: labels,
+);
+
+/// [buildThreadExport] of [floors].
+String buildThreadExportOfFloors({
+  required String title,
+  required List<ExportFloor> floors,
+  required PostExportFormat format,
+  String? url,
+  PostExportLabels labels = const PostExportLabels(),
 }) {
   final md = format == PostExportFormat.markdown;
   final out = StringBuffer();
+  final oneLineTitle = title.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (md) {
-    out.writeln('# ${_escapeMarkdown(title.replaceAll(RegExp(r'\s+'), ' ').trim())}');
+    out.writeln('# ${_escapeMarkdown(oneLineTitle)}');
     if (url != null) {
       out
         ..writeln()
         ..writeln('<$url>');
     }
   } else {
-    out.writeln(title.replaceAll(RegExp(r'\s+'), ' ').trim());
+    out.writeln(oneLineTitle);
     if (url != null) {
       out.writeln(url);
     }
   }
+  final originals = {
+    for (final f in floors)
+      if (!f.hot) f.pid,
+  };
   final seen = <String>{};
-  for (final post in posts) {
-    if (post.hot || !seen.add(post.postID)) {
+  for (final f in floors) {
+    if ((f.hot && originals.contains(f.pid)) || !seen.add(f.pid)) {
       continue;
     }
-    final author = post.author.name;
-    final floor = post.postFloor;
-    final time = post.publishTime?.yyyyMMDDHHMM();
-    final content = postHtmlToText(post.data, format: format);
+    final floor = f.floor;
+    final time = f.time?.yyyyMMDDHHMM();
+    final content = postHtmlToText(f.html, format: format, labels: labels);
     out.writeln();
     if (md) {
       out
         ..writeln('---')
         ..writeln()
-        ..writeln(
-          '## ${[if (floor != null) '#$floor', _escapeMarkdown(author), ?time].join(' · ')}',
-        );
+        ..writeln('## ${[if (floor != null) '#$floor', _escapeMarkdown(f.author), ?time].join(' · ')}');
     } else {
       out
         ..writeln('-' * 40)
-        ..writeln([if (floor != null) '#$floor', author, ?time].join('  '));
+        ..writeln([if (floor != null) '#$floor', f.author, ?time].join('  '));
     }
     if (content.isNotEmpty) {
       out
@@ -130,7 +194,11 @@ String threadExportFileName({required String title, required String tid, require
 
 final _wsRe = RegExp('[ \t\r\n\f ]+');
 
-final _lineStartRe = RegExp(r'^(#{1,6}\s|>|[-+]\s|\d+[.)]\s)');
+final _lineStartRe = RegExp(r'^(#{1,6}\s|>|[-+]\s)');
+final _orderedStartRe = RegExp(r'^(\d+)([.)]\s)');
+
+// A line of nothing but dashes or equal signs under a line of text makes it a heading.
+final _underlineRe = RegExp(r'^\s*(-+|=+)\s*$');
 
 final _underscoreRe = RegExp(r'(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])', unicode: true);
 
@@ -142,6 +210,9 @@ String _escapeMarkdown(String s) => s
     .replaceAll('~', r'\~')
     .replaceAll('[', r'\[')
     .replaceAll(']', r'\]')
+    // Read as the start of a tag or an entity, the text would be html.
+    .replaceAll('<', r'\<')
+    .replaceAllMapped(RegExp('&(?=[A-Za-z#])'), (_) => r'\&')
     .replaceAllMapped(_underscoreRe, (_) => r'\_');
 
 /// The text being written: tracks where a line starts so white space is collapsed as a browser does.
@@ -168,8 +239,13 @@ final class _Out {
     if (t.isEmpty) {
       return;
     }
-    if (md && _newlines > 0 && _lineStartRe.hasMatch(t)) {
-      t = '\\$t';
+    if (md && _newlines > 0) {
+      if (_orderedStartRe.hasMatch(t)) {
+        // The punctuation is escaped: a backslash before a digit shows.
+        t = t.replaceFirstMapped(_orderedStartRe, (m) => '${m[1]}\\${m[2]}');
+      } else if (_lineStartRe.hasMatch(t) || _underlineRe.hasMatch(t)) {
+        t = '\\$t';
+      }
     }
     _s += t;
     _newlines = 0;
@@ -235,9 +311,10 @@ const _blockTags = {
 };
 
 final class _Renderer {
-  _Renderer(this.format, this.root) : hidden = HiddenContent.of(root, postContent: true);
+  _Renderer(this.format, this.labels, this.root) : hidden = HiddenContent.of(root, postContent: true);
 
   final PostExportFormat format;
+  final PostExportLabels labels;
   final uh.Element root;
   final HiddenContent hidden;
 
@@ -311,11 +388,16 @@ final class _Renderer {
           _element(node, body);
         }
       }
-      _labelled(out, exportFoldMark, summary == null ? null : _inlineLine(_sub(summary)), body.result);
+      _labelled(out, labels.fold, summary == null ? null : _inlineLine(_sub(summary)), body.result);
+      return;
+    }
+    // The title of a fold a post made itself is the title of the fold, not text in its place.
+    if (hidden.isFoldTitle(el)) {
       return;
     }
     if (hidden.isFold(el)) {
-      _labelled(out, exportFoldMark, null, _sub(el));
+      final title = hidden.folds[el.id]?.title;
+      _labelled(out, labels.fold, title == null ? null : _inlineLine(_sub(title)), _sub(el));
       return;
     }
     if (HiddenContent.invisibleElements.contains(tag) || hidden.leavesOut(el)) {
@@ -331,12 +413,12 @@ final class _Renderer {
       final text = _sub(el);
       out
         ..blockBreak()
-        ..raw(text.isEmpty ? exportHiddenMark : '$exportHiddenMark $text')
+        ..raw(text.isEmpty ? labels.hidden : '${labels.hidden} $text')
         ..blockBreak();
       return;
     }
     if (tag == 'div' && classes.contains('showhide')) {
-      _labelled(out, exportHiddenMark, null, _sub(el));
+      _labelled(out, labels.hidden, null, _sub(el));
       return;
     }
     if (tag == 'div' && classes.contains('blockcode')) {
@@ -396,7 +478,7 @@ final class _Renderer {
       case 'iframe' || 'embed' || 'video' || 'audio' || 'object':
         final src = el.attributes['src'] ?? el.querySelector('source')?.attributes['src'] ?? el.attributes['data'];
         if (src != null && src.trim().isNotEmpty) {
-          out.text(' $exportMediaMark ${_absolute(src)} ');
+          out.text(' ${labels.media} ${_absolute(src)} ');
         }
       default:
         if (_blockTags.contains(tag)) {
@@ -434,7 +516,7 @@ final class _Renderer {
         content = cells.first;
       }
     }
-    _labelled(out, exportFoldMark, md ? _escapeMarkdown(title) : title, _sub(content));
+    _labelled(out, labels.fold, md ? _escapeMarkdown(title) : title, _sub(content));
     return true;
   }
 
@@ -471,6 +553,22 @@ final class _Renderer {
 
   /// How deep the emphasis of each marker is: a `<b>` in a `<b>` is bold once.
   final _emphasis = <String, int>{};
+
+  static final _punctuationEdgeRe = RegExp(r'^(?![*~])[\p{P}\p{S}]|(?![*~])[\p{P}\p{S}]$', unicode: true);
+
+  /// [core] in [marker]; in html tags when it starts or ends with punctuation: Markdown does not take `文字**「粗體」**`
+  /// (a marker next to punctuation and a letter does not open or close).
+  static String _mark(String marker, String core) {
+    if (_punctuationEdgeRe.hasMatch(core)) {
+      final tag = switch (marker) {
+        '**' => 'strong',
+        '*' => 'em',
+        _ => 'del',
+      };
+      return '<$tag>$core</$tag>';
+    }
+    return '$marker$core$marker';
+  }
 
   static final _blockStartRe = RegExp(r'^(\||>|```|#|[-+] |\d+\. )');
 
@@ -512,7 +610,7 @@ final class _Renderer {
               if (core.isEmpty) {
                 return line;
               }
-              return '${line.startsWith(' ') ? ' ' : ''}$marker$core$marker${line.endsWith('  ') ? '  ' : ''}';
+              return '${line.startsWith(' ') ? ' ' : ''}${_mark(marker, core)}${line.endsWith('  ') ? '  ' : ''}';
             })
             .join('\n'),
       );
@@ -546,7 +644,7 @@ final class _Renderer {
     final url = _absolute(href);
     if (inner.isEmpty) {
       out.text(md ? '<$url>' : url);
-    } else if (inner == url || inner == href) {
+    } else if ((el.text ?? '').trim() == href) {
       out.text(md ? '<$url>' : url);
     } else if (md && !inner.contains('\n')) {
       out.text('[$inner](${_mdUrl(url)})');
@@ -570,7 +668,7 @@ final class _Renderer {
         final file = src.split('?').first.split('/').last;
         name = file.contains('.') ? file.substring(0, file.lastIndexOf('.')) : file;
       }
-      out.text('[${name.isEmpty ? exportSmileyFallback : name}]');
+      out.text('[${name.isEmpty ? labels.smiley : name}]');
       return;
     }
     final url = el.imageUrl();
@@ -580,7 +678,7 @@ final class _Renderer {
     if (md) {
       out.text('![${_escapeMarkdown(alt)}](${_mdUrl(url)})');
     } else {
-      out.text(' $exportImageMark $url ');
+      out.text(' ${labels.image} $url ');
     }
   }
 
@@ -640,12 +738,10 @@ final class _Renderer {
         tr.children.where((c) => (c.localName == 'td' || c.localName == 'th') && !hidden.leavesOut(c)).toList();
     // The forum wraps a post, and the body of a spoiler, in a table of one cell: not a table of the post.
     if (rows.isEmpty) {
-      final cells = table.querySelectorAll('td').where((c) => identical(_tableOf(c), table)).toList();
-      if (cells.length <= 1) {
-        _block(table, out);
-        return;
-      }
-    } else if (rows.length == 1 && cellsOf(rows.first).length <= 1) {
+      _block(table, out);
+      return;
+    }
+    if (rows.length == 1 && cellsOf(rows.first).length <= 1) {
       _block(table, out, () {
         for (final cell in cellsOf(rows.first)) {
           _children(cell, out);
