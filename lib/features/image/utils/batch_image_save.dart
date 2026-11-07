@@ -68,6 +68,24 @@ List<GalleryImage> distinctGalleryImages(Iterable<GalleryImage> images) {
   ];
 }
 
+/// Which pictures "save all" offers: `floor` alone, or ask between the floor and `page` (the pictures of every floor of
+/// the page, the floor's own ones too).
+///
+/// `pageImages` is the union of `floor` and `page`, without the repeated ones; the floor is asked about only when the
+/// page has pictures beyond it.
+({List<GalleryImage> floorImages, List<GalleryImage> pageImages, bool ask}) saveScopesOf(
+  List<GalleryImage> floor,
+  List<GalleryImage>? page,
+) {
+  final floorImages = distinctGalleryImages(floor);
+  final pageImages = distinctGalleryImages([...floorImages, ...?page]);
+  return (
+    floorImages: floorImages,
+    pageImages: pageImages,
+    ask: floorImages.isNotEmpty && pageImages.length > floorImages.length,
+  );
+}
+
 /// [fileName], or the first of "name (2).ext", "name (3).ext"... that [isTaken] does not say is taken.
 ///
 /// Names are compared without their case: Windows and macOS keep `A.png` and `a.png` as one file.
@@ -121,6 +139,9 @@ Future<BatchSaveResult> saveImagesInBatch({
         saved += 1;
       }
     } on Exception {
+      failed += 1;
+    } on Object {
+      // A bug in one picture's way must not end the batch with the rest unsaved.
       failed += 1;
     }
     onProgress?.call(saved + failed, pictures.length);

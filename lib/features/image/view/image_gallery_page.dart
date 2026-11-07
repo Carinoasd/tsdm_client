@@ -30,7 +30,7 @@ Future<void> openImageGallery(
   BuildContext context,
   List<GalleryImage> images,
   int index, {
-  List<GalleryImage>? pageImages,
+  List<GalleryImage> Function()? pageImages,
 }) async {
   if (images.isEmpty) {
     return;
@@ -98,8 +98,8 @@ class ImageGalleryPage extends StatefulWidget {
   /// The picture shown first.
   final int initialIndex;
 
-  /// The pictures of the whole page the floor is on, null when not known.
-  final List<GalleryImage>? pageImages;
+  /// The pictures of the whole page the floor is on, worked out when asked for; null when not known.
+  final List<GalleryImage> Function()? pageImages;
 
   @override
   State<ImageGalleryPage> createState() => _ImageGalleryPageState();
@@ -351,12 +351,19 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                 tooltip: tr.saveImage,
                 onPressed: () async => saveImageOf(context, image.url),
               ),
-              if (widget.images.length > 1 || (widget.pageImages?.length ?? 0) > 1)
-                IconButton(
-                  key: const ValueKey('image-gallery-save-all'),
-                  icon: const Icon(Icons.download_for_offline_outlined, color: foreground),
-                  tooltip: tr.saveAllImages,
-                  onPressed: () async => saveImagesAskingScope(context, floor: widget.images, page: widget.pageImages),
+              if (widget.images.length > 1 || widget.pageImages != null)
+                Builder(
+                  builder: (context) => IconButton(
+                    key: const ValueKey('image-gallery-save-all'),
+                    icon: const Icon(Icons.download_for_offline_outlined, color: foreground),
+                    tooltip: tr.saveAllImages,
+                    onPressed: () async => saveImagesAskingScope(
+                      context,
+                      floor: widget.images,
+                      page: widget.pageImages,
+                      origin: shareOriginOf(context),
+                    ),
+                  ),
                 ),
               if (canShareImageFiles)
                 Builder(

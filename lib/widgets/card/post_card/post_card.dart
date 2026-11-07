@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
+import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
 import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
@@ -462,7 +463,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
       ],
       [
-        if (galleryImagesOfPost(widget.post).isNotEmpty || (threadBloc != null && _pageImages().isNotEmpty))
+        if (galleryImagesOfPost(widget.post).isNotEmpty)
           item(
             _PostCardActions.saveImages,
             Icons.download_for_offline_outlined,
@@ -572,7 +573,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           ),
         );
       case _PostCardActions.saveImages:
-        await saveImagesAskingScope(context, floor: galleryImagesOfPost(widget.post), page: _pageImages());
+        await saveImagesAskingScope(
+          context,
+          floor: galleryImagesOfPost(widget.post),
+          page: _pageImages,
+          origin: shareOriginOf(context),
+        );
       case _PostCardActions.openInBrowser:
         await launchUrl(Uri.parse(widget.post.shareLink!), mode: LaunchMode.externalApplication);
       case _PostCardActions.openAndCopy:

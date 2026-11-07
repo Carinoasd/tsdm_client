@@ -14,20 +14,22 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-/// Save the pictures of a floor ([floor]) or of its page ([page]): asks which when the page has more than the floor.
+/// Save the pictures of a floor ([floor]) or of its page ([page], worked out only now: parsing every floor of a page is
+/// not done before the user asks): asks which when the page has more than the floor.
 ///
-/// Returns once they are saved (or the user stopped, or picked nothing).
+/// [origin] is where the share sheet of a tablet points from. Returns once they are saved (or the user stopped, or
+/// picked nothing).
 Future<void> saveImagesAskingScope(
   BuildContext context, {
   required List<GalleryImage> floor,
-  List<GalleryImage>? page,
+  List<GalleryImage> Function()? page,
+  Rect? origin,
 }) async {
-  final floorImages = distinctGalleryImages(floor);
-  final pageImages = distinctGalleryImages(page ?? const []);
+  final scopes = saveScopesOf(floor, page?.call());
+  final floorImages = scopes.floorImages;
+  final pageImages = scopes.pageImages;
   final List<GalleryImage> chosen;
-  if (pageImages.length <= floorImages.length) {
-    chosen = floorImages;
-  } else if (floorImages.isEmpty) {
+  if (!scopes.ask) {
     chosen = pageImages;
   } else {
     final tr = context.t.imageBottomSheet;
@@ -46,7 +48,7 @@ Future<void> saveImagesAskingScope(
     }
     chosen = picked;
   }
-  await saveAllImages(context, chosen);
+  await saveAllImages(context, chosen, origin: origin);
 }
 
 class _ScopeOption extends StatelessWidget {
@@ -86,7 +88,7 @@ Future<Directory> _batchFolder() async {
 /// On desktop the user picks a folder once and the files are written there. A phone has no folder to write to
 /// (scoped storage): the files are made in the app's temporary folder and handed to the system's share sheet together,
 /// which saves them where the user chooses.
-Future<void> saveAllImages(BuildContext context, List<GalleryImage> images) async {
+Future<void> saveAllImages(BuildContext context, List<GalleryImage> images, {Rect? origin}) async {
   final pictures = distinctGalleryImages(images);
   if (pictures.isEmpty) {
     return;
@@ -129,14 +131,26 @@ Future<void> saveAllImages(BuildContext context, List<GalleryImage> images) asyn
     progress.dispose();
   }
   if (!isDesktop && sink.savedPaths.isNotEmpty) {
+    var handedOver = false;
+    var dismissed = false;
     try {
-      await SharePlus.instance.share(
+      final shared = await SharePlus.instance.share(
         ShareParams(
           files: [for (final e in sink.savedPaths) XFile(e, mimeType: imageMimeTypeOf(e), name: path.basename(e))],
+          sharePositionOrigin: origin,
         ),
       );
+      handedOver = shared.status != ShareResultStatus.unavailable;
+      dismissed = shared.status == ShareResultStatus.dismissed;
     } on Exception catch (e, st) {
       talker.handle(e, st, 'failed to hand the saved images over');
+    }
+    if (!context.mounted || dismissed) {
+      return;
+    }
+    if (!handedOver) {
+      showSnackBar(context: context, message: tr.failedToShareImage);
+      return;
     }
   }
   if (!context.mounted) {

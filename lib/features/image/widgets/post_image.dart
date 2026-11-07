@@ -81,7 +81,8 @@ final class FloorImages {
     updateAttachments(attachments);
   }
 
-  /// The pictures of every floor of the page the floor is on, for the gallery's "save all"; null outside a thread page.
+  /// The pictures of every floor of the page the floor is on, for the gallery's "save all" (worked out when asked for);
+  /// null outside a thread page.
   final List<GalleryImage> Function()? pageImages;
 
   /// The attachments of the floor, by id: their thumbnail and size for its pictures munched from its html.
@@ -341,7 +342,7 @@ class _PostImageState extends State<PostImage> {
       return;
     }
     final gallery = floor._galleryFor(this);
-    await openImageGallery(context, gallery.images, gallery.index, pageImages: floor.pageImages?.call());
+    await openImageGallery(context, gallery.images, gallery.index, pageImages: floor.pageImages);
   }
 
   Future<void> _onTap() async {

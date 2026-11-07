@@ -58,6 +58,23 @@ void main() {
     });
   });
 
+  group('scopes', () {
+    test('the page is asked about only when it has pictures beyond the floor', () {
+      final floor = _images(['a', 'b']);
+      expect(saveScopesOf(floor, null).ask, isFalse);
+      expect(saveScopesOf(floor, _images(['b', 'a'])).ask, isFalse);
+      expect(saveScopesOf(const [], _images(['a'])).ask, isFalse);
+      expect(saveScopesOf(const [], _images(['a'])).pageImages.map((e) => e.url), ['a']);
+    });
+
+    test('the page holds the floor too: pictures only the floor knows are not lost', () {
+      final scopes = saveScopesOf(_images(['x', 'y', 'z']), _images(['p', 'q', 'r']));
+      expect(scopes.ask, isTrue);
+      expect(scopes.floorImages.map((e) => e.url), ['x', 'y', 'z']);
+      expect(scopes.pageImages.map((e) => e.url), ['x', 'y', 'z', 'p', 'q', 'r']);
+    });
+  });
+
   group('saving in a batch', () {
     test('the same file name from different urls is numbered', () async {
       final sink = _MemorySink();
@@ -107,6 +124,15 @@ void main() {
       );
       expect(result, const BatchSaveResult(total: 6, saved: 2, failed: 4, cancelled: false));
       expect(sink.saved.keys, unorderedEquals(['a.png', 'e.jpg']));
+    });
+
+    test('an error of one picture does not end the batch', () async {
+      final result = await saveImagesInBatch(
+        images: _images(['https://forum.test/a.png', 'https://forum.test/b.png']),
+        fetch: (url) async => url.endsWith('a.png') ? throw StateError('bug') : _png,
+        sink: _MemorySink(),
+      );
+      expect(result, const BatchSaveResult(total: 2, saved: 1, failed: 1, cancelled: false));
     });
 
     test('cancelling stops before the next picture', () async {

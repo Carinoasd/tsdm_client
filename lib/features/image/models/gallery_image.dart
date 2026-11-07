@@ -57,6 +57,6 @@ final class ImageGalleryArgs {
   /// The picture shown first.
   final int initialIndex;
 
-  /// The pictures of the whole page the floor is on, null when not known.
-  final List<GalleryImage>? pageImages;
+  /// The pictures of the whole page the floor is on, worked out when asked for; null when not known.
+  final List<GalleryImage> Function()? pageImages;
 }
