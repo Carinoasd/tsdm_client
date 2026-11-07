@@ -395,23 +395,14 @@ final class SyncRepository with LoggerMixin {
         if (maxBytes <= 0) {
           return SyncOutcome.failed;
         }
-        // The forum keeps less than this version thought: fit to its limit from now on, and try once more without
-        // the drafts (the largest items, and the ones another device can best do without).
-        _documentMaxBytes = math.min(_documentMaxBytes, math.max(0, maxBytes - 2048));
-        final smaller = _fit(merged, draftsMaxBytes: 0);
-        if (!retry || smaller.encodedLength >= merged.encodedLength) {
-          return SyncOutcome.failed;
+        // The forum keeps less than this version thought: fit to its limit from now on (the drafts within a quarter of
+        // it), and write again after the debounce. Not at once: the plugin keeps
+        // its interval lock after a 413 (unlike a 409), so a write right away is answered 429 (busy).
+        final limit = math.max(0, maxBytes - 2048);
+        if (limit < _documentMaxBytes) {
+          _documentMaxBytes = limit;
+          schedulePush(uid);
         }
-        if (!_stillCurrent(uid)) {
-          return SyncOutcome.accountChanged;
-        }
-        final again = await _api.push(uid, data: smaller.encode(), baseUpdated: remoteUpdated, formhash: formhash);
-        if (again case SyncPushed(:final updated)) {
-          await _store.saveLastSynced(uid, smaller.encode(), updated);
-          debug('sync: pushed ${smaller.encodedLength} bytes without the drafts, updated $updated');
-          return SyncOutcome.pushed;
-        }
-        debug('sync: the smaller document was not written either: $again');
         return SyncOutcome.failed;
       case SyncPushFailed(:final reason):
         debug('sync: push failed: $reason');
@@ -627,12 +618,12 @@ final class SyncRepository with LoggerMixin {
   }
 
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
-  /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within [draftsMaxBytes]
-  /// ([syncDraftsMaxBytes] by default), deletion records older than [syncTombstoneKeptFor] dropped, and at most
-  /// [syncDocumentMaxBytes] (the oldest visits dropped first, then the oldest deletion records of visits, then the
+  /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
+  /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor] dropped, and at most
+  /// [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits dropped first, then the oldest deletion records of visits, then the
   /// drafts). Dropping is by time alone, so every device drops the same items of the same document; a dropped item is
   /// not a deletion.
-  SyncDocument _fit(SyncDocument doc, {int? draftsMaxBytes}) {
+  SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
     List<MapEntry<String, Map<String, dynamic>>> latest(
       Iterable<MapEntry<String, Map<String, dynamic>>> items,
@@ -663,7 +654,7 @@ final class SyncRepository with LoggerMixin {
       for (final e in liveDrafts) e.key: e.value,
       for (final e in goneDrafts) e.key: e.value,
     };
-    final draftsMax = math.min(draftsMaxBytes ?? syncDraftsMaxBytes, _documentMaxBytes ~/ 4);
+    final draftsMax = math.min(syncDraftsMaxBytes, _documentMaxBytes ~/ 4);
     while ((liveDrafts.isNotEmpty || goneDrafts.isNotEmpty) && _bytesOf(drafts()) > draftsMax) {
       if (liveDrafts.isNotEmpty) {
         liveDrafts.removeLast();

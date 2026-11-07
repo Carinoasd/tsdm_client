@@ -436,9 +436,9 @@ void main() {
         off = {};
         await repo().pull(_uid);
         expect(store.draftsByUid[_uid]!.keys.toSet(), {'reply:1', 'reply:5'});
-        if (api.pushes.length > 1) {
-          expect(SyncDocument.isDeleted((api.lastPushed['drafts'] as Map)['reply:5'] as Map<String, dynamic>), isFalse);
-        }
+        // Whatever was written, the forum's document still holds the draft of the other device.
+        final forum = SyncDocument.parse((api.pullAnswer as SyncPulled).data);
+        expect(forum.items('drafts')['reply:5'], _draftItem(300));
       });
 
       test('a large draft goes without its editor document, a larger one stays here', () async {
@@ -465,18 +465,30 @@ void main() {
         final drafts = api.lastPushed['drafts'] as Map<String, dynamic>;
         expect(utf8.encode(jsonEncode(drafts)).length, lessThanOrEqualTo(syncDraftsMaxBytes));
         expect(drafts.keys.toSet(), {'reply:10', 'reply:9'});
+        // The drafts left out are not deletions.
+        expect(await repo().pull(_uid), SyncOutcome.upToDate);
+        expect(store.draftsByUid[_uid], hasLength(10));
+        final forum = SyncDocument.parse((api.pullAnswer as SyncPulled).data);
+        expect(forum.items('drafts').values.where(SyncDocument.isDeleted), isEmpty);
       });
 
-      test('a document the forum refuses as too large is sent again without the drafts', () async {
+      test('a document the forum refuses as too large is fitted to its limit and written after the debounce', () async {
         store.draftsByUid[_uid] = {'reply:1': _draft('1', 100, body: 'x' * 4000)};
         store.phraseList = ['p'];
         api.pushAnswers.addAll([const SyncTooLarge(3000), const SyncPushed(7)]);
-        expect(await repo().pull(_uid), SyncOutcome.pushed);
-        expect(api.pushes, hasLength(2));
+        final r = repo();
+        addTearDown(r.dispose);
+        expect(await r.pull(_uid), SyncOutcome.failed);
+        expect(api.pushes, hasLength(1));
         expect(jsonDecode(api.pushes.first.data), contains('drafts'));
+        // Not at once: the plugin answers a write right after a 413 with 429 (busy).
+        expect(r.pushScheduled, isTrue);
+        expect(await r.pushNow(_uid), SyncOutcome.pushed);
+        expect(api.pushes, hasLength(2));
+        expect(api.pushes.last.data.length, lessThanOrEqualTo(3000 - 2048));
         expect(api.lastPushed.containsKey('drafts'), isFalse);
         expect(api.lastPushed['phrases'], isNotNull);
-        expect(api.pushes.last.base, 0);
+        expect(store.draftsByUid[_uid], hasLength(1), reason: 'a draft left out is not deleted');
       });
 
       test('a forum limit not given leaves the document as it is', () async {

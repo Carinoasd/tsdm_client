@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
@@ -68,8 +70,18 @@ final syncedSettings = <SyncedSetting<Object>>[
   SyncedSetting._(SettingsKeys.darkScheduleStart, (s) => s.darkScheduleStart, min: 0, max: 1439),
   SyncedSetting._(SettingsKeys.darkScheduleEnd, (s) => s.darkScheduleEnd, min: 0, max: 1439),
   // Text.
-  SyncedSetting._(SettingsKeys.textScaleFactor, (s) => s.textScaleFactor, min: 0.5, max: 2),
-  SyncedSetting._(SettingsKeys.threadContentScale, (s) => s.threadContentScale, min: 1, max: 2),
+  SyncedSetting._(
+    SettingsKeys.textScaleFactor,
+    (s) => s.textScaleFactor,
+    min: textScaleFactorMin,
+    max: textScaleFactorMax,
+  ),
+  SyncedSetting._(
+    SettingsKeys.threadContentScale,
+    (s) => s.threadContentScale,
+    min: threadContentScaleMin,
+    max: threadContentScaleMax,
+  ),
   SyncedSetting._(
     SettingsKeys.threadContentLineHeight,
     (s) => s.threadContentLineHeight,
