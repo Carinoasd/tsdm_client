@@ -1,5 +1,6 @@
 // Calls on the selection read better one per line.
 // ignore_for_file: cascade_invocations
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -231,7 +232,8 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.tap(find.text('right'));
+      // A mouse click: only then does the text input give its focus up when a click lands outside of it.
+      await tester.tap(find.text('right'), kind: PointerDeviceKind.mouse);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       expect(log, ['right']);
@@ -281,7 +283,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       expect(log.first, 'right0');
       expect(log, hasLength(2));
-      expect(log.last, anyOf('left', 'right1'));
+      expect(log.last, 'left');
     });
 
     testWidgets('Enter stays with a focused button even with an item to open', (tester) async {

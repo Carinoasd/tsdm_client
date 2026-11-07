@@ -94,32 +94,14 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
     }
   }
 
-  /// The scope of the route holding the page.
-  FocusScopeNode? _routeScope;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _routeScope = FocusScope.of(context);
-  }
-
   @override
   void dispose() {
-    // The page goes with the focus (the thread beside a list was replaced): the route gets it back, which gives it to
-    // what had it before, instead of leaving it to the root above every page.
-    final restore = _scopeNode.hasFocus ? _routeScope : null;
-    if (restore != null) {
-      scheduleMicrotask(() {
-        if (restore.context != null) {
-          restore.requestFocus();
-        }
-      });
-    }
     _scopeNode.dispose();
     super.dispose();
   }
 
-  /// Whether nothing in the route holds the focus, or the route has it for itself.
+  /// Whether nothing in the route holds the focus, or the route has it for itself (two pages side by side then both
+  /// ask for it, the one built last gets it).
   bool _focusIsFree() {
     final scope = FocusScope.of(context);
     return scope.focusedChild == null || FocusManager.instance.primaryFocus == scope;
