@@ -1389,6 +1389,11 @@
     "title": "最新主題",
     "empty": "目前還沒有貼文"
   },
+  "tagPage": {
+    "title": "標籤：$name",
+    "cloudTitle": "標籤",
+    "empty": "暫無標籤"
+  },
   "ratePostPage": {
     "title": "評分",
     "description": "給 $username 在 $floor 樓的貼文評分",

@@ -488,7 +488,9 @@ class NormalThread with NormalThreadMappable {
         // X5: forum page `<a class="s xst">`, guide page `<a class="xst">`.
         threadElement.querySelector('tr > th > a.xst') ??
         // Legacy.
-        threadElement.querySelector('tr > th > span > a');
+        threadElement.querySelector('tr > th > span > a') ??
+        // The thread rows of a tag page (`misc.php?mod=tag&id=N&type=thread`) link the title without any class.
+        threadElement.querySelector('tr > th > a[href*="viewthread"]');
     final threadUrl = threadUrlNode?.attributes['href'];
     final threadTitle = threadUrlNode?.firstEndDeepText()?.trim();
     final css = parseCssString(threadUrlNode?.attributes['style'] ?? '');

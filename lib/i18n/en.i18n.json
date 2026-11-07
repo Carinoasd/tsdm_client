@@ -1389,6 +1389,11 @@
     "title": "Latest Thread",
     "empty": "No threads yet"
   },
+  "tagPage": {
+    "title": "Tag: $name",
+    "cloudTitle": "Tags",
+    "empty": "No tags"
+  },
   "ratePostPage": {
     "title": "Rate",
     "description": "Rate $username post at floor $floor",

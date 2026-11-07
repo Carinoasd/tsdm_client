@@ -24,6 +24,9 @@ class ScreenPaths {
   /// Show the group specified by group id `gid`.
   static const String forumGroup = '/forumGroup/:gid';
 
+  /// Cloud of the forum's tags.
+  static const String tagCloud = '/tags';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Only the very first part of page.
