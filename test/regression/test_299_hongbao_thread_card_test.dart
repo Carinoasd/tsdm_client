@@ -514,6 +514,20 @@ void main() {
       }
       await pump(tester, SpecialThreadCard(_state('appoint'), pid: '1', onReload: () {}));
       expect(find.text(tr.appoint), findsOneWidget);
+
+      // What the test forum cannot show (a sender may not grab, red packets turned off): the plugin's keys as given.
+      for (final (why, text) in [('self', tr.why.self), ('disabled', tr.why.disabled)]) {
+        final raw = _rawState('sender_password')
+          ..['can_grab'] = 0
+          ..['why'] = why
+          ..['grab'] = null;
+        final p = ThreadSpecial.fromApi(raw, formHash: 'f1f2f3f4', viewerUid: 1035)! as HongbaoSpecial;
+        expect(p.canGrab, isFalse, reason: why);
+        await pump(tester, SpecialThreadCard(p, pid: '1', onReload: () {}));
+        expect(find.text(text), findsOneWidget, reason: why);
+        expect(find.text(tr.grab), findsNothing, reason: why);
+        expect(find.text(tr.withdraw), findsOneWidget, reason: 'the sender still withdraws');
+      }
       await finish(tester);
     });
 
