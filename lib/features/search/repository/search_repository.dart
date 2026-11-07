@@ -116,7 +116,8 @@ class SearchRepository with LoggerMixin {
   /// * [uid]: Author user id, 0 represents any user.
   /// * [authorName]: Author user name, empty represents any user. Passed along with [uid] whenever known: a bare uid
   ///   found nothing for testers on the forum while the name is what the search form itself sends.
-  /// * [pageNumber]: Page number of search result.
+  /// * [pageNumber]: Page number of search result: 0 asks a new search, 1 or more a page of the cached search when
+  ///   the other parameters are the same (a new search otherwise).
   /// * [filter]: Time range, order and title only, see [SearchFilter].
   AsyncEither<SearchResult> searchWithParameters({
     required String keyword,
@@ -131,7 +132,7 @@ class SearchRepository with LoggerMixin {
     // A page of the search shown (the search page asks a new search as page 0, its page switches ask pages from 1):
     // the cached search, page 1 included.
     if (pageNumber >= 1 && _searchId != null && _lastParameters == parameters) {
-      // Other pages of the cached search.
+      // A page of the cached search.
       queryParameters = <String, String>{
         'mod': 'forum',
         'searchid': _searchId!,
