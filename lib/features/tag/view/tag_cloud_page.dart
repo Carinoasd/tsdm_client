@@ -51,7 +51,16 @@ class _TagCloudPageState extends State<TagCloudPage> {
         });
         // The tags on screen stay when a refresh fails; say so.
         if (_tags != null) {
-          showRefreshFailedSnackBar(context, _failure, onRetry: _load);
+          showRefreshFailedSnackBar(
+            context,
+            _failure,
+            onRetry: () {
+              // The snack bar outlives the page.
+              if (mounted) {
+                unawaited(_load());
+              }
+            },
+          );
         }
       },
       (tags) => setState(() {

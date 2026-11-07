@@ -90,7 +90,11 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, 400));
       await tester.pumpAndSettle();
       expect(find.byType(ActionChip), findsNWidgets(14));
+      expect(repository.calls, 3);
       expect(find.byType(SnackBar), findsOneWidget);
+      await tester.tap(find.byType(SnackBarAction));
+      await tester.pumpAndSettle();
+      expect(repository.calls, 4);
     });
   });
 
