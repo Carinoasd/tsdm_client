@@ -665,8 +665,9 @@ final class PostForm {
     if (reward != null && edits.rewardPrice != null) {
       body.set(reward.inputName, '${edits.rewardPrice}');
     }
-    if (isHongbao && hongbao != null && edits.hongbao != null) {
-      // The plugin's fields are not in the served form: added as the website's form posts them.
+    // The plugin's fields are not in the served form: added as the website's form posts them. Never for a draft: the
+    // plugin makes the packet (and charges it) as soon as the thread exists (`newthread_submit_end`), draft or not.
+    if (isHongbao && hongbao != null && edits.hongbao != null && edits.save != '1') {
       for (final MapEntry(:key, :value) in edits.hongbao!.toFields().entries) {
         body.set(key, value);
       }

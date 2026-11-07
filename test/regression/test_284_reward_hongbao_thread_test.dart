@@ -457,6 +457,45 @@ void main() {
       expect(state.maybeSent, isFalse);
     });
 
+    test('a plain-text refusal before the thread (an error) is a failed upload, the draft kept', () async {
+      // Another plugin refusing with its own words before the thread: shown as an error, no language key either.
+      final harness = _hongbaoForum(post: (_, _) => {..._json('result_hongbao_notice'), 'ok': 0, 'alert': 'error'});
+      final bloc = await _load(harness, const ThreadPubFetchInfoRequested(fid: '7', kind: ThreadKind.hongbao));
+      final state = await _post(
+        bloc,
+        ThreadPubPostThread(_info(bloc.state.content!), hongbao: const HongbaoEdits(total: 4, shares: 2)),
+      );
+      expect(state.status, PostEditStatus.failedToUpload);
+      expect(state.errorText, '均分模式：總金額須能被份數整除');
+      expect(state.notice, isNull);
+    });
+
+    test('a red packet thread saved as a draft goes without the packet', () async {
+      final harness = _hongbaoForum(post: (_, _) => _redirectTo(9202753));
+      final bloc = await _load(harness, const ThreadPubFetchInfoRequested(fid: '7', kind: ThreadKind.hongbao));
+      final info = _info(bloc.state.content!);
+      final draft = ThreadPublishInfo(
+        formHash: info.formHash,
+        postTime: info.postTime,
+        delAttachOp: info.delAttachOp,
+        wysiwyg: info.wysiwyg,
+        fid: info.fid,
+        threadType: null,
+        checkbox: info.checkbox,
+        subject: info.subject,
+        message: info.message,
+        price: null,
+        perm: null,
+        save: '1',
+        options: const [],
+      );
+      await _post(bloc, ThreadPubPostThread(draft, hongbao: const HongbaoEdits(total: 4, shares: 2)));
+      final (_, body) = harness.posts.single;
+      expect(body['save'], '1');
+      expect(body.keys.where((k) => k.startsWith('hb_')), isEmpty);
+      expect(body['specialextra'], 'hongbao');
+    });
+
     test('the same answer to an ordinary thread is still a refusal', () async {
       // Only a red packet thread reads the plugin's notice as "taken": any other form has no plugin after the post.
       final harness = _Harness(

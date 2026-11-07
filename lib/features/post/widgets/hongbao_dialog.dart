@@ -126,7 +126,11 @@ class _HongbaoDialogState extends State<_HongbaoDialog> {
               decoration: InputDecoration(
                 labelText: tr.total,
                 suffixText: credit.isEmpty ? null : credit,
-                helperText: info.balance == null ? null : tr.balance(balance: info.balance!, credit: credit),
+                // A printed 0 proves nothing (HongbaoEdits.check): not shown.
+                helperText: switch (info.balance) {
+                  final int balance when balance > 0 => tr.balance(balance: balance, credit: credit),
+                  _ => null,
+                },
                 errorMaxLines: 2,
               ),
               keyboardType: TextInputType.number,

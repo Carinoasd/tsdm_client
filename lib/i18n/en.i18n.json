@@ -1519,7 +1519,7 @@
     },
     "postedWithNotice": {
       "title": "Posted",
-      "message": "The thread is posted, but the forum says:\n$notice"
+      "message": "The thread should be posted, but the forum says:\n$notice\n\nThe local draft is kept: check it in My threads."
     }
   },
   "chatHistoryPage": {

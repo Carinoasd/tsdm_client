@@ -122,7 +122,8 @@ final class RewardFormInfo {
   /// The unit of the credit, may be empty.
   final String creditUnit;
 
-  /// How much of the credit the member has, null when the form does not tell.
+  /// How much of the credit the member has, null when the form does not tell. The plugin reads it from the member's
+  /// counts (`getuserprofile('extcredits'.$cid)`, the database), as the forum does when it checks the price.
   final int? have;
 
   /// The tax rate (`creditstax`), 0.2 for 20%.
@@ -384,7 +385,10 @@ final class HongbaoFormInfo {
       balance: json['balance'] is num ? (json['balance'] as num).toInt() : null,
       creditLabel: tsdmAppText(json['credit_label']),
       maxShares: tsdmAppInt(json['max_shares']),
-      minShare: tsdmAppInt(json['min_share']),
+      minShare: switch (tsdmAppInt(json['min_share'])) {
+        final min when min >= 1 => min,
+        _ => 1,
+      },
       expireChoices: choices,
       expireDefault: tsdmAppText(json['expire_default']),
       blessingMax: json['blessing_max'] is num ? (json['blessing_max'] as num).toInt() : null,

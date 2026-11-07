@@ -75,7 +75,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
 
   Future<void> _onPostEditLoadDataRequested(PostEditLoadDataRequested event, _Emit emit) async {
     if (!_active(emit) || _submitting) return;
-    emit(state.copyWith(status: PostEditStatus.loading));
+    emit(state.copyWith(status: PostEditStatus.loading, notice: null));
     final answer = await _repo.fetchForm(event.editUrl).run();
     if (!_active(emit)) return;
     _onFormLoaded(answer, emit, action: 'edit');
@@ -257,7 +257,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
 
   Future<void> _onFetchNewThreadInfo(String fid, _Emit emit, {ThreadKind kind = ThreadKind.normal}) async {
     if (!_active(emit) || _submitting) return;
-    emit(state.copyWith(status: PostEditStatus.loading));
+    emit(state.copyWith(status: PostEditStatus.loading, notice: null));
     final answer = await _repo.prepareForm(fid, kind: kind).run();
     if (!_active(emit)) return;
     _onFormLoaded(answer, emit, action: 'newthread');
@@ -336,9 +336,13 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
       await clearSecCheckCookies();
     }
     switch (tidEither) {
-      case Right() || Left(value: ThreadPostedWithNoticeException()):
+      case Right():
         // Taken: whatever the page does now (it may be gone), the local draft goes.
         _taken(event.draftKey);
+      case Left(value: ThreadPostedWithNoticeException()):
+        // Taken as far as the answer tells; the local draft stays in case it was not (a plugin's refusal before
+        // the thread looks the same), the interval between two posts counts from now.
+        FloodControl.notePosted(_repo.ownerUid);
       case Left(:final value):
         _markMaybeSent(value, event.draftKey);
     }

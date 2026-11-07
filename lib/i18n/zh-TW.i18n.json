@@ -1519,7 +1519,7 @@
     },
     "postedWithNotice": {
       "title": "已發表",
-      "message": "帖子已發表，但論壇說：\n$notice"
+      "message": "帖子應已發表，但論壇說：\n$notice\n\n本機草稿保留，請到「我的主題」確認。"
     }
   },
   "chatHistoryPage": {

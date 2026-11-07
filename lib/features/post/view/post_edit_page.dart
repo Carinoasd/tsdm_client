@@ -784,7 +784,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           return;
         }
       }
-      if (form?.hongbao case final info?) {
+      // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
+      if (form?.hongbao case final info? when !saveDraft) {
         final packet = hongbao;
         if (packet == null) {
           showSnackBar(context: context, message: context.t.postEditPage.hongbaoDialog.required);
@@ -1555,6 +1556,19 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       );
       if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
     } else if (state.status == PostEditStatus.success) {
+      if (state.notice case final notice?) {
+        // Taken as far as the forum tells, then the plugin's notice (the red packet was not made): told, back to the
+        // forum; the local draft stays until the member has seen the thread.
+        _stopDraft(delete: false);
+        final tr = context.t.postEditPage.postedWithNotice;
+        await showMessageSingleButtonDialog(
+          context: context,
+          title: tr.title,
+          message: tr.message(notice: notice),
+        );
+        if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
+        return;
+      }
       // Sent: the local draft goes (the bloc deleted it already, also for a page closed meanwhile).
       _stopDraft(delete: true);
       if (uploadMethod == _UploadMethod.saveDraft) {
@@ -1574,17 +1588,6 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         } else {
           context.pop(true);
         }
-        return;
-      }
-      if (state.notice case final notice?) {
-        // Published, then the plugin's notice (the red packet was not made): told, back to the forum.
-        final tr = context.t.postEditPage.postedWithNotice;
-        await showMessageSingleButtonDialog(
-          context: context,
-          title: tr.title,
-          message: tr.message(notice: notice),
-        );
-        if (context.mounted && context.read<PostEditRepository>().isCurrent) context.pop(true);
         return;
       }
       // Some action succeeded.
@@ -1673,6 +1676,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         transfer != null &&
         transfer.appliesTo(uid: context.read<AuthenticationRepository>().effectiveCurrentUid, fid: widget.fid)) {
       _transfer = transfer;
+      // The attachments uploaded in the editor switched from stay bound to the post.
+      _attachNew.addAll(transfer.attachNew);
     }
   }
 
@@ -1749,6 +1754,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               fid: widget.fid,
               subject: threadTitleController.text,
               body: bbcodeController.toForumBBCode(),
+              attachNew: List.of(_attachNew),
             ),
     );
   }

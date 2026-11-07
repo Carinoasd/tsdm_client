@@ -355,10 +355,13 @@ final class PostEditRepository with LoggerMixin {
     final target = parseSubmissionResult(response, expectedTid: expectedTid);
     if (target != null) return right(target);
     final apiResult = tsdmAppWriteResultOf(response.data);
+    // The plugin's note after the thread (`showmessage($error, '', [], [], 1)`: a plain text shown as a note, no
+    // language key); a refusal before the thread, the forum's or another plugin's, is an error.
     if (acceptsNotice &&
         apiResult != null &&
         apiResult.kind == TsdmAppWriteKind.message &&
         apiResult.succeeded &&
+        apiResult.alert == 'info' &&
         apiResult.messageKey.isEmpty &&
         apiResult.message.isNotEmpty) {
       return left(ThreadPostedWithNoticeException(apiResult.message));
