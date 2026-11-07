@@ -1,8 +1,9 @@
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 
-/// The kind of new thread the editor writes: an ordinary thread, a reward (`special=3`) or a red packet thread (the
-/// site's `hongbao` thread plugin, `specialextra=hongbao`, which the forum stores as `special` 127).
+/// The kind of new thread the editor writes: an ordinary thread, a reward (`special=3`), an activity (`special=4`), a
+/// debate (`special=5`) or a red packet thread (the site's `hongbao` thread plugin, `specialextra=hongbao`, which the
+/// forum stores as `special` 127).
 ///
 /// A poll has its own editor.
 enum ThreadKind {
@@ -13,13 +14,21 @@ enum ThreadKind {
   reward,
 
   /// A red packet thread: the author puts credits in a packet the readers grab.
-  hongbao
+  hongbao,
+
+  /// An activity: a time, a place, members applying.
+  activity,
+
+  /// A debate: two sides, members arguing for one.
+  debate
   ;
 
   /// The kind of the `kind` query parameter of the editor's route; [normal] for none or an unknown value.
   static ThreadKind fromQuery(String? value) => switch (value) {
     'reward' => reward,
     'hongbao' => hongbao,
+    'activity' => activity,
+    'debate' => debate,
     _ => normal,
   };
 
@@ -28,6 +37,8 @@ enum ThreadKind {
     normal => null,
     reward => 'reward',
     hongbao => 'hongbao',
+    activity => 'activity',
+    debate => 'debate',
   };
 
   /// The query the forum's new thread form takes for this kind (`post.php` reads `special` and `specialextra`).
@@ -35,6 +46,8 @@ enum ThreadKind {
     normal => '',
     reward => '&special=3',
     hongbao => '&specialextra=hongbao',
+    activity => '&special=4',
+    debate => '&special=5',
   };
 
   /// The identifier of the thread plugin of [hongbao].
@@ -539,4 +552,287 @@ final class HongbaoFormInfo {
 
   /// A packet as the form comes: one share, split by luck, the default expiry and blessing.
   HongbaoEdits get initial => HongbaoEdits(total: null, shares: 1, expire: expireDefault, blessing: blessingDefault);
+}
+
+/// The forum's date and time as its forms take them (`Y-m-d H:i`, read with `strtotime()` in the forum's time zone).
+String discuzDateTime(DateTime t) =>
+    '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')} '
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+/// Why an activity is refused, as the forum refuses it (`extend_thread_activity::before_newthread`).
+enum ActivityIssue {
+  /// No category (`activity_sort_please`).
+  classRequired,
+
+  /// No start (`activity_fromtime_please`).
+  startRequired,
+
+  /// The end before the start (`activity_fromtime_error`).
+  endBeforeStart,
+
+  /// No place (`activity_address_please`).
+  placeRequired,
+
+  /// More extra fields than the forum takes (`post_activity_extfield_toomany`).
+  extFieldsTooMany,
+}
+
+/// The activity settings of a new activity thread form (`activity` of the forum's app API, plugin 2.9.0,
+/// `post_activity.php`): the categories offered, the gender choices, the member data the applicants may be asked for,
+/// the credit an applicant pays, how many extra fields the author may add.
+final class ActivityFormInfo {
+  /// Constructor.
+  const ActivityFormInfo({
+    required this.types,
+    required this.genders,
+    required this.userFields,
+    required this.credit,
+    required this.extNum,
+    required this.hasCity,
+  });
+
+  /// The `activity` block of a new thread form, null when it lacks a field the forum requires.
+  static ActivityFormInfo? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final inputs = tsdmAppList(json['inputs']);
+    final names = inputs.map((e) => e['name']).whereType<String>().toSet();
+    if (!names.containsAll(const [
+      'starttimefrom[0]',
+      'starttimefrom[1]',
+      'starttimeto',
+      'activitytime',
+      'activityplace',
+      'activityclass',
+    ])) {
+      return null;
+    }
+    final gender = inputs.where((e) => e['name'] == 'gender').firstOrNull;
+    final credit = tsdmAppMap(json['credit']);
+    return ActivityFormInfo(
+      types: [
+        for (final type in json['types'] is List ? json['types'] as List<dynamic> : const <dynamic>[])
+          if (type is String && type.trim().isNotEmpty) type.trim(),
+      ],
+      genders: [
+        for (final choice in tsdmAppList(gender?['choices']))
+          (tsdmAppText(choice['value']), tsdmAppText(choice['label'])),
+      ],
+      userFields: [
+        for (final input in inputs)
+          if (input['name'] == 'userfield[]' && input['type'] == 'checkbox')
+            (tsdmAppText(input['value']), tsdmAppText(input['label'])),
+      ],
+      credit: names.contains('activitycredit') && credit.isNotEmpty
+          ? '${tsdmAppText(credit['unit'])}${tsdmAppText(credit['title'])}'.trim()
+          : null,
+      extNum: names.contains('extfield') ? tsdmAppInt(json['extnum']) : 0,
+      hasCity: names.contains('activitycity'),
+    );
+  }
+
+  /// The categories the forum offers (`activitytype`); any other may be typed.
+  final List<String> types;
+
+  /// The gender choices (value, label), empty when the form has none.
+  final List<(String, String)> genders;
+
+  /// The member data an applicant may be asked for (`userfield[]`: value, label).
+  final List<(String, String)> userFields;
+
+  /// The name of the credit an applicant pays, null when the forum asks none (`activitycredit`).
+  final String? credit;
+
+  /// How many extra fields the author may ask the applicants (`activityextnum`), 0 for none.
+  final int extNum;
+
+  /// Whether the form asks the city (`activitycity`, added to the title as `[city]`).
+  final bool hasCity;
+}
+
+/// An activity as the member set it in the editor; [toFields] and [userFieldValues] are what the form posts for it.
+final class ActivityEdits {
+  /// Constructor.
+  const ActivityEdits({
+    required this.category,
+    required this.start,
+    required this.place,
+    this.end,
+    this.city = '',
+    this.number,
+    this.gender = '0',
+    this.userFields = const [],
+    this.credit,
+    this.cost,
+    this.expiration,
+    this.extFields = '',
+  });
+
+  /// The category (`activityclass`).
+  final String category;
+
+  /// When it starts, null when not set.
+  final DateTime? start;
+
+  /// When it ends, null for an activity with a start only (`activitytime` unchecked).
+  final DateTime? end;
+
+  /// Where (`activityplace`).
+  final String place;
+
+  /// The city (`activitycity`), empty for none.
+  final String city;
+
+  /// How many members may take part (`activitynumber`), null for no limit.
+  final int? number;
+
+  /// Who may apply (`gender`: 0 anyone, 1 men, 2 women).
+  final String gender;
+
+  /// The member data an applicant is asked for (`userfield[]` values).
+  final List<String> userFields;
+
+  /// The credits an applicant pays (`activitycredit`), null for none.
+  final int? credit;
+
+  /// What taking part costs each member (`cost`), null for nothing said.
+  final int? cost;
+
+  /// The end of the applications (`activityexpiration`), null for none.
+  final DateTime? expiration;
+
+  /// The extra fields asked to the applicants, one per line (`extfield`).
+  final String extFields;
+
+  /// The extra fields as the forum counts them: trimmed, without empty or numeric lines, each once.
+  List<String> get extFieldList => [
+    ...{
+      for (final line in extFields.split('\n'))
+        if (line.trim().isNotEmpty && num.tryParse(line.trim()) == null) line.trim(),
+    },
+  ];
+
+  /// The fields the form posts for this activity, but the list of [userFieldValues]: a start alone as
+  /// `starttimefrom[0]`, a start and an end as `starttimefrom[1]` and `starttimeto` with `activitytime` checked, as the
+  /// website's form posts them.
+  Map<String, String?> toFields(ActivityFormInfo info) {
+    final start = this.start == null ? '' : discuzDateTime(this.start!);
+    final ranged = end != null;
+    return {
+      'activitytime': ranged ? '1' : null,
+      'starttimefrom[0]': ranged ? '' : start,
+      'starttimefrom[1]': ranged ? start : '',
+      'starttimeto': ranged ? discuzDateTime(end!) : '',
+      'activityplace': place,
+      if (info.hasCity) 'activitycity': city,
+      'activityclass': category,
+      'activitynumber': number == null ? '' : '$number',
+      if (info.genders.isNotEmpty) 'gender': gender,
+      if (info.credit != null) 'activitycredit': credit == null ? '' : '$credit',
+      'cost': cost == null ? '' : '$cost',
+      'activityexpiration': expiration == null ? '' : discuzDateTime(expiration!),
+      if (info.extNum > 0) 'extfield': extFields,
+    };
+  }
+
+  /// The member data asked ([userFields]) that the form offers, in its order: posted as `userfield[0]`,
+  /// `userfield[1]`…, which PHP reads as the list the website's checkboxes (`userfield[]`) post.
+  List<String> userFieldValues(ActivityFormInfo info) => [
+    for (final (value, _) in info.userFields)
+      if (userFields.contains(value)) value,
+  ];
+
+  /// Why the forum would refuse this activity against [info], null when it takes it.
+  ActivityIssue? check(ActivityFormInfo info) {
+    final start = this.start;
+    final end = this.end;
+    if (start == null) {
+      return ActivityIssue.startRequired;
+    }
+    if (end != null && end.isBefore(start)) {
+      return ActivityIssue.endBeforeStart;
+    }
+    if (category.trim().isEmpty) {
+      return ActivityIssue.classRequired;
+    }
+    if (place.trim().isEmpty) {
+      return ActivityIssue.placeRequired;
+    }
+    if (extFieldList.length > info.extNum) {
+      return ActivityIssue.extFieldsTooMany;
+    }
+    return null;
+  }
+}
+
+/// Why a debate is refused, as the forum refuses it (`extend_thread_debate::before_newthread`).
+enum DebateIssue {
+  /// A side without its point (`debate_position_nofound`).
+  pointsRequired,
+
+  /// The end is not ahead (`debate_endtime_invalid`).
+  endPassed,
+}
+
+/// The debate settings of a new debate thread form (`debate` of the forum's app API, plugin 2.9.0, `post_debate.php`).
+final class DebateFormInfo {
+  /// Constructor.
+  const DebateFormInfo({required this.hasEnd, required this.hasUmpire});
+
+  /// The `debate` block of a new thread form, null when it lacks the points.
+  static DebateFormInfo? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final names = tsdmAppList(json['inputs']).map((e) => e['name']).whereType<String>().toSet();
+    if (!names.containsAll(const ['affirmpoint', 'negapoint'])) {
+      return null;
+    }
+    return DebateFormInfo(hasEnd: names.contains('endtime'), hasUmpire: names.contains('umpire'));
+  }
+
+  /// Whether the form takes the end of the debate (`endtime`).
+  final bool hasEnd;
+
+  /// Whether the form takes an umpire (`umpire`, a member's name).
+  final bool hasUmpire;
+}
+
+/// A debate as the member set it in the editor; [toFields] is what the form posts for it.
+final class DebateEdits {
+  /// Constructor.
+  const DebateEdits({required this.affirm, required this.negate, this.end, this.umpire = ''});
+
+  /// The point of the side for (`affirmpoint`).
+  final String affirm;
+
+  /// The point of the side against (`negapoint`).
+  final String negate;
+
+  /// When the debate ends (`endtime`), null for no end.
+  final DateTime? end;
+
+  /// The umpire, a member's name (`umpire`), empty for none.
+  final String umpire;
+
+  /// The fields the form posts for this debate.
+  Map<String, String> toFields(DebateFormInfo info) => {
+    'affirmpoint': affirm,
+    'negapoint': negate,
+    if (info.hasEnd) 'endtime': end == null ? '' : discuzDateTime(end!),
+    if (info.hasUmpire) 'umpire': umpire.trim(),
+  };
+
+  /// Why the forum would refuse this debate at [now], null when it takes it (an umpire who is no member is only
+  /// known by the forum).
+  DebateIssue? check(DateTime now) {
+    if (affirm.trim().isEmpty || negate.trim().isEmpty) {
+      return DebateIssue.pointsRequired;
+    }
+    if (end case final DateTime end when !end.isAfter(now)) {
+      return DebateIssue.endPassed;
+    }
+    return null;
+  }
 }

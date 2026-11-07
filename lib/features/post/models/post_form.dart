@@ -205,7 +205,15 @@ final class PostFormEdits {
     this.attachNew = const [],
     this.rewardPrice,
     this.hongbao,
+    this.activity,
+    this.debate,
   });
+
+  /// The activity of a new activity thread ([PostForm.activity]), null to post the served fields.
+  final ActivityEdits? activity;
+
+  /// The debate of a new debate thread ([PostForm.debate]), null to post the served fields.
+  final DebateEdits? debate;
 
   /// The reward price of a new reward thread, or the raised price of an open one edited by its author
   /// ([PostForm.reward], [RewardFormInfo.editable]), null to keep the served one.
@@ -499,6 +507,13 @@ final class PostForm {
       ? RewardFormInfo.fromJson(json['reward'])
       : null;
 
+  /// The activity settings of a new activity thread (`activity`, [special] 4), null for any other form.
+  ActivityFormInfo? get activity =>
+      special == 4 && action == 'newthread' ? ActivityFormInfo.fromJson(json['activity']) : null;
+
+  /// The debate settings of a new debate thread (`debate`, [special] 5), null for any other form.
+  DebateFormInfo? get debate => special == 5 && action == 'newthread' ? DebateFormInfo.fromJson(json['debate']) : null;
+
   /// The red packet form of a new red packet thread ([special] 127 of the `hongbao` plugin), read from the web page
   /// and kept under the app's own key [hongbaoKey] ([withHongbao]); null when not read, or for any other form.
   HongbaoFormInfo? get hongbao => isHongbao ? HongbaoFormInfo.fromJson(json[hongbaoKey]) : null;
@@ -692,6 +707,21 @@ final class PostForm {
     if (reward != null && reward.editable && edits.rewardPrice != null) {
       body.set(reward.inputName, '${edits.rewardPrice}');
     }
+    if ((activity, edits.activity) case (final info?, final set?)) {
+      for (final MapEntry(:key, :value) in set.toFields(info).entries) {
+        body.set(key, value);
+      }
+      // The list of the website's checkboxes, by index: a map carries no name twice (PostFormBody.toMap).
+      body.removeWhere((name) => name == 'userfield[]' || name.startsWith('userfield['));
+      for (final (i, value) in set.userFieldValues(info).indexed) {
+        body.add('userfield[$i]', value);
+      }
+    }
+    if ((debate, edits.debate) case (final info?, final set?)) {
+      for (final MapEntry(:key, :value) in set.toFields(info).entries) {
+        body.set(key, value);
+      }
+    }
     // The plugin's fields are not in the served form: added as the website's form posts them. Never for a draft: the
     // plugin makes the packet (and charges it) as soon as the thread exists (`newthread_submit_end`), draft or not.
     if (isHongbao && hongbao != null && edits.hongbao != null && edits.save != '1') {
@@ -744,11 +774,13 @@ final class PostForm {
     if (asksVerification && check == null) {
       return PostFormSupport.verification;
     }
-    // A new thread: an ordinary one, a reward with its settings, or a red packet thread with its form read. The first
+    // A new thread: an ordinary one, a reward, an activity or a debate with its settings, or a red packet thread with
+    // its form read. The first
     // post of a reward thread: its price as the form lets the member set it, else posted back as served; of a poll:
     // its options and settings posted back as served.
     final ordinary = switch (expectedAction) {
-      'newthread' => special == 0 || reward != null || (isHongbao && hongbao != null),
+      'newthread' =>
+        special == 0 || reward != null || activity != null || debate != null || (isHongbao && hongbao != null),
       'edit' => first ? special == 0 || reward != null || editsPollAsServed : special != 2,
       'reply' => true,
       _ => false,

@@ -259,7 +259,7 @@ void main() {
 
   group('A. the answer', () {
     test('every form fixture is a post form of its action, served to its account', () {
-      expect(_forms, hasLength(21));
+      expect(_forms, hasLength(23));
       for (final name in _forms) {
         final json = _json(name);
         expect(postFormAnswerOf(json), same(json), reason: name);
@@ -498,6 +498,9 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         // A reward thread with its settings is taken (test_284); a red packet thread only once its box is read.
         'newthread_reward': ('newthread', PostFormSupport.supported),
         'newthread_hongbao': ('newthread', PostFormSupport.unsupported),
+        // An activity and a debate with their settings (test_294).
+        'newthread_activity': ('newthread', PostFormSupport.supported),
+        'newthread_debate': ('newthread', PostFormSupport.supported),
         // fid 2: another plugin prints its fields on the form of a first post (`hook_fields`).
         'edit_first': ('edit', PostFormSupport.unsupported),
         'edit_reply': ('edit', PostFormSupport.supported),

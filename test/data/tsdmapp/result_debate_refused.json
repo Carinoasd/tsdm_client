@@ -1,0 +1,17 @@
+{
+ "ok": 0,
+ "api": 1,
+ "time": 1792705300,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "message",
+ "message": "抱歉，您设置辩论的结束时间小于当前时间",
+ "message_key": "debate_endtime_invalid",
+ "url": "",
+ "handlekey": "",
+ "values": {},
+ "login": 0,
+ "alert": "error"
+}

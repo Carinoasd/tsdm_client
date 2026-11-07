@@ -327,6 +327,8 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                   attachNew: event.attachNew,
                   rewardPrice: event.rewardPrice,
                   hongbao: event.hongbao,
+                  activity: event.activity,
+                  debate: event.debate,
                 ),
                 verification: event.verification,
                 told: told,

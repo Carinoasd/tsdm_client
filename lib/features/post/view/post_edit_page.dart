@@ -38,6 +38,8 @@ import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
@@ -243,6 +245,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   ///
   /// Only used when editing thread, not other floors' posts.
   int? price;
+
+  /// The activity of a new activity thread, null until set.
+  ActivityEdits? activity;
+
+  /// The debate of a new debate thread, null until set.
+  DebateEdits? debate;
 
   /// The reward credits of a new reward thread, null until set; the price of an open reward thread edited, raised by
   /// the member.
@@ -834,9 +842,34 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         return;
       }
     }
-    // A red packet thread needs its packet: the forum refuses the post without it.
+    // A red packet thread needs its packet, an activity its time, category and place, a debate its two points: the
+    // forum refuses the post without them.
     if (widget.editType == PostEditType.newThread) {
       final form = state.content!.form;
+      if (form?.activity case final info?) {
+        final set = activity;
+        final problem = set?.check(info);
+        if (set == null || problem != null) {
+          showSnackBar(
+            context: context,
+            message: set == null
+                ? context.t.postEditPage.activityDialog.required
+                : activityIssueText(context, info, problem!),
+          );
+          return;
+        }
+      }
+      if (form?.debate != null) {
+        final set = debate;
+        final problem = set?.check(DateTime.now());
+        if (set == null || problem != null) {
+          showSnackBar(
+            context: context,
+            message: set == null ? context.t.postEditPage.debateDialog.required : debateIssueText(context, problem!),
+          );
+          return;
+        }
+      }
       // A draft is saved without the packet (PostForm.bodyWith): nothing to check for it.
       if (form?.hongbao case final info? when !saveDraft) {
         final packet = hongbao;
@@ -953,6 +986,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
           rewardPrice: state.content!.form?.reward == null ? null : rewardPrice,
           hongbao: state.content!.form?.hongbao == null ? null : hongbao,
+          activity: state.content!.form?.activity == null ? null : activity,
+          debate: state.content!.form?.debate == null ? null : debate,
         ),
       };
       if (saveDraft) {
@@ -1343,6 +1378,32 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                 }
               },
             ),
+          ),
+        if (state.content?.form?.activity case final info?)
+          IconButton(
+            icon: const Icon(Icons.event_outlined),
+            selectedIcon: const Icon(Icons.event),
+            isSelected: activity != null,
+            tooltip: context.t.postEditPage.activityDialog.entryTooltip,
+            onPressed: () async {
+              final set = await showActivityDialog(context, info, activity);
+              if (set != null && mounted) {
+                setState(() => activity = set);
+              }
+            },
+          ),
+        if (state.content?.form?.debate case final info?)
+          IconButton(
+            icon: const Icon(Icons.balance_outlined),
+            selectedIcon: const Icon(Icons.balance),
+            isSelected: debate != null,
+            tooltip: context.t.postEditPage.debateDialog.entryTooltip,
+            onPressed: () async {
+              final set = await showDebateDialog(context, info, debate);
+              if (set != null && mounted) {
+                setState(() => debate = set);
+              }
+            },
           ),
       ],
     );
@@ -1791,6 +1852,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return [
       if (allowed.contains(0) || widget.threadKind == ThreadKind.normal) ThreadKind.normal,
       if (allowed.contains(3) || widget.threadKind == ThreadKind.reward) ThreadKind.reward,
+      if (allowed.contains(4) || widget.threadKind == ThreadKind.activity) ThreadKind.activity,
+      if (allowed.contains(5) || widget.threadKind == ThreadKind.debate) ThreadKind.debate,
       if (form.threadPlugins.any((e) => e.$1 == ThreadKind.hongbaoPlugin) || widget.threadKind == ThreadKind.hongbao)
         ThreadKind.hongbao,
     ];
@@ -1800,6 +1863,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     ThreadKind.normal => Icons.article_outlined,
     ThreadKind.reward => Icons.emoji_events_outlined,
     ThreadKind.hongbao => Icons.card_giftcard_outlined,
+    ThreadKind.activity => Icons.event_outlined,
+    ThreadKind.debate => Icons.balance_outlined,
   };
 
   static String _kindLabel(BuildContext context, ThreadKind kind) {
@@ -1808,6 +1873,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       ThreadKind.normal => tr.normal,
       ThreadKind.reward => tr.reward,
       ThreadKind.hongbao => tr.hongbao,
+      ThreadKind.activity => tr.activity,
+      ThreadKind.debate => tr.debate,
     };
   }
 

@@ -134,7 +134,15 @@ final class ThreadPubPostThread extends PostEditEvent with ThreadPubPostThreadMa
     this.attachNew = const [],
     this.rewardPrice,
     this.hongbao,
+    this.activity,
+    this.debate,
   });
+
+  /// The activity of an activity thread ([PostFormEdits.activity]), null for any other thread.
+  final ActivityEdits? activity;
+
+  /// The debate of a debate thread ([PostFormEdits.debate]), null for any other thread.
+  final DebateEdits? debate;
 
   /// All info to post in body.
   final ThreadPublishInfo info;

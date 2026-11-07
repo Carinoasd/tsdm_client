@@ -1469,7 +1469,9 @@
       "tooltip": "帖子类型",
       "normal": "普通帖子",
       "reward": "悬赏",
-      "hongbao": "红包"
+      "hongbao": "红包",
+      "activity": "活动",
+      "debate": "辩论"
     },
     "rewardDialog": {
       "title": "设置悬赏",
@@ -1517,6 +1519,43 @@
         "shortage": "余额不足",
         "blessingTooLong": "祝福语最多 $max 字",
         "passwordTooLong": "口令最多 $max 字"
+      }
+    },
+    "activityDialog": {
+      "title": "活动设置",
+      "entryTooltip": "活动",
+      "category": "活动类别",
+      "start": "开始时间",
+      "end": "结束时间",
+      "place": "活动地点",
+      "city": "所在城市",
+      "number": "需要人数",
+      "gender": "性别",
+      "credit": "消耗积分",
+      "cost": "每人花销",
+      "expiration": "报名截止",
+      "userFields": "报名需要填写",
+      "extFields": "扩展资料项（每行一项）",
+      "required": "请先设置活动",
+      "issue": {
+        "classRequired": "请填写活动类别",
+        "startRequired": "请选择开始时间",
+        "endBeforeStart": "结束时间不能早于开始时间",
+        "placeRequired": "请填写活动地点",
+        "extFieldsTooMany": "扩展资料项最多 $max 项"
+      }
+    },
+    "debateDialog": {
+      "title": "辩论设置",
+      "entryTooltip": "辩论",
+      "affirm": "正方观点",
+      "negate": "反方观点",
+      "end": "结束时间",
+      "umpire": "裁判",
+      "required": "请先设置辩论",
+      "issue": {
+        "pointsRequired": "请填写正方和反方观点",
+        "endPassed": "结束时间必须晚于现在"
       }
     },
     "postedWithNotice": {
