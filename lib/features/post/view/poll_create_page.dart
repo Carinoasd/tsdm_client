@@ -85,12 +85,16 @@ class _PollCreatePageState extends State<PollCreatePage> {
   /// Route hosting this page; once it is popped, replaced or removed the session ends.
   ModalRoute<Object?>? _route;
 
+  /// What the thread editor switched from handed over (for this account and forum), passed on when switching back.
+  ThreadModeTransfer? _carried;
+
   @override
   void initState() {
     super.initState();
     final auth = context.read<AuthenticationRepository>();
     final transfer = widget.transfer;
     if (transfer != null && transfer.appliesTo(uid: auth.effectiveCurrentUid, fid: widget.fid)) {
+      _carried = transfer;
       _subject.text = transfer.subject;
       _body.text = transfer.body;
     }
@@ -157,6 +161,8 @@ class _PollCreatePageState extends State<PollCreatePage> {
     _visibleAfterVote = false;
     _publicVoters = false;
     _threadType = null;
+    // What the other editor handed over belongs to the account that typed it.
+    _carried = null;
     _extras = {};
     _appliedForm = null;
     _validation = null;
@@ -184,8 +190,12 @@ class _PollCreatePageState extends State<PollCreatePage> {
       _expiry.text = form.initialExpiration;
       _visibleAfterVote = form.visibility?.initiallyChecked ?? false;
       _publicVoters = form.overt?.initiallyChecked ?? false;
+      // The type chosen in the thread editor switched from, else the one the form serves.
+      final types = _positiveTypes(form);
       final selected = form.content.threadType;
-      _threadType = _positiveTypes(form).where((e) => e.typeID == selected?.typeID).firstOrNull;
+      _threadType =
+          types.where((e) => e.typeID == _carried?.typeId).firstOrNull ??
+          types.where((e) => e.typeID == selected?.typeID).firstOrNull;
     }
     _appliedForm = form;
   }
@@ -242,7 +252,21 @@ class _PollCreatePageState extends State<PollCreatePage> {
       queryParameters: {'poll': '1'},
       extra: uid == null
           ? null
-          : ThreadModeTransfer(uid: uid, fid: widget.fid, subject: _subject.text, body: _body.text),
+          : ThreadModeTransfer(
+              uid: uid,
+              fid: widget.fid,
+              subject: _subject.text,
+              body: _body.text,
+              // The settings of the other kinds the member came with, for when they are back there.
+              rewardPrice: _carried?.rewardPrice,
+              hongbao: _carried?.hongbao,
+              // Not the editor's document: the body was edited as text here. The type chosen here, else the one
+              // carried when this form offers none.
+              typeId: switch (_appliedForm) {
+                final form? when _positiveTypes(form).isNotEmpty => _threadType?.typeID,
+                _ => _carried?.typeId,
+              },
+            ),
     );
   }
 

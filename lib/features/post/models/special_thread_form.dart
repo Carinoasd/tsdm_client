@@ -305,6 +305,38 @@ final class HongbaoEdits {
   /// The blessing (`hb_blessing`), empty for the plugin's default.
   final String blessing;
 
+  /// The packet as kept in a [Map] (a local draft), [fromJson].
+  Map<String, Object?> toJson() => {
+    'total': total,
+    'shares': shares,
+    'split': split.value,
+    'cond_reply': condReply,
+    'password': password,
+    'appoint': appoint,
+    'expire': expire,
+    'blessing': blessing,
+  };
+
+  /// The packet kept as [json] ([toJson]), null when it is not one. A value it does not know is taken as unset (an
+  /// unknown split as [HongbaoSplit.lucky]): the dialog shows the packet before it is posted.
+  static HongbaoEdits? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    int? count(Object? value) => value is int && value > 0 ? value : null;
+    String text(Object? value) => value is String ? value : '';
+    return HongbaoEdits(
+      total: count(json['total']),
+      shares: count(json['shares']),
+      split: HongbaoSplit.values.where((e) => e.value == json['split']).firstOrNull ?? HongbaoSplit.lucky,
+      condReply: json['cond_reply'] == true,
+      password: text(json['password']),
+      appoint: text(json['appoint']),
+      expire: text(json['expire']),
+      blessing: text(json['blessing']),
+    );
+  }
+
   /// The fields the form posts for this packet, as the website's form would: a checkbox only when checked.
   Map<String, String> toFields() => {
     'hb_total': '${total ?? ''}',

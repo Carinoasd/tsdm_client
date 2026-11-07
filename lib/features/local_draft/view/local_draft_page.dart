@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_text.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -154,6 +155,8 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
         await context.pushNamed(
           ScreenPaths.editPost,
           pathParameters: {'editType': '${PostEditType.newThread.index}', 'fid': '${key.fid}'},
+          // The editor of the kind of thread it was written as.
+          queryParameters: {'kind': ?ThreadKind.fromQuery(draft.threadKind).query},
         );
       case LocalDraftKind.edit:
         final fid = draft.fid;
