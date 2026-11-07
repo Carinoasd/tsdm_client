@@ -74,9 +74,9 @@ final class ModerateRepository with LoggerMixin {
   /// (`forum.ismoderator`, plugin 2.0.0): the thread page answer does not carry it.
   ///
   /// False for a guest, a forum page that is not the structured answer (no plugin, the forum's message: no
-  /// permission), an answer served to another account, and a failed request. Kept for [moderatorKeptFor] per account
-  /// and forum.
-  Future<bool> isModerator(int fid) async {
+  /// permission) and an answer served to another account; null when the request failed (ask again later). Kept for
+  /// [moderatorKeptFor] per account and forum.
+  Future<bool?> isModerator(int fid) async {
     final uid = _currentUid();
     if (uid <= 0 || fid <= 0) {
       return false;
@@ -86,10 +86,14 @@ final class ModerateRepository with LoggerMixin {
       return known;
     }
     final resp = await _get(withTsdmAppJson('$baseUrl/forum.php?mod=forumdisplay&fid=$fid'));
-    final json = switch (resp) {
-      Right(:final value) when value.statusCode == HttpStatus.ok => tsdmAppAnswerJson(value.data),
-      _ => null,
-    };
+    final Object? data;
+    switch (resp) {
+      case Right(:final value) when value.statusCode == HttpStatus.ok:
+        data = value.data;
+      default:
+        return null;
+    }
+    final json = tsdmAppAnswerJson(data);
     if (json == null || _currentUid() != uid) {
       return false;
     }
@@ -155,7 +159,8 @@ final class ModerateRepository with LoggerMixin {
       return form == null ? left(HttpRequestFailedException(HttpStatus.ok)) : right(ModerateWindowReady(form));
     }
     final text = _ajaxText(tsdmAppAnswerText(data));
-    final form = ModerateForm.parse(parseHtmlDocument(text), operation, tid: tid, fid: fid);
+    // The account was checked around the request (fetchWindow): the window is that account's.
+    final form = ModerateForm.parse(parseHtmlDocument(text), operation, tid: tid, fid: fid, uid: uid);
     if (form != null) {
       return right(ModerateWindowReady(form));
     }
@@ -175,7 +180,7 @@ final class ModerateRepository with LoggerMixin {
       return left(HttpRequestFailedException(null));
     }
     final uid = _currentUid();
-    if (uid <= 0 || (form.uid > 0 && form.uid != uid)) {
+    if (uid <= 0 || form.uid != uid) {
       return left(IdentityChangedException());
     }
     final resp = await _post(form.submitUrl, request.body(form));

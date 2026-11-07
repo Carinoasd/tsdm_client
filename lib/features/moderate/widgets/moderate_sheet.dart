@@ -187,7 +187,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
       e is IdentityChangedException ? context.t.general.accountChangedRetry : context.t.general.failedToLoad;
 
   ModerateRequest _request() => ModerateRequest(
-    operation: widget.operation,
+    operation: _operation,
     level: _level,
     expiration: _expiration,
     moveTo: _moveTo,
@@ -196,8 +196,14 @@ class _ModerateDialogState extends State<ModerateDialog> {
     notify: _notify,
   );
 
+  /// The operation done: the one picked, or the one the window checks (close and open).
+  ModerateOperation get _operation => _form?.operation ?? widget.operation;
+
   bool get _canSend =>
-      _form != null && !_sending && (widget.operation != ModerateOperation.move || (_moveTo ?? '').isNotEmpty);
+      _form != null &&
+      !_sending &&
+      (_form!.levels.isEmpty || _level != null) &&
+      (_operation != ModerateOperation.move || (_moveTo ?? '').isNotEmpty);
 
   Future<void> _send() async {
     final form = _form;
@@ -249,12 +255,12 @@ class _ModerateDialogState extends State<ModerateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final danger = widget.operation == ModerateOperation.delete;
+    final danger = _operation == ModerateOperation.delete;
     final form = _form;
     return CustomAlertDialog.sync(
       title: AppDialogTitle(
-        icon: moderateOperationIcon(widget.operation),
-        title: moderateOperationName(context, widget.operation),
+        icon: moderateOperationIcon(_operation),
+        title: moderateOperationName(context, _operation),
         error: danger,
       ),
       content: _loading
@@ -333,7 +339,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           ),
           onTap: _sending ? null : _pickExpiration,
         ),
-      if (widget.operation == ModerateOperation.move) ...[
+      if (_operation == ModerateOperation.move) ...[
         DropdownButtonFormField<String>(
           isExpanded: true,
           initialValue: _moveTo,

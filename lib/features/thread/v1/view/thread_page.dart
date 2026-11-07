@@ -565,7 +565,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     ModerateRepository.network().isModerator(fid!).then((moderates) {
-      if (mounted && _moderatorAsked == key && moderates != _moderates) {
+      if (!mounted || _moderatorAsked != key) {
+        return;
+      }
+      if (moderates == null) {
+        // The request failed: asked again at the next load (a refresh).
+        _moderatorAsked = null;
+      } else if (moderates != _moderates) {
         setState(() => _moderates = moderates);
       }
     }).ignore();

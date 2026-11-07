@@ -74,9 +74,24 @@ void main() {
       expect(digest.currentLevel?.value, '2');
     });
 
-    test('close and open: both offered by the same window', () {
+    test('close and open: the one the window checks is done', () {
+      // The thread is closed: the forum checks open, whatever was picked from the lock beside the title.
       expect(_window('window_close.json', ModerateOperation.open).operation, ModerateOperation.open);
-      expect(_window('window_close.json', ModerateOperation.close).operation, ModerateOperation.close);
+      expect(_window('window_close.json', ModerateOperation.close).operation, ModerateOperation.open);
+      final open = jsonDecode(jsonEncode(_data('window_close.json'))) as Map<String, dynamic>;
+      open['document'] = (open['document'] as String)
+          .replaceFirst('value="open" checked="checked"', 'value="open"')
+          .replaceFirst('value="close"', 'value="close" checked="checked"');
+      final form = ModerateRepository.windowOf(open, ModerateOperation.open, tid: _tid, fid: _fid, uid: _uid);
+      expect((form.getRight().toNullable()! as ModerateWindowReady).form.operation, ModerateOperation.close);
+    });
+
+    test('no level chosen when the thread is at one the account may not set', () {
+      final page = jsonDecode(jsonEncode(_data('window_stick_digest.json'))) as Map<String, dynamic>;
+      // A global stick seen by a forum moderator: no listed level is selected.
+      page['document'] = (page['document'] as String).replaceAll(' selected="selected"', '');
+      final form = ModerateRepository.windowOf(page, ModerateOperation.stick, tid: _tid, fid: _fid, uid: _uid);
+      expect((form.getRight().toNullable()! as ModerateWindowReady).form.currentLevel, isNull);
     });
 
     test("move: the forums by category, the thread's own forum left out", () {
@@ -98,7 +113,8 @@ void main() {
 
     test('the AJAX fragment of a forum without the plugin', () {
       final form = _window('window_close_ajax.xml', ModerateOperation.close);
-      expect(form.uid, 0);
+      // The account checked around the request.
+      expect(form.uid, _uid);
       expect(form.fields['formhash'], 'f1f2f3f4');
     });
 
@@ -321,6 +337,20 @@ void main() {
         await repo((_) => {'ok': 0, 'error': 'message', 'message': '抱歉，您没有权限访问该版块', 'uid': _uid}).isModerator(_fid),
         isFalse,
       );
+    });
+
+    test('a failed request is no answer, and not kept', () async {
+      var fail = true;
+      final r = ModerateRepository(
+        get: (url) async => fail
+            ? left(HttpRequestFailedException(500))
+            : right((statusCode: 200, data: _forumPage(uid: _uid, fid: _fid, moderates: 1))),
+        post: (url, body) async => throw StateError('no post'),
+        currentUid: () => _uid,
+      );
+      expect(await r.isModerator(_fid), isNull);
+      fail = false;
+      expect(await r.isModerator(_fid), isTrue);
     });
 
     test('kept per account and forum', () async {

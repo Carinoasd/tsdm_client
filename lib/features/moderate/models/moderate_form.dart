@@ -102,7 +102,8 @@ final class ModerateForm {
     this.notifyForced = false,
   });
 
-  /// The operation the window was asked for.
+  /// The operation the window is for: the one asked, but close and open as the window checks it (the one that
+  /// changes the thread as the forum sees it now).
   final ModerateOperation operation;
 
   /// The thread.
@@ -137,9 +138,9 @@ final class ModerateForm {
   /// The forum notifies the author whatever is sent (the checkbox served checked and disabled).
   final bool notifyForced;
 
-  /// The level the thread is at now (the selected one), the first level when none is selected (a level the account
-  /// may not set, such as a global stick seen by a forum moderator, is not listed).
-  ModerateChoice? get currentLevel => levels.firstWhereOrNull((e) => e.selected) ?? levels.firstOrNull;
+  /// The level the thread is at now (the selected one); null when none is selected: a level the account may not set,
+  /// such as a global stick seen by a forum moderator, is not listed, and no level is chosen for the moderator.
+  ModerateChoice? get currentLevel => levels.firstWhereOrNull((e) => e.selected);
 
   /// The url the window is posted to: the forum's own target of [operation]'s group, as an AJAX request.
   String get submitUrl =>
@@ -153,17 +154,18 @@ final class ModerateForm {
       '&nopost=yes&optgroup=${operation.group}'
       '${operation.windowOperation == null ? '' : '&operation=${operation.windowOperation}'}&inajax=1';
 
-  /// The window of [operation] for thread [tid] in forum [fid] read from [doc], served to [uid]; null when [doc] has no
+  /// The window of operation [asked] for thread [tid] in forum [fid] read from [doc], served to [uid]; null when [doc] has no
   /// such window: no `form#moderateform` posting to the topicadmin target of the operation's group, a form hash
   /// missing, another thread or another forum, or none of what the operation needs (the levels of a stick or digest,
   /// the open and close choices, a forum to move to, the delete operation).
   static ModerateForm? parse(
     uh.Document doc,
-    ModerateOperation operation, {
+    ModerateOperation asked, {
     required String tid,
     required int fid,
     int uid = 0,
   }) {
+    var operation = asked;
     final form = doc.querySelector('form#moderateform');
     if (form == null || !_isTarget(form.attributes['action'] ?? '', operation.group)) {
       return null;
@@ -204,12 +206,16 @@ final class ModerateForm {
           return null;
         }
       case ModerateOperation.close || ModerateOperation.open:
-        final choices = form
-            .querySelectorAll('input[type="radio"][name="operations[]"]')
-            .map((e) => e.attributes['value'])
-            .toSet();
-        if (!choices.contains(operation.value)) {
+        final radios = form.querySelectorAll('input[type="radio"][name="operations[]"]');
+        final choices = radios.map((e) => e.attributes['value']).toSet();
+        if (!choices.contains(ModerateOperation.close.value) || !choices.contains(ModerateOperation.open.value)) {
           return null;
+        }
+        // The forum checks the one that changes the thread as it is now (open for a closed thread): that one is done,
+        // whatever the lock beside the title said when the operation was picked.
+        final checked = radios.where((e) => e.attributes.containsKey('checked')).map((e) => e.attributes['value']);
+        if (checked.length == 1) {
+          operation = checked.single == ModerateOperation.open.value ? ModerateOperation.open : ModerateOperation.close;
         }
       case ModerateOperation.move:
         forums = _forums(form.querySelector('select[name="moveto"]'), fid);
