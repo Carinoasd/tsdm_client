@@ -1224,18 +1224,43 @@
       "keywordEmpty": "關鍵字不能為空",
       "keywordInvalid": "關鍵字不能包含\"%\"",
       "author": "作者（uid 或使用者名稱）",
-      "authorInvalid": "作者不能包含\"%\"",
-      "fid": "論壇id（fid）",
-      "fidInvalid": "論壇id必須是不小於0的數字"
+      "authorInvalid": "作者不能包含\"%\""
     },
     "result": {
       "title": "搜尋結果",
       "totalThreadCount": "$count 條結果",
       "pageInfo": "$total 頁",
       "noData": "沒有找到相關貼文",
-      "hint": "輸入關鍵字、作者或論壇 id 後搜尋",
+      "hint": "輸入關鍵字或作者後搜尋",
       "noDataHint": "換個關鍵字試試。",
-      "noDataFiltered": "限定了作者或版塊，試試放寬限制。"
+      "noDataFiltered": "限定了作者、版塊或時間，試試放寬限制。"
+    },
+    "filter": {
+      "forum": "版塊",
+      "forumCount": "$count 個版塊",
+      "forumId": "版塊 $fid",
+      "clear": "清除",
+      "time": {
+        "all": "不限時間",
+        "day": "一天內",
+        "week": "一週內",
+        "month": "一個月內",
+        "threeMonths": "三個月內",
+        "halfYear": "半年內",
+        "year": "一年內"
+      },
+      "order": {
+        "lastpost": "最後回覆",
+        "dateline": "發表時間",
+        "replies": "回覆數",
+        "views": "查看數",
+        "descending": "降序",
+        "ascending": "升序"
+      },
+      "titleOnly": "只搜標題"
+    },
+    "history": {
+      "clear": "清除全部"
     }
   },
   "myThreadPage": {

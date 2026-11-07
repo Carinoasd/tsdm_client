@@ -13,3 +13,5 @@ part 'models.mapper.dart';
 part 'search_result.dart';
 
 part 'searched_thread.dart';
+
+part 'search_filter.dart';

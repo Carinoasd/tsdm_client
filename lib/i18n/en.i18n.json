@@ -1224,18 +1224,43 @@
       "keywordEmpty": "Keyword should not be empty",
       "keywordInvalid": "Keyword must not contains \"%\"",
       "author": "Author (uid or username)",
-      "authorInvalid": "Author must not contain \"%\"",
-      "fid": "Forum id (fid)",
-      "fidInvalid": "Fid must be a number not less than zero"
+      "authorInvalid": "Author must not contain \"%\""
     },
     "result": {
       "title": "Search Result",
       "totalThreadCount": "$count results",
       "pageInfo": "$total pages",
       "noData": "No thread found",
-      "hint": "Enter a keyword, an author or a forum id to search",
+      "hint": "Enter a keyword or an author to search",
       "noDataHint": "Try other keywords.",
-      "noDataFiltered": "The author or the forum limits the search, try without them."
+      "noDataFiltered": "The author, the forums or the time range limit the search, try without them."
+    },
+    "filter": {
+      "forum": "Forums",
+      "forumCount": "$count forums",
+      "forumId": "Forum $fid",
+      "clear": "Clear",
+      "time": {
+        "all": "Any time",
+        "day": "Past day",
+        "week": "Past week",
+        "month": "Past month",
+        "threeMonths": "Past 3 months",
+        "halfYear": "Past 6 months",
+        "year": "Past year"
+      },
+      "order": {
+        "lastpost": "Last reply",
+        "dateline": "Post time",
+        "replies": "Replies",
+        "views": "Views",
+        "descending": "Descending",
+        "ascending": "Ascending"
+      },
+      "titleOnly": "Titles only"
+    },
+    "history": {
+      "clear": "Clear all"
     }
   },
   "myThreadPage": {
