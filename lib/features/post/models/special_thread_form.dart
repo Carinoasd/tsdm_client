@@ -1087,7 +1087,7 @@ final class PollEdits {
   bool operator ==(Object other) =>
       other is PollEdits &&
       const MapEquality<int, String>().equals(texts, other.texts) &&
-      const ListEquality<String>().equals(added, other.added) &&
+      const ListEquality<String>().equals(addedOptions, other.addedOptions) &&
       maxChoices == other.maxChoices &&
       expiration == other.expiration &&
       visibleAfterVote == other.visibleAfterVote &&
@@ -1096,7 +1096,7 @@ final class PollEdits {
   @override
   int get hashCode => Object.hash(
     const MapEquality<int, String>().hash(texts),
-    const ListEquality<String>().hash(added),
+    const ListEquality<String>().hash(addedOptions),
     maxChoices,
     expiration,
     visibleAfterVote,
@@ -1146,8 +1146,8 @@ final class PollEdits {
         ...options.values,
         ...added.values,
         if (addedOptions.isNotEmpty && info.maxOptions > 0 && count > info.maxOptions) PollEditIssue.tooManyOptions,
-        if ((maxChoices != info.maxChoices || addedOptions.isNotEmpty) &&
-            (choices == null || choices < 1 || choices > count))
+        // The most choices kept is cut by the forum to the options.
+        if (maxChoices != info.maxChoices && (choices == null || choices < 1 || choices > count))
           PollEditIssue.maxChoicesInvalid,
         if (expiration != info.expiration && parsePollExpiryDays(expiration) == null) PollEditIssue.expiryInvalid,
       },

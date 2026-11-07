@@ -341,6 +341,8 @@ void main() {
       final info = _editable().pollEdit!;
       expect(_with(info), info.served);
       expect(_with(info, added: const ['新']), isNot(info.served));
+      // Rows added and left empty add nothing.
+      expect(_with(info, added: const ['', ' ']), info.served);
       expect(_with(info, overt: true), isNot(info.served));
     });
   });

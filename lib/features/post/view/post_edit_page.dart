@@ -538,11 +538,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (_loadedTitle == null || _loadedBody == null) {
       return false;
     }
-    return title != _loadedTitle ||
-        body != _loadedBody ||
-        // The poll settings changed in their dialog.
-        (poll != null && poll != context.read<PostEditBloc>().state.content?.form?.pollEdit?.served);
+    return title != _loadedTitle || body != _loadedBody;
   }
+
+  /// Whether the poll settings were changed in their dialog: not kept in the local draft, they are lost when leaving.
+  bool get _pollChanged => poll != null && poll != context.read<PostEditBloc>().state.content?.form?.pollEdit?.served;
 
   /// Leave the page (the back button or gesture): with content not sent yet ([_hasUnsentContent]) while it is being
   /// edited, ask first whether to discard it, save it as a draft (when the form allows it) or keep editing. Used to
@@ -574,7 +574,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final editing =
         bloc.state.content != null &&
         (bloc.state.status == PostEditStatus.editing || bloc.state.status == PostEditStatus.failedToUpload);
-    if (!editing || !_hasUnsentContent) {
+    if (!editing || !(_hasUnsentContent || _pollChanged)) {
       context.pop();
       return;
     }
@@ -590,7 +590,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       choice = await showLeaveEditDialog(
         context,
         canSaveDraft: canSaveDraft,
-        keepsLocalDraft: _draftKey != null && _draftUid != null && !_draftStopped && LocalDraftStore.app != null,
+        // Only the title and the post are kept on this device: nothing to keep when only the poll settings changed.
+        keepsLocalDraft:
+            _hasUnsentContent &&
+            _draftKey != null &&
+            _draftUid != null &&
+            !_draftStopped &&
+            LocalDraftStore.app != null,
       );
     } finally {
       _leaving = false;
