@@ -330,7 +330,10 @@
       "title": "帳號",
       "mgmt": "管理帳戶",
       "crossDeviceSync": {
-        "title": "跨裝置同步"
+        "title": "跨裝置同步",
+        "rateTemplates": "評分範本",
+        "settings": "閱讀與顯示設定",
+        "drafts": "本機草稿"
       }
     },
     "appearanceSection": {

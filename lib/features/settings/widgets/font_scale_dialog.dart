@@ -6,10 +6,10 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
 /// Smallest text scale offered.
-const _minScale = 0.7;
+const textScaleFactorMin = 0.7;
 
 /// Largest text scale offered.
-const _maxScale = 1.5;
+const textScaleFactorMax = 1.5;
 
 /// Dialog to show available text scale options as a chooser.
 class TextScaleDialog extends StatefulWidget {
@@ -69,8 +69,8 @@ class _TextScaleDialogState extends State<TextScaleDialog> {
                   // Since flutter 3.29
                   // ignore: deprecated_member_use
                   year2023: false,
-                  min: _minScale,
-                  max: _maxScale,
+                  min: textScaleFactorMin,
+                  max: textScaleFactorMax,
                   divisions: 8,
                   value: _currentScale,
                   label: '${_currentScale}x',

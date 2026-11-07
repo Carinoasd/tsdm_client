@@ -707,6 +707,27 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 ),
                 // Content of identified authors is held back while the block list can not be read; say why, with a retry.
                 const UserBlockFailureListener(),
+                // The theme settings changed under the settings page (the cross-device sync applied another device's):
+                // each one on its own, as the page saves them one after the other.
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) => prev.settingsMap.themeMode != curr.settingsMap.themeMode,
+                  listener: (context, state) =>
+                      context.read<ThemeCubit>().setThemeModeIndex(state.settingsMap.themeMode),
+                ),
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) =>
+                      prev.settingsMap.darkScheduleStart != curr.settingsMap.darkScheduleStart ||
+                      prev.settingsMap.darkScheduleEnd != curr.settingsMap.darkScheduleEnd,
+                  listener: (context, state) => context.read<ThemeCubit>().setSchedule(
+                    DarkSchedule(start: state.settingsMap.darkScheduleStart, end: state.settingsMap.darkScheduleEnd),
+                  ),
+                ),
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) =>
+                      prev.settingsMap.themeModeScheduled != curr.settingsMap.themeModeScheduled,
+                  listener: (context, state) =>
+                      context.read<ThemeCubit>().setScheduled(scheduled: state.settingsMap.themeModeScheduled),
+                ),
                 BlocListener<InitCubit, InitState>(
                   listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
                   listener: (context, state) async {

@@ -248,9 +248,20 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
+
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
-  /// take them back on every device the account logs in on. Off: nothing is read or written there.
+  /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
+  /// local drafts too, each on its own switch below. Off: nothing is read or written there.
   crossDeviceSync<bool>(name: 'crossDeviceSync', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the fast rate templates the same on every device too.
+  crossDeviceSyncRateTemplates<bool>(name: 'crossDeviceSyncRateTemplates', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the reading and display settings the same on every device too (`syncedSettings`).
+  crossDeviceSyncSettings<bool>(name: 'crossDeviceSyncSettings', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the local drafts of the account on every device too.
+  crossDeviceSyncDrafts<bool>(name: 'crossDeviceSyncDrafts', type: bool, defaultValue: true),
 
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
