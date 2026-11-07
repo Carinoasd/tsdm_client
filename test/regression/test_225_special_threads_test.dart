@@ -194,6 +194,7 @@ void main() {
             RewardSpecial() => 'reward',
             ActivitySpecial() => 'activity',
             DebateSpecial() => 'debate',
+            HongbaoSpecial() => 'hongbao',
             null => null,
           },
           type,
