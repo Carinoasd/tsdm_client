@@ -403,6 +403,19 @@ void main() {
       expect(source.dropped, [(1, 2)]);
     });
 
+    test('pages are not deleted when the replies are not fewer (an answer that tells no pages reads as one)', () async {
+      final source = _FakeSource()
+        ..forum[1] = (replies: 40, pages: 1)
+        ..forum[2] = (replies: 3, pages: 1)
+        ..copies[1] = copy(40, 4, [1, 2, 3, 4])
+        ..copies[2] = (facts: (title: 't', replyCount: null, totalPages: 4), pages: [1, 2, 3, 4]);
+      final run = _cubit(source, OfflineBatchMode.update);
+
+      await run.cubit.start((_) async => (jobs: [_job(1), _job(2)], failure: null));
+
+      expect(source.dropped, isEmpty);
+    });
+
     test('a thread whose copy is gone is left alone', () async {
       final source = _FakeSource()..forum[1] = (replies: 5, pages: 1);
       final run = _cubit(source, OfflineBatchMode.update);
@@ -501,6 +514,16 @@ void main() {
       // Kept for another request only: no default page, no probe.
       expect(copies[2]!.probePage, isNull);
       expect(copies[2]!.defaultPages, isEmpty);
+    });
+
+    test('the threads are counted across accounts, as the limit counts them', () async {
+      await save(35, 1, 1);
+      await save(35, 1, 2);
+      await save(36, 1, 1);
+      await save(36, 2, 1);
+
+      expect(await offline.threadCount(), 3);
+      expect(await AppOfflineBatchSource(uid: 35, offline: offline).copyCount(), 3);
     });
 
     test('pages after the last one of the default request are deleted, the other requests are kept', () async {

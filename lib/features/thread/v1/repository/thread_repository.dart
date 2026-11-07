@@ -263,10 +263,10 @@ class ThreadRepository {
   }
 
   /// What a saved answer [body] (a copy of the offline repository) tells about its thread: title, replies and pages.
-  /// Null when it can not be read as a thread page.
-  ({String? title, int? replyCount, int totalPages})? summaryOfSaved(String body) {
+  /// Null when it can not be read as a thread page. [pageNumber] is the page the answer was loaded for.
+  ({String? title, int? replyCount, int totalPages})? summaryOfSaved(String body, {int pageNumber = 1}) {
     try {
-      final page = _readThreadPage(body, pageNumber: 1).toNullable()?.page;
+      final page = _readThreadPage(body, pageNumber: pageNumber).toNullable()?.page;
       if (page == null) {
         return null;
       }

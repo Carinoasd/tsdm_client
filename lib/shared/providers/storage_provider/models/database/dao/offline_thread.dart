@@ -190,6 +190,16 @@ final class OfflineThreadDao extends DatabaseAccessor<AppDatabase> with _$Offlin
   Future<int> deleteThread({required int uid, required int tid}) async =>
       (delete(offlineThread)..where((e) => e.uid.equals(uid) & e.tid.equals(tid))).go();
 
+  /// How many threads are kept, of every account together (one thread being one account and one tid): the number the
+  /// limit of [keepRecentThreads] counts.
+  Future<int> countThreads() async {
+    final rows = await customSelect(
+      'SELECT COUNT(*) AS n FROM (SELECT 1 FROM offline_thread GROUP BY uid, tid)',
+      readsFrom: {offlineThread},
+    ).getSingle();
+    return rows.read<int>('n');
+  }
+
   /// Delete the pages of the default request (no order, no author filter) of thread [tid] for user [uid] after page
   /// [page]: the thread has fewer pages than it had. Returns the number of pages deleted.
   Future<int> deletePagesAfter({required int uid, required int tid, required int page}) async =>

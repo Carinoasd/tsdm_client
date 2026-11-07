@@ -1284,7 +1284,11 @@
     "selectedCount": "${count: int}",
     "empty": "沒有離線副本",
     "remove": "刪除離線副本",
-    "pages": "${count: int} 頁"
+    "pages": "${count: int} 頁",
+    "savedCount": "已保存",
+    "skippedCount": "已略過",
+    "overLimitCount": "超出保存上限",
+    "failedCount": "失敗"
   },
   "friendPage": {
     "title": "好友",

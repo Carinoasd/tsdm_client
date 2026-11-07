@@ -256,6 +256,17 @@ class OfflineThreadRepository with LoggerMixin {
     return _writes;
   }
 
+  /// How many threads are kept, of every account together (what [limit] bounds); 0 when reading failed.
+  Future<int> threadCount() async {
+    try {
+      return await _store.offlineThreadCount();
+    } on Object catch (e, st) {
+      error('offline threads: failed to count the threads: $e');
+      handleRaw(e, st);
+      return 0;
+    }
+  }
+
   /// Delete the pages of the default request of thread [tid] of account [uid] after page [page], after the writes
   /// queued before: the thread has fewer pages now.
   Future<void> removePagesAfter({required int uid, required int tid, required int page}) {

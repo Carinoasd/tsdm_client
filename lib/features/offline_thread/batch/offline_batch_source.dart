@@ -38,7 +38,7 @@ abstract interface class OfflineBatchSource {
   /// How many pages of one thread are kept at most.
   int get pagesPerThread;
 
-  /// How many threads are kept now.
+  /// How many threads are kept now, of every account together: what the limit bounds.
   Future<int> copyCount();
 
   /// The copy of thread [tid] kept now, null when none. `pages` lists the pages of the default request only: empty
@@ -87,7 +87,7 @@ final class AppOfflineBatchSource with LoggerMixin implements OfflineBatchSource
       _copies ??= {for (final copy in await _offline.copies(uid)) copy.tid: copy};
 
   @override
-  Future<int> copyCount() async => (await _loadCopies()).length;
+  Future<int> copyCount() async => _offline.threadCount();
 
   @override
   Future<OfflineCopyFacts?> copyOf(int tid) async {
@@ -101,7 +101,7 @@ final class AppOfflineBatchSource with LoggerMixin implements OfflineBatchSource
     final saved = probe == null
         ? null
         : await _offline.peek(OfflineThreadKey(uid: uid, tid: tid, page: probe, orderType: 0, authorId: 0));
-    final facts = saved == null ? null : _threads.summaryOfSaved(saved.body);
+    final facts = saved == null ? null : _threads.summaryOfSaved(saved.body, pageNumber: probe!);
     return (facts: facts ?? (title: null, replyCount: null, totalPages: 0), pages: pages);
   }
 

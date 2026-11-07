@@ -86,11 +86,19 @@ class _OfflineBatchDialog extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      AppInfoPill(icon: Icons.cloud_done_outlined, label: '${state.saved}'),
-                      AppInfoPill(icon: Icons.skip_next_outlined, label: '${state.skipped}'),
+                      AppInfoPill(icon: Icons.cloud_done_outlined, label: '${state.saved}', tooltip: tr.savedCount),
+                      AppInfoPill(icon: Icons.skip_next_outlined, label: '${state.skipped}', tooltip: tr.skippedCount),
                       if (state.overLimit > 0)
-                        AppInfoPill(icon: Icons.inventory_2_outlined, label: '${state.overLimit}'),
-                      AppInfoPill(icon: Icons.error_outline, label: '${state.failures.length}'),
+                        AppInfoPill(
+                          icon: Icons.inventory_2_outlined,
+                          label: '${state.overLimit}',
+                          tooltip: tr.overLimitCount,
+                        ),
+                      AppInfoPill(
+                        icon: Icons.error_outline,
+                        label: '${state.failures.length}',
+                        tooltip: tr.failedCount,
+                      ),
                     ],
                   ),
                   if (state.failures.isNotEmpty) ...[

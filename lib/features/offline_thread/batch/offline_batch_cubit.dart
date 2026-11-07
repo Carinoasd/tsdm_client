@@ -306,8 +306,10 @@ final class OfflineBatchCubit extends Cubit<OfflineBatchState> with LoggerMixin 
         for (final page in pages.toList()..sort()) {
           await _request(job.tid, page);
         }
-        // Replies deleted: pages past the last one no longer exist.
-        final gone = kept.any((page) => page > page1.totalPages);
+        // Replies deleted: pages past the last one no longer exist. Only when the replies are fewer for certain: an
+        // answer that does not tell its pages reads as one page, which must not delete the others.
+        final fewer = before.replyCount != null && page1.replyCount != null && page1.replyCount! < before.replyCount!;
+        final gone = fewer && kept.any((page) => page > page1.totalPages);
         if (gone) {
           await _source.dropPagesAfter(job.tid, page1.totalPages);
         }

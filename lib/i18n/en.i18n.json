@@ -1284,7 +1284,11 @@
     "selectedCount": "${count: int}",
     "empty": "No offline copies",
     "remove": "Delete offline copy",
-    "pages": "${count: int} pages"
+    "pages": "${count: int} pages",
+    "savedCount": "Saved",
+    "skippedCount": "Skipped",
+    "overLimitCount": "Over the limit",
+    "failedCount": "Failed"
   },
   "friendPage": {
     "title": "Friends",
