@@ -330,7 +330,10 @@
       "title": "帳號",
       "mgmt": "管理帳戶",
       "crossDeviceSync": {
-        "title": "跨裝置同步"
+        "title": "跨裝置同步",
+        "rateTemplates": "評分範本",
+        "settings": "閱讀與顯示設定",
+        "drafts": "本機草稿"
       }
     },
     "appearanceSection": {
@@ -499,6 +502,7 @@
     },
     "windowSection": {
       "title": "視窗",
+      "keyboardShortcuts": "鍵盤快捷鍵",
       "disableHint": "在啟動時增加參數\"--no-window-configs\"將會停用該部分設置，如果軟體開啟後看不到窗口，可以嘗試增加此參數",
       "windowRememberSize": {
         "title": "記住視窗大小",
@@ -531,6 +535,17 @@
         "title": "背景通知：所有已登入帳號",
         "detail": "App 的自動同步（電腦版縮到系統匣時也算）與安卓的後台訊息接收也檢查這台裝置上其他已登入的帳號，各自用自己的登入；通知會標出帳號，點通知時先切換到該帳號再開啟通知頁",
         "seenNote": "檢查其他帳號時，論壇會把它們的提醒標成已讀（網頁上的紅點會消失），和打開通知頁一樣"
+      },
+      "noticeCategories": {
+        "title": "通知類別",
+        "reply": "回覆",
+        "mention": "@提到我",
+        "rate": "評分／點評",
+        "pm": "私訊",
+        "system": "系統通知",
+        "quietHours": "靜音時段",
+        "quietStart": "開始",
+        "quietEnd": "結束"
       },
       "notificationHideContent": {
         "title": "通知不顯示內容",
@@ -1224,18 +1239,43 @@
       "keywordEmpty": "關鍵字不能為空",
       "keywordInvalid": "關鍵字不能包含\"%\"",
       "author": "作者（uid 或使用者名稱）",
-      "authorInvalid": "作者不能包含\"%\"",
-      "fid": "論壇id（fid）",
-      "fidInvalid": "論壇id必須是不小於0的數字"
+      "authorInvalid": "作者不能包含\"%\""
     },
     "result": {
       "title": "搜尋結果",
       "totalThreadCount": "$count 條結果",
       "pageInfo": "$total 頁",
       "noData": "沒有找到相關貼文",
-      "hint": "輸入關鍵字、作者或論壇 id 後搜尋",
+      "hint": "輸入關鍵字或作者後搜尋",
       "noDataHint": "換個關鍵字試試。",
-      "noDataFiltered": "限定了作者或版塊，試試放寬限制。"
+      "noDataFiltered": "限定了作者、版塊或時間，試試放寬限制。"
+    },
+    "filter": {
+      "forum": "版塊",
+      "forumCount": "$count 個版塊",
+      "forumId": "版塊 $fid",
+      "clear": "清除",
+      "time": {
+        "all": "不限時間",
+        "day": "一天內",
+        "week": "一週內",
+        "month": "一個月內",
+        "threeMonths": "三個月內",
+        "halfYear": "半年內",
+        "year": "一年內"
+      },
+      "order": {
+        "lastpost": "最後回覆",
+        "dateline": "發表時間",
+        "replies": "回覆數",
+        "views": "查看數",
+        "descending": "降序",
+        "ascending": "升序"
+      },
+      "titleOnly": "只搜標題"
+    },
+    "history": {
+      "clear": "清除全部"
     }
   },
   "myThreadPage": {
@@ -1271,6 +1311,24 @@
     "removed": "已取消收藏",
     "actionFailed": "操作失敗：$err",
     "favoritedAt": "收藏於 $time"
+  },
+  "offlineBatch": {
+    "downloadTitle": "離線下載",
+    "updateTitle": "更新離線副本",
+    "progress": "${done: int}／${total: int}",
+    "downloadSelected": "離線下載所選",
+    "downloadAll": "全部離線下載",
+    "copies": "離線副本",
+    "updateAll": "全部更新",
+    "clearSelection": "取消選取",
+    "selectedCount": "${count: int}",
+    "empty": "沒有離線副本",
+    "remove": "刪除離線副本",
+    "pages": "${count: int} 頁",
+    "savedCount": "已保存",
+    "skippedCount": "已略過",
+    "overLimitCount": "超出保存上限",
+    "failedCount": "失敗"
   },
   "friendPage": {
     "title": "好友",
@@ -1349,6 +1407,11 @@
   "latestThreadPage": {
     "title": "最新主題",
     "empty": "目前還沒有貼文"
+  },
+  "tagPage": {
+    "title": "標籤：$name",
+    "cloudTitle": "標籤",
+    "empty": "暫無標籤"
   },
   "ratePostPage": {
     "title": "評分",
@@ -1820,6 +1883,26 @@
     "hotReply": "推薦",
     "jumpToHotFloor": "跳到該樓"
   },
+  "threadExport": {
+    "copyPlain": "複製為純文字",
+    "copyMarkdown": "複製為 Markdown",
+    "menu": "匯出整帖",
+    "plain": "純文字",
+    "markdown": "Markdown",
+    "loaded": "已載入的樓層",
+    "all": "全部頁",
+    "save": "儲存",
+    "share": "分享",
+    "cancel": "取消",
+    "progress": "正在讀取第 ${page: int} / ${total: int} 頁",
+    "failed": "匯出失敗",
+    "saved": "已儲存至 ${filePath: String}",
+    "labelFold": "[折疊]",
+    "labelHidden": "[隱藏]",
+    "labelImage": "[圖片]",
+    "labelMedia": "[媒體]",
+    "labelSmiley": "表情"
+  },
   "shareFloorImage": {
     "title": "分享為圖片",
     "save": "儲存",
@@ -1861,6 +1944,40 @@
       "forumMessage": "論壇回傳了提示而不是檢舉表單，未送出：",
       "unsupported": "App 不支援此檢舉表單，未送出；請改用瀏覽器。"
     }
+  },
+  "moderate": {
+    "menu": "管理",
+    "stick": "置頂",
+    "digest": "精華",
+    "close": "關閉主題",
+    "open": "打開主題",
+    "move": "移動",
+    "delete": "刪除主題",
+    "expiration": "有效期",
+    "noExpiration": "永久",
+    "reason": "操作原因",
+    "notifyAuthor": "通知作者",
+    "moveTo": "目標版塊",
+    "moveNormal": "移動主題",
+    "moveRedirect": "保留轉向",
+    "done": "管理操作成功",
+    "failed": "操作失敗",
+    "warn": "警告",
+    "unwarn": "解除警告",
+    "ban": "屏蔽",
+    "unban": "解除屏蔽",
+    "deletePost": "刪除回覆",
+    "queue": "審核",
+    "queueThreads": "主題",
+    "queueReplies": "回覆",
+    "validate": "通過",
+    "ignore": "忽略",
+    "queueDelete": "刪除",
+    "queueEmpty": "沒有待審核的內容",
+    "panelLogin": "管理面板",
+    "password": "密碼",
+    "wrongPassword": "密碼錯誤",
+    "nextPage": "下一頁"
   },
   "packetCard": {
     "title": "紅包",
@@ -1981,6 +2098,11 @@
     "shareImage": "分享圖片",
     "failedToShareImage": "無法分享圖片",
     "openInBrowser": "用瀏覽器開啟",
+    "saveAllImages": "儲存全部圖片",
+    "saveScopeFloor": "這一樓",
+    "saveScopePage": "這一頁",
+    "saveAllDone": "已儲存 ${saved: int} 張，失敗 ${failed: int} 張",
+    "saveAllCancelled": "已取消，已儲存 ${saved: int} 張",
     "failedToOpenInBrowser": "無法開啟瀏覽器"
   },
   "init": {
@@ -2091,6 +2213,13 @@
     }
   },
   "localNotification": {
+    "channels": {
+      "reply": "回覆",
+      "mention": "@提到我",
+      "rate": "評分／點評",
+      "pm": "私訊",
+      "system": "系統通知"
+    },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
     "ticker": "新提醒",
@@ -2218,7 +2347,11 @@
     "submit": "提交",
     "clearAvatarTip": "提交一個空連結可以清除目前使用的頭像",
     "avatarUpdated": "頭像已更新",
-    "viewSharedAvatars": "在找好看頭像？點我看公共頭像"
+    "viewSharedAvatars": "在找好看頭像？點我看公共頭像",
+    "uploadImage": "上傳圖片",
+    "cropTitle": "裁剪頭像",
+    "uploadFailed": "上傳失敗",
+    "imageUnreadable": "無法讀取這張圖片"
   },
   "updatePage": {
     "title": "取得更新",
@@ -2676,7 +2809,8 @@
       "aboutMe": "關於我",
       "forum": "論壇顯示"
     },
-    "uploadHint": "修改只保留在本頁，按右上角的上傳按鈕才會送到論壇。"
+    "uploadHint": "修改只保留在本頁，按右上角的上傳按鈕才會送到論壇。",
+    "signatureUnavailable": "目前使用者組不能使用個人簽名"
   },
   "urlInfoBottomSheet": {
     "title": "連結訊息",
@@ -3041,6 +3175,45 @@
     "accountChanged": "載入此頁後已切換帳號，請先重新整理帖子。",
     "openInBrowser": "在瀏覽器中開啟",
     "submit": "提交",
+    "hongbao": {
+      "title": "紅包",
+      "status": {
+        "active": "進行中",
+        "done": "已領完",
+        "withdrawn": "已撤回",
+        "expired": "已過期",
+        "closed": "已關閉"
+      },
+      "lucky": "拼手氣",
+      "even": "均分",
+      "shares": "已領 $claimed/$shares 份",
+      "needReply": "需回帖",
+      "password": "口令",
+      "appoint": "指定領取",
+      "expireAt": "$time 到期",
+      "noExpire": "不自動到期",
+      "mine": "領到 $amount$credit",
+      "best": "手氣最佳",
+      "why": {
+        "disabled": "紅包功能已關閉",
+        "login": "登入後領取",
+        "self": "不能領取自己的紅包",
+        "claimed": "已領取",
+        "appoint": "不在指定領取名單",
+        "needreply": "回帖後領取"
+      },
+      "grab": "搶紅包",
+      "passwordTitle": "輸入口令",
+      "records": "領取紀錄",
+      "recordsEmpty": "還沒有人領取",
+      "recordsFailed": "讀取失敗",
+      "withdraw": "撤回",
+      "withdrawConfirmTitle": "撤回紅包",
+      "withdrawConfirm": "剩餘的$credit退回給你",
+      "grabbed": "領到 $amount $unit",
+      "already": "已領過 $amount $unit",
+      "withdrawn": "已撤回，退回 $amount $unit"
+    },
     "poll": {
       "single": "單選投票",
       "multiple": "多選投票，最多可選 $max 項",
@@ -3162,7 +3335,28 @@
       "credit": "$credit $unit",
       "manage": "商品排序",
       "add": "添加商品",
-      "openHint": "購買、數量與運費在瀏覽器的商品頁辦理。"
+      "buy": "購買",
+      "buyInBrowser": "在瀏覽器購買",
+      "soldOut": "已售完",
+      "seller": "賣家",
+      "quantity": "數量",
+      "message": "留言",
+      "next": "下一步",
+      "confirmTitle": "確認購買",
+      "pay": "付款",
+      "cost": "支付",
+      "balance": "餘額",
+      "after": "購買後",
+      "insufficient": "餘額不足",
+      "password": "登入密碼",
+      "bought": "購買完成。",
+      "notPaid": "訂單已建立，尚未付款。",
+      "payAgain": "重新付款",
+      "openOrder": "查看訂單",
+      "unknown": "未能確認結果，請在訂單頁查看。",
+      "verification": "論壇要求驗證，請在瀏覽器中完成。",
+      "openOrders": "查看交易記錄",
+      "unknownOrder": "未能確認是否已下單，請在交易記錄中查看。"
     },
     "already": "之前已經完成。"
   },
@@ -3219,5 +3413,35 @@
   },
   "appShortcuts": {
     "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
+  },
+  "keyboardShortcutsPage": {
+    "title": "鍵盤快捷鍵",
+    "groups": {
+      "global": "全域",
+      "thread": "帖子頁",
+      "list": "列表",
+      "editor": "編輯器"
+    },
+    "commands": {
+      "search": "搜尋",
+      "settings": "設定",
+      "back": "關閉對話框、返回",
+      "refresh": "重新整理",
+      "nextFloor": "下一樓",
+      "previousFloor": "上一樓",
+      "nextPage": "下一頁",
+      "previousPage": "上一頁",
+      "reply": "回覆",
+      "top": "到頂部",
+      "bottom": "到底部",
+      "copyLink": "複製帖子連結",
+      "nextItem": "下一項",
+      "previousItem": "上一項",
+      "openItem": "開啟選取的項目",
+      "send": "送出",
+      "bold": "粗體",
+      "italic": "斜體",
+      "underline": "底線"
+    }
   }
 }

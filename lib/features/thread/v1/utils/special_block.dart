@@ -22,7 +22,9 @@ import 'package:tsdm_client/shared/models/models.dart';
 /// * activity: the template's `checkform` script just before the details, the details `div.act`, the hidden forms
 ///   `div#activityjoin` and `div#activityjoincancel`, the applicant lists (`div.ptm.pbm.xs1` with their `table.dt`);
 /// * debate: the verdict `div#umpirepoint`, the end time and umpire lines `p.dtm`, the points `div.ds` and the
-///   votes `div.dr`.
+///   votes `div.dr`;
+/// * red packet (plugin 3.5.0): the card `div.hb-entry`, its `<style>`, the envelope `div.mask#hb_mask` and its
+///   script ([_hongbaoBlock]).
 ///
 /// Other plugins' top level scripts and blocks, and any other `div.locked`, stay. The rest is kept exactly as the
 /// forum printed it (the cut is made on the source, not re-serialized).
@@ -190,9 +192,20 @@ _Cut _cutOf(Element e, ThreadSpecial special, String pid) {
     DebateSpecial() when tag == 'div' && (e.id == 'umpirepoint' || classes.contains('ds') || classes.contains('dr')) =>
       _Cut.remove,
     DebateSpecial() when tag == 'p' && classes.contains('dtm') => _Cut.remove,
+    HongbaoSpecial() when _hongbaoBlock(e) => _Cut.remove,
     _ => _Cut.keep,
   };
 }
+
+/// The top level elements of `div.pcbs` the hongbao plugin prints for its red packet (plugin 3.5.0,
+/// `threadplugin_hongbao::viewthread()`): the card `div.hb-entry`, its style (the `<style>` right after the card that
+/// styles it), the envelope dialog `div.mask#hb_mask` and the script opening it (`window.hongbaoOpen`).
+bool _hongbaoBlock(Element e) => switch (e.localName) {
+  'div' => e.classes.contains('hb-entry') || (e.id == 'hb_mask' && e.classes.contains('mask')),
+  'style' => (e.previousElementSibling?.classes.contains('hb-entry') ?? false) && e.text.contains('.hb-entry'),
+  'script' => e.text.contains('window.hongbaoOpen'),
+  _ => false,
+};
 
 /// What a floor keeps around the template's blocks; never inside a block the template printed.
 const _keptSelectors = [

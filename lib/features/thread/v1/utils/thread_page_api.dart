@@ -70,7 +70,9 @@ Map<String, dynamic>? threadApiAnswerOf(Object? data) {
 ///   printed ([bodyHtmlWithoutSpecialBlock]): the app shows the block as its own card. The floors the account may
 ///   accept as the answer of a bounty (`special.set_best.pids`) carry the request doing it
 ///   ([Post.bestAnswerRequest]); each floor's side in a debate and the accepted answer come with the floor
-///   ([Post.fromApi]). Without `special` every floor is exactly what it was.
+///   ([Post.fromApi]). Without `special` every floor is exactly what it was. Since plugin 3.5.0 (`schema: 18`)
+///   `special` is also the red packet of a thread of the hongbao plugin ([HongbaoSpecial]), kept on the first floor
+///   only when the plugin's card is cut out of its content.
 ///
 /// The forum's message (`ok` 0): `login` 1 is the login prompt of a guest (`needLogin`), 0 a member without
 /// permission (`havePermission` false, the message text as the denied message, as the page's `#messagetext p`);
@@ -119,12 +121,16 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
   final draft = _int(thread['draft']) == 1;
   final pay = thread['pay'] is Map<String, dynamic> ? _map(thread['pay']) : null;
   final timeOffset = tsdmAppTimeOffset(json);
-  final special = ThreadSpecial.fromApi(
+  final special = switch (ThreadSpecial.fromApi(
     json['special'],
     formHash: _text(json['formhash']),
     viewerUid: uid,
     timeOffset: timeOffset,
-  );
+  )) {
+    // The red packet of another thread than this one is none of this page.
+    final HongbaoSpecial packet when packet.tid != tidValue => null,
+    final block => block,
+  };
 
   // The placeholder a rush thread prints for a deleted floor (`deleted` 1: "无效楼层，该帖已经被删除", no author, no
   // content) is left out, as the page parser leaves out a floor without an author.
@@ -268,10 +274,14 @@ Post _withSpecial(Post post, ThreadSpecial? special, {required bool first}) {
       // The plugin gives no block for a forged first floor; nothing of it is shown either way.
       return post;
     }
-    return post.copyWith(
-      special: special,
-      data: bodyHtmlWithoutSpecialBlock(post.data, special, pid: post.postID),
-    );
+    final data = bodyHtmlWithoutSpecialBlock(post.data, special, pid: post.postID);
+    // The red packet's card only replaces the plugin's own: when that cannot be cut cleanly the floor stays as the web
+    // page printed it, without the card (two cards for one packet, one of them dead, would be worse); so does a cut that
+    // left the plugin's card or envelope behind (markup the cut does not know).
+    if (special is HongbaoSpecial && (data == post.data || _hongbaoLeft.hasMatch(data))) {
+      return post;
+    }
+    return post.copyWith(special: special, data: data);
   }
   if (special case final RewardSpecial reward when pid > 0) {
     if (reward.bestAnswerRequest(pid) case final request?) {
@@ -280,6 +290,9 @@ Post _withSpecial(Post post, ThreadSpecial? special, {required bool first}) {
   }
   return post;
 }
+
+/// The hongbao plugin's card or envelope ([HongbaoSpecial]) still in a first floor.
+final _hongbaoLeft = RegExp(r'''class=["']hb-entry["']|id=["']hb_mask["']|window\.hongbaoOpen''');
 
 /// [post] with the support of its side in a [debate] ([Post.debateVoteRequest]): the page prints "支持 N" on every
 /// floor taking a side; the app offers it to an account that is not the floor's author ([viewerUid], none for a

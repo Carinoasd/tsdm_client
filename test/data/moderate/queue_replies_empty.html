@@ -1,0 +1,103 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<script type="text/javascript">
+modclickcount = 0;
+function recountobj() {
+modclickcount = 0;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+modclickcount++;
+}
+}
+$('modlayercount').innerHTML = modclickcount;
+}
+function modcheckall() {
+var count = 0;
+count = checkall($('moderate'), 'moderate', 'chkall');
+$('modlayercount').innerHTML = count;
+}
+function toggle_post(id) {
+var obj = $('list_note_' + id);
+obj.style.display='block';
+obj.style.height = obj.style.height == '155px' ? 'auto' : '155px' ;
+}
+ function modthreads(operation) {
+var checked = 0;
+var operation = !operation ? '' : operation;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+checked = 1;
+break;
+}
+}
+if(!checked) {
+alert('请先选择操作对象！');
+} else {
+$('moderate').modact.value = operation;
+$('moderate').infloat.value = 'yes';
+showWindow('mods', 'moderate', 'post');
+}
+}
+</script>
+
+<div class="bm bw0 mdcp">
+<h1 class="mt">审核</h1>
+<ul class="tb cl">
+<li><a href="forum.php?mod=modcp&action=moderate&op=threads&amp;fid=10" hidefocus="true">主题</a></li>
+<li class="a"><a href="forum.php?mod=modcp&action=moderate&op=replies&amp;fid=10" hidefocus="true">回复</a></li>
+<li><a href="forum.php?mod=modcp&action=moderate&op=members" hidefocus="true">用户</a></li>
+</ul>
+
+<div class="exfm">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=moderate&op=replies">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="10%">版块选择: </th>
+<th>
+<span class="ftid">
+<select name="fid" id="fid" width="124" class="ps">
+<option value="0">全部</option><option value="2" >📢 公告 & 新手報到</option>
+<option value="9" >手遊情報站</option>
+<option value="10" selected>测试版块</option>
+<option value="15" >GLTEST 子版塊（型別 sub）</option>
+</select>
+</span>
+</th>
+<th width="10%">帖子范围: </th>
+<td>
+<span class="ftid">
+<select name="filter" id="filter" width="124" class="ps">
+<option value="0" selected="selected">未审核回复</option>
+<option value="-3" >已忽略回复</option>
+</select>
+</span>
+</td>
+</tr>
+<tr>
+<td><label><input name="showcensor" type="checkbox" class="checkbox" value="yes" /><p style="display: inline;">显示过滤词</p></label></td>
+<td colspan="3"><button type="submit" name="submit" id="searchsubmit" class="pn" value="true"><strong>提交</strong></button></td>
+</tr>
+</table>
+</form>
+</div>
+
+<p class="emp">抱歉，没有找到匹配结果</p>
+</div>
+
+<script type="text/javascript" reload="1">
+if($('filter')) {
+simulateSelect('filter');
+}
+if($('fid')) {
+simulateSelect('fid');
+}
+if($('posttableid')) {
+simulateSelect('posttableid');
+}
+</script></div>
+</div>
+</body></html>

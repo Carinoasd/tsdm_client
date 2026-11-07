@@ -299,7 +299,7 @@ void main() {
   group('A. the plugin tells it answers the previews', () {
     test('status preview: 1, or a version of 3.1.0 or later; never before something told', () {
       expect(tsdmAppPreviewVersion, '3.1.0');
-      expect(expectedTsdmAppVersion, '3.1.0');
+      expect(compareTsdmAppVersions(expectedTsdmAppVersion, '3.1.0'), greaterThanOrEqualTo(0));
       expect(TsdmAppApi.knowsPreview, isFalse, reason: 'nothing told yet');
 
       final status = TsdmAppPluginInfo.fromAnswer(_status('3.1.0', preview: true))!;

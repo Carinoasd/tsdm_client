@@ -4,7 +4,13 @@ part of 'models.dart';
 @MappableClass()
 class SearchResult with SearchResultMappable {
   /// Constructor.
-  const SearchResult({required this.currentPage, required this.totalPages, required this.count, required this.data});
+  const SearchResult({
+    required this.currentPage,
+    required this.totalPages,
+    required this.count,
+    required this.data,
+    this.fullText,
+  });
 
   /// Current search result page number.
   final int currentPage;
@@ -17,6 +23,11 @@ class SearchResult with SearchResultMappable {
 
   /// Thread list.
   final List<SearchedThread>? data;
+
+  /// Whether the forum searched the full text (the `fulltext` of a structured answer): false when it searched the
+  /// titles only, also when the full text was asked for and the user group may not search it. Null when the answer
+  /// does not tell (the web page, an older plugin).
+  final bool? fullText;
 
   /// Parse the search result page.
   ///

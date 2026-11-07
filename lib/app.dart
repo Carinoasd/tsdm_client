@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -290,6 +291,14 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     if (changed) {
       WidgetsBinding.instance.addPostFrameCallback((_) => debug('frame painted: ${describeViewMetrics(view)}'));
     }
+  }
+
+  /// Opens a page for a keyboard shortcut, unless that page is the one in view already.
+  void _openFromKeyboard(String path) {
+    if (router.routerDelegate.currentConfiguration.uri.path == path) {
+      return;
+    }
+    unawaited(router.pushNamed(path));
   }
 
   @override
@@ -707,6 +716,27 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 ),
                 // Content of identified authors is held back while the block list can not be read; say why, with a retry.
                 const UserBlockFailureListener(),
+                // The theme settings changed under the settings page (the cross-device sync applied another device's):
+                // each one on its own, as the page saves them one after the other.
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) => prev.settingsMap.themeMode != curr.settingsMap.themeMode,
+                  listener: (context, state) =>
+                      context.read<ThemeCubit>().setThemeModeIndex(state.settingsMap.themeMode),
+                ),
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) =>
+                      prev.settingsMap.darkScheduleStart != curr.settingsMap.darkScheduleStart ||
+                      prev.settingsMap.darkScheduleEnd != curr.settingsMap.darkScheduleEnd,
+                  listener: (context, state) => context.read<ThemeCubit>().setSchedule(
+                    DarkSchedule(start: state.settingsMap.darkScheduleStart, end: state.settingsMap.darkScheduleEnd),
+                  ),
+                ),
+                BlocListener<SettingsBloc, SettingsState>(
+                  listenWhen: (prev, curr) =>
+                      prev.settingsMap.themeModeScheduled != curr.settingsMap.themeModeScheduled,
+                  listener: (context, state) =>
+                      context.read<ThemeCubit>().setScheduled(scheduled: state.settingsMap.themeModeScheduled),
+                ),
                 BlocListener<InitCubit, InitState>(
                   listenWhen: (prev, curr) => prev.v0LegacyDataDeleted != curr.v0LegacyDataDeleted,
                   listener: (context, state) async {
@@ -746,7 +776,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                        child: KeyboardShortcutsHost(
+                          onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                          onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                          child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                        ),
                       );
                     },
                   );

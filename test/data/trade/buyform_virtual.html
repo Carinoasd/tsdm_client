@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript">var STYLEID = '2', discuz_uid = '31', cookiepre = 'test_';</script>
+</head>
+<body>
+<script type="text/javascript">
+zoomstatus = parseInt(1);
+var feevalue = 0;
+var credit = 10;var currentcredit = 831;</script>
+<form method="post" autocomplete="off" id="tradepost" name="tradepost" action="forum.php?mod=trade&amp;action=trade&amp;tid=9202765&amp;pid=11179">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<div class="bm">
+<h3 class="bm_h">确认购买信息</h3>
+<div class="torder bm_c cl">
+<div class="spvimg">
+<a href="forum.php?mod=viewthread&amp;do=tradeinfo&amp;tid=9202765&amp;pid=11179"><div class="nophoto"></div></a>
+</div>
+<div class="spi cl">
+<dl>
+<dt>现价</dt>
+<dd>
+&nbsp;天使币&nbsp;<strong>10</strong>&nbsp;</dd>
+<dt>所在地点</dt><dd>线上</dd><dt>卖家</dt><dd><a href="home.php?mod=space&amp;uid=33" target="_blank">seller_a</a></dd>
+</dl>
+</div>
+<table summary="确认购买信息" cellspacing="0" cellpadding="0" class="tfm">
+<tr>
+<th>支付总额</th>
+<td>
+天使币&nbsp;<strong id="caculatecredit"></strong>&nbsp;&nbsp;<span id="crediterror"></span></td>
+</tr>
+<tr>
+<th><label for="number">购买数量</label></th>
+<td><input type="text" id="number" name="number" onkeyup="calcsum()" value="1" class="pt" /></td>
+</tr>
+<tr>
+<th>物流方式</th>
+<td>
+<p>
+<input type="hidden" name="transport" value="3">虚拟物品</p>
+</td>
+</tr>
+<tr>
+<th>交易方式</th>
+<td>
+<input type="hidden" name="offline" value="1" checked="checked" />担保交易
+</td>
+</tr>
+<input type="hidden" name="buyername" value="" />
+<input type="hidden" name="buyercontact" value="" />
+<input type="hidden" name="buyerzip" value="" />
+<input type="hidden" name="buyerphone" value="" />
+<input type="hidden" name="buyermobile" value="" />
+<tr>
+<th valign="top"><label for="buyermsg">备注信息</label></th>
+<td>
+<textarea id="buyermsg" name="buyermsg" rows="5" class="pt"></textarea>
+<div class="xg2">200 字以内</div>
+</td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td class="pns">
+<button class="pn pnc" type="submit" id="tradesubmit" name="tradesubmit" value="true"><span>确认购买</span></button>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</form>
+</body>
+</html>

@@ -330,7 +330,10 @@
       "title": "账号",
       "mgmt": "管理账户",
       "crossDeviceSync": {
-        "title": "跨设备同步"
+        "title": "跨设备同步",
+        "rateTemplates": "评分模板",
+        "settings": "阅读与显示设置",
+        "drafts": "本机草稿"
       }
     },
     "appearanceSection": {
@@ -499,6 +502,7 @@
     },
     "windowSection": {
       "title": "窗口",
+      "keyboardShortcuts": "键盘快捷键",
       "disableHint": "在启动时增加参数\"--no-window-configs\"将会禁用该部分设置。如果软件开启后看不到窗口，可以尝试增加此参数。",
       "windowRememberSize": {
         "title": "记住窗口大小",
@@ -531,6 +535,17 @@
         "title": "后台通知：所有已登录账号",
         "detail": "App 的自动同步（电脑版缩到托盘时也算）与安卓的后台消息接收也检查此设备上其他已登录的账号，各自用自己的登录；通知会标出账号，点通知时先切换到该账号再打开通知页",
         "seenNote": "检查其他账号时，论坛会把它们的提醒标成已读（网页上的红点会消失），和打开通知页一样"
+      },
+      "noticeCategories": {
+        "title": "通知类别",
+        "reply": "回复",
+        "mention": "@提到我",
+        "rate": "评分／点评",
+        "pm": "私信",
+        "system": "系统通知",
+        "quietHours": "静音时段",
+        "quietStart": "开始",
+        "quietEnd": "结束"
       },
       "notificationHideContent": {
         "title": "通知不显示内容",
@@ -1224,18 +1239,43 @@
       "keywordEmpty": "关键词不能为空",
       "keywordInvalid": "关键词不能包含\"%\"",
       "author": "作者（uid 或用户名）",
-      "authorInvalid": "作者不能包含\"%\"",
-      "fid": "论坛id（fid）",
-      "fidInvalid": "论坛id必须是不小于0的数字"
+      "authorInvalid": "作者不能包含\"%\""
     },
     "result": {
       "title": "搜索结果",
       "totalThreadCount": "$count 条结果",
       "pageInfo": "$total 页",
       "noData": "没有找到相关帖子",
-      "hint": "输入关键字、作者或论坛 id 后搜索",
+      "hint": "输入关键字或作者后搜索",
       "noDataHint": "换个关键字试试。",
-      "noDataFiltered": "限定了作者或版块，试试放宽限制。"
+      "noDataFiltered": "限定了作者、版块或时间，试试放宽限制。"
+    },
+    "filter": {
+      "forum": "版块",
+      "forumCount": "$count 个版块",
+      "forumId": "版块 $fid",
+      "clear": "清除",
+      "time": {
+        "all": "不限时间",
+        "day": "一天内",
+        "week": "一周内",
+        "month": "一个月内",
+        "threeMonths": "三个月内",
+        "halfYear": "半年内",
+        "year": "一年内"
+      },
+      "order": {
+        "lastpost": "最后回复",
+        "dateline": "发表时间",
+        "replies": "回复数",
+        "views": "查看数",
+        "descending": "降序",
+        "ascending": "升序"
+      },
+      "titleOnly": "只搜标题"
+    },
+    "history": {
+      "clear": "清除全部"
     }
   },
   "myThreadPage": {
@@ -1271,6 +1311,24 @@
     "removed": "已取消收藏",
     "actionFailed": "操作失败：$err",
     "favoritedAt": "收藏于 $time"
+  },
+  "offlineBatch": {
+    "downloadTitle": "离线下载",
+    "updateTitle": "更新离线副本",
+    "progress": "${done: int}／${total: int}",
+    "downloadSelected": "离线下载所选",
+    "downloadAll": "全部离线下载",
+    "copies": "离线副本",
+    "updateAll": "全部更新",
+    "clearSelection": "取消选择",
+    "selectedCount": "${count: int}",
+    "empty": "没有离线副本",
+    "remove": "删除离线副本",
+    "pages": "${count: int} 页",
+    "savedCount": "已保存",
+    "skippedCount": "已略过",
+    "overLimitCount": "超出保存上限",
+    "failedCount": "失败"
   },
   "friendPage": {
     "title": "好友",
@@ -1349,6 +1407,11 @@
   "latestThreadPage": {
     "title": "最新主题",
     "empty": "暂时还没有帖子"
+  },
+  "tagPage": {
+    "title": "标签：$name",
+    "cloudTitle": "标签",
+    "empty": "暂无标签"
   },
   "ratePostPage": {
     "title": "评分",
@@ -1820,6 +1883,26 @@
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
   },
+  "threadExport": {
+    "copyPlain": "复制为纯文本",
+    "copyMarkdown": "复制为 Markdown",
+    "menu": "导出整帖",
+    "plain": "纯文本",
+    "markdown": "Markdown",
+    "loaded": "已加载的楼层",
+    "all": "全部页",
+    "save": "保存",
+    "share": "分享",
+    "cancel": "取消",
+    "progress": "正在读取第 ${page: int} / ${total: int} 页",
+    "failed": "导出失败",
+    "saved": "已保存至 ${filePath: String}",
+    "labelFold": "[折叠]",
+    "labelHidden": "[隐藏]",
+    "labelImage": "[图片]",
+    "labelMedia": "[媒体]",
+    "labelSmiley": "表情"
+  },
   "shareFloorImage": {
     "title": "分享为图片",
     "save": "保存",
@@ -1861,6 +1944,40 @@
       "forumMessage": "论坛返回了提示而不是举报表单，未送出：",
       "unsupported": "应用不支持此举报表单，未送出；请改用浏览器。"
     }
+  },
+  "moderate": {
+    "menu": "管理",
+    "stick": "置顶",
+    "digest": "精华",
+    "close": "关闭主题",
+    "open": "打开主题",
+    "move": "移动",
+    "delete": "删除主题",
+    "expiration": "有效期",
+    "noExpiration": "永久",
+    "reason": "操作原因",
+    "notifyAuthor": "通知作者",
+    "moveTo": "目标版块",
+    "moveNormal": "移动主题",
+    "moveRedirect": "保留转向",
+    "done": "管理操作成功",
+    "failed": "操作失败",
+    "warn": "警告",
+    "unwarn": "解除警告",
+    "ban": "屏蔽",
+    "unban": "解除屏蔽",
+    "deletePost": "删除回复",
+    "queue": "审核",
+    "queueThreads": "主题",
+    "queueReplies": "回复",
+    "validate": "通过",
+    "ignore": "忽略",
+    "queueDelete": "删除",
+    "queueEmpty": "没有待审核的内容",
+    "panelLogin": "管理面板",
+    "password": "密码",
+    "wrongPassword": "密码错误",
+    "nextPage": "下一页"
   },
   "packetCard": {
     "title": "红包",
@@ -1981,6 +2098,11 @@
     "shareImage": "分享图片",
     "failedToShareImage": "无法分享图片",
     "openInBrowser": "在浏览器中打开",
+    "saveAllImages": "保存全部图片",
+    "saveScopeFloor": "这一楼",
+    "saveScopePage": "这一页",
+    "saveAllDone": "已保存 ${saved: int} 张，失败 ${failed: int} 张",
+    "saveAllCancelled": "已取消，已保存 ${saved: int} 张",
     "failedToOpenInBrowser": "无法打开浏览器"
   },
   "init": {
@@ -2091,6 +2213,13 @@
     }
   },
   "localNotification": {
+    "channels": {
+      "reply": "回复",
+      "mention": "@提到我",
+      "rate": "评分／点评",
+      "pm": "私信",
+      "system": "系统通知"
+    },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
     "ticker": "新提醒",
@@ -2218,7 +2347,11 @@
     "submit": "提交",
     "clearAvatarTip": "提交一个空链接可以清除当前使用的头像",
     "avatarUpdated": "头像已更新",
-    "viewSharedAvatars": "在找好看头像？点我看公共头像"
+    "viewSharedAvatars": "在找好看头像？点我看公共头像",
+    "uploadImage": "上传图片",
+    "cropTitle": "裁剪头像",
+    "uploadFailed": "上传失败",
+    "imageUnreadable": "无法读取这张图片"
   },
   "updatePage": {
     "title": "获取更新",
@@ -2676,7 +2809,8 @@
       "aboutMe": "关于我",
       "forum": "论坛显示"
     },
-    "uploadHint": "修改只保留在本页，点右上角的上传按钮才会提交到论坛。"
+    "uploadHint": "修改只保留在本页，点右上角的上传按钮才会提交到论坛。",
+    "signatureUnavailable": "当前用户组不能使用个人签名"
   },
   "urlInfoBottomSheet": {
     "title": "链接信息",
@@ -3041,6 +3175,45 @@
     "accountChanged": "载入此页后已切换账号，请先刷新帖子。",
     "openInBrowser": "在浏览器中打开",
     "submit": "提交",
+    "hongbao": {
+      "title": "红包",
+      "status": {
+        "active": "进行中",
+        "done": "已领完",
+        "withdrawn": "已撤回",
+        "expired": "已过期",
+        "closed": "已关闭"
+      },
+      "lucky": "拼手气",
+      "even": "均分",
+      "shares": "已领 $claimed/$shares 份",
+      "needReply": "需回帖",
+      "password": "口令",
+      "appoint": "指定领取",
+      "expireAt": "$time 到期",
+      "noExpire": "不自动到期",
+      "mine": "领到 $amount$credit",
+      "best": "手气最佳",
+      "why": {
+        "disabled": "红包功能已关闭",
+        "login": "登录后领取",
+        "self": "不能领取自己的红包",
+        "claimed": "已领取",
+        "appoint": "不在指定领取名单",
+        "needreply": "回帖后领取"
+      },
+      "grab": "抢红包",
+      "passwordTitle": "输入口令",
+      "records": "领取记录",
+      "recordsEmpty": "还没有人领取",
+      "recordsFailed": "读取失败",
+      "withdraw": "撤回",
+      "withdrawConfirmTitle": "撤回红包",
+      "withdrawConfirm": "剩余的$credit退回给你",
+      "grabbed": "领到 $amount $unit",
+      "already": "已领过 $amount $unit",
+      "withdrawn": "已撤回，退回 $amount $unit"
+    },
     "poll": {
       "single": "单选投票",
       "multiple": "多选投票，最多可选 $max 项",
@@ -3162,7 +3335,28 @@
       "credit": "$credit $unit",
       "manage": "商品排序",
       "add": "添加商品",
-      "openHint": "购买、数量与运费在浏览器的商品页办理。"
+      "buy": "购买",
+      "buyInBrowser": "在浏览器购买",
+      "soldOut": "已售完",
+      "seller": "卖家",
+      "quantity": "数量",
+      "message": "留言",
+      "next": "下一步",
+      "confirmTitle": "确认购买",
+      "pay": "付款",
+      "cost": "支付",
+      "balance": "余额",
+      "after": "购买后",
+      "insufficient": "余额不足",
+      "password": "登录密码",
+      "bought": "购买完成。",
+      "notPaid": "订单已建立，尚未付款。",
+      "payAgain": "重新付款",
+      "openOrder": "查看订单",
+      "unknown": "未能确认结果，请在订单页查看。",
+      "verification": "论坛要求验证，请在浏览器中完成。",
+      "openOrders": "查看交易记录",
+      "unknownOrder": "未能确认是否已下单，请在交易记录中查看。"
     },
     "already": "之前已经完成。"
   },
@@ -3219,5 +3413,35 @@
   },
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
+  },
+  "keyboardShortcutsPage": {
+    "title": "键盘快捷键",
+    "groups": {
+      "global": "全局",
+      "thread": "帖子页",
+      "list": "列表",
+      "editor": "编辑器"
+    },
+    "commands": {
+      "search": "搜索",
+      "settings": "设置",
+      "back": "关闭对话框、返回",
+      "refresh": "刷新",
+      "nextFloor": "下一楼",
+      "previousFloor": "上一楼",
+      "nextPage": "下一页",
+      "previousPage": "上一页",
+      "reply": "回复",
+      "top": "到顶部",
+      "bottom": "到底部",
+      "copyLink": "复制帖子链接",
+      "nextItem": "下一项",
+      "previousItem": "上一项",
+      "openItem": "打开选中的项目",
+      "send": "发送",
+      "bold": "粗体",
+      "italic": "斜体",
+      "underline": "下划线"
+    }
   }
 }

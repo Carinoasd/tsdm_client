@@ -26,3 +26,13 @@ final class EditAvatarUploadRequested extends EditAvatarEvent with EditAvatarUpl
   /// Form hash used to upload.
   final String formHash;
 }
+
+/// Upload an avatar cropped from an image with the forum's avatar editor.
+@MappableClass()
+final class EditAvatarImageUploadRequested extends EditAvatarEvent with EditAvatarImageUploadRequestedMappable {
+  /// Constructor.
+  const EditAvatarImageUploadRequested(this.images);
+
+  /// The images to upload.
+  final AvatarImages images;
+}

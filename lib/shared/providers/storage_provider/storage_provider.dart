@@ -1029,6 +1029,21 @@ class StorageProvider with LoggerMixin {
     return entity;
   }
 
+  /// The saved page of the key without marking it used: for listing and comparing copies, which must not keep them
+  /// from being evicted nor make them look read.
+  Future<OfflineThreadEntity?> peekOfflineThreadPage({
+    required int uid,
+    required int tid,
+    required int page,
+    required int orderType,
+    required int authorId,
+  }) async => OfflineThreadDao(
+    _db,
+  ).selectPage(uid: uid, tid: tid, page: page, orderType: orderType, authorId: authorId);
+
+  /// The threads kept for user [uid], most recently used first ([OfflineThreadDao.selectCopies]).
+  Future<List<OfflineThreadCopyRow>> fetchOfflineThreadCopies(int uid) async => OfflineThreadDao(_db).selectCopies(uid);
+
   /// Every saved offline thread page of every user, with the bodies. Tests only.
   @visibleForTesting
   Future<List<OfflineThreadEntity>> fetchAllOfflineThreadPages() async => OfflineThreadDao(_db).selectAll();
@@ -1036,6 +1051,13 @@ class StorageProvider with LoggerMixin {
   /// Delete every saved page of thread [tid] for user [uid].
   Future<int> deleteOfflineThread({required int uid, required int tid}) async =>
       OfflineThreadDao(_db).deleteThread(uid: uid, tid: tid);
+
+  /// How many threads are kept, of every account together.
+  Future<int> offlineThreadCount() async => OfflineThreadDao(_db).countThreads();
+
+  /// Delete the pages of the default request of thread [tid] for user [uid] after page [page].
+  Future<int> deleteOfflineThreadPagesAfter({required int uid, required int tid, required int page}) async =>
+      OfflineThreadDao(_db).deletePagesAfter(uid: uid, tid: tid, page: page);
 
   /// Delete every saved page of user [uid].
   Future<int> deleteOfflineThreadsByUid(int uid) async => OfflineThreadDao(_db).deleteByUid(uid);
@@ -1312,6 +1334,32 @@ class StorageProvider with LoggerMixin {
       ),
     );
 
+    return rightVoid();
+  });
+
+  /// Replace every fast rate template with [rates], in their order, in one transaction (the watchers see one change).
+  AsyncVoidEither replaceAllFastRateTemplates(List<FastRateTemplateModel> rates) => AsyncEither(() async {
+    final dao = FastRateTemplateDao(_db);
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      await dao.deleteAll();
+      for (final rate in rates) {
+        await dao.insertOrUpdate(
+          FastRateTemplateCompanion(
+            name: Value(rate.name),
+            ww: Value(rate.ww),
+            tsb: Value(rate.tsb),
+            xc: Value(rate.xc),
+            tr: Value(rate.tr),
+            fh: Value(rate.fh),
+            jl: Value(rate.jl),
+            lastUsedTime: Value(now),
+            special: Value(rate.special),
+            special2: Value(rate.special2),
+          ),
+        );
+      }
+    });
     return rightVoid();
   });
 

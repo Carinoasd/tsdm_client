@@ -99,20 +99,7 @@ class _CardLayout extends StatelessWidget {
     child: AdaptiveInkResponse(
       onTap: disableTap
           ? null
-          : () async {
-              // FIXME: Query parameters are not recognized by v2 yet.
-              final query = {
-                'tid': threadID,
-                'appBarTitle': title,
-                'threadTypeName': threadType?.name,
-                'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-              };
-              // On the right of a wide list page, else as a page of its own.
-              if (openThreadInPane(context, query)) {
-                return;
-              }
-              await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
-            },
+          : () async => openThread(context, threadID: threadID, title: title, threadType: threadType),
       onAdaptiveContextTap: (tapPosition) async {
         // Get the position where the tap occurred.
         RelativeRect? position;
@@ -517,6 +504,26 @@ class _CardLayout extends StatelessWidget {
       builder: _buildContent,
     );
   }
+}
+
+/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own.
+Future<void> openThread(
+  BuildContext context, {
+  required String threadID,
+  required String title,
+  ThreadType? threadType,
+}) async {
+  // FIXME: Query parameters are not recognized by v2 yet.
+  final query = {
+    'tid': threadID,
+    'appBarTitle': title,
+    'threadTypeName': threadType?.name,
+    'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+  };
+  if (openThreadInPane(context, query)) {
+    return;
+  }
+  await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
 }
 
 /// Card to show thread info.

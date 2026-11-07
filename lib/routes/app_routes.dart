@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
+import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
@@ -43,6 +44,7 @@ import 'package:tsdm_client/features/notification/view/notification_detail_page.
 import 'package:tsdm_client/features/notification/view/notification_page.dart';
 import 'package:tsdm_client/features/notification/view/notification_search_page.dart';
 import 'package:tsdm_client/features/notification/view/notification_sync_all_page.dart';
+import 'package:tsdm_client/features/offline_thread/view/offline_threads_page.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/packet/view/packet_detail_page.dart';
 import 'package:tsdm_client/features/points/views/points_page.dart';
@@ -61,6 +63,7 @@ import 'package:tsdm_client/features/post/view/fast_reply_template_page.dart';
 import 'package:tsdm_client/features/post/view/poll_create_page.dart';
 import 'package:tsdm_client/features/post/view/post_edit_page.dart';
 import 'package:tsdm_client/features/profile/view/edit_avatar_page.dart';
+import 'package:tsdm_client/features/profile/view/edit_signature_page.dart';
 import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
@@ -78,6 +81,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
@@ -149,6 +153,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.about, builder: (_) => const AboutPage()),
   AppRoute(path: ScreenPaths.activities, builder: (_) => const ActivitiesPage()),
   AppRoute(path: ScreenPaths.license, builder: (_) => const AppLicensePage()),
+  AppRoute(path: ScreenPaths.keyboardShortcuts, builder: (_) => const KeyboardShortcutsPage()),
   AppRoute(
     path: ScreenPaths.forum,
     builder: (state) {
@@ -248,11 +253,13 @@ final List<RouteBase> _appRoutes = [
           : FavoriteType.thread,
     ),
   ),
+  AppRoute(path: ScreenPaths.offlineThreads, builder: (state) => const OfflineThreadsPage()),
   AppRoute(
     path: ScreenPaths.friend,
     builder: (state) =>
         FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
   ),
+  AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {
@@ -316,6 +323,7 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => PokemonEquipmentPage(pokemon: state.extra! as Pokemon),
   ),
   AppRoute(path: ScreenPaths.editUserProfile, builder: (_) => const EditUserProfilePage()),
+  AppRoute(path: ScreenPaths.editSignature, builder: (_) => const EditSignaturePage()),
   AppRoute(
     path: ScreenPaths.ratePost,
     builder: (state) {

@@ -261,6 +261,7 @@ final class _Searches extends SearchRepository {
     required String uid,
     required int pageNumber,
     String authorName = '',
+    SearchFilter filter = const SearchFilter(),
   }) => AsyncEither(() async {
     final page = pageNumber < 1 ? 1 : pageNumber;
     pages.add(page);

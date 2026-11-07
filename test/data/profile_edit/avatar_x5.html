@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>修改头像 - 测试论坛</title>
+<script type="text/javascript">var STYLEID = '2', STATICURL = 'static/', IMGDIR = 'static/image/common', VERHASH = 'JP0', charset = 'utf-8', discuz_uid = '31', cookiepre = 'test_', cookiedomain = '', cookiepath = '/', showusercard = '1', attackevasive = '0', disallowfloat = 'newthread', creditnotice = '1|威望|,2|天使币|,3|宣传|,4|腹黑|,5|天然|,6|精灵|', defaultstyle = '', REPORTURL = '', SITEURL = 'https://forum.test/', JSPATH = 'data/cache/', CSSPATH = 'data/cache/style_', DYNAMICURL = '', DEFAULTAVATAR = './data/avatar/noavatar.svg';</script>
+</head>
+<body>
+<table cellspacing="0" cellpadding="0" class="tfm">
+<caption>
+<h2 class="xs2">设置自定义外链头像</h2>
+<p>在这里填写一张外链图片的URL（以 http:// 或 https:// 开头），即可使用外链头像，例如其他图站外链的动态GIF，不会占用论坛服务器空间。留空提交即可取消外链头像，恢复使用论坛上传的头像。</p>
+</caption>
+<tr>
+<td>
+<form method="post" action="home.php?mod=spacecp&amp;ac=avatar" id="headform">
+<input name="headedit" id="headedit" type="text" value="" size="80" class="px" placeholder="http:// 或 https:// 开头的图片地址" />
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<button type="submit" name="headsubmit" value="true" class="pn pnc"><strong>保存外链头像</strong></button>
+</form>
+</td>
+</tr>
+</table>
+<form id="avatarform" enctype="multipart/form-data" method="post" autocomplete="off" action="home.php?mod=spacecp&amp;ac=avatar&amp;ref">
+<table cellspacing="0" cellpadding="0" class="tfm">
+<caption>
+<span id="retpre" class="y xi2"></span>
+<h2 class="xs2">当前我的头像</h2>
+<p>如果您还没有设置自己的头像，系统会显示为默认头像，您需要自己上传一张新照片来作为自己的个人头像 </p>
+</caption>
+<tr>
+<td><img data-src="./data/avatar/000/00/00/31_avatar_big.jpg?ts=1700000000" class="_avt user_avatar"></td>
+</tr>
+</table>
+
+<table cellspacing="0" cellpadding="0" class="tfm">
+<caption>
+<h2 class="xs2">设置我的新头像</h2>
+<p>请选择一个新照片进行上传编辑。<br />头像保存后，您可能需要刷新一下本页面(按F5键)，才能查看最新的头像效果 </p>
+</caption>
+<tr>
+<td>
+<div id="avatardesigner">
+<div id="avatarfileselector">
+<button type="submit" id="uploadavatar" name="uploadavatar" class="uploadavatar">上传头像</button>
+<input type="file" name="Filedata" id="avatarfile" accept="image/*" />
+</div>
+<div id="avataradjuster">
+<img id="avatarimage" style="visibility: hidden;" />
+<canvas id="avatarcanvas" style="position: absolute; top: 0px; left: 0px;"></canvas>
+<div id="widgetparent" style="position: absolute; left: 0px; top: 0px;">
+<div id="selector" class='ui-widget-content' style="position: absolute; width: 120px; height: 120px; overflow:hidden; cursor: move; border: 1px solid lightgrey; background-color: transparent; background-image: none;">
+</div>
+</div>
+
+<div class="backfileselectiondiv">
+<input type="button" id="backfileselection" name="backfileselection" class="backfileselection" value="返回选择" />
+</div>
+
+<div id="slider" style="height: 0px; position: absolute; right: 9px; top: 105px; width: 100px;"></div>
+
+<div class="saveAvatardiv">
+<input type="submit" id="avconfirm" name="confirm" value="确定" class="saveAvatar" style="" />
+</div>
+
+<input type="hidden" id="avatar1" name="avatar1" />
+<input type="hidden" id="avatar2" name="avatar2" />
+<input type="hidden" id="avatar3" name="avatar3" />
+</div>
+<div id="avatardisplayer">
+<canvas id="avatardisplaycanvas"></canvas>
+
+<div class="finishbuttondiv">
+<input type="button" value="完成" class="finishbutton" onclick="location.reload(true);" />
+</div>
+</div>
+</div>														
+
+<script src="static/js/mobile/jquery.min.js?JP0" type="text/javascript"></script>
+<script type="text/javascript">
+var data = "width,450,height,253,scale,exactfit,src,/images/camera.swf?inajax=1&appid=1&input=AbCdEf0123456789&agent=0123456789abcdef0123456789abcdef&ucapi=&avatartype=virtual&uploadSize=2048,html5_src,/index.php?m=user&a=camera&width=450&height=253&appid=1&input=AbCdEf0123456789&agent=0123456789abcdef0123456789abcdef&ucapi=&avatartype=virtual&uploadSize=2048,stl_src,https://forum.test/api/avatar/index.php?m=user&inajax=1&a=rectavatar&appid=1&input=AbCdEf0123456789&agent=0123456789abcdef0123456789abcdef&avatartype=virtual&base64=yes,id,mycamera,name,mycamera,quality,high,bgcolor,#ffffff,menu,false,swLiveConnect,true,allowScriptAccess,always,standalone,1".split(',');
+</script>
+
+<link rel="stylesheet" href="static/avatar/avatar.css?JP0" />							
+<script src="static/avatar/jquery-ui.min.js?JP0" type="text/javascript"></script>
+<script src="static/avatar/avatar.js?JP0" type="text/javascript"></script>
+
+<iframe name="uploadframe" id="uploadframe" style="display: none;"></iframe>
+</td></tr></table>
+</form>
+</body>
+</html>
