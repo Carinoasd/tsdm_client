@@ -10,6 +10,8 @@ import 'package:tsdm_client/features/special_thread/repository/hongbao_repositor
 import 'package:tsdm_client/features/special_thread/repository/special_thread_repository.dart';
 import 'package:tsdm_client/features/special_thread/widgets/special_form_dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
+import 'package:tsdm_client/features/trade/models/trade_models.dart';
+import 'package:tsdm_client/features/trade/view/trade_goods_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -34,7 +36,7 @@ part 'trade_special_card.dart';
 /// instead of the forum's html of it (cut out of the floor, see `bodyHtmlWithoutSpecialBlock`).
 ///
 /// * poll: the poll card ([PollCard]) fed with the fields;
-/// * goods: the list, each goods opening its page in the browser (buying is there);
+/// * goods: the list, each goods opening its page in the app, where a goods sold for credit is bought;
 /// * bounty: the bounty, its state, the accepted answer (accepting one is on the floors, [SpecialBestAnswerButton]);
 /// * activity: the details, the account's application, applying (the forum's form, [showSpecialFormDialog]),
 ///   cancelling, the applicants; managing opens the web page;
@@ -85,7 +87,7 @@ class SpecialThreadCard extends StatelessWidget {
     final reload = offline ? null : onReload;
     return switch (special) {
       final PollSpecial poll => PollCard(pid, fromSpecial: poll, onVoted: reload),
-      final TradeSpecial trade => _TradeCard(trade),
+      final TradeSpecial trade => _TradeCard(trade, onReload: reload),
       final RewardSpecial reward => _RewardCard(reward),
       final ActivitySpecial activity => _ActivityCard(activity, onReload: reload, webUrl: webUrl),
       final DebateSpecial debate => _DebateCard(debate, onReload: reload, onJoin: offline ? null : onJoinDebate),

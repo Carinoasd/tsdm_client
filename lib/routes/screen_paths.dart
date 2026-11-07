@@ -160,6 +160,9 @@ class ScreenPaths {
   /// is usually specified by the original source (in url).
   static const String threadV1 = '/thread/v1';
 
+  /// A goods of a trade thread: its page and buying it (pushed by the goods list, no route of its own).
+  static const String tradeGoods = '/tradeGoods';
+
   /// Notice page, the notifications tab of the home shell.
   ///
   /// Show all notice and private messages on current user.
