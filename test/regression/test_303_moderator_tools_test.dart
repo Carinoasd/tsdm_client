@@ -82,6 +82,10 @@ void main() {
       open['document'] = (open['document'] as String)
           .replaceFirst('value="open" checked="checked"', 'value="open"')
           .replaceFirst('value="close"', 'value="close" checked="checked"');
+      expect(
+        open['document'],
+        allOf(contains('value="close" checked="checked"'), isNot(contains('value="open" checked'))),
+      );
       final form = ModerateRepository.windowOf(open, ModerateOperation.open, tid: _tid, fid: _fid, uid: _uid);
       expect((form.getRight().toNullable()! as ModerateWindowReady).form.operation, ModerateOperation.close);
     });
@@ -90,6 +94,7 @@ void main() {
       final page = jsonDecode(jsonEncode(_data('window_stick_digest.json'))) as Map<String, dynamic>;
       // A global stick seen by a forum moderator: no listed level is selected.
       page['document'] = (page['document'] as String).replaceAll(' selected="selected"', '');
+      expect(page['document'], isNot(contains('selected')));
       final form = ModerateRepository.windowOf(page, ModerateOperation.stick, tid: _tid, fid: _fid, uid: _uid);
       expect((form.getRight().toNullable()! as ModerateWindowReady).form.currentLevel, isNull);
     });
