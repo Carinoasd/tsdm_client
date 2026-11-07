@@ -1929,6 +1929,11 @@
     "shareImage": "分享图片",
     "failedToShareImage": "无法分享图片",
     "openInBrowser": "在浏览器中打开",
+    "saveAllImages": "保存全部图片",
+    "saveScopeFloor": "这一楼",
+    "saveScopePage": "这一页",
+    "saveAllDone": "已保存 ${saved: int} 张，失败 ${failed: int} 张",
+    "saveAllCancelled": "已取消，已保存 ${saved: int} 张",
     "failedToOpenInBrowser": "无法打开浏览器"
   },
   "init": {
