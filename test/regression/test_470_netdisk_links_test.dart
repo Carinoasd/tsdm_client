@@ -95,7 +95,19 @@ void main() {
       expect(codes('$url 提取码：abcd解压密码：xyz').extract, 'abcd');
     });
 
-    const unzipLabels = <String>['解压密码', '解壓密碼', '解压码', '解壓碼', '压缩包密码', '解压缩密码', '解壓縮密碼', '解压缩包密码', 'unzip password'];
+    const unzipLabels = <String>[
+      '解压密码',
+      '解壓密碼',
+      '解压码',
+      '解壓碼',
+      '压缩包密码',
+      '解压缩密码',
+      '压缩密码',
+      '壓縮密碼',
+      '解壓縮密碼',
+      '解压缩包密码',
+      'unzip password',
+    ];
     for (final label in unzipLabels) {
       test('archive password: $label', () {
         final c = codes('$url 提取码：abcd $label：tsdm@2026');
@@ -112,6 +124,13 @@ void main() {
 
     test('"none" is no archive password', () {
       expect(codes('$url 提取码：abcd 解压密码：无').unzip, isNull);
+    });
+
+    test('a code glued to the url by Chinese words only', () {
+      final l = parseNetdiskLinks('https://pan.baidu.com/s/1abc提取码:abcd解压密码:x1').single;
+      expect(l.url, 'https://pan.baidu.com/s/1abc');
+      expect(l.extractCode, 'abcd');
+      expect(l.unzipPassword, 'x1');
     });
 
     test('brackets around a code are no part of it', () {

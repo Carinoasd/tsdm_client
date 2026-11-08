@@ -72,12 +72,12 @@ String? netdiskUrlOf(String href) {
   return netdiskProviderOf(url) == null ? null : url;
 }
 
-final _urlRe = RegExp(r'https?://[^\s<>"　-〿＀-￯]+');
+final _urlRe = RegExp(r'https?://[^\s<>"　-〿一-鿿＀-￯]+');
 const _trailingPunctuation = '.,;:!?)]}\'"';
 
 /// Words naming the archive password come first so that `解压密码` is not read as a plain `密码`.
 final _labelRe = RegExp(
-  r'(?<unzip>解[压壓](?:[缩縮])?(?:包)?密?[码碼]|[压壓][缩縮]包密?[码碼]|unzip\s*(?:password|pwd|code)|zip\s*(?:password|pwd))'
+  r'(?<unzip>解[压壓][缩縮]?包?密?[码碼]|[压壓][缩縮]包?密?[码碼]|unzip\s*(?:password|pwd|code)|zip\s*(?:password|pwd))'
   r'|(?<extract>提取密?[码碼]|提取[码碼]|访问[码碼]|訪問[码碼]|密[码碼]|(?<![A-Za-z])(?:pwd|password|passcode|extract\s*code|code)(?![A-Za-z]))',
   caseSensitive: false,
 );
@@ -89,6 +89,9 @@ final _sepRe = RegExp(r'\s*[:：=＝]\s*|[ \t　]+');
 final _strictSepRe = RegExp(r'\s*[:：=＝]\s*');
 final _extractValueRe = RegExp('[A-Za-z0-9]{3,8}(?![A-Za-z0-9])');
 final _unzipValueRe = RegExp(r'''[^\s,，;；。、)）\]】」』>》"'”’]{1,48}''');
+
+final _latinRe = RegExp('[A-Za-z]');
+final _noneRe = RegExp(r'^(无|無|没有|沒有|none|null|nil|-+)$', caseSensitive: false);
 
 /// How far from a link, in characters, a label still belongs to it.
 const _reach = 200;
@@ -127,7 +130,7 @@ List<NetdiskLink> parseNetdiskLinks(String text) {
       continue;
     }
     final unzip = m.namedGroup('unzip') != null;
-    final sep = (RegExp('[A-Za-z]').hasMatch(m.group(0)!) ? _strictSepRe : _sepRe).matchAsPrefix(text, m.end);
+    final sep = (_latinRe.hasMatch(m.group(0)!) ? _strictSepRe : _sepRe).matchAsPrefix(text, m.end);
     if (sep == null) {
       continue;
     }
@@ -138,7 +141,7 @@ List<NetdiskLink> parseNetdiskLinks(String text) {
     var value = valueMatch.group(0)!;
     if (unzip) {
       // `解压密码：无` and the like say there is none.
-      if (RegExp(r'^(无|無|没有|沒有|none|null|nil|-+)$', caseSensitive: false).hasMatch(value)) {
+      if (_noneRe.hasMatch(value)) {
         continue;
       }
       // The next label is not the value.

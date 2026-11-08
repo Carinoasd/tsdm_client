@@ -2026,7 +2026,7 @@ final class _Muncher with LoggerMixin {
     return spans;
   }
 
-  static final _bareUrlRe = RegExp(r'https?://[^\s<>"\u3000-\u303f\uff00-\uffef]+');
+  static final _bareUrlRe = RegExp(r'https?://[^\s<>"\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]+');
   static const _urlTrailingPunctuation = '.,;:!?)]}\'"';
 
   /// The chips under the online storage link [url] of a post (a line of their own), empty for any other link.
