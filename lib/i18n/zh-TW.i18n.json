@@ -779,6 +779,41 @@
           "skip": "略過，只匯入其他資料",
           "restore": "還原"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "伺服器網址",
+        "username": "帳號",
+        "password": "密碼",
+        "directory": "目錄",
+        "invalidUrl": "請填寫 http:// 或 https:// 開頭的網址",
+        "autoBackup": "自動備份",
+        "schedule": {
+          "off": "關閉",
+          "daily": "每天",
+          "weekly": "每週"
+        },
+        "keep": "保留份數",
+        "invalidKeep": "請填寫 1～$max",
+        "saveFailed": "儲存失敗，請稍後再試",
+        "test": {
+          "idle": "測試連線",
+          "testing": "測試中…",
+          "ok": "連線成功",
+          "unauthorized": "帳號或密碼錯誤",
+          "notFound": "網址不存在或不是 WebDAV",
+          "unreachable": "無法連線到伺服器",
+          "failed": "連線失敗"
+        },
+        "backupNow": "立即備份",
+        "lastBackup": "上次備份：$time",
+        "backupDone": "已備份到 WebDAV",
+        "backupFailed": "備份失敗，現有資料未變更",
+        "backupUnauthorized": "備份失敗：WebDAV 帳號或密碼錯誤",
+        "restore": "從 WebDAV 還原",
+        "restoreEmpty": "WebDAV 上沒有備份",
+        "listFailed": "無法讀取 WebDAV 上的備份",
+        "downloadFailed": "下載備份失敗"
       }
     },
     "debugSection": {

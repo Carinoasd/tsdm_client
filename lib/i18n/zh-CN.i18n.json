@@ -779,6 +779,41 @@
           "skip": "跳过，只导入其他数据",
           "restore": "恢复"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "服务器地址",
+        "username": "账号",
+        "password": "密码",
+        "directory": "目录",
+        "invalidUrl": "请填写 http:// 或 https:// 开头的地址",
+        "autoBackup": "自动备份",
+        "schedule": {
+          "off": "关闭",
+          "daily": "每天",
+          "weekly": "每周"
+        },
+        "keep": "保留份数",
+        "invalidKeep": "请填写 1～$max",
+        "saveFailed": "保存失败，请稍后再试",
+        "test": {
+          "idle": "测试连接",
+          "testing": "测试中…",
+          "ok": "连接成功",
+          "unauthorized": "账号或密码错误",
+          "notFound": "地址不存在或不是 WebDAV",
+          "unreachable": "无法连接服务器",
+          "failed": "连接失败"
+        },
+        "backupNow": "立即备份",
+        "lastBackup": "上次备份：$time",
+        "backupDone": "已备份到 WebDAV",
+        "backupFailed": "备份失败，现有数据未变更",
+        "backupUnauthorized": "备份失败：WebDAV 账号或密码错误",
+        "restore": "从 WebDAV 恢复",
+        "restoreEmpty": "WebDAV 上没有备份",
+        "listFailed": "无法读取 WebDAV 上的备份",
+        "downloadFailed": "下载备份失败"
       }
     },
     "debugSection": {

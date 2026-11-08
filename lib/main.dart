@@ -18,11 +18,13 @@ import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -64,6 +66,13 @@ Future<void> _boot(List<String> args) async {
   final settings = getIt.get<SettingsRepository>().currentSettings;
   // App-wide, see BackgroundSyncController; registered on every platform so the settings page can look it up.
   getIt.registerSingleton(BackgroundSyncController());
+  // WebDAV backup: its settings live in files of their own, the automatic backup checks while the app is open.
+  final webdavBackup = WebdavBackupRepository(
+    store: await WebdavBackupStore.forApp(),
+    databaseFile: () => databaseFile,
+  );
+  getIt.registerSingleton(webdavBackup);
+  WebdavAutoBackupScheduler(webdavBackup).start();
 
   final settingsLocale = settings.locale;
   final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
