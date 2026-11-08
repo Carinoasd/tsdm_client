@@ -739,7 +739,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         if (atOpen) {
           _resumeAt = progress;
         } else {
-          _continueNext = true;
+          _readOn.continueFrom(_threadBloc?.state.generation ?? 0);
           _threadBloc?.add(
             ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page),
           );
@@ -823,20 +823,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _progressTimer = Timer(const Duration(seconds: 1), _keepProgress);
   }
 
-  /// The generation of the floors on screen [_readOnFromStart] was worked out for.
-  int? _readGeneration;
-
-  /// Whether the floors on screen go on from the start of the thread (the first page is among them, or the page opened
-  /// where the reading stopped): a jump to the last page does not read the thread.
-  bool _readOnFromStart = false;
-
-  /// The next generation of floors goes on from where the reading was: a refresh keeps what the reading was, a jump to
-  /// where the reading stopped is reading on.
-  bool _continueNext = false;
+  /// Whether the floors on screen go on from the start of the thread (or from where the reading stopped): a jump to
+  /// the last page does not read the thread.
+  final _readOn = ReadOnTracker();
 
   /// The event of a refresh: the floors loaded again are read on from the start when the ones on screen were.
   ThreadRefreshRequested _refreshEvent() {
-    _continueNext = _readOnFromStart;
+    _readOn.keepFrom(_threadBloc?.state.generation ?? 0);
     return ThreadRefreshRequested();
   }
 
@@ -854,11 +847,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     final state = bloc.state;
-    if (state.status == ThreadStatus.success && state.postList.isNotEmpty && state.generation != _readGeneration) {
-      // The first floors on screen of this generation: the page opened where the reading stopped counts as reading on.
-      _readOnFromStart = state.firstPage == 1 || _continueNext || (_readGeneration == null && _resumeAt != null);
-      _continueNext = false;
-      _readGeneration = state.generation;
+    if (state.status == ThreadStatus.success && state.postList.isNotEmpty) {
+      _readOn.floorsShown(generation: state.generation, firstPage: state.firstPage, openedResumed: _resumeAt != null);
     }
     final tid = int.tryParse(state.tid ?? '');
     if (tid == null || tid == _readLaterAddedHere || !cubit.state.contains(tid)) {
@@ -870,7 +860,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           loaded: state.status == ThreadStatus.success,
           offline: state.isOffline,
           onlyOneAuthor: state.onlyVisibleUid != null,
-          readOnFromStart: _readOnFromStart,
+          readOnFromStart: _readOn.readOnFromStart,
           newestFirst: state.shownNewestFirst,
           canLoadMore: state.canLoadMore,
           hasFloors: state.postList.isNotEmpty,
@@ -1393,7 +1383,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (offer == null) {
       return;
     }
-    _continueNext = true;
+    _readOn.continueFrom(_threadBloc?.state.generation ?? 0);
     _threadBloc?.add(ThreadJumpToFloorRequested(offer.floor ?? 1, pid: offer.pid?.toString(), page: offer.page));
   }
 

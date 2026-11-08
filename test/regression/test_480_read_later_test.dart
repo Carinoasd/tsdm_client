@@ -188,6 +188,51 @@ void main() {
       expect(read(extentAfter: readToEndExtent + 1), isFalse);
     });
 
+    test('the tracker: from the first page, or going on from where the reading stopped', () {
+      final tracker = ReadOnTracker();
+      expect(tracker.readOnFromStart, isFalse);
+      // Opened on the first page.
+      tracker.floorsShown(generation: 0, firstPage: 1, openedResumed: false);
+      expect(tracker.readOnFromStart, isTrue);
+      // Dropped the first pages while reading on: the same generation, still reading on.
+      tracker.floorsShown(generation: 0, firstPage: 3, openedResumed: false);
+      expect(tracker.readOnFromStart, isTrue);
+      // A jump to the last page replaces the floors.
+      tracker.floorsShown(generation: 1, firstPage: 9, openedResumed: false);
+      expect(tracker.readOnFromStart, isFalse);
+    });
+
+    test('the tracker: opened where the reading stopped, the jump to it and a refresh keep reading on', () {
+      final opened = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 4, openedResumed: true)
+        ..keepFrom(0)
+        ..floorsShown(generation: 1, firstPage: 4, openedResumed: true);
+      expect(opened.readOnFromStart, isTrue);
+
+      final jumped = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 1, openedResumed: false)
+        ..continueFrom(0)
+        ..floorsShown(generation: 1, firstPage: 5, openedResumed: false);
+      expect(jumped.readOnFromStart, isTrue);
+
+      // A refresh of floors that were a jump to the last page stays no reading.
+      final last = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 1, openedResumed: false)
+        ..floorsShown(generation: 1, firstPage: 9, openedResumed: false)
+        ..keepFrom(1)
+        ..floorsShown(generation: 2, firstPage: 9, openedResumed: false);
+      expect(last.readOnFromStart, isFalse);
+    });
+
+    test('the tracker: a load that failed does not make a later jump to the last page a reading', () {
+      // "Continue" asked, the load failed (generation 1, never shown as floors); then a jump to the last page.
+      final tracker = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 1, openedResumed: false)
+        ..continueFrom(0)
+        ..floorsShown(generation: 2, firstPage: 9, openedResumed: false);
+      expect(tracker.readOnFromStart, isFalse);
+    });
+
     test('not before the last page, nor for what is not the whole thread', () {
       expect(read(canLoadMore: true), isFalse);
       expect(read(loaded: false), isFalse);
