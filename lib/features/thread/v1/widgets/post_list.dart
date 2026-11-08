@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/thread/v1/widgets/floor_layout.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -598,14 +599,14 @@ class PostListState extends State<PostList> with LoggerMixin {
           child: Padding(
             padding: EdgeInsets.fromLTRB(side, 8, side, 0),
             child: AppContentWidth(
-              maxWidth: appReadingMaxWidth,
+              maxWidth: ReadingWidthScope.floorOf(context),
               child: OperationLogCard(latestAction: widget.latestModAct!, tid: widget.threadID!),
             ),
           ),
         ),
       SliverToBoxAdapter(
         child: AppContentWidth(
-          maxWidth: appReadingMaxWidth,
+          maxWidth: ReadingWidthScope.floorOf(context),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             // Full width: the column centres its child, so a short title used to sit in the middle while a
@@ -931,7 +932,7 @@ class ThreadEndCard extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(side, 8, side, 24),
       child: AppContentWidth(
-        maxWidth: appReadingMaxWidth,
+        maxWidth: ReadingWidthScope.floorOf(context),
         child: Card(
           margin: EdgeInsets.zero,
           shape: appSurfaceShape(context),
@@ -1047,7 +1048,8 @@ class _CardAnchorState extends State<_CardAnchor> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// A floor of the thread as a rounded surface, at most [appReadingMaxWidth] wide so lines stay readable on desktop.
+/// A floor of the thread as a rounded surface, at most [ReadingWidthScope.floorOf] wide so lines stay readable on
+/// desktop.
 class _FloorSurface extends StatelessWidget {
   const _FloorSurface({required this.child});
 
@@ -1060,7 +1062,7 @@ class _FloorSurface extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: side),
       child: AppContentWidth(
-        maxWidth: appReadingMaxWidth,
+        maxWidth: ReadingWidthScope.floorOf(context),
         child: Card(margin: EdgeInsets.zero, shape: appSurfaceShape(context), child: child),
       ),
     );
