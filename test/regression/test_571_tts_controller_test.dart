@@ -416,4 +416,17 @@ void main() {
     expect(engine.said, isEmpty);
     expect(engine.released, greaterThanOrEqualTo(1));
   });
+
+  test('started again after a close during prepare: the session of the second start is kept', () async {
+    engine.slowPrepare = true;
+    final c = make()..updateFloors([_post(1)], canLoadMore: false);
+    final first = c.start('1');
+    await _settle();
+    await c.stop();
+    final second = c.start('1');
+    await Future.wait([first, second]);
+    await _settle();
+    expect(c.status, TtsStatus.speaking);
+    expect(engine.released, 0);
+  });
 }

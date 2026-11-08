@@ -130,7 +130,9 @@ final class FlutterTtsEngine implements TtsEngine {
     try {
       await _tts.speak(text);
     } on Object {
-      _finish(TtsOutcome.failed);
+      if (identical(_pending, pending)) {
+        _finish(TtsOutcome.failed);
+      }
     }
     return pending.future;
   }

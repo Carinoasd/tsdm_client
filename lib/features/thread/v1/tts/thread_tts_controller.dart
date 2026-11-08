@@ -76,6 +76,7 @@ class ThreadTtsController extends ChangeNotifier {
   int? _requestedAt;
   FloorSpeech? _speech;
   bool _pausedWaiting = false;
+  int _startSerial = 0;
   bool _disposed = false;
 
   /// What the reader is doing.
@@ -126,13 +127,14 @@ class ThreadTtsController extends ChangeNotifier {
     if (first == null) {
       return;
     }
+    final serial = ++_startSerial;
     final token = ++_token;
     await engine.stop();
     await engine.prepare(languageTag: languageTag);
     await engine.setRate(_rate);
     if (token != _token || _disposed) {
-      if (!_disposed && _status == TtsStatus.idle) {
-        // Closed while the audio session was being taken.
+      if (!_disposed && _status == TtsStatus.idle && serial == _startSerial) {
+        // Closed while the audio session was being taken (and not started again since).
         await engine.release();
       }
       return;
