@@ -13,6 +13,7 @@ import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -174,6 +175,13 @@ Future<void> _boot(List<String> args) async {
     } on Object catch (e, st) {
       talker.handle(e, st, 'windows notification init failed');
     }
+  }
+
+  // Register the imported font files before the theme is built; a family that fails to load falls back to the default.
+  try {
+    await (await CustomFontStore.open()).loadAll().timeout(const Duration(seconds: 5));
+  } on Object catch (e, st) {
+    talker.handle(e, st, 'load imported fonts failed');
   }
 
   // Load font family.

@@ -469,7 +469,10 @@
       "unreadBadgeLimitation": "Show badge unread notice on card in notification, read/unread status only valid on current machine",
       "fontFamily": {
         "title": "Font family",
-        "dialogTitle": "Choose font"
+        "dialogTitle": "Choose font",
+        "importFile": "Import from file",
+        "importFailed": "Import failed: not a usable font file",
+        "deleteFont": "Delete font"
       },
       "textScaleFactor": {
         "title": "Text scale",
