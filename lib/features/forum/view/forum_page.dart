@@ -14,6 +14,8 @@ import 'package:tsdm_client/features/favorite/utils/forum_favorite_action.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
@@ -726,6 +728,17 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.filterState != curr.filterState || (prev.refreshing && !curr.refreshing),
             listener: (context, state) => _keyboardSelection.clear(),
+          ),
+          // The forum joins the recently visited ones once it loaded.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.status != curr.status && curr.status == ForumStatus.success,
+            listener: (context, state) {
+              final fid = int.tryParse(widget.fid);
+              final name = (state.title ?? widget.title ?? '').trim();
+              if (fid != null && name.isNotEmpty) {
+                unawaited(noteForumVisit(context, FrequentForum(fid: fid, name: name)));
+              }
+            },
           ),
           // The moderation queue is offered to the forum's moderators.
           BlocListener<ForumBloc, ForumState>(

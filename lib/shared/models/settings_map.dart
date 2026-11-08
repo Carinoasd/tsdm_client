@@ -79,6 +79,7 @@ class SettingsMap with SettingsMapMappable {
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
     this.editorQuickPhrases = '',
+    this.frequentForums = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -269,6 +270,9 @@ class SettingsMap with SettingsMapMappable {
   /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
 
+  /// The pinned and recent forums of every account, see `SettingsKeys.frequentForums`.
+  final String frequentForums;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -361,6 +365,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
       SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
+      SettingsKeys.frequentForums => copyWith(frequentForums: value as String?),
     };
   }
 }

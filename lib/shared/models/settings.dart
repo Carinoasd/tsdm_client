@@ -375,6 +375,11 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   ///
   /// One value for every account; it lives in the settings table, so a backup carries it.
   editorQuickPhrases<String>(name: 'editorQuickPhrases', type: String, defaultValue: ''),
+
+  /// The pinned and recently visited forums of every account (a JSON object keyed by uid), see `decodeFrequentForums`.
+  ///
+  /// It lives in the settings table, so a backup carries it; not part of the cross-device sync.
+  frequentForums<String>(name: 'frequentForums', type: String, defaultValue: ''),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

@@ -1686,7 +1686,9 @@
     "links": "Links",
     "subForums": "Subreddit",
     "privateForum": "Private forum",
-    "redirectForum": "Links to an external address"
+    "redirectForum": "Links to an external address",
+    "pin": "Pin",
+    "unpin": "Unpin"
   },
   "networkList": {
     "actionRefresh": "Refresh",

@@ -74,7 +74,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> with LoggerMixin {
 
   Future<void> _onValueChanged<T>(SettingsValueChanged<T> event) async {
     // The quick phrases are the user's own text, and long: the log gets their size only.
-    final shown = event.settings == SettingsKeys.editorQuickPhrases
+    final shown = event.settings == SettingsKeys.editorQuickPhrases || event.settings == SettingsKeys.frequentForums
         ? '${(event.value as String?)?.length ?? 0} chars'
         : '${event.value}';
     debug('settings value changed: ${event.settings.name}<$T>: $shown');
