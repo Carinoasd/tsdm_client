@@ -492,6 +492,7 @@ const _stubPaths = [
   ScreenPaths.medalCenter,
   ScreenPaths.titleShop,
   ScreenPaths.bank,
+  ScreenPaths.taskCenter,
   ScreenPaths.pokemon,
   ScreenPaths.achievements,
   ScreenPaths.manageAccount,
@@ -895,6 +896,7 @@ void main() {
         for (final key in [
           'me-medals',
           'me-activities',
+          'me-tasks',
           'me-medal-center',
           'me-title-shop',
           'me-bank',
@@ -925,6 +927,7 @@ void main() {
         ('me-settings', ScreenPaths.settings.path, ''),
         ('me-about', ScreenPaths.about, ''),
         ('me-bank', ScreenPaths.bank, ''),
+        ('me-tasks', ScreenPaths.taskCenter, ''),
         ('me-local-drafts', ScreenPaths.localDrafts, ''),
         ('me-medals', ScreenPaths.medalTitleHub, ''),
       ]) {
@@ -1022,7 +1025,8 @@ void main() {
         expect(app.top, ScreenPaths.login);
         await tester.binding.handlePopRoute();
         await _settle(tester, rounds: 6);
-        await tester.drag(list, const Offset(0, 2000));
+        // The services list is longer than the screen: bring the login card back without a drag.
+        await tester.ensureVisible(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);

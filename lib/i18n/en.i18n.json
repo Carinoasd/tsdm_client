@@ -2756,6 +2756,25 @@
     "termsChanged": "“${name}” changed before the purchase. Nothing was bought; check the price and confirm again.",
     "unavailableNow": "“${name}” can no longer be bought. Nothing was bought."
   },
+  "taskCenter": {
+    "title": "Tasks",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "tabAvailable": "Available",
+    "tabDoing": "In progress",
+    "tabDone": "Completed",
+    "apply": "Apply",
+    "claim": "Claim reward",
+    "progress": "${percent}%",
+    "empty": "No tasks.",
+    "loginRequired": "Sign in to use tasks.",
+    "applied": "Applied for \"${name}\".",
+    "rewarded": "Reward of \"${name}\" claimed.",
+    "inProgress": "\"${name}\" is not complete yet.",
+    "failed": "\"${name}\" failed.",
+    "refused": "\"${name}\" was refused.",
+    "unconfirmed": "The result of \"${name}\" could not be confirmed. Check the lists before trying again."
+  },
   "editUserProfilePage": {
     "title": "Edit profile",
     "save": "Save profile",

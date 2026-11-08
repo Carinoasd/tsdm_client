@@ -82,6 +82,7 @@ import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
+import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
@@ -304,6 +305,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.medalGrant, builder: (_) => const MedalGrantPage()),
   AppRoute(path: ScreenPaths.titleIssue, builder: (_) => const TitleIssuePage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
+  AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
   AppRoute(
     path: ScreenPaths.pokemon,
     builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),

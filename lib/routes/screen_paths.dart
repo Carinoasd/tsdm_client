@@ -107,6 +107,9 @@ class ScreenPaths {
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
 
+  /// The forum's task center: tasks to apply for, in progress and completed.
+  static const String taskCenter = '/taskCenter';
+
   /// The pokemon center (宠物中心): my pokemon, healing, inventory and shop.
   static const String pokemon = '/pokemon';
 
