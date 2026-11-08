@@ -2,13 +2,18 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/platform.dart';
 
 /// Windows at least this wide (Material's "expanded" class) show a list page and the thread opened from it side by
 /// side, see [TwoPaneLayout].
@@ -22,6 +27,9 @@ const twoPaneListMinWidth = 360.0;
 
 /// ...and at most this wide.
 const twoPaneListMaxWidth = 480.0;
+
+/// The detail pane holds at most this many tabs ([TwoPaneTabs]).
+const twoPaneMaxTabs = 20;
 
 /// Whether the window of [context] shows two panes: wide enough, and the `twoPaneLayout` setting on (on when no
 /// settings are provided, as in widget tests of a page alone).
@@ -39,10 +47,28 @@ bool twoPaneEnabled(BuildContext context) {
 
 /// A thread shown in the detail pane: the query of its route ([ScreenPaths.threadV1]), as the route builder reads it.
 final class PaneThread {
-  PaneThread._(this.id, this.query);
+  PaneThread._(this.query, {ValueNotifier<String?>? title})
+    : id = _nextId++,
+      title = title ?? ValueNotifier(query['appBarTitle']);
+
+  /// Ids are never given twice, whatever the tab: the pages of two tabs shown one after the other do not share a
+  /// state.
+  static var _nextId = 0;
 
   /// Tells the threads opened apart, so the same thread opened again starts over.
   final int id;
+
+  /// The title of the thread, for its tab: the one it was opened with, then the one its page loaded
+  /// ([reportTitle]).
+  final ValueNotifier<String?> title;
+
+  /// The page showing this thread tells its title, from its build: set once the frame is over.
+  void reportTitle(String? value) {
+    if (value == null || value.isEmpty || value == title.value) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => title.value = value);
+  }
 
   /// The query parameters the thread was opened with.
   final Map<String, String> query;
@@ -74,9 +100,10 @@ typedef PaneQueryResolver = Map<String, String> Function(Map<String, String> ope
 
 /// The threads of the detail pane, the one on top shown: taps on the list replace them all ([open]), a thread link
 /// inside the pane goes on top of them ([push]), back takes the top one away ([pop]).
+///
+/// Each tab of the detail pane is one ([TwoPaneTabs]).
 class TwoPaneController extends ChangeNotifier {
   final _threads = <PaneThread>[];
-  var _nextId = 0;
 
   /// The threads opened, bottom first.
   List<PaneThread> get threads => UnmodifiableListView(_threads);
@@ -91,13 +118,13 @@ class TwoPaneController extends ChangeNotifier {
   void open(Map<String, String> query) {
     _threads
       ..clear()
-      ..add(PaneThread._(_nextId++, query));
+      ..add(PaneThread._(query));
     notifyListeners();
   }
 
   /// Show [query] above what the pane holds.
   void push(Map<String, String> query) {
-    _threads.add(PaneThread._(_nextId++, query));
+    _threads.add(PaneThread._(query));
     notifyListeners();
   }
 
@@ -111,8 +138,153 @@ class TwoPaneController extends ChangeNotifier {
     return true;
   }
 
-  /// Empty the pane without telling the listeners: for the pane being taken out of the tree in the same build.
-  void _reset() => _threads.clear();
+  /// The thread on top, about to leave the screen (its tab no longer the one shown): kept as where it is read now,
+  /// its page goes and can not tell any more. Nobody is told, nothing shown changes.
+  void _freeze() {
+    final top = _threads.lastOrNull;
+    if (top == null || top.resolver == null) {
+      return;
+    }
+    _threads.last = PaneThread._(top.currentQuery, title: top.title);
+  }
+}
+
+/// The tabs of the detail pane, each a [TwoPaneController], one of them shown ([active]).
+///
+/// With no tab the pane is empty. A tab whose last thread is taken away ([TwoPaneController.pop]) closes; a tab not
+/// shown is not built, its thread opens again where it was read when it is shown again.
+class TwoPaneTabs extends ChangeNotifier {
+  final _tabs = <TwoPaneController>[];
+  var _active = 0;
+
+  /// The tabs, in the order of the tab strip.
+  List<TwoPaneController> get tabs => UnmodifiableListView(_tabs);
+
+  /// How many tabs.
+  int get length => _tabs.length;
+
+  /// No tab: the pane is empty.
+  bool get isEmpty => _tabs.isEmpty;
+
+  /// Where the tab shown is, 0 when there is none.
+  int get activeIndex => _active;
+
+  /// The tab shown, null when there is none.
+  TwoPaneController? get active => _tabs.isEmpty ? null : _tabs[_active];
+
+  TwoPaneController _newTab() {
+    final tab = TwoPaneController();
+    tab.addListener(() => _onTabChanged(tab));
+    return tab;
+  }
+
+  void _onTabChanged(TwoPaneController tab) {
+    final index = _tabs.indexOf(tab);
+    if (index < 0) {
+      return;
+    }
+    if (tab.isEmpty) {
+      close(index);
+      return;
+    }
+    notifyListeners();
+  }
+
+  /// Show [query] alone in the tab shown, a first tab when there is none.
+  void open(Map<String, String> query) {
+    if (_tabs.isEmpty) {
+      _tabs.add(_newTab()..open(query));
+      _active = 0;
+      notifyListeners();
+      return;
+    }
+    active!.open(query);
+  }
+
+  /// Show [query] in a new tab at the end, behind the tab shown (the first tab is shown). With [twoPaneMaxTabs] tabs
+  /// already, it is shown in the tab shown instead; false then.
+  bool openInNewTab(Map<String, String> query) {
+    if (_tabs.length >= twoPaneMaxTabs) {
+      active!.open(query);
+      return false;
+    }
+    _tabs.add(_newTab()..open(query));
+    notifyListeners();
+    return true;
+  }
+
+  /// Show the tab at [index].
+  void select(int index) {
+    if (index < 0 || index >= _tabs.length || index == _active) {
+      return;
+    }
+    _tabs[_active]._freeze();
+    _active = index;
+    notifyListeners();
+  }
+
+  /// Show the tab after the one shown, the first after the last.
+  void selectNext() {
+    if (_tabs.length > 1) {
+      select((_active + 1) % _tabs.length);
+    }
+  }
+
+  /// Show the tab before the one shown, the last before the first.
+  void selectPrevious() {
+    if (_tabs.length > 1) {
+      select((_active - 1 + _tabs.length) % _tabs.length);
+    }
+  }
+
+  /// Close the tab at [index]; when it was shown, the one after it is shown, or the one before when it was the last.
+  void close(int index) {
+    if (index < 0 || index >= _tabs.length) {
+      return;
+    }
+    _remove(index);
+    notifyListeners();
+  }
+
+  /// Move the tab at [from] to [to] (where it is once moved), the tab shown staying shown.
+  void move(int from, int to) {
+    if (from < 0 || from >= _tabs.length || from == to) {
+      return;
+    }
+    final target = to.clamp(0, _tabs.length - 1);
+    final shown = _tabs[_active];
+    _tabs.insert(target, _tabs.removeAt(from));
+    _active = _tabs.indexOf(shown);
+    notifyListeners();
+  }
+
+  /// Take the tab shown out without telling the listeners: for the pane being taken out of the tree in the same build.
+  TwoPaneController? _takeActive() {
+    if (_tabs.isEmpty) {
+      return null;
+    }
+    final tab = _tabs[_active];
+    _remove(_active);
+    return tab;
+  }
+
+  void _remove(int index) {
+    final tab = _tabs.removeAt(index);
+    if (index < _active || (index == _active && _active == _tabs.length && _active > 0)) {
+      _active--;
+    }
+    // Maybe telling its listeners right now (its last thread taken away).
+    scheduleMicrotask(tab.dispose);
+  }
+
+  @override
+  void dispose() {
+    for (final tab in _tabs) {
+      tab.dispose();
+    }
+    _tabs.clear();
+    super.dispose();
+  }
 }
 
 /// Which pane a widget is built in.
@@ -124,18 +296,21 @@ enum TwoPaneSide {
   detail,
 }
 
-/// Tells the widgets of a pane which pane they are in and gives them the [TwoPaneController]; they rebuild when the
-/// threads of the pane change.
-class TwoPaneScope extends InheritedNotifier<TwoPaneController> {
+/// Tells the widgets of a pane which pane they are in and gives them the [TwoPaneTabs]; they rebuild when the tabs or
+/// the threads of the pane change.
+class TwoPaneScope extends InheritedNotifier<TwoPaneTabs> {
   /// Constructor.
-  const TwoPaneScope({required TwoPaneController controller, required this.side, required super.child, super.key})
-    : super(notifier: controller);
+  const TwoPaneScope({required TwoPaneTabs tabs, required this.side, required super.child, this.tab, super.key})
+    : super(notifier: tabs);
 
   /// The pane [child] is in.
   final TwoPaneSide side;
 
-  /// The controller of the panes.
-  TwoPaneController get controller => notifier!;
+  /// In the detail pane: the tab shown, null when the pane is empty.
+  final TwoPaneController? tab;
+
+  /// The tabs of the detail pane.
+  TwoPaneTabs get tabs => notifier!;
 
   /// The scope of the pane [context] is in, null outside a two-pane layout (a page on its own, a narrow window).
   ///
@@ -145,17 +320,21 @@ class TwoPaneScope extends InheritedNotifier<TwoPaneController> {
   /// [maybeOf] without depending on the scope, for event handlers (a tap, a link opened).
   static TwoPaneScope? readOf(BuildContext context) => context.getInheritedWidgetOfExactType<TwoPaneScope>();
 
-  /// The controller of the panes when [context] is in the detail pane, null elsewhere.
+  /// The tab shown when [context] is in the detail pane, null elsewhere.
   static TwoPaneController? detailOf(BuildContext context) {
     final scope = maybeOf(context);
-    return scope?.side == TwoPaneSide.detail ? scope!.controller : null;
+    return scope?.side == TwoPaneSide.detail ? scope!.tab : null;
   }
 }
 
+/// Whether a click now asks for a new tab: Ctrl (Cmd) held.
+bool _newTabRequested() => HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+
 /// Open the thread of [queryParameters] (the query of [ScreenPaths.threadV1]) in the detail pane of the layout
-/// [context] is in: from the list it replaces what the pane shows, from the detail pane it goes on top. False when
+/// [context] is in: from the list it replaces what the tab shown holds, from the detail pane it goes on top. With
+/// [newTab] (by default: Ctrl or Cmd held) it opens in a new tab instead ([TwoPaneTabs.openInNewTab]). False when
 /// [context] is not in a two-pane layout, the caller then opens the thread as a page of its own.
-bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters) {
+bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters, {bool? newTab}) {
   final scope = TwoPaneScope.readOf(context);
   if (scope == null) {
     return false;
@@ -163,11 +342,20 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
   final query = {
     for (final MapEntry(:key, :value) in queryParameters.entries) key: ?value,
   };
+  final tabs = scope.tabs;
+  if (newTab ?? _newTabRequested()) {
+    tabs.openInNewTab(query);
+    return true;
+  }
   switch (scope.side) {
     case TwoPaneSide.list:
-      scope.controller.open(query);
+      tabs.open(query);
     case TwoPaneSide.detail:
-      scope.controller.push(query);
+      if (scope.tab case final tab?) {
+        tab.push(query);
+      } else {
+        tabs.open(query);
+      }
   }
   return true;
 }
@@ -184,6 +372,12 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
 /// out at least [twoPaneMinWidth] wide, clipped) until it is on top again, so the thread is not pushed above that page
 /// and the sheet keeps its floor. A window turning wide changes the layout only, nothing moves into the pane.
 ///
+/// The detail pane holds tabs ([TwoPaneTabs]), with a strip above the thread once there are two: Ctrl (Cmd) with a
+/// click on a thread or a link, a middle click on a card, or the card's menu opens a new one behind the tab shown;
+/// Ctrl+W closes the tab shown, Ctrl+Tab and Ctrl+Shift+Tab go through them, Ctrl+1 to Ctrl+9 show one. A window
+/// turning narrow takes the tab shown out as a page of its own (see above), the others stay for the window turning
+/// wide again.
+///
 /// Each pane sees a [MediaQuery] of its own width, with the side insets of its own edge only. The list pane has a
 /// [ScaffoldMessenger] of its own: the app's snack bars (shown through its root messenger) appear on the detail pane
 /// only, not on both.
@@ -199,14 +393,18 @@ class TwoPaneLayout extends StatefulWidget {
 }
 
 class _TwoPaneLayoutState extends State<TwoPaneLayout> {
-  final _controller = TwoPaneController();
+  final _tabs = TwoPaneTabs();
 
   /// Keeps the state of [TwoPaneLayout.list] (its scroll positions, its tabs) when the layout changes shape.
   final GlobalKey _listKey = GlobalKey();
 
+  /// The window is narrow and the list shown alone: the thread shown went on as a page of its own, the other tabs
+  /// wait for the window to be wide again.
+  var _collapsed = false;
+
   @override
   void dispose() {
-    _controller.dispose();
+    _tabs.dispose();
     super.dispose();
   }
 
@@ -215,7 +413,7 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
     if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) {
       return false;
     }
-    return _controller.pop();
+    return _tabs.active?.pop() ?? false;
   }
 
   /// [child] laid out as one pane: as wide as the pane, with the side inset of its own edge only.
@@ -238,36 +436,58 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   @override
   Widget build(BuildContext context) {
     final list = KeyedSubtree(key: _listKey, child: widget.list);
-    final top = _controller.top;
     // Built again when this page comes on top again (the page above it closed): the layout held meanwhile changes then.
     final current = ModalRoute.isCurrentOf(context) ?? true;
-    if (!twoPaneEnabled(context) && (top == null || current)) {
-      if (top != null) {
-        // Narrow now, with a thread on the right: it goes on as a page of its own. Opened once this build is over,
-        // the pane leaves the tree in this one.
-        _controller._reset();
-        // Where the thread is read now, asked before the pane goes.
-        final query = top.currentQuery;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            unawaited(context.pushNamed(ScreenPaths.threadV1, queryParameters: query));
-          }
-        });
+    if (!twoPaneEnabled(context) && (_collapsed || _tabs.isEmpty || current)) {
+      if (!_collapsed) {
+        _collapsed = true;
+        // Narrow now, with a thread on the right: it goes on as a page of its own, its tab closes; the other tabs stay
+        // for the window turning wide again. Opened once this build is over, the pane leaves the tree in this one.
+        if (_tabs._takeActive()?.top case final top?) {
+          // Where the thread is read now, asked before the pane goes.
+          final query = top.currentQuery;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              unawaited(context.pushNamed(ScreenPaths.threadV1, queryParameters: query));
+            }
+          });
+        }
       }
       return list;
     }
+    _collapsed = false;
     final colorScheme = Theme.of(context).colorScheme;
     // Held under another page while narrow: laid out as a wide window would be, not squeezed.
     final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
     final listWidth = (width * twoPaneListFraction).clamp(twoPaneListMinWidth, twoPaneListMaxWidth);
     return BackButtonListener(
       onBackButtonPressed: _onBackPressed,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          minWidth: width,
-          maxWidth: width,
-          child: _panes(context, colorScheme, listWidth, list),
+      child: Actions(
+        actions: {
+          ClosePaneTabIntent: KeyboardAction<ClosePaneTabIntent>(
+            () => _tabs.close(_tabs.activeIndex),
+            pageRouteOnly: true,
+            enabledWhen: () => !_tabs.isEmpty,
+          ),
+          NextPaneTabIntent: KeyboardAction<NextPaneTabIntent>(
+            _tabs.selectNext,
+            pageRouteOnly: true,
+            enabledWhen: () => _tabs.length > 1,
+          ),
+          PreviousPaneTabIntent: KeyboardAction<PreviousPaneTabIntent>(
+            _tabs.selectPrevious,
+            pageRouteOnly: true,
+            enabledWhen: () => _tabs.length > 1,
+          ),
+          SelectPaneTabIntent: _SelectPaneTabAction(_tabs),
+        },
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: width,
+            maxWidth: width,
+            child: _panes(context, colorScheme, listWidth, list),
+          ),
         ),
       ),
     );
@@ -279,33 +499,196 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
       SizedBox(
         width: listWidth,
         child: TwoPaneScope(
-          controller: _controller,
+          tabs: _tabs,
           side: TwoPaneSide.list,
           child: ScaffoldMessenger(child: _pane(list, left: true)),
         ),
       ),
       VerticalDivider(width: 1, thickness: 1, color: colorScheme.outlineVariant),
       Expanded(
-        child: TwoPaneScope(
-          controller: _controller,
-          side: TwoPaneSide.detail,
-          child: _pane(
-            ListenableBuilder(
-              listenable: _controller,
-              builder: (context, _) {
-                final top = _controller.top;
-                if (top == null) {
-                  return const TwoPaneEmptyDetail();
-                }
-                return KeyedSubtree(key: ValueKey(top.id), child: ThreadPage.fromQuery(top.query));
-              },
-            ),
-            left: false,
+        child: _pane(
+          ListenableBuilder(
+            listenable: _tabs,
+            builder: (context, _) {
+              final tab = _tabs.active;
+              final top = tab?.top;
+              // The strip only with two tabs or more: one tab is the pane as it always was.
+              final strip = _tabs.length > 1;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (strip) _TwoPaneTabStrip(tabs: _tabs),
+                  Expanded(
+                    key: const ValueKey('detail'),
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: strip,
+                      child: TwoPaneScope(
+                        tabs: _tabs,
+                        side: TwoPaneSide.detail,
+                        tab: tab,
+                        child: top == null
+                            ? const TwoPaneEmptyDetail()
+                            : KeyedSubtree(key: ValueKey(top.id), child: ThreadPage.fromQuery(top.query)),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
+          left: false,
         ),
       ),
     ],
   );
+}
+
+/// Ctrl+1 to Ctrl+9: the tab of that number.
+class _SelectPaneTabAction extends KeyboardAction<SelectPaneTabIntent> {
+  _SelectPaneTabAction(this.tabs) : super(_noop, pageRouteOnly: true);
+
+  final TwoPaneTabs tabs;
+
+  static void _noop() {}
+
+  @override
+  bool isEnabled(SelectPaneTabIntent intent) => intent.index < tabs.length && super.isEnabled(intent);
+
+  @override
+  Object? invoke(SelectPaneTabIntent intent) {
+    tabs.select(intent.index);
+    return null;
+  }
+}
+
+/// The tabs of the detail pane, above the thread shown: a click shows one, the cross or a middle click closes it, a
+/// drag moves it.
+class _TwoPaneTabStrip extends StatelessWidget {
+  const _TwoPaneTabStrip({required this.tabs});
+
+  final TwoPaneTabs tabs;
+
+  static const _height = 40.0;
+  static const _tabWidth = 200.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainer,
+      child: SafeArea(
+        bottom: false,
+        left: false,
+        right: false,
+        child: SizedBox(
+          height: _height,
+          child: ReorderableListView.builder(
+            scrollDirection: Axis.horizontal,
+            buildDefaultDragHandles: false,
+            itemCount: tabs.length,
+            onReorder: (from, to) => tabs.move(from, to > from ? to - 1 : to),
+            itemBuilder: (context, index) {
+              final tab = tabs.tabs[index];
+              final item = _TwoPaneTab(
+                tab: tab,
+                selected: index == tabs.activeIndex,
+                width: _tabWidth,
+                onSelect: () => tabs.select(index),
+                onClose: () => tabs.close(index),
+              );
+              return KeyedSubtree(
+                key: ObjectKey(tab),
+                child: isMobile
+                    ? ReorderableDelayedDragStartListener(index: index, child: item)
+                    : ReorderableDragStartListener(index: index, child: item),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TwoPaneTab extends StatelessWidget {
+  const _TwoPaneTab({
+    required this.tab,
+    required this.selected,
+    required this.width,
+    required this.onSelect,
+    required this.onClose,
+  });
+
+  final TwoPaneController tab;
+  final bool selected;
+  final double width;
+  final VoidCallback onSelect;
+  final VoidCallback onClose;
+
+  /// For a tab with no thread: none is left open, the tab is closing.
+  static final _noTitle = ValueNotifier<String?>(null);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final top = tab.top;
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == kMiddleMouseButton) {
+          onClose();
+        }
+      },
+      child: Material(
+        color: selected ? colorScheme.surface : Colors.transparent,
+        child: InkWell(
+          onTap: onSelect,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
+                right: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+            child: SizedBox(
+              width: width,
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ValueListenableBuilder<String?>(
+                      valueListenable: top?.title ?? _noTitle,
+                      builder: (context, title, _) => Tooltip(
+                        message: title ?? '',
+                        waitDuration: const Duration(milliseconds: 600),
+                        child: Text(
+                          title ?? '…',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    iconSize: 16,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                    onPressed: onClose,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The detail pane with nothing opened: a faint icon on the page's background. A [Scaffold], so the app's snack bars

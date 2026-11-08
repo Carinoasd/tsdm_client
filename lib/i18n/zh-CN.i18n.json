@@ -2511,6 +2511,7 @@
   "threadCard": {
     "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
+    "openInNewTab": "在新标签页打开",
     "replied": "已回复",
     "newReplies": "上次看过之后有 ${count: int} 条新回复"
   },
@@ -3420,7 +3421,8 @@
       "global": "全局",
       "thread": "帖子页",
       "list": "列表",
-      "editor": "编辑器"
+      "editor": "编辑器",
+      "tabs": "标签页"
     },
     "commands": {
       "search": "搜索",
@@ -3441,7 +3443,11 @@
       "send": "发送",
       "bold": "粗体",
       "italic": "斜体",
-      "underline": "下划线"
+      "underline": "下划线",
+      "closeTab": "关闭标签页",
+      "nextTab": "下一个标签页",
+      "previousTab": "上一个标签页",
+      "selectTab": "第 1–9 个标签页"
     }
   }
 }

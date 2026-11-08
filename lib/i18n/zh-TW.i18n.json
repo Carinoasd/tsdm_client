@@ -2511,6 +2511,7 @@
   "threadCard": {
     "previewImages": "${count: int} 張圖片",
     "viewInfo": "查看貼文資訊",
+    "openInNewTab": "在新分頁開啟",
     "replied": "已回覆",
     "newReplies": "上次看過之後有 ${count: int} 則新回覆"
   },
@@ -3420,7 +3421,8 @@
       "global": "全域",
       "thread": "帖子頁",
       "list": "列表",
-      "editor": "編輯器"
+      "editor": "編輯器",
+      "tabs": "分頁"
     },
     "commands": {
       "search": "搜尋",
@@ -3441,7 +3443,11 @@
       "send": "送出",
       "bold": "粗體",
       "italic": "斜體",
-      "underline": "底線"
+      "underline": "底線",
+      "closeTab": "關閉分頁",
+      "nextTab": "下一個分頁",
+      "previousTab": "上一個分頁",
+      "selectTab": "第 1–9 個分頁"
     }
   }
 }
