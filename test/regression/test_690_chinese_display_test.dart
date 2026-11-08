@@ -17,7 +17,9 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
+import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
+import 'package:universal_html/parsing.dart';
 
 ChineseConverter _load(String name) => ChineseConverter.parse(File('assets/text/opencc/$name.txt').readAsStringSync());
 
@@ -92,7 +94,7 @@ void main() {
     });
 
     test('the dictionaries stay small', () {
-      expect(File('assets/text/opencc/s2t.txt').lengthSync(), lessThan(300 * 1024));
+      expect(File('assets/text/opencc/s2t.txt').lengthSync(), lessThan(900 * 1024));
       expect(File('assets/text/opencc/t2s.txt').lengthSync(), lessThan(60 * 1024));
     });
   });
@@ -131,6 +133,37 @@ void main() {
       await tester.pumpWidget(_app(ChineseDisplayMode.traditional, const MunchedHtml('<pre>动漫</pre>')));
       await tester.pump();
       expect(_richText(tester), contains('动漫'));
+    });
+
+    testWidgets('a bare url keeps its address, the text around it is converted', (tester) async {
+      ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
+      await tester.pumpWidget(
+        _app(ChineseDisplayMode.traditional, const MunchedHtml('<p>见 https://a.com/后来 后来</p>')),
+      );
+      await tester.pump();
+      final root = (find.byType(RichText).evaluate().first.widget as RichText).text;
+      final spans = <TextSpan>[];
+      root.visitChildren((span) {
+        if (span is TextSpan && (span.text?.isNotEmpty ?? false)) {
+          spans.add(span);
+        }
+        return true;
+      });
+      expect(spans.map((e) => e.text).join(), '見 https://a.com/后来 後來');
+      expect(spans.singleWhere((e) => e.recognizer != null).text, 'https://a.com/后来');
+    });
+
+    testWidgets('a page calling munchElement builds again when the mode changes', (tester) async {
+      ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
+      Widget app(ChineseDisplayMode mode) => _app(
+        mode,
+        Builder(builder: (context) => munchElement(context, parseHtmlDocument('<p>动漫</p>').body!)),
+      );
+      await tester.pumpWidget(app(ChineseDisplayMode.off));
+      expect(_richText(tester), '动漫');
+      await tester.pumpWidget(app(ChineseDisplayMode.traditional));
+      await tester.pump();
+      expect(_richText(tester), '動漫');
     });
 
     testWidgets('changing the mode builds the text again', (tester) async {

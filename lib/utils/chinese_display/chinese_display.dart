@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 
 /// Asset of the Simplified to Traditional dictionary.
@@ -10,7 +11,7 @@ const chineseDisplayS2tAsset = 'assets/text/opencc/s2t.txt';
 /// Asset of the Traditional to Simplified dictionary.
 const chineseDisplayT2sAsset = 'assets/text/opencc/t2s.txt';
 
-/// The dictionaries, loaded the first time a mode other than [ChineseDisplayMode.off] is used.
+/// The dictionaries, each loaded the first time its mode is used.
 class ChineseDisplay {
   ChineseDisplay._();
 
@@ -19,7 +20,8 @@ class ChineseDisplay {
 
   ChineseConverter? _s2t;
   ChineseConverter? _t2s;
-  Future<void>? _loading;
+  Future<void>? _loadingS2t;
+  Future<void>? _loadingT2s;
 
   /// Whether the dictionary of [mode] is loaded ([ChineseDisplayMode.off] needs none).
   bool isReady(ChineseDisplayMode mode) => switch (mode) {
@@ -33,28 +35,31 @@ class ChineseDisplay {
     if (isReady(mode)) {
       return;
     }
-    final loading = _loading ??= _loadAll();
+    final loading = switch (mode) {
+      ChineseDisplayMode.traditional => _loadingS2t ??= _loadS2t(),
+      ChineseDisplayMode.simplified => _loadingT2s ??= _loadT2s(),
+      ChineseDisplayMode.off => Future<void>.value(),
+    };
     try {
       await loading;
     } on Object {
-      _loading = null;
+      _loadingS2t = null;
+      _loadingT2s = null;
       rethrow;
     }
   }
 
-  Future<void> _loadAll() async {
-    final s2t = await rootBundle.loadString(chineseDisplayS2tAsset);
-    final t2s = await rootBundle.loadString(chineseDisplayT2sAsset);
-    _s2t = ChineseConverter.parse(s2t);
-    _t2s = ChineseConverter.parse(t2s);
-  }
+  Future<void> _loadS2t() async => _s2t = ChineseConverter.parse(await rootBundle.loadString(chineseDisplayS2tAsset));
+
+  Future<void> _loadT2s() async => _t2s = ChineseConverter.parse(await rootBundle.loadString(chineseDisplayT2sAsset));
 
   /// Uses the given converters instead of the assets.
   @visibleForTesting
   void useConverters({ChineseConverter? s2t, ChineseConverter? t2s}) {
     _s2t = s2t;
     _t2s = t2s;
-    _loading = null;
+    _loadingS2t = null;
+    _loadingT2s = null;
   }
 
   /// [text] shown in [mode]; as it is while the dictionary is not loaded.
@@ -105,7 +110,8 @@ class _ChineseDisplayHostState extends State<ChineseDisplayHost> {
     }
     try {
       await ChineseDisplay.instance.load(mode);
-    } on Object {
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'failed to load the dictionary of $mode');
       return;
     }
     if (mounted) {
@@ -134,10 +140,6 @@ extension ChineseDisplayX on BuildContext {
   /// The mode in effect, [ChineseDisplayMode.off] without a [ChineseDisplayHost]. Registers a dependency.
   ChineseDisplayMode get chineseDisplayMode =>
       dependOnInheritedWidgetOfExactType<_ChineseDisplayScope>()?.mode ?? ChineseDisplayMode.off;
-
-  /// The mode in effect, without registering a dependency (for code that runs outside `build`).
-  ChineseDisplayMode get chineseDisplayModeNow =>
-      getInheritedWidgetOfExactType<_ChineseDisplayScope>()?.mode ?? ChineseDisplayMode.off;
 
   /// [text] as the user chose to see it.
   String displayText(String text) => ChineseDisplay.instance.convert(chineseDisplayMode, text);
