@@ -2386,7 +2386,9 @@
   "pollCard": {
     "title": "Poll",
     "detail": "This floor contains poll, open in browser to participate in",
-    "openInBrowser": "Open in browser"
+    "openInBrowser": "Open in browser",
+    "resultLabel": "$votes votes, $percent%",
+    "myChoice": "Your choice"
   },
   "manageAccountPage": {
     "title": "Manage account",
