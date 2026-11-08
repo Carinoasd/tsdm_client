@@ -402,7 +402,9 @@ void main() {
         final sent = (api.lastPushed['block_forums'] as Map<String, dynamic>).keys.map(int.parse).toSet();
         expect(sent, hasLength(threadFilterMax));
         // The device's own cap keeps the same ones.
-        final repoRows = UserBlockRepository(StorageProvider(AppDatabase(NativeDatabase.memory()), {}, {}));
+        final rowsDb = AppDatabase(NativeDatabase.memory());
+        addTearDown(rowsDb.close);
+        final repoRows = UserBlockRepository(StorageProvider(rowsDb, {}, {}));
         addTearDown(repoRows.dispose);
         await repoRows.applySyncedFilters(
           ownerUid: _uid,
