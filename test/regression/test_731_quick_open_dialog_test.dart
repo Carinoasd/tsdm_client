@@ -276,6 +276,18 @@ void main() {
     expect(log.single, 'profile {uid: 77}');
   });
 
+  testWidgets('moving the cursor of the field keeps the selected line', (tester) async {
+    await pumpApp(tester);
+    await openBox(tester);
+    await tester.enterText(find.byKey(const Key('quickOpenField')), 'anime');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(tester.widget<ListTile>(find.byKey(const ValueKey('quickOpenItem1'))).selected, isTrue);
+  });
+
   testWidgets('Esc closes the box without opening anything', (tester) async {
     await pumpApp(tester);
     await openBox(tester);

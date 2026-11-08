@@ -60,6 +60,9 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   /// Whether the arrows moved the selection since the text last changed.
   bool _userMoved = false;
 
+  /// The text the candidates were built for.
+  String _lastText = '';
+
   @override
   void initState() {
     super.initState();
@@ -91,7 +94,15 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   }
 
   /// Typing starts the list over; a source arriving late only adds to it, and the line selected stays the selected.
-  void _refresh() => _rebuildCandidates(keepSelection: false);
+  ///
+  /// The controller also notifies when only the cursor moves; that changes nothing of the list.
+  void _refresh() {
+    if (_controller.text == _lastText) {
+      return;
+    }
+    _lastText = _controller.text;
+    _rebuildCandidates(keepSelection: false);
+  }
 
   void _rebuildCandidates({required bool keepSelection}) {
     // Only a selection the user moved is kept: else the first line stays the one Enter opens.
