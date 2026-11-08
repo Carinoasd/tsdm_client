@@ -9,7 +9,8 @@ const pointsTrendLineDays = 30;
 /// Weeks of the bar chart.
 const pointsTrendWeeks = 8;
 
-/// The signed number of a printed change ("+2", "-5", "+1,000"); null for what is not a number ("清零").
+/// The signed number of a printed change ("+2", "-5", "+1,000"); null for what is not a number ("清零"). Points
+/// are whole numbers on the forum, a decimal reads as none.
 ///
 /// Marked as public for testing.
 int? signedChangeOf(String printed) {

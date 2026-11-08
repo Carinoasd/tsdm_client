@@ -56,7 +56,9 @@ class TrendLineChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 24,
-                interval: step.toDouble(),
+                // Every index is asked and the filter below keeps the ones that count back from the last day by [step]:
+                // a bigger interval would tick at 0, 8, 16... and meet the filter only at the end.
+                interval: 1,
                 getTitlesWidget: (value, meta) {
                   final index = value.round();
                   if (index < 0 || index >= values.length || (values.length - 1 - index) % step != 0) {

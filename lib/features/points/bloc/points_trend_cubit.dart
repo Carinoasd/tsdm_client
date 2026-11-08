@@ -27,6 +27,8 @@ final class PointsTrendState {
     this.changes = const [],
     this.kinds = const [],
     this.selected = 0,
+    this.complete = true,
+    this.oldest,
     this.failure,
   });
 
@@ -45,6 +47,12 @@ final class PointsTrendState {
   /// The index in [kinds] of the kind shown.
   final int selected;
 
+  /// Whether every record of the range was read (the read stops at a page limit).
+  final bool complete;
+
+  /// The time of the oldest record read, null without any: when the read was cut, what is older is missing.
+  final DateTime? oldest;
+
   /// Why the read failed.
   final LoadFailure? failure;
 
@@ -57,9 +65,14 @@ final class PointsTrendState {
     List<PointsChange>? changes,
     List<String>? kinds,
     int? selected,
+    DateTime? today,
+    bool? complete,
+    DateTime? oldest,
     LoadFailure? failure,
   }) => PointsTrendState(
-    today: today,
+    today: today ?? this.today,
+    complete: complete ?? this.complete,
+    oldest: oldest ?? this.oldest,
     status: status ?? this.status,
     changes: changes ?? this.changes,
     kinds: kinds ?? this.kinds,
@@ -73,9 +86,11 @@ final class PointsTrendCubit extends Cubit<PointsTrendState> {
   /// Constructor.
   PointsTrendCubit({required ChangelogRangeFetcher fetchRange, DateTime? now})
     : _fetchRange = fetchRange,
+      _now = now,
       super(PointsTrendState(today: forumToday(now)));
 
   final ChangelogRangeFetcher _fetchRange;
+  final DateTime? _now;
 
   /// Bumped by every [load]: an answer of an earlier one is dropped.
   int _generation = 0;
@@ -84,10 +99,11 @@ final class PointsTrendCubit extends Cubit<PointsTrendState> {
   Future<void> load() async {
     final generation = ++_generation;
     final keep = state.status == PointsTrendStatus.success ? state.kind : null;
+    // The day is taken again: a page kept open past midnight charts the new day.
+    final today = forumToday(_now);
     if (keep == null) {
-      emit(PointsTrendState(today: state.today));
+      emit(PointsTrendState(today: today));
     }
-    final today = state.today;
     final result = await _fetchRange(
       start: DateTime(today.year, today.month, today.day - (pointsTrendDays - 1)),
       end: today,
@@ -111,6 +127,9 @@ final class PointsTrendCubit extends Cubit<PointsTrendState> {
             changes: value.changes,
             kinds: kinds,
             selected: index < 0 ? 0 : index,
+            today: today,
+            complete: value.complete,
+            oldest: value.oldest,
           ),
         );
     }
