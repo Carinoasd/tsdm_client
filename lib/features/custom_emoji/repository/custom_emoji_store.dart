@@ -76,33 +76,49 @@ final class CustomEmojiStore with LoggerMixin {
     try {
       final dir = await _directory();
       _dir = dir;
-      final packsFile = File('${dir.path}${_sep}packs.json');
-      if (packsFile.existsSync()) {
-        final saved = jsonDecode(await packsFile.readAsString());
-        if (saved is Map && saved['v'] == formatVersion && saved['packs'] is List) {
-          _packs.value = (saved['packs'] as List).map(CustomEmojiPack.fromJson).nonNulls.toList();
-        }
+      final packs = await _read(File('${dir.path}${_sep}packs.json'), 'packs');
+      if (packs != null) {
+        _packs.value = (packs['packs']! as List).map(CustomEmojiPack.fromJson).nonNulls.toList();
       }
-      final uploadsFile = File('${dir.path}${_sep}uploads.json');
-      if (uploadsFile.existsSync()) {
-        final saved = jsonDecode(await uploadsFile.readAsString());
-        if (saved is Map && saved['v'] == formatVersion && saved['accounts'] is Map) {
-          for (final MapEntry(:key, :value) in (saved['accounts'] as Map).entries) {
-            if (key is! String || value is! Map) continue;
-            final map = <String, int>{};
-            for (final MapEntry(key: sha, value: aid) in value.entries) {
-              if (sha is String && isSha256(sha) && aid is int && aid > 0) {
-                map[sha] = aid;
-              }
+      final uploads = await _read(File('${dir.path}${_sep}uploads.json'), 'accounts');
+      if (uploads != null) {
+        for (final MapEntry(:key, :value) in (uploads['accounts']! as Map).entries) {
+          if (key is! String || value is! Map) continue;
+          final map = <String, int>{};
+          for (final MapEntry(key: sha, value: aid) in value.entries) {
+            if (sha is String && isSha256(sha) && aid is int && aid > 0) {
+              map[sha] = aid;
             }
-            _uploads[key] = map;
           }
+          _uploads[key] = map;
         }
       }
     } on Object catch (e) {
       warning('custom emoji packs: files unreadable: $e');
     }
   }();
+
+  /// The saved map of [file] with a [key], null when there is no file. One this cannot read (broken, of a later
+  /// version) is renamed out of the way first (`<name>.bad-<ms>`): the next write would replace it otherwise.
+  Future<Map<Object?, Object?>?> _read(File file, String key) async {
+    if (!file.existsSync()) return null;
+    try {
+      final saved = jsonDecode(await file.readAsString());
+      if (saved is Map && saved['v'] == formatVersion && saved[key] != null) {
+        if ((key == 'packs' && saved[key] is List) || (key == 'accounts' && saved[key] is Map)) {
+          return saved;
+        }
+      }
+    } on Object catch (e) {
+      warning('custom emoji packs: ${file.path} unreadable: $e');
+    }
+    try {
+      await file.rename('${file.path}.bad-${DateTime.now().millisecondsSinceEpoch}');
+    } on Object catch (e) {
+      warning('custom emoji packs: ${file.path} not set aside: $e');
+    }
+    return null;
+  }
 
   /// A new empty pack named [name], last.
   Future<CustomEmojiPack> createPack(String name) async {
@@ -162,11 +178,21 @@ final class CustomEmojiStore with LoggerMixin {
         continue;
       }
       if (bytes == null) continue;
-      final prepared = await _prepare(bytes);
+      final prepared = await _prepareOrNull(bytes);
       if (prepared == null) continue;
       if (await _addPrepared(id, prepared.emoji, prepared.bytes)) added++;
     }
     return added;
+  }
+
+  /// [_prepare], null for an image it failed on (too large to scale in memory…).
+  Future<PreparedCustomEmoji?> _prepareOrNull(Uint8List bytes) async {
+    try {
+      return await _prepare(bytes);
+    } on Object catch (e) {
+      warning('custom emoji packs: image not prepared: $e');
+      return null;
+    }
   }
 
   Future<bool> _addPrepared(String id, CustomEmoji emoji, Uint8List bytes) async {
@@ -217,23 +243,29 @@ final class CustomEmojiStore with LoggerMixin {
   }
 
   /// Add the packs of the archive [bytes] ([decodeCustomEmojiArchive]): a pack of the same name as one here gets the
-  /// images it lacks, any other is added last. How many images were added; null when [bytes] is no such archive.
+  /// images it lacks, any other is added last. Each image is saved as one added by hand is ([prepareCustomEmoji]: an
+  /// archive another tool wrote may hold larger ones). How many images were added; null when [bytes] is no such
+  /// archive (or larger than [customEmojiArchiveMaxBytes]).
   Future<int?> importArchive(Uint8List bytes) async {
     await load();
+    if (bytes.length > customEmojiArchiveMaxBytes) return null;
     final archived = await compute(decodeCustomEmojiArchive, bytes);
     if (archived == null) return null;
     var added = 0;
     for (final pack in archived) {
       final name = pack.name.isEmpty ? 'emoji' : pack.name;
       final id = _packs.value.where((e) => e.name == name).firstOrNull?.id ?? (await createPack(name)).id;
-      for (final (emoji, data) in pack.emojis) {
-        if (await _addPrepared(id, emoji, data)) added++;
+      for (final (_, data) in pack.emojis) {
+        final prepared = await _prepareOrNull(data);
+        if (prepared != null && await _addPrepared(id, prepared.emoji, prepared.bytes)) added++;
       }
     }
     return added;
   }
 
   /// The attachment the account [uid] last uploaded of the image [sha256], null when none is remembered.
+  ///
+  /// By uid alone: the app talks to one forum.
   int? uploadedAid(int uid, String sha256) => _uploads['$uid']?[sha256];
 
   /// Remember the upload [aid] of the image [sha256] by the account [uid].

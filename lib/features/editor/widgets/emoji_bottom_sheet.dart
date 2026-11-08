@@ -22,6 +22,11 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// With [sendCustomEmoji] (an editor that can upload attachments) the custom emoji packs are offered too: a tap sends
 /// the image and the sheet closes with the BBCode it gave, or with nothing when that failed.
 Future<String?> showEmojiPicker(BuildContext context, {CustomEmojiSender? sendCustomEmoji}) async {
+  if (sendCustomEmoji != null) {
+    // The packs read before the sheet opens: its tabs stay the same.
+    await CustomEmojiStore.app?.load();
+    if (!context.mounted) return null;
+  }
   return showCustomBottomSheet<String>(
     title: context.t.bbcodeEditor.emoji.title,
     context: context,
@@ -42,7 +47,8 @@ class _EmojiBottomSheet extends StatefulWidget {
   State<_EmojiBottomSheet> createState() => _EmojiBottomSheetState();
 }
 
-class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerProviderStateMixin {
+// A new controller when the packs change while the sheet is open (read after it opened): more than one ticker.
+class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProviderStateMixin {
   TabController? tabController;
   int _tabCount = 0;
 

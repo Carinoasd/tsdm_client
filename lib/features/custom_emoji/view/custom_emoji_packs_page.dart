@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
 import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_archive.dart';
 import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_image.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -83,7 +83,10 @@ Future<void> _import(BuildContext context) async {
   if (path == null || !context.mounted) return;
   int? added;
   try {
-    added = await _store.importArchive(await File(path).readAsBytes());
+    final file = File(path);
+    if (await file.length() <= customEmojiArchiveMaxBytes) {
+      added = await _store.importArchive(await file.readAsBytes());
+    }
   } on Object catch (e, st) {
     talker.handle(e, st, 'failed to import custom emoji packs');
   }
@@ -210,7 +213,7 @@ class _CustomEmojiPackPageState extends State<CustomEmojiPackPage> {
           () async {
             final file = File(path);
             if (await file.length() > _maxPickedBytes) return null;
-            return Uint8List.fromList(await file.readAsBytes());
+            return file.readAsBytes();
           },
       ]);
     } finally {

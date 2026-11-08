@@ -14,10 +14,62 @@ const customEmojiArchiveVersion = 1;
 /// The largest image read from an archive, in bytes.
 const int customEmojiArchiveMaxImageBytes = 8 * 1024 * 1024;
 
+/// The largest archive read, in bytes.
+const int customEmojiArchiveMaxBytes = 200 * 1024 * 1024;
+
+/// The largest `manifest.json` read, in bytes.
+const int _maxManifestBytes = 4 * 1024 * 1024;
+
 /// At most this many images are read from an archive.
 const customEmojiArchiveMaxImages = 5000;
 
 final RegExp _imageNameRe = RegExp(r'^[0-9a-f]{64}\.(png|jpg|gif)$');
+
+/// Thrown by [_LimitedOutput] past its limit.
+final class _TooLarge implements Exception {
+  const _TooLarge();
+}
+
+/// Decompressed bytes up to [limit]: the sizes an archive declares are not trusted.
+final class _LimitedOutput extends OutputMemoryStream {
+  _LimitedOutput(this.limit);
+
+  final int limit;
+
+  void _check(int n) {
+    if (length + n > limit) throw const _TooLarge();
+  }
+
+  @override
+  void writeByte(int value) {
+    _check(1);
+    super.writeByte(value);
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    _check(length ?? bytes.length);
+    super.writeBytes(bytes, length: length);
+  }
+
+  @override
+  void writeStream(InputStream stream) {
+    _check(stream.length);
+    super.writeStream(stream);
+  }
+}
+
+/// The content of [file], null when it is (or decompresses to) more than [limit] bytes or cannot be read.
+Uint8List? _readLimited(ArchiveFile file, int limit) {
+  if (file.size > limit) return null;
+  try {
+    final output = _LimitedOutput(limit);
+    file.writeContent(output);
+    return output.getBytes();
+  } on Object {
+    return null;
+  }
+}
 
 /// A pack read from an archive: its name and its images with their bytes, in order.
 final class ArchivedCustomEmojiPack {
@@ -61,9 +113,10 @@ Uint8List encodeCustomEmojiArchive(List<CustomEmojiPack> packs, Uint8List? Funct
 /// The packs of an archive [encodeCustomEmojiArchive] wrote, null when [bytes] is no such archive.
 ///
 /// Nothing in it is trusted: only `manifest.json` and the entries named exactly `images/<sha256>.<ext>` are read; an
-/// image larger than [customEmojiArchiveMaxImageBytes], whose bytes are not of its name (hash, format) or past the
+/// image larger than [customEmojiArchiveMaxImageBytes] (decompressed, whatever the archive declares), whose bytes are not of its name (hash, format) or past the
 /// first [customEmojiArchiveMaxImages] is left out, as is a name of the manifest no entry has.
 List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
+  if (bytes.length > customEmojiArchiveMaxBytes) return null;
   final Archive archive;
   try {
     archive = ZipDecoder().decodeBytes(bytes);
@@ -79,10 +132,11 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
   final Object? manifest;
   try {
     final file = entries['manifest.json'];
-    if (file == null || file.size > 4 * 1024 * 1024) {
+    final data = file == null ? null : _readLimited(file, _maxManifestBytes);
+    if (data == null) {
       return null;
     }
-    manifest = jsonDecode(utf8.decode(file.content));
+    manifest = jsonDecode(utf8.decode(data));
   } on Object {
     return null;
   }
@@ -100,19 +154,12 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
       return null;
     }
     final file = entries['images/$name'];
-    if (file == null || file.size > customEmojiArchiveMaxImageBytes) {
-      return null;
-    }
-    final Uint8List data;
-    try {
-      data = file.content;
-    } on Object {
+    final data = file == null ? null : _readLimited(file, customEmojiArchiveMaxImageBytes);
+    if (data == null) {
       return null;
     }
     final dot = name.indexOf('.');
-    if (data.length > customEmojiArchiveMaxImageBytes ||
-        customEmojiFormatOf(data) != name.substring(dot + 1) ||
-        sha256Hex(data) != name.substring(0, dot)) {
+    if (customEmojiFormatOf(data) != name.substring(dot + 1) || sha256Hex(data) != name.substring(0, dot)) {
       return null;
     }
     return data;

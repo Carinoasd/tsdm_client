@@ -861,7 +861,7 @@ final class PostForm {
     final list = _block('attach')?[key];
     return {
       for (final e in list is List ? list : const [])
-        if (e is Map && e['aid'] is num && (e['aid'] as num) > 0 && (!imagesOnly || e['isimage'] == 1))
+        if (e is Map && e['aid'] is num && (e['aid'] as num) > 0 && (!imagesOnly || '${e['isimage']}' == '1'))
           (e['aid'] as num).toInt(),
     };
   }

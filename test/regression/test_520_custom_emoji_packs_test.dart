@@ -9,8 +9,8 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 import 'package:image/image.dart' as img;
+import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
 import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
 import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_archive.dart';
@@ -140,11 +140,19 @@ void main() {
       expect(store.packs.value.single.emojis, isEmpty);
     });
 
-    test('a broken file reads as no packs', () async {
+    test('a file it cannot read is set aside, never overwritten', () async {
       File('${dir.path}/packs.json').writeAsStringSync('{oops');
+      File('${dir.path}/uploads.json').writeAsStringSync(jsonEncode({'v': 99, 'accounts': <String, Object>{}}));
       final store = _store(dir);
       await store.load();
       expect(store.packs.value, isEmpty);
+      await store.createPack('new');
+      store.rememberUpload(35, 'a' * 64, 1);
+      await store.pendingWrites;
+      final names = dir.listSync().map((e) => e.uri.pathSegments.last).toList();
+      final bad = names.where((e) => e.startsWith('packs.json.bad-')).single;
+      expect(File('${dir.path}/$bad').readAsStringSync(), '{oops');
+      expect(names.where((e) => e.startsWith('uploads.json.bad-')), hasLength(1), reason: 'a later version');
     });
   });
 
@@ -236,6 +244,63 @@ void main() {
       expect(packs.length, 1);
       expect(packs.single.emojis.map((e) => e.$1.fileName), [goodName]);
       expect(packs.single.emojis.single.$2, good);
+    });
+
+    test('an image of an archive is saved as one added by hand: scaled down', () async {
+      final big = _png(1024, 512);
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes('images/${sha256Hex(big)}.png', big))
+        ..addFile(
+          ArchiveFile.bytes(
+            'manifest.json',
+            utf8.encode(
+              jsonEncode({
+                'format': customEmojiArchiveFormat,
+                'v': 1,
+                'packs': [
+                  {
+                    'name': 'big',
+                    'emojis': ['${sha256Hex(big)}.png'],
+                  },
+                ],
+              }),
+            ),
+          ),
+        );
+      final store = _store(dir);
+      expect(await store.importArchive(ZipEncoder().encodeBytes(archive)), 1);
+      final emoji = store.packs.value.single.emojis.single;
+      final saved = img.decodePng(store.fileOf(emoji)!.readAsBytesSync())!;
+      expect((saved.width, saved.height), (512, 256));
+      await store.pendingWrites;
+    });
+
+    test('an entry decompressing past the limit is not read', () {
+      final huge = Uint8List(customEmojiArchiveMaxImageBytes + 1)
+        ..setAll(0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      final name = '${sha256Hex(huge)}.png';
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes('images/$name', huge))
+        ..addFile(
+          ArchiveFile.bytes(
+            'manifest.json',
+            utf8.encode(
+              jsonEncode({
+                'format': customEmojiArchiveFormat,
+                'v': 1,
+                'packs': [
+                  {
+                    'name': 'x',
+                    'emojis': [name],
+                  },
+                ],
+              }),
+            ),
+          ),
+        );
+      final zip = ZipEncoder().encodeBytes(archive);
+      expect(zip.length, lessThan(1024 * 1024), reason: 'zeros compress well');
+      expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
     });
 
     test('no archive of packs: null', () {
