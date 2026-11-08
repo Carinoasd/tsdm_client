@@ -1,6 +1,7 @@
 {
  "_about": "The text the html muncher renders each real sample of test/data to (rich text by rich text, images as an underlined mark, icons left out, email addresses as <email>), see test_228_munch_whitespace_test.dart: before and after the fix of the white space collapsing where they differ, the one text where they do not. Recorded by running that test with MUNCH_WHITESPACE_DUMP set, with the muncher before the fix and after it.",
  "samples": {
+  "test/data/audio_attachment_post_x5.html#postmessage_1": "«三個音訊附件\n￼\n中間文字\n￼\n\n另外網易雲 https://music.163.com/#/song?id=1974443814 以及 ￼晴天»\n«测试 歌曲.mp3»\n«36.73 KB»\n«sine_b.flac»\n«88.36 KB»\n",
   "test/data/chat_history_bare_url_x5.html#pm0": {
    "before": "«您\n\n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n",
    "after": "«您\n \n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n"
@@ -14,6 +15,10 @@
    "before": "«[tsdm_client X5 修復版 自動測試] 電子郵件連結樣本，可忽略。￼寫信給我另一種寫法 ￼<email>\n純文字 ￼<email>»\n",
    "after": "«[tsdm_client X5 修復版 自動測試] 電子郵件連結樣本，可忽略。￼寫信給我 另一種寫法 ￼<email>\n純文字 ￼<email>»\n"
   },
+  "test/data/followed_thread_after_x5.html#pcb0": "«这是用来测试追踪帖子功能的主题，欢迎回复。»\n",
+  "test/data/followed_thread_after_x5.html#pcb1": "«追踪测试回复第 3 楼，内容足够长一点»\n",
+  "test/data/followed_thread_after_x5.html#pcb2": "«追踪测试回复第 2 楼，内容足够长一点»\n",
+  "test/data/followed_thread_after_x5.html#pcb3": "«追踪测试回复第 1 楼，内容足够长一点»\n",
   "test/data/locked_purchase_x5.html#pcb0": "«[img]\n￼https://mora.jp/package/43000100/SEXX03272B00Z_48/\n\n■ tuki.、新曲「バブル」をリリース\n\nバブル - Bubble\ntuki.\nレーベル\n配信開始日\n収録曲数\n収録時間\n販売データ\nThe Lunar Landing Plan\n2026.08.23\n全1曲\n03:18\nハイレゾ｜FLAC｜48.0kHz/24bit»\n",
   "test/data/notice_friend_request_x5.html#notice0": {
    "before": "«￼Alice请求加您为好友，附言：附言样例  ￼批准申请»\n«@»\n",
@@ -40,6 +45,12 @@
    "before": "«热门回复的内文\n第二行»\n",
    "after": "«热门回复的内文\n  第二行»\n"
   },
+  "test/data/tsdmapp/followed_v18_after.json#11201": "«这是用来测试追踪帖子功能的主题，欢迎回复。»\n",
+  "test/data/tsdmapp/followed_v18_after.json#11202": "«追踪测试回复第 1 楼，内容足够长一点»\n",
+  "test/data/tsdmapp/followed_v18_after.json#11203": "«追踪测试回复第 2 楼，内容足够长一点»\n",
+  "test/data/tsdmapp/followed_v18_after.json#11204": "«追踪测试回复第 3 楼，内容足够长一点»\n",
+  "test/data/thread_link_card/post_links_x5.html#postmessage_11199": "«连结卡测试\n￼https://www.tsdm39.com/forum.php?mod=viewthread&tid=9202763\nhttps://www.tsdm39.com/forum.php?mod=viewthread&tid=9202763&extra=page%3D1&page=1\n￼自定义文字\nhttps://www.tsdm39.com/thread-9202765-1-1.html\nhttps://www.tsdm39.com/forum.php?mod=redirect&goto=findpost&pid=11176&ptid=9202763\n句中链接 https://www.tsdm39.com/forum.php?mod=viewthread&tid=9202766 结尾»\n",
+  "test/data/thread_link_card/post_links_x5.html#postmessage_11205": "«长网址\n￼https://www.tsdm39.com/forum.php ... e=1&ordertype=2\n￼https://www.tsdm39.com/thread-9202765-2-1.html\n￼https://www.tsdm39.com/forum.php ... 76&ptid=9202763\n￼https://www.tsdm39.com/forum.php?mod=forumdisplay&fid=10\n句中 ￼https://www.tsdm39.com/forum.php?mod=viewthread&tid=9202766 结尾»\n",
   "test/data/tsdmapp/hongbao/thread_password_active.json#11174": "«￼\nHB口令測試B body»\n«口令包B»\n«拼手氣紅包 · 剩 3/3 份 · 點擊領取»\n",
   "test/data/tsdmapp/hongbao/thread_sender_active.json#11166": "«￼\nAPP回帖57875（tsdmapp 3.5.0 驗收用的紅包帖）»\n«APP回帖57875»\n«拼手氣紅包 · 剩 1/2 份 · 點擊領取»\n",
   "test/data/tsdmapp/pm_v11_chat.json#message0": "«BU pm GC1 第一則 由 B 發（gc1b1_1789176308198）»\n",

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,10 +7,12 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/points/bloc/points_bloc.dart';
+import 'package:tsdm_client/features/points/bloc/points_trend_cubit.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
 import 'package:tsdm_client/features/points/widgets/points_card.dart';
 import 'package:tsdm_client/features/points/widgets/points_query_form.dart';
+import 'package:tsdm_client/features/points/widgets/points_trend_tab.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -219,7 +223,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _statisticsRefreshController = EasyRefreshController(controlFinishRefresh: true);
     _statisticsScrollController = ScrollController();
     _changelogRefreshController = EasyRefreshController(controlFinishRefresh: true);
@@ -250,6 +254,13 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
           create: (context) =>
               PointsChangelogBloc(pointsRepository: context.repo())..add(PointsChangelogRefreshRequested()),
         ),
+        BlocProvider(
+          create: (context) {
+            final cubit = PointsTrendCubit(fetchRange: context.repo<PointsRepository>().fetchChangelogRange);
+            unawaited(cubit.load());
+            return cubit;
+          },
+        ),
       ],
       child: Scaffold(
         appBar: AppBar(
@@ -259,6 +270,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
             tabs: [
               Tab(text: tr.statisticsTab.title),
               Tab(text: tr.changelogTab.title),
+              Tab(text: tr.trendTab.title),
             ],
           ),
         ),
@@ -303,6 +315,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
               children: [
                 BlocBuilder<PointsStatisticsBloc, PointsStatisticsState>(builder: _buildStatisticsTab),
                 BlocBuilder<PointsChangelogBloc, PointsChangelogState>(builder: _buildChangelogTab),
+                const PointsTrendTab(),
               ],
             ),
           ),

@@ -10,6 +10,7 @@ import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
@@ -184,6 +185,8 @@ Future<void> _boot(List<String> args) async {
       talker.handle(e, st, 'windows notification init failed');
     }
   }
+
+  await initAudioPlayer();
 
   // Load font family.
   final fontFamily = settings.fontFamily;

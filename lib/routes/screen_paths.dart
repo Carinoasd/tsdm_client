@@ -301,6 +301,16 @@ class ScreenPaths {
   /// Need to login before see the content.
   static const String points = '/points';
 
+  /// The page to show the days the current logged user checked in on a calendar.
+  ///
+  /// Need to login before see the content.
+  static const String checkinCalendar = '/checkinCalendar';
+
+  /// The page to show who rated the current logged user's posts the most, from the rate notices.
+  ///
+  /// Need to login before see the content.
+  static const String ratingStats = '/ratingStats';
+
   /// Page to edit a post or thread.
   ///
   /// Contains:
@@ -323,8 +333,23 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page listing the threads put aside to read later.
+  static const String readLater = '/readLater';
+
+  /// Page of the time spent reading threads.
+  static const String readingStats = '/readingStats';
+
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
+
+  /// Page listing the threads the current account follows.
+  static const String followedThreads = '/followedThreads';
+
+  /// Page managing the custom emoji packs.
+  static const String customEmojiPacks = '/customEmojiPacks';
+
+  /// Page of one custom emoji pack: its images.
+  static const String customEmojiPack = '/customEmojiPack/:packId';
 
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
@@ -343,6 +368,9 @@ class ScreenPaths {
 
   /// Page to manage user account for multi-user target.
   static const String manageAccount = '/manageAccount';
+
+  /// Page of the devices the account in use logged in on (plugin 3.6.0).
+  static const String loginDevices = '/loginDevices';
 
   /// Page to get app updates.
   static const String update = '/update';
@@ -511,8 +539,14 @@ class DialogPaths {
   /// Dialog to select when the pictures of the posts load by themselves.
   static const String selectPostImageAutoLoad = '/dialog/selectPostImageAutoLoad';
 
+  /// Dialog to select when the data saver holds the large pictures back.
+  static const String selectDataSaverMode = '/dialog/selectDataSaverMode';
+
   /// Dialog to set the hours of the day the app is dark.
   static const String darkSchedule = '/dialog/darkSchedule';
+
+  /// Dialog to choose the size and the quality images are uploaded with.
+  static const String uploadImageOutput = '/dialog/uploadImageOutput';
 }
 
 /// Route path for a screen.
