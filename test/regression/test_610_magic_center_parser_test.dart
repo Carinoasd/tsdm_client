@@ -210,12 +210,12 @@ void main() {
     test('the discount note is not taken for a balance', () {
       final html = _fixture('shop_x5.html').replaceFirst(
         '<span class="pipe">|</span>\n目前有',
-        '<span class="pipe">|</span>您可以享受 8 折优惠<span class="pipe">|</span>\n目前有',
+        '<span class="pipe">|</span>可享受 <strong class="xi1">8</strong> 折优惠<span class="pipe">|</span>\n目前有',
       );
-      expect(html, contains('8 折'));
+      expect(html, contains('折优惠'));
       final page = parseMagicList(parseHtmlDocument(html), MagicList.shop);
       expect(page.balance, startsWith('目前有 天使币'));
-      expect(page.balance, isNot(contains('8 折')));
+      expect(page.balance, isNot(contains('折')));
       expect(page.capacity, matches(RegExp(r'^\d+/100$')));
     });
 

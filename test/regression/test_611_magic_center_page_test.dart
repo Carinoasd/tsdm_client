@@ -18,7 +18,13 @@ import 'package:tsdm_client/instance.dart';
 String _fixture(String name) => File('test/data/magic/$name').readAsStringSync();
 
 final class _Harness {
-  _Harness({this.answer, this.fail = false});
+  _Harness({this.answer, this.fail = false, this.useWindow});
+
+  /// The use window of every magic, when set.
+  final String? useWindow;
+
+  /// Reading a list fails.
+  bool listFails = false;
 
   /// The answer to a POST; a pending completer holds it.
   final Completer<Object?>? answer;
@@ -36,11 +42,13 @@ final class _Harness {
     repository: () => MagicRepository(
       getPage: (url) async {
         gets.add(url);
+        if (listFails) throw const SocketException('reset');
         return _fixture(url.contains('mybox') ? 'mybox_x5.html' : 'shop_x5.html');
       },
       getWindow: (url) async {
         windows.add(url);
         if (url.contains('operation=buy')) return jsonDecode(_fixture('buy_form_x5.json'));
+        if (useWindow case final html?) return html;
         if (url.contains('magicid=1&')) return _fixture('use_sofa_x5.xml');
         if (url.contains('magicid=34&')) return _fixture('use_pkcat_x5.xml');
         return _fixture('use_missing_x5.xml');
@@ -170,6 +178,35 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('magic-use-35')));
     expect(find.textContaining('道具不存在'), findsOneWidget);
     expect(h.posts, isEmpty);
+  });
+
+  testWidgets('a radio group the forum left unchecked must be picked before using', (tester) async {
+    final h = _Harness(
+      useWindow: _fixture('use_sofa_x5.xml').replaceFirst(
+        '<input type="text" name="tid" class="px p_fre" value="" size="12" autocomplete="off" />',
+        '<input type="radio" name="opt" value="1" /> 是 <input type="radio" name="opt" value="0" /> 否',
+      ),
+    );
+    await _pump(tester, h.cubit);
+    await _tap(tester, find.byKey(const ValueKey('magic-tab-mine')));
+    await _tap(tester, find.byKey(const ValueKey('magic-use-1')));
+    await _tap(tester, find.byKey(const ValueKey('magic-submit')));
+    expect(h.posts, isEmpty);
+    expect(find.text(t.magicCenter.required), findsOneWidget);
+    await _tap(tester, find.byKey(const ValueKey('magic-field-opt')));
+    await _tap(tester, find.text('否').last);
+    await _tap(tester, find.byKey(const ValueKey('magic-submit')));
+    expect(h.posts.single.$2, containsPair('opt', '0'));
+  });
+
+  testWidgets('a refresh that fails keeps the lists under the failure', (tester) async {
+    final h = _Harness();
+    await _pump(tester, h.cubit);
+    h.listFails = true;
+    await h.cubit.load();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('magic-load-failed')), findsOneWidget);
+    expect(find.byKey(const ValueKey('magic-buy-prankmagic:pkname')), findsOneWidget);
   });
 
   test('an answer for another account is dropped', () async {
