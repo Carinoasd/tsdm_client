@@ -109,7 +109,6 @@ final class LoginDeviceCoordinator with LoggerMixin {
       platform: platform,
       appVersion: appVersion,
       name: name,
-      retired: LoginDeviceIdentity.retired,
       stillCurrent: () => LoginDeviceIdentity.id == id && !_revoked.contains(uid),
     );
     switch (result) {
@@ -119,10 +118,6 @@ final class LoginDeviceCoordinator with LoggerMixin {
         // Not asked again in this run: every homepage load tells the account authenticated again, and a forum
         // without devices would get a `status` for each.
         debug('the forum keeps no devices');
-      case LoginDeviceFailed(error: 'revoked'):
-        // Logged out with an id before: its login is being dropped.
-        debug('device register: the account was logged out with an id replaced');
-        _registered.remove('$uid/$id');
       case LoginDeviceFailed(:final error) when _refusals.contains(error):
         // The plugin refused what this device sends: not again in this run, it would refuse again.
         debug('device register refused: $error');
@@ -147,6 +142,7 @@ final class LoginDeviceCoordinator with LoggerMixin {
   }
 
   Future<void> _dropLogin(int uid, {required bool renew}) async {
+    final old = LoginDeviceIdentity.id;
     try {
       // The new id first, at once: every request from now on carries it. Only when the id in use was logged out.
       if (renew) {
@@ -171,14 +167,32 @@ final class LoginDeviceCoordinator with LoggerMixin {
       if (!_revocations.isClosed) {
         _revocations.add((uid: uid, username: username));
       }
-      // Another account logged out (the polls of every account): the account in use goes on with the new id, which
-      // the forum only keeps once registered.
+      // The other stored accounts may be logged out with the old id too: their requests carry the new one from now
+      // on, which the forum does not refuse, so each is asked once with the old one (an answer `device_revoked` drops
+      // it as this one), before the account in use is registered with the new id.
+      if (renew && old != null) {
+        await _checkOthers(uid, old);
+      }
+      // The account in use goes on with the new id, which the forum only keeps once registered.
       final current = _authentication.effectiveCurrentUid;
       if (current != null && current != uid) {
         unawaited(register(current));
       }
     } on Object catch (e, st) {
       error('failed to drop the login of a device logged out: $e', e, st);
+    }
+  }
+
+  Future<void> _checkOthers(int uid, String old) async {
+    final accounts = await _storage.allAccountsStream().first;
+    for (final account in accounts) {
+      final other = account.user.uid;
+      if (other == null || other == uid || _revoked.contains(other) || _followed.contains('$other/$old')) {
+        continue;
+      }
+      if (!await _repository.probe(account.user, old)) {
+        debug('device: a stored account was not answered with the id replaced');
+      }
     }
   }
 

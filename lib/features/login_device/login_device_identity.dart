@@ -23,12 +23,6 @@ abstract final class LoginDeviceIdentity {
   /// Name of the settings row holding [id].
   static const storageKey = 'loginDeviceId';
 
-  /// Name of the settings row holding [retired], comma separated.
-  static const retiredStorageKey = 'loginDeviceRetiredIds';
-
-  /// How many replaced ids are kept.
-  static const maxRetired = 3;
-
   static final _format = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 
   /// Whether [value] is an id as the plugin takes it (a UUID, lower case as the plugin stores it).
@@ -47,15 +41,10 @@ abstract final class LoginDeviceIdentity {
   /// this device used apart (the id in use, and those it replaced in this run) and each account once.
   static void Function(int uid, String device)? onRevoked;
 
-  static final _retired = <String>[];
+  static final _retired = <String>{};
 
-  /// The ids [renew] replaced because the forum logged one out, the latest first, at most [maxRetired]; stored. Another
-  /// account logged out with the same id learns it only from a request carrying it: before an account is registered
-  /// with the id in use, `status` is asked with each of these (`LoginDeviceRepository.register`).
-  static List<String> get retired => List.unmodifiable(_retired);
-
-  /// Whether [device] is the id in use or one of [retired]: the answers of the requests in flight when it was replaced
-  /// still name it, for every account they were sent as.
+  /// Whether [device] is the id in use, or one [renew] replaced in this run: the answers of the requests in flight
+  /// when it was replaced still name it, for every account they were sent as.
   static bool isOwn(String device) => device == _id || _retired.contains(device);
 
   /// Forget the id and the ids replaced (tests).
@@ -65,35 +54,24 @@ abstract final class LoginDeviceIdentity {
     _retired.clear();
   }
 
-  /// Read the stored id, or make one and store it, and the ids replaced.
+  /// Read the stored id, or make one and store it.
   static Future<void> load(StorageProvider storage) async {
-    final retired = (await storage.getString(retiredStorageKey) ?? '').split(',').where(isValid);
-    _retired
-      ..clear()
-      ..addAll(retired.take(maxRetired));
     final stored = (await storage.getString(storageKey))?.toLowerCase();
     if (stored != null && isValid(stored)) {
       _id = stored;
       return;
     }
-    _id = const Uuid().v4().toLowerCase();
-    await storage.saveString(storageKey, _id!);
+    await renew(storage);
   }
 
-  /// Make a new id, in use at once, the one before kept in [retired]; both stored.
+  /// Make a new id, in use at once, and store it.
   static Future<String> renew(StorageProvider storage) async {
     final next = const Uuid().v4().toLowerCase();
     if (_id case final previous?) {
-      _retired
-        ..remove(previous)
-        ..insert(0, previous);
-      if (_retired.length > maxRetired) {
-        _retired.removeRange(maxRetired, _retired.length);
-      }
+      _retired.add(previous);
     }
     _id = next;
     await storage.saveString(storageKey, next);
-    await storage.saveString(retiredStorageKey, _retired.join(','));
     return next;
   }
 }
@@ -125,7 +103,8 @@ abstract final class LoginDeviceIdentity {
 /// keeps devices ([TsdmAppApi.knowsDevice]), and turns an answer `device_revoked` into a failed request
 /// ([LoginDeviceRevokedException]): the forum did not handle it, and the answer is no page any reader knows.
 ///
-/// A request that sets the header itself keeps it (the `register` names the id it registers). Every answer naming an
+/// A request that sets the header itself keeps it (the `register` names the id it registers, the check of another
+/// account the id replaced, `LoginDeviceRepository.probe`). Every answer naming an
 /// account is told to [LoginDeviceIdentity.onRevoked], which decides what to do of it; nothing waits here: the logout
 /// runs on its own.
 final class LoginDeviceInterceptor extends Interceptor with LoggerMixin {

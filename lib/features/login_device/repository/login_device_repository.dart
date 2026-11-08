@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:tsdm_client/exceptions/exceptions.dart';
 
 import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/login_device/models/login_device.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// What the `device` action answered.
@@ -47,8 +49,20 @@ final class LoginDeviceFailed<T> extends LoginDeviceResult<T> {
 /// sent once; an answer "too soon" (HTTP 429, the plugin takes one write per account every few seconds, a `register`
 /// and a `revoke` alike) is waited for and the write sent again, which the plugin did not handle.
 final class LoginDeviceRepository with LoggerMixin {
-  /// Constructor; [buildClient] builds the client of an account (the tests).
-  LoginDeviceRepository({NetClientProvider Function(int uid)? buildClient}) : _buildClient = buildClient ?? _clientOf;
+  /// Constructor; [buildClient] builds the client of an account in use, [buildStoredClient] the client of a stored
+  /// account on its own saved login, null when it has none (the tests).
+  LoginDeviceRepository({
+    NetClientProvider Function(int uid)? buildClient,
+    Future<NetClientProvider?> Function(UserLoginInfo user)? buildStoredClient,
+  }) : _buildClient = buildClient ?? _clientOf,
+       _buildStoredClient = buildStoredClient ?? _storedClientOf;
+
+  static Future<NetClientProvider?> _storedClientOf(UserLoginInfo user) async {
+    final cookie = getIt.get<CookieProvider>(instanceName: ServiceKeys.empty);
+    return await cookie.loadCookieFromStorage(user) ? NetClientProvider.buildNoCookie(cookie: cookie) : null;
+  }
+
+  final Future<NetClientProvider?> Function(UserLoginInfo user) _buildStoredClient;
 
   static NetClientProvider _clientOf(int uid) =>
       NetClientProvider.build(userLoginInfo: UserLoginInfo(username: null, uid: uid));
@@ -85,7 +99,6 @@ final class LoginDeviceRepository with LoggerMixin {
   /// Register [device] for [uid] (after a login): its platform, the app's version and the device's name.
   ///
   /// The form hash comes from `status`, which tells whether the forum keeps devices (`device: 1`) at the same time.
-  /// [retired] are the ids this device had before ([LoginDeviceIdentity.retired]), asked with first.
   /// [stillCurrent] is asked right before the write: false (the id was replaced meanwhile) sends nothing.
   Future<LoginDeviceResult<LoginDevice>> register(
     int uid, {
@@ -93,7 +106,6 @@ final class LoginDeviceRepository with LoggerMixin {
     required String platform,
     required String appVersion,
     required String name,
-    List<String> retired = const [],
     bool Function()? stillCurrent,
   }) async {
     final client = _buildClient(uid);
@@ -106,17 +118,6 @@ final class LoginDeviceRepository with LoggerMixin {
     }
     if (status['device'] != 1) {
       return const LoginDeviceUnsupported();
-    }
-    // An id this device had before, logged out of another account, is never answered for that account again: its
-    // requests carry the new one. Asked with each, a logout of this account answers `device_revoked`, which drops
-    // its login (the interceptor), instead of registering the new id with the cookie still valid.
-    for (final previous in retired) {
-      final probe = await client
-          .get(TsdmAppApi.url('status'), options: Options(headers: {LoginDeviceIdentity.header: previous}))
-          .run();
-      if (probe case Left(value: LoginDeviceRevokedException())) {
-        return const LoginDeviceFailed('revoked');
-      }
     }
     if (stillCurrent != null && !stillCurrent()) {
       return const LoginDeviceFailed('replaced');
@@ -134,6 +135,43 @@ final class LoginDeviceRepository with LoggerMixin {
         if (name.isNotEmpty) 'name': name,
       },
     );
+  }
+
+  /// Ask `status` for the stored account [user], on its own saved login, with the id [device] this device had before:
+  /// an answer `device_revoked` (the account was logged out with it too) fails the request in the interceptor, which
+  /// drops the login of the account. True when the forum answered the account (not logged out with it); false
+  /// otherwise, also for a failed request or an account without a saved login. A "too soon" (the plugin takes one
+  /// call per action and account every few seconds) is waited for once.
+  Future<bool> probe(UserLoginInfo user, String device) async {
+    final client = await _buildStoredClient(user);
+    if (client == null) {
+      return false;
+    }
+    for (var again = true; ; again = false) {
+      final result = await client
+          .get(
+            TsdmAppApi.url('status'),
+            options: Options(
+              headers: {LoginDeviceIdentity.header: device},
+              validateStatus: (code) => code != null && (code < 300 || code == 429),
+            ),
+          )
+          .run();
+      switch (result) {
+        case Right(:final value) when value.statusCode == 429 && again:
+          final json = value.data;
+          final wait = json is Map ? tsdmAppInt(json['retry_after']) : 3;
+          if (wait > maxBusyWait) {
+            return false;
+          }
+          await Future<void>.delayed(Duration(milliseconds: (wait < 0 ? 0 : wait) * 1000 + 300));
+        case Right(:final value):
+          final json = value.data;
+          return value.statusCode == 200 && json is Map && json['ok'] == 1;
+        case Left():
+          return false;
+      }
+    }
   }
 
   /// Log [device] out of [uid].
