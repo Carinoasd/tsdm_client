@@ -29,10 +29,12 @@ bool hasReadToEnd({
 /// Every load that replaces the floors starts a new generation (`ThreadState.generation`, one step on each). The floors
 /// of a generation are read on from the start when the first page is among them, or when the load was asked to go on
 /// from where the reading was: the page opened where the reading stopped, the jump to it, a refresh of floors that were.
-/// A jump to the last page is none of these, also not after a load that failed.
+/// A jump to the last page is none of these, also not after a load that failed; neither is a jump to a floor (a floor
+/// bookmark, [jumpedFrom]) nor a thread opened at a floor (`findpost`, `openedAtFloor`), even onto the first page.
 final class ReadOnTracker {
   int? _generation;
   int? _continueFor;
+  int? _jumpedFor;
 
   /// Whether the floors of the generation seen last go on from the start.
   bool readOnFromStart = false;
@@ -40,17 +42,34 @@ final class ReadOnTracker {
   /// The next load that replaces the floors of [generation] goes on from where the reading stopped.
   void continueFrom(int generation) => _continueFor = generation + 1;
 
+  /// The next load that replaces the floors of [generation] jumps to a floor (a floor bookmark): not read on.
+  void jumpedFrom(int generation) {
+    _jumpedFor = generation + 1;
+    _continueFor = null;
+  }
+
   /// The next load that replaces the floors of [generation] shows the same reading again (a refresh).
   void keepFrom(int generation) => _continueFor = readOnFromStart ? generation + 1 : null;
 
   /// The floors of [generation] are on screen ([firstPage] the first page among them). [openedResumed]: the page opened
-  /// where the reading stopped, which counts for the first floors shown.
-  void floorsShown({required int generation, required int firstPage, required bool openedResumed}) {
+  /// where the reading stopped, which counts for the first floors shown; [openedAtFloor]: the page opened at a floor
+  /// (`findpost`), which does not, also not on the first page.
+  void floorsShown({
+    required int generation,
+    required int firstPage,
+    required bool openedResumed,
+    bool openedAtFloor = false,
+  }) {
     if (generation == _generation) {
       return;
     }
-    readOnFromStart = firstPage == 1 || _continueFor == generation || (_generation == null && openedResumed);
+    final first = _generation == null;
+    readOnFromStart =
+        _jumpedFor != generation &&
+        !(first && openedAtFloor && !openedResumed) &&
+        (firstPage == 1 || _continueFor == generation || (first && openedResumed));
     _generation = generation;
     _continueFor = null;
+    _jumpedFor = null;
   }
 }

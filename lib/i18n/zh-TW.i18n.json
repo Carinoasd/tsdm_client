@@ -264,6 +264,7 @@
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
       "points": "積分",
@@ -350,7 +351,8 @@
         "title": "跨裝置同步",
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
-        "drafts": "本機草稿"
+        "drafts": "本機草稿",
+        "bookmarks": "樓層書籤"
       },
       "loginDevices": "登入裝置"
     },
@@ -380,6 +382,13 @@
         "title": "語言",
         "followSystem": "跟隨系統",
         "selectLanguage": "選擇語言"
+      },
+      "appIcon": {
+        "title": "App 圖示",
+        "defaultIcon": "預設",
+        "dark": "深色",
+        "mono": "單色",
+        "pink": "粉色"
       },
       "highRefreshRate": {
         "title": "高刷新率",
@@ -498,6 +507,12 @@
       "fontFamily": {
         "title": "字體",
         "dialogTitle": "選擇字體"
+      },
+      "chineseDisplay": {
+        "title": "簡繁顯示",
+        "off": "關閉",
+        "traditional": "繁體",
+        "simplified": "簡體"
       },
       "textScaleFactor": {
         "title": "文字縮放",
@@ -835,7 +850,9 @@
         "off": "關",
         "meteredOnly": "使用行動網路時",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
+      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟"
     }
   },
   "aboutPage": {
@@ -2328,6 +2345,13 @@
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
   },
+  "inAppBrowserPage": {
+    "back": "上一頁",
+    "forward": "下一頁",
+    "refresh": "重新整理",
+    "openExternal": "用外部瀏覽器開啟",
+    "copyUrl": "複製網址"
+  },
   "shareReceive": {
     "pickForum": "要發到哪個版塊",
     "uploadUnavailable": "這個版塊不能上傳圖片",
@@ -3346,6 +3370,47 @@
     "issueRecordsEmpty": "還沒有頒發紀錄。",
     "issueLogLine": "${by} → ${to}"
   },
+  "appLock": {
+    "title": "App 鎖",
+    "method": {
+      "title": "解鎖方式",
+      "off": "關閉",
+      "pin": "PIN",
+      "biometric": "PIN 與生物辨識"
+    },
+    "timing": {
+      "title": "鎖定時機",
+      "immediately": "每次離開",
+      "oneMinute": "離開 1 分鐘後",
+      "fiveMinutes": "離開 5 分鐘後"
+    },
+    "changePin": "變更 PIN",
+    "requireForAccountSwitch": "切換帳號前要求解鎖",
+    "biometricUnavailable": "此裝置無法使用生物辨識",
+    "setPin": {
+      "title": "設定 PIN",
+      "pin": "PIN",
+      "confirm": "再次輸入 PIN",
+      "invalid": "請輸入 4～6 位數字",
+      "mismatch": "兩次輸入的 PIN 不一致"
+    },
+    "lockScreen": {
+      "enterPin": "輸入 PIN",
+      "wrongPin": "PIN 錯誤",
+      "retryIn": "請在 ${seconds} 秒後重試",
+      "biometric": "生物辨識解鎖",
+      "reason": "解鎖${appName}",
+      "delete": "刪除",
+      "confirm": "確定"
+    },
+    "forgot": {
+      "title": "忘記 PIN",
+      "detail": "將移除本機儲存的全部帳號並關閉 App 鎖，之後需要重新登入。",
+      "confirmTitle": "確定移除全部帳號？",
+      "confirmDetail": "此操作無法復原。",
+      "failed": "未能移除全部帳號，App 鎖仍然有效"
+    }
+  },
   "currentAccount": {
     "tooltip": "目前帳號：${username}",
     "replyAs": "以 ${username} 回覆",
@@ -3560,6 +3625,16 @@
     "hoursMinutes": "$hours 小時 $minutes 分",
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
+  },
+  "floorBookmark": {
+    "title": "書籤",
+    "add": "加書籤",
+    "edit": "編輯書籤",
+    "note": "備註",
+    "remove": "刪除",
+    "removeConfirm": "刪除這個書籤？",
+    "empty": "沒有書籤",
+    "needLogin": "登入後可以查看書籤。"
   },
   "localDraft": {
     "title": "本機草稿",

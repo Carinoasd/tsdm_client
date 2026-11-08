@@ -10,6 +10,8 @@ import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
@@ -55,6 +57,10 @@ Future<void> _boot(List<String> args) async {
   talker.debug('------------------- start app $appFullVersion -------------------');
   listenAndroidWindowEvents();
   await initProviders();
+  // Before the first frame, which is the lock screen when the app lock is on; the back guard goes before the router's.
+  final appLock = await AppLockCubit.load();
+  getIt.registerSingleton(appLock, dispose: (c) async => c.close());
+  WidgetsBinding.instance.addObserver(AppLockBackGuard(appLock));
 
   final settings = getIt.get<SettingsRepository>().currentSettings;
   // App-wide, see BackgroundSyncController; registered on every platform so the settings page can look it up.
