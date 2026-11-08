@@ -58,7 +58,7 @@ final class HomeWidgetSnapshot {
       'HomeWidgetSnapshot(uid: $uid, notice: $notice, pm: $personalMessage, checkedInDay: $checkedInDay)';
 }
 
-/// Keeps the Android home screen widget in step with the app (Android only, see [HomeWidgetChannel]).
+/// Keeps the home screen widget (Android, iOS) in step with the app (see [HomeWidgetChannel]).
 ///
 /// The widget shows the unread counts and the check-in of the account in use. Every change the app sees is pushed
 /// through the channel, deduplicated: the unread counts of `NotificationStateCubit` (the notice page read, a sync, the
