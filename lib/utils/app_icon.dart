@@ -55,6 +55,7 @@ final class AppIconFollower with LoggerMixin {
     try {
       final done = await _setter(icon.storedName);
       debug('app icon ${icon.storedName}, applied: $done');
+      // ignore: avoid_catches_without_on_clauses, a TypeError of a platform answer must not escape the settings stream.
     } catch (e, st) {
       // A device that cannot switch icons keeps the one it shows.
       warning('failed to set app icon ${icon.storedName}', e, st);
