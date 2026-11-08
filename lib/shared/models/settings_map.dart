@@ -74,6 +74,7 @@ class SettingsMap with SettingsMapMappable {
     this.notifyQuietEnd = 480,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
+    this.appIcon = 'default',
     this.offlineThreads = false,
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
@@ -246,6 +247,9 @@ class SettingsMap with SettingsMapMappable {
   /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
   final bool highRefreshRate;
 
+  /// Name of the app icon in use, see `AppIcon`. Not required: backups from older versions lack it.
+  final String appIcon;
+
   /// Whether the thread pages loaded are saved for reading without network. Not required: backups from older versions
   /// lack it.
   final bool offlineThreads;
@@ -354,6 +358,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
       SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
+      SettingsKeys.appIcon => copyWith(appIcon: value as String?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
       SettingsKeys.enableAppPostRenderer => copyWith(enableAppPostRenderer: value as bool?),

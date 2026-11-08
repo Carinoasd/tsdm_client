@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:tsdm_client/utils/platform.dart';
 
 const _mainChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
 
@@ -48,3 +49,14 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
         return null;
       },
     );
+
+const _appIconChannel = MethodChannel('kzs.th000.tsdm_client/appIcon');
+
+/// Switch the launcher icon of the app to the icon called [name] (`default`, `dark`, `mono` or `pink`).
+///
+/// Android enables the matching `activity-alias` (the main channel), iOS sets the alternate icon of the app (its own
+/// channel). Returns whether the icon is in use afterwards; platform errors (an unknown name) are thrown.
+Future<bool> setPlatformAppIcon(String name) async {
+  final channel = isIOS ? _appIconChannel : _mainChannel;
+  return await channel.invokeMethod<bool>('setAppIcon', {'name': name}) ?? false;
+}

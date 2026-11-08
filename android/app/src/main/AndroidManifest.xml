@@ -53,11 +53,6 @@
                     android:name="io.flutter.embedding.android.NormalTheme"
                     android:resource="@style/NormalTheme"
             />
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
             <!-- 【Deep Link 监听】捕获论坛链接，支持在外部点击直接跳转App -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -69,6 +64,56 @@
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
+        <!-- The launcher entries of MainActivity, one per app icon (AppIconSwitcher.kt enables exactly one). The default
+             one is the only one enabled at install. -->
+        <activity-alias
+                android:name=".IconDefault"
+                android:targetActivity=".MainActivity"
+                android:enabled="true"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconDark"
+                android:targetActivity=".MainActivity"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_dark">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconMono"
+                android:targetActivity=".MainActivity"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_mono">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconPink"
+                android:targetActivity=".MainActivity"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_pink">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
         <!-- The home screen widget: unread counts and the check-in of the account in use (HomeWidgetProvider). -->
         <receiver
                 android:name=".HomeWidgetProvider"

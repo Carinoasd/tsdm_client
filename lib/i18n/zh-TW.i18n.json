@@ -363,6 +363,13 @@
         "followSystem": "跟隨系統",
         "selectLanguage": "選擇語言"
       },
+      "appIcon": {
+        "title": "App 圖示",
+        "defaultIcon": "預設",
+        "dark": "深色",
+        "mono": "單色",
+        "pink": "粉色"
+      },
       "highRefreshRate": {
         "title": "高刷新率",
         "detail": "使用螢幕支援的最高刷新率，捲動更流暢，但會稍微多耗電"

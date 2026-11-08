@@ -35,6 +35,7 @@ class MainActivity: FlutterActivity() {
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
+        const val SET_APP_ICON = "setAppIcon"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
@@ -409,6 +410,14 @@ class MainActivity: FlutterActivity() {
             SET_HIGH_REFRESH_RATE -> {
                 preferHighRefreshRate = call.argument<Any>("enable") as? Boolean ?: false
                 result.success(applyRefreshRate())
+            }
+            SET_APP_ICON -> {
+                val name = call.argument<Any>("name") as? String
+                if (name != null && AppIconSwitcher.apply(applicationContext, name)) {
+                    result.success(true)
+                } else {
+                    result.error("unknown_icon", "No such app icon: $name", null)
+                }
             }
             // Whether large downloads should wait (the thread list thumbnails "on Wi-Fi only"): the system's own answer,
             // true without a network. Needs ACCESS_NETWORK_STATE, which the manifest has.
