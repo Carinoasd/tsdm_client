@@ -47,10 +47,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
     required ProfileRepository profileRepository,
     required AuthenticationRepository authenticationRepository,
     GuideFeed? guideFeed,
+    bool Function()? guideWanted,
   }) : _forumHomeRepository = forumHomeRepository,
        _profileRepository = profileRepository,
        _authenticationRepository = authenticationRepository,
        _guideFeed = guideFeed,
+       _guideWanted = guideWanted ?? (() => true),
        _shownPage = forumHomeRepository.getCache(),
        super(
          forumHomeRepository.hasCache()
@@ -94,6 +96,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   final ForumHomeRepository _forumHomeRepository;
   final ProfileRepository _profileRepository;
   final GuideFeed? _guideFeed;
+
+  /// Whether the guide block is shown; a hidden one is neither asked for nor read from the saved answers.
+  final bool Function() _guideWanted;
   late final StreamSubscription<({ForumHomePage previous, ForumHomePage page})> _replacementSub;
 
   /// The fetched page the state shows (null while none, or while the saved page shows): a page replacing it in the
@@ -204,7 +209,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   /// Ask the guide of the account [asked] together with the page: its card is built only once the page shows. Not
   /// for a guest, whose homepage asks to log in and has no guide card.
   void _prefetchGuide(_AskedAs asked) {
-    if ((asked.uid ?? 0) > 0) {
+    if ((asked.uid ?? 0) > 0 && _guideWanted()) {
       _guideFeed?.prefetch();
     }
   }
@@ -219,7 +224,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
   Future<bool> _showSavedPage(Emitter<HomepageState> emit, {required _AskedAs asked, required int generation}) async {
     final (saved, _) = await (
       _forumHomeRepository.savedPageOf(asked.uid),
-      _guideFeed?.loadSaved(asked.uid) ?? Future<void>.value(),
+      (_guideWanted() ? _guideFeed?.loadSaved(asked.uid) : null) ?? Future<void>.value(),
     ).wait;
     if (saved == null || generation != _pageGeneration || _askedAs() != asked) {
       return false;

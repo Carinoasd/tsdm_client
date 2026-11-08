@@ -395,6 +395,16 @@
         "title": "高刷新率",
         "detail": "使用螢幕支援的最高刷新率，捲動更流暢，但會稍微多耗電"
       },
+      "homeLayout": {
+        "title": "首頁版面",
+        "reset": "還原預設",
+        "greeting": "簽到與每日",
+        "support": "支援開發",
+        "pinned": "置頂帖",
+        "guide": "論壇導讀",
+        "stats": "論壇動態",
+        "tools": "我的工具"
+      },
       "showShortcutInForumCard": {
         "title": "版塊卡片顯示捷徑",
         "detail": "在版塊卡片上顯示跳到最新貼文和子版塊的按鈕"

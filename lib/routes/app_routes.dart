@@ -88,6 +88,7 @@ import 'package:tsdm_client/features/search/view/search_page.dart';
 import 'package:tsdm_client/features/settings/models/historical_log.dart';
 import 'package:tsdm_client/features/settings/view/about_page.dart'; // 已恢复干净
 import 'package:tsdm_client/features/settings/view/debug_log_page.dart';
+import 'package:tsdm_client/features/settings/view/home_layout_page.dart';
 import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
@@ -154,6 +155,7 @@ final List<RouteBase> _appRoutes = [
         path: ScreenPaths.settingsThreadAppearance.path,
         builder: (_) => const SettingsThreadCardAppearancePage(),
       ),
+      AppRoute(path: ScreenPaths.settingsHomeLayout.path, builder: (_) => const SettingsHomeLayoutPage()),
     ],
   ),
   AppRoute(

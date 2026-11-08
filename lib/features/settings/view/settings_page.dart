@@ -599,6 +599,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.pushNamed(ScreenPaths.settingsThreadAppearance.path),
         ),
+        SectionListTile(
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: Text(tr.homeLayout.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.pushNamed(ScreenPaths.settingsHomeLayout.path),
+        ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.shortcut_outlined),
           title: Text(tr.showShortcutInForumCard.title),

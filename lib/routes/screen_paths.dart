@@ -158,6 +158,9 @@ class ScreenPaths {
   /// Settings page for thread card appearance.
   static const settingsThreadAppearance = NestedPath._('threadAppearance', settings);
 
+  /// Settings page for the order and visibility of the homepage blocks.
+  static const settingsHomeLayout = NestedPath._('homeLayout', settings);
+
   /// Thread page.
   ///
   /// Parameters MUST provided within the queryParameters.

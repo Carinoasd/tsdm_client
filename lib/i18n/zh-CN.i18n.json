@@ -395,6 +395,16 @@
         "title": "高刷新率",
         "detail": "使用屏幕支持的最高刷新率，滚动更流畅，但会稍微多耗电"
       },
+      "homeLayout": {
+        "title": "主页版面",
+        "reset": "恢复默认",
+        "greeting": "签到与每日",
+        "support": "支持开发",
+        "pinned": "置顶帖",
+        "guide": "论坛导读",
+        "stats": "论坛动态",
+        "tools": "我的工具"
+      },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
         "detail": "论坛卡片上显示可跳转到最新帖子和子板块的部件"
