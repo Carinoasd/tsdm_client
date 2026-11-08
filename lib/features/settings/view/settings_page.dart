@@ -16,6 +16,8 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_settings_section.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
@@ -1652,6 +1654,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         // Two columns on wide windows: looks and account on the start side, behavior and data on the end side.
         final start = [
           _buildAccountSection(context, state),
+          if (getIt.isRegistered<AppLockCubit>()) const AppLockSettingsSection(),
           _buildAppearanceSection(context, state),
           _buildUnreadSection(context, state),
           if (isDesktop) _buildWindowSection(context, state),
