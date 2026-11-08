@@ -1473,6 +1473,9 @@
       "recentChangelog": "近期积分记录",
       "emptyRecent": "近期没有积分变动"
     },
+    "trendTab": {
+      "title": "走势"
+    },
     "changelogTab": {
       "title": "积分记录",
       "extType": "积分",
