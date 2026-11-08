@@ -1901,7 +1901,14 @@
     "labelHidden": "[Hidden]",
     "labelImage": "[Image]",
     "labelMedia": "[Media]",
-    "labelSmiley": "emoji"
+    "labelSmiley": "emoji",
+    "pdf": "PDF",
+    "fontProgress": "Downloading font ${received: String} / ${total: String} MB",
+    "fontFailed": "Failed to download the font",
+    "imageProgress": "Loading image ${done: int} / ${total: int}",
+    "building": "Building PDF",
+    "exportedAt": "Exported at",
+    "attachment": "Attachment"
   },
   "shareFloorImage": {
     "title": "Share as image",

@@ -178,8 +178,13 @@ String buildThreadExportOfFloors({
 }
 
 /// The name of the file a thread is written to: its [title] and [tid], with the characters a file name can not hold
-/// replaced.
-String threadExportFileName({required String title, required String tid, required PostExportFormat format}) {
+/// replaced. [extension] replaces the one of [format].
+String threadExportFileName({
+  required String title,
+  required String tid,
+  required PostExportFormat format,
+  String? extension,
+}) {
   var name = title.replaceAll(RegExp(r'[\u0000-\u001f\u007f\\/:*?"<>|]'), '_').replaceAll(RegExp(r'\s+'), ' ').trim();
   if (name.runes.length > 60) {
     name = String.fromCharCodes(name.runes.take(60)).trim();
@@ -189,7 +194,7 @@ String threadExportFileName({required String title, required String tid, require
   if (name.isEmpty) {
     name = 'thread';
   }
-  return '$name-$tid.${format.extension}';
+  return '$name-$tid.${extension ?? format.extension}';
 }
 
 final _wsRe = RegExp('[ \t\r\n\f ]+');

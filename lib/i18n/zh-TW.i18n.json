@@ -1901,7 +1901,14 @@
     "labelHidden": "[隱藏]",
     "labelImage": "[圖片]",
     "labelMedia": "[媒體]",
-    "labelSmiley": "表情"
+    "labelSmiley": "表情",
+    "pdf": "PDF",
+    "fontProgress": "正在下載字型 ${received: String} / ${total: String} MB",
+    "fontFailed": "字型下載失敗",
+    "imageProgress": "正在載入圖片 ${done: int} / ${total: int}",
+    "building": "正在產生 PDF",
+    "exportedAt": "匯出時間",
+    "attachment": "附件"
   },
   "shareFloorImage": {
     "title": "分享為圖片",

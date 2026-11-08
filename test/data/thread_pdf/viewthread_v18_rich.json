@@ -1,0 +1,77 @@
+{
+ "tid": 9199516,
+ "fid": 11,
+ "posts": [
+  {
+   "pid": 4159,
+   "position": 1,
+   "first": 1,
+   "authorid": 31,
+   "author": "alice",
+   "anonymous": 0,
+   "dateline": 1700000000,
+   "invisible": 0,
+   "body_html": "\r\n \r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\">\r\n<tr>\r\n<td class=\"t_f\" id=\"postmessage_4159\">\r\n<div class=\"quote\"><blockquote>封面：\r\n<ignore_js_op>\r\n\r\n<img id=\"aimg_35\" aid=\"35\" src=\"static/image/common/none.gif\" zoomfile=\"data/attachment/forum/202610/14/132345utvny82hyo2tt2no.png\" file=\"data/attachment/forum/202610/14/132345utvny82hyo2tt2no.png\" class=\"zoom\" onclick=\"zoom(this, this.src, 0, 0, 0)\" width=\"8\" inpost=\"1\" onmouseover=\"showMenu({'ctrlid':this.id,'pos':'12'})\" />\r\n\r\n<div class=\"tip tip_4 aimg_tip\" id=\"aimg_35_menu\" style=\"position: absolute; display: none\" disautofocus=\"true\">\r\n<div class=\"xs0\">\r\n<p><strong>acc_tiny.png</strong> <em class=\"xg1\">(74 Bytes, 下载次数: 0)</em></p>\r\n<p>\r\n<a href=\"forum.php?mod=attachment&amp;aid=MzV8MjY2MDE1NTl8MTc5NDE2MDAxNnwzNXw5MTk5NTE2&amp;nothumb=yes\" target=\"_blank\">下载附件</a>\r\n\r\n&nbsp;<a href=\"javascript:;\" onclick=\"showWindow(this.id, this.getAttribute('url'), 'get', 0);\" id=\"savephoto_35\" url=\"home.php?mod=spacecp&amp;ac=album&amp;op=saveforumphoto&amp;aid=35&amp;handlekey=savephoto_35\">保存到相册</a>\r\n\r\n</p>\r\n\r\n<p class=\"xg1 y\">2026-10-14 13:23 上传</p>\r\n\r\n</div>\r\n<div class=\"tip_horn\"></div>\r\n</div>\r\n\r\n</ignore_js_op>\r\n 附件：\r\n<ignore_js_op>\r\n\r\n<img src=\"static/image/filetype/zip.gif\" border=\"0\" class=\"vm\" alt=\"\" />\r\n<span style=\"white-space: nowrap\" id=\"attach_36\" onmouseover=\"showMenu({'ctrlid':this.id,'pos':'12'})\">\r\n\r\n<a href=\"forum.php?mod=attachment&amp;aid=MzZ8YTJkYjNkZjB8MTc5NDE2MDAxNnwzNXw5MTk5NTE2\" target=\"_blank\">acc_note.zip</a>\r\n\r\n<em class=\"xg1\">(153 Bytes, 下载次数: 0)</em>\r\n</span>\r\n<div class=\"tip tip_4\" id=\"attach_36_menu\" style=\"position: absolute; display: none\" disautofocus=\"true\">\r\n<div class=\"tip_c xs0\">\r\n<div class=\"y\">2026-10-14 13:23 上传</div>\r\n点击文件名下载附件\r\n\r\n</div>\r\n<div class=\"tip_horn\"></div>\r\n</div>\r\n\r\n</ignore_js_op>\r\n<br />\n<hr class=\"l\" /><br />\n网盘 Cloud：MEGA<br />\n是否自购 Self-purchased：否</blockquote></div>网盘链接 Link：https://mega.nz/up422478</td>\r\n</tr>\r\n</table>\r\n\r\n</div>\r\n<div id=\"comment_4159\" class=\"cm\">\r\n</div>\r\n\r\n<div id=\"post_rate_div_4159\"></div>\r\n<script type=\"text/javascript\">(function(){})();</script>",
+   "message": "[free]\n封面：[attach]35[/attach] 附件：[attach]36[/attach]\n[hr]\n网盘 Cloud：MEGA\n是否自购 Self-purchased：否\n[/free]\n\n网盘链接 Link：https://mega.nz/up422478",
+   "bbcodeoff": 0,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "attachments": [
+    {
+     "aid": 35,
+     "filename": "acc_tiny.png",
+     "description": "",
+     "isimage": 1,
+     "url": "https://forum.test/data/attachment/forum/202610/14/132345utvny82hyo2tt2no.png",
+     "thumb": "",
+     "download": "https://forum.test/forum.php?mod=attachment&aid=MzV8MjY2MDE1NTl8MTc5NDE2MDAxNnwzNXw5MTk5NTE2",
+     "width": 8,
+     "height": 8,
+     "filesize": 74,
+     "price": 0,
+     "readperm": 0,
+     "downloads": 0,
+     "locked": 0,
+     "inpost": 1,
+     "dateline": 1700000000
+    },
+    {
+     "aid": 36,
+     "filename": "acc_note.zip",
+     "description": "",
+     "isimage": 0,
+     "url": "https://forum.test/forum.php?mod=attachment&aid=MzZ8YTJkYjNkZjB8MTc5NDE2MDAxNnwzNXw5MTk5NTE2",
+     "thumb": "",
+     "download": "https://forum.test/forum.php?mod=attachment&aid=MzZ8YTJkYjNkZjB8MTc5NDE2MDAxNnwzNXw5MTk5NTE2",
+     "width": 0,
+     "height": 0,
+     "filesize": 153,
+     "price": 0,
+     "readperm": 0,
+     "downloads": 0,
+     "locked": 0,
+     "inpost": 1,
+     "dateline": 1700000000
+    }
+   ],
+   "hot": 0
+  },
+  {
+   "pid": 11248,
+   "position": 2,
+   "first": 0,
+   "authorid": 31,
+   "author": "alice",
+   "anonymous": 0,
+   "dateline": 1700000000,
+   "invisible": 0,
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_11248\">\r\nPDF 匯出夾具：<strong>粗體文字</strong> 與一般文字，<a href=\"https://example.com/page\" target=\"_blank\">連結文字</a>。<br />\n第二行 <i>斜體</i><div class=\"quote\"><blockquote>引用的內容 <strong>引用內粗體</strong><br />\n[quote]第二層引用</blockquote></div>[/quote]<br />\n<img id=\"aimg_AZktA\" onclick=\"zoom(this, this.src, 0, 0, 0)\" class=\"zoom\" src=\"https://forum.test/broken-image.png\" onmouseover=\"img_onmouseoverfunc(this)\" onload=\"thumbImg(this)\" border=\"0\" alt=\"\" /><br />\n<ul><br />\n<li>項目一<br />\n<li>項目二<br />\n</ul><div class=\"blockcode\"><div id=\"code_xWK\"><ol><li>int main() {<li>&nbsp;&nbsp;return 0;<li>}</ol></div><em onclick=\"copycode($('code_xWK'));\">复制代码</em></div>[spoiler=摺疊標題]摺疊內容[/spoiler]<br />\n<hr class=\"l\" /><br />\n最後一段 :)</td></tr></table>\r\n\r\n</div>\r\n<div id=\"comment_11248\" class=\"cm\">\r\n</div>\r\n\r\n<div id=\"post_rate_div_11248\"></div>\r\n<script type=\"text/javascript\">(function(){})();</script>",
+   "message": "PDF 匯出夾具：[b]粗體文字[/b] 與一般文字，[url=https://example.com/page]連結文字[/url]。\n第二行 [i]斜體[/i]\n[quote]引用的內容 [b]引用內粗體[/b]\n[quote]第二層引用[/quote][/quote]\n[img]https://forum.test/broken-image.png[/img]\n[list]\n[*]項目一\n[*]項目二\n[/list]\n[code]int main() {\n  return 0;\n}[/code]\n[spoiler=摺疊標題]摺疊內容[/spoiler]\n[hr]\n最後一段 :)",
+   "bbcodeoff": 0,
+   "smileyoff": 0,
+   "parseurloff": 0,
+   "attachments": [],
+   "hot": 0
+  }
+ ]
+}
