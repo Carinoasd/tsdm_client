@@ -85,7 +85,8 @@ Future<UploadImageFile?> writeUploadImage(
   final ext = sniffImageExtension(bytes);
   var data = bytes;
   var name = '$stem.$ext';
-  if (ext == null || !accepts(name)) {
+  // A bitmap goes up as a PNG even where the forum names no types: the same picture, a fraction of the size.
+  if (ext == null || ext == 'bmp' || !accepts(name)) {
     name = '$stem.png';
     if (!accepts(name)) return null;
     final converted = await Isolate.run(() => convertToPng(bytes));
@@ -108,7 +109,7 @@ Future<UploadImageFile?> prepareImageFile(
   required bool Function(String filename) accepts,
 }) async {
   final name = path.split(RegExp(r'[/\\]')).last;
-  if (accepts(name)) return UploadImageFile(path, temporary: false);
+  if (accepts(name) && !name.toLowerCase().endsWith('.bmp')) return UploadImageFile(path, temporary: false);
   final Uint8List bytes;
   try {
     bytes = await File(path).readAsBytes();
@@ -141,26 +142,30 @@ final class ClipboardImageBytes extends ClipboardImages {
   final Uint8List bytes;
 }
 
-/// Reads the clipboard for a paste in the post editor.
+/// Reads the clipboard for a paste in the post editor, in this order:
 ///
-/// Text wins: a clipboard with text (alone, or beside a picture as office programs copy cells) pastes the text as
-/// before. Files copied in the file manager are taken when all of them are images; with any other file among them the
-/// paste is left to the editor. A picture is taken only without text. The readers are injectable for tests; each one
-/// failing counts as nothing there.
+/// 1. Files copied in the file manager (desktop) are taken when all of them are images; with any other file among
+///    them the paste is left to the editor. They come first: a file manager puts their names as text beside them.
+/// 2. Text wins over a picture: a clipboard with text (alone, or beside a picture as office programs copy cells)
+///    pastes the text as before. Only whether there is text is asked, not the text: on iOS reading it would ask the
+///    member to allow the paste once more, the editor reading it again.
+/// 3. A picture is taken only without text.
+///
+/// The readers are injectable for tests; each one failing counts as nothing there.
 final class ClipboardImageReader {
   /// Constructor.
-  const ClipboardImageReader({required this.readText, required this.readFiles, required this.readImage});
+  const ClipboardImageReader({required this.hasText, required this.readFiles, required this.readImage});
 
   /// The clipboard of the platform: text through Flutter, files (desktop only) and the picture through `pasteboard`.
   factory ClipboardImageReader.platform() => ClipboardImageReader(
-    readText: () async => (await Clipboard.getData(Clipboard.kTextPlain))?.text,
+    hasText: Clipboard.hasStrings,
     // On Android the "files" are content uris of any clip item, not paths.
     readFiles: isDesktop ? Pasteboard.files : () async => const <String>[],
     readImage: () => Pasteboard.image,
   );
 
-  /// The plain text on the clipboard.
-  final Future<String?> Function() readText;
+  /// Whether there is text on the clipboard.
+  final Future<bool> Function() hasText;
 
   /// The paths of files copied in the file manager.
   final Future<List<String>> Function() readFiles;
@@ -182,8 +187,7 @@ final class ClipboardImageReader {
     if (files.isNotEmpty) {
       return files.every(isImageFilePath) ? ClipboardImagePaths(List.of(files)) : null;
     }
-    final text = await _safe(readText);
-    if (text != null && text.trim().isNotEmpty) return null;
+    if (await _safe(hasText) ?? false) return null;
     final bytes = await _safe(readImage);
     if (bytes == null || bytes.isEmpty) return null;
     return ClipboardImageBytes(bytes);

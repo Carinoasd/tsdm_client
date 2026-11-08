@@ -57,7 +57,7 @@ Object? _upload() => (_json('post_v16_edit_reply')['attach'] as Map<String, dyna
 
 ClipboardImageReader _clipboard({String? text, List<String> files = const [], Uint8List? image, bool fails = false}) =>
     ClipboardImageReader(
-      readText: () async => fails ? throw Exception('no clipboard') : text,
+      hasText: () async => fails ? throw Exception('no clipboard') : text != null,
       readFiles: () async => fails ? throw Exception('no clipboard') : files,
       readImage: () async => fails ? throw Exception('no clipboard') : image,
     );
@@ -146,6 +146,15 @@ void main() {
       expect(decoded.getPixel(0, 0).b, 255);
     });
 
+    test('a bitmap goes up as a PNG even where the forum names no types', () async {
+      final file = (await writeUploadImage(_bmp(), dir: tmp, stem: 'paste_4', accepts: (_) => true))!;
+      expect(file.path, endsWith('paste_4.png'));
+      final own = File('${tmp.path}/mine.bmp')..writeAsBytesSync(_bmp());
+      final copy = (await prepareImageFile(own.path, dir: tmp, stem: 'image_9', accepts: (_) => true))!;
+      expect(copy.temporary, isTrue);
+      expect(copy.path, endsWith('image_9.png'));
+    });
+
     test('a PNG with transparency keeps it', () async {
       final file = (await writeUploadImage(_png(alpha: true), dir: tmp, stem: 'paste_3', accepts: _forumTakes))!;
       final decoded = img.decodePng(File(file.path).readAsBytesSync())!;
@@ -196,7 +205,6 @@ void main() {
       final images = await _clipboard(image: bytes).read();
       expect(images, isA<ClipboardImageBytes>());
       expect((images! as ClipboardImageBytes).bytes, bytes);
-      expect(await _clipboard(text: '  \n', image: bytes).read(), isA<ClipboardImageBytes>());
     });
 
     test('image files copied in the file manager are uploaded; with any other file, nothing is', () async {

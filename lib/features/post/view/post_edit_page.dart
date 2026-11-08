@@ -662,13 +662,15 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         _uploadImageFiles(paths);
       case ClipboardImageBytes(:final bytes):
         _queueImageUpload((upload) async {
-          final file = await writeUploadImage(
-            bytes,
-            dir: await _uploadTempDir(),
-            stem: 'paste_${DateTime.now().millisecondsSinceEpoch}',
-            accepts: upload.acceptsImage,
-          );
-          return (files: [?file], refused: [if (file == null) 'paste']);
+          final stem = 'paste_${DateTime.now().millisecondsSinceEpoch}';
+          UploadImageFile? file;
+          try {
+            file = await writeUploadImage(bytes, dir: await _uploadTempDir(), stem: stem, accepts: upload.acceptsImage);
+          } on Object catch (e, st) {
+            handleRaw(e, st);
+          }
+          // Told as the file it would have been.
+          return (files: [?file], refused: [if (file == null) '$stem.${sniffImageExtension(bytes) ?? 'bin'}']);
         });
     }
     return true;
@@ -682,7 +684,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final files = <UploadImageFile>[];
     final refused = <String>[];
     for (final (i, path) in paths.indexed) {
-      final file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
+      UploadImageFile? file;
+      try {
+        file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
+      } on Object catch (e, st) {
+        // A copy that could not be written: this one is refused, the copies written before still go up and away.
+        handleRaw(e, st);
+      }
       if (file != null) {
         files.add(file);
       } else {
@@ -1734,7 +1742,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               child: Padding(
                 padding: horizontal.add(const EdgeInsets.symmetric(vertical: 12)),
                 child: ImageDropArea(
-                  onImages: _uploadImageFiles,
+                  onImages: initialized ? _uploadImageFiles : null,
                   child: EditorFrame(
                     focusNode: focusNode,
                     child: MentionSuggestionsScope(
