@@ -81,7 +81,13 @@ class KeyboardAction<T extends Intent> extends Action<T> {
 /// On other platforms this widget only builds [child].
 class KeyboardShortcutsHost extends StatelessWidget {
   /// Constructor.
-  const KeyboardShortcutsHost({required this.child, required this.onSearch, required this.onSettings, super.key});
+  const KeyboardShortcutsHost({
+    required this.child,
+    required this.onSearch,
+    required this.onSettings,
+    this.onQuickOpen,
+    super.key,
+  });
 
   /// The app content, usually the navigator.
   final Widget child;
@@ -91,6 +97,9 @@ class KeyboardShortcutsHost extends StatelessWidget {
 
   /// Opens the settings page.
   final VoidCallback onSettings;
+
+  /// Opens the quick open box, null for no such key.
+  final VoidCallback? onQuickOpen;
 
   /// Whether the shortcuts are active, overridable in tests.
   @visibleForTesting
@@ -105,6 +114,7 @@ class KeyboardShortcutsHost extends StatelessWidget {
   /// The keys and the intents they send.
   static final Map<ShortcutActivator, Intent> shortcuts = {
     ..._withPrimary(LogicalKeyboardKey.keyF, const OpenSearchIntent()),
+    ..._withPrimary(LogicalKeyboardKey.keyK, const OpenQuickOpenIntent()),
     ..._withPrimary(LogicalKeyboardKey.comma, const OpenSettingsIntent()),
     const SingleActivator(LogicalKeyboardKey.f5): const RefreshPageIntent(),
     ..._withPrimary(LogicalKeyboardKey.keyR, const RefreshPageIntent()),
@@ -129,6 +139,8 @@ class KeyboardShortcutsHost extends StatelessWidget {
       shortcuts: shortcuts,
       child: Actions(
         actions: {
+          if (onQuickOpen != null)
+            OpenQuickOpenIntent: KeyboardAction<OpenQuickOpenIntent>(onQuickOpen!, pageRouteOnly: true),
           OpenSearchIntent: KeyboardAction<OpenSearchIntent>(onSearch, pageRouteOnly: true),
           OpenSettingsIntent: KeyboardAction<OpenSettingsIntent>(onSettings, pageRouteOnly: true),
         },

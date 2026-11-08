@@ -3414,6 +3414,9 @@
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
   },
+  "quickOpen": {
+    "search": "搜索：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {
@@ -3424,6 +3427,7 @@
     },
     "commands": {
       "search": "搜索",
+      "quickOpen": "快速跳转",
       "settings": "设置",
       "back": "关闭对话框、返回",
       "refresh": "刷新",

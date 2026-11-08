@@ -3414,6 +3414,9 @@
   "appShortcuts": {
     "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
   },
+  "quickOpen": {
+    "search": "搜尋：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
@@ -3424,6 +3427,7 @@
     },
     "commands": {
       "search": "搜尋",
+      "quickOpen": "快速跳轉",
       "settings": "設定",
       "back": "關閉對話框、返回",
       "refresh": "重新整理",

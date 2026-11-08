@@ -41,6 +41,7 @@ import 'package:tsdm_client/features/notification/repository/notification_reposi
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -299,6 +300,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       return;
     }
     unawaited(router.pushNamed(path));
+  }
+
+  void _openQuickOpen() {
+    final context = router.routerDelegate.navigatorKey.currentState?.overlay?.context;
+    if (context != null && context.mounted) {
+      unawaited(showQuickOpenDialog(context));
+    }
   }
 
   @override
@@ -779,6 +787,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                         child: KeyboardShortcutsHost(
                           onSearch: () => _openFromKeyboard(ScreenPaths.search),
                           onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                          onQuickOpen: _openQuickOpen,
                           child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
                         ),
                       );

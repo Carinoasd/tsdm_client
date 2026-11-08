@@ -22,6 +22,7 @@ class KeyboardShortcutsPage extends StatelessWidget {
     final tr = context.t.keyboardShortcutsPage.commands;
     return switch (command) {
       KeyboardCommand.search => tr.search,
+      KeyboardCommand.quickOpen => tr.quickOpen,
       KeyboardCommand.settings => tr.settings,
       KeyboardCommand.back => tr.back,
       KeyboardCommand.refresh => tr.refresh,
