@@ -13,6 +13,7 @@ import 'package:sqlite3/common.dart' show SqliteException;
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
@@ -243,8 +244,8 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
-  /// the drafts its editors kept ([LocalDraftStore]).
+  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]), the
+  /// drafts its editors kept ([LocalDraftStore]) and its floor bookmarks ([FloorBookmarkStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
     // The pages saved to show at the next start (the homepage, the guide) were served to the account.
@@ -255,6 +256,9 @@ class StorageProvider with LoggerMixin {
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
+    // The floor bookmarks (and the sync's records of the removed ones).
+    await FloorBookmarkStore.app?.forget(uid);
+    await settings.deleteByName(FloorBookmarkStore.rowKeyOf(uid));
   }
 
   /*             cookie             */

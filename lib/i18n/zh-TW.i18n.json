@@ -251,6 +251,7 @@
       "history": "瀏覽紀錄",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
       "points": "積分"
@@ -333,7 +334,8 @@
         "title": "跨裝置同步",
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
-        "drafts": "本機草稿"
+        "drafts": "本機草稿",
+        "bookmarks": "樓層書籤"
       }
     },
     "appearanceSection": {
@@ -3359,6 +3361,16 @@
       "unknownOrder": "未能確認是否已下單，請在交易記錄中查看。"
     },
     "already": "之前已經完成。"
+  },
+  "floorBookmark": {
+    "title": "書籤",
+    "add": "加書籤",
+    "edit": "編輯書籤",
+    "note": "備註",
+    "remove": "刪除",
+    "removeConfirm": "刪除這個書籤？",
+    "empty": "沒有書籤",
+    "needLogin": "登入後可以查看書籤。"
   },
   "localDraft": {
     "title": "本機草稿",

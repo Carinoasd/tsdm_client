@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -50,10 +51,13 @@ enum SyncCategory {
 
   /// The local drafts of the account (`drafts`).
   drafts,
+
+  /// The floor bookmarks of the account (`bookmarks`).
+  bookmarks,
 }
 
-/// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings and
-/// the local drafts of an account the same on every device it logs in on, through the forum's `sync` action (plugin
+/// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
+/// local drafts and the floor bookmarks of an account the same on every device it logs in on, through the forum's `sync` action (plugin
 /// 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
@@ -648,15 +652,27 @@ final class SyncRepository with LoggerMixin {
         doc = doc.withItems('drafts', items);
       }
     }
+
+    // Bookmarks: those this device keeps, the records of the ones removed here included (a removal is always recorded,
+    // see FloorBookmarkStore), over the forum's. A bookmark of the forum this device does not hold was never taken here
+    // (the category was off, or it came after the last sync): it stays as the forum has it, no deletion.
+    if (_on(SyncCategory.bookmarks)) {
+      final bookmarks = await _store.bookmarks(uid);
+      if (bookmarks != null) {
+        doc = doc.withItems('bookmarks', {...base.items('bookmarks'), for (final b in bookmarks) b.key: b.raw});
+      }
+    }
     return _fit(doc);
   }
 
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
   /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
-  /// [syncDraftsMaxBytes] (a quarter of the document at most), deletion records older than [syncTombstoneKeptFor]
-  /// dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits
-  /// dropped first, then the oldest deletion records of visits, then the drafts). Dropping is by time alone, so every
-  /// device drops the same items of the same document; a dropped item is not a deletion.
+  /// [syncDraftsMaxBytes] (a quarter of the document at most), the latest [syncBookmarksMax] floor bookmarks and
+  /// [syncBookmarkTombstonesMax] records of removed ones within [syncBookmarksMaxBytes] (two fifths at most), deletion
+  /// records older than [syncTombstoneKeptFor] dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it
+  /// said a smaller one (the oldest visits dropped first, then the oldest deletion records of visits, then the drafts,
+  /// then the bookmarks). Dropping is by time alone, so every device drops the same items of the same document; a
+  /// dropped item is not a deletion.
   SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
     List<MapEntry<String, Map<String, dynamic>>> latest(
@@ -697,11 +713,31 @@ final class SyncRepository with LoggerMixin {
         goneDrafts.removeLast();
       }
     }
+    // Bookmarks within their caps and budget, like the drafts.
+    final bookmarkItems = doc.items('bookmarks').entries;
+    final liveBookmarks = latest(bookmarkItems.where((e) => !SyncDocument.isDeleted(e.value)), syncBookmarksMax);
+    final goneBookmarks = latest(
+      bookmarkItems.where((e) => SyncDocument.isDeleted(e.value) && SyncDocument.updatedOf(e.value) >= keepSince),
+      syncBookmarkTombstonesMax,
+    );
+    Map<String, Map<String, dynamic>> bookmarks() => {
+      for (final e in liveBookmarks) e.key: e.value,
+      for (final e in goneBookmarks) e.key: e.value,
+    };
+    final bookmarksMax = math.min(syncBookmarksMaxBytes, _documentMaxBytes * 2 ~/ 5);
+    while ((liveBookmarks.isNotEmpty || goneBookmarks.isNotEmpty) && _bytesOf(bookmarks()) > bookmarksMax) {
+      if (liveBookmarks.isNotEmpty) {
+        liveBookmarks.removeLast();
+      } else {
+        goneBookmarks.removeLast();
+      }
+    }
     var fitted = doc
         .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
         .withItems('blocks', blocks)
-        .withItems('drafts', drafts());
-    // Size: the oldest visits go first, then the oldest deletion records, then the drafts.
+        .withItems('drafts', drafts())
+        .withItems('bookmarks', bookmarks());
+    // Size: the oldest visits go first, then the oldest deletion records, then the drafts, then the bookmarks.
     while (fitted.encodedLength > _documentMaxBytes) {
       if (live.isNotEmpty) {
         live.removeLast();
@@ -711,12 +747,17 @@ final class SyncRepository with LoggerMixin {
         liveDrafts.removeLast();
       } else if (goneDrafts.isNotEmpty) {
         goneDrafts.removeLast();
+      } else if (liveBookmarks.isNotEmpty) {
+        liveBookmarks.removeLast();
+      } else if (goneBookmarks.isNotEmpty) {
+        goneBookmarks.removeLast();
       } else {
         break;
       }
       fitted = fitted
           .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
-          .withItems('drafts', drafts());
+          .withItems('drafts', drafts())
+          .withItems('bookmarks', bookmarks());
     }
     return fitted;
   }
@@ -856,6 +897,29 @@ final class SyncRepository with LoggerMixin {
           for (final MapEntry(:key, :value) in items.entries)
             if (SyncDocument.isDeleted(value)) key,
         });
+      }
+    }
+
+    // Bookmarks item by item, each where the merge is later than this device's (the same time leaves this device's
+    // own); a removal of a bookmark this device does not hold changes nothing, a bookmark not in the document stays.
+    if (_on(SyncCategory.bookmarks)) {
+      final local = await _store.bookmarks(uid);
+      if (local != null) {
+        final byKey = {for (final b in local) b.key: b};
+        final save = <FloorBookmark>[];
+        for (final MapEntry(:key, value: item) in merged.items('bookmarks').entries) {
+          final bookmark = FloorBookmark.fromItem(key, item);
+          final mine = byKey[key];
+          if (bookmark == null ||
+              (mine != null && mine.updated >= bookmark.updated) ||
+              (mine == null && bookmark.deleted)) {
+            continue;
+          }
+          save.add(bookmark);
+        }
+        if (save.isNotEmpty) {
+          await _store.applyBookmarks(uid, save);
+        }
       }
     }
   }

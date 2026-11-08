@@ -37,6 +37,16 @@ const int syncDraftMaxBytes = 8 * 1024;
 /// Most bytes the drafts of a document take together, so the reading progress keeps the rest of the room.
 const int syncDraftsMaxBytes = 16 * 1024;
 
+/// Most live floor bookmarks a document carries: the latest ones, by their time.
+const syncBookmarksMax = 200;
+
+/// Most records of removed floor bookmarks a document carries, the latest first.
+const syncBookmarkTombstonesMax = 200;
+
+/// Most bytes the floor bookmarks of a document take together (two fifths of it at most): with the drafts, the
+/// reading progress keeps a third of the room.
+const int syncBookmarksMaxBytes = 24 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -54,7 +64,10 @@ const int syncDraftsMaxBytes = 16 * 1024;
 ///  "drafts":  {"<draft key>": {"updated": ms, "body": "…", "delta": "…", "subject": "…", "fid": "…", "tid": "…",
 ///                              "replyAction": "…", "hint": "…", "quote": false, "title": "…", "typeId": "…",
 ///                              "maybeSent": true},
-///              "<draft key>": {"updated": ms, "deleted": true}}}
+///              "<draft key>": {"updated": ms, "deleted": true}},
+///  "bookmarks": {"<tid>:<pid>": {"updated": ms, "tid": 1, "pid": 2, "floor": 27, "page": 2, "note": "…",
+///                                "excerpt": "…", "title": "…"},
+///                "<tid>:<pid>": {"updated": ms, "deleted": true}}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -63,7 +76,8 @@ const int syncDraftsMaxBytes = 16 * 1024;
 /// switch), never one tied to the device. `drafts` holds the local drafts of the account by their key
 /// (`reply:<tid>`, `floor:<tid>:<pid>`, `thread:<fid>`, `edit:<pid>`, a backup with `~<stamp>`; never a private
 /// message, `pm:<uid>`, which stays on its device): the latest [syncDraftsMax] within [syncDraftsMaxBytes], none over
-/// [syncDraftMaxBytes]. Each of the three can be left out of
+/// [syncDraftMaxBytes]. `bookmarks` holds the floor bookmarks of the account (`FloorBookmark`): the latest
+/// [syncBookmarksMax] within [syncBookmarksMaxBytes]. Each of the four can be left out of
 /// the sync on a device (its section is then neither read nor written there).
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
@@ -154,12 +168,12 @@ final class SyncDocument {
   bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
-  static const itemSections = ['visits', 'blocks', 'drafts'];
+  static const itemSections = ['visits', 'blocks', 'drafts', 'bookmarks'];
 
   /// The sections this version reads as one item each.
   static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`, `drafts`) by key, empty when the section is missing or not an
+  /// The items of section [name] (`visits`, `blocks`, `drafts`, `bookmarks`) by key, empty when the section is missing or not an
   /// object.
   /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {

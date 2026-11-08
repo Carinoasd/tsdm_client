@@ -287,6 +287,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// With [crossDeviceSync], keep the local drafts of the account on every device too.
   crossDeviceSyncDrafts<bool>(name: 'crossDeviceSyncDrafts', type: bool, defaultValue: true),
 
+  /// With [crossDeviceSync], keep the floor bookmarks of the account on every device too.
+  crossDeviceSyncBookmarks<bool>(name: 'crossDeviceSyncBookmarks', type: bool, defaultValue: true),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',
