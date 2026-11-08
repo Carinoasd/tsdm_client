@@ -668,12 +668,11 @@ final class SyncRepository with LoggerMixin {
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
   /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
   /// [syncDraftsMaxBytes] (a quarter of the document at most), the latest [syncBookmarksMax] floor bookmarks and
-  /// [syncBookmarkTombstonesMax] records of removed ones within [syncBookmarksMaxBytes] (two fifths at most, the
-  /// oldest of either dropped first), deletion
-  /// records older than [syncTombstoneKeptFor] dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it
-  /// said a smaller one (the oldest visits dropped first, then the oldest deletion records of visits, then the drafts,
-  /// then the bookmarks). Dropping is by time alone, so every device drops the same items of the same document; a
-  /// dropped item is not a deletion.
+  /// [syncBookmarkTombstonesMax] records of removed ones within [syncBookmarksMaxBytes] (two fifths at most, the oldest
+  /// of either dropped first), deletion records older than [syncTombstoneKeptFor] dropped, and at most
+  /// [syncDocumentMaxBytes] or the forum's limit when it said a smaller one (the oldest visits dropped first, then the
+  /// oldest deletion records of visits, then the drafts, then the bookmarks). Dropping is by time alone, so every
+  /// device drops the same items of the same document; a dropped item is not a deletion.
   SyncDocument _fit(SyncDocument doc) {
     final keepSince = _now().millisecondsSinceEpoch - syncTombstoneKeptFor.inMilliseconds;
     List<MapEntry<String, Map<String, dynamic>>> latest(

@@ -237,6 +237,26 @@ void main() {
       await waiting.dispose();
     });
 
+    test('a read that ends after forget keeps nothing of the forgotten account', () async {
+      final rowsOf = <String, String>{};
+      final seed = FloorBookmarkStore.memory(now: () => now, rows: rowsOf);
+      await seed.put(_uid, tid: 9, pid: 101);
+      await seed.dispose();
+      var gate = Completer<void>();
+      final reading = FloorBookmarkStore.memory(now: () => now, rows: rowsOf, beforeRead: () => gate.future);
+      // A sync run reads the account (nothing cached yet) just before the transaction removing it.
+      final read = reading.items(_uid);
+      await pumpEventQueue();
+      reading.forget(_uid);
+      gate.complete();
+      expect((await read).single.key, '9:101', reason: 'what the read found, as it found it');
+      // The transaction removes the row.
+      rowsOf.remove(FloorBookmarkStore.rowKeyOf(_uid));
+      gate = Completer<void>()..complete();
+      expect(await reading.items(_uid), isEmpty, reason: 'not kept for the account logging in again');
+      await reading.dispose();
+    });
+
     test('a damaged row reads as none and is replaced at the next write', () async {
       rows[FloorBookmarkStore.rowKeyOf(_uid)] = '{not json';
       expect(await store.list(_uid), isEmpty);

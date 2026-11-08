@@ -23,19 +23,30 @@ final class FloorBookmarkStore with LoggerMixin {
       _delete = ((key) => getIt.get<StorageProvider>().deleteKey(key)),
       _now = now ?? DateTime.now;
 
-  /// A store in memory (tests); each write waits for [beforeWrite] first.
+  /// A store in memory (tests); each read waits for [beforeRead] first, each write for [beforeWrite].
   @visibleForTesting
-  FloorBookmarkStore.memory({DateTime Function()? now, Map<String, String>? rows, Future<void> Function()? beforeWrite})
-    : this._custom(rows ?? <String, String>{}, now: now, beforeWrite: beforeWrite);
+  FloorBookmarkStore.memory({
+    DateTime Function()? now,
+    Map<String, String>? rows,
+    Future<void> Function()? beforeRead,
+    Future<void> Function()? beforeWrite,
+  }) : this._custom(rows ?? <String, String>{}, now: now, beforeRead: beforeRead, beforeWrite: beforeWrite);
 
-  FloorBookmarkStore._custom(Map<String, String> rows, {DateTime Function()? now, Future<void> Function()? beforeWrite})
-    : _read = ((key) async => rows[key]),
-      _write = ((key, value) async {
-        await beforeWrite?.call();
-        rows[key] = value;
-      }),
-      _delete = ((key) async => rows.remove(key)),
-      _now = now ?? DateTime.now;
+  FloorBookmarkStore._custom(
+    Map<String, String> rows, {
+    DateTime Function()? now,
+    Future<void> Function()? beforeRead,
+    Future<void> Function()? beforeWrite,
+  }) : _read = ((key) async {
+         await beforeRead?.call();
+         return rows[key];
+       }),
+       _write = ((key, value) async {
+         await beforeWrite?.call();
+         rows[key] = value;
+       }),
+       _delete = ((key) async => rows.remove(key)),
+       _now = now ?? DateTime.now;
 
   /// The app's store, null when none is registered (tests of other features): nothing is kept then.
   static FloorBookmarkStore? get app =>
@@ -84,6 +95,7 @@ final class FloorBookmarkStore with LoggerMixin {
     if (_accounts[uid] case final items?) {
       return items;
     }
+    final generation = _generations[uid] ?? 0;
     final items = <String, FloorBookmark>{};
     try {
       final text = await _read(rowKeyOf(uid));
@@ -103,7 +115,11 @@ final class FloorBookmarkStore with LoggerMixin {
       // Damaged: read as none, replaced at the next write.
       error('failed to read the floor bookmarks of $uid: $e');
     }
-    return _accounts[uid] = items;
+    // Forgotten while read: what was read is not kept.
+    if (generation == (_generations[uid] ?? 0)) {
+      _accounts[uid] = items;
+    }
+    return items;
   }
 
   Future<void> _save(int uid, Map<String, FloorBookmark> items, int generation) async {
