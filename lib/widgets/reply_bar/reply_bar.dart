@@ -1884,6 +1884,22 @@ final class ReplyBarController with LoggerMixin {
     _onTargetChanged?.call();
   }
 
+  /// Put [bbcode] (the quotes of floors) into the reply: at the cursor of the open editor, else at the end of the text
+  /// of the collapsed box, else (no bar on screen) at the end of the text kept for the next bar.
+  void insertBBCode(String bbcode) {
+    final state = _state;
+    if (state != null) {
+      state._replyRichController.insertBBCode(bbcode);
+      return;
+    }
+    final outer = _outerTextController;
+    if (outer != null) {
+      outer.text = '${outer.text}$bbcode';
+    } else {
+      _keptDraft = '${_keptDraft ?? ''}$bbcode';
+    }
+  }
+
   /// Set reply action url to current state. Call this when user try to reply
   /// to another post, before user writes the reply or sends it.
   ///

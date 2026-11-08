@@ -249,11 +249,14 @@
       "myThreads": "我的貼文",
       "favorites": "收藏",
       "history": "瀏覽紀錄",
+      "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
       "messages": "私訊",
       "friends": "好友",
-      "points": "積分"
+      "points": "積分",
+      "followedThreads": "追蹤的帖子",
+      "readingStats": "閱讀統計"
     }
   },
   "home": {
@@ -378,6 +381,13 @@
         "title": "未讀取訊息提示",
         "detail": "有未讀訊息時訊息按鈕上顯示紅點或數量"
       },
+      "immersiveReading": {
+        "title": "沉浸式閱讀",
+        "allForums": "所有版塊",
+        "withSubforums": "連同子版塊",
+        "forumId": "版塊 $fid",
+        "forumCount": "$count 個版塊"
+      },
       "threadCard": {
         "title": "貼文卡",
         "detail": "設定貼文卡的外觀",
@@ -480,22 +490,20 @@
         "detail": "在文字縮放之上，額外放大貼文頁面中的樓層內容",
         "dialogTitle": "貼文內容縮放係數"
       },
-      "threadContentLineHeight": {
-        "title": "貼文行高",
-        "detail": "樓層內文每一行的高度，是字級的倍數"
-      },
-      "threadContentParagraphSpacing": {
-        "title": "貼文段落間距",
-        "detail": "樓層內文段落之間的空白"
-      },
       "threadContentSplitLongParagraphs": {
         "title": "長段落自動分段",
         "detail": "很長的段落在句尾斷開顯示，原文與複製的文字不變"
       },
+      "threadLinkCard": {
+        "title": "帖子連結顯示預覽卡"
+      },
       "threadContentLayout": {
-        "dialogTitle": "貼文排版",
+        "title": "閱讀排版",
+        "dialogTitle": "閱讀排版",
         "lineHeight": "行高",
         "paragraphSpacing": "段落間距",
+        "maxWidth": "內文最大寬度",
+        "unlimited": "不限",
         "preview": "預覽",
         "previewText": "這是一段範例文字，用來預覽貼文內文的排版。行高越大，行與行之間越寬鬆；段落間距是兩個段落之間的空白。<br />手機螢幕比網頁窄得多，網頁上幾行的段落在手機上會變成十幾行，適度加大行高與段距會更容易閱讀。"
       }
@@ -543,6 +551,9 @@
         "rate": "評分／點評",
         "pm": "私訊",
         "system": "系統通知",
+        "followedThread": "追蹤的帖子",
+        "followedThreadInterval": "檢查間隔",
+        "followedThreadMinutes": "${n} 分鐘",
         "quietHours": "靜音時段",
         "quietStart": "開始",
         "quietEnd": "結束"
@@ -761,7 +772,11 @@
       "about": "關於",
       "update": "取得更新",
       "updateCheckOnStartup": "應用程式啟動時檢查更新",
-      "changelog": "變更記錄"
+      "changelog": "變更記錄",
+      "recordReadingTime": "記錄閱讀時間",
+      "clearReadingTime": "清除閱讀時間資料",
+      "clearReadingTimeConfirm": "清除這台裝置上所有帳號的閱讀時間資料？清除後無法復原。",
+      "readingTimeCleared": "閱讀時間資料已清除"
     }
   },
   "aboutPage": {
@@ -1009,6 +1024,12 @@
   "threadPage": {
     "title": "貼文",
     "sendReplyHint": "回覆",
+    "multiQuote": {
+      "selected": "已選 $count/$max",
+      "reply": "引用回覆",
+      "limit": "最多引用 $max 樓",
+      "failed": "取得引用失敗"
+    },
     "sendReply": "傳送",
     "closed": "貼文已關閉",
     "needLogin": "需要登入",
@@ -1039,6 +1060,7 @@
       "threadUrlBBCode": "連結BBCode",
       "threadUrlBBCodeWithDomain": "連結BBCode（有網域）"
     },
+    "immersiveForum": "預設沉浸此版塊",
     "copyTid": "複製tid（${tid: String}）",
     "favorite": {
       "add": "收藏",
@@ -1088,6 +1110,11 @@
       "message": "上次看到第 ${floor: int} 樓",
       "action": "繼續",
       "close": "關閉"
+    },
+    "follow": {
+      "add": "追蹤",
+      "remove": "取消追蹤",
+      "added": "已追蹤"
     }
   },
   "topicsPage": {
@@ -1799,6 +1826,7 @@
   },
   "postCard": {
     "fromApp": "來自天使動漫App",
+    "addQuote": "加入引用",
     "contentUnavailable": "此樓內容無法顯示",
     "bbcode": {
       "attachmentLocked": "無法查看：需要購買、權限不足或要先登入"
@@ -1882,6 +1910,12 @@
     "avatarBlocked": "頭像被屏蔽",
     "hotReply": "推薦",
     "jumpToHotFloor": "跳到該樓"
+  },
+  "netdisk": {
+    "extractCode": "提取碼",
+    "unzipPassword": "解壓密碼",
+    "open": "開啟",
+    "copyAll": "複製全部網盤資訊"
   },
   "threadTts": {
     "menu": "朗讀",
@@ -1983,6 +2017,10 @@
     "ban": "屏蔽",
     "unban": "解除屏蔽",
     "deletePost": "刪除回覆",
+    "banMember": "禁言",
+    "unbanMember": "解除禁言",
+    "banDays": "$days 天",
+    "warned": "已警告",
     "queue": "審核",
     "queueThreads": "主題",
     "queueReplies": "回覆",
@@ -1993,7 +2031,18 @@
     "panelLogin": "管理面板",
     "password": "密碼",
     "wrongPassword": "密碼錯誤",
-    "nextPage": "下一頁"
+    "nextPage": "下一頁",
+    "bump": "提升",
+    "down": "下沉",
+    "batch": {
+      "selected": "已選 $count 個",
+      "selectAll": "全選",
+      "select": "多選",
+      "title": "$operation（$count）",
+      "done": "已處理 $count 個主題",
+      "failed": "$count 個主題未完成",
+      "unknown": "結果未知，請重新整理確認"
+    }
   },
   "packetCard": {
     "title": "紅包",
@@ -2145,6 +2194,15 @@
     "title": "音樂",
     "openLink": "開啟連結"
   },
+  "readLater": {
+    "title": "稍後閱讀",
+    "add": "稍後閱讀",
+    "remove": "移出稍後閱讀",
+    "clear": "清空",
+    "clearConfirm": "清空稍後閱讀清單？",
+    "empty": "沒有待讀的貼文",
+    "needLogin": "請先登入"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",
     "allAccounts": "全部帳號",
@@ -2206,6 +2264,35 @@
     "uploadRefusedSize": "圖片超過 ${limit: int} KB：$name",
     "uploadFailedCount": "${count: int} 張圖片上傳失敗"
   },
+  "imageUpload": {
+    "button": "上傳圖片",
+    "gallery": "相簿",
+    "camera": "拍照",
+    "clipboard": "剪貼簿",
+    "editFirst": "編輯後上傳",
+    "noClipboardImage": "剪貼簿裡沒有圖片",
+    "edit": {
+      "title": "編輯圖片",
+      "skip": "略過",
+      "upload": "上傳",
+      "crop": "裁切",
+      "mosaic": "打碼",
+      "rotate": "旋轉",
+      "undo": "復原",
+      "free": "自由",
+      "original": "原圖",
+      "quality": "品質",
+      "failed": "無法讀取這張圖片"
+    },
+    "settings": {
+      "title": "發帖",
+      "editFirst": "每次上傳圖片前先編輯",
+      "output": "上傳圖片大小",
+      "longSide": "長邊",
+      "quality": "品質",
+      "original": "原圖"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",
     "autoCheckinFinished": "自動簽到已完成",
@@ -2234,7 +2321,8 @@
       "mention": "@提到我",
       "rate": "評分／點評",
       "pm": "私訊",
-      "system": "系統通知"
+      "system": "系統通知",
+      "followedThread": "追蹤的帖子"
     },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
@@ -2527,6 +2615,7 @@
   "threadCard": {
     "previewImages": "${count: int} 張圖片",
     "viewInfo": "查看貼文資訊",
+    "openInNewTab": "在新分頁開啟",
     "replied": "已回覆",
     "newReplies": "上次看過之後有 ${count: int} 則新回覆"
   },
@@ -3055,6 +3144,15 @@
         "ruleNotFound": "這條設定已不存在，請重新載入",
         "unknownAfterSubmit": "已送出但無法確認結果，請重新載入確認"
       }
+    },
+    "filter": {
+      "keywords": "屏蔽關鍵字",
+      "keyword": "關鍵字",
+      "add": "新增",
+      "keywordExists": "已有這個關鍵字",
+      "forums": "屏蔽版塊",
+      "pickForums": "選擇",
+      "limitReached": "已達上限"
     }
   },
   "medalTitleTools": {
@@ -3376,6 +3474,19 @@
     },
     "already": "之前已經完成。"
   },
+  "readingStats": {
+    "title": "閱讀統計",
+    "today": "今天",
+    "week": "本週",
+    "month": "本月",
+    "last14Days": "近 14 天",
+    "forums": "版塊佔比",
+    "otherForums": "其他",
+    "empty": "還沒有閱讀紀錄",
+    "hoursMinutes": "$hours 小時 $minutes 分",
+    "minutes": "$minutes 分",
+    "seconds": "$seconds 秒"
+  },
   "localDraft": {
     "title": "本機草稿",
     "details": "還沒送出的回覆、私信、新帖與編輯，保存在這台裝置上",
@@ -3430,13 +3541,17 @@
   "appShortcuts": {
     "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
   },
+  "twoPane": {
+    "tabsFull": "最多同時開啟 ${count: int} 個分頁"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
       "global": "全域",
       "thread": "帖子頁",
       "list": "列表",
-      "editor": "編輯器"
+      "editor": "編輯器",
+      "tabs": "分頁"
     },
     "commands": {
       "search": "搜尋",
@@ -3457,7 +3572,43 @@
       "send": "送出",
       "bold": "粗體",
       "italic": "斜體",
-      "underline": "底線"
+      "underline": "底線",
+      "closeTab": "關閉分頁",
+      "nextTab": "下一個分頁",
+      "previousTab": "上一個分頁",
+      "selectTab": "第 1–9 個分頁"
     }
+  },
+  "followedThreads": {
+    "title": "追蹤的帖子",
+    "empty": "還沒有追蹤的帖子",
+    "needLogin": "登入後可以追蹤帖子",
+    "newReplies": "${n} 條新回覆",
+    "unfollowed": "已取消追蹤",
+    "undo": "復原",
+    "notice": {
+      "body": "《${title}》有 ${n} 條新回覆",
+      "hidden": "追蹤的帖子有 ${n} 條新回覆"
+    }
+  },
+  "customEmoji": {
+    "title": "自訂表情包",
+    "newPack": "新增表情包",
+    "name": "名稱",
+    "rename": "重新命名",
+    "delete": "刪除表情包",
+    "deleteConfirm": "刪除「$name」和其中的圖片？",
+    "addImages": "加入圖片",
+    "added": "已加入 ${count: int} 張圖片",
+    "noneAdded": "沒有可加入的圖片",
+    "removeTitle": "移除圖片",
+    "remove": "移除這張圖片？",
+    "export": "匯出",
+    "import": "匯入",
+    "imported": "已匯入 ${count: int} 張圖片",
+    "importInvalid": "不是表情包檔案",
+    "exportFailed": "匯出失敗",
+    "empty": "還沒有表情包",
+    "count": "${count: int} 張"
   }
 }

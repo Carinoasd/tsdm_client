@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
+import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
@@ -15,27 +18,39 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Show a bottom sheet that provides emojis in editor.
-Future<String?> showEmojiPicker(BuildContext context) async {
+///
+/// With [sendCustomEmoji] (an editor that can upload attachments) the custom emoji packs are offered too: a tap sends
+/// the image and the sheet closes with the BBCode it gave, or with nothing when that failed.
+Future<String?> showEmojiPicker(BuildContext context, {CustomEmojiSender? sendCustomEmoji}) async {
+  if (sendCustomEmoji != null) {
+    // The packs read before the sheet opens: its tabs stay the same.
+    await CustomEmojiStore.app?.load();
+    if (!context.mounted) return null;
+  }
   return showCustomBottomSheet<String>(
     title: context.t.bbcodeEditor.emoji.title,
     context: context,
-    builder: (context) => RootPage(DialogPaths.emojiPicker, _EmojiBottomSheet(context)),
+    builder: (context) => RootPage(DialogPaths.emojiPicker, _EmojiBottomSheet(context, sendCustomEmoji)),
   );
 }
 
 /// Widget to show all available emojis can use in editor.
 class _EmojiBottomSheet extends StatefulWidget {
   /// Constructor.
-  const _EmojiBottomSheet(this.context);
+  const _EmojiBottomSheet(this.context, this.sendCustomEmoji);
 
   final BuildContext context;
+
+  final CustomEmojiSender? sendCustomEmoji;
 
   @override
   State<_EmojiBottomSheet> createState() => _EmojiBottomSheetState();
 }
 
-class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerProviderStateMixin {
+// A new controller whenever the number of tabs changes (the packs are read before the sheet opens; kept safe anyway).
+class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProviderStateMixin {
   TabController? tabController;
+  int _tabCount = 0;
 
   @override
   void dispose() {
@@ -44,15 +59,30 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerP
   }
 
   /// When calling this function, assume all emoji is available.
-  Widget _buildEmojiTab(BuildContext context, EmojiState state) {
+  Widget _buildEmojiTab(BuildContext context, EmojiState state, List<CustomEmojiPack> packs) {
     final emojiGroupList = state.emojiGroupList!;
-    // The user's own image stickers come first (#5), then the forum emoji groups.
-    tabController ??= TabController(length: emojiGroupList.length + 1, vsync: this);
+    // The user's own image stickers come first (#5), their emoji packs, then the forum emoji groups.
+    final count = emojiGroupList.length + packs.length + 1;
+    if (tabController == null || _tabCount != count) {
+      tabController?.dispose();
+      _tabCount = count;
+      tabController = TabController(length: count, vsync: this);
+    }
 
     final tabs = [
       Tab(child: Text(context.t.bbcodeEditor.customImage.tab)),
+      ...packs.map((e) => Tab(key: ValueKey('emoji-sheet-pack-${e.id}'), child: Text(e.name))),
       ...emojiGroupList.map((e) => Tab(child: Text(e.name))),
     ];
+    final packViews = packs.map(
+      (e) => CustomEmojiGrid(
+        pack: e,
+        send: widget.sendCustomEmoji!,
+        onSent: (bbcode) {
+          if (mounted) Navigator.of(context).pop(bbcode);
+        },
+      ),
+    );
     final tabViews = emojiGroupList.map(
       (e) => GridView.builder(
         padding: edgeInsetsL12R12,
@@ -100,9 +130,21 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerP
         ),
         sizedBoxW12H12,
         Expanded(
-          child: TabBarView(controller: tabController, children: [const CustomImageTab(), ...tabViews]),
+          child: TabBarView(controller: tabController, children: [const CustomImageTab(), ...packViews, ...tabViews]),
         ),
       ],
+    );
+  }
+
+  /// The tabs with the packs that have images, when the editor can send them.
+  Widget _buildWithPacks(BuildContext context, EmojiState state) {
+    final store = CustomEmojiStore.app;
+    if (widget.sendCustomEmoji == null || store == null) {
+      return _buildEmojiTab(context, state, const []);
+    }
+    return ValueListenableBuilder<List<CustomEmojiPack>>(
+      valueListenable: store.packs,
+      builder: (context, packs, _) => _buildEmojiTab(context, state, packs.where((e) => e.emojis.isNotEmpty).toList()),
     );
   }
 
@@ -132,7 +174,7 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with SingleTickerP
             EmojiStatus.failure => buildRetryButton(context, () {
               context.read<EmojiBloc>().add(EmojiFetchFromAssetEvent());
             }),
-            EmojiStatus.success => _buildEmojiTab(context, state),
+            EmojiStatus.success => _buildWithPacks(context, state),
           };
 
           return ConstrainedBox(constraints: const BoxConstraints(maxHeight: 400), child: body);

@@ -63,8 +63,8 @@ void main() {
     });
 
     test('every category has its own switch and channel', () {
-      expect(NoticeCategory.values.map((e) => e.settingsKey).toSet(), hasLength(5));
-      expect(NoticeCategory.values.map((e) => e.channelId).toSet(), hasLength(5));
+      expect(NoticeCategory.values.map((e) => e.settingsKey).toSet(), hasLength(NoticeCategory.values.length));
+      expect(NoticeCategory.values.map((e) => e.channelId).toSet(), hasLength(NoticeCategory.values.length));
       expect(NoticeCategory.values.map((e) => e.channelId), isNot(contains(localNoticeChannelId)));
     });
   });
@@ -182,7 +182,7 @@ void main() {
     test('channel names are translated', () async {
       for (final tr in [await AppLocale.zhCn.build(), await AppLocale.zhTw.build(), await AppLocale.en.build()]) {
         final names = NoticeCategory.values.map((c) => noticeChannelName(tr, c));
-        expect(names.toSet(), hasLength(5));
+        expect(names.toSet(), hasLength(NoticeCategory.values.length));
         expect(names.every((e) => e.isNotEmpty), isTrue);
         expect(tr.settingsPage.behaviorSection.noticeCategories.quietHours, isNotEmpty);
       }
