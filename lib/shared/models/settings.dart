@@ -275,9 +275,21 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// right).
   threadSwipePaging<bool>(name: 'threadSwipePaging', type: bool, defaultValue: false),
 
+  /// Forums whose threads open in immersive reading (the app bar and the reply bar hidden until a tap): the ids
+  /// separated by commas, a `+` after an id taking the subforums along (`12,34+`). Kept as text so the cross-device sync
+  /// carries it. See `ImmersiveForums`.
+  immersiveForums<String>(name: 'immersiveForums', type: String, defaultValue: ''),
+
+  /// Every thread opens in immersive reading, whatever [immersiveForums] holds.
+  immersiveAllForums<bool>(name: 'immersiveAllForums', type: bool, defaultValue: false),
+
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
+
+  /// Width of the list pane of [twoPaneLayout] the divider was dragged to, in logical pixels; 0 while never dragged
+  /// (the list then takes its share of the window, see `twoPaneListWidthFor`). Tied to the screen: not synced.
+  twoPaneListWidth<double>(name: 'twoPaneListWidth', type: double, defaultValue: 0),
 
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
   /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
@@ -317,7 +329,7 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: 1,
   ),
 
-  /// Line height of the post content in thread page, a multiple of the font size (1.4 to 2.0).
+  /// Line height of the post content in thread page, a multiple of the font size (1.2 to 2.0).
   ///
   /// Posts written with few line breaks read as a wall of text on a phone at the line height of the body text (1.43).
   threadContentLineHeight<double>(
@@ -332,6 +344,15 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     type: double,
     defaultValue: PostTypography.defaultParagraphSpacing,
   ),
+
+  /// Draw the links in the post content that show the url of a thread of the forum as cards of the thread (its title,
+  /// author, forum, replies and views, time), asked when the card comes into view.
+  threadLinkCard<bool>(name: 'threadLinkCard', type: bool, defaultValue: true),
+
+  /// Widest the floors of the thread page grow, in logical pixels (600 to 1200); 0: as the app lays them out
+  /// (`appReadingMaxWidth`, the content at most `htmlContentMaxWidth`). Only a window wider than it shows a difference.
+  /// Tied to the screen: not synced.
+  threadContentMaxWidth<double>(name: 'threadContentMaxWidth', type: double, defaultValue: 0),
 
   /// Cut long paragraphs of the post content after the end of a sentence (layout only, the text is not changed).
   threadContentSplitLongParagraphs<bool>(
