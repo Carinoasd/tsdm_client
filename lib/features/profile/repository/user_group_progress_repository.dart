@@ -106,6 +106,9 @@ final class UserGroupProgressRepository {
               }
           }
         }
+        if (tiers.isEmpty) {
+          return left(ServerRespondedErrorException('no user group page could be read'));
+        }
         tiers.sort((a, b) => a.creditsFrom.compareTo(b.creditsFrom));
         final currentGid = _currentGid(value);
         final currentFrom = tiers.where((t) => t.gid == currentGid).firstOrNull?.creditsFrom;

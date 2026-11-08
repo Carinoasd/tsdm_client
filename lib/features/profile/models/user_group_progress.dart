@@ -66,7 +66,7 @@ final class UserGroupPage {
       return null;
     }
     final uidMatch = RegExp(r"discuz_uid\s*=\s*'(\d+)'").firstMatch(html);
-    final credits = _firstInt(document.querySelector('th.alt span.notice')?.text);
+    final credits = _firstInt(document.querySelector('th.alt:not(.h) span.notice')?.text);
     if (credits == null) {
       return null;
     }

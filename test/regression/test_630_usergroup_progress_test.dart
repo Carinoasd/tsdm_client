@@ -124,6 +124,12 @@ void main() {
       final plain = _sample('default_member_mid').replaceAll('<span title="">积分</span>', '积分');
       expect(UserGroupPage.parse(plain)!.viewedThreshold, isNull);
       expect(UserGroupPage.parse(_sample('default_member_mid').replaceAll('积分: 700', '')), isNull);
+      // The element gone altogether: the "missing" number of the next group's table is not the credits.
+      final gone = _sample(
+        'default_member_mid',
+      ).replaceAll(RegExp(r'<tr>\s*<th class="alt">.*?</th>\s*</tr>', dotAll: true), '');
+      expect(gone, isNot(contains('积分: 700')));
+      expect(UserGroupPage.parse(gone), isNull);
     });
 
     test('that is no user group page is not read', () {
