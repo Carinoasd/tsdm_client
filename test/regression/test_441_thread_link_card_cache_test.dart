@@ -4,8 +4,9 @@
 /// A card is the first page of its thread, asked as the thread page asks it: the forum's app API answer (`schema`
 /// fields: title, forum, replies and views, the first floor's author and time) or the web page without the plugin.
 /// A thread the account can not read is no card (the link stays). Each thread is asked once for each account in the
-/// run of the app, also while the first request is still going; a failed request is not kept, an answer that comes
-/// after the account changed is dropped.
+/// run of the app, also while the first request is still going, two at a time; a thread the forum refuses is kept as
+/// no card, a failed request or another page that is not the thread (a login prompt) is not, an answer that comes after
+/// the account changed is dropped.
 library;
 
 import 'dart:async';
@@ -142,12 +143,58 @@ void main() {
       expect(asked, [1]);
     });
 
-    test('a thread that can not be read is kept as no card', () async {
-      answers[2] = () => Right(_apiPage(_json('thread_v3_denied_guest.json')));
+    test('a thread the forum refuses to the account is kept as no card', () async {
+      final message = {'ok': 0, 'error': 'message', 'message': '抱歉，本帖要求阅读权限高于 200 才能浏览', 'login': 0, 'uid': 35};
+      answers[2] = () => Right(_apiPage(message));
       expect(await repository.load(2), isNull);
       expect(repository.isCached(2), isTrue);
       expect(await repository.load(2), isNull);
       expect(asked, [2]);
+    });
+
+    test('any other page that is not the thread is asked again', () async {
+      // The login prompt (an expired session), a message that is no refusal (too many requests), a page without a title.
+      answers[20] = () => Right(_apiPage(_json('thread_v3_denied_guest.json')));
+      answers[21] = () =>
+          Right(_apiPage({'ok': 0, 'error': 'message', 'message': '抱歉，您的请求来路不正确或表单验证串不符，无法提交', 'login': 0}));
+      answers[22] = () => Right(_page(''));
+      for (final tid in [20, 21, 22]) {
+        expect(await repository.load(tid), isNull);
+        expect(repository.isCached(tid), isFalse, reason: '$tid');
+        expect(await repository.load(tid), isNull);
+      }
+      expect(asked, [20, 20, 21, 21, 22, 22]);
+    });
+
+    test('at most two requests at a time', () async {
+      final answers0 = {for (var tid = 30; tid < 35; tid++) tid: Completer<Either<AppException, ThreadPageInfo>>()};
+      for (final MapEntry(:key, :value) in answers0.entries) {
+        answers[key] = () => value.future;
+      }
+      final loads = [for (var tid = 30; tid < 35; tid++) repository.load(tid)];
+      await pumpEventQueue();
+      expect(asked, [30, 31]);
+      expect(repository.running, 2);
+      answers0[30]!.complete(Right(_page('30')));
+      await pumpEventQueue();
+      expect(asked, [30, 31, 32]);
+      for (var tid = 31; tid < 35; tid++) {
+        answers0[tid]!.complete(Right(_page('$tid')));
+        await pumpEventQueue();
+      }
+      expect([for (final e in await Future.wait(loads)) e?.title], ['30', '31', '32', '33', '34']);
+      expect(asked, [30, 31, 32, 33, 34]);
+      expect(repository.running, 0);
+    });
+
+    test('the oldest answers go past the capacity', () async {
+      for (var tid = 1; tid <= ThreadLinkCardRepository.capacity + 1; tid++) {
+        answers[tid] = () => Right(_page('$tid'));
+        await repository.load(tid);
+      }
+      expect(repository.isCached(1), isFalse);
+      expect(repository.isCached(2), isTrue);
+      expect(repository.isCached(ThreadLinkCardRepository.capacity + 1), isTrue);
     });
 
     test('a failed request is not kept', () async {

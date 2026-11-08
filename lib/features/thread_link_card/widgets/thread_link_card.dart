@@ -5,36 +5,32 @@ import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_in
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 
-/// A link in a post's content to a thread ([threadLinkOf]), drawn as a card of the thread: its title, its author, its
-/// forum, its replies and views, when it was started.
-///
-/// The thread is asked once the card comes into view ([ThreadLinkCardRepository]); until it is answered, and when the
-/// account can not read it or the request failed, the link is shown as it was ([fallback]). Tapping the card opens
-/// the link ([onOpen]) as tapping the link does.
-class ThreadLinkCard extends StatefulWidget {
+/// A thread a link in a post's content leads to was loaded and can be drawn as its card ([ThreadLinkCardTrigger]):
+/// the html holding the link is munched again, the link then a [ThreadLinkCard].
+class ThreadLinkCardLoaded extends Notification {
   /// Constructor.
-  const ThreadLinkCard({required this.link, required this.fallback, required this.onOpen, this.onShowUrl, super.key});
+  const ThreadLinkCardLoaded(this.tid);
 
-  /// The link.
-  final ThreadLink link;
-
-  /// The link as it was munched.
-  final Widget fallback;
-
-  /// Open the link.
-  final VoidCallback onOpen;
-
-  /// Show what the link is (long press, secondary tap), as for a link.
-  final VoidCallback? onShowUrl;
-
-  @override
-  State<ThreadLinkCard> createState() => _ThreadLinkCardState();
+  /// The thread loaded.
+  final int tid;
 }
 
-class _ThreadLinkCardState extends State<ThreadLinkCard> {
-  ThreadLinkCardInfo? _info;
+/// Loads the thread [tid] of a link in a post's content ([threadLinkOf]) once it comes into view, and tells the html
+/// around when it can be drawn as a card ([ThreadLinkCardLoaded]). Nothing to see: it is put before the link, which
+/// stays as it was until then, and stays so when the account can not read the thread or the request failed.
+class ThreadLinkCardTrigger extends StatefulWidget {
+  /// Constructor.
+  const ThreadLinkCardTrigger(this.tid, {super.key});
 
-  /// The thread was asked (or answered before): the card no longer watches whether it is in view.
+  /// The thread linked.
+  final int tid;
+
+  @override
+  State<ThreadLinkCardTrigger> createState() => _ThreadLinkCardTriggerState();
+}
+
+class _ThreadLinkCardTriggerState extends State<ThreadLinkCardTrigger> {
+  /// The thread was asked: the trigger no longer watches whether it is in view.
   bool _requested = false;
 
   ScrollPosition? _position;
@@ -45,17 +41,16 @@ class _ThreadLinkCardState extends State<ThreadLinkCard> {
   @override
   void initState() {
     super.initState();
-    _start();
+    SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
   }
 
   @override
-  void didUpdateWidget(ThreadLinkCard oldWidget) {
+  void didUpdateWidget(ThreadLinkCardTrigger oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.link.tid != widget.link.tid) {
+    if (oldWidget.tid != widget.tid) {
       _unwatch();
-      _info = null;
       _requested = false;
-      _start();
+      SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
     }
   }
 
@@ -65,17 +60,7 @@ class _ThreadLinkCardState extends State<ThreadLinkCard> {
     super.dispose();
   }
 
-  void _start() {
-    final tid = widget.link.tid;
-    if (_repository.isCached(tid)) {
-      _info = _repository.cached(tid);
-      _requested = true;
-      return;
-    }
-    SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
-  }
-
-  /// Ask the thread now when the card is in view, or once scrolling brings it there.
+  /// Ask the thread now when the link is in view, or once scrolling brings it there.
   void _watch() {
     if (!mounted || _requested) {
       return;
@@ -94,7 +79,7 @@ class _ThreadLinkCardState extends State<ThreadLinkCard> {
     _position = null;
   }
 
-  /// The position notifies while it is laid out too: the card looks where it is after the frame.
+  /// The position notifies while it is laid out too: the trigger looks where it is after the frame.
   void _onScroll() {
     if (_checkScheduled) {
       return;
@@ -125,28 +110,42 @@ class _ThreadLinkCardState extends State<ThreadLinkCard> {
     }
     final top = box.localToGlobal(Offset.zero).dy;
     final viewTop = view.localToGlobal(Offset.zero).dy;
-    return top < viewTop + view.size.height && top + box.size.height > viewTop;
+    return top >= viewTop && top <= viewTop + view.size.height;
   }
 
   void _request() {
     _requested = true;
-    final tid = widget.link.tid;
+    final tid = widget.tid;
     _repository.load(tid).then((info) {
-      if (!mounted || widget.link.tid != tid || info == null) {
+      if (!mounted || widget.tid != tid || info == null) {
         return;
       }
-      setState(() => _info = info);
+      ThreadLinkCardLoaded(tid).dispatch(context);
     }).ignore();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final info = _info;
-    if (info == null) {
-      return widget.fallback;
-    }
-    return _Card(info: info, onOpen: widget.onOpen, onShowUrl: widget.onShowUrl);
-  }
+  Widget build(BuildContext context) => const ExcludeSemantics(child: SizedBox.shrink());
+}
+
+/// A link in a post's content to a thread ([threadLinkOf]) drawn as a card of the thread [info]: its title, its
+/// author, its forum, its replies and views, when it was started. Tapping it opens the link ([onOpen]) as tapping the
+/// link does.
+class ThreadLinkCard extends StatelessWidget {
+  /// Constructor.
+  const ThreadLinkCard({required this.info, required this.onOpen, this.onShowUrl, super.key});
+
+  /// The thread.
+  final ThreadLinkCardInfo info;
+
+  /// Open the link.
+  final VoidCallback onOpen;
+
+  /// Show what the link is (long press, secondary tap), as for a link.
+  final VoidCallback? onShowUrl;
+
+  @override
+  Widget build(BuildContext context) => _Card(info: info, onOpen: onOpen, onShowUrl: onShowUrl);
 }
 
 class _Card extends StatelessWidget {

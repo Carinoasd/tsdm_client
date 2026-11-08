@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -2118,7 +2119,7 @@ final class _Muncher with LoggerMixin {
       // Do NOT show url prefix.
       return [if (breakBefore) emptySpan, ?space, ...ret];
     }
-    final card = _threadLinkCard(element, url, ret);
+    final (:card, :trigger) = _threadLinkCard(element, url);
     if (card != null) {
       return [if (breakBefore) emptySpan, ?space, card];
     }
@@ -2157,6 +2158,7 @@ final class _Muncher with LoggerMixin {
     return [
       if (breakBefore) emptySpan,
       ?space,
+      ?trigger,
       TextSpan(
         children: [
           if (content != null)
@@ -2175,29 +2177,40 @@ final class _Muncher with LoggerMixin {
     ];
   }
 
-  /// The link [element] to [url], munched as [link], as the card of the thread it links ([ThreadLinkCard]): a link in a
-  /// post's content showing the url of a thread ([threadLinkOf]), one of the first [maxThreadLinkCardsPerFloor] of the
-  /// floor. Null for any other link, which stays [link].
+  /// The card of the thread the link [element] to [url] leads to ([ThreadLinkCard]): a link in a post's content showing
+  /// the url of a thread ([threadLinkOf]), one of the first [maxThreadLinkCardsPerFloor] of the floor.
   ///
-  /// The card is as wide as the line: the text before the link stays on its line and what follows starts a new one,
-  /// with no line break of its own. Until the thread is answered, or when it can not be read, the card is [link].
-  InlineSpan? _threadLinkCard(uh.Element element, String url, List<InlineSpan> link) {
+  /// The card once its thread was loaded for the account in use: as wide as the line, the text before the link stays
+  /// on its line and what follows starts a new one. Until then the link stays as it is, with a `trigger` before it
+  /// that loads the thread once in view and has the html munched again then ([ThreadLinkCardLoaded]). A thread the
+  /// account can not read, any other link: neither.
+  ({InlineSpan? card, InlineSpan? trigger}) _threadLinkCard(uh.Element element, String url) {
     if (!_threadLinkCardsOn || _threadLinkCards >= maxThreadLinkCardsPerFloor) {
-      return null;
+      return (card: null, trigger: null);
     }
     final threadLink = threadLinkOf(url, element.innerText);
     if (threadLink == null) {
-      return null;
+      return (card: null, trigger: null);
+    }
+    final repository = ThreadLinkCardRepository.instance;
+    final tid = threadLink.tid;
+    if (!repository.isCached(tid)) {
+      _threadLinkCards += 1;
+      return (card: null, trigger: WidgetSpan(child: ThreadLinkCardTrigger(tid)));
+    }
+    final info = repository.cached(tid);
+    if (info == null) {
+      return (card: null, trigger: null);
     }
     _threadLinkCards += 1;
-    return textWidgetSpan(
+    final card = textWidgetSpan(
       ThreadLinkCard(
-        link: threadLink,
-        fallback: Text.rich(TextSpan(children: link)),
+        info: info,
         onOpen: () async => _openUrl(threadLink.url),
         onShowUrl: () async => _showUrlInfo(url.prependHost()),
       ),
     );
+    return (card: card, trigger: null);
   }
 
   List<InlineSpan>? _buildTr(uh.Element element) {

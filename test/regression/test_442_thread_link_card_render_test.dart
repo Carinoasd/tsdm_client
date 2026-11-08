@@ -2,7 +2,8 @@
 ///
 /// In a floor of the test forum the links showing a url of a thread are cards (title, author, forum, replies, views),
 /// each thread asked once; the link with text of its own and the link to a forum stay links. A card is asked once it
-/// is in view, opens its link when tapped, and is the link again when the thread can not be loaded. At most 10 cards
+/// is in view (the link stays as it was until then), opens its link when tapped, and is the link when the thread can
+/// not be loaded. At most 10 cards
 /// in a floor; the setting turns them off. The html of anything but a post's content (a notice) keeps its links.
 library;
 
@@ -65,11 +66,14 @@ String _link(int tid) {
   return '<a href="$url" target="_blank">$url</a>';
 }
 
-Finder _card(int tid) => find.byKey(ValueKey('thread-link-card-$tid'));
+Finder _card(int tid) => find.byKey(ValueKey('thread-link-card-$tid'), skipOffstage: false);
 
 /// The rich texts showing [text].
-Finder _text(String text) =>
-    find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains(text), skipOffstage: false);
+/// The rich texts showing [text] (the trigger before a link not loaded yet is no text).
+Finder _text(String text) => find.byWidgetPredicate(
+  (w) => w is RichText && w.text.toPlainText().replaceAll('\uFFFC', '').contains(text),
+  skipOffstage: false,
+);
 
 void main() {
   late List<int> asked;
@@ -164,6 +168,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(asked, isEmpty);
+    expect(find.byType(ThreadLinkCardTrigger, skipOffstage: false), findsOneWidget);
     expect(_text('tid=7'), findsOneWidget);
 
     controller.jumpTo(controller.position.maxScrollExtent);
@@ -174,12 +179,13 @@ void main() {
 
   testWidgets('a thread that can not be loaded is the link again', (tester) async {
     answers[8] = Left(HttpRequestFailedException(500));
-    await tester.pumpWidget(app(post(_floor(_link(8)))));
+    await tester.pumpWidget(app(post(_floor('句中 ${_link(8)} 结尾'))));
     await tester.pumpAndSettle();
     expect(asked, [8]);
     expect(_card(8), findsNothing);
-    expect(find.byType(ThreadLinkCard), findsOneWidget);
-    expect(_text('$baseUrl/forum.php?mod=viewthread&tid=8'), findsOneWidget);
+    expect(find.byType(ThreadLinkCard), findsNothing);
+    // The link as it was, in the line of the text around it.
+    expect(_text('句中 $baseUrl/forum.php?mod=viewthread&tid=8 结尾'), findsOneWidget);
   });
 
   testWidgets('at most 10 cards in a floor, the others stay links', (tester) async {
