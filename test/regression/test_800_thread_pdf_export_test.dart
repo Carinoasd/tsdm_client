@@ -311,9 +311,17 @@ void main() {
       expect(await r.cached(), isNull);
     });
 
-    test('the sources are fixed files of GitHub', () {
-      for (final s in pdfFontSources) {
+    test('the sources are fixed files of GitHub, ours first', () {
+      expect(
+        pdfFontSources.first.url,
+        'https://github.com/Carinoasd/tsdm_client/releases/download/assets-fonts-1/NotoSansSC-Regular.ttf',
+      );
+      expect(pdfFontSources.first.sha256, pdfFontSources[1].sha256, reason: 'the same file as the first origin');
+      expect(pdfFontSources.first.size, pdfFontSources[1].size);
+      for (final s in pdfFontSources.skip(1)) {
         expect(s.url, startsWith('https://media.githubusercontent.com/media/'));
+      }
+      for (final s in pdfFontSources) {
         expect(s.url, endsWith('/$pdfFontFileName'));
         expect(s.sha256, matches(RegExp(r'^[0-9a-f]{64}$')));
         expect(s.size, greaterThan(10000000));

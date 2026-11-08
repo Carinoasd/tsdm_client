@@ -33,7 +33,14 @@ const pdfFontFileName = 'NotoSansSC-Regular.ttf';
 /// default weight, Thin, by the package) and the font of the Noto CJK repository has CFF outlines, so the static
 /// TrueType instance of Google Fonts is taken from repositories that keep it in Git LFS, each at a fixed commit.
 /// `raw.githubusercontent.com` serves a file of LFS as its pointer: `media.githubusercontent.com` serves the file.
+/// The first source is the same file kept as an asset of a release of this repository (tag `assets-fonts-1`, not an
+/// app version): the others are the places it was taken from, in case ours is unreachable.
 const pdfFontSources = [
+  PdfFontSource(
+    url: 'https://github.com/Carinoasd/tsdm_client/releases/download/assets-fonts-1/NotoSansSC-Regular.ttf',
+    size: 10560076,
+    sha256: 'dc71173babc38dfd019912965f2b4b3421fb347ebd854e7b96f64ad63673924a',
+  ),
   PdfFontSource(
     url:
         'https://media.githubusercontent.com/media/SixLabors/Fonts/17de1119b61c05a91dddbb4484f3f36a32b1d464/'
