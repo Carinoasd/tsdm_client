@@ -60,6 +60,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
+    this.chineseDisplayMode = 0,
     this.threadCardExternalThumbnails = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
@@ -79,6 +80,7 @@ class SettingsMap with SettingsMapMappable {
     this.notifyQuietEnd = 480,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
+    this.appIcon = 'default',
     this.offlineThreads = false,
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
@@ -145,6 +147,10 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
   /// versions lack it.
   final bool threadCardExternalThumbnails;
+
+  /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
+  /// lack it.
+  final int chineseDisplayMode;
 
   /// When the thread lists show a thumbnail.
   ThreadThumbnailMode get threadThumbnailMode => ThreadThumbnailMode.fromIndex(threadCardThumbnailMode);
@@ -301,6 +307,9 @@ class SettingsMap with SettingsMapMappable {
   /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
   final bool highRefreshRate;
 
+  /// Name of the app icon in use, see `AppIcon`. Not required: backups from older versions lack it.
+  final String appIcon;
+
   /// Whether the thread pages loaded are saved for reading without network. Not required: backups from older versions
   /// lack it.
   final bool offlineThreads;
@@ -373,6 +382,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadCardHighlightAuthorName => copyWith(threadCardHighlightAuthorName: value as bool?),
       SettingsKeys.threadCardHighlightInfoRow => copyWith(threadCardHighlightInfoRow: value as bool?),
       SettingsKeys.threadCardShowExcerpt => copyWith(threadCardShowExcerpt: value as bool?),
+      SettingsKeys.chineseDisplayMode => copyWith(chineseDisplayMode: value as int?),
       SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
       SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
@@ -433,6 +443,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadLinkCard => copyWith(threadLinkCard: value as bool?),
       SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
+      SettingsKeys.appIcon => copyWith(appIcon: value as String?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
       SettingsKeys.enableAppPostRenderer => copyWith(enableAppPostRenderer: value as bool?),

@@ -326,6 +326,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: ThreadFloorInteractionMode.adaptiveTapMenu,
   ),
 
+  /// index of a `ChineseDisplayMode`, 0 as the forum sends it (the default), 1 shown as Traditional, 2 as Simplified.
+  chineseDisplayMode<int>(name: 'chineseDisplayMode', type: int, defaultValue: 0),
+
   /// Global text scale factor.
   textScaleFactor<double>(
     name: 'textScaleFactor',
@@ -379,6 +382,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   ///
   /// Some vendor systems keep apps that do not ask at 60Hz on 90/120Hz screens (GitHub #182). Android only.
   highRefreshRate<bool>(name: 'highRefreshRate', type: bool, defaultValue: true),
+
+  /// The app icon in use: `default`, `dark`, `mono` or `pink` (see `AppIcon`). Android and iOS only.
+  appIcon<String>(name: 'appIcon', type: String, defaultValue: 'default'),
 
   /// Save the thread pages the user loads to read them again without network.
   ///

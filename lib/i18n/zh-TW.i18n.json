@@ -381,6 +381,13 @@
         "followSystem": "跟隨系統",
         "selectLanguage": "選擇語言"
       },
+      "appIcon": {
+        "title": "App 圖示",
+        "defaultIcon": "預設",
+        "dark": "深色",
+        "mono": "單色",
+        "pink": "粉色"
+      },
       "highRefreshRate": {
         "title": "高刷新率",
         "detail": "使用螢幕支援的最高刷新率，捲動更流暢，但會稍微多耗電"
@@ -498,6 +505,12 @@
       "fontFamily": {
         "title": "字體",
         "dialogTitle": "選擇字體"
+      },
+      "chineseDisplay": {
+        "title": "簡繁顯示",
+        "off": "關閉",
+        "traditional": "繁體",
+        "simplified": "簡體"
       },
       "textScaleFactor": {
         "title": "文字縮放",
