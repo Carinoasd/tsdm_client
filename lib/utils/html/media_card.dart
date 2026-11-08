@@ -398,18 +398,21 @@ class PostMediaCard extends StatelessWidget {
   /// The player.
   final PostMedia media;
 
-  /// Whether the card asks the site about the video.
-  bool get _previewed {
+  /// The video the card asks the site about; null when it does not (turned off, or not a video of a known site).
+  ///
+  /// Read when the card is built: switching the setting shows in the cards built after it, as the other settings of
+  /// the post's rendering.
+  MediaPreviewTarget? get _target {
     if (!getIt.isRegistered<SettingsRepository>() ||
         !getIt.get<SettingsRepository>().currentSettings.postMediaPreview) {
-      return false;
+      return null;
     }
-    return MediaPreviewTarget.tryParse(media.url) != null;
+    return MediaPreviewTarget.tryParse(media.url);
   }
 
   @override
   Widget build(BuildContext context) {
-    final target = _previewed ? MediaPreviewTarget.tryParse(media.url) : null;
+    final target = _target;
     final plain = _buildPlain(context);
     if (target == null) {
       return plain;

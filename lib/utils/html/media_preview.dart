@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/instance.dart';
 
 /// A video on a site the app can ask for its title, cover and length ([MediaPreview]).
 ///
@@ -133,7 +135,7 @@ final class BilibiliTarget extends MediaPreviewTarget {
     return MediaPreview(
       title: title,
       author: owner is Map<String, dynamic> ? _text(owner['name']) : null,
-      thumbnail: _imageUrl(data['pic']),
+      thumbnail: _imageUrl(data['pic'], bilibiliCover: true),
       duration: seconds is int && seconds > 0 ? Duration(seconds: seconds) : null,
     );
   }
@@ -179,7 +181,10 @@ String? _text(Object? value) {
 }
 
 /// [value] as an https url (bilibili answers `http://` and `//` for a cover), null when it is none.
-Uri? _imageUrl(Object? value) {
+///
+/// A cover of bilibili ([bilibiliCover]) is asked in the size the card shows (`@480w_270h_1c.webp`: cropped to 16:9),
+/// not the original of 1920 pixels.
+Uri? _imageUrl(Object? value, {bool bilibiliCover = false}) {
   final text = _text(value);
   if (text == null) {
     return null;
@@ -188,7 +193,11 @@ Uri? _imageUrl(Object? value) {
   if (uri == null || uri.host.isEmpty || !(uri.isScheme('http') || uri.isScheme('https'))) {
     return null;
   }
-  return uri.replace(scheme: 'https');
+  final https = uri.replace(scheme: 'https');
+  if (bilibiliCover && https.host.endsWith('.hdslb.com') && !https.path.contains('@')) {
+    return https.replace(path: '${https.path}@480w_270h_1c.webp');
+  }
+  return https;
 }
 
 /// What a site tells about a video.
@@ -290,25 +299,30 @@ class MediaPreviewRepository {
   void clear() => _entries.clear();
 
   static MediaPreviewFetcher _dioFetcher(Duration timeout) {
-    // Not the app's client: it carries the forum's cookies and checks, and these are other sites.
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: timeout,
-        receiveTimeout: timeout,
-        sendTimeout: timeout,
-        responseType: ResponseType.plain,
-        headers: {
-          'User-Agent':
-              'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+    // Not the app's client: it carries the forum's cookies and checks, and these are other sites. Built the way the
+    // app builds its own (the proxy, the native client on Android), at the first request: the settings are there then.
+    Dio? dio;
+    Dio build() {
+      final base = getIt.isRegistered<SettingsRepository>() ? getIt.get<SettingsRepository>().buildDefaultDio() : Dio();
+      return base
+        ..options = base.options.copyWith(
+          connectTimeout: timeout,
+          receiveTimeout: timeout,
+          sendTimeout: timeout,
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
+            'Accept': 'application/json',
+          },
+        );
+    }
+
     // bilibili answers 412 to a client without a `buvid3`; any value is taken.
     final buvid = '${_hex(math.Random.secure(), 32)}infoc';
     return (url) async {
       final bilibili = url.host.endsWith('bilibili.com');
-      final response = await dio.getUri<String>(
+      final response = await (dio ??= build()).getUri<String>(
         url,
         options: Options(
           headers: {

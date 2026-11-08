@@ -126,7 +126,7 @@ void main() {
       final preview = const BilibiliTarget.bvid(_bvid).parse(_biliAnswer)!;
       expect(preview.title, 'A title');
       expect(preview.author, 'An uploader');
-      expect(preview.thumbnail.toString(), 'https://i2.hdslb.com/bfs/archive/x.jpg');
+      expect(preview.thumbnail.toString(), 'https://i2.hdslb.com/bfs/archive/x.jpg@480w_270h_1c.webp');
       expect(preview.duration, const Duration(seconds: 3725));
       expect(preview.durationText, '1:02:05');
     });
@@ -151,7 +151,7 @@ void main() {
       expect(bare.author, isNull);
       expect(bare.duration, isNull);
       expect(bare.durationText, isNull);
-      expect(bare.thumbnail.toString(), 'https://i0.hdslb.com/a.png');
+      expect(bare.thumbnail.toString(), 'https://i0.hdslb.com/a.png@480w_270h_1c.webp');
     });
 
     test('YouTube: no length, as oEmbed has none', () {
