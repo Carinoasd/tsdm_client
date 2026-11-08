@@ -194,6 +194,7 @@ void main() {
         SettingsKeys.highRefreshRate,
         SettingsKeys.twoPaneLayout,
         SettingsKeys.twoPaneListWidth,
+        SettingsKeys.threadContentMaxWidth,
         SettingsKeys.enableBackgroundMessageService,
         SettingsKeys.autoSyncNoticeSeconds,
         SettingsKeys.offlineThreads,

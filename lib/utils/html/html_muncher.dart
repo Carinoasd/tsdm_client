@@ -166,10 +166,9 @@ Widget munchElement(
   final ret = muncher._layOut(munched);
 
   // Alignment in this page requires a fixed max width that equals to website
-  // page width.
-  // Currently is 712.
+  // page width (712), unless the reader set the floors wider or narrower (PostTypography.maxWidth).
   return ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
+    constraints: BoxConstraints(maxWidth: muncher.typography?.contentMaxWidth ?? htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(
         // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow

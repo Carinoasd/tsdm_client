@@ -323,7 +323,7 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: 1,
   ),
 
-  /// Line height of the post content in thread page, a multiple of the font size (1.4 to 2.0).
+  /// Line height of the post content in thread page, a multiple of the font size (1.2 to 2.0).
   ///
   /// Posts written with few line breaks read as a wall of text on a phone at the line height of the body text (1.43).
   threadContentLineHeight<double>(
@@ -338,6 +338,11 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     type: double,
     defaultValue: PostTypography.defaultParagraphSpacing,
   ),
+
+  /// Widest the floors of the thread page grow, in logical pixels (600 to 1200); 0: as the app lays them out
+  /// (`appReadingMaxWidth`, the content at most `htmlContentMaxWidth`). Only a window wider than it shows a difference.
+  /// Tied to the screen: not synced.
+  threadContentMaxWidth<double>(name: 'threadContentMaxWidth', type: double, defaultValue: 0),
 
   /// Cut long paragraphs of the post content after the end of a sentence (layout only, the text is not changed).
   threadContentSplitLongParagraphs<bool>(

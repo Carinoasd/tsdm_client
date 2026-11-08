@@ -392,7 +392,9 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     // default: posts read as a wall of text on a phone), for lines as long as they are on this screen.
     final typography = context
         .select<SettingsBloc, PostTypography>((e) => e.state.settingsMap.postTypography)
-        .withLineWidth(postContentLineWidth(context));
+        .withLineWidth(postContentLineWidth(context))
+        // As wide as the floors are let grow (the reader's setting, on the thread page).
+        .withMaxWidth(ReadingWidthScope.maxWidthOf(context));
     final child = Row(
       children: [
         Expanded(

@@ -56,6 +56,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentLineHeight = PostTypography.defaultLineHeight,
     this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
     this.threadContentSplitLongParagraphs = false,
+    this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
     this.threadCardExternalThumbnails = false,
@@ -248,6 +249,13 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool threadContentSplitLongParagraphs;
 
+  /// Widest the floors grow, 0: as the app lays them out. Not required: backups from older versions lack it.
+  final double threadContentMaxWidth;
+
+  /// The widest the floors grow ([threadContentMaxWidth]) in the range the settings offer, 0 for none (a value from an
+  /// older backup or written by hand is clamped).
+  double get readingMaxWidth => PostTypography(maxWidth: threadContentMaxWidth).clamped().maxWidth;
+
   /// How the post content is laid out with these settings, in the ranges the settings offer (a value from an older
   /// backup or written by hand is clamped).
   PostTypography get postTypography => PostTypography(
@@ -369,6 +377,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadContentLineHeight => copyWith(threadContentLineHeight: value as double?),
       SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
       SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
+      SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
