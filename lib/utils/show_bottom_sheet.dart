@@ -141,6 +141,7 @@ Future<T?> showCustomBottomSheet<T>({
 /// * Jump to related href url (optional).
 /// * Reload image, save it to the user's images.
 /// * Its cache statistics ([onShowStatistics], the gallery).
+/// * Load every picture of its floor ([onLoadFloor], a picture that does not load by itself), first.
 ///
 /// [showCheckDetail] is false when the sheet is opened from the full page viewer itself.
 ///
@@ -154,6 +155,7 @@ Future<void> showImageActionBottomSheet({
   bool showCheckDetail = true,
   VoidCallback? onCheckDetail,
   VoidCallback? onShowStatistics,
+  VoidCallback? onLoadFloor,
 }) async {
   final shown = shownUrl ?? imageUrl;
   final tr = context.t.imageBottomSheet;
@@ -177,6 +179,16 @@ Future<void> showImageActionBottomSheet({
       ),
       sizedBoxW12H12,
 
+      if (onLoadFloor != null)
+        ListTile(
+          key: const ValueKey('image-sheet-load-floor'),
+          leading: const Icon(Icons.download_for_offline_outlined),
+          title: Text(context.t.imageGallery.loadFloorImages),
+          onTap: () {
+            context.pop();
+            onLoadFloor();
+          },
+        ),
       if (showCheckDetail)
         ListTile(
           leading: const Icon(Icons.fullscreen_outlined),

@@ -267,6 +267,17 @@ abstract interface class SyncLocalStore {
   /// Replace the users account [uid] blocks.
   Future<void> saveBlocks(int uid, List<SyncBlock> blocks);
 
+  /// The keyword and forum filters of thread lists of account [uid], removals included.
+  Future<ThreadFilters> threadFilters(int uid);
+
+  /// Take the filter records [keywords] and [forums] of the document for account [uid]: per key the later wins
+  /// ([ThreadFilters.mergedWith]); nothing is written when nothing changes.
+  Future<void> applyThreadFilters(
+    int uid, {
+    required List<BlockedKeyword> keywords,
+    required List<BlockedForum> forums,
+  });
+
   /// The fast rate templates (of the device, not of one account), in their order.
   Future<List<FastRateTemplateModel>> rateTemplates();
 
@@ -434,6 +445,18 @@ final class StorageSyncLocalStore implements SyncLocalStore {
   }
 
   @override
+  Future<ThreadFilters> threadFilters(int uid) async => (await _blocks.load(uid)).filters;
+
+  @override
+  Future<void> applyThreadFilters(
+    int uid, {
+    required List<BlockedKeyword> keywords,
+    required List<BlockedForum> forums,
+  }) async {
+    await _blocks.applySyncedFilters(ownerUid: uid, keywords: keywords, forums: forums);
+  }
+
+  @override
   Future<List<FastRateTemplateModel>> rateTemplates() async => switch (await _storage.getAllFastRateTemplate().run()) {
     Right(:final value) => value,
     Left(:final value) => throw value,
@@ -522,6 +545,9 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// The block lists by account.
   final blocksByUid = <int, List<SyncBlock>>{};
+
+  /// The thread filters by account.
+  final filtersByUid = <int, ThreadFilters>{};
 
   /// What the forum held, by account.
   final lastByUid = <int, SyncLastSynced>{};
@@ -634,6 +660,22 @@ final class MemorySyncLocalStore implements SyncLocalStore {
   Future<void> saveBlocks(int uid, List<SyncBlock> blocks) async {
     blocksByUid[uid] = List.of(blocks);
     writes.add('saveBlocks');
+  }
+
+  @override
+  Future<ThreadFilters> threadFilters(int uid) async => filtersByUid[uid] ?? const ThreadFilters.empty();
+
+  @override
+  Future<void> applyThreadFilters(
+    int uid, {
+    required List<BlockedKeyword> keywords,
+    required List<BlockedForum> forums,
+  }) async {
+    final merged = (filtersByUid[uid] ?? const ThreadFilters.empty()).mergedWith(keywords: keywords, forums: forums);
+    if (merged != null) {
+      filtersByUid[uid] = merged;
+      writes.add('applyThreadFilters');
+    }
   }
 
   @override

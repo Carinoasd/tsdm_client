@@ -50,6 +50,13 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
       },
     );
 
+const _methodDeviceName = 'deviceName';
+
+/// The maker and the model of this Android device (`Build.MANUFACTURER`, `Build.MODEL`), the model alone when it
+/// starts with the maker already; empty when the system does not tell. For the list of the devices an account logged
+/// in on.
+Future<String> androidDeviceName() async => await _mainChannel.invokeMethod<String>(_methodDeviceName) ?? '';
+
 const _appIconChannel = MethodChannel('kzs.th000.tsdm_client/appIcon');
 
 /// Switch the launcher icon of the app to the icon called [name] (`default`, `dark`, `mono` or `pink`).
