@@ -21,6 +21,8 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
+import 'package:tsdm_client/widgets/card/poll_result_bar.dart';
+import 'package:tsdm_client/widgets/card/poll_voters_sheet.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 
@@ -311,6 +313,19 @@ class _PollCardState extends State<PollCard> {
     );
   }
 
+  /// The result of a choice: the bar when the forum gave its numbers, its own text otherwise; null when it shows none.
+  Widget? _result(PollOption option) {
+    final votes = option.votes;
+    final percent = option.percent;
+    if (votes != null && percent != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: PollResultBar(votes: votes, percent: percent, mine: _cubit.mine.contains(option.id)),
+      );
+    }
+    return option.result == null ? null : Text(option.result!);
+  }
+
   @override
   Widget build(BuildContext context) => BlocBuilder<PollCubit, PollState>(
     bloc: _cubit,
@@ -371,7 +386,7 @@ class _PollCardState extends State<PollCard> {
                           enabled: !state.busy,
                           contentPadding: EdgeInsets.zero,
                           title: Text(option.label),
-                          subtitle: option.result == null ? null : Text(option.result!),
+                          subtitle: _result(option),
                           secondary: _optionImage(option),
                         ),
                     ],
@@ -384,7 +399,7 @@ class _PollCardState extends State<PollCard> {
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(option.label),
-                      subtitle: option.result == null ? null : Text(option.result!),
+                      subtitle: _result(option),
                       secondary: _optionImage(option),
                       value: state.choices.contains(option.id),
                       onChanged:
@@ -399,8 +414,11 @@ class _PollCardState extends State<PollCard> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(option.label),
-                      subtitle: option.result == null ? null : Text(option.result!),
+                      subtitle: _result(option),
                       trailing: _optionImage(option),
+                      onTap: !offline && poll.votersUrl != null && option.id != null
+                          ? () async => showPollVoters(context, _cubit, poll, option)
+                          : null,
                     ),
               ],
               if (poll.notice.isNotEmpty)
@@ -447,7 +465,14 @@ class _PollCardState extends State<PollCard> {
                     TextButton.icon(
                       icon: const Icon(Icons.groups_outlined),
                       label: Text(context.t.specialThread.poll.viewVoters),
-                      onPressed: () async => context.dispatchAsUrl(voters, external: true),
+                      onPressed: poll!.options.isEmpty || !poll.options.any((e) => e.id != null)
+                          ? () async => context.dispatchAsUrl(voters, external: true)
+                          : () async => showPollVoters(
+                              context,
+                              _cubit,
+                              poll,
+                              poll.options.firstWhere((e) => e.id != null),
+                            ),
                     ),
                 if (!offline)
                   TextButton.icon(
