@@ -761,7 +761,13 @@
       "about": "About",
       "update": "Get updates",
       "updateCheckOnStartup": "Check update when app startup",
-      "changelog": "Changelog"
+      "changelog": "Changelog",
+      "dataSaver": {
+        "title": "Data saver",
+        "off": "Off",
+        "meteredOnly": "On mobile data",
+        "always": "Always"
+      }
     }
   },
   "aboutPage": {
@@ -1680,7 +1686,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "Failed to load, tap to retry",
-    "tapToLoad": "Tap to load image"
+    "tapToLoad": "Tap to load image",
+    "loadFloorImages": "Load all in this floor"
   },
   "forumCard": {
     "links": "Links",

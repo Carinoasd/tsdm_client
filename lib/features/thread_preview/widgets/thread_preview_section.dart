@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
@@ -30,6 +31,7 @@ class ThreadPreviewSection extends StatelessWidget {
     required this.showExcerpt,
     required this.thumbnailMode,
     this.externalImages = false,
+    this.dataSaver = DataSaverMode.off,
     super.key,
   });
 
@@ -44,6 +46,9 @@ class ThreadPreviewSection extends StatelessWidget {
 
   /// Whether the thumbnail may be an image of another site ([SettingsKeys.threadCardExternalThumbnails]).
   final bool externalImages;
+
+  /// When the data saver holds the thumbnail back ([SettingsKeys.dataSaverMode], [DataSaver]): no thumbnail then.
+  final DataSaverMode dataSaver;
 
   /// Whether a card shows something of [preview] with these settings: the excerpt, or a thumbnail on some network
   /// (which network it needs is told when the section builds). A card leaves the section out otherwise.
@@ -72,6 +77,10 @@ class ThreadPreviewSection extends StatelessWidget {
     // there (a picture itself on an unmetered network).
     return _OnUnmeteredNetwork(
       builder: (context, {required unmetered}) {
+        // The data saver hides it on a page it holds back, and while the network is not known yet.
+        if (DataSaver.holdsBack(context, dataSaver) ?? true) {
+          return _PreviewRow(excerpt: excerpt, image: null, more: 0);
+        }
         final image = thumbnailMode == ThreadThumbnailMode.wifiOnly && !unmetered
             ? null
             : preview.thumbnailOf(external: externalImages, unmetered: unmetered);

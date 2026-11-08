@@ -511,6 +511,9 @@ class DialogPaths {
   /// Dialog to select when the pictures of the posts load by themselves.
   static const String selectPostImageAutoLoad = '/dialog/selectPostImageAutoLoad';
 
+  /// Dialog to select when the data saver holds the large pictures back.
+  static const String selectDataSaverMode = '/dialog/selectDataSaverMode';
+
   /// Dialog to set the hours of the day the app is dark.
   static const String darkSchedule = '/dialog/darkSchedule';
 }

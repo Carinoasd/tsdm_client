@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/image/utils/image_sizes.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
@@ -103,6 +104,22 @@ final class FloorImages {
 
   void _remove(_PostImageState image) => _shown.remove(image);
 
+  /// Every picture of the floor was asked for at once ("load all in this floor" on a placeholder): those built later
+  /// (a fold opened, a quote) load as well.
+  bool get loadsAll => _loadsAll;
+  bool _loadsAll = false;
+
+  /// Load every picture of the floor, those shown now and those built later.
+  void loadAll() {
+    if (_loadsAll) {
+      return;
+    }
+    _loadsAll = true;
+    for (final image in _shown.toList()) {
+      image._onLoadAll();
+    }
+  }
+
   /// The gallery a tap on [tapped] opens: the pictures shown now in the floor's order, without those known small (an
   /// icon whose size said nothing before it loaded), and where [tapped] is in them.
   ({List<GalleryImage> images, int index}) _galleryFor(_PostImageState tapped) {
@@ -160,13 +177,23 @@ final class PostImageLoads extends ChangeNotifier {
 /// [PostImage]s in it.
 class PostImageScope extends InheritedWidget {
   /// Constructor.
-  const PostImageScope({required this.images, required this.autoLoad, required super.child, this.loads, super.key});
+  const PostImageScope({
+    required this.images,
+    required this.autoLoad,
+    required super.child,
+    this.dataSaver = DataSaverMode.off,
+    this.loads,
+    super.key,
+  });
 
   /// The pictures of the floor.
   final FloorImages images;
 
   /// When they load by themselves.
   final PostImageAutoLoad autoLoad;
+
+  /// When the data saver holds them back, over [autoLoad] ([DataSaver]).
+  final DataSaverMode dataSaver;
 
   /// Told which pictures are loading, when something waits for them ([PostImageLoads]); null when nothing does.
   final PostImageLoads? loads;
@@ -179,7 +206,10 @@ class PostImageScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(PostImageScope oldWidget) =>
-      !identical(images, oldWidget.images) || autoLoad != oldWidget.autoLoad || !identical(loads, oldWidget.loads);
+      !identical(images, oldWidget.images) ||
+      autoLoad != oldWidget.autoLoad ||
+      dataSaver != oldWidget.dataSaver ||
+      !identical(loads, oldWidget.loads);
 }
 
 /// Which part of a floor its content below is ([PostImage]s in a lower part come first in the gallery): the html before
@@ -230,6 +260,7 @@ class PostImage extends StatefulWidget {
 class _PostImageState extends State<PostImage> {
   FloorImages? _floor;
   PostImageAutoLoad _autoLoad = PostImageAutoLoad.always;
+  DataSaverMode _dataSaver = DataSaverMode.off;
   int _part = 0;
 
   /// What waits for the pictures of the floor, when something does ([PostImageScope.loads]).
@@ -257,10 +288,12 @@ class _PostImageState extends State<PostImage> {
     }
     _loads = scope?.loads;
     final autoLoad = scope?.autoLoad ?? PostImageAutoLoad.always;
-    if (autoLoad != _autoLoad) {
+    final dataSaver = scope?.dataSaver ?? DataSaverMode.off;
+    if (autoLoad != _autoLoad || dataSaver != _dataSaver) {
       _autoLoad = autoLoad;
+      _dataSaver = dataSaver;
       _listenToNetwork();
-    } else if (autoLoad == PostImageAutoLoad.wifiOnly) {
+    } else if (_followsNetwork) {
       NetworkUsage.refreshIfStale();
     }
   }
@@ -274,11 +307,14 @@ class _PostImageState extends State<PostImage> {
     }
   }
 
-  /// Listening to [NetworkUsage] (the pictures load by themselves on Wi-Fi only).
+  /// Listening to [NetworkUsage] (the pictures load by themselves on Wi-Fi only, or the data saver holds them back on
+  /// a metered network).
   bool _listening = false;
 
+  bool get _followsNetwork => _autoLoad == PostImageAutoLoad.wifiOnly || _dataSaver == DataSaverMode.meteredOnly;
+
   void _listenToNetwork() {
-    if (_autoLoad == PostImageAutoLoad.wifiOnly) {
+    if (_followsNetwork) {
       NetworkUsage.refreshIfStale();
       if (!_listening) {
         NetworkUsage.unmetered.addListener(_onNetworkCost);
@@ -296,6 +332,12 @@ class _PostImageState extends State<PostImage> {
     }
   }
 
+  void _onLoadAll() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
     _floor?._remove(this);
@@ -307,8 +349,18 @@ class _PostImageState extends State<PostImage> {
 
   /// Whether the picture is fetched now when not cached; null while the network is being asked about.
   bool? get _fetches {
-    if (_requested || _floor == null) {
+    final floor = _floor;
+    if (_requested || floor == null || floor.loadsAll) {
       return true;
+    }
+    // The data saver first: a page it holds back stays so (a free network again loads nothing by itself).
+    switch (DataSaver.holdsBack(context, _dataSaver)) {
+      case true:
+        return false;
+      case null:
+        return null;
+      case false:
+        break;
     }
     return switch (_autoLoad) {
       PostImageAutoLoad.always => true,
@@ -363,7 +415,12 @@ class _PostImageState extends State<PostImage> {
     hrefUrl: widget.image.linkUrl,
     shownUrl: widget.image.floorUrl,
     onCheckDetail: _openGallery,
+    // A placeholder waiting for a tap offers to load the whole floor.
+    onLoadFloor: _waitsForTap ? _floor?.loadAll : null,
   );
+
+  /// The last build showed the placeholder waiting for a tap (not loaded by itself, not cached).
+  bool _waitsForTap = false;
 
   void _load() => setState(() => _requested = true);
 
@@ -377,6 +434,7 @@ class _PostImageState extends State<PostImage> {
       declaredHeight: widget.declaredHeight,
     );
     final fetches = _fetches;
+    _waitsForTap = false;
     // Waited for while it loads by itself; one waiting for a tap or the network's answer is not coming by itself.
     final loads = (fetches ?? false) ? _loads : null;
     loads?.expect(image.floorUrl);
@@ -401,7 +459,10 @@ class _PostImageState extends State<PostImage> {
         child: switch (fetches) {
           // Not cached, and the network is being asked about: tapping comes once it answered.
           null => const _ImageLoading(null),
-          false => _TapToLoad(image: image, onTap: _load),
+          false => () {
+            _waitsForTap = true;
+            return _TapToLoad(image: image, onTap: _load);
+          }(),
           true => () {
             loads?.settle(image.floorUrl);
             return _ImageFailed(url: image.floorUrl, onRetry: retry);

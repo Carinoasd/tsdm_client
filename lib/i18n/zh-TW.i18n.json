@@ -761,7 +761,13 @@
       "about": "關於",
       "update": "取得更新",
       "updateCheckOnStartup": "應用程式啟動時檢查更新",
-      "changelog": "變更記錄"
+      "changelog": "變更記錄",
+      "dataSaver": {
+        "title": "省流",
+        "off": "關",
+        "meteredOnly": "使用行動網路時",
+        "always": "一律"
+      }
     }
   },
   "aboutPage": {
@@ -1680,7 +1686,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "載入失敗，點擊重試",
-    "tapToLoad": "點擊載入圖片"
+    "tapToLoad": "點擊載入圖片",
+    "loadFloorImages": "載入本樓全部"
   },
   "forumCard": {
     "links": "連結",

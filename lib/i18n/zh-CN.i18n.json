@@ -761,7 +761,13 @@
       "about": "关于",
       "update": "获取更新",
       "updateCheckOnStartup": "应用启动时检查更新",
-      "changelog": "更新日志"
+      "changelog": "更新日志",
+      "dataSaver": {
+        "title": "省流",
+        "off": "关",
+        "meteredOnly": "使用移动网络时",
+        "always": "一律"
+      }
     }
   },
   "aboutPage": {
@@ -1680,7 +1686,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "加载失败，点击重试",
-    "tapToLoad": "点击加载图片"
+    "tapToLoad": "点击加载图片",
+    "loadFloorImages": "加载本楼全部"
   },
   "forumCard": {
     "links": "链接",

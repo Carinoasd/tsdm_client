@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread_preview/widgets/thread_preview_section.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
@@ -424,6 +425,7 @@ class _CardLayout extends StatelessWidget {
     final showExcerpt = state.settingsMap.threadCardShowExcerpt;
     final thumbnailMode = state.settingsMap.threadThumbnailMode;
     final externalImages = state.settingsMap.threadCardExternalThumbnails;
+    final dataSaver = DataSaverMode.fromIndex(state.settingsMap.dataSaverMode);
 
     return _wrapWithCard(
       context,
@@ -468,6 +470,7 @@ class _CardLayout extends StatelessWidget {
               showExcerpt: showExcerpt,
               thumbnailMode: thumbnailMode,
               externalImages: externalImages,
+              dataSaver: dataSaver,
             ),
           if (quotedMessage != null)
             Padding(
