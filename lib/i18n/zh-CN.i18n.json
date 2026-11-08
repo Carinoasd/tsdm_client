@@ -381,6 +381,13 @@
         "followSystem": "跟随系统",
         "selectLanguage": "选择语言"
       },
+      "appIcon": {
+        "title": "App 图标",
+        "defaultIcon": "默认",
+        "dark": "深色",
+        "mono": "单色",
+        "pink": "粉色"
+      },
       "highRefreshRate": {
         "title": "高刷新率",
         "detail": "使用屏幕支持的最高刷新率，滚动更流畅，但会稍微多耗电"
@@ -498,6 +505,12 @@
       "fontFamily": {
         "title": "字体",
         "dialogTitle": "选择字体"
+      },
+      "chineseDisplay": {
+        "title": "简繁显示",
+        "off": "关闭",
+        "traditional": "繁体",
+        "simplified": "简体"
       },
       "textScaleFactor": {
         "title": "文字缩放",
@@ -3337,6 +3350,47 @@
     "issueRecords": "最近颁发记录",
     "issueRecordsEmpty": "还没有颁发记录。",
     "issueLogLine": "${by} → ${to}"
+  },
+  "appLock": {
+    "title": "App 锁",
+    "method": {
+      "title": "解锁方式",
+      "off": "关闭",
+      "pin": "PIN",
+      "biometric": "PIN 与生物识别"
+    },
+    "timing": {
+      "title": "锁定时机",
+      "immediately": "每次离开",
+      "oneMinute": "离开 1 分钟后",
+      "fiveMinutes": "离开 5 分钟后"
+    },
+    "changePin": "更改 PIN",
+    "requireForAccountSwitch": "切换账号前要求解锁",
+    "biometricUnavailable": "此设备无法使用生物识别",
+    "setPin": {
+      "title": "设置 PIN",
+      "pin": "PIN",
+      "confirm": "再次输入 PIN",
+      "invalid": "请输入 4～6 位数字",
+      "mismatch": "两次输入的 PIN 不一致"
+    },
+    "lockScreen": {
+      "enterPin": "输入 PIN",
+      "wrongPin": "PIN 错误",
+      "retryIn": "请在 ${seconds} 秒后重试",
+      "biometric": "生物识别解锁",
+      "reason": "解锁${appName}",
+      "delete": "删除",
+      "confirm": "确定"
+    },
+    "forgot": {
+      "title": "忘记 PIN",
+      "detail": "将移除本机保存的全部账号并关闭 App 锁，之后需要重新登录。",
+      "confirmTitle": "确定移除全部账号？",
+      "confirmDetail": "此操作无法撤销。",
+      "failed": "未能移除全部账号，App 锁仍然有效"
+    }
   },
   "currentAccount": {
     "tooltip": "当前账号：${username}",

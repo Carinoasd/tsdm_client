@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:tsdm_client/utils/platform.dart';
 
 const _mainChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
 
@@ -49,9 +50,26 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
       },
     );
 
+const _methodHasSystemBiometricPrompt = 'hasSystemBiometricPrompt';
+
+/// Whether Android draws the biometric prompt itself (Android 9+); before that the app lock offers the PIN only.
+Future<bool> androidHasSystemBiometricPrompt() async =>
+    await _mainChannel.invokeMethod<bool>(_methodHasSystemBiometricPrompt) ?? false;
+
 const _methodDeviceName = 'deviceName';
 
 /// The maker and the model of this Android device (`Build.MANUFACTURER`, `Build.MODEL`), the model alone when it
 /// starts with the maker already; empty when the system does not tell. For the list of the devices an account logged
 /// in on.
 Future<String> androidDeviceName() async => await _mainChannel.invokeMethod<String>(_methodDeviceName) ?? '';
+
+const _appIconChannel = MethodChannel('kzs.th000.tsdm_client/appIcon');
+
+/// Switch the launcher icon of the app to the icon called [name] (`default`, `dark`, `mono` or `pink`).
+///
+/// Android enables the matching `activity-alias` (the main channel), iOS sets the alternate icon of the app (its own
+/// channel). Returns whether the icon is in use afterwards; platform errors (an unknown name) are thrown.
+Future<bool> setPlatformAppIcon(String name) async {
+  final channel = isIOS ? _appIconChannel : _mainChannel;
+  return await channel.invokeMethod<bool>('setAppIcon', {'name': name}) ?? false;
+}

@@ -17,7 +17,7 @@ import java.time.ZoneId
  * and personal message counts of the account in use and whether it checked in today.
  *
  * It draws what [HomeWidgetStore] holds; the app writes there through [HomeWidgetChannel] and the background message
- * service through [HomeWidgetSyncListener], both calling [refresh]. Taps start [MainActivity] with the shortcut URIs
+ * service through [HomeWidgetSyncListener], both calling [refresh]. Taps start [MainActivityImpl] with the shortcut URIs
  * of `res/xml/shortcuts.xml`, so [ShortcutsHandler] and Dart treat them like the launcher shortcuts: the check-in
  * cell checks in while not checked in yet, the rest of the widget (and the cell once checked in) opens the notices.
  *
@@ -127,14 +127,14 @@ class HomeWidgetProvider : AppWidgetProvider() {
         }
 
         /**
-         * Start [MainActivity] with [data], the way a launcher shortcut does (`ACTION_MAIN` with the `tsdm://shortcut`
+         * Start [MainActivityImpl] with [data], the way a launcher shortcut does (`ACTION_MAIN` with the `tsdm://shortcut`
          * URI, see [ShortcutsHandler.shortcutIdOf]). `CLEAR_TOP` hands the intent to the activity already running
          * (`singleTop`) instead of stacking another one above whatever it opened; an activity above it (a file picker,
          * the share sheet, [InteractiveHtmlActivity]) is closed, as a tap meaning "go to the notices" should.
          */
         private fun open(context: Context, data: String, requestCode: Int): PendingIntent {
             val intent = Intent(Intent.ACTION_MAIN)
-                .setClass(context, MainActivity::class.java)
+                .setClass(context, MainActivityImpl::class.java)
                 .setData(Uri.parse(data))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             return PendingIntent.getActivity(
