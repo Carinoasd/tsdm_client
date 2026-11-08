@@ -21,6 +21,13 @@ int? _milliseconds(Object? at) {
   return ms < -8640000000000000 || ms > 8640000000000000 ? null : ms;
 }
 
+/// The order the latest filters in use are kept by, the same on every device and in the sync document: the later
+/// first, then by key.
+int compareThreadFilterRecords(ThreadFilterRecord a, ThreadFilterRecord b) {
+  final byTime = b.updated.compareTo(a.updated);
+  return byTime != 0 ? byTime : a.key.compareTo(b.key);
+}
+
 /// One record of a thread filter: a keyword or a forum, live or removed.
 ///
 /// A removal is kept as a record ([deleted]) with its time, so the cross-device sync carries it to the other devices
@@ -259,6 +266,19 @@ final class ThreadFilters {
       unreadableKeywordEntries: unreadableKeywordEntries,
       unreadableForumEntries: unreadableForumEntries,
     );
+  }
+
+  /// Whether [other] holds the same records (in any order).
+  bool sameRecordsAs(ThreadFilters other) {
+    bool same(List<ThreadFilterRecord> a, List<ThreadFilterRecord> b) {
+      if (a.length != b.length) {
+        return false;
+      }
+      final byKey = {for (final r in b) r.key: r};
+      return a.every((r) => byKey[r.key]?.sameAs(r) ?? false);
+    }
+
+    return same(keywordRecords, other.keywordRecords) && same(forumRecords, other.forumRecords);
   }
 
   /// Whether nothing is filtered.

@@ -24,6 +24,7 @@ String? _failureText(BuildContext context, UserBlockResult result) {
     UserBlockResult.selfBlock || UserBlockResult.invalid => tr.invalid,
     UserBlockResult.accountChanged => tr.accountChanged,
     UserBlockResult.storageError => tr.storageError,
+    UserBlockResult.limitReached => tr.filter.limitReached,
   };
 }
 
@@ -212,10 +213,6 @@ class _ThreadForumFilterSectionState extends State<ThreadForumFilterSection> {
     }
     // Only what the user changed in the picker: a forum another device added while it was open stays.
     final before = {for (final f in current) f.fid};
-    if (picked.length > threadFilterMax) {
-      showSnackBar(context: context, message: context.t.userBlock.filter.limitReached);
-      return;
-    }
     final names = {for (final o in _options) o.fid: o.name};
     final result = await cubit.changeForums(
       add: {

@@ -694,8 +694,14 @@ final class SyncRepository with LoggerMixin {
     // The filters in use, the latest [threadFilterMax] of each, and the recent removals.
     Map<String, Map<String, dynamic>> filters(String section) {
       final kept = withoutOldDeletions(section).entries;
+      // In the order of the devices' own cap (compareThreadFilterRecords): the same latest ones, ties by key.
+      final live = kept.where((e) => !SyncDocument.isDeleted(e.value)).toList()
+        ..sort((a, b) {
+          final byTime = SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value));
+          return byTime != 0 ? byTime : a.key.compareTo(b.key);
+        });
       return {
-        for (final e in latest(kept.where((e) => !SyncDocument.isDeleted(e.value)), threadFilterMax)) e.key: e.value,
+        for (final e in live.take(threadFilterMax)) e.key: e.value,
         for (final e in kept.where((e) => SyncDocument.isDeleted(e.value))) e.key: e.value,
       };
     }

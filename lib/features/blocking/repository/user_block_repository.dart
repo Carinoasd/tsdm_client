@@ -180,6 +180,9 @@ enum UserBlockResult {
 
   /// The stored list could not be read or written; nothing was changed, or the change is not confirmed.
   storageError,
+
+  /// The thread filters hold [threadFilterMax] already; nothing was changed.
+  limitReached,
 }
 
 /// Local-only and silent user block.
@@ -405,7 +408,7 @@ final class UserBlockRepository with LoggerMixin {
     if (live.length <= threadFilterMax) {
       return records;
     }
-    live.sort((a, b) => b.updated.compareTo(a.updated));
+    live.sort(compareThreadFilterRecords);
     final dropped = live.skip(threadFilterMax).toSet();
     return records.where((e) => !dropped.contains(e)).toList();
   }
@@ -438,7 +441,7 @@ final class UserBlockRepository with LoggerMixin {
         return UserBlockResult.alreadyBlocked;
       }
       if (list.filters.keywords.length >= threadFilterMax) {
-        return UserBlockResult.invalid;
+        return UserBlockResult.limitReached;
       }
       final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
       final records = [
@@ -500,7 +503,7 @@ final class UserBlockRepository with LoggerMixin {
       return UserBlockResult.alreadyBlocked;
     }
     if (current.length - removing.length + adding.length > threadFilterMax) {
-      return UserBlockResult.invalid;
+      return UserBlockResult.limitReached;
     }
     final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
     final known = {for (final r in list.filters.forumRecords) r.fid};
@@ -542,11 +545,13 @@ final class UserBlockRepository with LoggerMixin {
     final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
     // Removals too old to keep are not taken: they would be dropped right after, a change of nothing.
     final merged = list.filters.mergedWith(keywords: _pruned(keywords, at), forums: _pruned(forums, at));
-    if (merged == null) {
+    final next = merged == null ? null : _filtersWith(merged, now: at);
+    // Compared after the cap: a record the cap drops again is no change (no write, no sync run started by it).
+    if (next == null || next.sameRecordsAs(list.filters)) {
       return UserBlockResult.ok;
     }
     await _save(
-      _withFilters(list, _filtersWith(merged, now: at)),
+      _withFilters(list, next),
       users: false,
       filters: true,
     );

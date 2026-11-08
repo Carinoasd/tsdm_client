@@ -188,6 +188,25 @@ void main() {
       expect((await repo.load(_uid)).filters.forumIds, {9, 10});
     });
 
+    test('over the limit with equal times: the same ones are kept every time, a second apply writes nothing', () async {
+      // One batch of forums shares one time: the cap breaks the tie by key, like the sync document.
+      final batch = [for (var i = 1; i <= threadFilterMax + 20; i++) BlockedForum(fid: i, name: 'f$i', updated: 7000)];
+      await repo.applySyncedFilters(ownerUid: _uid, keywords: const [], forums: batch);
+      final kept = (await repo.load(_uid)).filters.forumIds;
+      expect(kept, hasLength(threadFilterMax));
+      final emitted = <UserBlockList>[];
+      final sub = repo.changes.listen(emitted.add);
+      addTearDown(sub.cancel);
+      await repo.applySyncedFilters(ownerUid: _uid, keywords: const [], forums: batch.reversed.toList());
+      await pumpEventQueue();
+      expect(emitted, isEmpty);
+      expect((await repo.load(_uid)).filters.forumIds, kept);
+      expect(
+        await repo.changeForums(ownerUid: _uid, add: {9999: 'x'}),
+        UserBlockResult.limitReached,
+      );
+    });
+
     test('filters merged over the limit keep the latest in use, without records of removals', () async {
       final mine = [for (var i = 0; i < threadFilterMax; i++) BlockedKeyword(text: 'mine$i', updated: 1000 + i)];
       await repo.applySyncedFilters(ownerUid: _uid, keywords: mine, forums: const []);
@@ -198,7 +217,7 @@ void main() {
       expect(f.keywordRecords.where((e) => e.deleted), isEmpty);
       expect(f.hasKeyword('theirs0'), isTrue);
       expect(f.hasKeyword('mine0'), isFalse);
-      expect(await repo.addKeyword(ownerUid: _uid, text: 'one more'), UserBlockResult.invalid);
+      expect(await repo.addKeyword(ownerUid: _uid, text: 'one more'), UserBlockResult.limitReached);
     });
 
     test('each account has its own filters', () async {
@@ -369,6 +388,30 @@ void main() {
       await repo().pull(_uid);
       expect((api.lastPushed['block_keywords'] as Map).keys, ['new']);
     });
+
+    test(
+      'over the limit with equal times, the device and the document keep the same ones: no endless writes',
+      () async {
+        api = _FakeApi();
+        store.filtersByUid[_uid] = ThreadFilters(
+          forumRecords: [
+            for (var i = 1; i <= threadFilterMax + 20; i++) BlockedForum(fid: i, name: 'f$i', updated: 7000),
+          ],
+        );
+        await repo().pull(_uid);
+        final sent = (api.lastPushed['block_forums'] as Map<String, dynamic>).keys.map(int.parse).toSet();
+        expect(sent, hasLength(threadFilterMax));
+        // The device's own cap keeps the same ones.
+        final repoRows = UserBlockRepository(StorageProvider(AppDatabase(NativeDatabase.memory()), {}, {}));
+        addTearDown(repoRows.dispose);
+        await repoRows.applySyncedFilters(
+          ownerUid: _uid,
+          keywords: const [],
+          forums: store.filtersByUid[_uid]!.forumRecords,
+        );
+        expect((await repoRows.load(_uid)).filters.forumIds, sent);
+      },
+    );
 
     test('a pull with nothing new writes nothing, here or to the forum', () async {
       api = _FakeApi();
