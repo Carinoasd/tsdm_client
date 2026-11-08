@@ -32,6 +32,7 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
   List<String> _imported = const [];
   FontImportError? _importError;
   bool _importIoFailed = false;
+  Future<void>? _loadingAll;
 
   @override
   void initState() {
@@ -52,7 +53,8 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
         _imported = imported;
       });
       // Register them all so every row can be previewed.
-      await store.loadAll();
+      final loading = _loadingAll = store.loadAll();
+      await loading;
       if (mounted) {
         setState(() {});
       }
@@ -71,6 +73,11 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
     );
     final path = result?.files.single.path;
     if (path == null || !mounted) {
+      return;
+    }
+    // Importing while the fonts are still being registered could register a family twice.
+    await _loadingAll;
+    if (!mounted) {
       return;
     }
     setState(() {

@@ -107,7 +107,8 @@ class CustomFontStore {
 
   /// Copy the font file [source] into the store, register it and return its family name.
   ///
-  /// A font with the same name is replaced. Throws [FontImportException] when the file is refused; nothing is kept then.
+  /// A font with the same name is replaced only if that family is not registered yet in this session (a font that was
+  /// loaded at startup or by [loadAll] must be deleted and the app restarted first). Throws [FontImportException] when the file is refused; nothing is kept then.
   Future<String> import(File source) async {
     if (!isSupported(source.path)) {
       throw FontImportException(FontImportError.unusable, source.path);
@@ -132,10 +133,17 @@ class CustomFontStore {
     // session only.
     final target = _fileOf(family, p.extension(source.path).toLowerCase());
     final temp = File('${target.path}.tmp');
-    await temp.writeAsBytes(bytes, flush: true);
-    // Same name with the other extension is replaced, not kept beside it.
-    await delete(family);
-    await temp.rename(target.path);
+    try {
+      await temp.writeAsBytes(bytes, flush: true);
+      // Same name with the other extension is replaced, not kept beside it.
+      await delete(family);
+      await temp.rename(target.path);
+    } on Object {
+      if (temp.existsSync()) {
+        await temp.delete();
+      }
+      rethrow;
+    }
     return family;
   }
 

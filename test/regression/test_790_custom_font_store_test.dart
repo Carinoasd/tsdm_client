@@ -89,6 +89,18 @@ void main() {
     expect(fonts.listSync().length, 1);
   });
 
+  test('after a restart and loadAll the same-name import is refused until the font is deleted and restarted', () async {
+    await makeStore().import(makeSource('Baz.ttf'));
+    CustomFontStore.resetRegisteredFamilies();
+    final store = makeStore();
+    await store.loadAll();
+    await expectLater(store.import(makeSource('Baz.ttf', [7])), throwsA(isA<FontImportException>()));
+    await store.delete('Baz');
+    CustomFontStore.resetRegisteredFamilies();
+    await store.import(makeSource('Baz.ttf', [7]));
+    expect(File('${fonts.path}/Baz.ttf').readAsBytesSync(), [7]);
+  });
+
   test('delete removes the file', () async {
     final store = makeStore();
     await store.import(makeSource('A.ttf'));
