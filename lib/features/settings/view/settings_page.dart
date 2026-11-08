@@ -41,6 +41,7 @@ import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/dark_schedule_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_family_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
@@ -51,6 +52,7 @@ import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dial
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
+import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -329,7 +331,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     },
   );
 
-  /// Pick the line height and the paragraph spacing of the post content ([ThreadContentLayoutDialog]) and save them.
+  /// Pick the line height and the paragraph spacing of the post content and the widest the floors grow
+  /// ([ThreadContentLayoutDialog]) and save them.
   Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
     final picked = await showDialog<PostTypography>(
       context: context,
@@ -339,10 +342,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       ),
     );
     if (!context.mounted || picked == null) return;
-    // Both at once: the floors kept alive are laid out again once, not twice.
+    // All at once: the floors kept alive are laid out again once, not for each.
     await getIt.get<SettingsRepository>().setValues<double>([
       (SettingsKeys.threadContentLineHeight, picked.lineHeight),
       (SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing),
+      (SettingsKeys.threadContentMaxWidth, picked.maxWidth),
     ]);
   }
 
@@ -360,7 +364,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
-    final postTypography = state.settingsMap.postTypography;
+    final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
+    final immersiveForums = ImmersiveForums.parse(
+      state.settingsMap.immersiveForums,
+      all: state.settingsMap.immersiveAllForums,
+    );
 
     return AppTileGroup(
       title: tr.title,
@@ -479,19 +487,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentScale, selectedScale));
           },
         ),
-        // Line height and paragraph spacing of the post content: one dialog with both and a preview.
+        // Line height, paragraph spacing and widest floors of the post content: one dialog with them and a preview.
         SectionListTile(
+          key: const ValueKey('settings-reading-layout'),
           leading: const Icon(Icons.format_line_spacing_outlined),
-          title: Text(tr.threadContentLineHeight.title),
-          subtitle: Text(tr.threadContentLineHeight.detail),
-          trailing: _trailingValue(context, postTypography.lineHeight.toStringAsFixed(1)),
-          onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
-        ),
-        SectionListTile(
-          leading: const Icon(Icons.segment_outlined),
-          title: Text(tr.threadContentParagraphSpacing.title),
-          subtitle: Text(tr.threadContentParagraphSpacing.detail),
-          trailing: _trailingValue(context, postTypography.paragraphSpacing.toStringAsFixed(0)),
+          title: Text(tr.threadContentLayout.title),
+          trailing: const Icon(Icons.chevron_right),
           onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
         ),
         SectionSwitchListTile(
@@ -501,6 +502,32 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: postTypography.splitLongParagraphs,
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentSplitLongParagraphs, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-immersive-forums'),
+          leading: const Icon(Icons.chrome_reader_mode_outlined),
+          title: Text(tr.immersiveReading.title),
+          trailing: _trailingValue(
+            context,
+            immersiveForums.all
+                ? tr.immersiveReading.allForums
+                : immersiveForums.exact.isEmpty && immersiveForums.withSubforums.isEmpty
+                ? ''
+                : tr.immersiveReading.forumCount(
+                    count: immersiveForums.exact.length + immersiveForums.withSubforums.length,
+                  ),
+          ),
+          onTap: () async {
+            final result = await showImmersiveForumsDialog(context, immersiveForums);
+            if (result == null || !context.mounted) return;
+            final bloc = context.read<SettingsBloc>();
+            if (result.raw != immersiveForums.raw) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveForums, result.raw));
+            }
+            if (result.all != immersiveForums.all) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveAllForums, result.all));
+            }
+          },
         ),
         SectionListTile(
           leading: const Icon(Icons.article_outlined),

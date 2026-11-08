@@ -39,7 +39,7 @@ typedef _ThreadInfo = (IconData, String, String?);
 /// All actions used in the context menu.
 ///
 /// The context menu is opened by either long press or right click, depending on the platform.
-enum _CtxMenuActions { openInBrowser, viewInfo }
+enum _CtxMenuActions { openInNewTab, openInBrowser, viewInfo }
 
 class _CardLayout extends StatelessWidget {
   const _CardLayout({
@@ -93,7 +93,13 @@ class _CardLayout extends StatelessWidget {
   /// replies posted since its last visit are told ("+N" after the reply count).
   final ReadingProgress? progress;
 
-  Card _wrapWithCard(BuildContext context, Widget child) => Card(
+  /// A middle click opens the thread in a new tab of the wide list page's detail pane.
+  Widget _wrapWithCard(BuildContext context, Widget child) => TwoPaneMiddleClickOpener(
+    query: disableTap ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
+    child: _card(context, child),
+  );
+
+  Card _card(BuildContext context, Widget child) => Card(
     margin: EdgeInsets.zero,
     clipBehavior: Clip.antiAlias,
     child: AdaptiveInkResponse(
@@ -111,6 +117,17 @@ class _CardLayout extends StatelessWidget {
           context: context,
           position: position,
           items: <PopupMenuEntry<_CtxMenuActions>>[
+            if (!disableTap && TwoPaneScope.readOf(context)?.side == TwoPaneSide.list)
+              PopupMenuItem(
+                value: _CtxMenuActions.openInNewTab,
+                child: Row(
+                  children: [
+                    const Icon(Icons.tab_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.threadCard.openInNewTab),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               value: _CtxMenuActions.openInBrowser,
               child: Row(
@@ -139,6 +156,8 @@ class _CardLayout extends StatelessWidget {
         }
 
         switch (choice) {
+          case _CtxMenuActions.openInNewTab:
+            await openThread(context, threadID: threadID, title: title, threadType: threadType, newTab: true);
           case _CtxMenuActions.openInBrowser:
             await launchUrl(
               Uri.parse('$baseUrl/forum.php?mod=viewthread&tid=$threadID'),
@@ -506,21 +525,26 @@ class _CardLayout extends StatelessWidget {
   }
 }
 
-/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own.
+/// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
+Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {
+  // FIXME: Query parameters are not recognized by v2 yet.
+  'tid': threadID,
+  'appBarTitle': title,
+  'threadTypeName': threadType?.name,
+  'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+};
+
+/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own. [newTab] as
+/// [openThreadInPane] has it.
 Future<void> openThread(
   BuildContext context, {
   required String threadID,
   required String title,
   ThreadType? threadType,
+  bool? newTab,
 }) async {
-  // FIXME: Query parameters are not recognized by v2 yet.
-  final query = {
-    'tid': threadID,
-    'appBarTitle': title,
-    'threadTypeName': threadType?.name,
-    'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-  };
-  if (openThreadInPane(context, query)) {
+  final query = threadQuery(threadID: threadID, title: title, threadType: threadType);
+  if (openThreadInPane(context, query, newTab: newTab)) {
     return;
   }
   await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
