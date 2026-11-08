@@ -1,6 +1,8 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
+import 'package:tsdm_client/features/poll/models/poll_voters.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -11,7 +13,7 @@ import 'package:universal_html/parsing.dart';
 /// Account-bound access to a poll. No automatic POST retry or persisted forms.
 class PollRepository {
   /// Inject transports in tests; production binds a client to the active identity.
-  PollRepository({required this.getPage, required this.postForm});
+  PollRepository({required this.getPage, required this.postForm, this.getVoters});
 
   /// Build using the app's existing cookie, identity and error handling.
   ///
@@ -26,6 +28,11 @@ class PollRepository {
   /// to nobody, which the card would show as a poll to log in for.
   factory PollRepository.network(NetClientProvider client) => PollRepository(
     getPage: (url) => fetchTsdmAppPageAnswer(client, url),
+    getVoters: (url) async => switch (await client.get(url).run()) {
+      Right(:final value) when value.data is String => value.data as String,
+      Right(:final value) => throw HttpRequestFailedException(value.statusCode),
+      Left(:final value) => throw value,
+    },
     // The write result of the forum's app API (plugin 2.6.0) is read by [vote]; anything else is the forum's answer.
     postForm: (url, body) async => switch (await client.postForm(url, data: body).run()) {
       Right(:final value) => value.data,
@@ -35,6 +42,9 @@ class PollRepository {
 
   /// GET transport: the forum's answer, a page (text) or the JSON answer of the forum's app API.
   final Future<Object?> Function(String url) getPage;
+
+  /// GET transport of the voters window (an ajax url, answered as xml text); null where voters are not read.
+  final Future<String> Function(String url)? getVoters;
 
   /// POST transport, the forum's answer. Indexed PHP array keys preserve every choice while keeping
   /// the string-valued map required by the Android Kotlin HTTP adapter.
@@ -48,6 +58,15 @@ class PollRepository {
     }
     final document = parseHtmlDocument(tsdmAppPageHtml(answer));
     return pollOfPage(document, servedUid: parseLoggedUidFromDocument(document), uid: uid);
+  }
+
+  /// Page [page] of the voters of option [optionId], from the poll's [votersUrl]. Throws [FormatException] when the
+  /// url is not a voters page or the answer is not a voters window (the forum refused).
+  Future<PollVotersPage> fetchVoters(String votersUrl, String optionId, {int page = 1}) async {
+    final url = pollVotersPageUrl(votersUrl, optionId, page);
+    final get = getVoters;
+    if (url == null || get == null) throw const FormatException('Invalid voters request');
+    return parsePollVoters(await get(url)) ?? (throw const FormatException('No voters window'));
   }
 
   /// The poll of the structured thread page answer [json] ([threadApiAnswerOf]) for the account [uid] now in use:

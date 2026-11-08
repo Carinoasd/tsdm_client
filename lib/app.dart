@@ -30,6 +30,8 @@ import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dar
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/login_device/login_device_coordinator.dart';
+import 'package:tsdm_client/features/login_device/widgets/login_device_revoked_watcher.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -42,6 +44,7 @@ import 'package:tsdm_client/features/notification/repository/notification_reposi
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -59,6 +62,10 @@ import 'package:tsdm_client/features/sync/sync_coordinator.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_fetch.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
@@ -336,6 +343,17 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           dispose: (coordinator) async => coordinator.dispose(),
           lazy: false,
         ),
+        // The devices the accounts logged in on (plugin 3.6.0): this one registered at every login, its login dropped
+        // when another device logged it out. Not lazy, so the start registers it.
+        RepositoryProvider<LoginDeviceCoordinator>(
+          create: (context) {
+            final coordinator = LoginDeviceCoordinator(authentication: context.repo(), storage: getIt());
+            unawaited(coordinator.start());
+            return coordinator;
+          },
+          dispose: (coordinator) async => coordinator.dispose(),
+          lazy: false,
+        ),
         RepositoryProvider<CheckinRepository>(create: (_) => CheckinRepository(storageProvider: getIt())),
         RepositoryProvider<ForumHomeRepository>(
           create: (_) => ForumHomeRepository(),
@@ -566,6 +584,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             create: (context) => RepliedThreadCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
             lazy: false,
           ),
+          // The threads the current account put aside to read later; not lazy so the lists know them at once.
+          BlocProvider(
+            create: (context) => ReadLaterCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
+            lazy: false,
+          ),
           // Where the current account stopped reading the threads it visited: the thread lists mark them, the thread
           // page goes on from there. Not lazy, so the first list shows the marks.
           BlocProvider(
@@ -573,6 +596,38 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               store: StorageReadingProgressStore(getIt()),
               authenticationRepository: context.repo(),
             ),
+            lazy: false,
+          ),
+          // The threads the account in use follows, checked for new replies while the app runs (the background
+          // message service checks them too on Android). Not lazy: the check runs from the start.
+          BlocProvider(
+            create: (context) => FollowedThreadsCubit(
+              store: FollowedThreadStore(getIt()),
+              storage: getIt(),
+              authenticationRepository: context.repo(),
+              fetchFor: followedThreadFetcherOf,
+              announce: (uid, thread) async {
+                if (!autoSyncPostsNotifications) {
+                  // Nothing is posted here: the list shows the new replies.
+                  return true;
+                }
+                await showFollowedThreadNotification(
+                  plugin: flnp,
+                  translations: t,
+                  thread: thread,
+                  uid: uid,
+                  hideContent: getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
+                );
+                return true;
+              },
+              onRead: autoSyncPostsNotifications
+                  ? (tid) => unawaited(
+                      flnp
+                          .cancel(id: followedThreadNoticeId(tid))
+                          .catchError((Object e) => talker.warning('taking back notification failed: $e')),
+                    )
+                  : null,
+            )..start(),
             lazy: false,
           ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use
@@ -792,6 +847,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
             const SyncResumeWatcher(),
+            const LoginDeviceRevokedWatcher(),
             const AppShortcutsWatcher(),
           ],
         ),
