@@ -300,8 +300,7 @@ class MediaPreviewRepository {
 
   static MediaPreviewFetcher _dioFetcher(Duration timeout) {
     // Not the app's client: it carries the forum's cookies and checks, and these are other sites. Built the way the
-    // app builds its own (the proxy, the native client on Android), at the first request: the settings are there then.
-    Dio? dio;
+    // app builds its own (the proxy, the native client on Android), for every request, so a change of the proxy applies at once: the settings are there then.
     Dio build() {
       final base = getIt.isRegistered<SettingsRepository>() ? getIt.get<SettingsRepository>().buildDefaultDio() : Dio();
       return base
@@ -322,7 +321,7 @@ class MediaPreviewRepository {
     final buvid = '${_hex(math.Random.secure(), 32)}infoc';
     return (url) async {
       final bilibili = url.host.endsWith('bilibili.com');
-      final response = await (dio ??= build()).getUri<String>(
+      final response = await build().getUri<String>(
         url,
         options: Options(
           headers: {
