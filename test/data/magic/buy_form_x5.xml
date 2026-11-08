@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<form id="magicform" method="post" action="home.php?mod=magic&amp;action=shop&amp;infloat=yes" onsubmit="ajaxpost('magicform', 'return_magics', 'return_magics', 'onerror');return false;">
+<div class="f_c">
+<h3 class="flb">
+<em id="return_magics">
+购买道具
+</em>
+<span><a href="javascript:;" class="flbc" onclick="hideWindow('magics');return false;" title="关闭">关闭</a></span>
+</h3>
+<div class="c">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="handlekey" value="magics" /><input type="hidden" name="operation" value="buy" />
+<input type="hidden" name="mid" value="prankmagic:pkcat" />
+<dl class="xld cl">
+<dd class="m">
+<div class="mg_img"><img src="source/plugin/prankmagic/magic/magic_pkcat.gif" alt="" /></div>
+</dd>
+<dt class="z">
+<div class="mbm pbm bbda">
+<p>猫娘卡</p>
+<p class="mtn xw0 xg1">对某人使用：一段时间内他在帖子里说的每句话结尾都会加上「喵～」，名字旁挂上猫娘标记。只改显示，不改帖子内容。</p>
+<p class="mtm xw0 mbn">售价: <span>天使币 <span class="xi1 xw1 xs2" id="magicprice">1</span> </span></p>
+<p class="xw0 xg1">我目前有天使币 1002 </p>
+<p class="mtm xw0 mbn">重量: <span class="xi1 xw1 xs2" id="magicweight">10</span></p>
+<p class="xw0 xg1">我的道具包可用容量 50</p>
+</div>
+<div class="xw0">
+<p class="mtn xw0">库存: <span class="xi1 xw1 xs2">998</span> 张</p>
+<p class="mtn">购买 <input id="magicnum" name="magicnum" type="text" size="2" autocomplete="off" value="1" class="px pxs" onkeyup="compute();" /> 张</p>
+</div>
+</dt>
+</dl>
+<input type="hidden" name="operatesubmit" value="yes" />
+</div>
+</div>
+<div class="o pns">
+<button class="pn pnc" type="submit" name="operatesubmit" id="operatesubmit" value="true"><span>购买</span></button>
+</div>
+</form>
+
+<script type="text/javascript" reload="1">
+function succeedhandle_magics(url, msg) {
+hideWindow('magics');
+showDialog(msg, 'notice', null, function () { location.href=url; }, 0);
+showCreditPrompt();
+}
+function confirmMagicOp(e) {
+e = e ? e : window.event;
+showDialog('确认该操作', 'confirm', '', 'ajaxpost(\'magicform\', \'return_magics\', \'return_magics\', \'onerror\');');
+doane(e);
+return false;
+}
+function compute() {
+var totalcredit = 1002;
+var totalweight = 50;
+var magicprice = $('magicprice').innerHTML;
+if($('discountprice')) {
+magicprice = $('discountprice').innerHTML;
+}
+if(isNaN(parseInt($('magicnum').value))) {
+$('magicnum').value = 0;
+return;
+}
+if(!$('magicnum').value || totalcredit < 1 || totalweight < 1) {
+$('magicnum').value = 0;
+return;
+}
+var curprice = $('magicnum').value * magicprice;
+var curweight = $('magicnum').value * $('magicweight').innerHTML;
+if(curprice > totalcredit) {
+$('magicnum').value = parseInt(totalcredit / magicprice);
+} else if(curweight > totalweight) {
+$('magicnum').value = parseInt(totalweight / $('magicweight').innerHTML);
+}
+$('magicnum').value = parseInt($('magicnum').value);
+}
+</script>
+
+]]></root>

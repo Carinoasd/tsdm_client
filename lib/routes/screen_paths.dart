@@ -80,6 +80,9 @@ class ScreenPaths {
   /// Native secondary title shop.
   static const String titleShop = '/titleShop';
 
+  /// The forum's magic shop and the account's magic items.
+  static const String magicCenter = '/magicCenter';
+
   /// Local block list and server notice ignore rules of the current account.
   static const String userBlock = '/userBlock';
 
