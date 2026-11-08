@@ -346,7 +346,9 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     await service.setAsForegroundService();
   }
   await reschedule();
-  followTimer = Timer.periodic(followedThreadHeartbeat, (_) => unawaited(followTick()));
+  if (!stopping) {
+    followTimer = Timer.periodic(followedThreadHeartbeat, (_) => unawaited(followTick()));
+  }
   await tick();
   unawaited(followTick());
 }
