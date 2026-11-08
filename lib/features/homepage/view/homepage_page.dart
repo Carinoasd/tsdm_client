@@ -174,7 +174,7 @@ class _HomepagePageState extends State<HomepagePage> {
   /// * Compact: one column; the greeting carries the day's actions and the today count, the short support entry sits
   ///   right under it, the threads come next (the pinned groups as tabs of one card, [PinTabSection], then the guide)
   ///   and the utility cards follow them, so no tall card pushes the threads down.
-  Widget _buildDashboard(BuildContext context, HomepageState state, double width, HomeBlockLayout homeLayout) {
+  Widget _buildDashboard(BuildContext context, HomepageState state, double width, HomeBlockLayout blockLayout) {
     final layout = homeLayoutFor(width, Theme.of(context).platform);
     final hasStatus = state.forumStatus != const ForumStatus.empty();
     final greeting = HomeGreetingCard(
@@ -261,41 +261,48 @@ class _HomepagePageState extends State<HomepagePage> {
       return result;
     }
 
-    // The arrangement before the homepage could be changed, until it is.
-    final order = homeLayout.isDefault
-        ? switch (layout) {
-            HomeLayout.wide => const [
-              HomeBlock.greeting,
-              HomeBlock.pinned,
-              HomeBlock.guide,
-              HomeBlock.stats,
-              HomeBlock.tools,
-              HomeBlock.support,
-            ],
-            HomeLayout.medium => const [
-              HomeBlock.greeting,
-              HomeBlock.stats,
-              HomeBlock.support,
-              HomeBlock.pinned,
-              HomeBlock.guide,
-              HomeBlock.tools,
-            ],
-            HomeLayout.compact => homeLayout.visible,
-          }
-        : homeLayout.visible;
+    // Until the blocks are moved, each layout keeps the order it always had; hidden blocks only drop out of it.
+    final order = [
+      for (final block
+          in blockLayout.isDefaultOrder
+              ? switch (layout) {
+                  HomeLayout.wide => const [
+                    HomeBlock.greeting,
+                    HomeBlock.pinned,
+                    HomeBlock.guide,
+                    HomeBlock.stats,
+                    HomeBlock.tools,
+                    HomeBlock.support,
+                  ],
+                  HomeLayout.medium => const [
+                    HomeBlock.greeting,
+                    HomeBlock.stats,
+                    HomeBlock.support,
+                    HomeBlock.pinned,
+                    HomeBlock.guide,
+                    HomeBlock.tools,
+                  ],
+                  HomeLayout.compact => HomeBlock.values,
+                }
+              : blockLayout.order)
+        if (blockLayout.isVisible(block)) block,
+    ];
     // The side column of the wide layout takes statistics, tools and the support entry.
     const railBlocks = {HomeBlock.stats, HomeBlock.tools, HomeBlock.support};
-    final wide = layout == HomeLayout.wide;
-    final main = sequence([
+    var main = sequence([
       for (final block in order)
-        if (!wide || !railBlocks.contains(block)) block,
+        if (layout != HomeLayout.wide || !railBlocks.contains(block)) block,
     ]);
-    final rail = wide
+    var rail = layout == HomeLayout.wide
         ? sequence([
             for (final block in order)
               if (railBlocks.contains(block)) block,
           ])
         : null;
+    // Nothing left for the main column: the side blocks take its place instead of hugging the right edge.
+    if (rail != null && main.whereType<Widget>().isEmpty) {
+      (main, rail) = (rail, null);
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

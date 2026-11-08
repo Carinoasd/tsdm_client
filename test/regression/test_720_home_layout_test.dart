@@ -9,10 +9,10 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -430,9 +430,9 @@ void main() {
       }
     }
 
-    Future<void> openHomepage(WidgetTester tester) async {
+    Future<void> openHomepage(WidgetTester tester, {double width = 384}) async {
       tester.view
-        ..physicalSize = const Size(384, 2400)
+        ..physicalSize = Size(width, 2400)
         ..devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final home = HomeCubit();
@@ -559,6 +559,89 @@ void main() {
       expect(find.byKey(const ValueKey('success')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await drain(tester);
+    });
+
+    /// Restores what [openDesktop] changed; the test calls it before it ends (the binding checks the platform then).
+    var desktopDone = () {};
+
+    /// A desktop window [width] wide: the medium and wide arrangements only exist on desktop platforms.
+    Future<void> openDesktop(WidgetTester tester, double width) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      // The pinned card of the desktop arrangement overflows in the fonts of the tests; no part of these checks.
+      final onError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (!details.exceptionAsString().contains('overflowed')) {
+          onError?.call(details);
+        }
+      };
+      desktopDone = () {
+        debugDefaultTargetPlatformOverride = null;
+        FlutterError.onError = onError;
+      };
+      await openHomepage(tester, width: width);
+    }
+
+    Offset topLeftOf(WidgetTester tester, HomeBlock block) => tester.getTopLeft(byBlock[block]!);
+
+    /// The default order with [blocks] hidden.
+    String hidden(List<HomeBlock> blocks) =>
+        blocks.fold(HomeBlockLayout.defaults, (layout, block) => layout.withVisible(block, visible: false)).encode();
+
+    Future<void> setLayout(WidgetTester tester, String raw) => tester.runAsync(() async {
+      await settings.setValue(SettingsKeys.homeLayout, raw);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+
+    testWidgets('medium: statistics and support side by side, hiding one block moves no other', (tester) async {
+      await openDesktop(tester, 800);
+      expect(topLeftOf(tester, HomeBlock.stats).dy, topLeftOf(tester, HomeBlock.support).dy);
+      expect(topLeftOf(tester, HomeBlock.stats).dx, lessThan(topLeftOf(tester, HomeBlock.support).dx));
+      expect(shown(tester).last, HomeBlock.tools);
+      final guideAt = topLeftOf(tester, HomeBlock.guide).dy;
+
+      await setLayout(tester, hidden([HomeBlock.tools]));
+      await settle(tester);
+      expect(byBlock[HomeBlock.tools], findsNothing);
+      expect(topLeftOf(tester, HomeBlock.stats).dy, topLeftOf(tester, HomeBlock.support).dy, reason: 'still a pair');
+      expect(topLeftOf(tester, HomeBlock.greeting).dy, lessThan(topLeftOf(tester, HomeBlock.stats).dy));
+      expect(topLeftOf(tester, HomeBlock.guide).dy, guideAt);
+      expect(tester.takeException(), isNull);
+      await drain(tester);
+      desktopDone();
+    });
+
+    testWidgets('medium: moved blocks pair only when next to each other', (tester) async {
+      await setLayout(tester, 'greeting,stats,guide,support,tools');
+      await openDesktop(tester, 800);
+      expect(topLeftOf(tester, HomeBlock.stats).dy, lessThan(topLeftOf(tester, HomeBlock.guide).dy));
+      expect(topLeftOf(tester, HomeBlock.support).dy, greaterThan(topLeftOf(tester, HomeBlock.guide).dy));
+      expect(tester.takeException(), isNull);
+      await drain(tester);
+      desktopDone();
+    });
+
+    testWidgets('wide: the side column keeps its order when a main block is hidden', (tester) async {
+      await openDesktop(tester, 1200);
+      final railX = topLeftOf(tester, HomeBlock.stats).dx;
+      expect(railX, greaterThan(topLeftOf(tester, HomeBlock.greeting).dx + 400));
+      expect(topLeftOf(tester, HomeBlock.stats).dy, lessThan(topLeftOf(tester, HomeBlock.tools).dy));
+      expect(topLeftOf(tester, HomeBlock.tools).dy, lessThan(topLeftOf(tester, HomeBlock.support).dy));
+
+      await setLayout(tester, hidden([HomeBlock.guide]));
+      await settle(tester);
+      expect(byBlock[HomeBlock.guide], findsNothing);
+      expect(topLeftOf(tester, HomeBlock.stats).dx, railX);
+      expect(topLeftOf(tester, HomeBlock.stats).dy, lessThan(topLeftOf(tester, HomeBlock.tools).dy));
+      expect(topLeftOf(tester, HomeBlock.tools).dy, lessThan(topLeftOf(tester, HomeBlock.support).dy));
+      expect(tester.takeException(), isNull);
+
+      // Only side blocks left: they take the main column, not the right edge.
+      await setLayout(tester, hidden([HomeBlock.greeting, HomeBlock.guide, HomeBlock.pinned]));
+      await settle(tester);
+      expect(topLeftOf(tester, HomeBlock.stats).dx, lessThan(railX));
+      expect(tester.takeException(), isNull);
+      await drain(tester);
+      desktopDone();
     });
   });
 }

@@ -79,8 +79,17 @@ final class HomeBlockLayout {
       if (isVisible(block)) block,
   ];
 
+  /// Whether the blocks are in the default order (some may be hidden).
+  bool get isDefaultOrder => listEquals(order, HomeBlock.values);
+
   /// Whether this is the default: the arrangement of the homepage as it was before it could be changed.
-  bool get isDefault => _hidden.isEmpty && listEquals(order, HomeBlock.values);
+  bool get isDefault => _hidden.isEmpty && isDefaultOrder;
+
+  @override
+  bool operator ==(Object other) => other is HomeBlockLayout && other.encode() == encode();
+
+  @override
+  int get hashCode => encode().hashCode;
 
   /// The setting's value of this layout.
   String encode() => isDefault ? '' : order.map((e) => isVisible(e) ? e.id : '!${e.id}').join(',');
