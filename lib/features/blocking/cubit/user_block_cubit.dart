@@ -211,9 +211,13 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
   Future<UserBlockResult> removeKeyword(String key, {required int? expectedOwner}) =>
       _guarded(expectedOwner, (owner) => _repository.removeKeyword(ownerUid: owner, key: key));
 
-  /// Hide the threads of exactly [forums] (id to name) in the lists of many forums for the account [expectedOwner].
-  Future<UserBlockResult> setForums(Map<int, String> forums, {required int? expectedOwner}) =>
-      _guarded(expectedOwner, (owner) => _repository.setForums(ownerUid: owner, forums: forums));
+  /// Hide the threads of the forums of [add] (id to name) and show those of [remove] again in the lists of many forums
+  /// for the account [expectedOwner].
+  Future<UserBlockResult> changeForums({
+    required int? expectedOwner,
+    Map<int, String> add = const {},
+    Set<int> remove = const {},
+  }) => _guarded(expectedOwner, (owner) => _repository.changeForums(ownerUid: owner, add: add, remove: remove));
 
   @override
   Future<void> close() async {

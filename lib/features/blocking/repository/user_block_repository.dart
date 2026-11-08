@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/features/blocking/models/thread_filter.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -397,14 +398,26 @@ final class UserBlockRepository with LoggerMixin {
       if (!r.deleted || r.updated >= now - threadFilterTombstoneKeptFor.inMilliseconds) r,
   ];
 
+  /// [records] within [threadFilterMax] in use: the latest added are kept, the others dropped without a record of a
+  /// removal (two devices' filters merged over the limit; the sync document keeps the same latest ones).
+  static List<T> _capped<T extends ThreadFilterRecord>(List<T> records) {
+    final live = records.where((e) => !e.deleted).toList();
+    if (live.length <= threadFilterMax) {
+      return records;
+    }
+    live.sort((a, b) => b.updated.compareTo(a.updated));
+    final dropped = live.skip(threadFilterMax).toSet();
+    return records.where((e) => !dropped.contains(e)).toList();
+  }
+
   ThreadFilters _filtersWith(
     ThreadFilters base, {
     required int now,
     Iterable<BlockedKeyword>? keywords,
     Iterable<BlockedForum>? forums,
   }) => ThreadFilters(
-    keywordRecords: _pruned(keywords ?? base.keywordRecords, now),
-    forumRecords: _pruned(forums ?? base.forumRecords, now),
+    keywordRecords: _capped(_pruned(keywords ?? base.keywordRecords, now)),
+    forumRecords: _capped(_pruned(forums ?? base.forumRecords, now)),
     unreadableKeywordEntries: base.unreadableKeywordEntries,
     unreadableForumEntries: base.unreadableForumEntries,
   );
@@ -413,7 +426,10 @@ final class UserBlockRepository with LoggerMixin {
   Future<UserBlockResult> addKeyword({required int? ownerUid, required String text, DateTime? now}) => _serialized(
     () async {
       final keyword = text.trim();
-      if (ownerUid == null || ownerUid <= 0 || keyword.isEmpty || keyword.runes.length > threadFilterKeywordMaxLength) {
+      if (ownerUid == null ||
+          ownerUid <= 0 ||
+          keyword.isEmpty ||
+          keyword.characters.length > threadFilterKeywordMaxLength) {
         return UserBlockResult.invalid;
       }
       final list = await load(ownerUid);
@@ -461,48 +477,58 @@ final class UserBlockRepository with LoggerMixin {
         return UserBlockResult.ok;
       });
 
-  /// Hide the threads of exactly the forums of [forums] (id to name) in the lists of many forums for account
-  /// [ownerUid]: forums missing from it are removed, forums new in it added.
-  Future<UserBlockResult> setForums({required int? ownerUid, required Map<int, String> forums, DateTime? now}) =>
-      _serialized(() async {
-        if (ownerUid == null || ownerUid <= 0) {
-          return UserBlockResult.invalid;
-        }
-        final picked = {
-          for (final MapEntry(:key, :value) in forums.entries)
-            if (key > 0) key: value,
-        };
-        if (picked.length > threadFilterMax) {
-          return UserBlockResult.invalid;
-        }
-        final list = await load(ownerUid);
-        final current = list.filters.forumIds;
-        if (setEquals(current, picked.keys.toSet())) {
-          return UserBlockResult.alreadyBlocked;
-        }
-        final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
-        final records = <BlockedForum>[
-          for (final r in list.filters.forumRecords)
-            if (!r.deleted && !picked.containsKey(r.fid))
-              BlockedForum(fid: r.fid, name: r.name, updated: at, deleted: true)
-            else if (r.deleted && picked.containsKey(r.fid))
-              BlockedForum(fid: r.fid, name: picked[r.fid]!, updated: at)
-            else
-              r,
-          for (final MapEntry(:key, :value) in picked.entries)
-            if (!list.filters.forumRecords.any((r) => r.fid == key)) BlockedForum(fid: key, name: value, updated: at),
-        ];
-        await _save(
-          _withFilters(list, _filtersWith(list.filters, forums: records, now: at)),
-          users: false,
-          filters: true,
-        );
-        return UserBlockResult.ok;
-      });
+  /// Change the forums whose threads are hidden in the lists of many forums for account [ownerUid]: hide the forums
+  /// of [add] (id to name), stop hiding those of [remove]. Applied to the list as stored now, so a forum another
+  /// device added meanwhile (or one removed a moment before) is left as it is.
+  Future<UserBlockResult> changeForums({
+    required int? ownerUid,
+    Map<int, String> add = const {},
+    Set<int> remove = const {},
+    DateTime? now,
+  }) => _serialized(() async {
+    if (ownerUid == null || ownerUid <= 0) {
+      return UserBlockResult.invalid;
+    }
+    final list = await load(ownerUid);
+    final current = list.filters.forumIds;
+    final adding = {
+      for (final MapEntry(:key, :value) in add.entries)
+        if (key > 0 && !current.contains(key) && !remove.contains(key)) key: value,
+    };
+    final removing = remove.where(current.contains).toSet();
+    if (adding.isEmpty && removing.isEmpty) {
+      return UserBlockResult.alreadyBlocked;
+    }
+    if (current.length - removing.length + adding.length > threadFilterMax) {
+      return UserBlockResult.invalid;
+    }
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    final known = {for (final r in list.filters.forumRecords) r.fid};
+    final records = <BlockedForum>[
+      for (final r in list.filters.forumRecords)
+        if (removing.contains(r.fid))
+          BlockedForum(fid: r.fid, name: r.name, updated: at, deleted: true)
+        else if (adding.containsKey(r.fid))
+          BlockedForum(fid: r.fid, name: adding[r.fid]!, updated: at)
+        else
+          r,
+      for (final MapEntry(:key, :value) in adding.entries)
+        if (!known.contains(key)) BlockedForum(fid: key, name: value, updated: at),
+    ];
+    await _save(
+      _withFilters(list, _filtersWith(list.filters, forums: records, now: at)),
+      users: false,
+      filters: true,
+    );
+    return UserBlockResult.ok;
+  });
 
   /// Take the thread filter records of the cross-device sync, [keywords] and [forums] (removals included): per key,
   /// the later record wins, this device's own on the same time (a change made here while the sync was on its way is
   /// never undone). Nothing is written when nothing changes.
+  ///
+  /// The document merge (`SyncDocument.merge`) keeps the forum's item on the same time instead, on purpose: records of
+  /// one time are the same change either way, and the next run converges on it.
   Future<UserBlockResult> applySyncedFilters({
     required int? ownerUid,
     required List<BlockedKeyword> keywords,

@@ -151,13 +151,54 @@ void main() {
       expect(list.filters.keywordKeys, ['spoiler']);
     });
 
-    test('forums: exactly the picked ones, the others removed as records', () async {
-      expect(await repo.setForums(ownerUid: _uid, forums: {8: 'Board', 9: 'Other'}), UserBlockResult.ok);
-      expect(await repo.setForums(ownerUid: _uid, forums: {8: 'Board', 9: 'Other'}), UserBlockResult.alreadyBlocked);
-      expect(await repo.setForums(ownerUid: _uid, forums: {9: 'Other', 10: 'New'}), UserBlockResult.ok);
+    test('forums: added and removed as changes, removals kept as records', () async {
+      expect(await repo.changeForums(ownerUid: _uid, add: {8: 'Board', 9: 'Other'}), UserBlockResult.ok);
+      expect(await repo.changeForums(ownerUid: _uid, add: {8: 'Board'}), UserBlockResult.alreadyBlocked);
+      expect(await repo.changeForums(ownerUid: _uid, add: {10: 'New'}, remove: {8}), UserBlockResult.ok);
       final f = (await repo.load(_uid)).filters;
       expect(f.forumIds, {9, 10});
       expect(f.forumRecords.firstWhere((e) => e.fid == 8).deleted, isTrue);
+    });
+
+    test('two quick removals both stay removed: each applies to the list as stored then', () async {
+      await repo.changeForums(ownerUid: _uid, add: {8: 'A', 9: 'B', 10: 'C'});
+      await Future.wait([
+        repo.changeForums(ownerUid: _uid, remove: {8}),
+        repo.changeForums(ownerUid: _uid, remove: {9}),
+      ]);
+      expect((await repo.load(_uid)).filters.forumIds, {10});
+    });
+
+    test('a forum synced in while the picker was open is not removed by its answer', () async {
+      await repo.changeForums(ownerUid: _uid, add: {8: 'A'});
+      final before = (await repo.load(_uid)).filters.forumIds;
+      // Another device adds forum 9 while the picker (opened with `before`) is open.
+      await repo.applySyncedFilters(
+        ownerUid: _uid,
+        keywords: const [],
+        forums: [BlockedForum(fid: 9, name: 'B', updated: DateTime.now().millisecondsSinceEpoch)],
+      );
+      // The user picks forum 10 and unticks 8.
+      final picked = {10};
+      await repo.changeForums(
+        ownerUid: _uid,
+        add: {for (final fid in picked.difference(before)) fid: 'C'},
+        remove: before.difference(picked),
+      );
+      expect((await repo.load(_uid)).filters.forumIds, {9, 10});
+    });
+
+    test('filters merged over the limit keep the latest in use, without records of removals', () async {
+      final mine = [for (var i = 0; i < threadFilterMax; i++) BlockedKeyword(text: 'mine$i', updated: 1000 + i)];
+      await repo.applySyncedFilters(ownerUid: _uid, keywords: mine, forums: const []);
+      final theirs = [for (var i = 0; i < threadFilterMax; i++) BlockedKeyword(text: 'theirs$i', updated: 5000 + i)];
+      await repo.applySyncedFilters(ownerUid: _uid, keywords: theirs, forums: const []);
+      final f = (await repo.load(_uid)).filters;
+      expect(f.keywords, hasLength(threadFilterMax));
+      expect(f.keywordRecords.where((e) => e.deleted), isEmpty);
+      expect(f.hasKeyword('theirs0'), isTrue);
+      expect(f.hasKeyword('mine0'), isFalse);
+      expect(await repo.addKeyword(ownerUid: _uid, text: 'one more'), UserBlockResult.invalid);
     });
 
     test('each account has its own filters', () async {
@@ -167,7 +208,7 @@ void main() {
 
     test('blocking and unblocking a user keeps the filters, a filter change keeps the users', () async {
       await repo.addKeyword(ownerUid: _uid, text: 'abc');
-      await repo.setForums(ownerUid: _uid, forums: {8: 'Board'});
+      await repo.changeForums(ownerUid: _uid, add: {8: 'Board'});
       final emitted = <UserBlockList>[];
       final sub = repo.changes.listen(emitted.add);
       addTearDown(sub.cancel);

@@ -188,6 +188,7 @@ final class ThreadFilters {
        keywords = List.unmodifiable(_live(keywordRecords)),
        forums = List.unmodifiable(_live(forumRecords)),
        keywordKeys = List.unmodifiable({for (final k in keywordRecords.where((e) => !e.deleted)) k.key}),
+       _keywordKeySet = Set.unmodifiable({for (final k in keywordRecords.where((e) => !e.deleted)) k.key}),
        forumIds = Set.unmodifiable({for (final f in forumRecords.where((e) => !e.deleted)) f.fid});
 
   /// No filter.
@@ -199,6 +200,7 @@ final class ThreadFilters {
       keywords = const [],
       forums = const [],
       keywordKeys = const [],
+      _keywordKeySet = const {},
       forumIds = const {};
 
   static List<T> _live<T extends ThreadFilterRecord>(List<T> records) =>
@@ -225,6 +227,8 @@ final class ThreadFilters {
   /// [threadFilterKeywordKey] of the keywords in use.
   final List<String> keywordKeys;
 
+  final Set<String> _keywordKeySet;
+
   /// Ids of the forums in use.
   final Set<int> forumIds;
 
@@ -236,7 +240,7 @@ final class ThreadFilters {
       var changed = false;
       for (final r in theirs) {
         final local = byKey[r.key];
-        if (local == null || (local.updated < r.updated && !local.sameAs(r))) {
+        if (local == null || local.updated < r.updated) {
           byKey[r.key] = r;
           changed = true;
         }
@@ -261,7 +265,7 @@ final class ThreadFilters {
   bool get isEmpty => keywordKeys.isEmpty && forumIds.isEmpty;
 
   /// Whether the keyword of [key] is in use.
-  bool hasKeyword(String key) => keywordKeys.contains(key);
+  bool hasKeyword(String key) => _keywordKeySet.contains(key);
 
   /// Whether a thread titled [title] in forum [fid] is hidden: its title contains a keyword (case ignored), or, when
   /// [byForum] (a list of threads of many forums), its forum is filtered.

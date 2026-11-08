@@ -3046,7 +3046,8 @@
       "add": "新增",
       "keywordExists": "已有這個關鍵字",
       "forums": "屏蔽版塊",
-      "pickForums": "選擇"
+      "pickForums": "選擇",
+      "limitReached": "已達上限"
     }
   },
   "medalTitleTools": {

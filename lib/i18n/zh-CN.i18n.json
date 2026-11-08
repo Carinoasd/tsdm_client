@@ -3046,7 +3046,8 @@
       "add": "添加",
       "keywordExists": "已有这个关键字",
       "forums": "屏蔽版块",
-      "pickForums": "选择"
+      "pickForums": "选择",
+      "limitReached": "已达上限"
     }
   },
   "medalTitleTools": {

@@ -3046,7 +3046,8 @@
       "add": "Add",
       "keywordExists": "This keyword is already blocked",
       "forums": "Blocked forums",
-      "pickForums": "Choose"
+      "pickForums": "Choose",
+      "limitReached": "The limit is reached"
     }
   },
   "medalTitleTools": {

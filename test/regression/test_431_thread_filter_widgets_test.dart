@@ -225,7 +225,7 @@ void main() {
   testWidgets('a forum row hides by keyword only, never by its own forum', (tester) async {
     await tester.runAsync(() async {
       await blocks.addKeyword(ownerUid: _alice.uid, text: 'spoiler');
-      await blocks.setForums(ownerUid: _alice.uid, forums: {8: 'Board 8'});
+      await blocks.changeForums(ownerUid: _alice.uid, add: {8: 'Board 8'});
     });
     await pump(
       tester,
@@ -247,7 +247,7 @@ void main() {
   ) async {
     await tester.runAsync(() async {
       await blocks.addKeyword(ownerUid: _alice.uid, text: '劇透');
-      await blocks.setForums(ownerUid: _alice.uid, forums: {8: 'Board 8'});
+      await blocks.changeForums(ownerUid: _alice.uid, add: {8: 'Board 8'});
     });
     final cubit = await pump(
       tester,
@@ -269,7 +269,7 @@ void main() {
     expect(shows('Latest in eight'), isFalse);
     expect(shows('Latest in nine'), isTrue);
 
-    await tester.runAsync(() => cubit.setForums(const {}, expectedOwner: _alice.uid));
+    await tester.runAsync(() => cubit.changeForums(remove: {8}, expectedOwner: _alice.uid));
     await settle(tester);
     expect(shows('Found in eight'), isTrue);
     expect(shows('Latest in eight'), isTrue);
@@ -353,7 +353,7 @@ void main() {
     });
 
     testWidgets('the forums show as chips, one removed from its chip', (tester) async {
-      await tester.runAsync(() => blocks.setForums(ownerUid: _alice.uid, forums: {8: 'Board 8', 9: 'Board 9'}));
+      await tester.runAsync(() => blocks.changeForums(ownerUid: _alice.uid, add: {8: 'Board 8', 9: 'Board 9'}));
       await pump(tester, const UserBlockPage());
       final chip = find.byKey(const ValueKey('thread-filter-forum-8'));
       await scrollTo(tester, chip);

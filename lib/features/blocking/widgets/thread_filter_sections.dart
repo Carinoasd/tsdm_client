@@ -47,6 +47,10 @@ class ThreadKeywordFilterSection extends StatelessWidget {
     final cubit = context.read<UserBlockCubit>();
     // The account is bound before the dialog opens: a choice made for one account is never applied to another one.
     final owner = cubit.owner;
+    if (cubit.state.filters.keywords.length >= threadFilterMax) {
+      showSnackBar(context: context, message: context.t.userBlock.filter.limitReached);
+      return;
+    }
     final text = await showDialog<String>(context: context, builder: (_) => const _KeywordDialog());
     if (text == null || text.trim().isEmpty || !context.mounted) {
       return;
@@ -206,19 +210,28 @@ class _ThreadForumFilterSectionState extends State<ThreadForumFilterSection> {
     if (picked == null || !mounted) {
       return;
     }
-    final names = {for (final o in _options) o.fid: o.name, for (final f in current) f.fid: f.name};
-    final result = await cubit.setForums({for (final fid in picked) fid: names[fid] ?? ''}, expectedOwner: owner);
+    // Only what the user changed in the picker: a forum another device added while it was open stays.
+    final before = {for (final f in current) f.fid};
+    if (picked.length > threadFilterMax) {
+      showSnackBar(context: context, message: context.t.userBlock.filter.limitReached);
+      return;
+    }
+    final names = {for (final o in _options) o.fid: o.name};
+    final result = await cubit.changeForums(
+      add: {
+        for (final fid in picked.difference(before)) fid: names[fid] ?? '',
+      },
+      remove: before.difference(picked),
+      expectedOwner: owner,
+    );
     if (mounted) {
       _report(context, result, quietWhenSame: true);
     }
   }
 
-  Future<void> _remove(List<BlockedForum> current, int fid) async {
+  Future<void> _remove(int fid) async {
     final cubit = context.read<UserBlockCubit>();
-    final result = await cubit.setForums({
-      for (final f in current)
-        if (f.fid != fid) f.fid: f.name,
-    }, expectedOwner: cubit.owner);
+    final result = await cubit.changeForums(remove: {fid}, expectedOwner: cubit.owner);
     if (mounted) {
       _report(context, result, quietWhenSame: true);
     }
@@ -256,7 +269,7 @@ class _ThreadForumFilterSectionState extends State<ThreadForumFilterSection> {
                   InputChip(
                     key: ValueKey('thread-filter-forum-${f.fid}'),
                     label: Text(f.name.isEmpty ? context.t.searchPage.filter.forumId(fid: f.fid) : f.name),
-                    onDeleted: () async => _remove(forums, f.fid),
+                    onDeleted: () async => _remove(f.fid),
                   ),
               ],
             ),
