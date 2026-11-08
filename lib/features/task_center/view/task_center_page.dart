@@ -85,6 +85,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
       TaskActionOutcome.inProgress => (tr.inProgress(name: name), AppNoticeTone.warning, Icons.timelapse),
       TaskActionOutcome.failed => (tr.failed(name: name), AppNoticeTone.error, Icons.error_outline),
       TaskActionOutcome.refused => (tr.refused(name: name), AppNoticeTone.error, Icons.block_outlined),
+      // Never kept as a result (the cubit shows the login instead); listed for an exhaustive switch.
       TaskActionOutcome.loginRequired => (context.t.general.needLogin, AppNoticeTone.warning, Icons.login),
       TaskActionOutcome.unconfirmed => (tr.unconfirmed(name: name), AppNoticeTone.warning, Icons.help_outline),
     };

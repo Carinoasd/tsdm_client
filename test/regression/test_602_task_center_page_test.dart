@@ -30,16 +30,20 @@ final class _Harness {
   final Completer<TaskWriteAnswer>? answer;
   final sent = <String>[];
   String doing = 'list_doing_complete_x5.html';
+  Completer<void>? holdAvailable;
 
   late final cubit = TaskCenterCubit(
     currentUid: () => 31,
     repository: () => TaskCenterRepository(
-      getPage: (url) async =>
-          _files[switch (Uri.parse(url).queryParameters['item']) {
-            'new' => 'list_new_x5.html',
-            'doing' => doing,
-            _ => 'list_done_x5.html',
-          }]!,
+      getPage: (url) async {
+        final item = Uri.parse(url).queryParameters['item'];
+        if (item == 'new') await holdAvailable?.future;
+        return _files[switch (item) {
+          'new' => 'list_new_x5.html',
+          'doing' => doing,
+          _ => 'list_done_x5.html',
+        }]!;
+      },
       getWrite: (url) async {
         sent.add(url);
         final pending = answer;
@@ -115,12 +119,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('上传头像'), findsOneWidget);
     expect(find.byKey(const ValueKey('task-center-result')), findsNothing, reason: 'shown on its own tab only');
-    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.refresh)).onPressed, isNotNull);
     await tester.tap(find.text(t.taskCenter.tabDoing));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('task-center-result-close')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('task-center-result')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await h.cubit.close();
+  });
+
+  testWidgets('the refresh button follows the tab shown, not a load in another tab', (tester) async {
+    final h = _Harness();
+    await _pump(tester, h.cubit);
+    await tester.tap(find.text(t.taskCenter.tabDoing));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.taskCenter.tabAvailable));
+    await tester.pumpAndSettle();
+    final hold = h.holdAvailable = Completer<void>();
+    Finder refresh() => find.widgetWithIcon(IconButton, Icons.refresh);
+    await tester.tap(refresh());
+    await tester.pump();
+    expect(tester.widget<IconButton>(refresh()).onPressed, isNull, reason: 'this tab is loading');
+    await tester.tap(find.text(t.taskCenter.tabDoing));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.widget<IconButton>(refresh()).onPressed, isNotNull, reason: 'the in-progress list is loaded');
+    hold.complete();
+    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
     await h.cubit.close();
   });
