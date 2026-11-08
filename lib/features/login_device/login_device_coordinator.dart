@@ -54,6 +54,10 @@ final class LoginDeviceCoordinator with LoggerMixin {
   /// Of [_revoked], those whose login was dropped already: a login of one of them after that is a new one.
   final _dropped = <int>{};
 
+  /// `uid/id` of every answer `device_revoked` followed in this run: a late answer of a request sent before is not
+  /// followed again, after a new login of the account neither.
+  final _followed = <String>{};
+
   final _revocations = StreamController<LoginDeviceRevocation>.broadcast();
 
   /// The accounts the forum logged this device out of, as they are dropped.
@@ -88,6 +92,9 @@ final class LoginDeviceCoordinator with LoggerMixin {
     unawaited(register(uid));
   }
 
+  /// The errors of a register that refuse its fields, the same whenever it is sent again.
+  static const _refusals = {'platform', 'app_version', 'device', 'limit'};
+
   /// Register this device for [uid], once per run and id. Does nothing on a platform the plugin does not know.
   Future<void> register(int uid) async {
     final id = LoginDeviceIdentity.id;
@@ -111,27 +118,35 @@ final class LoginDeviceCoordinator with LoggerMixin {
         // Not asked again in this run: every homepage load tells the account authenticated again, and a forum
         // without devices would get a `status` for each.
         debug('the forum keeps no devices');
-      case LoginDeviceFailed(error: ''):
-        // The request failed: asked again at the next homepage load or login.
-        _registered.remove('$uid/$id');
-      case LoginDeviceFailed(:final error):
-        // The plugin refused it (`platform`, `limit`, `busy`…): not again in this run, it would refuse again.
+      case LoginDeviceFailed(:final error) when _refusals.contains(error):
+        // The plugin refused what this device sends: not again in this run, it would refuse again.
         debug('device register refused: $error');
+      case LoginDeviceFailed(:final error):
+        // The request failed, or the session did (`login`, `formhash`, `busy`): asked again at the next homepage
+        // load or login.
+        debug('device register failed: $error');
+        _registered.remove('$uid/$id');
     }
   }
 
   void _onRevoked(int uid, String device) {
-    if (device != LoginDeviceIdentity.id) {
+    // Another id is no answer to this device; an account is followed once for each of its ids. Two accounts logged
+    // out together (the polls of every account) both name the old id: the second one is dropped too, or it would go
+    // on with the new id, which the forum does not refuse.
+    if (!LoginDeviceIdentity.isOwn(device) || !_followed.add('$uid/$device')) {
       return;
     }
     _revoked.add(uid);
-    unawaited(_dropLogin(uid));
+    _dropped.remove(uid);
+    unawaited(_dropLogin(uid, renew: device == LoginDeviceIdentity.id));
   }
 
-  Future<void> _dropLogin(int uid) async {
+  Future<void> _dropLogin(int uid, {required bool renew}) async {
     try {
-      // The new id first: every request from now on carries it, and the answers of the old one are not told again.
-      await LoginDeviceIdentity.renew(_storage);
+      // The new id first, at once: every request from now on carries it. Only when the id in use was logged out.
+      if (renew) {
+        await LoginDeviceIdentity.renew(_storage);
+      }
       _registered.removeWhere((e) => e.startsWith('$uid/'));
       String? username;
       if (uid == _authentication.effectiveCurrentUid) {

@@ -275,19 +275,27 @@ abstract final class TsdmAppApi {
   ///
   /// An answer with an HTTP status in [acceptStatus] is given back like a 200 (the `sync` action of plugin 3.4.0
   /// answers a conflict as 409 and an oversized document as 413, each with its JSON); any other error status is a
-  /// failed request.
+  /// failed request. [headers] go with the request (the device id a `register` names, plugin 3.6.0).
   static Future<Map<String, dynamic>?> post(
     NetClientProvider client,
     String action,
     Map<String, String> form, {
     Set<int> acceptStatus = const {},
+    Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable) {
       return null;
     }
     // The plugin's own API answers JSON as it is: never asked for a write result.
     switch (await client
-        .postForm(url(action), data: form, singleAttempt: true, tsdmAppJson: false, acceptStatus: acceptStatus)
+        .postForm(
+          url(action),
+          data: form,
+          singleAttempt: true,
+          tsdmAppJson: false,
+          acceptStatus: acceptStatus,
+          headers: headers,
+        )
         .run()) {
       case Left(:final value):
         talker.debug('tsdmapp api $action (post) failed: $value');

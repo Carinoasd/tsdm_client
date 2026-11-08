@@ -36,9 +36,16 @@ abstract final class LoginDeviceIdentity {
   @visibleForTesting
   static set id(String? value) => _id = value;
 
-  /// Called with the account and the id of an answer `device_revoked` for the id in use ([LoginDeviceInterceptor]);
-  /// set by the `LoginDeviceCoordinator` of the app. An answer for an id already replaced is not passed on.
+  /// Called with the account and the id of every answer `device_revoked` that names an account
+  /// ([LoginDeviceInterceptor]); set by the `LoginDeviceCoordinator` of the app, which tells the answers of the ids
+  /// this device used apart (the id in use, and those it replaced in this run) and each account once.
   static void Function(int uid, String device)? onRevoked;
+
+  static final _retired = <String>{};
+
+  /// Whether [device] is the id in use, or one [renew] replaced in this run: the answers of the requests in flight
+  /// when it was replaced still name it, for every account they were sent as.
+  static bool isOwn(String device) => device == _id || _retired.contains(device);
 
   /// Read the stored id, or make one and store it.
   static Future<void> load(StorageProvider storage) async {
@@ -53,6 +60,9 @@ abstract final class LoginDeviceIdentity {
   /// Make a new id, in use at once, and store it.
   static Future<String> renew(StorageProvider storage) async {
     final next = const Uuid().v4().toLowerCase();
+    if (_id case final previous?) {
+      _retired.add(previous);
+    }
     _id = next;
     await storage.saveString(storageKey, next);
     return next;
@@ -86,9 +96,9 @@ abstract final class LoginDeviceIdentity {
 /// keeps devices ([TsdmAppApi.knowsDevice]), and turns an answer `device_revoked` into a failed request
 /// ([LoginDeviceRevokedException]): the forum did not handle it, and the answer is no page any reader knows.
 ///
-/// A request that sets the header itself keeps it (the `register` of the coordinator names the id it registers). The
-/// answer is told to [LoginDeviceIdentity.onRevoked] only when it is for the id in use: the answers of the requests in
-/// flight when the id was replaced fail without being told again. Nothing waits here: the logout runs on its own.
+/// A request that sets the header itself keeps it (the `register` names the id it registers). Every answer naming an
+/// account is told to [LoginDeviceIdentity.onRevoked], which decides what to do of it; nothing waits here: the logout
+/// runs on its own.
 final class LoginDeviceInterceptor extends Interceptor with LoggerMixin {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -111,7 +121,7 @@ final class LoginDeviceInterceptor extends Interceptor with LoggerMixin {
       return;
     }
     warning('the forum answered that this device was logged out of the account: ${response.requestOptions.uri.path}');
-    if (revoked.device == LoginDeviceIdentity.id) {
+    if (revoked.uid > 0 && revoked.device.isNotEmpty) {
       LoginDeviceIdentity.onRevoked?.call(revoked.uid, revoked.device);
     }
     handler.reject(

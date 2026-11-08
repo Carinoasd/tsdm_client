@@ -42,7 +42,8 @@ final class LoginDevicesState {
   /// Ids of the devices a write is on its way for.
   final Set<String> writing;
 
-  /// Grows by one for every write that failed (the list is as before); the page shows a hint on its change.
+  /// Grows by one for every write, or reading again, that failed (the list is as before); the page shows a hint on
+  /// its change.
   final int writeSeq;
 
   /// The devices still logged in.
@@ -85,11 +86,18 @@ final class LoginDevicesCubit extends Cubit<LoginDevicesState> {
     ...devices.where((e) => !e.current),
   ];
 
-  /// Read the list.
+  /// Read the list. Read again (pulled down) the list stays while it is asked, and a failure keeps it with a hint.
   Future<void> load() async {
-    emit(state.copyWith(status: LoginDevicesStatus.loading));
+    final again = state.status == LoginDevicesStatus.ready;
+    if (!again) {
+      emit(state.copyWith(status: LoginDevicesStatus.loading));
+    }
     final result = await _repository.list(uid);
     if (isClosed) {
+      return;
+    }
+    if (again && result is LoginDeviceFailed) {
+      emit(state.copyWith(writeSeq: state.writeSeq + 1));
       return;
     }
     emit(switch (result) {

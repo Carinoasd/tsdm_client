@@ -255,7 +255,7 @@ void main() {
       expect(loginDeviceRevokedOf(Uint8List(3)), isNull);
     });
 
-    test('fails the request; told once, for the id in use only', () async {
+    test('fails the request; every answer naming an account is told, the coordinator decides', () async {
       final told = <(int, String)>[];
       LoginDeviceIdentity.onRevoked = (uid, device) => told.add((uid, device));
       LoginDeviceIdentity.id = _otherId;
@@ -271,11 +271,13 @@ void main() {
       // The API: no answer.
       expect(await TsdmAppApi.ask(client, 'notify'), isNull);
       expect(await TsdmAppApi.post(client, 'seen', {'formhash': 'f1f2f3f4'}), isNull);
-      expect(told, hasLength(3), reason: 'the same id still: told again, the coordinator ignores it');
+      expect(told, hasLength(3));
 
-      // The id was replaced meanwhile: an answer for the old one fails without being told.
-      LoginDeviceIdentity.id = _thisId;
-      expect(await TsdmAppApi.ask(client, 'notify'), isNull);
+      // An answer naming no account fails without being told.
+      final nobody = _Forum(
+        (o) => _ok(_action(o) == 'status' ? _status() : {..._json('device_v20_revoked.json'), 'uid': 0}),
+      );
+      expect(await TsdmAppApi.ask(_client(nobody), 'notify'), isNull);
       expect(told, hasLength(3));
     });
   });
@@ -488,6 +490,45 @@ void main() {
       expect(forum.requests, hasLength(sent));
     });
 
+    test('two accounts logged out with the same id, one after the other: both dropped, the id renewed once', () async {
+      await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
+      await storage.saveCookie(username: 'bob', uid: 35, cookie: {'${cookiePrefix}_auth': 'b1'});
+      final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
+      final coordinator = LoginDeviceCoordinator(
+        authentication: AuthenticationRepository(),
+        storage: storage,
+        repository: LoginDeviceRepository(buildClient: (_) => _client(forum)),
+        deviceName: () async => '',
+      );
+      addTearDown(coordinator.dispose);
+      final told = <LoginDeviceRevocation>[];
+      coordinator.revocations.listen(told.add);
+      await coordinator.start();
+      final old = LoginDeviceIdentity.id!;
+
+      LoginDeviceIdentity.onRevoked!(31, old);
+      await pumpEventQueue();
+      final renewed = LoginDeviceIdentity.id!;
+      expect(renewed, isNot(old));
+      // The answer for 35 to a request sent with the old id arrives after the renewal.
+      LoginDeviceIdentity.onRevoked!(35, old);
+      LoginDeviceIdentity.onRevoked!(35, old);
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(LoginDeviceIdentity.id, renewed, reason: 'renewed once');
+      expect(told, [(uid: 31, username: 'alice'), (uid: 35, username: 'bob')]);
+      expect(await storage.hasCookieOfUid(31), isFalse);
+      expect(await storage.hasCookieOfUid(35), isFalse);
+
+      // Neither is registered with the new id until it is logged in again; an id this device never had is no answer.
+      await coordinator.register(31);
+      await coordinator.register(35);
+      LoginDeviceIdentity.onRevoked!(40, '11111111-2222-4333-8444-555555555555');
+      await pumpEventQueue();
+      expect(forum.deviceCalls, isEmpty);
+      expect(told, hasLength(2));
+    });
+
     test('another stored account logged out: the account in use registered with the new id, that one not', () async {
       await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
       final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
@@ -684,7 +725,7 @@ void main() {
       expect(find.byType(ListTile), findsNWidgets(2));
     });
 
-    testWidgets('a failed write tells it and keeps the list', (tester) async {
+    test('a failed write, or reading again, tells it and keeps the list', () async {
       final forum = _Forum(
         (o) => o.method == 'GET' ? _ok(_json('device_v20_list.json')) : _ok({'ok': 0, 'error': 'nodevice'}),
       );
@@ -693,12 +734,12 @@ void main() {
         uid: 31,
       );
       addTearDown(cubit.close);
-      await tester.runAsync(cubit.load);
+      await cubit.load();
       expect(cubit.state.status, LoginDevicesStatus.ready);
       expect(cubit.state.devices.first.current, isTrue, reason: 'this one first');
       final other = cubit.state.devices.last;
       // A revoke answered `nodevice`: removed meanwhile, off the list.
-      await tester.runAsync(() => cubit.revoke(other));
+      await cubit.revoke(other);
       expect(cubit.state.devices, hasLength(1));
       // A remove the forum refuses otherwise: the list as before, a hint.
       final refusing = LoginDevicesCubit(
@@ -712,10 +753,32 @@ void main() {
         uid: 31,
       );
       addTearDown(refusing.close);
-      await tester.runAsync(refusing.load);
-      await tester.runAsync(() => refusing.remove(refusing.state.devices.last));
+      await refusing.load();
+      await refusing.remove(refusing.state.devices.last);
       expect(refusing.state.devices, hasLength(2));
       expect(refusing.state.writeSeq, 1);
+
+      // Read again and failed: the list stays, with a hint.
+      var down = false;
+      final flaky = LoginDevicesCubit(
+        repository: LoginDeviceRepository(
+          buildClient: (_) => _client(
+            _Forum((o) => _ok(down ? {'ok': 0, 'error': 'login'} : _json('device_v20_list.json'))),
+          ),
+        ),
+        uid: 31,
+      );
+      addTearDown(flaky.close);
+      await flaky.load();
+      down = true;
+      final states = <LoginDevicesStatus>[];
+      final sub = flaky.stream.listen((e) => states.add(e.status));
+      await flaky.load();
+      await sub.cancel();
+      expect(states, isNot(contains(LoginDevicesStatus.loading)));
+      expect(flaky.state.status, LoginDevicesStatus.ready);
+      expect(flaky.state.devices, hasLength(2));
+      expect(flaky.state.writeSeq, 1);
     });
   });
 

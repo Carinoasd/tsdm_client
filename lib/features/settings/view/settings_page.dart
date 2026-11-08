@@ -17,6 +17,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
@@ -108,6 +109,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   final _permissionCubit = AndroidPermissionCubit();
   String? _logExportPath;
+
+  /// A login or logout while the page shows: the devices row follows the account in use.
+  StreamSubscription<AuthStatus>? _authSub;
 
   Future<(AppLocale?, bool)?> selectLanguageDialog(BuildContext context, String currentLocale) async {
     return showDialog<(AppLocale?, bool)>(
@@ -1466,11 +1470,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
+    _authSub = context.readOrNull<AuthenticationRepository>()?.status.listen((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_authSub?.cancel());
     unawaited(_permissionCubit.close());
     scrollController.dispose();
     super.dispose();

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/login_device/models/login_device.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -103,15 +104,19 @@ final class LoginDeviceRepository with LoggerMixin {
     if (stillCurrent != null && !stillCurrent()) {
       return const LoginDeviceFailed('replaced');
     }
-    return _write(client, {
-      'formhash': tsdmAppText(status['formhash']),
-      'op': 'register',
-      'device': device,
-      'platform': platform,
-      'app_version': appVersion,
-      // Without a name the plugin keeps the one it has; an empty one would clear it.
-      if (name.isNotEmpty) 'name': name,
-    });
+    return _write(
+      client,
+      headers: {LoginDeviceIdentity.header: device},
+      {
+        'formhash': tsdmAppText(status['formhash']),
+        'op': 'register',
+        'device': device,
+        'platform': platform,
+        'app_version': appVersion,
+        // Without a name the plugin keeps the one it has; an empty one would clear it.
+        if (name.isNotEmpty) 'name': name,
+      },
+    );
   }
 
   /// Log [device] out of [uid].
@@ -127,8 +132,12 @@ final class LoginDeviceRepository with LoggerMixin {
         final json => LoginDeviceFailed(tsdmAppText(json['error'])),
       };
 
-  Future<LoginDeviceResult<LoginDevice>> _write(NetClientProvider client, Map<String, String> form) async {
-    final json = await _send(client, form);
+  Future<LoginDeviceResult<LoginDevice>> _write(
+    NetClientProvider client,
+    Map<String, String> form, {
+    Map<String, String> headers = const {},
+  }) async {
+    final json = await _send(client, form, headers: headers);
     if (json == null) {
       return const LoginDeviceFailed('');
     }
@@ -142,8 +151,13 @@ final class LoginDeviceRepository with LoggerMixin {
     return device == null ? const LoginDeviceFailed('') : LoginDeviceDone(device);
   }
 
-  Future<Map<String, dynamic>?> _send(NetClientProvider client, Map<String, String> form, {bool again = true}) async {
-    final json = await TsdmAppApi.post(client, action, form, acceptStatus: const {429});
+  Future<Map<String, dynamic>?> _send(
+    NetClientProvider client,
+    Map<String, String> form, {
+    Map<String, String> headers = const {},
+    bool again = true,
+  }) async {
+    final json = await TsdmAppApi.post(client, action, form, acceptStatus: const {429}, headers: headers);
     if (json != null && json['ok'] == 0 && json['error'] == 'busy') {
       final wait = tsdmAppInt(json['retry_after']);
       if (!again || wait > maxBusyWait) {
@@ -151,7 +165,7 @@ final class LoginDeviceRepository with LoggerMixin {
         return json;
       }
       await Future<void>.delayed(Duration(milliseconds: (wait < 0 ? 0 : wait) * 1000 + 300));
-      return _send(client, form, again: false);
+      return _send(client, form, headers: headers, again: false);
     }
     return json;
   }
