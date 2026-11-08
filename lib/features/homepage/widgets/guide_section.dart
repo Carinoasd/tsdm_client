@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/homepage/cubit/guide_index_cubit.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
@@ -190,7 +191,9 @@ class GuideModuleList extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.homepage.guide;
     final colorScheme = Theme.of(context).colorScheme;
-    if (module.items.isEmpty) {
+    final filters = currentBlockList(context).filters;
+    final shown = module.items.where((e) => !filters.hides(title: e.title, fid: int.tryParse(e.fid ?? ''))).toList();
+    if (shown.isEmpty) {
       return Padding(
         padding: edgeInsetsL16T16R16B16,
         child: Text(
@@ -199,7 +202,7 @@ class GuideModuleList extends StatelessWidget {
         ),
       );
     }
-    final items = module.items.take(maxCount).toList();
+    final items = shown.take(maxCount).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,

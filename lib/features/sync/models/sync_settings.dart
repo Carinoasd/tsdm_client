@@ -61,8 +61,8 @@ final class SyncedSetting<T extends Object> {
 /// tied to the device is never one of them:
 ///
 /// * the window (size, position), the network (proxy, headers), the login, the locale and the font (installed per
-///   device), the accent color (it may follow the wallpaper), the refresh rate, the two-pane layout (the width of the
-///   screen);
+///   device), the accent color (it may follow the wallpaper), the refresh rate, the two-pane layout and the widest
+///   floors (the width of the screen);
 /// * the notifications, the auto sync and the background service, the update check, the debug switch;
 /// * the image cache and the offline threads (the storage of the device), the homepage group last opened;
 /// * the quick phrases (their own section) and the switches of the sync itself.
@@ -124,6 +124,8 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: ThreadOpenPosition.values.length - 1,
   ),
   SyncedSetting._(SettingsKeys.threadSwipePaging, (s) => s.threadSwipePaging),
+  SyncedSetting._(SettingsKeys.immersiveForums, (s) => s.immersiveForums),
+  SyncedSetting._(SettingsKeys.immersiveAllForums, (s) => s.immersiveAllForums),
   SyncedSetting._(SettingsKeys.threadFloorInteractionMode, (s) => s.threadFloorInteractionMode),
   SyncedSetting._(
     SettingsKeys.postImageAutoLoad,
