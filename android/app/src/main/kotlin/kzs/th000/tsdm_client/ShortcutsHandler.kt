@@ -49,11 +49,11 @@ class ShortcutsHandler {
     }
 
     /**
-     * Listen on [messenger]. [dartListening]: Dart runs since an activity before and listens already (it asks for the
+     * Listen on [messenger]. [listening]: Dart runs since an activity before and listens already (it asks for the
      * initial shortcut once, at its start): the shortcut this activity was launched with is pushed by [pushPending].
      */
-    fun attach(messenger: BinaryMessenger, dartListening: Boolean = false) {
-        this.dartListening = dartListening
+    fun attach(messenger: BinaryMessenger, listening: Boolean = false) {
+        dartListening = listening
         channel = MethodChannel(messenger, CHANNEL).also {
             it.setMethodCallHandler { call, result ->
                 if (call.method == GET_INITIAL_SHORTCUT) {

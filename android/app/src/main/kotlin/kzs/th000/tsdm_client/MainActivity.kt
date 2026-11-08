@@ -166,7 +166,7 @@ class MainActivity: FlutterActivity() {
                 }
             }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
-        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger, dartListening = dartRunning)
+        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger, listening = dartRunning)
         homeWidget.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         // 处理 Flutter 端对深度链接的查询
