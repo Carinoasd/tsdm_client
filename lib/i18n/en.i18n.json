@@ -271,7 +271,8 @@
       "followedThreads": "Followed threads",
       "readingStats": "Reading stats",
       "checkinCalendar": "Check-in calendar",
-      "ratingStats": "Rating statistics"
+      "ratingStats": "Rating statistics",
+      "visitors": "Recent visitors"
     }
   },
   "home": {
@@ -1400,6 +1401,10 @@
   },
   "friendPage": {
     "title": "Friends",
+    "visitor": {
+      "title": "Recent visitors",
+      "empty": "No visitors yet"
+    },
     "subtitle": "${name} · ${count: int} friends",
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",

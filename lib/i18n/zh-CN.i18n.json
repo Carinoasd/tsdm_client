@@ -271,7 +271,8 @@
       "followedThreads": "追踪的帖子",
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
-      "ratingStats": "评分统计"
+      "ratingStats": "评分统计",
+      "visitors": "最近访客"
     }
   },
   "home": {
@@ -1400,6 +1401,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近访客",
+      "empty": "还没有访客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "还没有好友",

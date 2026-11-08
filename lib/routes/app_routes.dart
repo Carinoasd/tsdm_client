@@ -267,8 +267,11 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.floorBookmarks, builder: (_) => const FloorBookmarkPage()),
   AppRoute(
     path: ScreenPaths.friend,
-    builder: (state) =>
-        FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
+    builder: (state) => FriendPage(
+      uid: state.uri.queryParameters['uid'],
+      username: state.uri.queryParameters['username'],
+      visitor: state.uri.queryParameters['view'] == 'visitor',
+    ),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(
