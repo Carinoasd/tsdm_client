@@ -171,6 +171,8 @@ final class SettingsRepository with LoggerMixin {
       threadFloorInteractionMode: s.extract(_SK.threadFloorInteractionMode),
       threadOpenPosition: s.extract(_SK.threadOpenPosition),
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
+      immersiveForums: s.extract(_SK.immersiveForums),
+      immersiveAllForums: s.extract(_SK.immersiveAllForums),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
       twoPaneListWidth: s.extract(_SK.twoPaneListWidth),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),

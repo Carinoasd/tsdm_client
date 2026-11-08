@@ -378,6 +378,13 @@
         "title": "Unread Info Hint",
         "detail": "Show badge or count for user unread info on notice button"
       },
+      "immersiveReading": {
+        "title": "Immersive reading",
+        "allForums": "All forums",
+        "withSubforums": "With subforums",
+        "forumId": "Forum $fid",
+        "forumCount": "$count forums"
+      },
       "threadCard": {
         "title": "Thread card",
         "detail": "Configure the appearance of thread card",
@@ -1039,6 +1046,7 @@
       "threadUrlBBCode": "Url BBCode",
       "threadUrlBBCodeWithDomain": "Url BBCode (with domain)"
     },
+    "immersiveForum": "Immersive by default in this forum",
     "copyTid": "Copy tid(${tid: String})",
     "favorite": {
       "add": "Add to favorites",
@@ -1882,6 +1890,12 @@
     "avatarBlocked": "Avatar hidden",
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
+  },
+  "netdisk": {
+    "extractCode": "Extract code",
+    "unzipPassword": "Unzip password",
+    "open": "Open",
+    "copyAll": "Copy all cloud storage info"
   },
   "threadExport": {
     "copyPlain": "Copy as plain text",

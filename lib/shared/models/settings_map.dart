@@ -82,6 +82,8 @@ class SettingsMap with SettingsMapMappable {
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
+    this.immersiveForums = '',
+    this.immersiveAllForums = false,
     this.twoPaneLayout = true,
     this.twoPaneListWidth = 0,
     this.themeModeScheduled = false,
@@ -193,6 +195,13 @@ class SettingsMap with SettingsMapMappable {
 
   /// Swipe the floors sideways to change pages. Not required: backups from older versions lack it.
   final bool threadSwipePaging;
+
+  /// Forums whose threads open in immersive reading, see `ImmersiveForums`. Not required: backups from older versions
+  /// lack it.
+  final String immersiveForums;
+
+  /// Every thread opens in immersive reading. Not required: backups from older versions lack it.
+  final bool immersiveAllForums;
 
   /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
   /// versions lack it.
@@ -341,6 +350,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
+      SettingsKeys.immersiveForums => copyWith(immersiveForums: value as String?),
+      SettingsKeys.immersiveAllForums => copyWith(immersiveAllForums: value as bool?),
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),

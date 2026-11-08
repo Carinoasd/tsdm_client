@@ -269,6 +269,14 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// right).
   threadSwipePaging<bool>(name: 'threadSwipePaging', type: bool, defaultValue: false),
 
+  /// Forums whose threads open in immersive reading (the app bar and the reply bar hidden until a tap): the ids
+  /// separated by commas, a `+` after an id taking the subforums along (`12,34+`). Kept as text so the cross-device sync
+  /// carries it. See `ImmersiveForums`.
+  immersiveForums<String>(name: 'immersiveForums', type: String, defaultValue: ''),
+
+  /// Every thread opens in immersive reading, whatever [immersiveForums] holds.
+  immersiveAllForums<bool>(name: 'immersiveAllForums', type: bool, defaultValue: false),
+
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
