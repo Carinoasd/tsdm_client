@@ -728,6 +728,40 @@
           "skip": "Skip, import the rest",
           "restore": "Restore"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "Server URL",
+        "username": "Username",
+        "password": "Password",
+        "directory": "Directory",
+        "invalidUrl": "Enter a URL starting with http:// or https://",
+        "autoBackup": "Automatic backup",
+        "schedule": {
+          "off": "Off",
+          "daily": "Daily",
+          "weekly": "Weekly"
+        },
+        "keep": "Backups to keep",
+        "invalidKeep": "Enter 1 to $max",
+        "test": {
+          "idle": "Test connection",
+          "testing": "Testing…",
+          "ok": "Connected",
+          "unauthorized": "Wrong username or password",
+          "notFound": "Not found or not a WebDAV server",
+          "unreachable": "Server unreachable",
+          "failed": "Connection failed"
+        },
+        "backupNow": "Back up now",
+        "lastBackup": "Last backup: $time",
+        "backupDone": "Backed up to WebDAV",
+        "backupFailed": "Backup failed; nothing was changed",
+        "backupUnauthorized": "Backup failed: wrong WebDAV username or password",
+        "restore": "Restore from WebDAV",
+        "restoreEmpty": "No backups on WebDAV",
+        "listFailed": "Could not read the backups on WebDAV",
+        "downloadFailed": "Could not download the backup"
       }
     },
     "debugSection": {

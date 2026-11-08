@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -23,6 +24,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/connection.dart' as conn;
+import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart' show databaseFile;
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -158,6 +160,9 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     return;
   }
 
+  // The automatic WebDAV backup runs on the ticks too, so it is not limited to the times the app is open.
+  final webdav = WebdavBackupRepository(store: await WebdavBackupStore.forApp(), databaseFile: () => databaseFile);
+
   Timer? timer;
   var period = Duration.zero;
   var ticking = false;
@@ -242,6 +247,8 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
         onLate: (late) => unawaited(report(late)),
         onOutcome: report,
       );
+      // Not waited for: an upload must not hold the next notification tick back. It never throws.
+      unawaited(webdav.runIfDue());
     } on Object catch (e, st) {
       talker.handle(e, st, 'background sync: tick failed');
     } finally {
