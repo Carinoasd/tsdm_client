@@ -377,4 +377,37 @@ void main() {
       await db.close();
     });
   }
+
+  test('upgrade from 18 to 19 creates the read later table, keeping the visits', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(18);
+    schema.rawDatabase.execute(
+      'INSERT INTO thread_visit_history (uid, tid, username, thread_title, fid, forum_name, visit_time) '
+      "VALUES (1000, 1264975, 'Alice', 'title', 2, 'forum', 100)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 19);
+    expect((await db.select(db.threadVisitHistory).get()).single.tid, 1264975);
+    expect(await db.select(db.readLater).get(), isEmpty);
+    await db.close();
+  });
+
+  test('the 18 to 19 step runs again safely when another connection already created the table', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(19);
+    schema.rawDatabase.execute('PRAGMA user_version = 18');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 19);
+    await db.close();
+  });
+
+  for (final from in [10, 16, 17]) {
+    test('upgrade from $from to 19 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 19);
+      await db.close();
+    });
+  }
 }
