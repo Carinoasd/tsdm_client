@@ -152,11 +152,12 @@ void main() {
   });
   setUp(() {
     TsdmAppApi.reset();
+    LoginDeviceIdentity.reset();
     LoginDeviceIdentity.id = _thisId;
     LoginDeviceIdentity.onRevoked = null;
   });
   tearDown(() {
-    LoginDeviceIdentity.id = null;
+    LoginDeviceIdentity.reset();
     LoginDeviceIdentity.onRevoked = null;
   });
 
@@ -529,6 +530,68 @@ void main() {
       expect(told, hasLength(2));
     });
 
+    test(
+      'an account logged out with an id replaced before (another run): asked with it, dropped, not registered',
+      () async {
+        await storage.saveString(LoginDeviceIdentity.storageKey, _thisId);
+        await storage.saveString(LoginDeviceIdentity.retiredStorageKey, _otherId);
+        await storage.saveCookie(username: 'bob', uid: 35, cookie: {'${cookiePrefix}_auth': 'b1'});
+        final forum = _Forum((o) {
+          if (_header(o) == _otherId) {
+            return _ok({..._json('device_v20_revoked.json'), 'uid': 35});
+          }
+          return _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json'));
+        });
+        final coordinator = LoginDeviceCoordinator(
+          authentication: AuthenticationRepository(),
+          storage: storage,
+          repository: LoginDeviceRepository(buildClient: (_) => _client(forum)),
+          deviceName: () async => '',
+        );
+        addTearDown(coordinator.dispose);
+        final told = <LoginDeviceRevocation>[];
+        coordinator.revocations.listen(told.add);
+        await coordinator.start();
+        expect(LoginDeviceIdentity.retired, [_otherId]);
+
+        await coordinator.register(35);
+        await pumpEventQueue();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(forum.requests.where((r) => _header(r) == _otherId), hasLength(1), reason: 'asked with the old id');
+        expect(forum.deviceCalls, isEmpty, reason: 'not registered');
+        expect(told, [(uid: 35, username: 'bob')]);
+        expect(await storage.hasCookieOfUid(35), isFalse);
+        expect(LoginDeviceIdentity.id, _thisId, reason: 'the id in use was not the one logged out');
+
+        // An account not logged out with it: asked with it, then registered.
+        final ok = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
+        final r = await LoginDeviceRepository(buildClient: (_) => _client(ok)).register(
+          31,
+          device: _thisId,
+          platform: 'android',
+          appVersion: '1.52.1+164',
+          name: '',
+          retired: const [_otherId],
+        );
+        expect(r, isA<LoginDeviceDone<LoginDevice>>());
+        expect(ok.requests.map(_header), contains(_otherId));
+        expect(_header(ok.deviceCalls.single), _thisId);
+      },
+    );
+
+    test('the ids replaced: the latest first, at most three, stored', () async {
+      await LoginDeviceIdentity.load(storage);
+      final ids = <String>[LoginDeviceIdentity.id!];
+      for (var i = 0; i < 4; i++) {
+        ids.add(await LoginDeviceIdentity.renew(storage));
+      }
+      expect(LoginDeviceIdentity.retired, [ids[3], ids[2], ids[1]]);
+      LoginDeviceIdentity.reset();
+      await LoginDeviceIdentity.load(storage);
+      expect(LoginDeviceIdentity.id, ids[4]);
+      expect(LoginDeviceIdentity.retired, [ids[3], ids[2], ids[1]]);
+    });
+
     test('another stored account logged out: the account in use registered with the new id, that one not', () async {
       await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
       final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
@@ -620,6 +683,9 @@ void main() {
         ..execute('CREATE TABLE settings (name TEXT PRIMARY KEY, int_value INTEGER, string_value TEXT)')
         ..execute("INSERT INTO settings (name, string_value) VALUES ('${LoginDeviceIdentity.storageKey}', ?)", [
           _otherId,
+        ])
+        ..execute("INSERT INTO settings (name, string_value) VALUES ('${LoginDeviceIdentity.retiredStorageKey}', ?)", [
+          _thisId,
         ])
         ..execute("INSERT INTO settings (name, string_value) VALUES ('dioUserAgent', 'ua')");
       BackupRepository.stripCredentials(db);

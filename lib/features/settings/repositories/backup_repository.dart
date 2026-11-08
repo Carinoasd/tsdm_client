@@ -201,7 +201,7 @@ final class BackupRepository with LoggerMixin {
 
   /// Settings of this installation alone, never in an export (with or without the credentials): the id the forum
   /// knows this device by ([LoginDeviceIdentity]). Another device restoring it would be logged out with this one.
-  static final List<String> deviceSettings = [LoginDeviceIdentity.storageKey];
+  static final List<String> deviceSettings = [LoginDeviceIdentity.storageKey, LoginDeviceIdentity.retiredStorageKey];
 
   /// Make a copy of [databaseFile] for export, without credentials.
   ///

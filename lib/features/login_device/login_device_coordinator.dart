@@ -109,6 +109,7 @@ final class LoginDeviceCoordinator with LoggerMixin {
       platform: platform,
       appVersion: appVersion,
       name: name,
+      retired: LoginDeviceIdentity.retired,
       stillCurrent: () => LoginDeviceIdentity.id == id && !_revoked.contains(uid),
     );
     switch (result) {
@@ -118,6 +119,10 @@ final class LoginDeviceCoordinator with LoggerMixin {
         // Not asked again in this run: every homepage load tells the account authenticated again, and a forum
         // without devices would get a `status` for each.
         debug('the forum keeps no devices');
+      case LoginDeviceFailed(error: 'revoked'):
+        // Logged out with an id before: its login is being dropped.
+        debug('device register: the account was logged out with an id replaced');
+        _registered.remove('$uid/$id');
       case LoginDeviceFailed(:final error) when _refusals.contains(error):
         // The plugin refused what this device sends: not again in this run, it would refuse again.
         debug('device register refused: $error');

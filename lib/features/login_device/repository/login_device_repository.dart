@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
+
 import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/login_device/models/login_device.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -81,6 +85,7 @@ final class LoginDeviceRepository with LoggerMixin {
   /// Register [device] for [uid] (after a login): its platform, the app's version and the device's name.
   ///
   /// The form hash comes from `status`, which tells whether the forum keeps devices (`device: 1`) at the same time.
+  /// [retired] are the ids this device had before ([LoginDeviceIdentity.retired]), asked with first.
   /// [stillCurrent] is asked right before the write: false (the id was replaced meanwhile) sends nothing.
   Future<LoginDeviceResult<LoginDevice>> register(
     int uid, {
@@ -88,6 +93,7 @@ final class LoginDeviceRepository with LoggerMixin {
     required String platform,
     required String appVersion,
     required String name,
+    List<String> retired = const [],
     bool Function()? stillCurrent,
   }) async {
     final client = _buildClient(uid);
@@ -100,6 +106,17 @@ final class LoginDeviceRepository with LoggerMixin {
     }
     if (status['device'] != 1) {
       return const LoginDeviceUnsupported();
+    }
+    // An id this device had before, logged out of another account, is never answered for that account again: its
+    // requests carry the new one. Asked with each, a logout of this account answers `device_revoked`, which drops
+    // its login (the interceptor), instead of registering the new id with the cookie still valid.
+    for (final previous in retired) {
+      final probe = await client
+          .get(TsdmAppApi.url('status'), options: Options(headers: {LoginDeviceIdentity.header: previous}))
+          .run();
+      if (probe case Left(value: LoginDeviceRevokedException())) {
+        return const LoginDeviceFailed('revoked');
+      }
     }
     if (stillCurrent != null && !stillCurrent()) {
       return const LoginDeviceFailed('replaced');
