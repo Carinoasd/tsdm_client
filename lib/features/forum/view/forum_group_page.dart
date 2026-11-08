@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/widgets/account_reload_scope.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_group_bloc.dart';
+import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -84,7 +85,15 @@ class _ForumGroupPageState extends State<ForumGroupPage> {
                 // Which account browses the forums, with more than one saved account (GitHub #184).
                 actions: const [CurrentAccountAvatarButton(lastAction: true)],
               ),
-              body: SafeArea(bottom: false, child: body),
+              body: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    const FrequentForumsBar(),
+                    Expanded(child: body),
+                  ],
+                ),
+              ),
             );
           },
         ),

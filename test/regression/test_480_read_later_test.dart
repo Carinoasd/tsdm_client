@@ -233,6 +233,22 @@ void main() {
       expect(tracker.readOnFromStart, isFalse);
     });
 
+    test('the tracker: a jump to a bookmarked floor, or a thread opened at a floor, is no reading on', () {
+      // The bookmark is on the first page: still no reading from the start.
+      final jumped = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 1, openedResumed: false)
+        ..jumpedFrom(0)
+        ..floorsShown(generation: 1, firstPage: 1, openedResumed: false);
+      expect(jumped.readOnFromStart, isFalse);
+      // The next load (a refresh of the first page) reads on again.
+      jumped.floorsShown(generation: 2, firstPage: 1, openedResumed: false);
+      expect(jumped.readOnFromStart, isTrue);
+
+      final opened = ReadOnTracker()
+        ..floorsShown(generation: 0, firstPage: 1, openedResumed: false, openedAtFloor: true);
+      expect(opened.readOnFromStart, isFalse);
+    });
+
     test('not before the last page, nor for what is not the whole thread', () {
       expect(read(canLoadMore: true), isFalse);
       expect(read(loaded: false), isFalse);
