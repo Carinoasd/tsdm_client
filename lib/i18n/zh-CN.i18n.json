@@ -507,7 +507,13 @@
       "unreadBadgeLimitation": "上述三项打开后将在消息页卡片上显示未读小圆点，提醒和公共消息的已读/未读状态仅本机有效",
       "fontFamily": {
         "title": "字体",
-        "dialogTitle": "选择字体"
+        "dialogTitle": "选择字体",
+        "importFile": "从文件导入",
+        "importFailed": "导入失败：不是可用的字体文件",
+        "importReservedName": "字体名称已被系统占用，请改文件名",
+        "importNameInUse": "已有同名字体，请先删除并重启应用后再导入",
+        "importIoFailed": "导入失败，请稍后再试",
+        "deleteFont": "删除字体"
       },
       "chineseDisplay": {
         "title": "简繁显示",

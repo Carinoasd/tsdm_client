@@ -507,7 +507,13 @@
       "unreadBadgeLimitation": "上述三項開啟後將在訊息頁卡片上顯示未讀小圓點，提醒和公用訊息的已讀/未讀狀態僅本機有效",
       "fontFamily": {
         "title": "字體",
-        "dialogTitle": "選擇字體"
+        "dialogTitle": "選擇字體",
+        "importFile": "從檔案匯入",
+        "importFailed": "匯入失敗：不是可用的字體檔",
+        "importReservedName": "字體名稱已被系統佔用，請改檔名",
+        "importNameInUse": "已有同名字體，請先刪除並重啟應用程式後再匯入",
+        "importIoFailed": "匯入失敗，請稍後再試",
+        "deleteFont": "刪除字體"
       },
       "chineseDisplay": {
         "title": "簡繁顯示",
