@@ -1009,6 +1009,12 @@
   "threadPage": {
     "title": "帖子",
     "sendReplyHint": "回复",
+    "multiQuote": {
+      "selected": "已选 $count/$max",
+      "reply": "引用回复",
+      "limit": "最多引用 $max 楼",
+      "failed": "取得引用失败"
+    },
     "sendReply": "发送",
     "closed": "帖子已关闭",
     "needLogin": "需要登录",
@@ -1799,6 +1805,7 @@
   },
   "postCard": {
     "fromApp": "来自天使动漫App",
+    "addQuote": "加入引用",
     "contentUnavailable": "此楼内容无法显示",
     "bbcode": {
       "attachmentLocked": "无法查看：需要购买、权限不足或要先登录"
