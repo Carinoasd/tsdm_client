@@ -10,6 +10,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/widgets/account_reload_scope.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/favorite/utils/forum_favorite_action.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
@@ -20,6 +21,7 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
+import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -110,8 +112,99 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// The account and forum [_moderates] was asked for (`uid:fid`), null before.
   String? _moderatorAsked;
 
-  /// The account logged in moderates this forum, as the forum says: its moderation queue is offered.
+  /// The account logged in moderates this forum, as the forum says: its moderation queue is offered, and the threads
+  /// can be picked to be managed together.
   bool _moderates = false;
+
+  /// The threads picked in the thread tab (tids), null when not picking.
+  Set<String>? _picked;
+
+  void _stopPicking() {
+    if (_picked != null) {
+      setState(() => _picked = null);
+    }
+  }
+
+  void _togglePicked(String tid) => setState(() {
+    final picked = {...?_picked};
+    if (!picked.remove(tid)) {
+      picked.add(tid);
+    }
+    _picked = picked.isEmpty ? null : picked;
+  });
+
+  /// The threads of the thread tab a moderator may pick: those shown (not hidden as blocked).
+  List<NormalThread> _pickable(BuildContext context, ForumState state) =>
+      state.normalThreadList.where((e) => !isBlockedByCurrentUser(context, e.author.uid)).toList();
+
+  /// Manage the threads picked together, then show the forum as it is now.
+  Future<void> _moderatePicked(BuildContext context, ForumState state) async {
+    final picked = _picked;
+    final fid = int.tryParse(widget.fid);
+    if (picked == null || fid == null) {
+      return;
+    }
+    final bloc = context.read<ForumBloc>();
+    final threads = [
+      for (final thread in state.normalThreadList)
+        if (picked.contains(thread.threadID)) (thread.threadID, thread.title),
+    ];
+    final report = await showBatchModerateSheet(context, threads: threads, fid: fid);
+    if (report == null || !mounted) {
+      return;
+    }
+    _stopPicking();
+    if (!bloc.isClosed) {
+      bloc.add(ForumRefreshRequested());
+    }
+  }
+
+  /// The app bar while picking threads: how many are picked, all of them, and their management.
+  PreferredSizeWidget _buildPickingAppBar(BuildContext context, ForumState state, Set<String> picked) {
+    final pickable = _pickable(context, state);
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+        onPressed: _stopPicking,
+      ),
+      title: Text(context.t.moderate.batch.selected(count: picked.length)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.select_all_outlined),
+          tooltip: context.t.moderate.batch.selectAll,
+          onPressed: pickable.every((e) => picked.contains(e.threadID))
+              ? null
+              : () => setState(() => _picked = {...picked, for (final e in pickable) e.threadID}),
+        ),
+        IconButton(
+          icon: const Icon(Icons.admin_panel_settings_outlined),
+          tooltip: context.t.moderate.menu,
+          onPressed: () async => _moderatePicked(context, state),
+        ),
+      ],
+      bottom: _buildTabBar(context, state),
+    );
+  }
+
+  /// A thread card of the thread tab: picked or not while picking, starting to pick on a long press for a moderator.
+  Widget _buildThreadCard(BuildContext context, NormalThread thread) {
+    final picked = _picked;
+    if (!_moderates || isBlockedByCurrentUser(context, thread.author.uid)) {
+      return NormalThreadCard(thread);
+    }
+    if (picked == null) {
+      return NormalThreadCard(thread, onStartPicking: () => setState(() => _picked = {thread.threadID}));
+    }
+    return Row(
+      children: [
+        Checkbox(value: picked.contains(thread.threadID), onChanged: (_) => _togglePicked(thread.threadID)),
+        Expanded(
+          child: NormalThreadCard(thread, onPick: () => _togglePicked(thread.threadID)),
+        ),
+      ],
+    );
+  }
 
   /// Ask the forum whether the account logged in moderates this forum, once per account.
   void _askModerator(BuildContext context) {
@@ -123,7 +216,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     }
     _moderatorAsked = key;
     if (_moderates) {
-      setState(() => _moderates = false);
+      setState(() {
+        _moderates = false;
+        _picked = null;
+      });
     }
     if (key == null) {
       return;
@@ -136,12 +232,19 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         // The request failed: asked again at the next load.
         _moderatorAsked = null;
       } else if (moderates != _moderates) {
-        setState(() => _moderates = moderates);
+        setState(() {
+          _moderates = moderates;
+          _picked = null;
+        });
       }
     }).ignore();
   }
 
   void _updateFabVisibilityByTabIndex() {
+    // Threads are picked in the thread tab only.
+    if (tabController.index != _threadTabIndex) {
+      _picked = null;
+    }
     if (tabController.index == _threadTabIndex) {
       setState(() {
         _fabVisible = true;
@@ -153,45 +256,48 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     }
   }
 
+  /// The tabs of the page, none when the forum refused to be shown.
+  PreferredSizeWidget? _buildTabBar(BuildContext context, ForumState state) => state.permissionDeniedMessage == null
+      ? TabBar(
+          controller: tabController,
+          tabs: [
+            Tab(child: Text(context.t.forumPage.stickThreadTab.title)),
+            Tab(child: Text(context.t.forumPage.threadTab.title)),
+            Tab(child: Text(context.t.forumPage.subredditTab.title)),
+          ],
+          onTap: (index) async {
+            // Here we want to scroll the current tab to the top.
+            // Only scroll to top when user taps on the current
+            // tab, which means index is not changing.
+            if (tabController.indexIsChanging) {
+              // Do nothing because user tapped another index
+              // and want to switch to it.
+              return;
+            }
+            const duration = Duration(milliseconds: 300);
+            const curve = Curves.ease;
+            switch (tabController.index) {
+              case _pinnedTabIndex:
+                if (_pinnedScrollController.hasClients) {
+                  await _pinnedScrollController.animateTo(0, duration: duration, curve: curve);
+                }
+              case _threadTabIndex:
+                if (_threadScrollController.hasClients) {
+                  await _threadScrollController.animateTo(0, duration: duration, curve: curve);
+                }
+              case _subredditTabIndex:
+                if (_subredditScrollController.hasClients) {
+                  await _subredditScrollController.animateTo(0, duration: duration, curve: curve);
+                }
+            }
+          },
+        )
+      : null;
+
   PreferredSizeWidget _buildListAppBar(BuildContext context, ForumState state) {
     return ListAppBar(
       title: widget.title ?? state.title,
-      bottom: state.permissionDeniedMessage == null
-          ? TabBar(
-              controller: tabController,
-              tabs: [
-                Tab(child: Text(context.t.forumPage.stickThreadTab.title)),
-                Tab(child: Text(context.t.forumPage.threadTab.title)),
-                Tab(child: Text(context.t.forumPage.subredditTab.title)),
-              ],
-              onTap: (index) async {
-                // Here we want to scroll the current tab to the top.
-                // Only scroll to top when user taps on the current
-                // tab, which means index is not changing.
-                if (tabController.indexIsChanging) {
-                  // Do nothing because user tapped another index
-                  // and want to switch to it.
-                  return;
-                }
-                const duration = Duration(milliseconds: 300);
-                const curve = Curves.ease;
-                switch (tabController.index) {
-                  case _pinnedTabIndex:
-                    if (_pinnedScrollController.hasClients) {
-                      await _pinnedScrollController.animateTo(0, duration: duration, curve: curve);
-                    }
-                  case _threadTabIndex:
-                    if (_threadScrollController.hasClients) {
-                      await _threadScrollController.animateTo(0, duration: duration, curve: curve);
-                    }
-                  case _subredditTabIndex:
-                    if (_subredditScrollController.hasClients) {
-                      await _subredditScrollController.animateTo(0, duration: duration, curve: curve);
-                    }
-                }
-              },
-            )
-          : null,
+      bottom: _buildTabBar(context, state),
       onSearch: () async => context.pushNamed(ScreenPaths.search, queryParameters: {'fid': widget.fid}),
       onJumpPage: (pageNumber) async {
         if (!mounted) {
@@ -417,7 +523,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                       child: KeyboardSelectable(
                         selection: _keyboardSelection,
                         index: index,
-                        child: NormalThreadCard(normalThreadList[index]),
+                        child: _buildThreadCard(context, normalThreadList[index]),
                       ),
                     )
                   : ListFooter(
@@ -535,7 +641,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 
   Widget? _buildFloatingActionButton(BuildContext context, ForumState state) {
-    if (state.status != ForumStatus.success || !_fabVisible) {
+    if (state.status != ForumStatus.success || !_fabVisible || _picked != null) {
       return null;
     }
 
@@ -725,7 +831,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           // The threads were replaced (a refresh, another filter): the one the keyboard was on is another one now.
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.filterState != curr.filterState || (prev.refreshing && !curr.refreshing),
-            listener: (context, state) => _keyboardSelection.clear(),
+            listener: (context, state) {
+              _keyboardSelection.clear();
+              _stopPicking();
+            },
           ),
           // The moderation queue is offered to the forum's moderators.
           BlocListener<ForumBloc, ForumState>(
@@ -778,14 +887,25 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               },
               onNextPage: () => _jumpPage(context, state, 1),
               onPreviousPage: () => _jumpPage(context, state, -1),
-              child: Scaffold(
-                // appBar: PreferredSize(preferredSize: const Size.fromHeight(145), child: _buildListAppBar(context, state)),
-                appBar: _buildListAppBar(context, state),
-                body: NotificationListener<ScrollNotification>(
-                  onNotification: _onBodyScrollNotification,
-                  child: SafeArea(bottom: false, child: _buildBody(context, state)),
+              // Back while picking threads stops picking.
+              child: PopScope(
+                canPop: _picked == null,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) {
+                    _stopPicking();
+                  }
+                },
+                child: Scaffold(
+                  appBar: switch (_picked) {
+                    final picked? => _buildPickingAppBar(context, state, picked),
+                    null => _buildListAppBar(context, state),
+                  },
+                  body: NotificationListener<ScrollNotification>(
+                    onNotification: _onBodyScrollNotification,
+                    child: SafeArea(bottom: false, child: _buildBody(context, state)),
+                  ),
+                  floatingActionButton: _buildFloatingActionButton(context, state),
                 ),
-                floatingActionButton: _buildFloatingActionButton(context, state),
               ),
             );
           },

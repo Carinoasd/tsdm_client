@@ -27,6 +27,8 @@ IconData moderateOperationIcon(ModerateOperation operation) => switch (operation
   ModerateOperation.open => Icons.lock_open_outlined,
   ModerateOperation.move => Icons.drive_file_move_outline,
   ModerateOperation.delete => Icons.delete_outline,
+  ModerateOperation.bump => Icons.arrow_upward_outlined,
+  ModerateOperation.down => Icons.arrow_downward_outlined,
 };
 
 /// Name of an operation.
@@ -39,6 +41,8 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
     ModerateOperation.open => tr.open,
     ModerateOperation.move => tr.move,
     ModerateOperation.delete => tr.delete,
+    ModerateOperation.bump => tr.bump,
+    ModerateOperation.down => tr.down,
   };
 }
 
@@ -52,6 +56,117 @@ List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
   ModerateOperation.delete,
 ];
 
+/// The operations offered on several threads at once: both close and open (the threads may be either), bump and sink,
+/// and delete last.
+const List<ModerateOperation> moderateBatchOperations = [
+  ModerateOperation.stick,
+  ModerateOperation.digest,
+  ModerateOperation.close,
+  ModerateOperation.open,
+  ModerateOperation.bump,
+  ModerateOperation.down,
+  ModerateOperation.move,
+  ModerateOperation.delete,
+];
+
+/// Let the moderator pick one of [operations], delete last and apart.
+Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) =>
+    showModalBottomSheet<ModerateOperation>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final op in operations) ...[
+                if (op == ModerateOperation.delete) const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    moderateOperationIcon(op),
+                    color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
+                  ),
+                  title: Text(
+                    moderateOperationName(context, op),
+                    style: op == ModerateOperation.delete
+                        ? TextStyle(color: Theme.of(context).colorScheme.error)
+                        : null,
+                  ),
+                  onTap: () => Navigator.of(context).pop(op),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+
+/// Offer the management of threads [threads] (tid and title, in the list's order) of forum [fid] to a moderator: pick
+/// an operation, fill in the forum's window of it once, send it for every thread; the threads not done are listed
+/// with why. Null when nothing was sent.
+Future<ModerateBatchReport?> showBatchModerateSheet(
+  BuildContext context, {
+  required List<(String, String)> threads,
+  required int fid,
+  ModerateRepository? repository,
+}) async {
+  final operation = await _pickOperation(context, moderateBatchOperations);
+  if (operation == null || !context.mounted) {
+    return null;
+  }
+  final report = await showDialog<ModerateBatchReport>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => ModerateDialog.batch(
+      operation: operation,
+      tids: [for (final (tid, _) in threads) tid],
+      fid: fid,
+      repository: repository ?? ModerateRepository.network(),
+    ),
+  );
+  if (report == null || !context.mounted) {
+    return report;
+  }
+  final failed = report.failed;
+  if (failed.isEmpty) {
+    showSnackBar(
+      context: context,
+      message: context.t.moderate.batch.done(count: report.doneCount),
+    );
+    return report;
+  }
+  final titles = {for (final (tid, title) in threads) tid: title};
+  await showDialog<void>(
+    context: context,
+    builder: (context) => CustomAlertDialog.sync(
+      title: AppDialogTitle(
+        icon: moderateOperationIcon(operation),
+        title: context.t.moderate.batch.failed(count: failed.length),
+        error: true,
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (tid, failure) in failed)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(titles[tid] ?? tid, maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: SelectableText(switch (failure.kind) {
+                  ModerateBatchFailure.refused when failure.message.isNotEmpty => failure.message,
+                  ModerateBatchFailure.accountChanged => context.t.general.accountChangedRetry,
+                  _ => context.t.moderate.failed,
+                }),
+              ),
+          ],
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.ok))],
+    ),
+  );
+  return report;
+}
+
 /// Offer the management of thread [tid] in forum [fid] to a moderator: pick an operation, fill in the forum's window
 /// of it, send it. Null when nothing was done.
 Future<ModerateDone?> showThreadModerateSheet(
@@ -61,31 +176,7 @@ Future<ModerateDone?> showThreadModerateSheet(
   required bool closed,
   ModerateRepository? repository,
 }) async {
-  final operation = await showModalBottomSheet<ModerateOperation>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final op in moderateOperationsFor(closed: closed)) ...[
-            if (op == ModerateOperation.delete) const Divider(height: 1),
-            ListTile(
-              leading: Icon(
-                moderateOperationIcon(op),
-                color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
-              ),
-              title: Text(
-                moderateOperationName(context, op),
-                style: op == ModerateOperation.delete ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
-              ),
-              onTap: () => Navigator.of(context).pop(op),
-            ),
-          ],
-        ],
-      ),
-    ),
-  );
+  final operation = await _pickOperation(context, moderateOperationsFor(closed: closed));
   if (operation == null || !context.mounted) {
     return null;
   }
@@ -114,13 +205,26 @@ class ModerateDialog extends StatefulWidget {
     required this.fid,
     required this.repository,
     super.key,
-  });
+  }) : tids = null;
+
+  /// The window of [operation] on threads [tids] of forum [fid]: the forum's window of them, sent for every thread
+  /// ([ModerateRepository.runBatch]). Pops the [ModerateBatchReport] once sent.
+  ModerateDialog.batch({
+    required this.operation,
+    required List<String> this.tids,
+    required this.fid,
+    required this.repository,
+    super.key,
+  }) : tid = tids.first;
 
   /// The operation.
   final ModerateOperation operation;
 
-  /// The thread.
+  /// The thread, the first of [tids] for several.
   final String tid;
+
+  /// The threads of a management of several threads; null for one thread.
+  final List<String>? tids;
 
   /// The forum of the thread.
   final int fid;
@@ -134,6 +238,9 @@ class ModerateDialog extends StatefulWidget {
 
 class _ModerateDialogState extends State<ModerateDialog> {
   ModerateForm? _form;
+
+  /// The window of the threads, for several.
+  ModerateBatchForm? _batch;
   bool _loading = true;
   bool _sending = false;
 
@@ -164,6 +271,27 @@ class _ModerateDialogState extends State<ModerateDialog> {
       _loading = true;
       _error = null;
     });
+    if (widget.tids case final tids?) {
+      final answer = await widget.repository.fetchBatchWindow(widget.operation, tids: tids, fid: widget.fid).run();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        switch (answer) {
+          case Right(value: ModerateBatchWindowReady(:final form)):
+            _batch = form;
+            _form = form.window;
+            _level = form.window.currentLevel?.value;
+            _notify = form.window.notifyForced;
+          case Right(value: ModerateBatchWindowRefused(:final message)):
+            _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          case Left(:final value):
+            _error = _failure(value);
+        }
+      });
+      return;
+    }
     final answer = await widget.repository.fetchWindow(widget.operation, tid: widget.tid, fid: widget.fid).run();
     if (!mounted) {
       return;
@@ -214,6 +342,13 @@ class _ModerateDialogState extends State<ModerateDialog> {
       _sending = true;
       _error = null;
     });
+    if (_batch case final batch?) {
+      final report = await widget.repository.runBatch(batch, _request(), tids: widget.tids!, fid: widget.fid);
+      if (mounted) {
+        Navigator.of(context).pop(report);
+      }
+      return;
+    }
     final outcome = await widget.repository.submit(form, _request()).run();
     if (!mounted) {
       return;
@@ -257,10 +392,15 @@ class _ModerateDialogState extends State<ModerateDialog> {
   Widget build(BuildContext context) {
     final danger = _operation == ModerateOperation.delete;
     final form = _form;
-    return CustomAlertDialog.sync(
+    final dialog = CustomAlertDialog.sync(
       title: AppDialogTitle(
         icon: moderateOperationIcon(_operation),
-        title: moderateOperationName(context, _operation),
+        title: widget.tids == null
+            ? moderateOperationName(context, _operation)
+            : context.t.moderate.batch.title(
+                operation: moderateOperationName(context, _operation),
+                count: widget.tids!.length,
+              ),
         error: danger,
       ),
       content: _loading
@@ -283,7 +423,13 @@ class _ModerateDialogState extends State<ModerateDialog> {
               ),
             ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(context.t.general.cancel)),
+        TextButton(
+          // Several threads are sent one window after another: not left half way.
+          onPressed: _sending && widget.tids != null
+              ? null
+              : () => Navigator.of(context).pop(widget.tids == null ? false : null),
+          child: Text(context.t.general.cancel),
+        ),
         if (form == null && !_loading)
           TextButton(onPressed: _load, child: Text(context.t.general.retry))
         else
@@ -298,6 +444,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           ),
       ],
     );
+    return widget.tids == null ? dialog : PopScope(canPop: !_sending, child: dialog);
   }
 
   List<Widget> _fields(BuildContext context, ModerateForm form) {

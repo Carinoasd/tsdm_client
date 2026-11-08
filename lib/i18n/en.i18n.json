@@ -1977,7 +1977,17 @@
     "panelLogin": "Moderator panel",
     "password": "Password",
     "wrongPassword": "Wrong password",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "bump": "Bump",
+    "down": "Sink",
+    "batch": {
+      "selected": "$count selected",
+      "selectAll": "Select all",
+      "select": "Select",
+      "title": "$operation ($count)",
+      "done": "$count threads done",
+      "failed": "$count threads not done"
+    }
   },
   "packetCard": {
     "title": "Packet",

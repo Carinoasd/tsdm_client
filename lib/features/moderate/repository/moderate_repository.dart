@@ -193,6 +193,124 @@ final class ModerateRepository with LoggerMixin {
     };
   });
 
+  /// Ask the window of [operation] for threads [tids] of forum [fid]: the window of the threads the forum takes
+  /// ([ModerateBatchForm.tids]), as [fetchWindow] asks the window of one thread.
+  AsyncEither<ModerateBatchWindow> fetchBatchWindow(
+    ModerateOperation operation, {
+    required List<String> tids,
+    required int fid,
+  }) => AsyncEither(() async {
+    final uid = _currentUid();
+    final resp = await _get(withTsdmAppJsonWrite(ModerateForm.batchWindowUrl(operation, tids: tids, fid: fid)));
+    switch (resp) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return left(HttpRequestFailedException(value.statusCode));
+      case Right(:final value):
+        if (_currentUid() != uid) {
+          return left(IdentityChangedException());
+        }
+        return batchWindowOf(value.data, operation, tids: tids, fid: fid, uid: uid);
+    }
+  });
+
+  /// The window of [operation] for threads [tids] in answer [data], asked by account [uid].
+  static Either<AppException, ModerateBatchWindow> batchWindowOf(
+    Object? data,
+    ModerateOperation operation, {
+    required List<String> tids,
+    required int fid,
+    required int uid,
+  }) {
+    final result = tsdmAppWriteResultOf(data);
+    if (result != null) {
+      if (result.uid != uid) {
+        return left(IdentityChangedException());
+      }
+      if (result.kind != TsdmAppWriteKind.page) {
+        return right(ModerateBatchWindowRefused(result.reason));
+      }
+      final form = ModerateForm.parseBatch(result.document, operation, tids: tids, fid: fid, uid: uid);
+      return form == null ? left(HttpRequestFailedException(HttpStatus.ok)) : right(ModerateBatchWindowReady(form));
+    }
+    final text = _ajaxText(tsdmAppAnswerText(data));
+    // The account was checked around the request (fetchBatchWindow): the window is that account's.
+    final form = ModerateForm.parseBatch(parseHtmlDocument(text), operation, tids: tids, fid: fid, uid: uid);
+    if (form != null) {
+      return right(ModerateBatchWindowReady(form));
+    }
+    if (_errorHandleRe.firstMatch(text)?.namedGroup('error') case final error?) {
+      return right(ModerateBatchWindowRefused(_unescape(error)));
+    }
+    return left(HttpRequestFailedException(HttpStatus.ok));
+  }
+
+  /// Do [request] on threads [tids] of forum [fid], starting with window [first] (asked for [tids]), and tell what
+  /// became of each thread.
+  ///
+  /// The forum answers one verdict for the threads of a request and acts on those its window holds only (no more than
+  /// the account's threads per page): the threads it held are posted once, and the window is asked again for the
+  /// threads left until none is left. A thread no window takes failed in the forum's words of the last window; a
+  /// refusal fails the threads not done yet in its words, and nothing is sent after it. Nothing is sent once the
+  /// account changed since a window was served.
+  Future<ModerateBatchReport> runBatch(
+    ModerateBatchForm first,
+    ModerateRequest request, {
+    required List<String> tids,
+    required int fid,
+  }) async {
+    final results = <String, ModerateBatchResult>{};
+    final remaining = [...tids];
+    void failRemaining(ModerateBatchFailure kind, [String message = '']) {
+      for (final tid in remaining) {
+        results[tid] = ModerateBatchFailed(kind, message);
+      }
+      remaining.clear();
+    }
+
+    ModerateBatchFailure failureOf(AppException e) =>
+        e is IdentityChangedException ? ModerateBatchFailure.accountChanged : ModerateBatchFailure.failed;
+
+    var batch = first;
+    while (remaining.isNotEmpty) {
+      final uid = _currentUid();
+      if (uid <= 0 || batch.window.uid != uid || request.operation.group != batch.window.operation.group) {
+        failRemaining(ModerateBatchFailure.accountChanged);
+        break;
+      }
+      final resp = await _post(batch.window.submitUrl, batch.body(request));
+      switch (resp) {
+        case Left(:final value):
+          failRemaining(failureOf(value));
+        case Right(:final value) when value.statusCode != HttpStatus.ok:
+          failRemaining(ModerateBatchFailure.failed);
+        case Right(:final value):
+          switch (outcomeOf(value.data)) {
+            case ModerateSucceeded():
+              for (final tid in batch.tids) {
+                results[tid] = const ModerateBatchDone();
+              }
+              remaining.removeWhere(batch.tids.contains);
+            case ModerateRefused(:final message):
+              failRemaining(ModerateBatchFailure.refused, message);
+          }
+      }
+      if (remaining.isEmpty) {
+        break;
+      }
+      switch (await fetchBatchWindow(batch.window.operation, tids: remaining, fid: fid).run()) {
+        case Left(:final value):
+          failRemaining(failureOf(value));
+        case Right(value: ModerateBatchWindowRefused(:final message)):
+          failRemaining(ModerateBatchFailure.refused, message);
+        case Right(value: ModerateBatchWindowReady(:final form)):
+          batch = form;
+      }
+    }
+    return ModerateBatchReport({for (final tid in tids) tid: ?results[tid]});
+  }
+
   /// The forum's verdict in answer [data] to a management request; [successKey] is the language key of its success
   /// (`admin_succeed` for a thread or a floor, `modcp_mod_succeed` for the moderation queue).
   static ModerateOutcome outcomeOf(Object? data, {String successKey = 'admin_succeed'}) {

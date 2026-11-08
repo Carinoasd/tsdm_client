@@ -25,7 +25,13 @@ enum ModerateOperation {
   move(2),
 
   /// Delete the thread (`delete`): to the forum's recycle bin when the forum keeps one, gone otherwise.
-  delete(3)
+  delete(3),
+
+  /// Bump the thread: its last reply time set to now (`bump`, `expirationbump`).
+  bump(3),
+
+  /// Sink the thread: its last reply time set two years back (`down`, `expirationdown`).
+  down(3)
   ;
 
   const ModerateOperation(this.group);
@@ -150,8 +156,13 @@ final class ModerateForm {
   /// The url the window of [operation] for thread [tid] in forum [fid] is asked at, as the website asks it from the
   /// thread page (`modthreads`).
   static String windowUrl(ModerateOperation operation, {required String tid, required int fid}) =>
-      '$baseUrl/forum.php?mod=topicadmin&action=moderate&fid=$fid&moderate%5B%5D=$tid&handlekey=mods&infloat=yes'
-      '&nopost=yes&optgroup=${operation.group}'
+      batchWindowUrl(operation, tids: [tid], fid: fid);
+
+  /// The url the window of [operation] for threads [tids] of forum [fid] is asked at, as the website asks it from the
+  /// forum page (`modthreads` with the threads checked).
+  static String batchWindowUrl(ModerateOperation operation, {required List<String> tids, required int fid}) =>
+      '$baseUrl/forum.php?mod=topicadmin&action=moderate&fid=$fid${tids.map((e) => '&moderate%5B%5D=$e').join()}'
+      '&handlekey=mods&infloat=yes&nopost=yes&optgroup=${operation.group}'
       '${operation.windowOperation == null ? '' : '&operation=${operation.windowOperation}'}&inajax=1';
 
   /// The window of operation [asked] for thread [tid] in forum [fid] read from [doc], served to [uid]; null when [doc] has no
@@ -165,23 +176,49 @@ final class ModerateForm {
     required int fid,
     int uid = 0,
   }) {
-    var operation = asked;
     final form = doc.querySelector('form#moderateform');
-    if (form == null || !_isTarget(form.attributes['action'] ?? '', operation.group)) {
+    if (form == null) {
+      return null;
+    }
+    final served = form
+        .querySelectorAll('input[type="hidden"][name="moderate[]"]')
+        .map((e) => e.attributes['value'] ?? '')
+        .toList();
+    // Two threads: not the window of one thread.
+    if (served.length != 1 || served.single != tid) {
+      return null;
+    }
+    return _parse(form, asked, tid: tid, fid: fid, uid: uid, keepThread: true);
+  }
+
+  /// The window of [operation] read from [form], the threads it holds left out of [fields] when not [keepThread].
+  static ModerateForm? _parse(
+    uh.Element form,
+    ModerateOperation asked, {
+    required String tid,
+    required int fid,
+    required int uid,
+    required bool keepThread,
+  }) {
+    var operation = asked;
+    if (!_isTarget(form.attributes['action'] ?? '', operation.group)) {
       return null;
     }
     final fields = <String, String>{};
     for (final input in form.querySelectorAll('input[type="hidden"]')) {
       final name = input.attributes['name'] ?? '';
+      if (name == 'moderate[]' && !keepThread) {
+        continue;
+      }
       if (moderateServedFields.contains(name)) {
         if (fields.containsKey(name)) {
-          // Two threads, or a field served twice: not the window of one thread.
+          // A field served twice: not a window the app knows.
           return null;
         }
         fields[name] = input.attributes['value'] ?? '';
       }
     }
-    if ((fields['formhash'] ?? '').isEmpty || fields['moderate[]'] != tid || fields['fid'] != '$fid') {
+    if ((fields['formhash'] ?? '').isEmpty || (keepThread && fields['moderate[]'] != tid) || fields['fid'] != '$fid') {
       return null;
     }
 
@@ -227,6 +264,14 @@ final class ModerateForm {
         if (form.querySelector('input[name="operations[]"][value="delete"]') == null) {
           return null;
         }
+      case ModerateOperation.bump || ModerateOperation.down:
+        final choices = form
+            .querySelectorAll('input[type="radio"][name="operations[]"]')
+            .map((e) => e.attributes['value'])
+            .toSet();
+        if (!choices.contains(ModerateOperation.bump.value) || !choices.contains(ModerateOperation.down.value)) {
+          return null;
+        }
     }
 
     final notify = form.querySelector('input[name="sendreasonpm"]');
@@ -248,6 +293,39 @@ final class ModerateForm {
       notifyForced:
           notify != null && notify.attributes.containsKey('disabled') && notify.attributes.containsKey('checked'),
     );
+  }
+
+  /// The window of operation [asked] for some of threads [tids] of forum [fid] read from [doc], served to [uid]; null
+  /// when [doc] has no such window (as [parse]), or holds none of [tids] or a thread not asked.
+  ///
+  /// The forum serves the threads it takes, in its own order: it leaves out a thread not in the forum (moved,
+  /// deleted, a thread of another forum stuck here), one waiting for approval, and those past the account's threads
+  /// per page.
+  static ModerateBatchForm? parseBatch(
+    uh.Document doc,
+    ModerateOperation asked, {
+    required List<String> tids,
+    required int fid,
+    int uid = 0,
+  }) {
+    final form = doc.querySelector('form#moderateform');
+    if (form == null) {
+      return null;
+    }
+    final asks = tids.toSet();
+    final served = <String>[];
+    for (final input in form.querySelectorAll('input[type="hidden"][name="moderate[]"]')) {
+      final tid = input.attributes['value'] ?? '';
+      if (!asks.contains(tid) || served.contains(tid)) {
+        return null;
+      }
+      served.add(tid);
+    }
+    if (served.isEmpty) {
+      return null;
+    }
+    final window = _parse(form, asked, tid: served.first, fid: fid, uid: uid, keepThread: false);
+    return window == null ? null : ModerateBatchForm(window: window, tids: served);
   }
 
   static bool _isTarget(String action, int group) {
@@ -359,11 +437,39 @@ final class ModerateRequest {
           'type': redirect && form.canRedirect ? 'redirect' : 'normal',
         },
         ModerateOperation.delete => const <String, String>{},
+        ModerateOperation.bump => {'expirationbump': ''},
+        ModerateOperation.down => {'expirationdown': ''},
       },
       'reason': reason.trim(),
       if (form.canNotify && (notify || form.notifyForced)) 'sendreasonpm': 'on',
     };
   }
+}
+
+/// The management window of the forum for several threads of a forum ([ModerateForm.parseBatch]).
+///
+/// The forum takes one verdict for all of them: it says nothing of the threads it leaves out, so the threads the
+/// window holds ([tids]) are the ones a request acts on.
+final class ModerateBatchForm {
+  /// Constructor.
+  const ModerateBatchForm({required this.window, required this.tids});
+
+  /// The window, as for one thread: its [ModerateForm.fields] hold no thread, its [ModerateForm.tid] is the first of
+  /// [tids].
+  final ModerateForm window;
+
+  /// The threads the window holds, in the forum's order.
+  final List<String> tids;
+
+  /// The form body of [request] for these threads: [ModerateRequest.body] of the window with every thread.
+  ///
+  /// The website's form repeats `moderate[]`; the threads are numbered instead (`moderate[0]`, `moderate[1]`…), which
+  /// the forum reads as the same list, so the body stays a map of one value per field (the Android client posts
+  /// nothing else).
+  Map<String, String> body(ModerateRequest request) => {
+    ...request.body(window),
+    for (final (i, tid) in tids.indexed) 'moderate[$i]': tid,
+  };
 }
 
 /// How the forum answered a management request.
@@ -411,4 +517,81 @@ final class ModerateWindowRefused extends ModerateWindow {
 
   /// The forum's message, empty when it gave none.
   final String message;
+}
+
+/// What the forum answered when asked for the management window of several threads.
+sealed class ModerateBatchWindow {
+  const ModerateBatchWindow();
+}
+
+/// The window of the threads the forum takes.
+final class ModerateBatchWindowReady extends ModerateBatchWindow {
+  /// Constructor.
+  const ModerateBatchWindowReady(this.form);
+
+  /// The window.
+  final ModerateBatchForm form;
+}
+
+/// The forum refused to open the window, in its own words [message] (none of the threads can be managed here, not a
+/// moderator of this forum).
+final class ModerateBatchWindowRefused extends ModerateBatchWindow {
+  /// Constructor.
+  const ModerateBatchWindowRefused(this.message);
+
+  /// The forum's message, empty when it gave none.
+  final String message;
+}
+
+/// What became of one thread of a management of several threads.
+sealed class ModerateBatchResult {
+  const ModerateBatchResult();
+}
+
+/// The forum carried it out on the thread.
+final class ModerateBatchDone extends ModerateBatchResult {
+  /// Constructor.
+  const ModerateBatchDone();
+}
+
+/// Why a thread of a management of several threads was not done.
+enum ModerateBatchFailure {
+  /// The forum refused it or left the thread out, in its words.
+  refused,
+
+  /// The account changed: nothing more was sent.
+  accountChanged,
+
+  /// The request failed (the network, an answer the app can not read).
+  failed,
+}
+
+/// The thread was not done.
+final class ModerateBatchFailed extends ModerateBatchResult {
+  /// Constructor.
+  const ModerateBatchFailed(this.kind, [this.message = '']);
+
+  /// Why.
+  final ModerateBatchFailure kind;
+
+  /// The forum's words for a [ModerateBatchFailure.refused], empty when it gave none.
+  final String message;
+}
+
+/// What became of each thread of a management of several threads, in the order they were picked.
+final class ModerateBatchReport {
+  /// Constructor.
+  const ModerateBatchReport(this.results);
+
+  /// Each thread's result, by tid.
+  final Map<String, ModerateBatchResult> results;
+
+  /// The threads done.
+  int get doneCount => results.values.whereType<ModerateBatchDone>().length;
+
+  /// The threads not done, with why.
+  List<(String, ModerateBatchFailed)> get failed => [
+    for (final MapEntry(:key, :value) in results.entries)
+      if (value case final ModerateBatchFailed failed) (key, failed),
+  ];
 }
