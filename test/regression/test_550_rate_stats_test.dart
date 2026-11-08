@@ -46,6 +46,13 @@ void main() {
       expect(rateScoresOf(_rateHtml('甲', 7, '威望 +1', reason: '评分 威望 +99')), {'威望': 1});
     });
 
+    test('the word in a thread title before the rater does not start the score early', () {
+      const html =
+          '您在主题 <a href="forum.php?mod=redirect&goto=findpost&pid=51&ptid=1025">评分 +1 名额</a> 的帖子被 '
+          '<a href="home.php?mod=space&uid=7">甲</a> 评分 威望 +10';
+      expect(rateScoresOf(html), {'威望': 10});
+    });
+
     test('a notice without a score gives none', () {
       expect(rateScoresOf('<a href="x">甲</a> 回复了你'), isEmpty);
     });
@@ -84,6 +91,16 @@ void main() {
       expect(top[2].rater, '丙', reason: 'one rating, the first of those');
     });
 
+    test('a deduction takes away when the ratings are as many', () {
+      final events = rateEventsOf([
+        _rate('甲', 7, '威望 -50'),
+        _rate('乙', 8, '威望 +10', id: 2),
+        _rate('丙', 9, '威望 +1', id: 3),
+      ]);
+      final top = topRatersOf(events);
+      expect([for (final e in top) e.rater], ['乙', '丙', '甲']);
+    });
+
     test('totals by kind and counts by week', () {
       final events = rateEventsOf([
         _rate('甲', 7, '威望 +3'),
@@ -103,12 +120,12 @@ void main() {
   });
 
   group('the page', () {
-    Future<void> pump(WidgetTester tester, List<RateEvent> events) async {
+    Future<void> pump(WidgetTester tester, List<RateEvent> events, {bool loading = false}) async {
       await LocaleSettings.setLocale(AppLocale.en);
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
-            home: RateStatsView(events: events, today: DateTime(2026, 11, 8)),
+            home: RateStatsView(events: events, today: DateTime(2026, 11, 8), loading: loading),
           ),
         ),
       );
@@ -125,7 +142,18 @@ void main() {
       expect(find.byKey(const ValueKey('ranked-row-2')), findsNothing);
       expect(find.descendant(of: find.byKey(const ValueKey('ranked-row-0')), matching: find.text('甲')), findsOneWidget);
       expect(tester.widget<NetBarChart>(find.byKey(const ValueKey('rate-weekly'))).values.last, 3);
+      expect(
+        find.descendant(of: find.byKey(const ValueKey('rate-total-count')), matching: find.text('3')),
+        findsOneWidget,
+      );
+      expect(find.text('+3'), findsOneWidget, reason: 'the points given in all');
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the notices still on their way: loading, not no data', (tester) async {
+      await pump(tester, const [], loading: true);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text(t.general.noData), findsNothing);
     });
 
     testWidgets('no rating: no data', (tester) async {

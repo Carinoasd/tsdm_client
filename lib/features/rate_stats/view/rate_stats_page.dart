@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/checkin/utils/checkin_calendar.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -10,30 +11,68 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/charts/chart_format.dart';
 import 'package:tsdm_client/widgets/charts/net_bar_chart.dart';
 import 'package:tsdm_client/widgets/charts/ranked_bars.dart';
+import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Page of the rating statistics: who rated the user's posts the most, and how many ratings came each week, read
 /// from the rate notices the app keeps.
-class RateStatsPage extends StatelessWidget {
+///
+/// The raters the user blocked are left out, as the notice page leaves out their notices.
+class RateStatsPage extends StatefulWidget {
   /// Constructor.
   const RateStatsPage({super.key});
 
   @override
+  State<RateStatsPage> createState() => _RateStatsPageState();
+}
+
+class _RateStatsPageState extends State<RateStatsPage> {
+  /// The notices [_events] were read from: the same list reads nothing again.
+  List<NoticeV2>? _readFrom;
+  List<RateEvent> _events = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    // The lists are empty until the first sync or a read of what is stored: read the stored ones.
+    final bloc = context.read<NotificationBloc>();
+    if (bloc.state.status == NotificationStatus.initial) {
+      bloc.add(NotificationReloadFromStorageRequested());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final notices = context.select<NotificationBloc, List<NoticeV2>>((bloc) => bloc.state.noticeList);
-    return RateStatsView(events: rateEventsOf(notices), today: forumToday());
+    final status = context.select<NotificationBloc, NotificationStatus>((bloc) => bloc.state.status);
+    if (!identical(notices, _readFrom)) {
+      _readFrom = notices;
+      _events = rateEventsOf(notices);
+    }
+    final blocked = currentBlockList(context);
+    return RateStatsView(
+      events: [
+        for (final event in _events)
+          if (!blocked.hides(event.raterId)) event,
+      ],
+      today: forumToday(),
+      loading: status == NotificationStatus.initial || status == NotificationStatus.loading,
+    );
   }
 }
 
 /// The statistics of [events], the weeks counted back from [today].
 class RateStatsView extends StatelessWidget {
   /// Constructor.
-  const RateStatsView({required this.events, required this.today, super.key});
+  const RateStatsView({required this.events, required this.today, this.loading = false, super.key});
 
   /// The ratings received.
   final List<RateEvent> events;
 
   /// Today as the forum counts it.
   final DateTime today;
+
+  /// The notices are still on their way: nothing to show is not yet none.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +82,9 @@ class RateStatsView extends StatelessWidget {
     final totals = scoreTotalsOf(events);
     return Scaffold(
       appBar: AppBar(title: Text(tr.title)),
-      body: events.isEmpty
+      body: events.isEmpty && loading
+          ? const CenteredCircularIndicator()
+          : events.isEmpty
           ? AppStateView(icon: Icons.thumb_up_alt_outlined, message: context.t.general.noData, scrollable: false)
           : AppCenteredList(
               builder: (context, side, width) => ListView(

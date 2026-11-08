@@ -56,7 +56,7 @@ class RankedBars extends StatelessWidget {
                     backgroundColor: colorScheme.surfaceContainerHighest,
                   ),
                 ),
-                if (item.detail != null)
+                if (item.detail?.isNotEmpty ?? false)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(

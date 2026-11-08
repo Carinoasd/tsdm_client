@@ -59,7 +59,8 @@ Map<String, int> rateScoresOf(String html) {
     quote.remove();
   }
   final text = body.innerText.replaceAll(RegExp(r'\s+'), ' ');
-  final at = text.indexOf('评分');
+  // The last one: a thread title or a name before it may say the word too.
+  final at = text.lastIndexOf('评分');
   if (at < 0) {
     return const {};
   }
@@ -104,22 +105,23 @@ List<RateEvent> rateEventsOf(Iterable<NoticeV2> notices) {
   return events;
 }
 
-/// The raters of [events] with the most ratings first (the points given in all break a tie), at most [limit].
+/// The raters of [events] with the most ratings first (the points given in all, a deduction taking away, break a
+/// tie), at most [limit]. A rater is told by name, which is unique: a notice may lack the uid.
 List<RaterTotal> topRatersOf(Iterable<RateEvent> events, {int limit = rateStatsTopCount}) {
-  final byRater = <Object, RaterTotal>{};
+  final byRater = <String, RaterTotal>{};
   for (final event in events) {
-    final key = event.raterId ?? event.rater;
+    final key = event.rater;
     final total = byRater[key];
     final scores = {...?total?.scores};
     event.scores.forEach((kind, value) => scores[kind] = (scores[kind] ?? 0) + value);
     byRater[key] = RaterTotal(
-      raterId: event.raterId,
+      raterId: total?.raterId ?? event.raterId,
       rater: event.rater,
       count: (total?.count ?? 0) + 1,
       scores: scores,
     );
   }
-  int points(RaterTotal e) => e.scores.values.fold(0, (a, b) => a + b.abs());
+  int points(RaterTotal e) => e.scores.values.fold(0, (a, b) => a + b);
   final list = byRater.values.toList()
     ..sort((a, b) => a.count != b.count ? b.count.compareTo(a.count) : points(b).compareTo(points(a)));
   return list.take(limit).toList();
