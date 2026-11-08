@@ -120,3 +120,10 @@ to 9990001…, 9991001…, 9992001…, the suffix of its marker strings to `0000
 scrubbed the same way; the test forum's accounts are renamed (Alice, Bob, Carol, Dave, Mallory, Member01…): a fetch
 again needs the same renaming. In the fixture threads `VIS_`
 marks text the viewer may read and `SEC_` text it may not. test_246 reads them.
+
+`device_v20_*.json` (the `device` action of plugin 3.6.0, `type: devices`, `schema: 20`: the list of an account with
+this device and another one logged out from it, the answers of `register`, `revoke` and `remove`, and the
+`device_revoked` answer the logged out device got for its next request) are the test forum's answers to curl, two
+sessions of one account each with its own id, scrubbed: the ids → `0f8e6a52-…01` (this device) and `7c2b9d14-…02`,
+the times shifted so the first is 1700000000, `formhash` → `f1f2f3f4`, the IP → `192.0.2.1`, the other device's name →
+`Work PC`. test_750 reads them.

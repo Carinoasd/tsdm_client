@@ -41,6 +41,10 @@ class KeyboardShortcutsPage extends StatelessWidget {
       KeyboardCommand.bold => tr.bold,
       KeyboardCommand.italic => tr.italic,
       KeyboardCommand.underline => tr.underline,
+      KeyboardCommand.closeTab => tr.closeTab,
+      KeyboardCommand.nextTab => tr.nextTab,
+      KeyboardCommand.previousTab => tr.previousTab,
+      KeyboardCommand.selectTab => tr.selectTab,
     };
   }
 
@@ -51,6 +55,7 @@ class KeyboardShortcutsPage extends StatelessWidget {
       KeyboardShortcutGroup.thread => tr.thread,
       KeyboardShortcutGroup.list => tr.list,
       KeyboardShortcutGroup.editor => tr.editor,
+      KeyboardShortcutGroup.tabs => tr.tabs,
     };
   }
 

@@ -1,0 +1,210 @@
+import 'dart:io';
+import 'dart:isolate';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:pasteboard/pasteboard.dart';
+import 'package:tsdm_client/utils/platform.dart';
+
+/// An image file to upload as an attachment of the post being written.
+///
+/// A [temporary] file was written by the app (a pasted image, a converted copy, a shared image) and is deleted once
+/// it went up or failed; any other is the member's own file (dropped, copied in the file manager) and is kept.
+@immutable
+final class UploadImageFile {
+  /// Constructor.
+  const UploadImageFile(this.path, {required this.temporary});
+
+  /// Where the file is.
+  final String path;
+
+  /// Whether the app wrote the file and deletes it after the upload.
+  final bool temporary;
+
+  @override
+  bool operator ==(Object other) => other is UploadImageFile && other.path == path && other.temporary == temporary;
+
+  @override
+  int get hashCode => Object.hash(path, temporary);
+
+  @override
+  String toString() => 'UploadImageFile($path, temporary: $temporary)';
+}
+
+/// The image extensions read from a file name: what may be dropped or copied in to upload.
+const imageFileExtensions = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
+
+/// Whether [path] names an image file by its extension ([imageFileExtensions]).
+bool isImageFilePath(String path) {
+  final name = path.split(RegExp(r'[/\\]')).last;
+  final dot = name.lastIndexOf('.');
+  return dot > 0 && imageFileExtensions.contains(name.substring(dot + 1).toLowerCase());
+}
+
+/// The extension of the image format [bytes] are in, by their first bytes: `png`, `jpg`, `gif`, `webp`, `bmp`; null
+/// for anything else.
+String? sniffImageExtension(List<int> bytes) {
+  bool startsWith(List<int> magic, [int offset = 0]) {
+    if (bytes.length < offset + magic.length) return false;
+    for (var i = 0; i < magic.length; i++) {
+      if (bytes[offset + i] != magic[i]) return false;
+    }
+    return true;
+  }
+
+  if (startsWith(const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return 'png';
+  if (startsWith(const [0xFF, 0xD8, 0xFF])) return 'jpg';
+  if (startsWith(const [0x47, 0x49, 0x46, 0x38])) return 'gif';
+  if (startsWith(const [0x52, 0x49, 0x46, 0x46]) && startsWith(const [0x57, 0x45, 0x42, 0x50], 8)) return 'webp';
+  if (startsWith(const [0x42, 0x4D])) return 'bmp';
+  return null;
+}
+
+/// [bytes] of an image the forum does not take as they are (a bitmap from the Windows clipboard, a WebP), as a PNG;
+/// null when they are no image the `image` package reads. Run off the UI isolate by [writeUploadImage].
+Uint8List? convertToPng(Uint8List bytes) {
+  try {
+    final decoded = img.decodeImage(bytes);
+    return decoded == null ? null : img.encodePng(decoded);
+  } on Object {
+    // The decoders guessing at short or broken data throw instead of answering null.
+    return null;
+  }
+}
+
+/// Write [bytes] of a pasted image into [dir] as `<stem>.<ext>` for the upload: the format they are in when the forum
+/// takes it ([accepts] tells by a file name), else converted to PNG ([convertToPng], in another isolate). Null when
+/// they are no image, or one the forum takes in neither form.
+Future<UploadImageFile?> writeUploadImage(
+  Uint8List bytes, {
+  required Directory dir,
+  required String stem,
+  required bool Function(String filename) accepts,
+}) async {
+  final ext = sniffImageExtension(bytes);
+  final asIs = ext != null && accepts('$stem.$ext');
+  var data = bytes;
+  var name = '$stem.$ext';
+  // A bitmap goes up as a PNG even where the forum names no types: the same picture, a fraction of the size. One the
+  // `image` package cannot read goes as it is where the forum takes bitmaps.
+  if (!asIs || ext == 'bmp') {
+    final converted = accepts('$stem.png') ? await Isolate.run(() => convertToPng(bytes)) : null;
+    if (converted != null) {
+      name = '$stem.png';
+      data = converted;
+    } else if (!asIs) {
+      return null;
+    }
+  }
+  await dir.create(recursive: true);
+  final file = File('${dir.path}${Platform.pathSeparator}$name');
+  try {
+    await file.writeAsBytes(data, flush: true);
+  } on Object {
+    // Nothing half written stays behind.
+    try {
+      if (file.existsSync()) file.deleteSync();
+    } on Object {
+      // Left to the temporary directory.
+    }
+    rethrow;
+  }
+  return UploadImageFile(file.path, temporary: true);
+}
+
+/// The image file at [path] (dropped, copied in the file manager) ready to upload: the file itself when the forum
+/// takes its type ([accepts]), else a PNG copy in [dir] named `<stem>.png` ([writeUploadImage]). Null when it is
+/// unreadable or no image.
+Future<UploadImageFile?> prepareImageFile(
+  String path, {
+  required Directory dir,
+  required String stem,
+  required bool Function(String filename) accepts,
+}) async {
+  final name = path.split(RegExp(r'[/\\]')).last;
+  if (accepts(name) && !name.toLowerCase().endsWith('.bmp')) return UploadImageFile(path, temporary: false);
+  final Uint8List bytes;
+  try {
+    bytes = await File(path).readAsBytes();
+  } on Object {
+    return null;
+  }
+  return writeUploadImage(bytes, dir: dir, stem: stem, accepts: accepts);
+}
+
+/// What a paste in the post editor takes from the clipboard instead of text.
+sealed class ClipboardImages {
+  const ClipboardImages();
+}
+
+/// Image files copied in the file manager (desktop): the member's own files.
+final class ClipboardImagePaths extends ClipboardImages {
+  /// Constructor.
+  const ClipboardImagePaths(this.paths);
+
+  /// The files, all images ([isImageFilePath]).
+  final List<String> paths;
+}
+
+/// An image copied as such (a screenshot, "copy image" in a browser or a viewer).
+final class ClipboardImageBytes extends ClipboardImages {
+  /// Constructor.
+  const ClipboardImageBytes(this.bytes);
+
+  /// The image data, in whatever format the platform gives it.
+  final Uint8List bytes;
+}
+
+/// Reads the clipboard for a paste in the post editor, in this order:
+///
+/// 1. Files copied in the file manager (desktop) are taken when all of them are images; with any other file among
+///    them the paste is left to the editor. They come first: a file manager puts their names as text beside them.
+/// 2. Text wins over a picture: a clipboard with text (alone, or beside a picture as office programs copy cells)
+///    pastes the text as before. Only whether there is text is asked, not the text: on iOS reading it would ask the
+///    member to allow the paste once more, the editor reading it again. So text of only spaces counts as text too.
+/// 3. A picture is taken only without text.
+///
+/// The readers are injectable for tests; each one failing counts as nothing there.
+final class ClipboardImageReader {
+  /// Constructor.
+  const ClipboardImageReader({required this.hasText, required this.readFiles, required this.readImage});
+
+  /// The clipboard of the platform: text through Flutter, files (desktop only) and the picture through `pasteboard`.
+  factory ClipboardImageReader.platform() => ClipboardImageReader(
+    hasText: Clipboard.hasStrings,
+    // On Android the "files" are content uris of any clip item, not paths.
+    readFiles: isDesktop ? Pasteboard.files : () async => const <String>[],
+    readImage: () => Pasteboard.image,
+  );
+
+  /// Whether there is text on the clipboard.
+  final Future<bool> Function() hasText;
+
+  /// The paths of files copied in the file manager.
+  final Future<List<String>> Function() readFiles;
+
+  /// The picture on the clipboard.
+  final Future<Uint8List?> Function() readImage;
+
+  static Future<T?> _safe<T>(Future<T> Function() read) async {
+    try {
+      return await read();
+    } on Object {
+      return null;
+    }
+  }
+
+  /// The images to upload instead of pasting, null when the paste is the editor's (text, other files, nothing).
+  /// Without [textWins] (an upload from the clipboard asked for) text beside a picture does not keep it.
+  Future<ClipboardImages?> read({bool textWins = true}) async {
+    final files = await _safe(readFiles) ?? const <String>[];
+    if (files.isNotEmpty) {
+      return files.every(isImageFilePath) ? ClipboardImagePaths(List.of(files)) : null;
+    }
+    if (textWins && (await _safe(hasText) ?? false)) return null;
+    final bytes = await _safe(readImage);
+    if (bytes == null || bytes.isEmpty) return null;
+    return ClipboardImageBytes(bytes);
+  }
+}

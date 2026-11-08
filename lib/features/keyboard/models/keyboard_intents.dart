@@ -77,3 +77,30 @@ class CopyPageLinkIntent extends Intent {
   /// Constructor.
   const CopyPageLinkIntent();
 }
+
+/// Closes the tab shown in the detail pane of a wide list page.
+class ClosePaneTabIntent extends Intent {
+  /// Constructor.
+  const ClosePaneTabIntent();
+}
+
+/// Shows the next tab of the detail pane.
+class NextPaneTabIntent extends Intent {
+  /// Constructor.
+  const NextPaneTabIntent();
+}
+
+/// Shows the previous tab of the detail pane.
+class PreviousPaneTabIntent extends Intent {
+  /// Constructor.
+  const PreviousPaneTabIntent();
+}
+
+/// Shows the tab of the detail pane at [index] (0 is the first).
+class SelectPaneTabIntent extends Intent {
+  /// Constructor.
+  const SelectPaneTabIntent(this.index);
+
+  /// Where the tab is.
+  final int index;
+}
