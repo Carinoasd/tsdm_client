@@ -178,7 +178,7 @@ struct HomeWidgetView: View {
     VStack(spacing: 2) {
       Image(systemName: checked ? "checkmark.circle.fill" : "calendar.badge.plus")
         .font(.title3)
-        .foregroundColor(checked ? .green : .accentColor)
+        .foregroundColor(checked ? Color.green : Color.accentColor)
       Text(checked ? HomeWidgetText.checkedIn : HomeWidgetText.notCheckedIn)
         .font(.caption)
         .lineLimit(1)
