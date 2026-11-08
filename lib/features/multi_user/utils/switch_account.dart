@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -31,6 +32,9 @@ enum SwitchAccountResult {
   /// The page holding the [SwitchUserBloc] went away before the switch ended; only returned once the switch itself
   /// ended, whatever it did.
   abandoned,
+
+  /// The app lock asks to unlock before a switch and the user did not: nothing was tried.
+  unlockCancelled,
 }
 
 /// Reason of the pause held on [AutoNotificationCubit] while switching.
@@ -80,6 +84,20 @@ Future<SwitchAccountResult> switchAccount(
     return SwitchAccountResult.replyBusy;
   }
   _switching = true;
+  if (getIt.isRegistered<AppLockCubit>() && getIt.get<AppLockCubit>().requiresUnlockForAccountSwitch) {
+    // Held like a running switch while asking: a second tap meanwhile is ignored.
+    final unlocked = await getIt.get<AppLockCubit>().requestVerification();
+    if (!unlocked || !context.mounted) {
+      talker.debug('switch account: not unlocked, not switching');
+      _switching = false;
+      return SwitchAccountResult.unlockCancelled;
+    }
+    if (ReplyBloc.sendingAny) {
+      _switching = false;
+      showSnackBar(context: context, message: context.t.currentAccount.replyBusy);
+      return SwitchAccountResult.replyBusy;
+    }
+  }
   // App wide, outlives the dialog; missing only in tests that do not provide it.
   final auto = context.readOrNull<AutoNotificationCubit>();
   final tr = context.t;
@@ -95,7 +113,10 @@ Future<SwitchAccountResult> switchAccount(
         _ => tr.general.failedToLoad,
       },
       SwitchAccountResult.syncBusy => tr.currentAccount.switchBusy,
-      SwitchAccountResult.alreadySwitching || SwitchAccountResult.replyBusy || SwitchAccountResult.abandoned => null,
+      SwitchAccountResult.alreadySwitching ||
+      SwitchAccountResult.replyBusy ||
+      SwitchAccountResult.abandoned ||
+      SwitchAccountResult.unlockCancelled => null,
     };
     if (message != null) {
       showSnackBar(context: context, message: message);

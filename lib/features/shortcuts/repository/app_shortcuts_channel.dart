@@ -2,7 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
-/// The channel the native `ShortcutsHandler` hands the shortcut ids over.
+/// The channel the native `ShortcutsHandler` (Android) hands the shortcut ids over, or `HomeWidgetBridge` (iOS) the
+/// links of the widget's taps.
 ///
 /// A cold start asks for the shortcut the activity was started with ([initial]); a shortcut tapped while the app runs
 /// is pushed to [listen]'s callback.
@@ -58,7 +59,7 @@ final class AppShortcutsChannel with LoggerMixin {
     if (id == null) {
       return null;
     }
-    final shortcut = AppShortcut.fromId(id);
+    final shortcut = AppShortcut.fromIdOrLink(id);
     if (shortcut == null) {
       warning('unknown app shortcut "$id"');
     }
