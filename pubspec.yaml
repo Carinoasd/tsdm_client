@@ -136,6 +136,7 @@ flutter:
     - assets/images/emoji/
     - assets/images/app_icons/
     - assets/text/
+    - assets/text/opencc/
 
 flutter_launcher_icons:
   image_path: "assets/images/tsdm_client.png"

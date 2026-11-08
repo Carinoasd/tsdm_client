@@ -50,6 +50,7 @@ import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_app_icon_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_chinese_display_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_data_saver_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
@@ -72,6 +73,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/co
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/app_icon.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
@@ -395,6 +397,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
+    final chineseDisplayMode = ChineseDisplayMode.fromIndex(state.settingsMap.chineseDisplayMode);
     final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
     final immersiveForums = ImmersiveForums.parse(
       state.settingsMap.immersiveForums,
@@ -488,6 +491,19 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (selectedFont == null || !context.mounted) return;
             context.read<ThemeCubit>().setFontFamily(selectedFont);
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.fontFamily, selectedFont));
+          },
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-chinese-display'),
+          leading: const Icon(Icons.translate_outlined),
+          title: Text(tr.chineseDisplay.title),
+          trailing: _trailingValue(context, chineseDisplayModeName(context, chineseDisplayMode)),
+          onTap: () async {
+            final picked = await showSelectChineseDisplayDialog(context, chineseDisplayMode);
+            if (picked == null || !context.mounted) {
+              return;
+            }
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.chineseDisplayMode, picked.index));
           },
         ),
         SectionListTile(

@@ -506,6 +506,12 @@
         "title": "Font family",
         "dialogTitle": "Choose font"
       },
+      "chineseDisplay": {
+        "title": "Chinese script",
+        "off": "Off",
+        "traditional": "Traditional",
+        "simplified": "Simplified"
+      },
       "textScaleFactor": {
         "title": "Text scale",
         "dialogTitle": "Text scale factor"

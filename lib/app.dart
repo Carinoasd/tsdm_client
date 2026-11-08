@@ -84,6 +84,8 @@ import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_r
 import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/app_icon.dart';
 import 'package:tsdm_client/utils/app_text_scale.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/high_refresh_rate.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -826,6 +828,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                   final textScaleFactor = context.select<SettingsBloc, double>(
                     (bloc) => bloc.state.settingsMap.textScaleFactor,
                   );
+                  final chineseDisplayMode = ChineseDisplayMode.fromIndex(
+                    context.select<SettingsBloc, int>((bloc) => bloc.state.settingsMap.chineseDisplayMode),
+                  );
 
                   final lightTheme = AppTheme.makeLight(context, seedColor: accentColor, fontFamily: fontFamily);
                   final darkTheme = AppTheme.makeDark(context, seedColor: accentColor, fontFamily: fontFamily);
@@ -844,12 +849,15 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: _withAppLock(
-                          KeyboardShortcutsHost(
-                            onSearch: () => _openFromKeyboard(ScreenPaths.search),
-                            onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
-                            // The mini player below every page while something is played.
-                            child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                        child: ChineseDisplayHost(
+                          mode: chineseDisplayMode,
+                          child: _withAppLock(
+                            KeyboardShortcutsHost(
+                              onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                              onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                              // The mini player below every page while something is played.
+                              child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                            ),
                           ),
                         ),
                       );
