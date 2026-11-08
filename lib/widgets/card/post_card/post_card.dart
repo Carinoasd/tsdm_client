@@ -399,15 +399,19 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             padding: edgeInsetsL16R16,
             child: PostTypographyScope(
               typography: typography,
-              child: PostImageScope(
-                images: _floorImages,
-                autoLoad: imageAutoLoad,
-                dataSaver: dataSaver,
-                child: widget.post.isSpoofed
-                    ? const _ContentUnavailable()
-                    : appRenderer
-                    ? PostBbcodeBody(widget.post)
-                    : MunchedHtml(widget.post.data),
+              // The page decides on the data saver when its first floor is built, pictures or not.
+              child: DataSaverPageDecision(
+                mode: dataSaver,
+                child: PostImageScope(
+                  images: _floorImages,
+                  autoLoad: imageAutoLoad,
+                  dataSaver: dataSaver,
+                  child: widget.post.isSpoofed
+                      ? const _ContentUnavailable()
+                      : appRenderer
+                      ? PostBbcodeBody(widget.post)
+                      : MunchedHtml(widget.post.data),
+                ),
               ),
             ),
           ),

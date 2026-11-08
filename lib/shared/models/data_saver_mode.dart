@@ -90,3 +90,71 @@ final class _Decision {
 
   final int spells;
 }
+
+/// Makes the page of [child] decide on the data saver as soon as it is built ([DataSaver.holdsBack]), not when its
+/// first picture is: a page opened on Wi-Fi that went through mobile data before its pictures were built holds them
+/// back as well. Builds [child] as it is (a change of the route rebuilds nothing below).
+class DataSaverPageDecision extends StatefulWidget {
+  /// Constructor.
+  const DataSaverPageDecision({required this.mode, required this.child, super.key});
+
+  /// The data saver set.
+  final DataSaverMode mode;
+
+  /// The content.
+  final Widget child;
+
+  @override
+  State<DataSaverPageDecision> createState() => _DataSaverPageDecisionState();
+}
+
+class _DataSaverPageDecisionState extends State<DataSaverPageDecision> {
+  bool _listening = false;
+
+  void _decide() {
+    if (mounted) {
+      DataSaver.holdsBack(context, widget.mode);
+    }
+  }
+
+  void _follow() {
+    final follows = widget.mode == DataSaverMode.meteredOnly;
+    if (follows && !_listening) {
+      // Until the first answer of the network, and for each change after it (cheap: no rebuild).
+      NetworkUsage.unmetered.addListener(_decide);
+      _listening = true;
+    } else if (!follows && _listening) {
+      NetworkUsage.unmetered.removeListener(_decide);
+      _listening = false;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _follow();
+    if (widget.mode == DataSaverMode.meteredOnly) {
+      DataSaver.holdsBack(context, widget.mode);
+    }
+  }
+
+  @override
+  void didUpdateWidget(DataSaverPageDecision oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode != widget.mode) {
+      _follow();
+      _decide();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_listening) {
+      NetworkUsage.unmetered.removeListener(_decide);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

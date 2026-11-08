@@ -85,7 +85,9 @@ final class FloorImages {
   /// Pictures of their own (a gallery of their own) in the floor of [parent], as the table of the floor opened full
   /// screen: "load all in this floor" there loads the floor's, and the floor's loads these.
   FloorImages.within(FloorImages parent) : pageImages = null, _parent = parent {
-    parent._children.add(WeakReference(this));
+    parent._children
+      ..removeWhere((e) => e.target == null)
+      ..add(WeakReference(this));
   }
 
   final FloorImages? _parent;

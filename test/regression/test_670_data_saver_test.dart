@@ -377,13 +377,44 @@ void main() {
       expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
     });
 
-    testWidgets('a page on Wi-Fi that built nothing while on mobile data holds back all the same', (tester) async {
+    testWidgets('a page on Wi-Fi without a picture yet holds back after a spell of mobile data (decided on open)', (
+      tester,
+    ) async {
+      NetworkUsage.check = () async => true;
+      NetworkUsage.handlePlatformChange(metered: false);
+      await pumpPages(
+        tester,
+        () => const DataSaverPageDecision(mode: DataSaverMode.meteredOnly, child: SizedBox(width: 10, height: 10)),
+      );
+      final page = tester.element(find.byType(SizedBox).first);
+      NetworkUsage.handlePlatformChange(metered: true);
+      NetworkUsage.handlePlatformChange(metered: false);
+      // The first picture comes now.
+      expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
+    });
+
+    testWidgets('the page decides on the first answer of the network when it opened before it', (tester) async {
+      final answer = Completer<bool>();
+      NetworkUsage.check = () => answer.future;
+      await pumpPages(
+        tester,
+        () => const DataSaverPageDecision(mode: DataSaverMode.meteredOnly, child: SizedBox(width: 10, height: 10)),
+      );
+      answer.complete(true);
+      await _settle(tester, rounds: 5);
+      final page = tester.element(find.byType(SizedBox).first);
+      NetworkUsage.handlePlatformChange(metered: true);
+      NetworkUsage.handlePlatformChange(metered: false);
+      expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
+    });
+
+    testWidgets('a page whose pictures were let go while on mobile data holds back all the same', (tester) async {
       NetworkUsage.check = () async => true;
       NetworkUsage.handlePlatformChange(metered: false);
       await pumpPages(tester, () => probe(DataSaverMode.meteredOnly));
       final page = tester.element(find.byType(SizedBox).first);
       expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isFalse);
-      // Nothing asks while the network counts the data (no picture built then).
+      // Nothing asks while the network counts the data (its pictures were let go then).
       NetworkUsage.handlePlatformChange(metered: true);
       NetworkUsage.handlePlatformChange(metered: false);
       expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
