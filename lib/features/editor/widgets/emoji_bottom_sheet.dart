@@ -47,7 +47,7 @@ class _EmojiBottomSheet extends StatefulWidget {
   State<_EmojiBottomSheet> createState() => _EmojiBottomSheetState();
 }
 
-// A new controller when the packs change while the sheet is open (read after it opened): more than one ticker.
+// A new controller whenever the number of tabs changes (the packs are read before the sheet opens; kept safe anyway).
 class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProviderStateMixin {
   TabController? tabController;
   int _tabCount = 0;

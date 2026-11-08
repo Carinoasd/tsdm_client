@@ -8,6 +8,9 @@ import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
 /// The longest side of a saved pack image; a larger one is scaled down to it.
 const customEmojiMaxSide = 512;
 
+/// The most pixels of an image read (its frame decoded whole in memory): a small file can declare a huge image.
+const int customEmojiMaxPixels = 40 * 1000 * 1000;
+
 /// An image ready to be saved in a pack.
 final class PreparedCustomEmoji {
   /// Constructor.
@@ -52,6 +55,8 @@ String? customEmojiFormatOf(List<int> bytes) {
 /// larger one is scaled down to that side in its own format; any other format the decoder reads (WebP, BMP…) becomes a
 /// PNG, scaled down as well when larger: the forum takes JPEG, PNG and GIF images only.
 ///
+/// An image larger than [customEmojiMaxPixels] (by its header) is not read.
+///
 /// Synchronous and slow on large images: run it in an isolate.
 PreparedCustomEmoji? prepareCustomEmoji(Uint8List bytes) {
   final format = customEmojiFormatOf(bytes);
@@ -60,7 +65,16 @@ PreparedCustomEmoji? prepareCustomEmoji(Uint8List bytes) {
   }
   final img.Image? image;
   try {
-    image = img.decodeImage(bytes);
+    // The size its header declares first: never decoded when too large.
+    final decoder = img.findDecoderForData(bytes);
+    final info = decoder?.startDecode(bytes);
+    if (decoder == null || info == null || info.width <= 0 || info.height <= 0) {
+      return null;
+    }
+    if (info.width > 16384 || info.height > 16384 || info.width * info.height > customEmojiMaxPixels) {
+      return null;
+    }
+    image = decoder.decode(bytes);
   } on Object {
     return null;
   }

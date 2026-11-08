@@ -50,6 +50,9 @@ final class CustomEmojiStore with LoggerMixin {
   final _uploads = <String, Map<String, int>>{};
 
   Directory? _dir;
+
+  /// The files never written: unreadable ones that could not be set aside.
+  final _kept = <String>{};
   Future<void>? _loading;
   Future<void> _writes = Future<void>.value();
 
@@ -99,7 +102,8 @@ final class CustomEmojiStore with LoggerMixin {
   }();
 
   /// The saved map of [file] with a [key], null when there is no file. One this cannot read (broken, of a later
-  /// version) is renamed out of the way first (`<name>.bad-<ms>`): the next write would replace it otherwise.
+  /// version) is renamed out of the way first (`<name>.bad-<ms>`; a later version's file goes back by renaming it): the
+  /// next write would replace it otherwise. One that cannot be renamed is never written.
   Future<Map<Object?, Object?>?> _read(File file, String key) async {
     if (!file.existsSync()) return null;
     try {
@@ -115,7 +119,8 @@ final class CustomEmojiStore with LoggerMixin {
     try {
       await file.rename('${file.path}.bad-${DateTime.now().millisecondsSinceEpoch}');
     } on Object catch (e) {
-      warning('custom emoji packs: ${file.path} not set aside: $e');
+      warning('custom emoji packs: ${file.path} not set aside, left as it is: $e');
+      _kept.add(file.uri.pathSegments.last);
     }
     return null;
   }
@@ -314,7 +319,7 @@ final class CustomEmojiStore with LoggerMixin {
 
   void _write(String name, String data) {
     final dir = _dir;
-    if (dir == null) return;
+    if (dir == null || _kept.contains(name)) return;
     _writes = _writes.then((_) async {
       try {
         await dir.create(recursive: true);

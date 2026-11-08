@@ -20,6 +20,9 @@ const int customEmojiArchiveMaxBytes = 200 * 1024 * 1024;
 /// The largest `manifest.json` read, in bytes.
 const int _maxManifestBytes = 4 * 1024 * 1024;
 
+/// The most bytes of images read from an archive, all together (decompressed).
+const int customEmojiArchiveMaxTotalBytes = 256 * 1024 * 1024;
+
 /// At most this many images are read from an archive.
 const customEmojiArchiveMaxImages = 5000;
 
@@ -113,7 +116,8 @@ Uint8List encodeCustomEmojiArchive(List<CustomEmojiPack> packs, Uint8List? Funct
 /// The packs of an archive [encodeCustomEmojiArchive] wrote, null when [bytes] is no such archive.
 ///
 /// Nothing in it is trusted: only `manifest.json` and the entries named exactly `images/<sha256>.<ext>` are read; an
-/// image larger than [customEmojiArchiveMaxImageBytes] (decompressed, whatever the archive declares), whose bytes are not of its name (hash, format) or past the
+/// image larger than [customEmojiArchiveMaxImageBytes] (decompressed, whatever the archive declares), past
+/// [customEmojiArchiveMaxTotalBytes] of images, whose bytes are not of its name (hash, format) or past the
 /// first [customEmojiArchiveMaxImages] is left out, as is a name of the manifest no entry has.
 List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
   if (bytes.length > customEmojiArchiveMaxBytes) return null;
@@ -149,12 +153,16 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
   }
   // Each image checked once, however many packs list it.
   final checked = <String, Uint8List?>{};
+  var total = 0;
   Uint8List? imageOf(String name) => checked.putIfAbsent(name, () {
     if (!_imageNameRe.hasMatch(name) || checked.length >= customEmojiArchiveMaxImages) {
       return null;
     }
     final file = entries['images/$name'];
-    final data = file == null ? null : _readLimited(file, customEmojiArchiveMaxImageBytes);
+    final left = customEmojiArchiveMaxTotalBytes - total;
+    final data = file == null || left <= 0
+        ? null
+        : _readLimited(file, left < customEmojiArchiveMaxImageBytes ? left : customEmojiArchiveMaxImageBytes);
     if (data == null) {
       return null;
     }
@@ -162,6 +170,7 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
     if (customEmojiFormatOf(data) != name.substring(dot + 1) || sha256Hex(data) != name.substring(0, dot)) {
       return null;
     }
+    total += data.length;
     return data;
   });
 

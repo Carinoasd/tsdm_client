@@ -87,6 +87,18 @@ void main() {
       expect(customEmojiFormatOf(prepared.bytes), 'png');
     });
 
+    test('an image whose header declares too many pixels is never decoded', () {
+      // A real 1×1 PNG whose header (with its checksum) says 30000×30000.
+      final png = _png(1, 1);
+      final data = ByteData.sublistView(png)
+        ..setUint32(16, 30000)
+        ..setUint32(20, 30000)
+        ..setUint32(29, getCrc32(png.sublist(12, 29)));
+      expect(data.getUint32(16), 30000);
+      expect(img.findDecoderForData(png)!.startDecode(png)!.width, 30000, reason: 'the header is read as declared');
+      expect(prepareCustomEmoji(png), isNull);
+    });
+
     test('no image: null', () {
       expect(prepareCustomEmoji(Uint8List.fromList(utf8.encode('not an image'))), isNull);
       expect(prepareCustomEmoji(Uint8List(0)), isNull);
@@ -300,6 +312,46 @@ void main() {
         );
       final zip = ZipEncoder().encodeBytes(archive);
       expect(zip.length, lessThan(1024 * 1024), reason: 'zeros compress well');
+      expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
+    });
+
+    test('an entry whose header lies about its size is cut at the limit while decompressing', () {
+      final huge = Uint8List(customEmojiArchiveMaxImageBytes + 1)
+        ..setAll(0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      final name = '${sha256Hex(huge)}.png';
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes('images/$name', huge))
+        ..addFile(
+          ArchiveFile.bytes(
+            'manifest.json',
+            utf8.encode(
+              jsonEncode({
+                'format': customEmojiArchiveFormat,
+                'v': 1,
+                'packs': [
+                  {
+                    'name': 'x',
+                    'emojis': [name],
+                  },
+                ],
+              }),
+            ),
+          ),
+        );
+      final zip = ZipEncoder().encodeBytes(archive);
+      // Every header of the image (local 0x04034b50, central 0x02014b50) now declares 100 bytes.
+      final view = ByteData.sublistView(zip);
+      var patched = 0;
+      for (var i = 0; i + 30 < zip.length; i++) {
+        final sig = view.getUint32(i, Endian.little);
+        final declared = sig == 0x04034b50 ? i + 22 : (sig == 0x02014b50 ? i + 24 : -1);
+        if (declared >= 0 && view.getUint32(declared, Endian.little) == huge.length) {
+          view.setUint32(declared, 100, Endian.little);
+          patched++;
+        }
+      }
+      expect(patched, 2);
+      expect(ZipDecoder().decodeBytes(zip).files.firstWhere((e) => e.name == 'images/$name').size, 100);
       expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
     });
 
