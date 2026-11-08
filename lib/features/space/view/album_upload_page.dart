@@ -95,6 +95,10 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
   void _send(AlbumUploadForm form) {
     final tr = context.t.spacePage.blogEdit;
     final album = _albumOf(form);
+    if (album == _newAlbum && _albumName.text.trim().isEmpty) {
+      showSnackBar(context: context, message: context.t.spacePage.albumUpload.emptyAlbumName);
+      return;
+    }
     if (album == _newAlbum && _privacy == _withPassword && _password.text.trim().isEmpty) {
       showSnackBar(context: context, message: tr.emptyPassword);
       return;
@@ -125,11 +129,12 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
       case SpaceWriteStatus.done:
         showSnackBar(
           context: context,
-          message: tr.albumUpload.done(count: _paths.length - state.refused.length),
+          message: tr.albumUpload.done(count: state.filed),
         );
         context.pop(true);
       case SpaceWriteStatus.rejected:
-        // The pictures the forum took stay out of the list; those it did not stay, marked, to try again.
+        // The pictures the forum took leave the list (filed with the next send when filing them was refused, see
+        // `pending`); those it did not take stay, marked, to try again.
         setState(() => _paths.retainWhere((p) => state.refused.any((e) => e.path == p)));
         showSnackBar(
           context: context,
@@ -190,6 +195,22 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
                       ),
                     ),
                 ],
+              ),
+            // Taken by the forum, still to be filed to an album.
+            if (state.pending > 0)
+              Material(
+                color: theme.colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(4),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_done_outlined, color: theme.colorScheme.onSecondaryContainer),
+                      sizedBoxW4H4,
+                      Text('${state.pending}', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                ),
               ),
             if (enabled)
               Material(
@@ -301,7 +322,7 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
                   IconButton(
                     icon: const Icon(Icons.cloud_upload_outlined),
                     tooltip: tr.albumUpload.send,
-                    onPressed: _cubit.canSend && _paths.isNotEmpty ? () => _send(form) : null,
+                    onPressed: _cubit.canSend && (_paths.isNotEmpty || state.pending > 0) ? () => _send(form) : null,
                   ),
               ],
             ),

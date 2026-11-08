@@ -58,6 +58,9 @@ enum SpaceWriteOutcome {
   /// The request may have reached the forum: it is not sent again by itself.
   unconfirmed,
 
+  /// The forum asks to log in: nothing was done.
+  loginRequired,
+
   /// Nothing was sent: the account changed.
   identityChanged,
 }
@@ -299,9 +302,10 @@ final class SpaceWriteRepository with LoggerMixin {
     final filename = path.split(RegExp(r'[/\\]')).last;
     if (!form.accepts(filename)) return left(SpaceUploadRefusal.type);
     final maxKb = form.maxKb;
-    if (maxKb != null && maxKb > 0 && (fileSize != null ? fileSize(path) : await _fileSize(path)) > maxKb * 1024) {
-      return left(SpaceUploadRefusal.size);
-    }
+    final size = fileSize != null ? fileSize(path) : await _fileSize(path);
+    // A file that cannot be read is not sent.
+    if (size == null) return left(SpaceUploadRefusal.failed);
+    if (maxKb != null && maxKb > 0 && size > maxKb * 1024) return left(SpaceUploadRefusal.size);
     final result = await _sendFile(
       form.uploadUrl,
       {'uid': form.uploadUid, 'hash': form.uploadHash},
@@ -319,11 +323,11 @@ final class SpaceWriteRepository with LoggerMixin {
     }
   }
 
-  static Future<int> _fileSize(String path) async {
+  static Future<int?> _fileSize(String path) async {
     try {
       return await File(path).length();
     } on Object {
-      return 0;
+      return null;
     }
   }
 
@@ -383,7 +387,7 @@ final class SpaceWriteRepository with LoggerMixin {
         return SpaceWriteResult(SpaceWriteOutcome.rejected, message: t.postEditPage.verificationRequired);
       }
       if (api.login) {
-        return SpaceWriteResult(SpaceWriteOutcome.rejected, message: api.reason);
+        return SpaceWriteResult(SpaceWriteOutcome.loginRequired, message: api.reason);
       }
       final id = idOf(api.url);
       if (success.contains(api.messageKey) || (api.kind == TsdmAppWriteKind.redirect && api.ok && id != null)) {

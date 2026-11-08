@@ -47,6 +47,8 @@ final class SpaceWriteState<F> {
     this.sent = 0,
     this.total = 0,
     this.refused = const [],
+    this.pending = 0,
+    this.filed = 0,
   });
 
   /// Where the form is.
@@ -69,6 +71,13 @@ final class SpaceWriteState<F> {
 
   /// The pictures the forum did not take, with why.
   final List<({String path, SpaceUploadRefusal reason})> refused;
+
+  /// Pictures the forum took that are still to be filed to an album (filing them was refused): filed with the next
+  /// send, not uploaded again.
+  final int pending;
+
+  /// Pictures filed to the album, once [SpaceWriteStatus.done].
+  final int filed;
 }
 
 /// Shared by the new blog and the album upload pages: one form, for one account, sent once per tap.
@@ -89,6 +98,7 @@ abstract base class _SpaceWriteCubit<F> extends Cubit<SpaceWriteState<F>> {
 
   /// Whether the form can be sent now.
   bool get canSend =>
+      !isClosed &&
       repository.isCurrent &&
       state.form != null &&
       (state.status == SpaceWriteStatus.ready || state.status == SpaceWriteStatus.rejected);
@@ -109,7 +119,12 @@ abstract base class _SpaceWriteCubit<F> extends Cubit<SpaceWriteState<F>> {
     });
   }
 
-  void _finish(SpaceWriteResult result, {List<({String path, SpaceUploadRefusal reason})> refused = const []}) {
+  void _finish(
+    SpaceWriteResult result, {
+    List<({String path, SpaceUploadRefusal reason})> refused = const [],
+    int pending = 0,
+    int filed = 0,
+  }) {
     if (isClosed || state.status == SpaceWriteStatus.identityChanged) return;
     final form = state.form;
     emit(switch (result.outcome) {
@@ -119,12 +134,14 @@ abstract base class _SpaceWriteCubit<F> extends Cubit<SpaceWriteState<F>> {
         id: result.id,
         message: result.message,
         refused: refused,
+        filed: filed,
       ),
       SpaceWriteOutcome.rejected => SpaceWriteState<F>(
         status: SpaceWriteStatus.rejected,
         form: form,
         message: result.message,
         refused: refused,
+        pending: pending,
       ),
       SpaceWriteOutcome.unconfirmed => SpaceWriteState<F>(
         status: SpaceWriteStatus.unconfirmed,
@@ -132,6 +149,7 @@ abstract base class _SpaceWriteCubit<F> extends Cubit<SpaceWriteState<F>> {
         message: result.message,
         refused: refused,
       ),
+      SpaceWriteOutcome.loginRequired => SpaceWriteState<F>(status: SpaceWriteStatus.needLogin),
       SpaceWriteOutcome.identityChanged => SpaceWriteState<F>(status: SpaceWriteStatus.identityChanged),
     });
   }
@@ -175,11 +193,15 @@ final class AlbumUploadCubit extends _SpaceWriteCubit<AlbumUploadForm> {
   @override
   Future<SpaceFormLoad<AlbumUploadForm>> _loadForm() => repository.loadUploadForm(albumId: albumId);
 
-  /// Upload the pictures [paths] one after the other, then file those the forum took to [target], once.
+  /// Pictures taken but not filed yet, see [SpaceWriteState.pending].
+  List<int> _pending = const [];
+
+  /// Upload the pictures [paths] one after the other, then file those the forum took to [target], once, with the
+  /// pictures taken before whose filing the forum refused.
   Future<void> upload(List<String> paths, AlbumTarget target) async {
-    if (!canSend || paths.isEmpty) return;
+    if (!canSend || (paths.isEmpty && _pending.isEmpty)) return;
     final form = state.form!;
-    final picIds = <int>[];
+    final picIds = [..._pending];
     final refused = <({String path, SpaceUploadRefusal reason})>[];
     for (final (i, path) in paths.indexed) {
       if (isClosed || state.status == SpaceWriteStatus.identityChanged) return;
@@ -200,6 +222,9 @@ final class AlbumUploadCubit extends _SpaceWriteCubit<AlbumUploadForm> {
       return;
     }
     emit(SpaceWriteState(status: SpaceWriteStatus.sending, form: form, sent: paths.length, total: paths.length));
-    _finish(await repository.fileUploads(form, picIds, target), refused: refused);
+    final result = await repository.fileUploads(form, picIds, target);
+    // Refused: the pictures stay taken (in the default album), filed with the next send.
+    _pending = result.outcome == SpaceWriteOutcome.rejected ? picIds : const [];
+    _finish(result, refused: refused, pending: _pending.length, filed: picIds.length);
   }
 }

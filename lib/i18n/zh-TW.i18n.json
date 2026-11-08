@@ -3484,7 +3484,8 @@
       "refusedSize": "檔案太大",
       "refusedRejected": "論壇未接收",
       "refusedFailed": "上傳失敗",
-      "noneTaken": "沒有圖片上傳成功"
+      "noneTaken": "沒有圖片上傳成功",
+      "emptyAlbumName": "請填寫相冊名稱"
     },
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",

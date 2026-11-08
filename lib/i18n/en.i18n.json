@@ -3484,7 +3484,8 @@
       "refusedSize": "File too large",
       "refusedRejected": "Not taken by the forum",
       "refusedFailed": "Upload failed",
-      "noneTaken": "No photo was uploaded"
+      "noneTaken": "No photo was uploaded",
+      "emptyAlbumName": "Enter an album name"
     },
     "unconfirmed": "The result is unknown: check the list before sending again",
     "sendFailed": "Failed to send",

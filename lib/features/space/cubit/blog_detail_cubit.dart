@@ -57,7 +57,7 @@ final class BlogDetailCubit extends Cubit<BlogDetailState> with LoggerMixin {
   Future<void> load() async {
     final generation = ++_generation;
     final shown = state.status == SpaceLoadStatus.success;
-    if (!shown) emit(const BlogDetailState());
+    emit(shown ? _with() : const BlogDetailState());
     final result = await _fetch(_url).run();
     if (isClosed || generation != _generation) return;
     switch (result) {

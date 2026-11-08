@@ -170,6 +170,15 @@ void main() {
       expect(captcha.message, t.postEditPage.verificationRequired);
     });
 
+    test('the forum asks to log in: told so, not a refusal to send again', () async {
+      final net = _Transport()..page = _fixture('blog_form');
+      final repo = net.repository();
+      final form = (await repo.loadBlogForm()).form!;
+      net.postAnswer = (_, _) => _result(kind: 'message', key: 'to_login', url: '', ok: 0, login: 1);
+      final result = await repo.postBlog(form, const BlogDraft(subject: '', message: 'x', privacy: '0'));
+      expect(result.outcome, SpaceWriteOutcome.loginRequired);
+    });
+
     test('an answer that does not tell is unconfirmed, never sent again', () async {
       final net = _Transport()..page = _fixture('blog_form');
       final repo = net.repository();
@@ -370,6 +379,48 @@ void main() {
       // Done: nothing more is sent from the page.
       expect(cubit.canSend, isFalse);
       await cubit.close();
+    });
+
+    test('filing refused: the pictures taken are filed with the next send, not uploaded again', () async {
+      var refuse = true;
+      final net = _Transport()
+        ..page = _fixture('album_upload')
+        ..fileAnswer = ((_) => '{"picid":"7"}')
+        ..postAnswer = ((_, _) => refuse
+            ? _result(kind: 'message', key: 'operating_too_fast', url: '', ok: 0, alert: 'error', message: '太快了')
+            : _result(
+                kind: 'message',
+                key: 'upload_images_completed',
+                url: 'home.php?mod=space&uid=31&do=album&quickforward=1&id=2',
+                alert: 'info',
+              ));
+      final cubit = AlbumUploadCubit(net.repository(), fileSize: (_) => 1);
+      await cubit.load();
+      await cubit.upload(['/tmp/a.png'], const AlbumTarget.create('新相册'));
+      expect(cubit.state.status, SpaceWriteStatus.rejected);
+      expect(cubit.state.message, '太快了');
+      expect(cubit.state.pending, 1);
+      expect(cubit.canSend, isTrue);
+      refuse = false;
+      await cubit.upload([], const AlbumTarget.create('新相册'));
+      expect(cubit.state.status, SpaceWriteStatus.done);
+      expect(cubit.state.filed, 1);
+      expect(cubit.state.pending, 0);
+      expect(net.files, hasLength(1));
+      expect(net.posts, hasLength(2));
+      expect(net.posts.last.$2['title[7]'], '');
+      await cubit.close();
+    });
+
+    test('a file that cannot be read is not sent', () async {
+      final net = _Transport()..page = _fixture('album_upload');
+      final repo = net.repository();
+      final form = (await repo.loadUploadForm()).form!;
+      expect(
+        await repo.uploadPhoto(form, '/nonexistent/space_test/a.png'),
+        left<SpaceUploadRefusal, int>(SpaceUploadRefusal.failed),
+      );
+      expect(net.files, isEmpty);
     });
 
     test('nothing taken: nothing filed', () async {

@@ -60,63 +60,65 @@ class _SpaceBlogPageState extends State<SpaceBlogPage> {
     final theme = Theme.of(context);
     final blog = state.blog!;
     final outline = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline);
-    final count = blog.commentCount ?? state.comments.length;
-    return AppCenteredList(
-      builder: (context, side, width) => ListView(
-        padding: side.copyWith(top: 12, bottom: 24).add(context.safePadding()),
+    final header = AppSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppSurface(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (blog.title != null) Text(blog.title!, style: theme.textTheme.titleLarge),
+          if (blog.time != null || blog.category != null) ...[
+            sizedBoxW4H4,
+            Wrap(
+              spacing: 12,
               children: [
-                if (blog.title != null) Text(blog.title!, style: theme.textTheme.titleLarge),
-                if (blog.time != null || blog.category != null) ...[
-                  sizedBoxW4H4,
-                  Wrap(
-                    spacing: 12,
-                    children: [
-                      if (blog.time != null) Text(blog.time!, style: outline),
-                      if (blog.category != null) Text(blog.category!, style: outline),
-                    ],
-                  ),
-                ],
-                sizedBoxW12H12,
-                PostLayoutHtml(blog.content!),
+                if (blog.time != null) Text(blog.time!, style: outline),
+                if (blog.category != null) Text(blog.category!, style: outline),
               ],
             ),
-          ),
-          if (state.comments.isNotEmpty) ...[
-            const SizedBox(height: appSurfaceGap),
-            AppSurface(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppSectionHeader(
-                    '${context.t.spacePage.comments} $count',
-                    icon: Icons.chat_bubble_outline,
-                    padding: const EdgeInsets.only(bottom: 8),
-                  ),
-                  for (final (i, comment) in state.comments.indexed) ...[
-                    if (i > 0) const Divider(height: 24),
-                    SpaceBlogCommentTile(comment),
-                  ],
-                  if (state.nextCommentsUrl != null || state.loadMoreFailed)
-                    ListFooter(
-                      status: listFooterStatus(
-                        hasMore: state.nextCommentsUrl != null,
-                        loading: state.loadingMore,
-                        failed: state.loadMoreFailed,
-                      ),
-                      itemCount: state.comments.length,
-                      failure: state.failure,
-                      onLoadMore: _cubit.loadMore,
-                      onRetry: _cubit.loadMore,
-                    ),
-                ],
-              ),
-            ),
           ],
+          sizedBoxW12H12,
+          PostLayoutHtml(blog.content!),
         ],
+      ),
+    );
+    final comments = state.comments;
+    final footer = state.nextCommentsUrl != null || state.loadMoreFailed;
+    // The blog, then the comments built as they come near: the header of them, each comment, the next page.
+    final count = comments.isEmpty ? 1 : 2 + comments.length + (footer ? 1 : 0);
+    return AppCenteredList(
+      builder: (context, side, width) => ListView.builder(
+        padding: side.copyWith(top: 12, bottom: 24).add(context.safePadding()),
+        itemCount: count,
+        itemBuilder: (context, index) {
+          if (index == 0) return header;
+          if (index == 1) {
+            return Padding(
+              padding: const EdgeInsets.only(top: appSurfaceGap),
+              child: AppSectionHeader(
+                '${context.t.spacePage.comments} ${blog.commentCount ?? comments.length}',
+                icon: Icons.chat_bubble_outline,
+                padding: edgeInsetsL12T4R12B4.copyWith(bottom: 8),
+              ),
+            );
+          }
+          final i = index - 2;
+          if (i < comments.length) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: appSurfaceGapCompact),
+              child: AppSurface(child: SpaceBlogCommentTile(comments[i])),
+            );
+          }
+          return ListFooter(
+            status: listFooterStatus(
+              hasMore: state.nextCommentsUrl != null,
+              loading: state.loadingMore,
+              failed: state.loadMoreFailed,
+            ),
+            itemCount: comments.length,
+            failure: state.failure,
+            onLoadMore: _cubit.loadMore,
+            onRetry: _cubit.loadMore,
+          );
+        },
       ),
     );
   }
@@ -125,8 +127,14 @@ class _SpaceBlogPageState extends State<SpaceBlogPage> {
   Widget build(BuildContext context) => BlocProvider.value(
     value: _cubit,
     child: BlocConsumer<BlogDetailCubit, BlogDetailState>(
+      // A load of the blog ended (the first, or a refresh): a refresh that failed keeps the blog and says so.
+      listenWhen: (prev, curr) =>
+          !identical(prev.blog, curr.blog) || (curr.failure != null && prev.failure == null && !curr.loadMoreFailed),
       listener: (context, state) {
-        if (state.status != SpaceLoadStatus.loading) _refreshController.finishRefresh();
+        _refreshController.finishRefresh();
+        if (state.status == SpaceLoadStatus.success && state.failure != null && !state.loadMoreFailed) {
+          showRefreshFailedSnackBar(context, state.failure, onRetry: _cubit.load);
+        }
       },
       builder: (context, state) {
         final body = switch (state.status) {

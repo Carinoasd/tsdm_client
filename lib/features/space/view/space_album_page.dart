@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -47,6 +48,9 @@ class SpaceAlbumPage extends StatefulWidget {
 class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
   late final SpaceListCubit<SpacePhoto> _cubit;
+
+  /// The account changes, to show the owner's actions to the owner only.
+  late final Stream<AuthStatus> _authChanges = context.read<AuthenticationRepository>().status;
 
   @override
   void initState() {
@@ -153,7 +157,7 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
 
   @override
   Widget build(BuildContext context) {
-    final own = widget.albumId > 0 && context.read<AuthenticationRepository>().currentUser?.uid == widget.uid;
+    final auth = context.read<AuthenticationRepository>();
     return BlocProvider.value(
       value: _cubit,
       child: BlocConsumer<SpaceListCubit<SpacePhoto>, SpaceListState<SpacePhoto>>(
@@ -197,13 +201,17 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
                   ),
               ],
             ),
-            floatingActionButton: own
-                ? FloatingActionButton(
-                    tooltip: context.t.spacePage.upload,
-                    onPressed: _upload,
-                    child: const Icon(Icons.add_photo_alternate_outlined),
-                  )
-                : null,
+            // Follows the account in use: only the owner uploads, and not to the default album.
+            floatingActionButton: StreamBuilder<AuthStatus>(
+              stream: _authChanges,
+              builder: (context, _) => widget.albumId > 0 && auth.currentUser?.uid == widget.uid
+                  ? FloatingActionButton(
+                      tooltip: context.t.spacePage.upload,
+                      onPressed: _upload,
+                      child: const Icon(Icons.add_photo_alternate_outlined),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             body: SafeArea(bottom: false, child: body),
           );
         },

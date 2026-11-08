@@ -3484,7 +3484,8 @@
       "refusedSize": "文件太大",
       "refusedRejected": "论坛未接收",
       "refusedFailed": "上传失败",
-      "noneTaken": "没有图片上传成功"
+      "noneTaken": "没有图片上传成功",
+      "emptyAlbumName": "请填写相册名称"
     },
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",

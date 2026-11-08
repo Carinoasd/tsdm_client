@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/space/cubit/space_list_cubit.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
@@ -58,6 +59,9 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
   late final TabController _tabController;
   late final SpaceListCubit<SpaceBlog> _blogs;
   late final SpaceListCubit<SpaceAlbum> _albums;
+
+  /// The account changes, to show the owner's actions to the owner only.
+  late final Stream<AuthStatus> _authChanges = context.read<AuthenticationRepository>().status;
 
   @override
   void initState() {
@@ -115,13 +119,17 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
           ],
         ),
       ),
-      floatingActionButton: _own
-          ? FloatingActionButton(
-              tooltip: tab == SpaceTab.blog ? tr.newBlog : tr.upload,
-              onPressed: _write,
-              child: Icon(tab == SpaceTab.blog ? Icons.edit_outlined : Icons.add_photo_alternate_outlined),
-            )
-          : null,
+      // Follows the account in use: another account's space offers nothing to write.
+      floatingActionButton: StreamBuilder<AuthStatus>(
+        stream: _authChanges,
+        builder: (context, _) => _own
+            ? FloatingActionButton(
+                tooltip: tab == SpaceTab.blog ? tr.newBlog : tr.upload,
+                onPressed: _write,
+                child: Icon(tab == SpaceTab.blog ? Icons.edit_outlined : Icons.add_photo_alternate_outlined),
+              )
+            : const SizedBox.shrink(),
+      ),
       body: SafeArea(
         bottom: false,
         child: TabBarView(
