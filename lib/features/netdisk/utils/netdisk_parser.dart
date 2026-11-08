@@ -8,6 +8,7 @@ const netdiskProviders = <NetdiskProvider>[
     name: '蓝奏云',
     hosts: [
       'lanzou.com',
+      'ilanzou.com',
       'lanzoux.com',
       'lanzn.com',
       'lanzoui.com',
@@ -35,8 +36,8 @@ const netdiskProviders = <NetdiskProvider>[
   NetdiskProvider(name: '城通网盘', hosts: ['ctfile.com', '545c.com', '306t.com', '474b.com', '089u.com']),
   NetdiskProvider(name: '天翼云盘', hosts: ['cloud.189.cn']),
   NetdiskProvider(name: '迅雷云盘', hosts: ['pan.xunlei.com'], codeParam: 'pwd'),
-  NetdiskProvider(name: 'Mega', hosts: ['mega.nz', 'mega.io']),
-  NetdiskProvider(name: 'Google Drive', hosts: ['drive.google.com', 'docs.google.com']),
+  NetdiskProvider(name: 'Mega', hosts: ['mega.nz']),
+  NetdiskProvider(name: 'Google Drive', hosts: ['drive.google.com']),
   NetdiskProvider(name: 'OneDrive', hosts: ['onedrive.live.com', '1drv.ms', 'sharepoint.com']),
   NetdiskProvider(name: 'MediaFire', hosts: ['mediafire.com']),
 ];
@@ -57,20 +58,37 @@ NetdiskProvider? netdiskProviderOf(String url) {
   return null;
 }
 
+/// The url at the start of [href] as [parseNetdiskLinks] reads it (it stops at a full-width character and drops the
+/// punctuation a sentence appends), null when it is no online storage link.
+String? netdiskUrlOf(String href) {
+  final match = _urlRe.matchAsPrefix(href.trim());
+  if (match == null) {
+    return null;
+  }
+  var url = match.group(0)!;
+  while (url.isNotEmpty && _trailingPunctuation.contains(url[url.length - 1])) {
+    url = url.substring(0, url.length - 1);
+  }
+  return netdiskProviderOf(url) == null ? null : url;
+}
+
 final _urlRe = RegExp(r'https?://[^\s<>"　-〿＀-￯]+');
 const _trailingPunctuation = '.,;:!?)]}\'"';
 
 /// Words naming the archive password come first so that `解压密码` is not read as a plain `密码`.
 final _labelRe = RegExp(
-  r'(?<unzip>解[压壓](?:缩包)?密?[码碼]|[压壓][缩縮]包密?[码碼]|unzip\s*(?:password|pwd|code)|zip\s*(?:password|pwd))'
+  r'(?<unzip>解[压壓](?:[缩縮])?(?:包)?密?[码碼]|[压壓][缩縮]包密?[码碼]|unzip\s*(?:password|pwd|code)|zip\s*(?:password|pwd))'
   r'|(?<extract>提取密?[码碼]|提取[码碼]|访问[码碼]|訪問[码碼]|密[码碼]|(?<![A-Za-z])(?:pwd|password|passcode|extract\s*code|code)(?![A-Za-z]))',
   caseSensitive: false,
 );
 
 /// Separator between the label and its value: a colon or equal sign, or just white space.
 final _sepRe = RegExp(r'\s*[:：=＝]\s*|[ \t　]+');
+
+/// English words are labels only with a colon or equal sign: `QR code here` is no code.
+final _strictSepRe = RegExp(r'\s*[:：=＝]\s*');
 final _extractValueRe = RegExp('[A-Za-z0-9]{3,8}(?![A-Za-z0-9])');
-final _unzipValueRe = RegExp(r'[^\s,，;；。、]{1,48}');
+final _unzipValueRe = RegExp(r'''[^\s,，;；。、)）\]】」』>》"'”’]{1,48}''');
 
 /// How far from a link, in characters, a label still belongs to it.
 const _reach = 200;
@@ -99,7 +117,9 @@ List<NetdiskLink> parseNetdiskLinks(String text) {
     return const [];
   }
 
-  bool insideLink(int start, int end) => links.any((l) => start < l.end && end > l.start);
+  // Any url, not only an online storage one: `https://example.com/a?code=1234` holds no code of a share.
+  final urlRanges = [for (final m in _urlRe.allMatches(text)) (start: m.start, end: m.end)];
+  bool insideLink(int start, int end) => urlRanges.any((r) => start < r.end && end > r.start);
 
   final labels = <_Label>[];
   for (final m in _labelRe.allMatches(text)) {
@@ -107,7 +127,7 @@ List<NetdiskLink> parseNetdiskLinks(String text) {
       continue;
     }
     final unzip = m.namedGroup('unzip') != null;
-    final sep = _sepRe.matchAsPrefix(text, m.end);
+    final sep = (RegExp('[A-Za-z]').hasMatch(m.group(0)!) ? _strictSepRe : _sepRe).matchAsPrefix(text, m.end);
     if (sep == null) {
       continue;
     }
@@ -256,8 +276,8 @@ String netdiskLinksToText(
       (l) => [
         l.provider.name,
         l.url,
-        if (l.extractCode != null) '$extractCodeLabel：${l.extractCode}',
-        if (l.unzipPassword != null) '$unzipPasswordLabel：${l.unzipPassword}',
+        if (l.extractCode != null) '$extractCodeLabel: ${l.extractCode}',
+        if (l.unzipPassword != null) '$unzipPasswordLabel: ${l.unzipPassword}',
       ].join('\n'),
     )
     .join('\n\n');

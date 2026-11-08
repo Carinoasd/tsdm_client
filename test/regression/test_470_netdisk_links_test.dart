@@ -95,7 +95,7 @@ void main() {
       expect(codes('$url 提取码：abcd解压密码：xyz').extract, 'abcd');
     });
 
-    const unzipLabels = <String>['解压密码', '解壓密碼', '解压码', '解壓碼', '压缩包密码', 'unzip password'];
+    const unzipLabels = <String>['解压密码', '解壓密碼', '解压码', '解壓碼', '压缩包密码', '解压缩密码', '解壓縮密碼', '解压缩包密码', 'unzip password'];
     for (final label in unzipLabels) {
       test('archive password: $label', () {
         final c = codes('$url 提取码：abcd $label：tsdm@2026');
@@ -112,6 +112,23 @@ void main() {
 
     test('"none" is no archive password', () {
       expect(codes('$url 提取码：abcd 解压密码：无').unzip, isNull);
+    });
+
+    test('brackets around a code are no part of it', () {
+      expect(codes('$url 【解压密码：tsdm】').unzip, 'tsdm');
+      expect(codes('$url （解压密码:tsdm）').unzip, 'tsdm');
+      expect(codes('$url (密码:ab12)').extract, 'ab12');
+    });
+
+    test('a code in the query of another url is none', () {
+      final l = parseNetdiskLinks('$url 看 https://example.com/a?code=1234&pwd=zzzz').single;
+      expect(l.extractCode, isNull);
+    });
+
+    test('english words need a colon or equal sign', () {
+      expect(codes('$url QR code here').extract, isNull);
+      expect(codes('$url source code and more').extract, isNull);
+      expect(codes('$url password for unzip').extract, isNull);
     });
 
     test('the pwd of the url is the extract code, a written one wins', () {
@@ -169,6 +186,12 @@ void main() {
       expect(l.needsCopyBeforeOpen, isFalse);
     });
 
+    test('the code on the chip wins over the one in the url', () {
+      final l = link('https://pan.baidu.com/s/1AbCdEfG?pwd=wxyz', code: 'abcd');
+      expect(l.openUrl, 'https://pan.baidu.com/s/1AbCdEfG?pwd=abcd');
+      expect(l.needsCopyBeforeOpen, isFalse);
+    });
+
     test('other services: the code is copied first', () {
       final l = link('https://pan.quark.cn/s/abc', code: 'ab12');
       expect(l.openUrl, l.url);
@@ -192,6 +215,11 @@ void main() {
       expect(parseNetdiskLinks(text), hasLength(1));
     });
 
+    test('an href ending in punctuation is the url the parser reads', () {
+      expect(netdiskUrlOf('https://pan.baidu.com/s/1AAA).'), 'https://pan.baidu.com/s/1AAA');
+      expect(netdiskUrlOf('https://example.com/a'), isNull);
+    });
+
     test('paragraphs keep the codes apart', () {
       final text = textOf('<p>https://pan.baidu.com/s/1AAA</p><p>提取码：abcd</p><p>解压密码：xyz1</p>');
       final l = parseNetdiskLinks(text).single;
@@ -204,7 +232,7 @@ void main() {
     final links = parseNetdiskLinks('https://pan.baidu.com/s/1AAA 提取码：abcd 解压密码：x1\nhttps://mega.nz/file/z#k');
     expect(
       netdiskLinksToText(links, extractCodeLabel: '提取码', unzipPasswordLabel: '解压密码'),
-      '百度网盘\nhttps://pan.baidu.com/s/1AAA\n提取码：abcd\n解压密码：x1\n\nMega\nhttps://mega.nz/file/z#k',
+      '百度网盘\nhttps://pan.baidu.com/s/1AAA\n提取码: abcd\n解压密码: x1\n\nMega\nhttps://mega.nz/file/z#k',
     );
   });
 

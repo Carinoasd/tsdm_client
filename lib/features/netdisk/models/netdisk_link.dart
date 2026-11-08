@@ -35,7 +35,8 @@ final class NetdiskLink {
   /// Password of the archive downloaded from the share.
   final String? unzipPassword;
 
-  /// The url to open: carries the extract code when [NetdiskProvider.codeParam] allows it.
+  /// The url to open: carries the extract code when [NetdiskProvider.codeParam] allows it, the one shown on the chip
+  /// even where the url itself holds another.
   String get openUrl {
     final param = provider.codeParam;
     final code = extractCode;
@@ -43,17 +44,14 @@ final class NetdiskLink {
       return url;
     }
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.queryParameters.containsKey(param)) {
+    if (uri == null || uri.queryParameters[param] == code) {
       return url;
     }
     return uri.replace(queryParameters: {...uri.queryParameters, param: code}).toString();
   }
 
   /// Whether [extractCode] has to be copied by hand before opening: it is not part of [openUrl].
-  bool get needsCopyBeforeOpen => extractCode != null && openUrl == url && !_urlHasCode;
-
-  bool get _urlHasCode =>
-      provider.codeParam != null && (Uri.tryParse(url)?.queryParameters[provider.codeParam] != null);
+  bool get needsCopyBeforeOpen => extractCode != null && provider.codeParam == null;
 
   @override
   bool operator ==(Object other) =>

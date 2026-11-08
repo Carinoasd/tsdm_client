@@ -2031,8 +2031,12 @@ final class _Muncher with LoggerMixin {
 
   /// The chips under the online storage link [url] of a post (a line of their own), empty for any other link.
   List<InlineSpan> _netdiskRow(String url) {
+    if (_netdisk.isEmpty) {
+      return const [];
+    }
+    final wanted = netdiskUrlOf(url);
     for (var i = _netdiskCursor; i < _netdisk.length; i++) {
-      if (_netdisk[i].url == url) {
+      if (_netdisk[i].url == wanted) {
         _netdiskCursor = i + 1;
         _startLine();
         return [textWidgetSpan(FullWidthBlock(child: NetdiskRow(link: _netdisk[i])))];

@@ -457,9 +457,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
   /// Online storage links written in the floor.
   List<NetdiskLink> _netdiskLinks() {
-    final body = parseHtmlDocument(widget.post.data).body;
-    return body == null ? const [] : parseNetdiskLinks(netdiskTextOf(body));
+    final data = widget.post.data;
+    if (_netdiskOf?.data != data) {
+      final body = parseHtmlDocument(data).body;
+      _netdiskOf = (data: data, links: body == null ? const [] : parseNetdiskLinks(netdiskTextOf(body)));
+    }
+    return _netdiskOf!.links;
   }
+
+  ({String data, List<NetdiskLink> links})? _netdiskOf;
 
   List<PopupMenuEntry<_PostCardActions>> _buildContextMenuEntries(BuildContext context) {
     final threadBloc = context.readOrNull<ThreadBloc>();
