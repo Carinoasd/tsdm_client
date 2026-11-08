@@ -29,6 +29,7 @@ import 'package:tsdm_client/features/favorite/repository/favorite_repository.dar
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
+import 'package:tsdm_client/features/home_widget/repository/home_widget_channel.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
@@ -543,7 +544,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               return bloc;
             },
           ),
-          if (isAndroid)
+          if (HomeWidgetChannel.platformHasWidget)
             // The home screen widget follows the unread counts, the check-in record and the account in use.
             BlocProvider(
               create: (context) {

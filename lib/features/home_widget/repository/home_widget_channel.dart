@@ -2,14 +2,16 @@ import 'package:flutter/services.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
-/// The channel the Android home screen widget's state goes over to the native `HomeWidgetChannel`.
+/// The channel the home screen widget's state goes over to the native side: `HomeWidgetChannel` on Android,
+/// `HomeWidgetBridge` on iOS (it stores the state in the App Group the WidgetKit extension reads).
 ///
-/// Android only: on every other platform [update] does nothing. A native side that does not answer (an old activity,
+/// Android and iOS only ([platformHasWidget]): on every other platform [update] does nothing. A native side that does not answer (an old activity,
 /// a test without one) is logged and never thrown.
 final class HomeWidgetChannel with LoggerMixin {
   /// Constructor.
   ///
-  /// [channel] replaces the app's channel in tests; [enabled] overrides the platform check (Android only by default).
+  /// [channel] replaces the app's channel in tests; [enabled] overrides the platform check ([platformHasWidget] by
+  /// default).
   const HomeWidgetChannel({this.channel = const MethodChannel(name), bool? enabled}) : _enabled = enabled;
 
   /// The channel name, same as `HomeWidgetChannel.CHANNEL`.
@@ -23,8 +25,14 @@ final class HomeWidgetChannel with LoggerMixin {
 
   final bool? _enabled;
 
+  /// Whether the platform the app runs on has the widget.
+  static bool get platformHasWidget => hasWidget(android: isAndroid, ios: isIOS);
+
+  /// Whether a platform has the widget: Android's widget provider and iOS's WidgetKit extension.
+  static bool hasWidget({required bool android, required bool ios}) => android || ios;
+
   /// Whether this platform has the widget.
-  bool get enabled => _enabled ?? isAndroid;
+  bool get enabled => _enabled ?? platformHasWidget;
 
   /// Tell the widget the state of the account in use: [uid] (null when no account is in use, the widget then shows no
   /// counts), the unread [notice] and [personalMessage] counts and the day it checked in ([checkedInDay], ISO date,
