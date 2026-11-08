@@ -378,6 +378,13 @@
         "title": "未读信息提示",
         "detail": "有未读消息时消息按钮上显示红点或数量"
       },
+      "immersiveReading": {
+        "title": "沉浸式阅读",
+        "allForums": "所有版块",
+        "withSubforums": "连同子版块",
+        "forumId": "版块 $fid",
+        "forumCount": "$count 个版块"
+      },
       "threadCard": {
         "title": "帖子卡片",
         "detail": "设置帖子卡片的外观",
@@ -1034,6 +1041,7 @@
       "threadUrlBBCode": "链接BBCode",
       "threadUrlBBCodeWithDomain": "链接BBCode（有域名）"
     },
+    "immersiveForum": "预设沉浸此版块",
     "copyTid": "复制tid（${tid: String}）",
     "favorite": {
       "add": "收藏",
@@ -1877,6 +1885,12 @@
     "avatarBlocked": "头像被屏蔽",
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
+  },
+  "netdisk": {
+    "extractCode": "提取码",
+    "unzipPassword": "解压密码",
+    "open": "打开",
+    "copyAll": "复制全部网盘信息"
   },
   "threadExport": {
     "copyPlain": "复制为纯文本",

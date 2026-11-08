@@ -41,6 +41,7 @@ import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/dark_schedule_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_family_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
@@ -51,6 +52,7 @@ import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dial
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
+import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -363,6 +365,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
     final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
+    final immersiveForums = ImmersiveForums.parse(
+      state.settingsMap.immersiveForums,
+      all: state.settingsMap.immersiveAllForums,
+    );
 
     return AppTileGroup(
       title: tr.title,
@@ -496,6 +502,32 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: postTypography.splitLongParagraphs,
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentSplitLongParagraphs, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-immersive-forums'),
+          leading: const Icon(Icons.chrome_reader_mode_outlined),
+          title: Text(tr.immersiveReading.title),
+          trailing: _trailingValue(
+            context,
+            immersiveForums.all
+                ? tr.immersiveReading.allForums
+                : immersiveForums.exact.isEmpty && immersiveForums.withSubforums.isEmpty
+                ? ''
+                : tr.immersiveReading.forumCount(
+                    count: immersiveForums.exact.length + immersiveForums.withSubforums.length,
+                  ),
+          ),
+          onTap: () async {
+            final result = await showImmersiveForumsDialog(context, immersiveForums);
+            if (result == null || !context.mounted) return;
+            final bloc = context.read<SettingsBloc>();
+            if (result.raw != immersiveForums.raw) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveForums, result.raw));
+            }
+            if (result.all != immersiveForums.all) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveAllForums, result.all));
+            }
+          },
         ),
         SectionListTile(
           leading: const Icon(Icons.article_outlined),

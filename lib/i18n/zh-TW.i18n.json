@@ -378,6 +378,13 @@
         "title": "未讀取訊息提示",
         "detail": "有未讀訊息時訊息按鈕上顯示紅點或數量"
       },
+      "immersiveReading": {
+        "title": "沉浸式閱讀",
+        "allForums": "所有版塊",
+        "withSubforums": "連同子版塊",
+        "forumId": "版塊 $fid",
+        "forumCount": "$count 個版塊"
+      },
       "threadCard": {
         "title": "貼文卡",
         "detail": "設定貼文卡的外觀",
@@ -1034,6 +1041,7 @@
       "threadUrlBBCode": "連結BBCode",
       "threadUrlBBCodeWithDomain": "連結BBCode（有網域）"
     },
+    "immersiveForum": "預設沉浸此版塊",
     "copyTid": "複製tid（${tid: String}）",
     "favorite": {
       "add": "收藏",
@@ -1877,6 +1885,12 @@
     "avatarBlocked": "頭像被屏蔽",
     "hotReply": "推薦",
     "jumpToHotFloor": "跳到該樓"
+  },
+  "netdisk": {
+    "extractCode": "提取碼",
+    "unzipPassword": "解壓密碼",
+    "open": "開啟",
+    "copyAll": "複製全部網盤資訊"
   },
   "threadExport": {
     "copyPlain": "複製為純文字",
