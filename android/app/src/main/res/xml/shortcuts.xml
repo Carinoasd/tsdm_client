@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The shortcuts of a long press on the app icon. Each starts MainActivity with tsdm://shortcut/<id> as data; the
+<!-- The shortcuts of a long press on the app icon. Each starts MainActivityImpl with tsdm://shortcut/<id> as data; the
      id is handed to Dart by ShortcutsHandler (lib/features/shortcuts). -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut

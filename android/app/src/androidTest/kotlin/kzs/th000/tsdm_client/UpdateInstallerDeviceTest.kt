@@ -99,7 +99,7 @@ abstract class UpdateDeviceActions {
 
     private fun waitForFlutterFrame() {
         val deadline = SystemClock.uptimeMillis() + 30000
-        var lastState = "No resumed MainActivity"
+        var lastState = "No resumed MainActivityImpl"
         while (SystemClock.uptimeMillis() < deadline) {
             var ready = false
             instrumentation.runOnMainSync {

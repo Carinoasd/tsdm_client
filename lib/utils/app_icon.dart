@@ -55,7 +55,7 @@ final class AppIconFollower with LoggerMixin {
     try {
       final done = await _setter(icon.storedName);
       debug('app icon ${icon.storedName}, applied: $done');
-    } on Exception catch (e, st) {
+    } catch (e, st) {
       // A device that cannot switch icons keeps the one it shows.
       warning('failed to set app icon ${icon.storedName}', e, st);
     }

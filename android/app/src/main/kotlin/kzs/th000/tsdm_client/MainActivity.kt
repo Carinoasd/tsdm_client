@@ -29,6 +29,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
 
+// The file keeps its name (tests and the workflow path filters read it); the launcher entries named MainActivity and
+// IconDark, IconMono, IconPink are activity-aliases of this class (see the manifest and AppIconSwitcher).
 class MainActivityImpl: FlutterActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"

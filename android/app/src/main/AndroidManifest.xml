@@ -41,7 +41,7 @@
                 android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize">
-            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivity 主动获取 -->
+            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivityImpl 主动获取 -->
             <meta-data
                     android:name="flutter_deeplinking_enabled"
                     android:value="false" />
@@ -127,7 +127,7 @@
                     android:name="android.appwidget.provider"
                     android:resource="@xml/home_widget_info" />
         </receiver>
-        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivity
+        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivityImpl
              in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
         <activity
                 android:name=".ShareActivity"
