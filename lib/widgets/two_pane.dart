@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 
 /// Windows at least this wide (Material's "expanded" class) show a list page and the thread opened from it side by
 /// side, see [TwoPaneLayout].
@@ -20,8 +22,25 @@ const twoPaneListFraction = 0.4;
 /// ...kept at least this wide...
 const twoPaneListMinWidth = 360.0;
 
-/// ...and at most this wide.
+/// ...and at most this wide, until the divider between the panes is dragged ([twoPaneListWidthFor]).
 const twoPaneListMaxWidth = 480.0;
+
+/// The detail pane, the divider included, is kept at least this wide when the divider is dragged.
+const twoPaneDetailMinWidth = 480.0;
+
+/// The list pane of a two-pane layout [width] wide: [dragged] wide when the divider was dragged there (above 0),
+/// else its share of the window ([twoPaneListFraction], within [twoPaneListMinWidth]–[twoPaneListMaxWidth]); always
+/// at least [twoPaneListMinWidth], with [twoPaneDetailMinWidth] left on the right. A layout too narrow to hold both
+/// gives each pane its share of the two least widths: a guard only while the two least widths add up to
+/// [twoPaneMinWidth], the layout is never laid out narrower.
+double twoPaneListWidthFor(double width, double dragged) {
+  const least = twoPaneListMinWidth + twoPaneDetailMinWidth;
+  if (width < least) {
+    return width * twoPaneListMinWidth / least;
+  }
+  final wanted = dragged > 0 ? dragged : (width * twoPaneListFraction).clamp(twoPaneListMinWidth, twoPaneListMaxWidth);
+  return wanted.clamp(twoPaneListMinWidth, width - twoPaneDetailMinWidth);
+}
 
 /// Whether the window of [context] shows two panes: wide enough, and the `twoPaneLayout` setting on (on when no
 /// settings are provided, as in widget tests of a page alone).
@@ -201,6 +220,32 @@ class TwoPaneLayout extends StatefulWidget {
 class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   final _controller = TwoPaneController();
 
+  /// The width the divider is dragged to (0: back to the share of the window), while it is dragged and until the
+  /// setting holds it; null otherwise, the setting decides.
+  double? _draggedWidth;
+
+  /// The divider is being dragged.
+  bool _dragging = false;
+
+  /// The width of the list pane when the drag started, and how far the pointer went since: the divider follows the
+  /// pointer, also back from beyond a limit.
+  double _dragStartWidth = 0;
+  double _dragDistance = 0;
+
+  /// The width of the list pane dragged to, saved: 0 while never dragged, or with no settings provided.
+  double _savedWidth(BuildContext context) {
+    if (context.readOrNull<SettingsBloc>() == null) {
+      return 0;
+    }
+    return context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.twoPaneListWidth);
+  }
+
+  /// Keep [width] as the width of the list pane (0: its share of the window again).
+  void _save(double width) {
+    setState(() => _draggedWidth = width);
+    context.readOrNull<SettingsBloc>()?.add(SettingsValueChanged(SettingsKeys.twoPaneListWidth, width));
+  }
+
   /// Keeps the state of [TwoPaneLayout.list] (its scroll positions, its tabs) when the layout changes shape.
   final GlobalKey _listKey = GlobalKey();
 
@@ -259,7 +304,12 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
     final colorScheme = Theme.of(context).colorScheme;
     // Held under another page while narrow: laid out as a wide window would be, not squeezed.
     final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
-    final listWidth = (width * twoPaneListFraction).clamp(twoPaneListMinWidth, twoPaneListMaxWidth);
+    final saved = _savedWidth(context);
+    if (!_dragging && _draggedWidth == saved) {
+      // The setting holds it now.
+      _draggedWidth = null;
+    }
+    final listWidth = twoPaneListWidthFor(width, _draggedWidth ?? saved);
     return BackButtonListener(
       onBackButtonPressed: _onBackPressed,
       child: ClipRect(
@@ -273,7 +323,43 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
     );
   }
 
-  Widget _panes(BuildContext context, ColorScheme colorScheme, double listWidth, Widget list) => Row(
+  Widget _panes(BuildContext context, ColorScheme colorScheme, double listWidth, Widget list) => Stack(
+    children: [
+      Positioned.fill(child: _row(colorScheme, listWidth, list)),
+      Positioned(
+        // Below the app bars: their buttons at the edges of the panes (the back button of a thread opened above
+        // another) are not covered.
+        top: MediaQuery.paddingOf(context).top + kToolbarHeight,
+        bottom: 0,
+        left: listWidth - _TwoPaneDivider.reachIntoList,
+        width: _TwoPaneDivider.reach,
+        child: _TwoPaneDivider(
+          onDragStart: () => setState(() {
+            _dragging = true;
+            _draggedWidth = listWidth;
+            _dragStartWidth = listWidth;
+            _dragDistance = 0;
+          }),
+          onDragUpdate: (dx) => setState(() {
+            final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
+            _dragDistance += dx;
+            _draggedWidth = twoPaneListWidthFor(width, _dragStartWidth + _dragDistance);
+          }),
+          onDragEnd: () {
+            // A tap ends a drag that never started (cancelled): nothing moved, nothing to keep.
+            if (!_dragging) {
+              return;
+            }
+            _dragging = false;
+            _save(_draggedWidth ?? listWidth);
+          },
+          onReset: () => _save(0),
+        ),
+      ),
+    ],
+  );
+
+  Widget _row(ColorScheme colorScheme, double listWidth, Widget list) => Row(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       SizedBox(
@@ -305,6 +391,47 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
         ),
       ),
     ],
+  );
+}
+
+/// Where the divider between the panes is grabbed: a strip over the 1px line below the app bars, reaching a little
+/// into the list (its scroll bar is at its right edge) and further into the detail pane (the side room of the floors).
+/// Dragged sideways it moves the line, tapped twice it puts the line back at the list's share of the window. The
+/// pointer goes on to the panes below too: a scroll (the wheel, a vertical drag) or a tap started on the strip reaches
+/// them.
+class _TwoPaneDivider extends StatelessWidget {
+  const _TwoPaneDivider({
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onReset,
+  });
+
+  /// How far the strip reaches into the list pane.
+  static const reachIntoList = 3.0;
+
+  /// How wide the strip is.
+  static const reach = 16.0;
+
+  final VoidCallback onDragStart;
+  final ValueChanged<double> onDragUpdate;
+  final VoidCallback onDragEnd;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.resizeColumn,
+    opaque: false,
+    child: GestureDetector(
+      key: const ValueKey('two-pane-divider'),
+      behavior: HitTestBehavior.translucent,
+      dragStartBehavior: DragStartBehavior.down,
+      onHorizontalDragStart: (_) => onDragStart(),
+      onHorizontalDragUpdate: (details) => onDragUpdate(details.delta.dx),
+      onHorizontalDragEnd: (_) => onDragEnd(),
+      onHorizontalDragCancel: onDragEnd,
+      onDoubleTap: onReset,
+    ),
   );
 }
 
