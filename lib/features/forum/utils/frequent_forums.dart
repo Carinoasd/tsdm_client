@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -192,7 +193,27 @@ final class FrequentForumsStore {
   Future<void> reorder(int? uid, int oldIndex, int newIndex) =>
       _update(uid, (a) => frequentForumsReorder(a, oldIndex, newIndex));
 
-  Future<void> _update(int? uid, FrequentForumsOfAccount Function(FrequentForumsOfAccount) change) async {
+  /// The update of each settings repository still being saved: the next one waits for it, so it reads the settings
+  /// the one before it saved.
+  static final _pending = Expando<Future<void>>();
+
+  Future<void> _update(int? uid, FrequentForumsOfAccount Function(FrequentForumsOfAccount) change) {
+    final previous = _pending[_settings];
+    final done = previous == null ? _apply(uid, change) : previous.then((_) => _apply(uid, change));
+    // A failed update must not stop the ones after it.
+    final tracked = done.catchError((Object _) {});
+    _pending[_settings] = tracked;
+    unawaited(
+      tracked.whenComplete(() {
+        if (identical(_pending[_settings], tracked)) {
+          _pending[_settings] = null;
+        }
+      }),
+    );
+    return done;
+  }
+
+  Future<void> _apply(int? uid, FrequentForumsOfAccount Function(FrequentForumsOfAccount) change) async {
     final all = {...decodeFrequentForums(_settings.currentSettings.frequentForums)};
     final key = uid ?? frequentForumsGuestUid;
     final before = all[key] ?? const FrequentForumsOfAccount();

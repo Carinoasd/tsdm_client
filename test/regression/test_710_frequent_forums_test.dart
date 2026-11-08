@@ -20,9 +20,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart' show AuthStatus, AuthStatusAuthed;
 import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
 import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -58,6 +60,31 @@ Forum _forum(int fid) => Forum(
   latestThreadTimeText: null,
   threadTodayCount: 0,
 );
+
+/// Switches account the way the real one does: the uid changes after the settings were written, then the status says so.
+final class _SwitchableAuth extends AuthenticationRepository {
+  _SwitchableAuth(this._uid);
+
+  int _uid;
+  final subject = BehaviorSubject<AuthStatus>();
+
+  @override
+  int? get effectiveCurrentUid => _uid;
+
+  @override
+  Stream<AuthStatus> get status => subject.stream;
+
+  void switchTo(int uid, UserLoginInfo user) {
+    _uid = uid;
+    subject.add(AuthStatusAuthed(user));
+  }
+
+  @override
+  Future<void> dispose() async {
+    await subject.close();
+    await super.dispose();
+  }
+}
 
 List<int> _ids(List<FrequentForum> list) => list.map((e) => e.fid).toList();
 
@@ -134,6 +161,17 @@ void main() {
       expect(_ids(all[31]!.recent), [4]);
       expect(encodeFrequentForums(const {}), isEmpty);
       expect(encodeFrequentForums({31: const FrequentForumsOfAccount()}), isEmpty);
+    });
+
+    test('updates started together all land', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final settings = SettingsRepository(StorageProvider(db, {}, {}));
+      await settings.init();
+      addTearDown(settings.dispose);
+      final store = FrequentForumsStore(settings);
+      await Future.wait([for (var fid = 1; fid <= 5; fid++) store.visit(31, _f(fid))]);
+      expect(_ids(store.current(31).recent), [5, 4, 3, 2, 1]);
     });
 
     test('the store keeps each account apart and survives a restart', () async {
@@ -306,6 +344,35 @@ void main() {
       await tester.pumpAndSettle();
       expect(_ids(store.current(31).pinned), [2, 1]);
       expect(_ids(store.current(31).recent), [5]);
+    });
+
+    testWidgets('a switch of account while the bar is shown follows the new account', (tester) async {
+      await tester.runAsync(() async {
+        await store.togglePin(31, _f(1));
+        await store.togglePin(32, _f(2));
+      });
+      final switching = _SwitchableAuth(31);
+      auth = switching;
+      addTearDown(switching.dispose);
+      await pumpBar(tester);
+      expect(chip('Forum 1'), findsOneWidget);
+      switching.switchTo(32, _bob);
+      await tester.pump();
+      await tester.pump();
+      expect(chip('Forum 2'), findsOneWidget);
+      expect(chip('Forum 1'), findsNothing);
+    });
+
+    testWidgets('a pin at the limit is offered no more', (tester) async {
+      await tester.runAsync(() async {
+        for (var fid = 100; fid < 100 + frequentForumsPinnedMax; fid++) {
+          await store.togglePin(31, _f(fid));
+        }
+      });
+      await pumpBar(tester);
+      await tester.longPress(find.byType(ForumCard));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ListTile>(find.widgetWithText(ListTile, tr.forumCard.pin)).enabled, isFalse);
     });
 
     testWidgets('another account sees its own forums', (tester) async {
