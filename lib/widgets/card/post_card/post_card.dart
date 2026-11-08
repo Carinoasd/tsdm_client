@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -120,6 +121,9 @@ enum _PostCardActions {
 
   /// Delete the reply (moderators, not the first floor).
   moderateDelete,
+
+  /// Ban the floor's author from posting, or lift the ban ([PostCard.onBanAuthor]).
+  banAuthor,
 }
 
 /// Card for a [Post] model.
@@ -127,7 +131,16 @@ enum _PostCardActions {
 /// Usually inside a ThreadPage.
 class PostCard extends StatefulWidget {
   /// Constructor.
-  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, this.onModerate, super.key});
+  const PostCard(
+    this.post, {
+    this.replyCallback,
+    this.onEdited,
+    this.onJoinDebate,
+    this.onModerate,
+    this.moderateOffered,
+    this.onBanAuthor,
+    super.key,
+  });
 
   /// [Post] model to show.
   final Post post;
@@ -145,6 +158,13 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
+
+  /// The forum's `action`s of the floor management the page offers ([floorModerateActionsFor]); null when it does not
+  /// tell.
+  final Iterable<String>? moderateOffered;
+
+  /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
+  final VoidCallback? onBanAuthor;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -338,6 +358,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             ),
           ),
           sizedBoxW8H8,
+          if (widget.post.warned) ...[
+            Tooltip(
+              message: context.t.moderate.warned,
+              child: Icon(Icons.report_outlined, size: 20, color: colorScheme.error),
+            ),
+            sizedBoxW4H4,
+          ],
           _FloorBadge(widget.post),
         ],
       ),
@@ -512,7 +539,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.onModerate != null)
-          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
+          for (final action in floorModerateActionsFor(
+            first: widget.post.postFloor == 1,
+            offered: widget.moderateOffered,
+          ))
             item(
               switch (action) {
                 FloorModerateAction.warn => _PostCardActions.moderateWarn,
@@ -523,6 +553,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               floorModerateName(context, action),
               color: action == FloorModerateAction.delete ? colorScheme.error : null,
             ),
+        if (online && widget.onBanAuthor != null)
+          item(_PostCardActions.banAuthor, memberBanIcon(), context.t.moderate.banMember),
       ],
       [
         if (online && widget.post.reportTarget != null)
@@ -658,6 +690,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         widget.onModerate?.call(FloorModerateAction.ban);
       case _PostCardActions.moderateDelete:
         widget.onModerate?.call(FloorModerateAction.delete);
+      case _PostCardActions.banAuthor:
+        widget.onBanAuthor?.call();
     }
   }
 

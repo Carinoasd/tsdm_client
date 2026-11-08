@@ -87,6 +87,8 @@ class Post with PostMappable {
     this.hot = false,
     this.hotFloor,
     this.fromApp = false,
+    this.warned = false,
+    this.banAuthorUid,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -274,6 +276,7 @@ class Post with PostMappable {
       hot: hot,
       hotFloor: hot && _apiInt(p['hot_position']) > 0 ? _apiInt(p['hot_position']) : null,
       fromApp: _apiInt(p['from_app']) == 1,
+      banAuthorUid: memberBanUidIn(table.querySelector('td.pls'), authorUid: authorId),
     );
   }
 
@@ -464,6 +467,14 @@ class Post with PostMappable {
   /// The floor was posted, replied or edited from the app: the forum's app API (plugin 3.3.0) records it (`from_app`,
   /// on the web page "来自天使动漫App"). Floors sent before the plugin recorded them are not marked.
   final bool fromApp;
+
+  /// The forum marks the floor warned (the post status bit 2; the web page's 受到警告 icon in the floor's header,
+  /// `forum.php?mod=misc&action=viewwarning`). The app API does not tell it: false for a page of its answer.
+  final bool warned;
+
+  /// The member the forum offers the account to ban from posting from this floor (the 禁止 link of the author column,
+  /// printed to a user group that may ban members, see [memberBanUidIn]); null when it offers none.
+  final int? banAuthorUid;
 
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).
   int? get shownFloor => postFloor ?? hotFloor;
@@ -715,6 +726,8 @@ class Post with PostMappable {
       // the floor's header (`div.pti`, the first one: the hook every desktop template has there); one the message
       // holds (a forum allowing HTML) is not it.
       fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
+      warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
+      banAuthorUid: memberBanUidIn(userProfileNode, authorUid: int.tryParse(postAuthor.uid ?? '')),
     );
   }
 
@@ -936,4 +949,59 @@ String? _apiImageUrl(Object? value) {
     return null;
   }
   return (url.startsWith('./') ? url.substring(2) : url).prependHost();
+}
+
+/// Whether [url] is the moderation panel's ban of a member (`forum.php?mod=modcp&action=member&op=ban`).
+bool isMemberBanUrl(String url) {
+  final query = _forumScriptQuery(url);
+  return query != null && query['mod'] == 'modcp' && query['action'] == 'member' && query['op'] == 'ban';
+}
+
+/// The member the ban link of a floor's author column [column] names, as the forum prints it to an account whose user
+/// group may ban members (`allowbanuser`): `forum.php?mod=modcp&action=member&op=ban&uid=UID`, or for an administrator
+/// the admin center's `admin.php?action=members&operation=ban&username=NAME`, which names the floor's author
+/// [authorUid]. Null when the column has no such link.
+int? memberBanUidIn(uh.Element? column, {int? authorUid}) {
+  if (column == null) {
+    return null;
+  }
+  for (final link in column.querySelectorAll('a[href]')) {
+    final href = link.attributes['href'] ?? '';
+    if (isMemberBanUrl(href)) {
+      final uid = int.tryParse(_forumScriptQuery(href)?['uid'] ?? '');
+      if (uid != null && uid > 0) {
+        return uid;
+      }
+    } else if (authorUid != null && authorUid > 0 && _isAdminMemberBanUrl(href)) {
+      return authorUid;
+    }
+  }
+  return null;
+}
+
+bool _isAdminMemberBanUrl(String url) {
+  final Uri uri;
+  try {
+    uri = Uri.parse(url.replaceAll('&amp;', '&'));
+  } on FormatException {
+    return false;
+  }
+  if (!isForumScriptUri(uri, 'admin.php')) {
+    return false;
+  }
+  final query = uniqueQueryParameters(uri);
+  return query != null && query['action'] == 'members' && query['operation'] == 'ban';
+}
+
+Map<String, String>? _forumScriptQuery(String url) {
+  final Uri uri;
+  try {
+    uri = Uri.parse(url.replaceAll('&amp;', '&'));
+  } on FormatException {
+    return null;
+  }
+  if (!isForumScriptUri(uri, 'forum.php')) {
+    return null;
+  }
+  return uniqueQueryParameters(uri);
 }

@@ -45,6 +45,7 @@ final class ThreadPageInfo {
     this.postsPerPage,
     this.paginationReplies,
     this.newestFirst = false,
+    this.floorModerateOffered,
   });
 
   /// Thread id.
@@ -132,6 +133,11 @@ final class ThreadPageInfo {
   /// The floors of this page are in the newest first order (the forum's app API `ordertype` 1: asked so, or the
   /// thread's author set it, the thread status bit 4); false when the page does not tell (a web page).
   final bool newestFirst;
+
+  /// The forum's `action`s of the floor management the page offers the account (`warn`, `banpost`, `delpost`: the links
+  /// of the moderator's floor menu `div#mdly`, printed as the user group allows); null when the page does not tell
+  /// (the app API's answer, a page of no moderator).
+  final List<String>? floorModerateOffered;
 
   /// This page read back from an offline copy loaded at [savedAt]: without its reply form, whose form hash is from an
   /// old session and could only send a reply over a network that is not there.
@@ -319,6 +325,8 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
 
   final latestModAct = document.querySelector('div.modact')?.innerText;
 
+  final floorModerateOffered = floorModerateOfferedIn(document);
+
   // Parse breadcrumb.
   final breadcrumbs = document
       .querySelectorAll('div#pt > div.z > a')
@@ -374,5 +382,20 @@ ThreadPageInfo parseThreadDocument(uh.Document document, int pageNumber) {
     postMedals: medalsAvailable,
     viewCount: viewCount,
     replyCount: replyCount,
+    floorModerateOffered: floorModerateOffered,
   );
 }
+
+/// The forum's `action`s of the floor management the moderator's floor menu (`div#mdly`) of thread page
+/// [document] offers (`modaction('warn')`…, printed as the user group allows each); null when the page has no such
+/// menu.
+List<String>? floorModerateOfferedIn(uh.Document document) => document
+    .querySelector('div#mdly')
+    ?.querySelectorAll('a[onclick]')
+    .map((e) => _modActionRe.firstMatch(e.attributes['onclick'] ?? '')?.group(1))
+    .whereType<String>()
+    .toSet()
+    .toList();
+
+/// The forum's floor management call of a link of the moderator's floor menu: `modaction('warn')`.
+final _modActionRe = RegExp(r"^\s*modaction\('([a-z]+)'\)");

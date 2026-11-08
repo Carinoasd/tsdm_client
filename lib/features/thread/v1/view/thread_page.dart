@@ -30,6 +30,7 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
@@ -221,6 +222,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The account logged in moderates the forum the thread is in, as the forum says: the management is offered.
   bool _moderates = false;
+
+  /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: the
+  /// forum's app API does not tell a floor is warned, the page shows what was done all the same.
+  final _warnedByMe = <String, bool>{};
 
   /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
   StreamSubscription<ReadingProgressState>? _progressWait;
@@ -616,6 +621,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       tid: state.tid!,
       fid: state.fid!,
       pid: post.postID,
+      onDone: action == FloorModerateAction.warn ? (form) => _warnedByMe[post.postID] = !form.undo : null,
     );
     if (!done || threadBloc.isClosed) {
       return;
@@ -626,6 +632,24 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     threadBloc.add(ThreadJumpPageRequested(post.page));
   }
+
+  /// Ban the author of floor [post] of the thread in [state] from posting, or lift the ban; reload the floor's page
+  /// once done (the author column shows the member's new group).
+  Future<void> _banAuthor(BuildContext context, ThreadState state, Post post) async {
+    final threadBloc = context.read<ThreadBloc>();
+    final done = await showMemberBanDialog(context, memberUid: post.banAuthorUid!, fid: state.fid!);
+    if (!done || threadBloc.isClosed) {
+      return;
+    }
+    _scrollToPidOnReload = post.postID;
+    threadBloc.add(ThreadJumpPageRequested(post.page));
+  }
+
+  /// [post] as this moderator left it: warned or not as done here ([_warnedByMe]).
+  Post _asWarnedByMe(Post post) => switch (_warnedByMe[post.postID]) {
+    final warned? when warned != post.warned => post.copyWith(warned: warned),
+    _ => post,
+  };
 
   /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
   void _recordVisitHistory(BuildContext context, ThreadState state) {
@@ -1567,7 +1591,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 post,
                                 searchHits,
                                 PostCard(
-                                  post,
+                                  _asWarnedByMe(post),
                                   replyCallback: replyPostCallback,
                                   onEdited: () => _scrollToPidOnReload = post.postID,
                                   onJoinDebate: state.replyParameters == null || state.threadClosed
@@ -1575,6 +1599,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                       : _joinDebate,
                                   onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
                                       ? (action) => _moderateFloor(context, state, post, action)
+                                      : null,
+                                  moderateOffered: state.floorModerateOffered,
+                                  onBanAuthor: post.banAuthorUid != null && !state.isOffline && state.fid != null
+                                      ? () => _banAuthor(context, state, post)
                                       : null,
                                 ),
                               ),
