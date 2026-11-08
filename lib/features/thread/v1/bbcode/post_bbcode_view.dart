@@ -177,7 +177,7 @@ class _PostBbcodeViewState extends State<PostBbcodeView> {
 
   @override
   Widget build(BuildContext context) => _content ??= ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
+    constraints: BoxConstraints(maxWidth: _typography?.contentMaxWidth ?? htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(height: kTextHeightNone),
       TextSpan(children: _SpanBuilder(context, _recognizers, _typography).buildContent(widget.nodes)),

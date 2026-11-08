@@ -19,6 +19,8 @@ import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
+import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
+import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -26,6 +28,7 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
@@ -40,6 +43,7 @@ import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -67,6 +71,9 @@ double postAuthorSecondBadgeWidth(double availableWidth) =>
 ///   there is no available thread above current post in the widget tree.
 enum _PostCardActions {
   reply,
+
+  /// Start picking floors to quote in one reply.
+  addQuote,
   rate,
 
   /// Only view posts published by current author.
@@ -105,6 +112,9 @@ enum _PostCardActions {
   /// Copy the content as Markdown.
   copyAsMarkdown,
 
+  /// Copy every online storage link of the floor with its codes.
+  copyNetdisk,
+
   /// Copy post id.
   copyPid,
 
@@ -138,6 +148,7 @@ class PostCard extends StatefulWidget {
     this.onJoinDebate,
     this.onModerate,
     this.onBanAuthor,
+    this.multiQuote,
     super.key,
   });
 
@@ -160,6 +171,9 @@ class PostCard extends StatefulWidget {
 
   /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
   final VoidCallback? onBanAuthor;
+
+  /// The floors picked to be quoted in one reply; null where floors can not be picked (outside a thread, no reply).
+  final MultiQuoteSelection? multiQuote;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -409,7 +423,9 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     // default: posts read as a wall of text on a phone), for lines as long as they are on this screen.
     final typography = context
         .select<SettingsBloc, PostTypography>((e) => e.state.settingsMap.postTypography)
-        .withLineWidth(postContentLineWidth(context));
+        .withLineWidth(postContentLineWidth(context))
+        // As wide as the floors are let grow (the reader's setting, on the thread page).
+        .withMaxWidth(ReadingWidthScope.maxWidthOf(context));
     final child = Row(
       children: [
         Expanded(
@@ -472,6 +488,18 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     };
   }
 
+  /// Online storage links written in the floor.
+  List<NetdiskLink> _netdiskLinks() {
+    final data = widget.post.data;
+    if (_netdiskOf?.data != data) {
+      final body = parseHtmlDocument(data).body;
+      _netdiskOf = (data: data, links: body == null ? const [] : parseNetdiskLinks(netdiskTextOf(body)));
+    }
+    return _netdiskOf!.links;
+  }
+
+  ({String data, List<NetdiskLink> links})? _netdiskOf;
+
   List<PopupMenuEntry<_PostCardActions>> _buildContextMenuEntries(BuildContext context) {
     final threadBloc = context.readOrNull<ThreadBloc>();
     final onlyVisibleUid = threadBloc?.state.onlyVisibleUid;
@@ -498,6 +526,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final groups = <List<PopupMenuEntry<_PostCardActions>>>[
       [
         if (online) item(_PostCardActions.reply, Icons.reply_outlined, context.t.postCard.reply),
+        if (online && _quotable)
+          item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
           item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
       ],
@@ -525,6 +555,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
           item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
           item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
+          if (_netdiskLinks().isNotEmpty)
+            item(_PostCardActions.copyNetdisk, Icons.cloud_download_outlined, context.t.netdisk.copyAll),
           item(
             _PostCardActions.copyPid,
             Icons.numbers_outlined,
@@ -583,6 +615,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     switch (value) {
       case _PostCardActions.reply:
         await widget.replyCallback?.call(widget.post.author, widget.post.shownFloor, widget.post.replyAction);
+      case _PostCardActions.addQuote:
+        widget.multiQuote?.begin(_quoteEntry);
       case _PostCardActions.rate:
         if (widget.post.rateAction != null) {
           await _rateCallback.call();
@@ -677,6 +711,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         await copyPostAsText(context, widget.post, PostExportFormat.plainText);
       case _PostCardActions.copyAsMarkdown:
         await copyPostAsText(context, widget.post, PostExportFormat.markdown);
+      case _PostCardActions.copyNetdisk:
+        await copyToClipboard(
+          context,
+          netdiskLinksToText(
+            _netdiskLinks(),
+            extractCodeLabel: context.t.netdisk.extractCode,
+            unzipPasswordLabel: context.t.netdisk.unzipPassword,
+          ),
+        );
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:
@@ -735,10 +778,66 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     ],
   );
 
+  /// Whether the floor can be quoted with others: it has a quoting reply link (the first floor has none).
+  bool get _quotable => widget.multiQuote != null && (widget.post.replyAction?.contains('repquote=') ?? false);
+
+  MultiQuoteEntry get _quoteEntry => MultiQuoteEntry(pid: widget.post.postID, replyAction: widget.post.replyAction!);
+
+  void _toggleQuote() {
+    final selection = widget.multiQuote;
+    if (selection == null || !_quotable) {
+      return;
+    }
+    if (!selection.toggle(_quoteEntry)) {
+      showSnackBar(
+        context: context,
+        message: context.t.threadPage.multiQuote.limit(max: MultiQuoteSelection.maxEntries),
+      );
+    }
+  }
+
   // TODO: Handle better.
   // FIXME: Fix rebuild when interacting with widgets inside.
   @override
   Widget build(BuildContext context) {
+    final selection = widget.multiQuote;
+    if (selection == null) {
+      return _buildCard(context);
+    }
+    // The same tree whether floors are picked or not: the card keeps its state (munched content, pictures).
+    return ListenableBuilder(
+      listenable: selection,
+      builder: (context, _) {
+        final picking = selection.active;
+        return GestureDetector(
+          behavior: picking ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+          onTap: picking ? _toggleQuote : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: picking ? 48 : 0,
+                child: picking && _quotable
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Checkbox(
+                          value: selection.contains(widget.post.postID),
+                          onChanged: (_) => _toggleQuote(),
+                        ),
+                      )
+                    : null,
+              ),
+              Expanded(
+                child: IgnorePointer(ignoring: picking, child: _buildCard(context)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -11,7 +11,10 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 
 /// Dialog to pick the line height and the paragraph spacing of the post content, with a preview of a post laid out
-/// with them.
+/// with them, and the widest the floors grow ([PostTypography.maxWidth]; on screens wider than its least value only).
+///
+/// The widths are the positions of a slider: [PostTypography.minMaxWidth] to [PostTypography.maxMaxWidth] in steps of
+/// [PostTypography.maxWidthStep], then none.
 ///
 /// Pops a [PostTypography] with the values picked, null when dismissed.
 class ThreadContentLayoutDialog extends StatefulWidget {
@@ -31,6 +34,23 @@ class ThreadContentLayoutDialog extends StatefulWidget {
 class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
   late double _lineHeight;
   late double _paragraphSpacing;
+  late double _maxWidth;
+
+  /// Positions of the width slider: the widths, then none.
+  static final int _widthSteps =
+      ((PostTypography.maxMaxWidth - PostTypography.minMaxWidth) / PostTypography.maxWidthStep).round() + 1;
+
+  /// The position of [maxWidth] on the width slider.
+  static int _widthPosition(double maxWidth) => maxWidth <= 0
+      ? _widthSteps
+      : ((maxWidth - PostTypography.minMaxWidth) / PostTypography.maxWidthStep).round().clamp(0, _widthSteps - 1);
+
+  /// Whether the width is offered: only a screen wider than the narrowest width shows a difference.
+  static bool _offersWidth(BuildContext context) => MediaQuery.sizeOf(context).width > PostTypography.minMaxWidth;
+
+  /// The width at [position] of the width slider, 0 for none.
+  static double _widthAt(int position) =>
+      position >= _widthSteps ? 0 : PostTypography.minMaxWidth + position * PostTypography.maxWidthStep;
 
   @override
   void initState() {
@@ -40,12 +60,14 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
       PostTypography.minParagraphSpacing,
       PostTypography.maxParagraphSpacing,
     );
+    _maxWidth = _widthAt(_widthPosition(widget.initial.maxWidth));
   }
 
   PostTypography get _typography => PostTypography(
     lineHeight: _lineHeight,
     paragraphSpacing: _paragraphSpacing,
     splitLongParagraphs: widget.initial.splitLongParagraphs,
+    maxWidth: _maxWidth,
   );
 
   @override
@@ -104,7 +126,7 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
             current: _lineHeight,
             min: PostTypography.minLineHeight,
             max: PostTypography.maxLineHeight,
-            divisions: 6,
+            divisions: ((PostTypography.maxLineHeight - PostTypography.minLineHeight) * 10).round(),
             onChanged: (v) => setState(() => _lineHeight = double.parse(v.toStringAsFixed(1))),
           ),
           slider(
@@ -116,6 +138,16 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
             divisions: 8,
             onChanged: (v) => setState(() => _paragraphSpacing = v.roundToDouble()),
           ),
+          if (_offersWidth(context))
+            slider(
+              label: tr.maxWidth,
+              value: _maxWidth > 0 ? _maxWidth.toStringAsFixed(0) : tr.unlimited,
+              current: _widthPosition(_maxWidth).toDouble(),
+              min: 0,
+              max: _widthSteps.toDouble(),
+              divisions: _widthSteps,
+              onChanged: (v) => setState(() => _maxWidth = _widthAt(v.round())),
+            ),
           Text(tr.preview, style: textTheme.labelMedium?.copyWith(color: colorScheme.outline)),
           // The preview is a post's content laid out as in the thread page, at its text scale.
           AppInsetBlock(
@@ -137,6 +169,10 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
           onPressed: () => setState(() {
             _lineHeight = PostTypography.defaultLineHeight;
             _paragraphSpacing = PostTypography.defaultParagraphSpacing;
+            // Only what is offered: a width set on a wider window stays.
+            if (_offersWidth(context)) {
+              _maxWidth = 0;
+            }
           }),
           child: Text(context.t.general.reset),
         ),

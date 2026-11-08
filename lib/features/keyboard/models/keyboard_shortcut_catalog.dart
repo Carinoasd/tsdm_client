@@ -56,6 +56,18 @@ enum KeyboardCommand {
 
   /// Underlined text.
   underline,
+
+  /// Close the tab shown.
+  closeTab,
+
+  /// Next tab.
+  nextTab,
+
+  /// Previous tab.
+  previousTab,
+
+  /// The tab of a number.
+  selectTab,
 }
 
 /// Where a shortcut is in use.
@@ -71,6 +83,9 @@ enum KeyboardShortcutGroup {
 
   /// The editors.
   editor,
+
+  /// The tabs of the thread beside a list (wide windows).
+  tabs,
 }
 
 /// The primary modifier of the platform, shown as Ctrl or Cmd.
@@ -156,5 +171,17 @@ const List<KeyboardShortcutEntry> keyboardShortcutCatalog = [
   ]),
   KeyboardShortcutEntry(KeyboardShortcutGroup.editor, KeyboardCommand.underline, [
     [primaryModifierToken, 'U'],
+  ]),
+  KeyboardShortcutEntry(KeyboardShortcutGroup.tabs, KeyboardCommand.closeTab, [
+    [primaryModifierToken, 'W'],
+  ]),
+  KeyboardShortcutEntry(KeyboardShortcutGroup.tabs, KeyboardCommand.nextTab, [
+    ['Ctrl', 'Tab'],
+  ]),
+  KeyboardShortcutEntry(KeyboardShortcutGroup.tabs, KeyboardCommand.previousTab, [
+    ['Ctrl', 'Shift', 'Tab'],
+  ]),
+  KeyboardShortcutEntry(KeyboardShortcutGroup.tabs, KeyboardCommand.selectTab, [
+    [primaryModifierToken, '1–9'],
   ]),
 ];
