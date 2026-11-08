@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_client.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// How often the backup is uploaded on its own.
@@ -322,6 +326,20 @@ final class WebdavBackupRepository with LoggerMixin {
   /// The upload in progress in this isolate.
   Future<WebdavBackupFile>? _running;
 
+  /// Set by [suspend]: the database is about to be replaced, no automatic backup starts any more.
+  var _suspended = false;
+
+  /// Stop starting automatic backups in this isolate and wait for a running upload; called before the database is
+  /// replaced by an import (the app restarts afterwards).
+  Future<void> suspend() async {
+    _suspended = true;
+    try {
+      await _running;
+    } on Object {
+      // Reported by its caller.
+    }
+  }
+
   /// File name of a backup made at [time].
   static String fileNameAt(DateTime time, {required bool withAccounts}) =>
       'tsdm_client_data_${time.microsecondsSinceEpoch}${withAccounts ? '_accounts' : ''}.db';
@@ -389,9 +407,21 @@ final class WebdavBackupRepository with LoggerMixin {
   Future<WebdavBackupFile> backupNow({String? secretsPassword}) =>
       _running ??= _backupNow(secretsPassword).whenComplete(() => _running = null);
 
+  /// Copy the database for upload off this isolate: the snapshot, the stripping and the `VACUUM` are synchronous
+  /// sqlite calls, and the automatic backup starts on its own while the user may be scrolling.
+  Future<Uint8List> _export(String? secretsPassword) async {
+    final path = (await _databaseFile()).path;
+    final backup = _backup;
+    return Isolate.run(() {
+      // A fresh isolate: the app's logger is not set up in it.
+      talker = Talker(settings: TalkerSettings(enabled: false));
+      return backup.exportSanitized(File(path), secretsPassword: secretsPassword);
+    });
+  }
+
   Future<WebdavBackupFile> _backupNow(String? secretsPassword) async {
     final (client, dir, config) = await _open();
-    final bytes = await _backup.exportSanitized(await _databaseFile(), secretsPassword: secretsPassword);
+    final bytes = await _export(secretsPassword);
     final time = _now();
     final name = fileNameAt(time, withAccounts: secretsPassword != null);
     await client.ensureCollection(dir);
@@ -400,7 +430,7 @@ final class WebdavBackupRepository with LoggerMixin {
     final state = await store.readState();
     await store.writeState(WebdavBackupState(lastBackupAt: time, lastAttemptAt: state.lastAttemptAt));
     try {
-      await _prune(client, dir, config.keep);
+      await _prune(client, dir, config.keep, uploaded: name);
     } on Object catch (e) {
       // The upload is done; old files stay until the next backup.
       warning('webdav: pruning old backups failed: $e');
@@ -408,11 +438,20 @@ final class WebdavBackupRepository with LoggerMixin {
     return WebdavBackupFile(name: name, createdAt: time, withAccounts: secretsPassword != null, size: bytes.length);
   }
 
-  Future<void> _prune(WebdavClient client, List<String> dir, int keep) async {
+  /// Delete the backups beyond [keep], never the one just [uploaded] (with a clock set back its name sorts oldest).
+  ///
+  /// Backups with account logins (`_accounts`, only ever made by hand) are counted apart from the plain ones: the
+  /// daily automatic backups must not push out the one backup that can bring the logins back.
+  Future<void> _prune(WebdavClient client, List<String> dir, int keep, {required String uploaded}) async {
     final backups = backupsOf(await client.list(dir));
-    for (final old in backups.skip(keep)) {
-      await client.delete([...dir, old.name]);
-      debug('webdav: deleted old backup');
+    for (final withAccounts in [false, true]) {
+      final group = backups.where((b) => b.withAccounts == withAccounts).toList();
+      final others = group.where((b) => b.name != uploaded).toList();
+      final keepOthers = group.length == others.length ? keep : keep - 1;
+      for (final old in others.skip(keepOthers)) {
+        await client.delete([...dir, old.name]);
+        debug('webdav: deleted old backup');
+      }
     }
   }
 
@@ -422,6 +461,26 @@ final class WebdavBackupRepository with LoggerMixin {
     return backupsOf(await client.list(dir));
   }
 
+  /// Prefix of downloaded backups in the temporary directory.
+  static const _downloadPrefix = 'webdav-';
+
+  /// Delete backups downloaded for a restore that are still in [temp] (the system temporary directory by default):
+  /// the restore ends by closing the app, before the downloaded file could be removed.
+  Future<void> deleteStaleDownloads({Directory? temp}) async {
+    try {
+      final base = temp ?? await getTemporaryDirectory();
+      if (!base.existsSync()) return;
+      await for (final entity in base.list()) {
+        final name = entity.uri.pathSegments.last;
+        if (entity is File && name.startsWith(_downloadPrefix) && name.contains('tsdm_client_data_')) {
+          await entity.delete();
+        }
+      }
+    } on Object catch (e) {
+      warning('webdav: can not clean old downloads: $e');
+    }
+  }
+
   /// Download the backup [name] into a new file of [temp] (the system temporary directory by default).
   Future<File> download(String name, {Directory? temp}) async {
     if (!backupName.hasMatch(name)) {
@@ -429,7 +488,7 @@ final class WebdavBackupRepository with LoggerMixin {
     }
     final (client, dir, _) = await _open();
     final base = temp ?? await getTemporaryDirectory();
-    final target = File('${base.path}${Platform.pathSeparator}webdav-${_now().microsecondsSinceEpoch}-$name');
+    final target = File('${base.path}${Platform.pathSeparator}$_downloadPrefix${_now().microsecondsSinceEpoch}-$name');
     await client.download([...dir, name], target);
     return target;
   }
@@ -443,7 +502,7 @@ final class WebdavBackupRepository with LoggerMixin {
       final config = await store.readConfig();
       final state = await store.readState();
       final now = _now();
-      if (_running != null || !isDue(config, state, now)) {
+      if (_suspended || _running != null || !isDue(config, state, now)) {
         return false;
       }
       await store.writeState(WebdavBackupState(lastBackupAt: state.lastBackupAt, lastAttemptAt: now));
@@ -476,6 +535,7 @@ final class WebdavAutoBackupScheduler {
 
   /// Start checking.
   void start({Duration firstDelay = const Duration(minutes: 1)}) {
+    unawaited(repository.deleteStaleDownloads());
     _first?.cancel();
     _timer?.cancel();
     _first = Timer(firstDelay, () => unawaited(repository.runIfDue()));

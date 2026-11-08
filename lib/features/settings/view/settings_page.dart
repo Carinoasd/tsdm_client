@@ -1264,6 +1264,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     BackupValidation? invalid;
     BackupReplaceException? replaceFailure;
     try {
+      // No automatic WebDAV backup may copy the database while it is replaced.
+      if (getIt.isRegistered<WebdavBackupRepository>()) {
+        await getIt.get<WebdavBackupRepository>().suspend();
+      }
       await getIt.get<StorageProvider>().dispose();
       await repository.replaceDatabase(
         target: await databaseFile,

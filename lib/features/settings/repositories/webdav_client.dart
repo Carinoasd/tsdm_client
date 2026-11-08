@@ -169,6 +169,9 @@ final class WebdavClient {
       if (state == WebdavCheck.unauthorized) {
         throw const WebdavException('PROPFIND', 401);
       }
+      if (state == WebdavCheck.unreachable) {
+        throw const WebdavException('PROPFIND', null, 'unreachable');
+      }
       final resp = await _send<String>('MKCOL', resolve(level, collection: true));
       // 405: it exists already (made meanwhile, or the server does not answer PROPFIND on it).
       if (resp.statusCode != 201 && resp.statusCode != 405) {

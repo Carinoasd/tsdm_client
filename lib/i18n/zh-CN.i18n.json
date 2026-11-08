@@ -744,6 +744,7 @@
         },
         "keep": "保留份数",
         "invalidKeep": "请填写 1～$max",
+        "saveFailed": "保存失败，请稍后再试",
         "test": {
           "idle": "测试连接",
           "testing": "测试中…",

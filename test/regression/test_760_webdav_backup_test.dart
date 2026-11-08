@@ -209,6 +209,51 @@ void main() {
       db.dispose();
     });
 
+    test('with the clock set back the fresh upload is kept, and backups with logins are counted apart', () async {
+      await store.writeConfig((await store.readConfig()).copyWith(keep: 2));
+      final r = repo();
+      final withLogins = await r.backupNow(secretsPassword: 'long enough password');
+      for (var i = 1; i <= 3; i++) {
+        clock = clock.add(Duration(days: i));
+        await r.backupNow();
+      }
+      var names = (await r.listBackups()).map((b) => b.name).toList();
+      expect(names.where((n) => !n.endsWith('_accounts.db')), hasLength(2));
+      expect(names, contains(withLogins.name), reason: 'the automatic backups do not push it out');
+
+      // Set back before every backup on the server: its name sorts oldest, yet it is the one kept.
+      clock = DateTime(2020);
+      final fresh = await r.backupNow();
+      names = (await r.listBackups()).map((b) => b.name).toList();
+      expect(names, contains(fresh.name));
+      expect(names.where((n) => !n.endsWith('_accounts.db')), hasLength(2));
+    });
+
+    test('an unreachable server gets no MKCOL; a suspended repository starts no automatic backup', () async {
+      final r = repo();
+      server.offline = true;
+      await expectLater(
+        r.backupNow(),
+        throwsA(isA<WebdavException>().having((e) => e.method, 'method', 'PROPFIND')),
+      );
+      expect(server.methods, isNot(contains('MKCOL')));
+      server.offline = false;
+      await r.suspend();
+      expect(await r.runIfDue(), isFalse);
+      expect(server.files, isEmpty);
+    });
+
+    test('downloads left by a restore are cleaned, other temporary files stay', () async {
+      final temp = Directory('${dir.path}/tmp')..createSync();
+      final r = repo();
+      await r.backupNow();
+      final downloaded = await r.download((await r.listBackups()).first.name, temp: temp);
+      final other = File('${temp.path}/other.db')..writeAsStringSync('x');
+      await r.deleteStaleDownloads(temp: temp);
+      expect(downloaded.existsSync(), isFalse);
+      expect(other.existsSync(), isTrue);
+    });
+
     test('a backup with wrong credentials fails as unauthorized and uploads nothing', () async {
       await store.writePassword('wrong');
       await expectLater(
@@ -365,6 +410,9 @@ final class _FakeWebdav implements HttpClientAdapter {
 
   bool offline = false;
 
+  /// Methods of the requests that reached the server.
+  final methods = <String>[];
+
   String _parent(String path) {
     final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
     return trimmed.substring(0, trimmed.lastIndexOf('/') + 1);
@@ -393,6 +441,7 @@ final class _FakeWebdav implements HttpClientAdapter {
     if (offline) {
       throw DioException.connectionError(requestOptions: options, reason: 'offline');
     }
+    methods.add(options.method);
     final body = <int>[];
     if (requestStream != null) {
       await requestStream.forEach(body.addAll);

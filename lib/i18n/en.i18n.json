@@ -744,6 +744,7 @@
         },
         "keep": "Backups to keep",
         "invalidKeep": "Enter 1 to $max",
+        "saveFailed": "Could not save; try again later",
         "test": {
           "idle": "Test connection",
           "testing": "Testing…",

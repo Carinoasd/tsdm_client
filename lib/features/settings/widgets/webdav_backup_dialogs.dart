@@ -4,6 +4,8 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_client.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
@@ -112,8 +114,16 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
     if (!formKey.currentState!.validate()) return;
     setState(() => saving = true);
     final store = widget.repository.store;
-    await store.writeConfig(_config);
-    await store.writePassword(password.text);
+    try {
+      await store.writeConfig(_config);
+      await store.writePassword(password.text);
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'webdav: saving the settings failed');
+      if (!mounted) return;
+      setState(() => saving = false);
+      showSnackBar(context: context, message: context.t.settingsPage.advancedSection.webdav.saveFailed);
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -122,6 +132,7 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.settingsPage.advancedSection.webdav;
     final colorScheme = Theme.of(context).colorScheme;
+    final plainHttp = Uri.tryParse(url.text.trim())?.isScheme('http') ?? false;
     final (IconData icon, Color color, String label) = switch (check) {
       null => (Icons.help_outline, colorScheme.outline, tr.test.idle),
       WebdavCheck.ok => (Icons.check_circle_outline, colorScheme.primary, tr.test.ok),
@@ -142,7 +153,13 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
               controller: url,
               keyboardType: TextInputType.url,
               autocorrect: false,
-              decoration: appFieldDecoration(label: tr.url, icon: Icons.link_outlined),
+              decoration: appFieldDecoration(
+                label: tr.url,
+                icon: Icons.link_outlined,
+                // Basic authentication over plain http sends the password readable to anyone on the way.
+                suffix: plainHttp ? Icon(Icons.no_encryption_outlined, color: colorScheme.error) : null,
+              ),
+              onChanged: (_) => setState(() {}),
               validator: (v) => WebdavBackupConfig(url: v ?? '').configured ? null : tr.invalidUrl,
             ),
             sizedBoxW12H12,

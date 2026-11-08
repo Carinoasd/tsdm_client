@@ -744,6 +744,7 @@
         },
         "keep": "保留份數",
         "invalidKeep": "請填寫 1～$max",
+        "saveFailed": "儲存失敗，請稍後再試",
         "test": {
           "idle": "測試連線",
           "testing": "測試中…",
