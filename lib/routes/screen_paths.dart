@@ -344,6 +344,9 @@ class ScreenPaths {
   /// Page to manage user account for multi-user target.
   static const String manageAccount = '/manageAccount';
 
+  /// Page of the devices the account in use logged in on (plugin 3.6.0).
+  static const String loginDevices = '/loginDevices';
+
   /// Page to get app updates.
   static const String update = '/update';
 

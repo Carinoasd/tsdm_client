@@ -149,7 +149,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ),
   );
 
-  Widget _buildAccountSection(BuildContext context, SettingsState state) {
+  Widget _buildAccountSection(BuildContext context, SettingsState state) => ValueListenableBuilder(
+    valueListenable: TsdmAppApi.pluginInfo,
+    builder: (context, _, _) => _buildAccountGroup(
+      context,
+      state,
+      devices: TsdmAppApi.knowsDevice && context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null,
+    ),
+  );
+
+  Widget _buildAccountGroup(BuildContext context, SettingsState state, {required bool devices}) {
     final tr = context.t.settingsPage.accountSection;
     return AppTileGroup(
       title: tr.title,
@@ -161,6 +170,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        // Only once the forum's plugin said it keeps the devices (`status`, plugin 3.6.0), for an account in use.
+        if (devices)
+          SectionListTile(
+            key: const ValueKey('settings-login-devices'),
+            leading: const Icon(Icons.devices_outlined),
+            title: Text(tr.loginDevices),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.loginDevices),
+          ),
         SectionSwitchListTile(
           key: const ValueKey('settings-cross-device-sync'),
           secondary: const Icon(Icons.sync_outlined),

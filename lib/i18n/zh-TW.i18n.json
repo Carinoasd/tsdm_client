@@ -334,7 +334,8 @@
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
         "drafts": "本機草稿"
-      }
+      },
+      "loginDevices": "登入裝置"
     },
     "appearanceSection": {
       "title": "外觀",
@@ -3443,5 +3444,18 @@
       "italic": "斜體",
       "underline": "底線"
     }
+  },
+  "loginDevicesPage": {
+    "title": "登入裝置",
+    "current": "本機",
+    "loggedOut": "已登出",
+    "logOut": "登出",
+    "logOutTitle": "登出這台裝置？",
+    "remove": "移除",
+    "unsupported": "論壇沒有開啟登入裝置管理",
+    "writeFailed": "操作失敗，請稍後再試",
+    "revoked": "$name 已在其他裝置上登出本機",
+    "revokedUnknown": "一個帳號已在其他裝置上登出本機",
+    "login": "登入"
   }
 }

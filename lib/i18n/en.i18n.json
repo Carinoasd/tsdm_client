@@ -334,7 +334,8 @@
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
         "drafts": "Local drafts"
-      }
+      },
+      "loginDevices": "Login devices"
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -3443,5 +3444,18 @@
       "italic": "Italic",
       "underline": "Underline"
     }
+  },
+  "loginDevicesPage": {
+    "title": "Login devices",
+    "current": "This device",
+    "loggedOut": "Logged out",
+    "logOut": "Log out",
+    "logOutTitle": "Log out this device?",
+    "remove": "Remove",
+    "unsupported": "The forum does not keep login devices",
+    "writeFailed": "Failed, please try again later",
+    "revoked": "$name was logged out of this device from another device",
+    "revokedUnknown": "An account was logged out of this device from another device",
+    "login": "Log in"
   }
 }

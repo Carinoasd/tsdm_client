@@ -334,7 +334,8 @@
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
         "drafts": "本机草稿"
-      }
+      },
+      "loginDevices": "登录设备"
     },
     "appearanceSection": {
       "title": "外观",
@@ -3443,5 +3444,18 @@
       "italic": "斜体",
       "underline": "下划线"
     }
+  },
+  "loginDevicesPage": {
+    "title": "登录设备",
+    "current": "本机",
+    "loggedOut": "已登出",
+    "logOut": "登出",
+    "logOutTitle": "登出这台设备？",
+    "remove": "移除",
+    "unsupported": "论坛没有开启登录设备管理",
+    "writeFailed": "操作失败，请稍后再试",
+    "revoked": "$name 已在其他设备上登出本机",
+    "revokedUnknown": "一个账号已在其他设备上登出本机",
+    "login": "登录"
   }
 }

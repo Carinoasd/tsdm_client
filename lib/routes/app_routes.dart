@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
 import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
+import 'package:tsdm_client/features/login_device/view/login_devices_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -461,6 +462,7 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.manageAccount, builder: (_) => const ManageAccountPage()),
+  AppRoute(path: ScreenPaths.loginDevices, builder: (_) => const LoginDevicesPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
   AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
   // 接收路由参数

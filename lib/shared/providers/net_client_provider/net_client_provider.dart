@@ -11,6 +11,7 @@ import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/map.dart';
+import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/points/stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -151,6 +152,8 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_PointsChangesChecker());
       d.interceptors.add(_GzipEncodingChecker());
       d.interceptors.add(AntitheftInterceptor(d));
+      // Last: the answers of a previous account or session are dropped before it (`_IdentityGuard`).
+      d.interceptors.add(LoginDeviceInterceptor());
       // decode br content-type.
       d.transformer = DioBrotliTransformer();
     }
@@ -180,6 +183,8 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_ForceDesktopLayoutInterceptor());
     }
     d.interceptors.add(AntitheftInterceptor(d));
+    // The login, the switch's check and the polls of every account carry the device too.
+    d.interceptors.add(LoginDeviceInterceptor());
     // decode br content-type.
     d.transformer = DioBrotliTransformer();
     return NetClientProvider._(d);
