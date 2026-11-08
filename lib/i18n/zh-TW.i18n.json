@@ -492,6 +492,9 @@
         "title": "長段落自動分段",
         "detail": "很長的段落在句尾斷開顯示，原文與複製的文字不變"
       },
+      "threadLinkCard": {
+        "title": "帖子連結顯示預覽卡"
+      },
       "threadContentLayout": {
         "dialogTitle": "貼文排版",
         "lineHeight": "行高",

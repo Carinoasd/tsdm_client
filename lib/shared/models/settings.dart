@@ -327,6 +327,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: PostTypography.defaultParagraphSpacing,
   ),
 
+  /// Draw the links in the post content that show the url of a thread of the forum as cards of the thread (its title,
+  /// author, forum, replies and views, time), asked when the card comes into view.
+  threadLinkCard<bool>(name: 'threadLinkCard', type: bool, defaultValue: true),
+
   /// Cut long paragraphs of the post content after the end of a sentence (layout only, the text is not changed).
   threadContentSplitLongParagraphs<bool>(
     name: 'threadContentSplitLongParagraphs',

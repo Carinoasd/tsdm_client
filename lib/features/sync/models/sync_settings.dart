@@ -98,6 +98,7 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: PostTypography.maxParagraphSpacing,
   ),
   SyncedSetting._(SettingsKeys.threadContentSplitLongParagraphs, (s) => s.threadContentSplitLongParagraphs),
+  SyncedSetting._(SettingsKeys.threadLinkCard, (s) => s.threadLinkCard),
   // Thread lists.
   SyncedSetting._(SettingsKeys.showShortcutInForumCard, (s) => s.showShortcutInForumCard),
   SyncedSetting._(SettingsKeys.threadCardInfoRowAlignCenter, (s) => s.threadCardInfoRowAlignCenter),
