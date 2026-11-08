@@ -2937,6 +2937,25 @@
     "termsChanged": "“${name}”在购买前已变更，未进行购买；请确认价格后重新操作。",
     "unavailableNow": "“${name}”已无法购买，未进行购买。"
   },
+  "taskCenter": {
+    "title": "任务",
+    "refresh": "刷新",
+    "openBrowser": "在浏览器打开",
+    "tabAvailable": "可申请",
+    "tabDoing": "进行中",
+    "tabDone": "已完成",
+    "apply": "申请",
+    "claim": "领取奖励",
+    "progress": "${percent}%",
+    "empty": "暂无任务。",
+    "loginRequired": "请登录后查看任务。",
+    "applied": "已申请“${name}”。",
+    "rewarded": "已领取“${name}”的奖励。",
+    "inProgress": "“${name}”尚未完成。",
+    "failed": "“${name}”已失败。",
+    "refused": "“${name}”未成功。",
+    "unconfirmed": "无法确认“${name}”的结果，请先查看列表再重试。"
+  },
   "editUserProfilePage": {
     "title": "编辑资料",
     "save": "保存资料",

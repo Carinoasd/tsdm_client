@@ -1,0 +1,1 @@
+{"ok":1,"api":1,"time":1700000000,"uid":31,"formhash":"f1f2f3f4","type":"result","schema":13,"kind":"handle","message":"抱歉，您所在的用户组不允许申请此任务","message_key":"task_grouplimit","url":"home.php?mod=task&item=new","handlekey":"","values":{},"login":0,"alert":"info"}

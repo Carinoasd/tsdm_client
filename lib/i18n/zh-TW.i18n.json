@@ -2937,6 +2937,25 @@
     "termsChanged": "「${name}」在購買前已變更，未進行購買；請確認價格後重新操作。",
     "unavailableNow": "「${name}」已無法購買，未進行購買。"
   },
+  "taskCenter": {
+    "title": "任務",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "tabAvailable": "可申請",
+    "tabDoing": "進行中",
+    "tabDone": "已完成",
+    "apply": "申請",
+    "claim": "領取獎勵",
+    "progress": "${percent}%",
+    "empty": "暫無任務。",
+    "loginRequired": "請登入後查看任務。",
+    "applied": "已申請「${name}」。",
+    "rewarded": "已領取「${name}」的獎勵。",
+    "inProgress": "「${name}」尚未完成。",
+    "failed": "「${name}」已失敗。",
+    "refused": "「${name}」未成功。",
+    "unconfirmed": "無法確認「${name}」的結果，請先查看列表再重試。"
+  },
   "editUserProfilePage": {
     "title": "編輯資料",
     "save": "儲存資料",

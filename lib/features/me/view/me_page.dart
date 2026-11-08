@@ -230,6 +230,14 @@ class _MePageState extends State<MePage> {
       ),
       _row(
         context,
+        key: const ValueKey('me-tasks'),
+        icon: Icons.task_alt,
+        title: context.t.taskCenter.title,
+        path: ScreenPaths.taskCenter,
+        needLogin: !loggedIn,
+      ),
+      _row(
+        context,
         key: const ValueKey('me-medal-center'),
         icon: Icons.military_tech_outlined,
         title: context.t.medalCenter.title,
