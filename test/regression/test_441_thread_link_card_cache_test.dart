@@ -150,6 +150,11 @@ void main() {
       expect(repository.isCached(2), isTrue);
       expect(await repository.load(2), isNull);
       expect(asked, [2]);
+      // The plugin's answer for a thread that does not exist, as the test forum answers it.
+      answers[3] = () => Right(_apiPage({'ok': 0, 'error': 'message', 'message': '没有找到帖子', 'login': 0, 'uid': 35}));
+      expect(await repository.load(3), isNull);
+      expect(repository.isCached(3), isTrue);
+      expect(asked, [2, 3]);
     });
 
     test('any other page that is not the thread is asked again', () async {
@@ -176,14 +181,25 @@ void main() {
       expect(asked, [30, 31]);
       expect(repository.running, 2);
       answers0[30]!.complete(Right(_page('30')));
+      // A new request coming while the turn is handed over waits too.
+      final late = Completer<Either<AppException, ThreadPageInfo>>();
+      answers[40] = () => late.future;
+      final lateLoad = repository.load(40);
       await pumpEventQueue();
       expect(asked, [30, 31, 32]);
+      expect(repository.running, 2);
       for (var tid = 31; tid < 35; tid++) {
         answers0[tid]!.complete(Right(_page('$tid')));
         await pumpEventQueue();
       }
-      expect([for (final e in await Future.wait(loads)) e?.title], ['30', '31', '32', '33', '34']);
-      expect(asked, [30, 31, 32, 33, 34]);
+      late.complete(Right(_page('40')));
+      expect(
+        [
+          for (final e in await Future.wait([...loads, lateLoad])) e?.title,
+        ],
+        ['30', '31', '32', '33', '34', '40'],
+      );
+      expect(asked, [30, 31, 32, 33, 34, 40]);
       expect(repository.running, 0);
     });
 

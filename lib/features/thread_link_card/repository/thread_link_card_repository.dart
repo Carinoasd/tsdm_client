@@ -92,20 +92,23 @@ final class ThreadLinkCardRepository with LoggerMixin {
     final (uid, tid) = key;
     final Either<AppException, ThreadPageInfo> answer;
     if (_running >= concurrency) {
+      // The request ending hands its turn over: [_running] stays as it is.
       final turn = Completer<void>();
       _waiting.add(turn);
       await turn.future;
+    } else {
+      _running += 1;
     }
-    _running += 1;
     try {
       answer = await _fetchPage(tid);
     } on Object catch (e, st) {
       error('failed to load the card of thread $tid', e, st);
       return null;
     } finally {
-      _running -= 1;
       if (_waiting.isNotEmpty) {
         _waiting.removeAt(0).complete();
+      } else {
+        _running -= 1;
       }
     }
     if ((_currentUid() ?? 0) != uid) {
@@ -120,7 +123,7 @@ final class ThreadLinkCardRepository with LoggerMixin {
         // A thread the forum refuses to the account (no permission, gone) is kept as no card; any other page that is
         // not the thread (the login prompt of an expired session, too many requests, a page not understood) is
         // asked again the next time, as a failed request.
-        if (info != null || forumRefusesThread(value)) {
+        if (info != null || forumRefusesThread(value) || _threadNotFound(value)) {
           _answers
             ..remove(key)
             ..[key] = info;
@@ -130,6 +133,17 @@ final class ThreadLinkCardRepository with LoggerMixin {
         }
         return info;
     }
+  }
+
+  /// The message of the forum's app API for a thread that does not exist (`没有找到帖子`, HTTP 200): not one of the
+  /// refusals the offline copies are deleted on ([forumRefusesThread]), which keep them on the safe side, but a link
+  /// to such a thread is no card all the same.
+  static bool _threadNotFound(ThreadPageInfo page) {
+    if (page.havePermission || page.needLogin) {
+      return false;
+    }
+    final text = (page.permissionDeniedMessage?.text ?? '').trim();
+    return text == '没有找到帖子' || text == '沒有找到帖子';
   }
 
   /// Forget every card (for tests).

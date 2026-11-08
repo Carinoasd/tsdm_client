@@ -5,32 +5,34 @@ import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_in
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 
-/// A thread a link in a post's content leads to was loaded and can be drawn as its card ([ThreadLinkCardTrigger]):
-/// the html holding the link is munched again, the link then a [ThreadLinkCard].
-class ThreadLinkCardLoaded extends Notification {
+/// The card of the thread a link in a post's content leads to ([threadLinkOf]), put right after the link: its title,
+/// its author, its forum, its replies and views, when it was started; tapping it opens the link ([onOpen]) as tapping
+/// the link does.
+///
+/// Nothing to see until the thread is loaded, which it is once in view ([ThreadLinkCardRepository]): the link stays as
+/// it was, and so does the line around it when the account can not read the thread or the request failed. Loaded, the
+/// card is as wide as the line, below the link; what follows the link goes on below the card.
+class ThreadLinkCard extends StatefulWidget {
   /// Constructor.
-  const ThreadLinkCardLoaded(this.tid);
-
-  /// The thread loaded.
-  final int tid;
-}
-
-/// Loads the thread [tid] of a link in a post's content ([threadLinkOf]) once it comes into view, and tells the html
-/// around when it can be drawn as a card ([ThreadLinkCardLoaded]). Nothing to see: it is put before the link, which
-/// stays as it was until then, and stays so when the account can not read the thread or the request failed.
-class ThreadLinkCardTrigger extends StatefulWidget {
-  /// Constructor.
-  const ThreadLinkCardTrigger(this.tid, {super.key});
+  const ThreadLinkCard({required this.tid, required this.onOpen, this.onShowUrl, super.key});
 
   /// The thread linked.
   final int tid;
 
+  /// Open the link.
+  final VoidCallback onOpen;
+
+  /// Show what the link is (long press, secondary tap), as for a link.
+  final VoidCallback? onShowUrl;
+
   @override
-  State<ThreadLinkCardTrigger> createState() => _ThreadLinkCardTriggerState();
+  State<ThreadLinkCard> createState() => _ThreadLinkCardState();
 }
 
-class _ThreadLinkCardTriggerState extends State<ThreadLinkCardTrigger> {
-  /// The thread was asked: the trigger no longer watches whether it is in view.
+class _ThreadLinkCardState extends State<ThreadLinkCard> {
+  ThreadLinkCardInfo? _info;
+
+  /// The thread was asked (or answered before): the card no longer watches whether it is in view.
   bool _requested = false;
 
   ScrollPosition? _position;
@@ -41,17 +43,28 @@ class _ThreadLinkCardTriggerState extends State<ThreadLinkCardTrigger> {
   @override
   void initState() {
     super.initState();
-    SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
+    _start();
   }
 
   @override
-  void didUpdateWidget(ThreadLinkCardTrigger oldWidget) {
+  void didUpdateWidget(ThreadLinkCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tid != widget.tid) {
       _unwatch();
+      _info = null;
       _requested = false;
-      SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
+      _start();
     }
+  }
+
+  void _start() {
+    final tid = widget.tid;
+    if (_repository.isCached(tid)) {
+      _info = _repository.cached(tid);
+      _requested = true;
+      return;
+    }
+    SchedulerBinding.instance.addPostFrameCallback((_) => _watch());
   }
 
   @override
@@ -79,7 +92,7 @@ class _ThreadLinkCardTriggerState extends State<ThreadLinkCardTrigger> {
     _position = null;
   }
 
-  /// The position notifies while it is laid out too: the trigger looks where it is after the frame.
+  /// The position notifies while it is laid out too: the card looks where it is after the frame.
   void _onScroll() {
     if (_checkScheduled) {
       return;
@@ -120,32 +133,18 @@ class _ThreadLinkCardTriggerState extends State<ThreadLinkCardTrigger> {
       if (!mounted || widget.tid != tid || info == null) {
         return;
       }
-      ThreadLinkCardLoaded(tid).dispatch(context);
+      setState(() => _info = info);
     }).ignore();
   }
 
   @override
-  Widget build(BuildContext context) => const ExcludeSemantics(child: SizedBox.shrink());
-}
-
-/// A link in a post's content to a thread ([threadLinkOf]) drawn as a card of the thread [info]: its title, its
-/// author, its forum, its replies and views, when it was started. Tapping it opens the link ([onOpen]) as tapping the
-/// link does.
-class ThreadLinkCard extends StatelessWidget {
-  /// Constructor.
-  const ThreadLinkCard({required this.info, required this.onOpen, this.onShowUrl, super.key});
-
-  /// The thread.
-  final ThreadLinkCardInfo info;
-
-  /// Open the link.
-  final VoidCallback onOpen;
-
-  /// Show what the link is (long press, secondary tap), as for a link.
-  final VoidCallback? onShowUrl;
-
-  @override
-  Widget build(BuildContext context) => _Card(info: info, onOpen: onOpen, onShowUrl: onShowUrl);
+  Widget build(BuildContext context) {
+    final info = _info;
+    if (info == null) {
+      return const ExcludeSemantics(child: SizedBox.shrink());
+    }
+    return _Card(info: info, onOpen: widget.onOpen, onShowUrl: widget.onShowUrl);
+  }
 }
 
 class _Card extends StatelessWidget {

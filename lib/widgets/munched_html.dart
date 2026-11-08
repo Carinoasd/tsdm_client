@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
-import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
@@ -93,30 +92,6 @@ class _MunchedHtmlState extends State<MunchedHtml> {
     _entry = null;
   }
 
-  bool _remunchScheduled = false;
-
-  /// Content munched again for the cards of links ([_onThreadLinkCardLoaded]) is a new subtree: put in place of the
-  /// old one in its paragraph, the semantics of the paragraph were left broken.
-  int _generation = 0;
-
-  /// A link of the content can be drawn as the card of its thread now: the content is munched again, also the one
-  /// kept in the cache.
-  bool _onThreadLinkCardLoaded(ThreadLinkCardLoaded notification) {
-    // Sent from the answer of a request, never while building. The links loaded before the next build share it.
-    if (!_remunchScheduled && mounted) {
-      _remunchScheduled = true;
-      final entry = _entry;
-      if (entry != null) {
-        _cache?._forget(entry);
-      }
-      setState(() {
-        _drop();
-        _generation += 1;
-      });
-    }
-    return true;
-  }
-
   Widget _munch(BuildContext context) => ClipRect(
     clipper: const PostContentClipper(),
     child: munchElement(
@@ -129,14 +104,9 @@ class _MunchedHtmlState extends State<MunchedHtml> {
 
   @override
   Widget build(BuildContext context) {
-    _remunchScheduled = false;
-    return NotificationListener<ThreadLinkCardLoaded>(
-      onNotification: _onThreadLinkCardLoaded,
-      child: KeyedSubtree(key: ValueKey(_generation), child: _content ?? _build(context)),
-    );
-  }
-
-  Widget _build(BuildContext context) {
+    if (_content case final content?) {
+      return content;
+    }
     final cache = _cache;
     final deps = _deps;
     // Callbacks of other options belong to the widget that gave them: not shared.
@@ -257,9 +227,6 @@ final class MunchCache {
     entry.adopt(owner);
     return entry;
   }
-
-  /// Forget [entry], munched again by the widget using it.
-  void _forget(_MunchEntry entry) => _entries.removeWhere((_, e) => identical(e, entry));
 
   _MunchEntry _put(String key, _MunchDeps deps, Element owner, Widget Function(BuildContext context) munch) {
     final host = _HostContext(owner);

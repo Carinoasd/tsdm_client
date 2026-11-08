@@ -1,9 +1,9 @@
 /// Links in a post's content to a thread are drawn as cards of the thread (the link card, part 3: the floor).
 ///
-/// In a floor of the test forum the links showing a url of a thread are cards (title, author, forum, replies, views),
-/// each thread asked once; the link with text of its own and the link to a forum stay links. A card is asked once it
-/// is in view (the link stays as it was until then), opens its link when tapped, and is the link when the thread can
-/// not be loaded. At most 10 cards
+/// In a floor of the test forum the links showing a url of a thread get a card below them (title, author, forum,
+/// replies, views), each thread asked once; the link with text of its own and the link to a forum get none. The links
+/// themselves stay as they were. A card is asked once it is in view, opens its link when tapped, and is nothing when
+/// the thread can not be loaded. At most 10 cards
 /// in a floor; the setting turns them off. The html of anything but a post's content (a notice) keeps its links.
 library;
 
@@ -137,10 +137,13 @@ void main() {
     // The link with text of its own and the link to the forum stay as they were.
     expect(_text('自定义文字'), findsOneWidget);
     expect(_text('mod=forumdisplay&fid=10'), findsOneWidget);
-    // The text around a card stays: before it on its line, after it on the next.
-    expect(_text('句中'), findsOneWidget);
-    expect(_text('结尾'), findsOneWidget);
+    // The links stay as they were, in the line of the text around them; the card goes below.
+    expect(_text('句中 $baseUrl/forum.php?mod=viewthread&tid=9202766 结尾'), findsOneWidget);
+    final link = tester.getRect(_text('句中').first);
+    expect(tester.getRect(_card(9202766)).top, greaterThan(link.top));
 
+    await tester.ensureVisible(_card(9202766));
+    await tester.pumpAndSettle();
     await tester.tap(_card(9202766));
     await tester.pumpAndSettle();
     expect(opened?['tid'], '9202766');
@@ -168,7 +171,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(asked, isEmpty);
-    expect(find.byType(ThreadLinkCardTrigger, skipOffstage: false), findsOneWidget);
+    expect(find.byType(ThreadLinkCard, skipOffstage: false), findsOneWidget);
     expect(_text('tid=7'), findsOneWidget);
 
     controller.jumpTo(controller.position.maxScrollExtent);
@@ -183,7 +186,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(asked, [8]);
     expect(_card(8), findsNothing);
-    expect(find.byType(ThreadLinkCard), findsNothing);
     // The link as it was, in the line of the text around it.
     expect(_text('句中 $baseUrl/forum.php?mod=viewthread&tid=8 结尾'), findsOneWidget);
   });
