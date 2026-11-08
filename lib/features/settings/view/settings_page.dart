@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.d
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/reading_time/repository/reading_time_repository.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -50,6 +51,7 @@ import 'package:tsdm_client/features/settings/widgets/select_thread_floor_intera
 import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/upload_image_settings.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
@@ -804,6 +806,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.localDrafts),
         ),
+        SectionListTile(
+          key: const ValueKey('settings-custom-emoji-packs'),
+          leading: const Icon(Icons.emoji_emotions_outlined),
+          title: Text(context.t.customEmoji.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.customEmojiPacks),
+        ),
       ],
     );
   }
@@ -1479,6 +1488,34 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  Future<void> _clearReadingTime(BuildContext context) async {
+    final tr = context.t.settingsPage.othersSection;
+    final confirmed = await showQuestionDialog(
+      context: context,
+      title: tr.clearReadingTime,
+      message: tr.clearReadingTimeConfirm,
+      dangerous: true,
+    );
+    if (!(confirmed ?? false) || !context.mounted) {
+      return;
+    }
+    String message;
+    try {
+      await StorageReadingTimeStore(getIt.get<StorageProvider>()).clear();
+      message = tr.readingTimeCleared;
+    } on Object catch (e, st) {
+      talker.error('failed to clear the reading time', e, st);
+      if (!context.mounted) {
+        return;
+      }
+      message = context.t.general.failedToLoad;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    showSnackBar(context: context, message: message);
+  }
+
   Widget _buildOtherSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.othersSection;
     final enableUpdateCheckOnStartup = state.settingsMap.enableUpdateCheckOnStartup;
@@ -1486,6 +1523,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       title: tr.title,
       icon: Icons.more_horiz_outlined,
       children: [
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.timer_outlined),
+          title: Text(tr.recordReadingTime),
+          value: state.settingsMap.readingTimeStats,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.readingTimeStats, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-clear-reading-time'),
+          leading: const Icon(Icons.delete_sweep_outlined),
+          title: Text(tr.clearReadingTime),
+          onTap: () async => _clearReadingTime(context),
+        ),
         SectionListTile(
           leading: const Icon(Icons.info_outline),
           title: Text(tr.about),
@@ -1559,6 +1608,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         ];
         final end = [
           _buildBehaviorSection(context, state),
+          UploadImageSettingsGroup(state.settingsMap),
           _buildNoticeSyncSection(context, state),
           if (autoSyncPostsNotifications) _buildNoticeCategoriesSection(context, state),
           _buildStorageSection(context, state),

@@ -263,6 +263,7 @@
       "friends": "好友",
       "points": "积分",
       "followedThreads": "追踪的帖子",
+      "readingStats": "阅读统计",
       "checkinCalendar": "签到日历"
     }
   },
@@ -779,7 +780,11 @@
       "about": "关于",
       "update": "获取更新",
       "updateCheckOnStartup": "应用启动时检查更新",
-      "changelog": "更新日志"
+      "changelog": "更新日志",
+      "recordReadingTime": "记录阅读时间",
+      "clearReadingTime": "清除阅读时间数据",
+      "clearReadingTimeConfirm": "清除这台设备上所有账号的阅读时间数据？清除后无法恢复。",
+      "readingTimeCleared": "阅读时间数据已清除"
     }
   },
   "aboutPage": {
@@ -1027,6 +1032,12 @@
   "threadPage": {
     "title": "帖子",
     "sendReplyHint": "回复",
+    "multiQuote": {
+      "selected": "已选 $count/$max",
+      "reply": "引用回复",
+      "limit": "最多引用 $max 楼",
+      "failed": "取得引用失败"
+    },
     "sendReply": "发送",
     "closed": "帖子已关闭",
     "needLogin": "需要登录",
@@ -1823,6 +1834,7 @@
   },
   "postCard": {
     "fromApp": "来自天使动漫App",
+    "addQuote": "加入引用",
     "contentUnavailable": "此楼内容无法显示",
     "bbcode": {
       "attachmentLocked": "无法查看：需要购买、权限不足或要先登录"
@@ -2007,7 +2019,18 @@
     "panelLogin": "管理面板",
     "password": "密码",
     "wrongPassword": "密码错误",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "bump": "提升",
+    "down": "下沉",
+    "batch": {
+      "selected": "已选 $count 个",
+      "selectAll": "全选",
+      "select": "多选",
+      "title": "$operation（$count）",
+      "done": "已处理 $count 个主题",
+      "failed": "$count 个主题未完成",
+      "unknown": "结果未知，请刷新确认"
+    }
   },
   "packetCard": {
     "title": "红包",
@@ -2228,6 +2251,35 @@
     "uploadRefusedType": "不支持的图片格式：$name",
     "uploadRefusedSize": "图片超过 ${limit: int} KB：$name",
     "uploadFailedCount": "${count: int} 张图片上传失败"
+  },
+  "imageUpload": {
+    "button": "上传图片",
+    "gallery": "相册",
+    "camera": "拍照",
+    "clipboard": "剪贴板",
+    "editFirst": "编辑后上传",
+    "noClipboardImage": "剪贴板里没有图片",
+    "edit": {
+      "title": "编辑图片",
+      "skip": "跳过",
+      "upload": "上传",
+      "crop": "裁剪",
+      "mosaic": "打码",
+      "rotate": "旋转",
+      "undo": "撤销",
+      "free": "自由",
+      "original": "原图",
+      "quality": "质量",
+      "failed": "无法读取这张图片"
+    },
+    "settings": {
+      "title": "发帖",
+      "editFirst": "每次上传图片前先编辑",
+      "output": "上传图片大小",
+      "longSide": "长边",
+      "quality": "质量",
+      "original": "原图"
+    }
   },
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",
@@ -3410,6 +3462,19 @@
     },
     "already": "之前已经完成。"
   },
+  "readingStats": {
+    "title": "阅读统计",
+    "today": "今天",
+    "week": "本周",
+    "month": "本月",
+    "last14Days": "近 14 天",
+    "forums": "版块占比",
+    "otherForums": "其他",
+    "empty": "还没有阅读记录",
+    "hoursMinutes": "$hours 小时 $minutes 分",
+    "minutes": "$minutes 分",
+    "seconds": "$seconds 秒"
+  },
   "localDraft": {
     "title": "本机草稿",
     "details": "还没发出的回复、私信、新帖与编辑，保存在这台设备上",
@@ -3513,5 +3578,25 @@
       "body": "《${title}》有 ${n} 条新回复",
       "hidden": "追踪的帖子有 ${n} 条新回复"
     }
+  },
+  "customEmoji": {
+    "title": "自定义表情包",
+    "newPack": "新建表情包",
+    "name": "名称",
+    "rename": "重命名",
+    "delete": "删除表情包",
+    "deleteConfirm": "删除「$name」和其中的图片？",
+    "addImages": "添加图片",
+    "added": "已添加 ${count: int} 张图片",
+    "noneAdded": "没有可添加的图片",
+    "removeTitle": "移除图片",
+    "remove": "移除这张图片？",
+    "export": "导出",
+    "import": "导入",
+    "imported": "已导入 ${count: int} 张图片",
+    "importInvalid": "不是表情包文件",
+    "exportFailed": "导出失败",
+    "empty": "还没有表情包",
+    "count": "${count: int} 张"
   }
 }
