@@ -145,10 +145,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return;
     }
     final bloc = context.read<ForumBloc>();
+    // The threads picked still in the list and shown, in its order.
     final threads = [
-      for (final thread in state.normalThreadList)
+      for (final thread in _pickable(context, state))
         if (picked.contains(thread.threadID)) (thread.threadID, thread.title),
     ];
+    if (threads.isEmpty) {
+      return;
+    }
     final report = await showBatchModerateSheet(context, threads: threads, fid: fid);
     if (report == null || !mounted) {
       return;
@@ -162,13 +166,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// The app bar while picking threads: how many are picked, all of them, and their management.
   PreferredSizeWidget _buildPickingAppBar(BuildContext context, ForumState state, Set<String> picked) {
     final pickable = _pickable(context, state);
+    final count = pickable.where((e) => picked.contains(e.threadID)).length;
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.close),
         tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
         onPressed: _stopPicking,
       ),
-      title: Text(context.t.moderate.batch.selected(count: picked.length)),
+      title: Text(context.t.moderate.batch.selected(count: count)),
       actions: [
         IconButton(
           icon: const Icon(Icons.select_all_outlined),
@@ -180,7 +185,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         IconButton(
           icon: const Icon(Icons.admin_panel_settings_outlined),
           tooltip: context.t.moderate.menu,
-          onPressed: () async => _moderatePicked(context, state),
+          onPressed: count == 0 ? null : () async => _moderatePicked(context, state),
         ),
       ],
       bottom: _buildTabBar(context, state),
@@ -241,10 +246,6 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 
   void _updateFabVisibilityByTabIndex() {
-    // Threads are picked in the thread tab only.
-    if (tabController.index != _threadTabIndex) {
-      _picked = null;
-    }
     if (tabController.index == _threadTabIndex) {
       setState(() {
         _fabVisible = true;
@@ -252,6 +253,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     } else {
       setState(() {
         _fabVisible = false;
+        // Threads are picked in the thread tab only.
+        _picked = null;
       });
     }
   }
@@ -774,6 +777,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return;
     }
     _keyboardSelection.clear();
+    // Another page replaces the threads picked.
+    _stopPicking();
     context.read<JumpPageCubit>().markLoading();
     context.read<ForumBloc>().add(ForumJumpPageRequested(page));
   }
@@ -879,7 +884,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               onPreviousItem: () => _moveSelection(state, -1),
               canOpenItem: () => _selectedThread(state) != null,
               onOpenItem: () {
-                if (_selectedThread(state) case final thread?) {
+                if (_selectedThread(state) case final thread? when _picked != null) {
+                  _togglePicked(thread.threadID);
+                } else if (_selectedThread(state) case final thread?) {
                   unawaited(
                     openThread(context, threadID: thread.threadID, title: thread.title, threadType: thread.threadType),
                   );

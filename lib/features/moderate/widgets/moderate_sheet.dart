@@ -155,6 +155,7 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
                 subtitle: SelectableText(switch (failure.kind) {
                   ModerateBatchFailure.refused when failure.message.isNotEmpty => failure.message,
                   ModerateBatchFailure.accountChanged => context.t.general.accountChangedRetry,
+                  ModerateBatchFailure.unknown => context.t.moderate.batch.unknown,
                   _ => context.t.moderate.failed,
                 }),
               ),
@@ -215,7 +216,8 @@ class ModerateDialog extends StatefulWidget {
     required this.fid,
     required this.repository,
     super.key,
-  }) : tid = tids.first;
+  }) : assert(tids.isNotEmpty, 'no thread to manage'),
+       tid = tids.first;
 
   /// The operation.
   final ModerateOperation operation;
@@ -324,8 +326,11 @@ class _ModerateDialogState extends State<ModerateDialog> {
     notify: _notify,
   );
 
-  /// The operation done: the one picked, or the one the window checks (close and open).
-  ModerateOperation get _operation => _form?.operation ?? widget.operation;
+  /// Several threads are managed together.
+  bool get _isBatch => widget.tids != null;
+
+  /// The operation done: the one picked, or the one the window checks (close and open of one thread).
+  ModerateOperation get _operation => _isBatch ? widget.operation : _form?.operation ?? widget.operation;
 
   bool get _canSend =>
       _form != null &&
@@ -395,7 +400,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
     final dialog = CustomAlertDialog.sync(
       title: AppDialogTitle(
         icon: moderateOperationIcon(_operation),
-        title: widget.tids == null
+        title: !_isBatch
             ? moderateOperationName(context, _operation)
             : context.t.moderate.batch.title(
                 operation: moderateOperationName(context, _operation),
@@ -425,9 +430,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
       actions: [
         TextButton(
           // Several threads are sent one window after another: not left half way.
-          onPressed: _sending && widget.tids != null
-              ? null
-              : () => Navigator.of(context).pop(widget.tids == null ? false : null),
+          onPressed: _sending && _isBatch ? null : () => Navigator.of(context).pop(_isBatch ? null : false),
           child: Text(context.t.general.cancel),
         ),
         if (form == null && !_loading)
@@ -444,7 +447,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           ),
       ],
     );
-    return widget.tids == null ? dialog : PopScope(canPop: !_sending, child: dialog);
+    return !_isBatch ? dialog : PopScope(canPop: !_sending, child: dialog);
   }
 
   List<Widget> _fields(BuildContext context, ModerateForm form) {

@@ -1986,7 +1986,8 @@
       "select": "Select",
       "title": "$operation ($count)",
       "done": "$count threads done",
-      "failed": "$count threads not done"
+      "failed": "$count threads not done",
+      "unknown": "Result unknown, refresh to check"
     }
   },
   "packetCard": {

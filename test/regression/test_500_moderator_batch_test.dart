@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
@@ -101,6 +102,25 @@ void main() {
     test('close and open: none checked for several threads, the one asked is done', () {
       expect(_window('batch_window_close_ajax.xml', ModerateOperation.close).window.operation, ModerateOperation.close);
       expect(_window('batch_window_close_ajax.xml', ModerateOperation.open).window.operation, ModerateOperation.open);
+    });
+
+    test('one thread picked: close or open done as picked, whatever the window of one thread checks', () {
+      // The window of one closed thread checks open.
+      final single = ModerateForm.parse(
+        tsdmAppWriteResultOf(_data('window_close.json'))!.document,
+        ModerateOperation.close,
+        tid: '1234567',
+        fid: _fid,
+        uid: _uid,
+      );
+      expect(single?.operation, ModerateOperation.open);
+      final batch = _window('window_close.json', ModerateOperation.close, tids: const ['1234567']);
+      expect(batch.tids, ['1234567']);
+      expect(batch.window.operation, ModerateOperation.close);
+      expect(
+        batch.body(const ModerateRequest(operation: ModerateOperation.close))['operations[]'],
+        'close',
+      );
     });
 
     test('bump and sink: group 3 asked without an operation', () {
@@ -240,6 +260,33 @@ void main() {
       expect(report.doneCount, 0);
       expect(report.failed.map((e) => e.$1), _asked);
       expect(report.failed.map((e) => e.$2.message).toSet(), {'抱歉，您没有权限设置主题置顶'});
+    });
+
+    test('an answer lost: the threads sent may be done, the others were not sent', () async {
+      var gets = 0;
+      final repo = ModerateRepository(
+        get: (url) async {
+          gets++;
+          return right((statusCode: 200, data: _data('batch_window_invalid.json')));
+        },
+        post: (url, body) async => left(HttpRequestFailedException(null)),
+        currentUid: () => _uid,
+      );
+      final report = await repo.runBatch(
+        _window('batch_window_stick_digest.json', ModerateOperation.stick),
+        const ModerateRequest(operation: ModerateOperation.stick, level: '1'),
+        tids: _asked,
+        fid: _fid,
+      );
+      expect(gets, 0);
+      expect(
+        {for (final (tid, failure) in report.failed) tid: failure.kind},
+        {
+          '1234567': ModerateBatchFailure.unknown,
+          '1234568': ModerateBatchFailure.unknown,
+          '1': ModerateBatchFailure.failed,
+        },
+      );
     });
 
     test('the window of one account is never posted for another', () async {

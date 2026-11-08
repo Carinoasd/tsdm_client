@@ -199,6 +199,7 @@ final class ModerateForm {
     required int fid,
     required int uid,
     required bool keepThread,
+    bool followChecked = true,
   }) {
     var operation = asked;
     if (!_isTarget(form.attributes['action'] ?? '', operation.group)) {
@@ -251,7 +252,7 @@ final class ModerateForm {
         // The forum checks the one that changes the thread as it is now (open for a closed thread): that one is done,
         // whatever the lock beside the title said when the operation was picked.
         final checked = radios.where((e) => e.attributes.containsKey('checked')).map((e) => e.attributes['value']);
-        if (checked.length == 1) {
+        if (followChecked && checked.length == 1) {
           operation = checked.single == ModerateOperation.open.value ? ModerateOperation.open : ModerateOperation.close;
         }
       case ModerateOperation.move:
@@ -313,19 +314,28 @@ final class ModerateForm {
       return null;
     }
     final asks = tids.toSet();
-    final served = <String>[];
+    final served = <String>{};
     for (final input in form.querySelectorAll('input[type="hidden"][name="moderate[]"]')) {
       final tid = input.attributes['value'] ?? '';
-      if (!asks.contains(tid) || served.contains(tid)) {
+      if (!asks.contains(tid) || !served.add(tid)) {
         return null;
       }
-      served.add(tid);
     }
     if (served.isEmpty) {
       return null;
     }
-    final window = _parse(form, asked, tid: served.first, fid: fid, uid: uid, keepThread: false);
-    return window == null ? null : ModerateBatchForm(window: window, tids: served);
+    // The moderator picked close or open for threads that may be either: done as picked, whatever the window of one
+    // thread checks.
+    final window = _parse(
+      form,
+      asked,
+      tid: served.first,
+      fid: fid,
+      uid: uid,
+      keepThread: false,
+      followChecked: false,
+    );
+    return window == null ? null : ModerateBatchForm(window: window, tids: served.toList());
   }
 
   static bool _isTarget(String action, int group) {
@@ -562,8 +572,12 @@ enum ModerateBatchFailure {
   /// The account changed: nothing more was sent.
   accountChanged,
 
-  /// The request failed (the network, an answer the app can not read).
+  /// The request failed before it was sent, or was never sent (the network, an answer the app can not read).
   failed,
+
+  /// The request of the thread was sent, and its answer lost (the network, an answer the app can not read): the
+  /// forum may have carried it out.
+  unknown,
 }
 
 /// The thread was not done.

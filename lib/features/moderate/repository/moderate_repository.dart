@@ -264,9 +264,16 @@ final class ModerateRepository with LoggerMixin {
     final remaining = [...tids];
     void failRemaining(ModerateBatchFailure kind, [String message = '']) {
       for (final tid in remaining) {
-        results[tid] = ModerateBatchFailed(kind, message);
+        results[tid] ??= ModerateBatchFailed(kind, message);
       }
       remaining.clear();
+    }
+
+    /// The threads of a request whose answer was lost: the forum may have done them.
+    void unknown(List<String> sent) {
+      for (final tid in sent) {
+        results[tid] = const ModerateBatchFailed(ModerateBatchFailure.unknown);
+      }
     }
 
     ModerateBatchFailure failureOf(AppException e) =>
@@ -282,8 +289,12 @@ final class ModerateRepository with LoggerMixin {
       final resp = await _post(batch.window.submitUrl, batch.body(request));
       switch (resp) {
         case Left(:final value):
+          if (value is! IdentityChangedException) {
+            unknown(batch.tids);
+          }
           failRemaining(failureOf(value));
         case Right(:final value) when value.statusCode != HttpStatus.ok:
+          unknown(batch.tids);
           failRemaining(ModerateBatchFailure.failed);
         case Right(:final value):
           switch (outcomeOf(value.data)) {
