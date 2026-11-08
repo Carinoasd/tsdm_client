@@ -2233,6 +2233,35 @@
     "uploadRefusedSize": "Image over ${limit: int} KB: $name",
     "uploadFailedCount": "${count: int} images failed to upload"
   },
+  "imageUpload": {
+    "button": "Upload image",
+    "gallery": "Gallery",
+    "camera": "Camera",
+    "clipboard": "Clipboard",
+    "editFirst": "Edit before upload",
+    "noClipboardImage": "No image on the clipboard",
+    "edit": {
+      "title": "Edit image",
+      "skip": "Skip",
+      "upload": "Upload",
+      "crop": "Crop",
+      "mosaic": "Mosaic",
+      "rotate": "Rotate",
+      "undo": "Undo",
+      "free": "Free",
+      "original": "Original",
+      "quality": "Quality",
+      "failed": "This image can not be read"
+    },
+    "settings": {
+      "title": "Posting",
+      "editFirst": "Edit images before every upload",
+      "output": "Uploaded image size",
+      "longSide": "Long side",
+      "quality": "Quality",
+      "original": "Original"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",

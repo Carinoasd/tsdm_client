@@ -528,6 +528,9 @@ class DialogPaths {
 
   /// Dialog to set the hours of the day the app is dark.
   static const String darkSchedule = '/dialog/darkSchedule';
+
+  /// Dialog to choose the size and the quality images are uploaded with.
+  static const String uploadImageOutput = '/dialog/uploadImageOutput';
 }
 
 /// Route path for a screen.
