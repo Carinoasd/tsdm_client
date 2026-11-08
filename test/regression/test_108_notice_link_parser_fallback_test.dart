@@ -130,6 +130,8 @@ void main() {
       ..registerSingleton<StorageProvider>(storage)
       ..registerSingleton<SettingsRepository>(settings);
     await settings.init();
+    // The route to the "Open in app" page (#105) as before the in-app browser, which has its own test (700).
+    await settings.setValue(SettingsKeys.inAppBrowserForForum, false);
 
     generic.clear();
     mainCalls.clear();

@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/list_app_bar/menu_actions.dart';
 import 'package:tsdm_client/widgets/list_app_bar/menu_item_id.dart';
 import 'package:tsdm_client/widgets/notice_button.dart';
@@ -160,7 +161,7 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       leading: leading,
       automaticallyImplyLeading: automaticallyImplyLeading,
-      title: title == null ? null : Text(title!),
+      title: title == null ? null : Text(context.displayText(title!)),
       // TODO: Currently we always use a compact layout in list app bar for larger main content space.
       // If going to implement responsive layout, remember to wrap list app bar in `PreferredSize` in ALL places using
       // it, this is an issue or usage defined by Flutter, seems the AppBar checks if it's direct `bottom` widget is
