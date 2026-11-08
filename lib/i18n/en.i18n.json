@@ -761,7 +761,9 @@
       "about": "About",
       "update": "Get updates",
       "updateCheckOnStartup": "Check update when app startup",
-      "changelog": "Changelog"
+      "changelog": "Changelog",
+      "inAppBrowserForForum": "Open forum pages in the in-app browser",
+      "inAppBrowserForAll": "Open all links in the in-app browser"
     }
   },
   "aboutPage": {
@@ -2181,6 +2183,13 @@
     "browserHint": "Links the app can not open here can still be opened in the browser",
     "invalidBrowserLink": "Enter a web link starting with http:// or https://",
     "browserLaunchFailed": "Could not open the link in the browser"
+  },
+  "inAppBrowserPage": {
+    "back": "Back",
+    "forward": "Forward",
+    "refresh": "Refresh",
+    "openExternal": "Open in external browser",
+    "copyUrl": "Copy URL"
   },
   "shareReceive": {
     "pickForum": "Post to which forum",

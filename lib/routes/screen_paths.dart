@@ -352,6 +352,13 @@ class ScreenPaths {
 
   /// Page to open any supported forum resources in app.
   static const String openInApp = '/openInApp';
+
+  /// Web page in the in-app browser.
+  ///
+  /// Query parameters:
+  ///
+  /// * url: The absolute url of the page, required.
+  static const String inAppBrowser = '/inAppBrowser';
 }
 
 /// Route paths for all temporary dialogs and bottom sheets in app.

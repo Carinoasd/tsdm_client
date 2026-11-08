@@ -172,6 +172,8 @@ final class SettingsRepository with LoggerMixin {
       threadOpenPosition: s.extract(_SK.threadOpenPosition),
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
+      inAppBrowserForForum: s.extract(_SK.inAppBrowserForForum),
+      inAppBrowserForAll: s.extract(_SK.inAppBrowserForAll),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),
       crossDeviceSyncRateTemplates: s.extract(_SK.crossDeviceSyncRateTemplates),
       crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),

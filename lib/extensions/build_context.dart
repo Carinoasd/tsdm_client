@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/map.dart';
 import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
 import 'package:tsdm_client/features/friend/widgets/approve_friend_dialog.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
@@ -22,6 +22,10 @@ extension DispatchUrl<T> on BuildContext {
   /// * If is a foreign url, launch url in external browser.
   ///
   /// With [external] the url is launched in external browser directly.
+  ///
+  /// Where the in-app browser runs, the settings may send forum pages (the `inAppBrowserForForum` setting, on by
+  /// default) or every web link (`inAppBrowserForAll`) to the in-app browser instead of the "Open in app" page or the
+  /// external browser, the ones opened with [external] too.
   ///
   /// If current string is not an valid url:
   /// * Do nothing.
@@ -44,6 +48,10 @@ extension DispatchUrl<T> on BuildContext {
       return null;
     }
     if (external) {
+      // "Open in browser": a forum page goes to the in-app browser when the settings say so, signed in.
+      if (currentLinkTargetOf(u, explicitBrowser: true) == LinkTarget.inAppBrowser) {
+        return _pushInAppBrowser(u);
+      }
       await launchUrl(u, mode: LaunchMode.externalApplication);
       return null;
     }
@@ -66,10 +74,14 @@ extension DispatchUrl<T> on BuildContext {
         queryParameters: route.queryParameters.copyWith(extraPathParameters ?? {}),
       );
     }
+    final target = currentLinkTargetOf(u);
+    if (target == LinkTarget.inAppBrowser) {
+      return _pushInAppBrowser(u);
+    }
     // An unsupported forum url never goes to the platform on its own: on Android another installed build of this app
     // may claim forum links and open before the user had a choice (#105). The "Open in app" page shows the link and
     // opens it in the browser only when asked to.
-    if (u.isForumOrRelative) {
+    if (target == LinkTarget.openInAppPage) {
       final router = GoRouter.maybeOf(this);
       if (router == null) {
         talker.error('no router to open unsupported forum url: $url');
@@ -82,6 +94,16 @@ extension DispatchUrl<T> on BuildContext {
     // Launch in external browser if is a foreign url.
     await launchUrl(u, mode: LaunchMode.externalApplication);
     return null;
+  }
+
+  /// Open [url], a web link, in the in-app browser; a relative link is resolved on the forum host.
+  Future<T?> _pushInAppBrowser(Uri url) async {
+    final router = GoRouter.maybeOf(this);
+    if (router == null) {
+      talker.error('no router to open the in-app browser');
+      return null;
+    }
+    return router.pushNamed<T>(ScreenPaths.inAppBrowser, queryParameters: {'url': '${absoluteForumUri(url)}'});
   }
 }
 

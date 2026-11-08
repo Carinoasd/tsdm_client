@@ -19,6 +19,7 @@ import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -1427,6 +1428,22 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableUpdateCheckOnStartup, v)),
         ),
+        if (inAppBrowserSupported) ...[
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.travel_explore_outlined),
+            title: Text(tr.inAppBrowserForForum),
+            value: state.settingsMap.inAppBrowserForForum,
+            onChanged: (v) =>
+                context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForForum, v)),
+          ),
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.public_outlined),
+            title: Text(tr.inAppBrowserForAll),
+            value: state.settingsMap.inAppBrowserForAll,
+            onChanged: (v) =>
+                context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForAll, v)),
+          ),
+        ],
         SectionListTile(
           leading: const Icon(Icons.new_releases_outlined),
           title: Text(tr.update),

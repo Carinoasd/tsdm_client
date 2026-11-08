@@ -761,7 +761,9 @@
       "about": "关于",
       "update": "获取更新",
       "updateCheckOnStartup": "应用启动时检查更新",
-      "changelog": "更新日志"
+      "changelog": "更新日志",
+      "inAppBrowserForForum": "论坛网页用内置浏览器打开",
+      "inAppBrowserForAll": "所有链接用内置浏览器打开"
     }
   },
   "aboutPage": {
@@ -2181,6 +2183,13 @@
     "browserHint": "应用内无法打开的链接，仍可在浏览器中打开",
     "invalidBrowserLink": "请输入以 http:// 或 https:// 开头的网页链接",
     "browserLaunchFailed": "无法在浏览器中打开此链接"
+  },
+  "inAppBrowserPage": {
+    "back": "后退",
+    "forward": "前进",
+    "refresh": "刷新",
+    "openExternal": "用外部浏览器打开",
+    "copyUrl": "复制网址"
   },
   "shareReceive": {
     "pickForum": "发到哪个版块",
