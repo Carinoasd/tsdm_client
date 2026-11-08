@@ -252,7 +252,13 @@ class _DividedDialogBodyState extends State<_DividedDialogBody> {
               clipBehavior: Clip.hardEdge,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: SingleChildScrollView(controller: scrollController, child: widget.content),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  // The floating label of an outlined text field rises above the field's box; without this it is cut
+                  // off by the clip above when the field is the first thing in the content.
+                  padding: const EdgeInsets.only(top: 8),
+                  child: widget.content,
+                ),
               ),
             ),
           ),
