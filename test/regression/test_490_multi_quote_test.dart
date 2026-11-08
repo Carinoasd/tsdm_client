@@ -82,6 +82,9 @@ String _quoteOf(int floor) => '[quote][size=2]Alice floor $floor[/size]\nquoted 
 final class _ThreadAdapter implements HttpClientAdapter {
   final windows = <String>[];
 
+  /// When set, the reply windows wait for it.
+  Completer<void>? gate;
+
   /// Floors whose window can not be read.
   final broken = <int>{};
 
@@ -99,6 +102,7 @@ final class _ThreadAdapter implements HttpClientAdapter {
     if (query['action'] == 'reply') {
       final pid = int.parse(query['repquote']!);
       windows.add(query['repquote']!);
+      await gate?.future;
       if (broken.contains(pid - 9000)) {
         return ResponseBody.fromString('', 500, headers: headers);
       }
@@ -371,6 +375,29 @@ void main() {
     await pick(tester, 12);
     expect(tester.widget<Text>(count()).data, '10/10 selected');
     expect(find.text('At most 10 floors can be quoted'), findsOneWidget);
+  });
+
+  testWidgets('while the quotes are fetched the picking can not change, and the reply follows', (tester) async {
+    await pump(tester);
+    await startFrom(tester, 3);
+    await pick(tester, 4);
+    adapter.gate = Completer<void>();
+    await tester.tap(replyButton());
+    await settle(tester);
+    expect(tester.widget<FilledButton>(replyButton()).onPressed, isNull, reason: 'one request at a time');
+    // Neither the close button nor a tap on a floor changes what is picked.
+    await tester.tap(find.byKey(const ValueKey('multi-quote-exit')));
+    await pick(tester, 5);
+    await settle(tester);
+    expect(tester.widget<Text>(count()).data, '2/10 selected');
+    adapter.gate!.complete();
+    await settle(tester);
+    await settle(tester);
+    expect(count(), findsNothing);
+    final code = tester.widget<RichEditor>(find.byType(RichEditor)).controller.toForumBBCode();
+    expect(code, contains('quoted 3'));
+    expect(code, contains('quoted 4'));
+    expect(code, isNot(contains('quoted 5')));
   });
 
   testWidgets('a quote that can not be read puts nothing into the reply and keeps the floors picked', (tester) async {

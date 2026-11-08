@@ -22,6 +22,18 @@ final class MultiQuoteSelection extends ChangeNotifier {
 
   final List<MultiQuoteEntry> _entries = [];
   bool _active = false;
+  bool _busy = false;
+
+  /// Whether the quotes of the floors picked are being fetched: the picking can not change meanwhile.
+  bool get busy => _busy;
+
+  set busy(bool value) {
+    if (_busy == value) {
+      return;
+    }
+    _busy = value;
+    notifyListeners();
+  }
 
   /// Whether the floors are being picked.
   bool get active => _active;
@@ -46,6 +58,9 @@ final class MultiQuoteSelection extends ChangeNotifier {
 
   /// Pick [entry], or take it back when picked. False when it can not be picked: [maxEntries] floors are.
   bool toggle(MultiQuoteEntry entry) {
+    if (_busy) {
+      return true;
+    }
     final at = _entries.indexWhere((e) => e.pid == entry.pid);
     if (at >= 0) {
       _entries.removeAt(at);
@@ -60,6 +75,9 @@ final class MultiQuoteSelection extends ChangeNotifier {
 
   /// Stop picking, nothing picked any more.
   void exit() {
+    if (_busy) {
+      return;
+    }
     if (!_active && _entries.isEmpty) {
       return;
     }

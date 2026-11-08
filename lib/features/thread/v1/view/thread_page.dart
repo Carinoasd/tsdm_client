@@ -248,8 +248,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The floors picked to be quoted in one reply: the app bar is the picking bar meanwhile, and stays shown.
   final _multiQuote = MultiQuoteSelection();
 
-  /// The reply with the quotes is being made (the quotes are asked of the forum).
-  bool _quoting = false;
+  /// Whether picking floors was on when the page last looked, see [_onMultiQuoteChanged].
+  bool _pickingShown = false;
 
   /// Searching the floors on screen: the app bar is the search bar meanwhile, and stays shown.
   bool _searching = false;
@@ -987,12 +987,15 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     return true;
   }
 
-  /// Picking floors started or ended: the bars come back and stay while picking.
+  /// Picking floors started or ended: the bars come back and stay while picking. The count and the busy state are
+  /// the bar's own ([ListenableBuilder]); the floors check themselves.
   void _onMultiQuoteChanged() {
-    if (!mounted) {
+    final picking = _multiQuote.active;
+    if (!mounted || picking == _pickingShown) {
       return;
     }
-    if (_multiQuote.active) {
+    _pickingShown = picking;
+    if (picking) {
       _setImmersive(hidden: false);
       _appBarCollapser.show();
     }
@@ -1010,17 +1013,23 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         icon: const Icon(Icons.close),
         onPressed: _multiQuote.exit,
       ),
-      title: Text(
-        tr.selected(count: _multiQuote.length, max: MultiQuoteSelection.maxEntries),
-        key: const ValueKey('multi-quote-count'),
+      title: ListenableBuilder(
+        listenable: _multiQuote,
+        builder: (context, _) => Text(
+          tr.selected(count: _multiQuote.length, max: MultiQuoteSelection.maxEntries),
+          key: const ValueKey('multi-quote-count'),
+        ),
       ),
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 12),
-          child: FilledButton(
-            key: const ValueKey('multi-quote-reply'),
-            onPressed: _multiQuote.length == 0 || _quoting ? null : _replyWithQuotes,
-            child: Text(tr.reply),
+          child: ListenableBuilder(
+            listenable: _multiQuote,
+            builder: (context, _) => FilledButton(
+              key: const ValueKey('multi-quote-reply'),
+              onPressed: _multiQuote.length == 0 || _multiQuote.busy ? null : _replyWithQuotes,
+              child: Text(tr.reply),
+            ),
           ),
         ),
       ],
@@ -1034,33 +1043,35 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// front of the reply), so it is the same as the quote of a single floor. Nothing is put into the reply when any of
   /// them could not be read.
   Future<void> _replyWithQuotes() async {
-    if (_quoting || _multiQuote.length == 0) {
+    if (_multiQuote.busy || _multiQuote.length == 0) {
       return;
     }
     final entries = _multiQuote.entries;
-    setState(() => _quoting = true);
-    final List<ReplyFormInfo?> infos;
+    // The picking is held while the quotes come: one after the other, not ten requests at once.
+    _multiQuote.busy = true;
+    final quotes = <String>[];
     try {
-      infos = await Future.wait([for (final e in entries) const ReplyRepository().fetchReplyFormInfo(e.replyAction)]);
-    } finally {
-      if (mounted) {
-        setState(() => _quoting = false);
+      for (final e in entries) {
+        final quote = (await const ReplyRepository().fetchReplyFormInfo(e.replyAction))?.quote;
+        if (quote == null) {
+          break;
+        }
+        quotes.add(quote);
       }
+    } finally {
+      _multiQuote.busy = false;
     }
     if (!mounted) {
       return;
     }
-    final quotes = [for (final info in infos) info?.quote];
-    if (quotes.any((e) => e == null)) {
+    if (quotes.length != entries.length || (_threadBloc?.state.isOffline ?? false)) {
       showSnackBar(context: context, message: context.t.threadPage.multiQuote.failed);
       return;
     }
     _multiQuote.exit();
-    if (_threadBloc?.state.isOffline ?? false) {
-      return;
-    }
     _setImmersive(hidden: false);
-    // Put in before the editor opens on the box.
+    // The reply to the thread; the text of a reply to a floor written so far goes along (the bar moves the text with
+    // its target). Put in before the editor opens on the box.
     _replyBarController
       ..replyAction = null
       ..insertBBCode([for (final q in quotes) '$q\n\n'].join())
