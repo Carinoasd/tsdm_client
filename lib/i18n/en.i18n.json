@@ -367,6 +367,16 @@
         "title": "High Refresh Rate",
         "detail": "Run at the highest refresh rate the screen supports, smoother scrolling but uses a little more battery"
       },
+      "homeLayout": {
+        "title": "Home layout",
+        "reset": "Reset",
+        "greeting": "Check-in & daily",
+        "support": "Support",
+        "pinned": "Pinned threads",
+        "guide": "Forum guide",
+        "stats": "Forum activity",
+        "tools": "My tools"
+      },
       "showShortcutInForumCard": {
         "title": "Forum Card Shortcut Entries",
         "detail": "Show shortcut entries towards latest thread and subreddits in forum card"

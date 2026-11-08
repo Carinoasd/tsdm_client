@@ -140,6 +140,7 @@ final class SettingsRepository with LoggerMixin {
       threadCardShowExcerpt: s.extract(_SK.threadCardShowExcerpt),
       threadCardThumbnailMode: s.extract(_SK.threadCardThumbnailMode),
       threadCardExternalThumbnails: s.extract(_SK.threadCardExternalThumbnails),
+      homeLayout: s.extract(_SK.homeLayout),
       netClientUseProxy: s.extract(_SK.netClientUseProxy),
       netClientProxy: s.extract(_SK.netClientProxy),
       autoCheckin: s.extract(_SK.autoCheckin),

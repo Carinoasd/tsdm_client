@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
+import 'package:tsdm_client/features/homepage/models/home_block.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/widgets/guest_home.dart';
@@ -26,6 +27,7 @@ import 'package:tsdm_client/features/notification/repository/notification_info_r
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -151,6 +153,11 @@ class _HomepagePageState extends State<HomepagePage> {
     );
   }
 
+  /// The stored layout of the homepage blocks; the default without settings (tests). Rebuilds when it changes.
+  String _homeLayoutRaw(BuildContext context) => context.readOrNull<SettingsBloc>() == null
+      ? ''
+      : context.select<SettingsBloc, String>((b) => b.state.settingsMap.homeLayout);
+
   /// Pull to refresh: the homepage, and the title badge of the current account with it.
   void _refresh(BuildContext context) {
     context.read<HomepageBloc>().add(HomepageRefreshRequested());
@@ -167,7 +174,7 @@ class _HomepagePageState extends State<HomepagePage> {
   /// * Compact: one column; the greeting carries the day's actions and the today count, the short support entry sits
   ///   right under it, the threads come next (the pinned groups as tabs of one card, [PinTabSection], then the guide)
   ///   and the utility cards follow them, so no tall card pushes the threads down.
-  Widget _buildDashboard(BuildContext context, HomepageState state, double width) {
+  Widget _buildDashboard(BuildContext context, HomepageState state, double width, HomeBlockLayout homeLayout) {
     final layout = homeLayoutFor(width, Theme.of(context).platform);
     final hasStatus = state.forumStatus != const ForumStatus.empty();
     final greeting = HomeGreetingCard(
@@ -207,47 +214,88 @@ class _HomepagePageState extends State<HomepagePage> {
       for (final (i, child) in children.whereType<Widget>().indexed) ...[if (i > 0) SizedBox(height: gap), child],
     ];
 
-    final List<Widget?> main;
-    List<Widget?>? rail;
-    switch (layout) {
-      case HomeLayout.wide:
-        main = [greeting, swiper, pinned, guide];
-        rail = [
-          if (hasStatus) HomeForumStatsCard(state.forumStatus),
-          const HomeToolsCard(columns: 2),
-          support,
-        ];
-      case HomeLayout.medium:
-        main = [
-          greeting,
-          if (hasStatus)
+    final tools = HomeToolsCard(columns: layout == HomeLayout.medium ? 4 : 2);
+    final widgets = <HomeBlock, Widget?>{
+      HomeBlock.greeting: greeting,
+      HomeBlock.support: support,
+      // The swiper goes with the pinned threads.
+      HomeBlock.pinned: swiper == null || pinned == null
+          ? swiper ?? pinned
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: spaced([swiper, pinned], layout == HomeLayout.compact ? 12.0 : 16.0),
+            ),
+      HomeBlock.guide: guide,
+      HomeBlock.stats: hasStatus ? HomeForumStatsCard(state.forumStatus) : null,
+      HomeBlock.tools: tools,
+    };
+    final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
+
+    // Statistics and support side by side when the order puts them next to each other (medium layout).
+    List<Widget?> sequence(List<HomeBlock> blocks) {
+      final result = <Widget?>[];
+      for (var i = 0; i < blocks.length; i++) {
+        final block = blocks[i];
+        final next = i + 1 < blocks.length ? blocks[i + 1] : null;
+        final pair =
+            layout == HomeLayout.medium &&
+            next != null &&
+            {block, next}.containsAll(const [HomeBlock.stats, HomeBlock.support]) &&
+            widgets[HomeBlock.stats] != null;
+        if (pair) {
+          result.add(
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: HomeForumStatsCard(state.forumStatus)),
+                Expanded(child: widgets[block] ?? const SizedBox.shrink()),
                 const SizedBox(width: 16),
-                const Expanded(child: support),
+                Expanded(child: widgets[next] ?? const SizedBox.shrink()),
               ],
-            )
-          else
-            support,
-          swiper,
-          pinned,
-          guide,
-          const HomeToolsCard(columns: 4),
-        ];
-      case HomeLayout.compact:
-        main = [
-          greeting,
-          support,
-          swiper,
-          pinned,
-          guide,
-          if (hasStatus) HomeForumStatsCard(state.forumStatus),
-          const HomeToolsCard(columns: 2),
-        ];
+            ),
+          );
+          i++;
+        } else {
+          result.add(widgets[block]);
+        }
+      }
+      return result;
     }
-    final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
+
+    // The arrangement before the homepage could be changed, until it is.
+    final order = homeLayout.isDefault
+        ? switch (layout) {
+            HomeLayout.wide => const [
+              HomeBlock.greeting,
+              HomeBlock.pinned,
+              HomeBlock.guide,
+              HomeBlock.stats,
+              HomeBlock.tools,
+              HomeBlock.support,
+            ],
+            HomeLayout.medium => const [
+              HomeBlock.greeting,
+              HomeBlock.stats,
+              HomeBlock.support,
+              HomeBlock.pinned,
+              HomeBlock.guide,
+              HomeBlock.tools,
+            ],
+            HomeLayout.compact => homeLayout.visible,
+          }
+        : homeLayout.visible;
+    // The side column of the wide layout takes statistics, tools and the support entry.
+    const railBlocks = {HomeBlock.stats, HomeBlock.tools, HomeBlock.support};
+    final wide = layout == HomeLayout.wide;
+    final main = sequence([
+      for (final block in order)
+        if (!wide || !railBlocks.contains(block)) block,
+    ]);
+    final rail = wide
+        ? sequence([
+            for (final block in order)
+              if (railBlocks.contains(block)) block,
+          ])
+        : null;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +303,7 @@ class _HomepagePageState extends State<HomepagePage> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced(main, gap)),
         ),
-        if (rail != null) ...[
+        if (rail != null && rail.whereType<Widget>().isNotEmpty) ...[
           const SizedBox(width: 24),
           SizedBox(
             width: _railWidth,
@@ -442,12 +490,17 @@ class _HomepagePageState extends State<HomepagePage> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsBloc = context.readOrNull<SettingsBloc>();
     return BlocProvider(
       create: (context) => HomepageBloc(
         authenticationRepository: RepositoryProvider.of<AuthenticationRepository>(context),
         forumHomeRepository: RepositoryProvider.of<ForumHomeRepository>(context),
         profileRepository: RepositoryProvider.of<ProfileRepository>(context),
         guideFeed: context.readOrNull<GuideFeed>(),
+        // A hidden guide is not asked for.
+        guideWanted: () =>
+            settingsBloc == null ||
+            HomeBlockLayout.parse(settingsBloc.state.settingsMap.homeLayout).isVisible(HomeBlock.guide),
       )..add(HomepageLoadRequested()),
       child: MultiBlocListener(
         listeners: [
@@ -487,6 +540,7 @@ class _HomepagePageState extends State<HomepagePage> {
         ],
         child: BlocBuilder<HomepageBloc, HomepageState>(
           builder: (context, state) {
+            final homeLayoutRaw = _homeLayoutRaw(context);
             final body = switch (state.status) {
               HomepageStatus.initial || HomepageStatus.loading => EasyRefresh(
                 key: const ValueKey('loading'),
@@ -535,6 +589,7 @@ class _HomepagePageState extends State<HomepagePage> {
                             context,
                             state,
                             math.min(constraints.maxWidth - 24, _maxContentWidth),
+                            HomeBlockLayout.parse(homeLayoutRaw),
                           ),
                         ),
                       ),

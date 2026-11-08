@@ -149,6 +149,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// while the web page only loads it once the thread is opened.
   threadCardExternalThumbnails<bool>(name: 'threadCardExternalThumbnails', type: bool, defaultValue: false),
 
+  /// Order and visibility of the homepage blocks, see `HomeBlockLayout`. Empty is the default arrangement.
+  homeLayout<String>(name: 'homeLayout', type: String, defaultValue: ''),
+
   /// Use network proxy config below or not.
   netClientUseProxy<bool>(name: 'netClientUseProxy', type: bool, defaultValue: false),
 
