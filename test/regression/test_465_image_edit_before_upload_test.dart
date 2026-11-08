@@ -327,11 +327,11 @@ void main() {
       return result;
     }
 
-    testWidgets('略過 uploads the image as it is', (tester) async {
+    testWidgets('略過 uploads the picture as it is, at the size and quality chosen at first', (tester) async {
       final result = await pumpEditor(tester, _png(40, 20));
       await tester.tap(find.text(tr.imageUpload.edit.skip));
       await tester.pumpAndSettle();
-      expect(await result, const ImageEdits());
+      expect(await result, const ImageEdits(maxSide: 1920, quality: 80));
     });
 
     testWidgets('turned, a ratio cut, the size and quality chosen at first', (tester) async {

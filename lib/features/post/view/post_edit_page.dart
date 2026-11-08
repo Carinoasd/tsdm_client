@@ -689,6 +689,15 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   /// Images to upload from [source] (the image button), through the image editor when [edit].
   Future<void> _pickImages(ImageUploadSource source, {required bool edit}) async {
+    try {
+      await _pickImagesFrom(source, edit: edit);
+    } on Object catch (e, st) {
+      // A picker refused (no camera permission) or failed: nothing picked.
+      handleRaw(e, st);
+    }
+  }
+
+  Future<void> _pickImagesFrom(ImageUploadSource source, {required bool edit}) async {
     switch (source) {
       case ImageUploadSource.gallery:
         final picked = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
@@ -795,10 +804,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     final repo = context.read<PostEditRepository>();
+    // Read before the files are written: once they are, only the try below deletes them.
+    final settings = context.read<SettingsBloc>().state.settingsMap;
     final (:files, :refused) = await prepare(upload);
     // What went wrong, told once at the end: one failure with its reason, several as their count.
     final failures = [for (final name in refused) tr.uploadRefusedType(name: name)];
-    final settings = context.read<SettingsBloc>().state.settingsMap;
     final edits = edit ?? settings.editImageBeforeUpload;
     // The edited copies, deleted with the other temporary files.
     final written = <String>[];
@@ -865,8 +875,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     required bool edit,
   }) async {
     var edits = ImageEdits(maxSide: settings.uploadImageMaxSide, quality: settings.uploadImageQuality);
+    Uint8List? bytes;
     if (edit) {
-      final Uint8List bytes;
       try {
         bytes = await File(file.path).readAsBytes();
       } on Object {
@@ -884,6 +894,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         dir: await _uploadTempDir(),
         stem: 'edited_${DateTime.now().microsecondsSinceEpoch}',
         accepts: upload.acceptsImage,
+        bytes: bytes,
       );
     } on Object catch (e, st) {
       handleRaw(e, st);

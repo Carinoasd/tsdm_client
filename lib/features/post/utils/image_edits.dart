@@ -173,6 +173,14 @@ img.Image _edited(img.Image source, ImageEdits edits) {
 /// [source] turned and pixelated as [edits] say (not cut), scaled to [maxSide] at most, as PNG: what the editor shows.
 /// Null when [source] is no image.
 EditedImage? previewImageEdits(Uint8List source, ImageEdits edits, {required int maxSide}) {
+  final base = previewBase(source, maxSide: maxSide);
+  return base == null ? null : previewFromBase(base, edits);
+}
+
+/// The picture the editor previews on, decoded once: [source] in its EXIF orientation, scaled to [maxSide] at most.
+/// Scaled before the strokes: the cells are a share of the picture, so they look the same as on the upload. Null when
+/// [source] is no image.
+img.Image? previewBase(Uint8List source, {required int maxSide}) {
   img.Image? decoded;
   try {
     decoded = img.decodeImage(source);
@@ -180,11 +188,14 @@ EditedImage? previewImageEdits(Uint8List source, ImageEdits edits, {required int
     decoded = null;
   }
   if (decoded == null) return null;
-  // Scaled before the strokes: the cells are a share of the picture, so they look the same as on the upload.
-  final image = _edited(
-    _scaledDown(img.bakeOrientation(img.Image.from(decoded, noAnimation: true)), maxSide),
-    ImageEdits(quarterTurns: edits.quarterTurns, strokes: edits.strokes),
-  );
+  final base = _scaledDown(img.bakeOrientation(img.Image.from(decoded, noAnimation: true)), maxSide);
+  if (base.hasPalette) return base.convert(numChannels: base.numChannels);
+  return base;
+}
+
+/// [base] ([previewBase]) turned and pixelated as [edits] say, not cut, as PNG.
+EditedImage previewFromBase(img.Image base, ImageEdits edits) {
+  final image = _edited(base, ImageEdits(quarterTurns: edits.quarterTurns, strokes: edits.strokes));
   return EditedImage(img.encodePng(image, level: 1), 'png', width: image.width, height: image.height);
 }
 
@@ -292,20 +303,22 @@ bool isEditableImage(List<int> bytes) {
 
 /// [file] with [edits] done ([applyImageEdits], in another isolate), written into [dir] as `<stem>.<ext>`: a
 /// temporary file, [file] is left as it is. [file] itself when nothing changes, when it is no image the editor takes
-/// ([isEditableImage]: a GIF goes up as it is) or when the forum does not take what it became ([accepts]).
+/// ([isEditableImage]: a GIF goes up as it is) or when the forum does not take what it became ([accepts]). [bytes]
+/// are the file's when they were read already.
 Future<UploadImageFile> writeEditedImage(
   UploadImageFile file,
   ImageEdits edits, {
   required Directory dir,
   required String stem,
   required bool Function(String filename) accepts,
+  Uint8List? bytes,
 }) async {
   // The size it has and nothing done: not even read.
   if (!edits.changesPicture && edits.maxSide <= 0) return file;
-  final bytes = await File(file.path).readAsBytes();
-  if (!isEditableImage(bytes)) return file;
-  if (!edits.changesPicture && !_largerThan(bytes, edits.maxSide)) return file;
-  final edited = await Isolate.run(() => applyImageEdits(bytes, edits));
+  final data = bytes ?? await File(file.path).readAsBytes();
+  if (!isEditableImage(data)) return file;
+  if (!edits.changesPicture && !_largerThan(data, edits.maxSide)) return file;
+  final edited = await Isolate.run(() => applyImageEdits(data, edits));
   if (edited == null) return file;
   final name = '$stem.${edited.extension}';
   if (!accepts(name)) return file;

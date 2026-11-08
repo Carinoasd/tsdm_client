@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/post/utils/image_edits.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -18,14 +19,17 @@ const _cropRatios = <(int, int)?>[null, (1, 1), (4, 3), (3, 4), (16, 9), (9, 16)
 enum _Tool { crop, mosaic }
 
 /// [previewImageEdits] in another isolate. Top level: a closure made in a method would take its `this` along.
-Future<EditedImage?> _previewInIsolate(Uint8List bytes, ImageEdits edits) =>
-    Isolate.run(() => previewImageEdits(bytes, edits, maxSide: _previewMaxSide));
+Future<img.Image?> _baseInIsolate(Uint8List bytes) => Isolate.run(() => previewBase(bytes, maxSide: _previewMaxSide));
+
+/// [previewFromBase] in another isolate, as [_baseInIsolate].
+Future<EditedImage> _previewInIsolate(img.Image base, ImageEdits edits) =>
+    Isolate.run(() => previewFromBase(base, edits));
 
 /// Page to edit the image [bytes] before it goes up: cut it (free or to a ratio), pixelate parts of it with a brush,
 /// turn it, and choose the longest side and the JPEG quality it is written with.
 ///
-/// Pops the [ImageEdits] to upload with: `const ImageEdits()` for 略過 (the image as it is), null when the page is left
-/// (nothing uploaded).
+/// Pops the [ImageEdits] to upload with: for 略過 only the size and quality chosen at first (the picture as it is),
+/// null when the page is left (nothing uploaded).
 class ImageUploadEditPage extends StatefulWidget {
   /// Constructor.
   const ImageUploadEditPage(this.bytes, {required this.maxSide, required this.quality, super.key});
@@ -89,20 +93,28 @@ class _ImageUploadEditPageState extends State<ImageUploadEditPage> {
     quality: _quality.round(),
   );
 
+  /// The picture decoded once and scaled for the preview ([previewBase]); every preview is made from it.
+  img.Image? _base;
+
   Future<void> _render() async {
     final token = ++_renderToken;
-    final bytes = widget.bytes;
     final edits = ImageEdits(quarterTurns: _turns, strokes: List.of(_strokes));
     final strokes = _strokes.length;
-    final preview = await _previewInIsolate(bytes, edits);
+    var base = _base;
+    if (base == null) {
+      base = await _baseInIsolate(widget.bytes);
+      if (!mounted) return;
+      if (base == null) {
+        setState(() => _failed = true);
+        return;
+      }
+      _base = base;
+    }
+    final preview = await _previewInIsolate(base, edits);
     if (!mounted || token != _renderToken) return;
     setState(() {
-      if (preview == null) {
-        _failed = true;
-      } else {
-        _preview = preview;
-        _shownStrokes = strokes;
-      }
+      _preview = preview;
+      _shownStrokes = strokes;
     });
   }
 
@@ -116,6 +128,8 @@ class _ImageUploadEditPageState extends State<ImageUploadEditPage> {
         _strokes[i] = _strokes[i].turned();
       }
       _shownStrokes = 0;
+      // The picture as it was turned would not match the frame and the strokes turned with it.
+      _preview = null;
     });
     unawaited(_render());
   }
@@ -185,9 +199,10 @@ class _ImageUploadEditPageState extends State<ImageUploadEditPage> {
                     onUpdate: (p) => setState(() => _drawing = [...?_drawing, p]),
                     onEnd: () {
                       final points = _drawing;
+                      if (points == null) return;
                       setState(() {
                         _drawing = null;
-                        if (points != null && points.isNotEmpty) _strokes.add(MosaicStroke(points, _brush));
+                        if (points.isNotEmpty) _strokes.add(MosaicStroke(points, _brush));
                       });
                       unawaited(_render());
                     },
@@ -204,7 +219,11 @@ class _ImageUploadEditPageState extends State<ImageUploadEditPage> {
       appBar: AppBar(
         title: Text(tr.title),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(const ImageEdits()), child: Text(tr.skip)),
+          // Nothing edited: the size and quality chosen at first still hold.
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(ImageEdits(maxSide: widget.maxSide, quality: widget.quality)),
+            child: Text(tr.skip),
+          ),
           Padding(
             padding: edgeInsetsR12,
             child: FilledButton(
