@@ -49,6 +49,7 @@ import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.da
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_app_icon_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_data_saver_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
@@ -70,6 +71,7 @@ import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/app_icon.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
@@ -595,6 +597,24 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.postMediaPreview, v)),
         ),
+        if (isAndroid || isIOS)
+          SectionListTile(
+            key: const ValueKey('settings-app-icon'),
+            leading: const Icon(Icons.apps_outlined),
+            title: Text(tr.appIcon.title),
+            trailing: Image.asset(
+              AppIcon.fromStoredName(state.settingsMap.appIcon).previewAsset,
+              width: 32,
+              height: 32,
+              errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 32),
+            ),
+            onTap: () async {
+              final bloc = context.read<SettingsBloc>();
+              final picked = await showSelectAppIconDialog(context, AppIcon.fromStoredName(state.settingsMap.appIcon));
+              if (picked == null) return;
+              bloc.add(SettingsValueChanged(SettingsKeys.appIcon, picked.storedName));
+            },
+          ),
         if (isAndroid)
           SectionSwitchListTile(
             secondary: const Icon(Icons.speed_outlined),

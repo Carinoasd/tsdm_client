@@ -134,6 +134,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/emoji/
+    - assets/images/app_icons/
     - assets/text/
 
 flutter_launcher_icons:

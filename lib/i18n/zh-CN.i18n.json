@@ -381,6 +381,13 @@
         "followSystem": "跟随系统",
         "selectLanguage": "选择语言"
       },
+      "appIcon": {
+        "title": "App 图标",
+        "defaultIcon": "默认",
+        "dark": "深色",
+        "mono": "单色",
+        "pink": "粉色"
+      },
       "highRefreshRate": {
         "title": "高刷新率",
         "detail": "使用屏幕支持的最高刷新率，滚动更流畅，但会稍微多耗电"
