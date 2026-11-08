@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.d
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/reading_time/repository/reading_time_repository.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -41,6 +42,7 @@ import 'package:tsdm_client/features/settings/widgets/color_picker_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/dark_schedule_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_family_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
@@ -52,6 +54,8 @@ import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialo
 import 'package:tsdm_client/features/settings/widgets/upload_image_settings.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
+import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_check.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -330,7 +334,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     },
   );
 
-  /// Pick the line height and the paragraph spacing of the post content ([ThreadContentLayoutDialog]) and save them.
+  /// Pick the line height and the paragraph spacing of the post content and the widest the floors grow
+  /// ([ThreadContentLayoutDialog]) and save them.
   Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
     final picked = await showDialog<PostTypography>(
       context: context,
@@ -340,10 +345,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       ),
     );
     if (!context.mounted || picked == null) return;
-    // Both at once: the floors kept alive are laid out again once, not twice.
+    // All at once: the floors kept alive are laid out again once, not for each.
     await getIt.get<SettingsRepository>().setValues<double>([
       (SettingsKeys.threadContentLineHeight, picked.lineHeight),
       (SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing),
+      (SettingsKeys.threadContentMaxWidth, picked.maxWidth),
     ]);
   }
 
@@ -361,7 +367,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
-    final postTypography = state.settingsMap.postTypography;
+    final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
+    final immersiveForums = ImmersiveForums.parse(
+      state.settingsMap.immersiveForums,
+      all: state.settingsMap.immersiveAllForums,
+    );
 
     return AppTileGroup(
       title: tr.title,
@@ -480,19 +490,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentScale, selectedScale));
           },
         ),
-        // Line height and paragraph spacing of the post content: one dialog with both and a preview.
+        // Line height, paragraph spacing and widest floors of the post content: one dialog with them and a preview.
         SectionListTile(
+          key: const ValueKey('settings-reading-layout'),
           leading: const Icon(Icons.format_line_spacing_outlined),
-          title: Text(tr.threadContentLineHeight.title),
-          subtitle: Text(tr.threadContentLineHeight.detail),
-          trailing: _trailingValue(context, postTypography.lineHeight.toStringAsFixed(1)),
-          onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
-        ),
-        SectionListTile(
-          leading: const Icon(Icons.segment_outlined),
-          title: Text(tr.threadContentParagraphSpacing.title),
-          subtitle: Text(tr.threadContentParagraphSpacing.detail),
-          trailing: _trailingValue(context, postTypography.paragraphSpacing.toStringAsFixed(0)),
+          title: Text(tr.threadContentLayout.title),
+          trailing: const Icon(Icons.chevron_right),
           onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
         ),
         SectionSwitchListTile(
@@ -502,6 +505,39 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: postTypography.splitLongParagraphs,
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentSplitLongParagraphs, v)),
+        ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-link-card'),
+          secondary: const Icon(Icons.link_outlined),
+          title: Text(tr.threadLinkCard.title),
+          value: state.settingsMap.threadLinkCard,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadLinkCard, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-immersive-forums'),
+          leading: const Icon(Icons.chrome_reader_mode_outlined),
+          title: Text(tr.immersiveReading.title),
+          trailing: _trailingValue(
+            context,
+            immersiveForums.all
+                ? tr.immersiveReading.allForums
+                : immersiveForums.exact.isEmpty && immersiveForums.withSubforums.isEmpty
+                ? ''
+                : tr.immersiveReading.forumCount(
+                    count: immersiveForums.exact.length + immersiveForums.withSubforums.length,
+                  ),
+          ),
+          onTap: () async {
+            final result = await showImmersiveForumsDialog(context, immersiveForums);
+            if (result == null || !context.mounted) return;
+            final bloc = context.read<SettingsBloc>();
+            if (result.raw != immersiveForums.raw) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveForums, result.raw));
+            }
+            if (result.all != immersiveForums.all) {
+              bloc.add(SettingsValueChanged(SettingsKeys.immersiveAllForums, result.all));
+            }
+          },
         ),
         SectionListTile(
           leading: const Icon(Icons.article_outlined),
@@ -894,6 +930,43 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         category(NoticeCategory.rate, Icons.star_outline, tr.rate, value: map.notifyRate),
         category(NoticeCategory.pm, Icons.mail_outline, tr.pm, value: map.notifyPersonalMessage),
         category(NoticeCategory.system, Icons.campaign_outlined, tr.system, value: map.notifySystem),
+        category(
+          NoticeCategory.followedThread,
+          Icons.notifications_active_outlined,
+          tr.followedThread,
+          value: map.notifyFollowedThread,
+        ),
+        SectionListTile(
+          key: const ValueKey('notice-followed-thread-interval'),
+          leading: const Icon(Icons.update_outlined),
+          title: Text(tr.followedThreadInterval),
+          trailing: _trailingValue(context, tr.followedThreadMinutes(n: map.followedThreadCheckMinutes)),
+          onTap: () async {
+            final picked = await showDialog<int>(
+              context: context,
+              builder: (context) => SimpleDialog(
+                title: Text(tr.followedThreadInterval),
+                children: [
+                  for (final minutes in followedThreadCheckChoices)
+                    SimpleDialogOption(
+                      key: ValueKey('notice-followed-thread-interval-$minutes'),
+                      onPressed: () => Navigator.of(context).pop(minutes),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(tr.followedThreadMinutes(n: minutes))),
+                          if (minutes == map.followedThreadCheckMinutes)
+                            Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+            if (picked != null) {
+              await repo.setValue(SettingsKeys.followedThreadCheckMinutes, picked);
+            }
+          },
+        ),
         SectionSwitchListTile(
           key: const ValueKey('notice-quiet-hours'),
           secondary: const Icon(Icons.bedtime_outlined),
@@ -1408,6 +1481,34 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  Future<void> _clearReadingTime(BuildContext context) async {
+    final tr = context.t.settingsPage.othersSection;
+    final confirmed = await showQuestionDialog(
+      context: context,
+      title: tr.clearReadingTime,
+      message: tr.clearReadingTimeConfirm,
+      dangerous: true,
+    );
+    if (!(confirmed ?? false) || !context.mounted) {
+      return;
+    }
+    String message;
+    try {
+      await StorageReadingTimeStore(getIt.get<StorageProvider>()).clear();
+      message = tr.readingTimeCleared;
+    } on Object catch (e, st) {
+      talker.error('failed to clear the reading time', e, st);
+      if (!context.mounted) {
+        return;
+      }
+      message = context.t.general.failedToLoad;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    showSnackBar(context: context, message: message);
+  }
+
   Widget _buildOtherSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.othersSection;
     final enableUpdateCheckOnStartup = state.settingsMap.enableUpdateCheckOnStartup;
@@ -1415,6 +1516,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       title: tr.title,
       icon: Icons.more_horiz_outlined,
       children: [
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.timer_outlined),
+          title: Text(tr.recordReadingTime),
+          value: state.settingsMap.readingTimeStats,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.readingTimeStats, v)),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-clear-reading-time'),
+          leading: const Icon(Icons.delete_sweep_outlined),
+          title: Text(tr.clearReadingTime),
+          onTap: () async => _clearReadingTime(context),
+        ),
         SectionListTile(
           leading: const Icon(Icons.info_outline),
           title: Text(tr.about),
