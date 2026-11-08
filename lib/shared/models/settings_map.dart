@@ -56,6 +56,8 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentLineHeight = PostTypography.defaultLineHeight,
     this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
     this.threadContentSplitLongParagraphs = false,
+    this.threadLinkCard = true,
+    this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
     this.threadCardExternalThumbnails = false,
@@ -64,11 +66,14 @@ class SettingsMap with SettingsMapMappable {
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
     this.notificationHideContent = false,
+    this.readingTimeStats = true,
     this.notifyReply = true,
     this.notifyMention = true,
     this.notifyRate = true,
     this.notifyPersonalMessage = true,
     this.notifySystem = true,
+    this.notifyFollowedThread = true,
+    this.followedThreadCheckMinutes = 30,
     this.notifyQuietHours = false,
     this.notifyQuietStart = 1380,
     this.notifyQuietEnd = 480,
@@ -79,10 +84,16 @@ class SettingsMap with SettingsMapMappable {
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
     this.editorQuickPhrases = '',
+    this.editImageBeforeUpload = false,
+    this.uploadImageMaxSide = 0,
+    this.uploadImageQuality = 90,
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
+    this.immersiveForums = '',
+    this.immersiveAllForums = false,
     this.twoPaneLayout = true,
+    this.twoPaneListWidth = 0,
     this.postMediaPreview = true,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
@@ -153,6 +164,9 @@ class SettingsMap with SettingsMapMappable {
   /// lack it.
   final bool notificationHideContent;
 
+  /// See `SettingsKeys.readingTimeStats`. Not required: backups from older versions lack it.
+  final bool readingTimeStats;
+
   /// See `SettingsKeys.notifyReply`. Not required: backups from older versions lack it.
   final bool notifyReply;
 
@@ -167,6 +181,12 @@ class SettingsMap with SettingsMapMappable {
 
   /// See `SettingsKeys.notifySystem`. Not required: backups from older versions lack it.
   final bool notifySystem;
+
+  /// See `SettingsKeys.notifyFollowedThread`. Not required: backups from older versions lack it.
+  final bool notifyFollowedThread;
+
+  /// See `SettingsKeys.followedThreadCheckMinutes`. Not required: backups from older versions lack it.
+  final int followedThreadCheckMinutes;
 
   /// See `SettingsKeys.notifyQuietHours`. Not required: backups from older versions lack it.
   final bool notifyQuietHours;
@@ -194,9 +214,19 @@ class SettingsMap with SettingsMapMappable {
   /// Swipe the floors sideways to change pages. Not required: backups from older versions lack it.
   final bool threadSwipePaging;
 
+  /// Forums whose threads open in immersive reading, see `ImmersiveForums`. Not required: backups from older versions
+  /// lack it.
+  final String immersiveForums;
+
+  /// Every thread opens in immersive reading. Not required: backups from older versions lack it.
+  final bool immersiveAllForums;
+
   /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
   /// versions lack it.
   final bool twoPaneLayout;
+
+  /// Width of the list pane dragged to, 0 while never dragged. Not required: backups from older versions lack it.
+  final double twoPaneListWidth;
 
   /// Cards of videos in posts show cover, title and length. Not required: backups from older versions lack it.
   final bool postMediaPreview;
@@ -239,6 +269,17 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool threadContentSplitLongParagraphs;
 
+  /// Whether the links in the post content that show the url of a thread are drawn as cards of the thread. Not
+  /// required: backups from older versions lack it.
+  final bool threadLinkCard;
+
+  /// Widest the floors grow, 0: as the app lays them out. Not required: backups from older versions lack it.
+  final double threadContentMaxWidth;
+
+  /// The widest the floors grow ([threadContentMaxWidth]) in the range the settings offer, 0 for none (a value from an
+  /// older backup or written by hand is clamped).
+  double get readingMaxWidth => PostTypography(maxWidth: threadContentMaxWidth).clamped().maxWidth;
+
   /// How the post content is laid out with these settings, in the ranges the settings offer (a value from an older
   /// backup or written by hand is clamped).
   PostTypography get postTypography => PostTypography(
@@ -272,6 +313,15 @@ class SettingsMap with SettingsMapMappable {
   /// The quick phrases of the editors' toolbar button, a JSON list of strings in the user's order (see
   /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
+
+  /// See `SettingsKeys.editImageBeforeUpload`. Not required: backups from older versions lack it.
+  final bool editImageBeforeUpload;
+
+  /// See `SettingsKeys.uploadImageMaxSide`. Not required: backups from older versions lack it.
+  final int uploadImageMaxSide;
+
+  /// See `SettingsKeys.uploadImageQuality`. Not required: backups from older versions lack it.
+  final int uploadImageQuality;
 
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
@@ -322,11 +372,14 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableBackgroundMessageService => copyWith(enableBackgroundMessageService: value as bool?),
       SettingsKeys.backgroundSyncAllAccounts => copyWith(backgroundSyncAllAccounts: value as bool?),
       SettingsKeys.notificationHideContent => copyWith(notificationHideContent: value as bool?),
+      SettingsKeys.readingTimeStats => copyWith(readingTimeStats: value as bool?),
       SettingsKeys.notifyReply => copyWith(notifyReply: value as bool?),
       SettingsKeys.notifyMention => copyWith(notifyMention: value as bool?),
       SettingsKeys.notifyRate => copyWith(notifyRate: value as bool?),
       SettingsKeys.notifyPersonalMessage => copyWith(notifyPersonalMessage: value as bool?),
       SettingsKeys.notifySystem => copyWith(notifySystem: value as bool?),
+      SettingsKeys.notifyFollowedThread => copyWith(notifyFollowedThread: value as bool?),
+      SettingsKeys.followedThreadCheckMinutes => copyWith(followedThreadCheckMinutes: value as int?),
       SettingsKeys.notifyQuietHours => copyWith(notifyQuietHours: value as bool?),
       SettingsKeys.notifyQuietStart => copyWith(notifyQuietStart: value as int?),
       SettingsKeys.notifyQuietEnd => copyWith(notifyQuietEnd: value as int?),
@@ -341,7 +394,10 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.collapseAppBarWhenScroll => copyWith(collapseAppBarWhenScroll: value as bool?),
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
+      SettingsKeys.immersiveForums => copyWith(immersiveForums: value as String?),
+      SettingsKeys.immersiveAllForums => copyWith(immersiveAllForums: value as bool?),
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
+      SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
@@ -358,6 +414,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadContentLineHeight => copyWith(threadContentLineHeight: value as double?),
       SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
       SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
+      SettingsKeys.threadLinkCard => copyWith(threadLinkCard: value as bool?),
+      SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
@@ -366,6 +424,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
       SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
+      SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
+      SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
+      SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
     };
   }
 }

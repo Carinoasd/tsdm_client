@@ -235,6 +235,13 @@
     "me": "Me",
     "settings": "Settings"
   },
+  "checkinCalendar": {
+    "title": "Check-in calendar",
+    "thisMonth": "This month",
+    "thatMonth": "That month",
+    "streak": "Streak",
+    "total": "Total"
+  },
   "mePage": {
     "title": "Me",
     "mine": "My account",
@@ -249,11 +256,15 @@
       "myThreads": "My threads",
       "favorites": "Favorites",
       "history": "History",
+      "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
       "messages": "Messages",
       "friends": "Friends",
-      "points": "Points"
+      "points": "Points",
+      "followedThreads": "Followed threads",
+      "readingStats": "Reading stats",
+      "checkinCalendar": "Check-in calendar"
     }
   },
   "home": {
@@ -381,6 +392,13 @@
         "title": "Unread Info Hint",
         "detail": "Show badge or count for user unread info on notice button"
       },
+      "immersiveReading": {
+        "title": "Immersive reading",
+        "allForums": "All forums",
+        "withSubforums": "With subforums",
+        "forumId": "Forum $fid",
+        "forumCount": "$count forums"
+      },
       "threadCard": {
         "title": "Thread card",
         "detail": "Configure the appearance of thread card",
@@ -483,22 +501,20 @@
         "detail": "Extra scale for post content in thread page, on top of text scale",
         "dialogTitle": "Thread content scale factor"
       },
-      "threadContentLineHeight": {
-        "title": "Post line height",
-        "detail": "Height of each line of post content, a multiple of the font size"
-      },
-      "threadContentParagraphSpacing": {
-        "title": "Post paragraph spacing",
-        "detail": "Space between the paragraphs of post content"
-      },
       "threadContentSplitLongParagraphs": {
         "title": "Split long paragraphs",
         "detail": "Show very long paragraphs broken after the end of a sentence; the text and what is copied stay unchanged"
       },
+      "threadLinkCard": {
+        "title": "Preview cards for thread links"
+      },
       "threadContentLayout": {
-        "dialogTitle": "Post layout",
+        "title": "Reading layout",
+        "dialogTitle": "Reading layout",
         "lineHeight": "Line height",
         "paragraphSpacing": "Paragraph spacing",
+        "maxWidth": "Content max width",
+        "unlimited": "No limit",
         "preview": "Preview",
         "previewText": "This is sample text to preview the layout of post content. A larger line height spreads the lines further apart; paragraph spacing is the space between two paragraphs.<br />A phone screen is much narrower than the web page: a paragraph of a few lines there becomes a dozen lines here, and a little more room makes it easier to read."
       }
@@ -546,6 +562,9 @@
         "rate": "Ratings and comments",
         "pm": "Private messages",
         "system": "System notices",
+        "followedThread": "Followed threads",
+        "followedThreadInterval": "Check every",
+        "followedThreadMinutes": "${n} min",
         "quietHours": "Quiet hours",
         "quietStart": "From",
         "quietEnd": "Until"
@@ -764,7 +783,11 @@
       "about": "About",
       "update": "Get updates",
       "updateCheckOnStartup": "Check update when app startup",
-      "changelog": "Changelog"
+      "changelog": "Changelog",
+      "recordReadingTime": "Record reading time",
+      "clearReadingTime": "Clear reading time data",
+      "clearReadingTimeConfirm": "Clear the reading time of every account on this device? This cannot be undone.",
+      "readingTimeCleared": "Reading time data cleared"
     }
   },
   "aboutPage": {
@@ -1012,6 +1035,12 @@
   "threadPage": {
     "title": "Thread",
     "sendReplyHint": "Reply...",
+    "multiQuote": {
+      "selected": "$count/$max selected",
+      "reply": "Reply with quotes",
+      "limit": "At most $max floors can be quoted",
+      "failed": "Failed to get the quotes"
+    },
     "sendReply": "Reply",
     "closed": "Thread is closed",
     "needLogin": "Need login",
@@ -1042,6 +1071,7 @@
       "threadUrlBBCode": "Url BBCode",
       "threadUrlBBCodeWithDomain": "Url BBCode (with domain)"
     },
+    "immersiveForum": "Immersive by default in this forum",
     "copyTid": "Copy tid(${tid: String})",
     "favorite": {
       "add": "Add to favorites",
@@ -1091,6 +1121,11 @@
       "message": "Last read: floor ${floor: int}",
       "action": "Continue",
       "close": "Dismiss"
+    },
+    "follow": {
+      "add": "Follow",
+      "remove": "Unfollow",
+      "added": "Following"
     }
   },
   "topicsPage": {
@@ -1440,6 +1475,9 @@
       "title": "My Points",
       "recentChangelog": "Recent Changelog",
       "emptyRecent": "No recent changes"
+    },
+    "trendTab": {
+      "title": "Trend"
     },
     "changelogTab": {
       "title": "Points Changelog",
@@ -1802,6 +1840,7 @@
   },
   "postCard": {
     "fromApp": "From the TSDM app",
+    "addQuote": "Add quote",
     "contentUnavailable": "This floor's content can not be shown",
     "bbcode": {
       "attachmentLocked": "Not available to you: to buy, no permission, or log in first"
@@ -1885,6 +1924,12 @@
     "avatarBlocked": "Avatar hidden",
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
+  },
+  "netdisk": {
+    "extractCode": "Extract code",
+    "unzipPassword": "Unzip password",
+    "open": "Open",
+    "copyAll": "Copy all cloud storage info"
   },
   "threadExport": {
     "copyPlain": "Copy as plain text",
@@ -1970,6 +2015,10 @@
     "ban": "Hide",
     "unban": "Unhide",
     "deletePost": "Delete reply",
+    "banMember": "Ban from posting",
+    "unbanMember": "Lift posting ban",
+    "banDays": "$days d",
+    "warned": "Warned",
     "queue": "Moderation queue",
     "queueThreads": "Threads",
     "queueReplies": "Replies",
@@ -1980,7 +2029,18 @@
     "panelLogin": "Moderator panel",
     "password": "Password",
     "wrongPassword": "Wrong password",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "bump": "Bump",
+    "down": "Sink",
+    "batch": {
+      "selected": "$count selected",
+      "selectAll": "Select all",
+      "select": "Select",
+      "title": "$operation ($count)",
+      "done": "$count threads done",
+      "failed": "$count threads not done",
+      "unknown": "Result unknown, refresh to check"
+    }
   },
   "packetCard": {
     "title": "Packet",
@@ -2132,6 +2192,15 @@
     "title": "Music",
     "openLink": "Open link"
   },
+  "readLater": {
+    "title": "Read later",
+    "add": "Read later",
+    "remove": "Remove from read later",
+    "clear": "Clear all",
+    "clearConfirm": "Clear the read later list?",
+    "empty": "No threads to read later",
+    "needLogin": "Log in first"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
     "allAccounts": "All accounts",
@@ -2193,6 +2262,35 @@
     "uploadRefusedSize": "Image over ${limit: int} KB: $name",
     "uploadFailedCount": "${count: int} images failed to upload"
   },
+  "imageUpload": {
+    "button": "Upload image",
+    "gallery": "Gallery",
+    "camera": "Camera",
+    "clipboard": "Clipboard",
+    "editFirst": "Edit before upload",
+    "noClipboardImage": "No image on the clipboard",
+    "edit": {
+      "title": "Edit image",
+      "skip": "Skip",
+      "upload": "Upload",
+      "crop": "Crop",
+      "mosaic": "Mosaic",
+      "rotate": "Rotate",
+      "undo": "Undo",
+      "free": "Free",
+      "original": "Original",
+      "quality": "Quality",
+      "failed": "This image can not be read"
+    },
+    "settings": {
+      "title": "Posting",
+      "editFirst": "Edit images before every upload",
+      "output": "Uploaded image size",
+      "longSide": "Long side",
+      "quality": "Quality",
+      "original": "Original"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "Running auto checkin...",
     "autoCheckinFinished": "Auto checkin finished",
@@ -2221,7 +2319,8 @@
       "mention": "Mentions",
       "rate": "Ratings and comments",
       "pm": "Private messages",
-      "system": "System notices"
+      "system": "System notices",
+      "followedThread": "Followed threads"
     },
     "channelName": "New auto sync notice",
     "channelDesc": "Received new notice when auto sync",
@@ -2514,6 +2613,7 @@
   "threadCard": {
     "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
+    "openInNewTab": "Open in new tab",
     "replied": "Replied",
     "newReplies": "${count: int} new replies since your last visit"
   },
@@ -3042,6 +3142,15 @@
         "ruleNotFound": "This setting is not there any more, please reload",
         "unknownAfterSubmit": "Sent, but the result could not be confirmed, please reload to check"
       }
+    },
+    "filter": {
+      "keywords": "Blocked keywords",
+      "keyword": "Keyword",
+      "add": "Add",
+      "keywordExists": "This keyword is already blocked",
+      "forums": "Blocked forums",
+      "pickForums": "Choose",
+      "limitReached": "The limit is reached"
     }
   },
   "medalTitleTools": {
@@ -3363,6 +3472,19 @@
     },
     "already": "Done already."
   },
+  "readingStats": {
+    "title": "Reading stats",
+    "today": "Today",
+    "week": "This week",
+    "month": "This month",
+    "last14Days": "Last 14 days",
+    "forums": "By forum",
+    "otherForums": "Others",
+    "empty": "Nothing read yet",
+    "hoursMinutes": "$hours h $minutes min",
+    "minutes": "$minutes min",
+    "seconds": "$seconds s"
+  },
   "localDraft": {
     "title": "Local drafts",
     "details": "Replies, messages, threads and edits not sent yet, kept on this device",
@@ -3417,13 +3539,17 @@
   "appShortcuts": {
     "checkinNotVerified": "The login is not verified yet, check in later"
   },
+  "twoPane": {
+    "tabsFull": "Up to ${count: int} tabs can be open"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
       "global": "Everywhere",
       "thread": "Thread",
       "list": "Lists",
-      "editor": "Editor"
+      "editor": "Editor",
+      "tabs": "Tabs"
     },
     "commands": {
       "search": "Search",
@@ -3444,7 +3570,43 @@
       "send": "Send",
       "bold": "Bold",
       "italic": "Italic",
-      "underline": "Underline"
+      "underline": "Underline",
+      "closeTab": "Close tab",
+      "nextTab": "Next tab",
+      "previousTab": "Previous tab",
+      "selectTab": "Tab 1–9"
     }
+  },
+  "followedThreads": {
+    "title": "Followed threads",
+    "empty": "No followed threads yet",
+    "needLogin": "Log in to follow threads",
+    "newReplies": "${n} new",
+    "unfollowed": "Unfollowed",
+    "undo": "Undo",
+    "notice": {
+      "body": "\"${title}\" has ${n} new replies",
+      "hidden": "A followed thread has ${n} new replies"
+    }
+  },
+  "customEmoji": {
+    "title": "Custom emoji packs",
+    "newPack": "New pack",
+    "name": "Name",
+    "rename": "Rename",
+    "delete": "Delete pack",
+    "deleteConfirm": "Delete \"$name\" and its images?",
+    "addImages": "Add images",
+    "added": "Added ${count: int} images",
+    "noneAdded": "No images to add",
+    "removeTitle": "Remove image",
+    "remove": "Remove this image?",
+    "export": "Export",
+    "import": "Import",
+    "imported": "Imported ${count: int} images",
+    "importInvalid": "Not an emoji pack file",
+    "exportFailed": "Export failed",
+    "empty": "No emoji packs yet",
+    "count": "${count: int}"
   }
 }

@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -25,6 +26,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
+import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -39,7 +41,7 @@ typedef _ThreadInfo = (IconData, String, String?);
 /// All actions used in the context menu.
 ///
 /// The context menu is opened by either long press or right click, depending on the platform.
-enum _CtxMenuActions { openInBrowser, viewInfo }
+enum _CtxMenuActions { select, openInNewTab, openInBrowser, viewInfo, readLater }
 
 class _CardLayout extends StatelessWidget {
   const _CardLayout({
@@ -63,6 +65,8 @@ class _CardLayout extends StatelessWidget {
     this.isRecentThread = false,
     this.replied = false,
     this.progress,
+    this.onPick,
+    this.onStartPicking,
   });
 
   final String threadID;
@@ -93,24 +97,71 @@ class _CardLayout extends StatelessWidget {
   /// replies posted since its last visit are told ("+N" after the reply count).
   final ReadingProgress? progress;
 
-  Card _wrapWithCard(BuildContext context, Widget child) => Card(
+  /// See [NormalThreadCard.onPick].
+  final VoidCallback? onPick;
+
+  /// See [NormalThreadCard.onStartPicking].
+  final VoidCallback? onStartPicking;
+
+  /// A middle click opens the thread in a new tab of the wide list page's detail pane.
+  Widget _wrapWithCard(BuildContext context, Widget child) => TwoPaneMiddleClickOpener(
+    query: disableTap || onPick != null ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
+    child: _card(context, child),
+  );
+
+  Card _card(BuildContext context, Widget child) => Card(
     margin: EdgeInsets.zero,
     clipBehavior: Clip.antiAlias,
     child: AdaptiveInkResponse(
       onTap: disableTap
           ? null
-          : () async => openThread(context, threadID: threadID, title: title, threadType: threadType),
+          : onPick ?? () async => openThread(context, threadID: threadID, title: title, threadType: threadType),
       onAdaptiveContextTap: (tapPosition) async {
+        if (onPick case final pick?) {
+          pick();
+          return;
+        }
+        if (onStartPicking case final start? when isMobile) {
+          start();
+          return;
+        }
         // Get the position where the tap occurred.
         RelativeRect? position;
         position = RelativeRect.fromRect(
           tapPosition.globalPosition & Size.zero, // Rect from the tap position
           Offset.zero & MediaQuery.of(context).size, // Bounding box for the menu
         );
+        // Put aside for the account in use: not offered without one.
+        final readLater = context.readOrNull<ReadLaterCubit>();
+        final readLaterId = int.tryParse(threadID);
+        final canReadLater = readLater != null && readLater.state.uid != null && readLaterId != null;
+        final isReadLater = canReadLater && readLater.state.contains(readLaterId);
         final choice = await showMenu<_CtxMenuActions>(
           context: context,
           position: position,
           items: <PopupMenuEntry<_CtxMenuActions>>[
+            if (onStartPicking != null)
+              PopupMenuItem(
+                value: _CtxMenuActions.select,
+                child: Row(
+                  children: [
+                    const Icon(Icons.checklist_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.moderate.batch.select),
+                  ],
+                ),
+              ),
+            if (!disableTap && TwoPaneScope.readOf(context)?.side == TwoPaneSide.list)
+              PopupMenuItem(
+                value: _CtxMenuActions.openInNewTab,
+                child: Row(
+                  children: [
+                    const Icon(Icons.tab_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.threadCard.openInNewTab),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               value: _CtxMenuActions.openInBrowser,
               child: Row(
@@ -131,6 +182,17 @@ class _CardLayout extends StatelessWidget {
                 ],
               ),
             ),
+            if (canReadLater)
+              PopupMenuItem(
+                value: _CtxMenuActions.readLater,
+                child: Row(
+                  children: [
+                    Icon(isReadLater ? Icons.watch_later : Icons.watch_later_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(isReadLater ? context.t.readLater.remove : context.t.readLater.add),
+                  ],
+                ),
+              ),
           ],
         );
 
@@ -139,6 +201,10 @@ class _CardLayout extends StatelessWidget {
         }
 
         switch (choice) {
+          case _CtxMenuActions.select:
+            onStartPicking?.call();
+          case _CtxMenuActions.openInNewTab:
+            await openThread(context, threadID: threadID, title: title, threadType: threadType, newTab: true);
           case _CtxMenuActions.openInBrowser:
             await launchUrl(
               Uri.parse('$baseUrl/forum.php?mod=viewthread&tid=$threadID'),
@@ -146,6 +212,14 @@ class _CardLayout extends StatelessWidget {
             );
           case _CtxMenuActions.viewInfo:
             await showCopyThreadInfoDialog(context: context, tid: threadID, title: title);
+          case _CtxMenuActions.readLater:
+            await toggleReadLater(
+              context,
+              tid: threadID,
+              title: title,
+              author: author?.name,
+              forumName: forum,
+            );
         }
       },
       child: child,
@@ -506,21 +580,26 @@ class _CardLayout extends StatelessWidget {
   }
 }
 
-/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own.
+/// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
+Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {
+  // FIXME: Query parameters are not recognized by v2 yet.
+  'tid': threadID,
+  'appBarTitle': title,
+  'threadTypeName': threadType?.name,
+  'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+};
+
+/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own. [newTab] as
+/// [openThreadInPane] has it.
 Future<void> openThread(
   BuildContext context, {
   required String threadID,
   required String title,
   ThreadType? threadType,
+  bool? newTab,
 }) async {
-  // FIXME: Query parameters are not recognized by v2 yet.
-  final query = {
-    'tid': threadID,
-    'appBarTitle': title,
-    'threadTypeName': threadType?.name,
-    'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-  };
-  if (openThreadInPane(context, query)) {
+  final query = threadQuery(threadID: threadID, title: title, threadType: threadType);
+  if (openThreadInPane(context, query, newTab: newTab)) {
     return;
   }
   await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
@@ -529,7 +608,7 @@ Future<void> openThread(
 /// Card to show thread info.
 class NormalThreadCard extends StatelessWidget {
   /// Constructor.
-  const NormalThreadCard(this.thread, {this.disableTap = false, super.key});
+  const NormalThreadCard(this.thread, {this.disableTap = false, this.onPick, this.onStartPicking, super.key});
 
   /// Thread data.
   final NormalThread thread;
@@ -537,11 +616,19 @@ class NormalThreadCard extends StatelessWidget {
   /// Creat a card that disable tap gestures.
   final bool disableTap;
 
+  /// The list is picking threads: a tap (or a long press) picks or unpicks this one instead of opening it.
+  final VoidCallback? onPick;
+
+  /// The list can pick threads: a long press (the context menu on desktop) starts picking with this one.
+  final VoidCallback? onStartPicking;
+
   @override
   Widget build(BuildContext context) {
     // Topics of locally blocked users are hidden, the list and its pagination stay untouched.
     ThreadAuthorCache.record(thread.threadID, thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    // The page of one forum: the forum filters do not apply, the user opened it.
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, byForum: false)) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -563,6 +650,8 @@ class NormalThreadCard extends StatelessWidget {
       isRecentThread: thread.isRecentThread,
       replied: isThreadReplied(context, thread.threadID),
       progress: readingProgressOf(context, thread.threadID),
+      onPick: onPick,
+      onStartPicking: onStartPicking,
     );
   }
 }
@@ -578,7 +667,8 @@ class SearchedThreadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ThreadAuthorCache.record('${thread.threadID}', thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -633,7 +723,8 @@ class LatestThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final showExcerpt = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardShowExcerpt);
     ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
-    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
+    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(

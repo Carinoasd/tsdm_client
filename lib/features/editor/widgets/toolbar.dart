@@ -12,6 +12,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
@@ -131,6 +132,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
     this.editorFocusNode,
     this.applyDocumentMetadata,
     this.collectDocumentMetadata,
+    this.sendCustomEmoji,
     super.key,
   });
 
@@ -161,6 +163,10 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
   ///
   /// Use this function to update UI with values in metadata.
   final void Function(EditorDocumentMetadata metadata)? applyDocumentMetadata;
+
+  /// Sends a custom emoji as an attachment of the post, null where the editor cannot upload: the emoji picker offers
+  /// the custom emoji packs only with it.
+  final CustomEmojiSender? sendCustomEmoji;
 
   bool _hasFeature(EditorFeatures feature) => !disabledFeatures.contains(feature);
 
@@ -386,10 +392,15 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
       focusNode: editorFocusNode,
       controller: bbcodeController,
       emojiPicker: (context) async {
-        final picked = await showEmojiPicker(context);
+        final picked = await showEmojiPicker(context, sendCustomEmoji: sendCustomEmoji);
         // A saved image sticker (#5) is BBCode, not an emoji code: insert it here and give the package nothing.
         if (isCustomImageBBCode(picked)) {
           bbcodeController.insertBBCode(picked!);
+          return null;
+        }
+        // A custom emoji is an attachment: its code goes in as text, as the uploads of the editor do.
+        if (isCustomEmojiBBCode(picked)) {
+          bbcodeController.insertTextAtCursor(picked!);
           return null;
         }
         return picked;
