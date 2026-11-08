@@ -383,6 +383,13 @@
         "followSystem": "跟隨系統",
         "selectLanguage": "選擇語言"
       },
+      "appIcon": {
+        "title": "App 圖示",
+        "defaultIcon": "預設",
+        "dark": "深色",
+        "mono": "單色",
+        "pink": "粉色"
+      },
       "highRefreshRate": {
         "title": "高刷新率",
         "detail": "使用螢幕支援的最高刷新率，捲動更流暢，但會稍微多耗電"
@@ -500,6 +507,12 @@
       "fontFamily": {
         "title": "字體",
         "dialogTitle": "選擇字體"
+      },
+      "chineseDisplay": {
+        "title": "簡繁顯示",
+        "off": "關閉",
+        "traditional": "繁體",
+        "simplified": "簡體"
       },
       "textScaleFactor": {
         "title": "文字縮放",
@@ -802,7 +815,9 @@
         "off": "關",
         "meteredOnly": "使用行動網路時",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
+      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟"
     }
   },
   "aboutPage": {
@@ -2294,6 +2309,13 @@
     "browserHint": "應用程式內無法開啟的連結，仍可在瀏覽器中開啟",
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
+  },
+  "inAppBrowserPage": {
+    "back": "上一頁",
+    "forward": "下一頁",
+    "refresh": "重新整理",
+    "openExternal": "用外部瀏覽器開啟",
+    "copyUrl": "複製網址"
   },
   "shareReceive": {
     "pickForum": "要發到哪個版塊",

@@ -83,7 +83,10 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/app_icon.dart';
 import 'package:tsdm_client/utils/app_text_scale.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/high_refresh_rate.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -159,6 +162,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Applies the high refresh rate setting on Android (GitHub #182).
   HighRefreshRateFollower? _highRefreshRate;
 
+  /// Applies the app icon setting (Android and iOS).
+  AppIconFollower? _appIcon;
+
   /// Text, links and images other apps share to this one (Android).
   ShareReceiver? _shareReceiver;
 
@@ -188,6 +194,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
 
     if (isAndroid) {
       _highRefreshRate = HighRefreshRateFollower(getIt.get<SettingsRepository>().settings);
+    }
+
+    if (isAndroid || isIOS) {
+      _appIcon = AppIconFollower(getIt.get<SettingsRepository>().settings);
     }
 
     // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
@@ -255,6 +265,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
     unawaited(_highRefreshRate?.dispose());
+    unawaited(_appIcon?.dispose());
     if (isWindows) {
       unawaited(TrayHelper.instance.dispose());
     }
@@ -823,6 +834,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                   final textScaleFactor = context.select<SettingsBloc, double>(
                     (bloc) => bloc.state.settingsMap.textScaleFactor,
                   );
+                  final chineseDisplayMode = ChineseDisplayMode.fromIndex(
+                    context.select<SettingsBloc, int>((bloc) => bloc.state.settingsMap.chineseDisplayMode),
+                  );
 
                   final lightTheme = AppTheme.makeLight(context, seedColor: accentColor, fontFamily: fontFamily);
                   final darkTheme = AppTheme.makeDark(context, seedColor: accentColor, fontFamily: fontFamily);
@@ -841,12 +855,15 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: _withAppLock(
-                          KeyboardShortcutsHost(
-                            onSearch: () => _openFromKeyboard(ScreenPaths.search),
-                            onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
-                            // The mini player below every page while something is played.
-                            child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                        child: ChineseDisplayHost(
+                          mode: chineseDisplayMode,
+                          child: _withAppLock(
+                            KeyboardShortcutsHost(
+                              onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                              onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                              // The mini player below every page while something is played.
+                              child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                            ),
                           ),
                         ),
                       );
