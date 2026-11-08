@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
   file_selector_windows
   flutter_avif_windows
+  flutter_tts
   permission_handler_windows
   screen_retriever_windows
   share_plus
