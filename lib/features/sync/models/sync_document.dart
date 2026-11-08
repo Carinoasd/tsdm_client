@@ -37,6 +37,17 @@ const int syncDraftMaxBytes = 8 * 1024;
 /// Most bytes the drafts of a document take together, so the reading progress keeps the rest of the room.
 const int syncDraftsMaxBytes = 16 * 1024;
 
+/// Most live floor bookmarks a document carries: the latest ones, by their time.
+const syncBookmarksMax = 100;
+
+/// Most records of removed floor bookmarks a document carries, the latest first.
+const syncBookmarkTombstonesMax = 100;
+
+/// Most bytes the floor bookmarks of a document take together (two fifths of it at most): with the drafts, the
+/// reading progress keeps a third of the room. A bookmark with a Chinese excerpt and title takes about 400 bytes, 700
+/// with a long note: some 35 to 60 of the latest go with the sync, the older ones stay on their device.
+const int syncBookmarksMaxBytes = 24 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -58,7 +69,10 @@ const int syncDraftsMaxBytes = 16 * 1024;
 ///  "drafts":  {"<draft key>": {"updated": ms, "body": "…", "delta": "…", "subject": "…", "fid": "…", "tid": "…",
 ///                              "replyAction": "…", "hint": "…", "quote": false, "title": "…", "typeId": "…",
 ///                              "maybeSent": true},
-///              "<draft key>": {"updated": ms, "deleted": true}}}
+///              "<draft key>": {"updated": ms, "deleted": true}},
+///  "bookmarks": {"<tid>:<pid>": {"updated": ms, "tid": 1, "pid": 2, "floor": 27, "page": 2, "note": "…",
+///                                "excerpt": "…", "title": "…"},
+///                "<tid>:<pid>": {"updated": ms, "deleted": true}}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -67,7 +81,8 @@ const int syncDraftsMaxBytes = 16 * 1024;
 /// switch), never one tied to the device. `drafts` holds the local drafts of the account by their key
 /// (`reply:<tid>`, `floor:<tid>:<pid>`, `thread:<fid>`, `edit:<pid>`, a backup with `~<stamp>`; never a private
 /// message, `pm:<uid>`, which stays on its device): the latest [syncDraftsMax] within [syncDraftsMaxBytes], none over
-/// [syncDraftMaxBytes]. Each of the three can be left out of
+/// [syncDraftMaxBytes]. `bookmarks` holds the floor bookmarks of the account (`FloorBookmark`): the latest
+/// [syncBookmarksMax] within [syncBookmarksMaxBytes]. Each of the four can be left out of
 /// the sync on a device (its section is then neither read nor written there). `block_keywords` and `block_forums`
 /// (the thread list filters, added after the first release of `schema` 1) go with the block list; a version that does
 /// not read them carries them through as unknown sections, and a document without them reads as no filter.
@@ -160,13 +175,13 @@ final class SyncDocument {
   bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
-  static const itemSections = ['visits', 'blocks', 'block_keywords', 'block_forums', 'drafts'];
+  static const itemSections = ['visits', 'blocks', 'block_keywords', 'block_forums', 'drafts', 'bookmarks'];
 
   /// The sections this version reads as one item each.
   static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`, `block_keywords`, `block_forums`, `drafts`) by key, empty when
-  /// the section is missing or not an object.
+  /// The items of section [name] (`visits`, `blocks`, `block_keywords`, `block_forums`, `drafts`, `bookmarks`) by key,
+  /// empty when the section is missing or not an object.
   /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];

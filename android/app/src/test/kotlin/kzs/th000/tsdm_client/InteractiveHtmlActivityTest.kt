@@ -154,7 +154,7 @@ class InteractiveHtmlActivityTest {
         assertTrue(client.shouldOverrideUrlLoading(view, request(source, gesture = true)))
         val forum = shadowOf(activity).nextStartedActivity
         assertEquals(Intent.ACTION_VIEW, forum.action)
-        assertEquals("kzs.th000.tsdm_client.MainActivity", forum.component!!.className)
+        assertEquals("kzs.th000.tsdm_client.MainActivityImpl", forum.component!!.className)
         assertEquals(source, forum.dataString)
         controller.pause().stop().destroy()
     }

@@ -264,6 +264,7 @@
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
       "points": "積分",
@@ -351,7 +352,8 @@
         "title": "跨裝置同步",
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
-        "drafts": "本機草稿"
+        "drafts": "本機草稿",
+        "bookmarks": "樓層書籤"
       },
       "loginDevices": "登入裝置"
     },
@@ -381,6 +383,13 @@
         "title": "語言",
         "followSystem": "跟隨系統",
         "selectLanguage": "選擇語言"
+      },
+      "appIcon": {
+        "title": "App 圖示",
+        "defaultIcon": "預設",
+        "dark": "深色",
+        "mono": "單色",
+        "pink": "粉色"
       },
       "highRefreshRate": {
         "title": "高刷新率",
@@ -499,6 +508,12 @@
       "fontFamily": {
         "title": "字體",
         "dialogTitle": "選擇字體"
+      },
+      "chineseDisplay": {
+        "title": "簡繁顯示",
+        "off": "關閉",
+        "traditional": "繁體",
+        "simplified": "簡體"
       },
       "textScaleFactor": {
         "title": "文字縮放",
@@ -801,7 +816,9 @@
         "off": "關",
         "meteredOnly": "使用行動網路時",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
+      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟"
     }
   },
   "aboutPage": {
@@ -1746,7 +1763,9 @@
     "links": "連結",
     "subForums": "子版塊",
     "privateForum": "私密版塊",
-    "redirectForum": "連結到外部地址"
+    "redirectForum": "連結到外部地址",
+    "pin": "釘選",
+    "unpin": "取消釘選"
   },
   "networkList": {
     "actionRefresh": "刷新",
@@ -2298,6 +2317,13 @@
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
   },
+  "inAppBrowserPage": {
+    "back": "上一頁",
+    "forward": "下一頁",
+    "refresh": "重新整理",
+    "openExternal": "用外部瀏覽器開啟",
+    "copyUrl": "複製網址"
+  },
   "shareReceive": {
     "pickForum": "要發到哪個版塊",
     "uploadUnavailable": "這個版塊不能上傳圖片",
@@ -2485,6 +2511,12 @@
     "confirmMessage": "你確定要從 ${from: String} 切換到 ${to: String} 嗎？",
     "switchFailed": "切換失敗",
     "switchSucceeded": "已切換至 ${to: String}"
+  },
+  "userGroupProgress": {
+    "title": "用戶組升級進度",
+    "creditsLeft": "還需 ${n: int} 積分",
+    "noNext": "目前用戶組沒有下一級",
+    "extraGroups": "擴展用戶組"
   },
   "editAvatarPage": {
     "title": "編輯頭像",
@@ -3572,6 +3604,16 @@
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
   },
+  "floorBookmark": {
+    "title": "書籤",
+    "add": "加書籤",
+    "edit": "編輯書籤",
+    "note": "備註",
+    "remove": "刪除",
+    "removeConfirm": "刪除這個書籤？",
+    "empty": "沒有書籤",
+    "needLogin": "登入後可以查看書籤。"
+  },
   "localDraft": {
     "title": "本機草稿",
     "details": "還沒送出的回覆、私信、新帖與編輯，保存在這台裝置上",
@@ -3629,6 +3671,9 @@
   "twoPane": {
     "tabsFull": "最多同時開啟 ${count: int} 個分頁"
   },
+  "quickOpen": {
+    "search": "搜尋：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
@@ -3640,6 +3685,7 @@
     },
     "commands": {
       "search": "搜尋",
+      "quickOpen": "快速跳轉",
       "settings": "設定",
       "back": "關閉對話框、返回",
       "refresh": "重新整理",
