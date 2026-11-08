@@ -1,10 +1,14 @@
+import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
+import 'package:tsdm_client/features/points/utils/changelog_range.dart';
 import 'package:tsdm_client/features/points/utils/credit_page_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -34,4 +38,44 @@ final class PointsRepository with LoggerMixin {
       .get<NetClientProvider>()
       .get(withTsdmAppJson('$_changelogPageUrl$parameter'))
       .mapHttpPageAnswer(creditApiAnswerOf);
+
+  /// Fetch the records of the days [start] to [end] (both included, the forum's calendar days), newest first: the
+  /// pages of the changelog filtered by that range, at most [maxPages] of them. `complete` of the result tells
+  /// whether the last page was reached.
+  ///
+  /// The changelog has no filter for one kind of record (a check-in names no operation), so a chart of one kind reads
+  /// the range and picks from it.
+  Future<Either<LoadFailure, RangedChangelog>> fetchChangelogRange({
+    required DateTime start,
+    required DateTime end,
+    int maxPages = 30,
+  }) async {
+    final base = const ChangelogParameter.empty().copyWith(
+      startTime: changelogQueryDate(start),
+      endTime: changelogQueryDate(end),
+    );
+    final changes = <PointsChange>[];
+    var page = 1;
+    var totalPages = 1;
+    while (page <= totalPages && page <= maxPages) {
+      final result = await fetchChangelogPage(base.copyWith(pageNumber: page)).run();
+      switch (result) {
+        case Left(:final value):
+          handle(value);
+          return Left(LoadFailure.of(value));
+        case Right(:final value):
+          final records = changelogRecordsOf(value, page);
+          if (records == null) {
+            return Left(LoadFailure(LoadFailureKind.unknown, details: 'points changelog not in the answer'));
+          }
+          changes.addAll(records.changes);
+          totalPages = records.totalPages;
+      }
+      page += 1;
+    }
+    return Right((changes: changes, complete: page > totalPages));
+  }
 }
+
+/// The records of a range of the points changelog, newest first.
+typedef RangedChangelog = ({List<PointsChange> changes, bool complete});

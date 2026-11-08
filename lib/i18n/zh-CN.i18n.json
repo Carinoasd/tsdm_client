@@ -235,6 +235,12 @@
     "me": "我的",
     "settings": "设置"
   },
+  "checkinCalendar": {
+    "title": "签到日历",
+    "thisMonth": "本月",
+    "streak": "连续",
+    "total": "累计"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的账号",
@@ -253,7 +259,8 @@
       "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
-      "points": "积分"
+      "points": "积分",
+      "checkinCalendar": "签到日历"
     }
   },
   "home": {

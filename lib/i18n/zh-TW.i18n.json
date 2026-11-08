@@ -235,6 +235,12 @@
     "me": "我的",
     "settings": "設定"
   },
+  "checkinCalendar": {
+    "title": "簽到日曆",
+    "thisMonth": "本月",
+    "streak": "連續",
+    "total": "累計"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的帳號",
@@ -253,7 +259,8 @@
       "localDrafts": "本機草稿",
       "messages": "私訊",
       "friends": "好友",
-      "points": "積分"
+      "points": "積分",
+      "checkinCalendar": "簽到日曆"
     }
   },
   "home": {
