@@ -1,0 +1,1 @@
+{"ok":1,"api":1,"time":1700000000,"uid":31,"formhash":"f1f2f3f4","type":"result","schema":13,"kind":"handle","message":"抱歉，您已申请过此任务，请不要重复申请","message_key":"task_duplicate","url":"home.php?mod=task&item=new","handlekey":"","values":{},"login":0,"alert":"info"}

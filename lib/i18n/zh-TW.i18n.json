@@ -271,7 +271,8 @@
       "followedThreads": "追蹤的帖子",
       "readingStats": "閱讀統計",
       "checkinCalendar": "簽到日曆",
-      "ratingStats": "評分統計"
+      "ratingStats": "評分統計",
+      "visitors": "最近訪客"
     }
   },
   "home": {
@@ -516,7 +517,13 @@
       "unreadBadgeLimitation": "上述三項開啟後將在訊息頁卡片上顯示未讀小圓點，提醒和公用訊息的已讀/未讀狀態僅本機有效",
       "fontFamily": {
         "title": "字體",
-        "dialogTitle": "選擇字體"
+        "dialogTitle": "選擇字體",
+        "importFile": "從檔案匯入",
+        "importFailed": "匯入失敗：不是可用的字體檔",
+        "importReservedName": "字體名稱已被系統佔用，請改檔名",
+        "importNameInUse": "已有同名字體，請先刪除並重啟應用程式後再匯入",
+        "importIoFailed": "匯入失敗，請稍後再試",
+        "deleteFont": "刪除字體"
       },
       "chineseDisplay": {
         "title": "簡繁顯示",
@@ -782,6 +789,41 @@
           "skip": "略過，只匯入其他資料",
           "restore": "還原"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "伺服器網址",
+        "username": "帳號",
+        "password": "密碼",
+        "directory": "目錄",
+        "invalidUrl": "請填寫 http:// 或 https:// 開頭的網址",
+        "autoBackup": "自動備份",
+        "schedule": {
+          "off": "關閉",
+          "daily": "每天",
+          "weekly": "每週"
+        },
+        "keep": "保留份數",
+        "invalidKeep": "請填寫 1～$max",
+        "saveFailed": "儲存失敗，請稍後再試",
+        "test": {
+          "idle": "測試連線",
+          "testing": "測試中…",
+          "ok": "連線成功",
+          "unauthorized": "帳號或密碼錯誤",
+          "notFound": "網址不存在或不是 WebDAV",
+          "unreachable": "無法連線到伺服器",
+          "failed": "連線失敗"
+        },
+        "backupNow": "立即備份",
+        "lastBackup": "上次備份：$time",
+        "backupDone": "已備份到 WebDAV",
+        "backupFailed": "備份失敗，現有資料未變更",
+        "backupUnauthorized": "備份失敗：WebDAV 帳號或密碼錯誤",
+        "restore": "從 WebDAV 還原",
+        "restoreEmpty": "WebDAV 上沒有備份",
+        "listFailed": "無法讀取 WebDAV 上的備份",
+        "downloadFailed": "下載備份失敗"
       }
     },
     "debugSection": {
@@ -1410,6 +1452,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近訪客",
+      "empty": "還沒有訪客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "還沒有好友",
@@ -1768,7 +1814,9 @@
     "links": "連結",
     "subForums": "子版塊",
     "privateForum": "私密版塊",
-    "redirectForum": "連結到外部地址"
+    "redirectForum": "連結到外部地址",
+    "pin": "釘選",
+    "unpin": "取消釘選"
   },
   "networkList": {
     "actionRefresh": "刷新",
@@ -2515,6 +2563,12 @@
     "switchFailed": "切換失敗",
     "switchSucceeded": "已切換至 ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "用戶組升級進度",
+    "creditsLeft": "還需 ${n: int} 積分",
+    "noNext": "目前用戶組沒有下一級",
+    "extraGroups": "擴展用戶組"
+  },
   "editAvatarPage": {
     "title": "編輯頭像",
     "currentAvatar": "目前頭像",
@@ -2933,6 +2987,52 @@
     "unconfirmed": "已送出「${name}」的購買，但無法確認結果。再次購買前請先查看「我的頭銜」。",
     "termsChanged": "「${name}」在購買前已變更，未進行購買；請確認價格後重新操作。",
     "unavailableNow": "「${name}」已無法購買，未進行購買。"
+  },
+  "taskCenter": {
+    "title": "任務",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "tabAvailable": "可申請",
+    "tabDoing": "進行中",
+    "tabDone": "已完成",
+    "apply": "申請",
+    "claim": "領取獎勵",
+    "progress": "${percent}%",
+    "empty": "暫無任務。",
+    "loginRequired": "請登入後查看任務。",
+    "applied": "已申請「${name}」。",
+    "rewarded": "已領取「${name}」的獎勵。",
+    "inProgress": "「${name}」尚未完成。",
+    "failed": "「${name}」已失敗。",
+    "refused": "「${name}」未成功。",
+    "unconfirmed": "無法確認「${name}」的結果，請先查看列表再重試。"
+  },
+  "magicCenter": {
+    "title": "道具",
+    "shop": "商店",
+    "mine": "我的道具",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "loginRequired": "請登入後使用道具。",
+    "empty": "暫無道具",
+    "soldOut": "缺貨",
+    "buy": "購買",
+    "use": "使用",
+    "owned": "× ${count}",
+    "unsupported": "這個道具只能在網頁上使用。",
+    "fieldThread": "主題 ID 或連結",
+    "threadInvalid": "請輸入主題 ID 或主題連結",
+    "fieldUser": "使用者名稱",
+    "fieldNewName": "新使用者名稱",
+    "fieldCount": "數量",
+    "required": "請填寫",
+    "bought": "已購買「${name}」",
+    "used": "已使用「${name}」",
+    "rejected": "論壇未完成「${name}」的操作",
+    "unknown": "已送出「${name}」，但無法確認結果。再次操作前請先看「我的道具」裡的數量。",
+    "windowFailed": "無法開啟道具視窗"
   },
   "editUserProfilePage": {
     "title": "編輯資料",
@@ -3668,6 +3768,9 @@
   "twoPane": {
     "tabsFull": "最多同時開啟 ${count: int} 個分頁"
   },
+  "quickOpen": {
+    "search": "搜尋：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
@@ -3679,6 +3782,7 @@
     },
     "commands": {
       "search": "搜尋",
+      "quickOpen": "快速跳轉",
       "settings": "設定",
       "back": "關閉對話框、返回",
       "refresh": "重新整理",
@@ -3747,5 +3851,23 @@
     "revoked": "$name 已在其他裝置上登出本機",
     "revokedUnknown": "一個帳號已在其他裝置上登出本機",
     "login": "登入"
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "積分",
+      "post": "發帖",
+      "online": "在線",
+      "thread": "熱帖"
+    },
+    "threadViews": {
+      "replies": "回覆",
+      "views": "檢視",
+      "favtimes": "收藏",
+      "heats": "熱度"
+    },
+    "empty": "暫無排行",
+    "minutes": "$n 分鐘",
+    "updated": "更新於 $last · 下次 $next"
   }
 }

@@ -48,7 +48,11 @@ FriendListPage friendListPageFromApi(Map<String, dynamic> json, String url) {
     );
   }
   final ownList = tsdmAppInt(json['self']) == 1;
-  final items = tsdmAppList(json['friends']).map((e) => Friend.fromApi(e, ownList: ownList)).nonNulls.toList();
+  // The visitors list (`view=visitor`) carries the time of each visit in `dateline`.
+  final visitOffset = json['view'] == 'visitor' ? tsdmAppTimeOffset(json) : null;
+  final items = tsdmAppList(
+    json['friends'],
+  ).map((e) => Friend.fromApi(e, ownList: ownList, visitTimeOffset: visitOffset)).nonNulls.toList();
   final ownerName = tsdmAppText(tsdmAppMap(json['owner'])['username']).trim();
   final page = tsdmAppInt(json['page']);
   final nextPageUrl = tsdmAppInt(json['has_next']) == 1 && page > 0 ? tsdmAppListPageUrl(url, page + 1) : null;

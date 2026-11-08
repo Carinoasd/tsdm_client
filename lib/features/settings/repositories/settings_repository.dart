@@ -211,6 +211,7 @@ final class SettingsRepository with LoggerMixin {
       editImageBeforeUpload: s.extract(_SK.editImageBeforeUpload),
       uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
       uploadImageQuality: s.extract(_SK.uploadImageQuality),
+      frequentForums: s.extract(_SK.frequentForums),
     );
   }
 

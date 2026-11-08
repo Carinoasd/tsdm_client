@@ -91,6 +91,7 @@ class SettingsMap with SettingsMapMappable {
     this.editImageBeforeUpload = false,
     this.uploadImageMaxSide = 0,
     this.uploadImageQuality = 90,
+    this.frequentForums = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -355,6 +356,9 @@ class SettingsMap with SettingsMapMappable {
   /// See `SettingsKeys.uploadImageQuality`. Not required: backups from older versions lack it.
   final int uploadImageQuality;
 
+  /// The pinned and recent forums of every account, see `SettingsKeys.frequentForums`.
+  final String frequentForums;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -466,6 +470,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
       SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
       SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
+      SettingsKeys.frequentForums => copyWith(frequentForums: value as String?),
     };
   }
 }

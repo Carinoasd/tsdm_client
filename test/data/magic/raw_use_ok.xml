@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<script type="text/javascript" reload="1">if(typeof succeedhandle_magics=='function') {succeedhandle_magics('home.php?mod=magic&action=mybox', '施法成功～ 测试用户甲 接下来 24 小时都会喵喵叫了', {});}hideWindow('magics');showDialog('施法成功～ 测试用户甲 接下来 24 小时都会喵喵叫了', 'right', null, function () { window.location.href ='home.php?mod=magic&action=mybox'; }, 0, null, null, null, null, null, 3);</script>]]></root>
