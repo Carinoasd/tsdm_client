@@ -2231,6 +2231,15 @@
     "empty": "没有待读的帖子",
     "needLogin": "请先登录"
   },
+  "audioPlayer": {
+    "play": "播放",
+    "pause": "暂停",
+    "close": "关闭",
+    "download": "下载",
+    "cannotPlay": "无法播放",
+    "loadFailed": "加载失败",
+    "notificationChannel": "音乐播放"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
     "allAccounts": "全部账号",

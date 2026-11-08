@@ -2231,6 +2231,15 @@
     "empty": "沒有待讀的貼文",
     "needLogin": "請先登入"
   },
+  "audioPlayer": {
+    "play": "播放",
+    "pause": "暫停",
+    "close": "關閉",
+    "download": "下載",
+    "cannotPlay": "無法播放",
+    "loadFailed": "載入失敗",
+    "notificationChannel": "音樂播放"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",
     "allAccounts": "全部帳號",

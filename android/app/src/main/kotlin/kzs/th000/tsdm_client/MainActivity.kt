@@ -19,6 +19,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.ryanheise.audioservice.AudioServicePlugin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
+import java.lang.ref.WeakReference
 
 class MainActivity: FlutterActivity() {
     companion object {
@@ -61,6 +63,17 @@ class MainActivity: FlutterActivity() {
         /** Deep link channel to open external tsdm links inside the app. */
         const val DEEP_LINK_CHANNEL = "kzs.th000.tsdm_client/deepLink"
         const val GET_INITIAL_LINK = "getInitialLink"
+
+        /**
+         * The engine the last activity ran on. The engine is the audio service's (see [provideFlutterEngine]): while
+         * it plays, the engine outlives the activity, and an activity made again (the task swiped away from the recents
+         * while playing, then opened) runs on the same Dart, which asked for its launch link, share and shortcut long
+         * ago and will not ask again.
+         */
+        private var lastEngine: WeakReference<FlutterEngine>? = null
+
+        /** Whether Dart asked for the highest refresh rate: Dart tells it once, an activity made again keeps it. */
+        private var preferHighRefreshRate = false
     }
 
     private var windowChannel: MethodChannel? = null
@@ -70,9 +83,6 @@ class MainActivity: FlutterActivity() {
     private var flutterViewWatched = false
     private val updateScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var installingUpdate = false
-
-    /** Whether Dart asked for the highest refresh rate, re-applied when the window comes back (GitHub #182). */
-    private var preferHighRefreshRate = false
 
     /** Hold the deep link when app is launched from a link (cold start). */
     private var initialDeepLink: String? = null
@@ -99,18 +109,33 @@ class MainActivity: FlutterActivity() {
         val replayed = savedInstanceState != null ||
             launch == null ||
             (launch.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-        if (replayed) return
-        // 冷启动时捕获深度链接
-        if (launch.action == Intent.ACTION_VIEW) {
-            initialDeepLink = launch.dataString
+        if (!replayed) {
+            // 冷启动时捕获深度链接
+            if (launch.action == Intent.ACTION_VIEW) {
+                initialDeepLink = launch.dataString
+            }
+            if (ShareIntents.isShare(launch)) {
+                initialShareIntent = launch
+            }
         }
-        if (ShareIntents.isShare(launch)) {
-            initialShareIntent = launch
+        // configureFlutterEngine ran in super.onCreate, before the launch was read: push it now.
+        val engine = flutterEngine
+        if (attachedToRunningDart && engine != null) {
+            pushLaunchToRunningDart(engine)
         }
     }
 
+    /** Whether this activity runs on a Dart started by an activity before (see [lastEngine]). */
+    private var attachedToRunningDart = false
+
+    /** The audio service's engine (just_audio_background): the player plays in it with the app in the background. */
+    override fun provideFlutterEngine(context: Context): FlutterEngine = AudioServicePlugin.getFlutterEngine(context)
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // See [lastEngine].
+        val dartRunning = lastEngine?.get() === flutterEngine
+        lastEngine = WeakReference(flutterEngine)
         mainChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MAIN_CHANNEL).also {
             it.setMethodCallHandler { call, result -> handleMainChannelCall(call, result) }
         }
@@ -142,7 +167,7 @@ class MainActivity: FlutterActivity() {
                 }
             }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
-        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger)
+        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger, listening = dartRunning)
         homeWidget.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         // 处理 Flutter 端对深度链接的查询
@@ -175,6 +200,28 @@ class MainActivity: FlutterActivity() {
                         result.success(readShare(pending))
                     }
                 }
+            }
+        }
+        attachedToRunningDart = dartRunning
+    }
+
+    /**
+     * The link and the share this activity was launched with, pushed to a Dart that runs since an activity before (see
+     * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut.
+     */
+    private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine) {
+        dartTakesShares = true
+        shortcuts.pushPending()
+        initialDeepLink?.let {
+            initialDeepLink = null
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL).invokeMethod("onDeepLink", it)
+        }
+        initialShareIntent?.let { pending ->
+            initialShareIntent = null
+            val channel = shareChannel ?: return@let
+            updateScope.launch {
+                val payload = readShare(pending) ?: return@launch
+                channel.invokeMethod(ShareIntents.ON_SHARE, payload)
             }
         }
     }
