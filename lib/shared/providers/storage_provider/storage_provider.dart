@@ -846,6 +846,26 @@ class StorageProvider with LoggerMixin {
     return rightVoid();
   });
 
+  /*        reading time        */
+
+  /// Add [seconds] to the time user [uid] spent reading forum [fid] on [day] (`yyyyMMdd`).
+  Future<void> addReadingTime({
+    required int uid,
+    required int day,
+    required int fid,
+    required String forumName,
+    required int seconds,
+  }) async => ReadingTimeDao(_db).addSeconds(uid: uid, day: day, fid: fid, forumName: forumName, seconds: seconds);
+
+  /// The reading time rows of user [uid] from day [from] to day [to], both included (`yyyyMMdd`).
+  Future<List<ReadingTimeEntity>> fetchReadingTime({required int uid, required int from, required int to}) async =>
+      ReadingTimeDao(_db).selectRange(uid: uid, from: from, to: to);
+
+  /// Delete the reading time of every account.
+  Future<void> deleteAllReadingTime() async {
+    await ReadingTimeDao(_db).deleteAll();
+  }
+
   /*        session expiry        */
 
   /// Remember that the forum session of the account [uid] is dead (issue #25), as of [at] (now by default).

@@ -109,6 +109,12 @@ class _MePageState extends State<MePage> {
         label: tr.history,
         onTap: () => _open(ScreenPaths.threadVisitHistory),
       ),
+      (
+        key: const ValueKey('me-reading-stats'),
+        icon: Icons.bar_chart_outlined,
+        label: tr.readingStats,
+        onTap: () => _open(ScreenPaths.readingStats),
+      ),
       // The drafts kept on this device while writing, and the drafts box of the forum (the third tab of "my threads"):
       // named apart so the one is not taken for the other.
       (

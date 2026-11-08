@@ -253,7 +253,8 @@
       "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
-      "points": "积分"
+      "points": "积分",
+      "readingStats": "阅读统计"
     }
   },
   "home": {
@@ -761,7 +762,11 @@
       "about": "关于",
       "update": "获取更新",
       "updateCheckOnStartup": "应用启动时检查更新",
-      "changelog": "更新日志"
+      "changelog": "更新日志",
+      "recordReadingTime": "记录阅读时间",
+      "clearReadingTime": "清除阅读时间数据",
+      "clearReadingTimeConfirm": "清除这台设备上所有账号的阅读时间数据？清除后无法恢复。",
+      "readingTimeCleared": "阅读时间数据已清除"
     }
   },
   "aboutPage": {
@@ -3359,6 +3364,19 @@
       "unknownOrder": "未能确认是否已下单，请在交易记录中查看。"
     },
     "already": "之前已经完成。"
+  },
+  "readingStats": {
+    "title": "阅读统计",
+    "today": "今天",
+    "week": "本周",
+    "month": "本月",
+    "last14Days": "近 14 天",
+    "forums": "版块占比",
+    "otherForums": "其他",
+    "empty": "还没有阅读记录",
+    "hoursMinutes": "$hours 小时 $minutes 分",
+    "minutes": "$minutes 分",
+    "seconds": "$seconds 秒"
   },
   "localDraft": {
     "title": "本机草稿",

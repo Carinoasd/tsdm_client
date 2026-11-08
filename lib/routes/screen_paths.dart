@@ -323,6 +323,9 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page of the time spent reading threads.
+  static const String readingStats = '/readingStats';
+
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
 

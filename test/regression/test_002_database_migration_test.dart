@@ -369,12 +369,30 @@ void main() {
   });
 
   for (final from in [10, 15, 16]) {
-    test('upgrade from $from to 18 in one go', () async {
+    test('upgrade from $from to 19 in one go', () async {
       final verifier = SchemaVerifier(GeneratedHelper());
       final connection = await verifier.startAt(from);
       final db = AppDatabase(connection);
-      await verifier.migrateAndValidate(db, 18);
+      await verifier.migrateAndValidate(db, 19);
       await db.close();
     });
   }
+
+  test('upgrade from 18 to 19 adds the reading time table', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final connection = await verifier.startAt(18);
+    final db = AppDatabase(connection);
+    await verifier.migrateAndValidate(db, 19);
+    expect(await db.select(db.readingTime).get(), isEmpty);
+    await db.close();
+  });
+
+  test('the 18 to 19 step runs again safely when another connection already created the table', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(19);
+    schema.rawDatabase.execute('PRAGMA user_version = 18');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 19);
+    await db.close();
+  });
 }

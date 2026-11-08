@@ -23,6 +23,7 @@ part 'database.g.dart';
     Notice,
     OfflineThread,
     PersonalMessage,
+    ReadingTime,
     RepliedThread,
     Settings,
     ThreadVisitHistory,
@@ -34,7 +35,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -299,6 +300,13 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
           }
         }
         info('migrating database schema from 17 to 18... ok!');
+      },
+      from18To19: (m, schema) async {
+        info('migrating database schema from 18 to 19...');
+        // The reading time per day and forum. `createTable` is CREATE TABLE IF NOT EXISTS, safe when another
+        // connection created it first, see from13To14.
+        await m.create(schema.readingTime);
+        info('migrating database schema from 18 to 19... ok!');
       },
     ),
   );
