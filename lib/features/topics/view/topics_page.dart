@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
+import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
@@ -263,7 +264,14 @@ class _TopicsPageState extends State<TopicsPage> with TickerProviderStateMixin {
               body: SafeArea(
                 left: false,
                 top: false,
-                child: AnimatedSwitcher(duration: duration200, child: body),
+                child: Column(
+                  children: [
+                    const FrequentForumsBar(),
+                    Expanded(
+                      child: AnimatedSwitcher(duration: duration200, child: body),
+                    ),
+                  ],
+                ),
               ),
             );
           },

@@ -32,6 +32,7 @@ import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart'
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/login_device/view/login_devices_page.dart';
+import 'package:tsdm_client/features/magic/view/magic_center_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -73,6 +74,8 @@ import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
 import 'package:tsdm_client/features/profile/view/switch_user_group_page.dart';
+import 'package:tsdm_client/features/profile/view/user_group_progress_page.dart';
+import 'package:tsdm_client/features/ranklist/view/ranklist_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
@@ -90,6 +93,7 @@ import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
+import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_follow/view/followed_threads_page.dart';
@@ -266,8 +270,11 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.floorBookmarks, builder: (_) => const FloorBookmarkPage()),
   AppRoute(
     path: ScreenPaths.friend,
-    builder: (state) =>
-        FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
+    builder: (state) => FriendPage(
+      uid: state.uri.queryParameters['uid'],
+      username: state.uri.queryParameters['username'],
+      visitor: state.uri.queryParameters['view'] == 'visitor',
+    ),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(
@@ -303,17 +310,21 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.editAvatar, builder: (_) => const EditAvatarPage()),
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
+  AppRoute(path: ScreenPaths.userGroupProgress, builder: (_) => const UserGroupProgressPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
+  AppRoute(path: ScreenPaths.magicCenter, builder: (_) => const MagicCenterPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
+  AppRoute(path: ScreenPaths.ranklist, builder: (_) => const RanklistPage()),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
   AppRoute(path: ScreenPaths.medalGrant, builder: (_) => const MedalGrantPage()),
   AppRoute(path: ScreenPaths.titleIssue, builder: (_) => const TitleIssuePage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
+  AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
   AppRoute(
     path: ScreenPaths.pokemon,
     builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),

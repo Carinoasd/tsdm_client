@@ -13,6 +13,8 @@ final class Friend with FriendMappable {
     this.groupColor,
     this.groupIconUrl,
     this.credits,
+    this.visitedAt,
+    this.visitedText,
   });
 
   /// The friend of a row [row] of the structured friends answer (plugin 2.5.0, `schema: 10`, `friends[]`): the
@@ -23,7 +25,10 @@ final class Friend with FriendMappable {
   /// (`groupicon`, plugin 2.6.0: an absolute url, empty when the group has none) as the page prints it beside the
   /// group. Null for a member who is not there any more (`username` empty, `anonymous` 1: the page prints "匿名"
   /// without a link), as the page parser skips a row without the member's link.
-  static Friend? fromApi(Map<String, dynamic> row, {required bool ownList}) {
+  ///
+  /// On the visitors list (`view=visitor`, [visitTimeOffset] given: the `timeoffset` of the answer) the row's `dateline`
+  /// is the time of the visit, kept as [visitedAt] in the forum's wall clock.
+  static Friend? fromApi(Map<String, dynamic> row, {required bool ownList, num? visitTimeOffset}) {
     final uid = tsdmAppInt(row['uid']);
     final username = tsdmAppText(row['username']).trim();
     if (uid <= 0 || username.isEmpty) {
@@ -43,6 +48,7 @@ final class Friend with FriendMappable {
       groupColor: groupColor.isEmpty ? null : groupColor,
       groupIconUrl: groupIcon.isEmpty ? null : groupIcon.prependHost(),
       credits: ownList || credits == 0 ? null : '$credits',
+      visitedAt: visitTimeOffset == null ? null : tsdmAppWallClockTime(row['dateline'], visitTimeOffset),
     );
   }
 
@@ -69,4 +75,11 @@ final class Friend with FriendMappable {
 
   /// Credits (积分数) as shown by the forum.
   final String? credits;
+
+  /// When this member visited the space, on the visitors list: the forum's wall clock, null elsewhere.
+  final DateTime? visitedAt;
+
+  /// The date the visitors page prints for the visit ("11月8日", no year, no time), when the list came from the web
+  /// page; [visitedAt] is null then.
+  final String? visitedText;
 }

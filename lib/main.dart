@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
@@ -193,6 +194,15 @@ Future<void> _boot(List<String> args) async {
   }
 
   await initAudioPlayer();
+  // Register the selected font if it is an imported file before the theme is built (the others are registered when the
+  // font dialog opens); a font that fails to load falls back to the default.
+  try {
+    if (settings.fontFamily.isNotEmpty) {
+      await (await CustomFontStore.open()).load(settings.fontFamily).timeout(const Duration(seconds: 5));
+    }
+  } on Object catch (e, st) {
+    talker.handle(e, st, 'load imported fonts failed');
+  }
 
   // Load font family.
   final fontFamily = settings.fontFamily;

@@ -6,6 +6,12 @@ class OpenSearchIntent extends Intent {
   const OpenSearchIntent();
 }
 
+/// Opens the quick open box.
+class OpenQuickOpenIntent extends Intent {
+  /// Constructor.
+  const OpenQuickOpenIntent();
+}
+
 /// Opens the settings page.
 class OpenSettingsIntent extends Intent {
   /// Constructor.

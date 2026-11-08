@@ -3,6 +3,9 @@ enum KeyboardCommand {
   /// Search page.
   search,
 
+  /// Quick open box.
+  quickOpen,
+
   /// Settings page.
   settings,
 
@@ -110,6 +113,9 @@ class KeyboardShortcutEntry {
 const List<KeyboardShortcutEntry> keyboardShortcutCatalog = [
   KeyboardShortcutEntry(KeyboardShortcutGroup.global, KeyboardCommand.search, [
     [primaryModifierToken, 'F'],
+  ]),
+  KeyboardShortcutEntry(KeyboardShortcutGroup.global, KeyboardCommand.quickOpen, [
+    [primaryModifierToken, 'K'],
   ]),
   KeyboardShortcutEntry(KeyboardShortcutGroup.global, KeyboardCommand.settings, [
     [primaryModifierToken, ','],
