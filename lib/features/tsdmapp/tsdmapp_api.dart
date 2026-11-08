@@ -57,6 +57,9 @@ import 'package:universal_html/parsing.dart';
 /// Plugin 3.1.0 adds to every thread row of the list pages (the forum page, the guide lists, the search results, the
 /// "my threads" pages) the excerpt and the images of its first floor, when the page is asked with
 /// `tsdmpreview=1` (`list_preview.dart`); `status` tells it with `preview: 1` ([knowsPreview]).
+///
+/// Plugin 3.6.0 keeps the devices an account logged in on (`device`, `login_device` feature): `status` tells it with
+/// `device: 1` ([knowsDevice]).
 abstract final class TsdmAppApi {
   /// Url of an action.
   static String url(String action, [Map<String, String> query = const {}]) => Uri.parse(
@@ -115,6 +118,12 @@ abstract final class TsdmAppApi {
     return info != null && (info.preview ?? compareTsdmAppVersions(info.version, tsdmAppPreviewVersion) >= 0);
   }
 
+  /// Whether the forum's plugin keeps the devices an account logged in on (plugin 3.6.0, the `device` action): the
+  /// last `status` of the plugin's version said so (`device: 1`). `device: 0` (the table missing, the forum's switch
+  /// off), an older plugin and an answer of another action until a `status` told it say no: the device header is only
+  /// sent and the devices page only offered after `status` named it.
+  static bool get knowsDevice => pluginInfo.value?.device ?? false;
+
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
   /// (an older action's, or a message such as `login`) tells nothing and changes nothing. Only `status` names
   /// `nodoc` and `preview`, and not every answer names `api`: what is known of the version holds through the answers
@@ -132,6 +141,7 @@ abstract final class TsdmAppApi {
         api: info.api ?? known.api,
         nodoc: json.containsKey('nodoc') ? info.nodoc : known.nodoc,
         preview: info.preview ?? known.preview,
+        device: info.device ?? known.device,
       );
     }
     if (info != known) {
@@ -265,19 +275,27 @@ abstract final class TsdmAppApi {
   ///
   /// An answer with an HTTP status in [acceptStatus] is given back like a 200 (the `sync` action of plugin 3.4.0
   /// answers a conflict as 409 and an oversized document as 413, each with its JSON); any other error status is a
-  /// failed request.
+  /// failed request. [headers] go with the request (the device id a `register` names, plugin 3.6.0).
   static Future<Map<String, dynamic>?> post(
     NetClientProvider client,
     String action,
     Map<String, String> form, {
     Set<int> acceptStatus = const {},
+    Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable) {
       return null;
     }
     // The plugin's own API answers JSON as it is: never asked for a write result.
     switch (await client
-        .postForm(url(action), data: form, singleAttempt: true, tsdmAppJson: false, acceptStatus: acceptStatus)
+        .postForm(
+          url(action),
+          data: form,
+          singleAttempt: true,
+          tsdmAppJson: false,
+          acceptStatus: acceptStatus,
+          headers: headers,
+        )
         .run()) {
       case Left(:final value):
         talker.debug('tsdmapp api $action (post) failed: $value');
@@ -335,7 +353,7 @@ const tsdmAppPreviewVersion = '3.1.0';
 @immutable
 final class TsdmAppPluginInfo {
   /// Constructor.
-  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview});
+  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview, this.device});
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
   static TsdmAppPluginInfo? fromAnswer(Map<String, dynamic> json) {
@@ -349,6 +367,13 @@ final class TsdmAppPluginInfo {
       nodoc: json['nodoc'] == 1 || json['nodoc'] == true,
       // `status` lists its actions: a `status` without `preview` is a plugin that does not answer the previews.
       preview: json['preview'] == 1 || json['preview'] == true ? true : (json['actions'] is List ? false : null),
+      // `status` of 3.6.0 names it either way (`device: 0` while the forum keeps no devices); only `status` has an int
+      // `device` (the `device_revoked` answer's is the device's id).
+      device: switch (json['device']) {
+        1 => true,
+        0 => false,
+        _ => null,
+      },
     );
   }
 
@@ -366,6 +391,10 @@ final class TsdmAppPluginInfo {
   /// 3.1.0), false for a `status` without it, null when the answer is not a `status` (it tells nothing).
   final bool? preview;
 
+  /// Whether the plugin said it keeps the devices of an account: true for `device: 1` in `status` (plugin 3.6.0),
+  /// false for `device: 0`, null when the answer does not tell (an older plugin's `status`, another action).
+  final bool? device;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
@@ -375,13 +404,15 @@ final class TsdmAppPluginInfo {
       other.version == version &&
       other.api == api &&
       other.nodoc == nodoc &&
-      other.preview == preview;
+      other.preview == preview &&
+      other.device == device;
 
   @override
-  int get hashCode => Object.hash(version, api, nodoc, preview);
+  int get hashCode => Object.hash(version, api, nodoc, preview, device);
 
   @override
-  String toString() => 'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview)';
+  String toString() =>
+      'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device)';
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part

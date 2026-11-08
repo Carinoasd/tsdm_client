@@ -712,7 +712,7 @@ void main() {
         expect(forum.votes.single['formhash'], 'hashOf1000', reason: 'the formhash of the page, served to Alice');
         expect(forum.votes.single['pollanswers[0]'], '40028');
         expect(forum.pollLoads, 1, reason: 'the results are asked once after the vote');
-        expect(_inCard(find.text('50.00% (1)')), findsNWidgets(2), reason: 'the results of the answer');
+        expect(_inCard(find.text('1 · 50%')), findsNWidgets(2), reason: 'the results of the answer');
         expect(_inCard(find.text(t.pollVoting.voted)), findsOneWidget);
         expect(_inCard(find.text(t.pollVoting.unconfirmed)), findsNothing);
         expect(forum.threadLoads, 1);
@@ -736,7 +736,7 @@ void main() {
       expect(forum.votes.single['formhash'], 'hashOf1001', reason: "Bob's vote goes out with Bob's formhash");
       expect(forum.voted, {_bob.uid});
       expect(forum.pollLoads, 1);
-      expect(_inCard(find.text('50.00% (1)')), findsNWidgets(2));
+      expect(_inCard(find.text('1 · 50%')), findsNWidgets(2));
       await _dispose(tester);
     });
 

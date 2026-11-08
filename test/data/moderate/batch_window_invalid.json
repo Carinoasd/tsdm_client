@@ -1,0 +1,17 @@
+{
+ "ok": 0,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "抱歉，您尚未选择主题或主题不可执行此类管理",
+ "message_key": "admin_moderate_invalid",
+ "url": "",
+ "handlekey": "mods",
+ "values": {},
+ "login": 0,
+ "alert": "error"
+}

@@ -48,7 +48,13 @@ class LocalNoticeKeys {
       return v != null && v > 0 ? v : null;
     }
 
-    final target = LocalNoticeTarget(nid: id('nid'), tid: id('tid'), pid: id('pid'), peerUid: id('peer'));
+    final target = LocalNoticeTarget(
+      nid: id('nid'),
+      tid: id('tid'),
+      pid: id('pid'),
+      peerUid: id('peer'),
+      lastPost: query['last'] == '1',
+    );
     return target.isEmpty ? null : target;
   }
 
@@ -74,11 +80,12 @@ class LocalNoticeKeys {
 }
 
 /// What a tap on a notification announcing a single new item opens, see [LocalNoticeKeys.withTarget]: the floor
-/// [pid] (or the thread [tid]) of the notice [nid], or the conversation with [peerUid].
+/// [pid] (or the thread [tid]) of the notice [nid], or the conversation with [peerUid]; the last floor of the thread
+/// [tid] with [lastPost] (new replies of a followed thread).
 @immutable
 final class LocalNoticeTarget {
   /// Constructor.
-  const LocalNoticeTarget({this.nid, this.tid, this.pid, this.peerUid});
+  const LocalNoticeTarget({this.nid, this.tid, this.pid, this.peerUid, this.lastPost = false});
 
   /// Notice to mark as read.
   final int? nid;
@@ -92,6 +99,9 @@ final class LocalNoticeTarget {
   /// Peer of the conversation.
   final int? peerUid;
 
+  /// Open the last floor of [tid] (`goto=lastpost`) instead of its first page.
+  final bool lastPost;
+
   /// Nothing to open.
   bool get isEmpty => tid == null && pid == null && peerUid == null;
 
@@ -101,6 +111,7 @@ final class LocalNoticeTarget {
     if (tid != null) 'tid=$tid',
     if (pid != null) 'pid=$pid',
     if (peerUid != null) 'peer=$peerUid',
+    if (lastPost) 'last=1',
   ].join('&');
 
   @override
@@ -109,10 +120,11 @@ final class LocalNoticeTarget {
       other.nid == nid &&
       other.tid == tid &&
       other.pid == pid &&
-      other.peerUid == peerUid;
+      other.peerUid == peerUid &&
+      other.lastPost == lastPost;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid);
+  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost);
 
   @override
   String toString() => 'LocalNoticeTarget(${toQuery()})';
