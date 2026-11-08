@@ -73,6 +73,7 @@ dependencies:
   just_audio_background: ^0.0.1-beta.17
   just_audio_media_kit: ^2.1.0
   loading_indicator_m3e: ^0.1.1
+  local_auth: ^3.0.0
   m3e_design: ^0.2.1
   material_design_icons_flutter: ^7.0.7296
   material_symbols_icons: ^4.2892.0
@@ -133,6 +134,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/emoji/
+    - assets/images/app_icons/
     - assets/text/
 
 flutter_launcher_icons:
