@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
+import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
@@ -449,6 +450,11 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
+  AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),
+  AppRoute(
+    path: ScreenPaths.customEmojiPack,
+    builder: (state) => CustomEmojiPackPage(packId: state.pathParameters['packId']!),
+  ),
   AppRoute(path: ScreenPaths.autoCheckinDetail, builder: (_) => const AutoCheckinPage()),
   AppRoute(path: ScreenPaths.debugLog, builder: (_) => const DebugLogPage()),
   AppRoute(path: ScreenPaths.debugHistoricalLog, builder: (_) => const DebugHistoricalLogPage()),

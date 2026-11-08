@@ -806,6 +806,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.localDrafts),
         ),
+        SectionListTile(
+          key: const ValueKey('settings-custom-emoji-packs'),
+          leading: const Icon(Icons.emoji_emotions_outlined),
+          title: Text(context.t.customEmoji.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.customEmojiPacks),
+        ),
       ],
     );
   }

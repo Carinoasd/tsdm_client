@@ -3559,5 +3559,25 @@
       "body": "\"${title}\" has ${n} new replies",
       "hidden": "A followed thread has ${n} new replies"
     }
+  },
+  "customEmoji": {
+    "title": "Custom emoji packs",
+    "newPack": "New pack",
+    "name": "Name",
+    "rename": "Rename",
+    "delete": "Delete pack",
+    "deleteConfirm": "Delete \"$name\" and its images?",
+    "addImages": "Add images",
+    "added": "Added ${count: int} images",
+    "noneAdded": "No images to add",
+    "removeTitle": "Remove image",
+    "remove": "Remove this image?",
+    "export": "Export",
+    "import": "Import",
+    "imported": "Imported ${count: int} images",
+    "importInvalid": "Not an emoji pack file",
+    "exportFailed": "Export failed",
+    "empty": "No emoji packs yet",
+    "count": "${count: int}"
   }
 }

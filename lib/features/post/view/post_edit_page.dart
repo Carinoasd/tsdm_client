@@ -23,6 +23,10 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_reuse.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/utils/paste_aware_controller.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
@@ -300,6 +304,19 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   /// The attachments uploaded for this thread, by aid ([PostFormEdits.attachNew]).
   final _attachNew = <int>[];
+
+  /// The context of the page's builder, under its providers (the page's own one is above them): what an image upload
+  /// started outside a build (a paste, a shared image) reads the bloc and the repository from.
+  BuildContext? _below;
+
+  /// Custom emojis going up as attachments.
+  int _uploadingCustomEmoji = 0;
+
+  /// The custom emojis already attachments of this post, by SHA-256 of the image ([decideCustomEmojiAttachment]).
+  final _customEmojiAids = <String, int>{};
+
+  /// An image (shared or a custom emoji) is on its way to the forum.
+  bool get _uploading => _uploadingImages || _uploadingCustomEmoji > 0;
 
   /// Content switched in from the poll editor by the same account, dropped on any identity change.
   ThreadModeTransfer? _transfer;
@@ -604,10 +621,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     }
     // Not offered while shared images are still going up: saving would be refused without a word (see _onFinish).
     final canSaveDraft =
-        widget.editType.isEditingDraft &&
-        (bloc.state.content?.canSaveDraft ?? false) &&
-        bloc.canSubmit &&
-        !_uploadingImages;
+        widget.editType.isEditingDraft && (bloc.state.content?.canSaveDraft ?? false) && bloc.canSubmit && !_uploading;
     _leaving = true;
     final LeaveEditChoice choice;
     try {
@@ -786,12 +800,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     List<String> discard, {
     required bool? edit,
   }) async {
-    if (!mounted) {
+    final below = _below;
+    if (!mounted || below == null || !below.mounted) {
       discardSharedFiles(discard);
       return;
     }
     final tr = context.t.shareReceive;
-    final state = context.read<PostEditBloc>().state;
+    final state = below.read<PostEditBloc>().state;
     if (state.status == PostEditStatus.uploading || state.status == PostEditStatus.success) {
       // The post is on its way or gone: an image now would be bound to nothing.
       discardSharedFiles(discard);
@@ -803,7 +818,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       showSnackBar(context: context, message: tr.uploadUnavailable);
       return;
     }
-    final repo = context.read<PostEditRepository>();
+    final repo = below.read<PostEditRepository>();
     // Read before the files are written: once they are, only the try below deletes them.
     final settings = context.read<SettingsBloc>().state.settingsMap;
     final (:files, :refused) = await prepare(upload);
@@ -863,6 +878,81 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           );
         }
       }
+    }
+  }
+
+  /// Whether the custom emoji packs are offered: the form of the forum's app API lets the member upload images here.
+  bool _offersCustomEmoji(PostEditState state) => state.content?.form?.attachmentUpload?.image ?? false;
+
+  /// Put the custom emoji [emoji] into the post as an attachment ([CustomEmojiSender]): the code of the attachment
+  /// it already is in this post, of the account's unused upload of the image the form lists (bound to the post when
+  /// it is published), else of a new upload, remembered for the account ([CustomEmojiStore.rememberUpload]). Null
+  /// when it cannot go up (told why). [below] is a context under the page's providers.
+  Future<String?> _sendCustomEmoji(BuildContext below, CustomEmoji emoji) async {
+    final store = CustomEmojiStore.app;
+    final form = below.read<PostEditBloc>().state.content?.form;
+    final upload = form?.attachmentUpload;
+    final repo = below.read<PostEditRepository>();
+    final uid = repo.ownerUid;
+    final tr = context.t.shareReceive;
+    final file = store?.fileOf(emoji);
+    if (store == null || form == null || upload == null || !upload.image || uid == null || file == null) {
+      showSnackBar(context: context, message: tr.uploadUnavailable);
+      return null;
+    }
+    final decision = decideCustomEmojiAttachment(
+      sha256: emoji.sha256,
+      inPost: _customEmojiAids,
+      remembered: store.uploadedAid(uid, emoji.sha256),
+      unused: form.unusedAttachmentImages,
+      used: form.usedAttachments,
+    );
+    switch (decision) {
+      case CustomEmojiInPost(:final aid):
+        _customEmojiAids[emoji.sha256] = aid;
+        return attachmentImageBBCode(aid);
+      case CustomEmojiUnused(:final aid):
+        _customEmojiAids[emoji.sha256] = aid;
+        if (!_attachNew.contains(aid)) _attachNew.add(aid);
+        return attachmentImageBBCode(aid);
+      case CustomEmojiUpload(:final forget):
+        if (forget) store.forgetUpload(uid, emoji.sha256);
+    }
+    setState(() => _uploadingCustomEmoji++);
+    try {
+      final result = await repo.uploadImage(upload, file.path).run();
+      return result.match(
+        (e) {
+          handle(e);
+          if (mounted) {
+            showSnackBar(
+              context: context,
+              message: switch (e) {
+                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(
+                  name: emoji.fileName,
+                ),
+                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
+                  name: emoji.fileName,
+                  limit: upload.maxKb ?? 0,
+                ),
+                AttachmentUploadFailedException(:final code?) => tr.uploadFailed(code: '$code'),
+                _ => tr.uploadFailed(code: ''),
+              },
+            );
+          }
+          return null;
+        },
+        (aid) {
+          store.rememberUpload(uid, emoji.sha256, aid);
+          // Uploaded for an account no longer in use, or a page gone: not bound to anything here.
+          if (!mounted || !repo.isCurrent) return null;
+          _customEmojiAids[emoji.sha256] = aid;
+          _attachNew.add(aid);
+          return attachmentImageBBCode(aid);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingCustomEmoji--);
     }
   }
 
@@ -1045,7 +1135,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     // Shared images still going up: sent now, the post would miss them and the rest would be uploaded for nothing.
-    if (_uploadingImages) return;
+    if (_uploading) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
     if (_waitingSeconds > 0) return;
     final issue = _formIssue(context, state.content!);
@@ -1285,6 +1375,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               editorFocusNode: focusNode,
               collectDocumentMetadata: collectThreadMetata,
               applyDocumentMetadata: (metadata) => applyThreadMetadata(metadata, state),
+              sendCustomEmoji: _offersCustomEmoji(state) ? (emoji) => _sendCustomEmoji(context, emoji) : null,
             ),
           ),
         };
@@ -1837,7 +1928,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       ),
                     ),
             ),
-            if (_uploadingImages) const LinearProgressIndicator(minHeight: 2),
+            if (_uploading) const LinearProgressIndicator(minHeight: 2),
             Padding(padding: horizontal.add(edgeInsetsT12), child: _buildTitleRow(context, state)),
             // Post data editor.
             // Now we don't restrict the thread type and thread title, so it's better to focus on content area.
@@ -1868,6 +1959,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     editorFocusNode: focusNode,
                     collectDocumentMetadata: collectThreadMetata,
                     applyDocumentMetadata: (metadata) => applyThreadMetadata(metadata, state),
+                    sendCustomEmoji: _offersCustomEmoji(state) ? (emoji) => _sendCustomEmoji(context, emoji) : null,
                   ),
                 ),
               ),
@@ -1896,6 +1988,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       _stopDraft(delete: false);
       _transfer = null;
       _attachNew.clear();
+      _customEmojiAids.clear();
       threadTitleController.clear();
       threadTypeController.clear();
       bbcodeController.setDocumentFromRawText('');
@@ -2274,8 +2367,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       child: BlocConsumer<PostEditBloc, PostEditState>(
         listener: (context, state) async => _onListen(context, state),
         builder: (context, state) {
+          _below = context;
           bool canPublish() =>
-              !(_confirming || _uploadingImages || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit);
+              !(_confirming || _uploading || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit);
           // Below the bloc: leaving asks what to do with content not sent yet, and may save it as a draft.
           return PopScope(
             canPop: false,
@@ -2333,10 +2427,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
                       IconButton(
                         onPressed:
-                            _confirming ||
-                                _uploadingImages ||
-                                _waitingSeconds > 0 ||
-                                !context.read<PostEditBloc>().canSubmit
+                            _confirming || _uploading || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
                             ? null
                             : () async => _onFinish(context, state, saveDraft: true),
                         icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft

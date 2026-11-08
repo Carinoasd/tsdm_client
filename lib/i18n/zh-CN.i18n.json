@@ -3559,5 +3559,25 @@
       "body": "《${title}》有 ${n} 条新回复",
       "hidden": "追踪的帖子有 ${n} 条新回复"
     }
+  },
+  "customEmoji": {
+    "title": "自定义表情包",
+    "newPack": "新建表情包",
+    "name": "名称",
+    "rename": "重命名",
+    "delete": "删除表情包",
+    "deleteConfirm": "删除「$name」和其中的图片？",
+    "addImages": "添加图片",
+    "added": "已添加 ${count: int} 张图片",
+    "noneAdded": "没有可添加的图片",
+    "removeTitle": "移除图片",
+    "remove": "移除这张图片？",
+    "export": "导出",
+    "import": "导入",
+    "imported": "已导入 ${count: int} 张图片",
+    "importInvalid": "不是表情包文件",
+    "exportFailed": "导出失败",
+    "empty": "还没有表情包",
+    "count": "${count: int} 张"
   }
 }

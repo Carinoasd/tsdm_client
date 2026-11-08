@@ -335,6 +335,12 @@ class ScreenPaths {
   /// Page listing the threads the current account follows.
   static const String followedThreads = '/followedThreads';
 
+  /// Page managing the custom emoji packs.
+  static const String customEmojiPacks = '/customEmojiPacks';
+
+  /// Page of one custom emoji pack: its images.
+  static const String customEmojiPack = '/customEmojiPack/:packId';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 
