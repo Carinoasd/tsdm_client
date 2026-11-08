@@ -40,6 +40,8 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
 
   Future<void> _loadStore() async {
     final store = widget.store ?? await CustomFontStore.open();
+    // Register them all so every row can be previewed.
+    await store.loadAll();
     final imported = await store.list();
     if (!mounted) {
       return;
@@ -62,6 +64,7 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
     if (path == null || !mounted) {
       return;
     }
+    setState(() => _importFailed = false);
     String? family;
     try {
       family = await store.import(File(path));

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -28,6 +29,25 @@ class CustomFontStore {
 
   final Future<void> Function(String family, Uint8List bytes) _registerFont;
 
+  /// Families registered with the engine in this session. The engine can not unload or replace a family, so a family
+  /// is registered once and a replaced font file only shows after the app restarts.
+  static final Set<String> _registeredFamilies = {};
+
+  /// Family names the app or the engine already uses for generic fonts; importing a file with such a name is refused.
+  static const reservedFamilies = {'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'roboto'};
+
+  /// Forget which families were registered (tests only; the engine itself keeps them).
+  @visibleForTesting
+  static void resetRegisteredFamilies() => _registeredFamilies.clear();
+
+  Future<void> _register(String family, Uint8List bytes) async {
+    if (_registeredFamilies.contains(family)) {
+      return;
+    }
+    await _registerFont(family, bytes);
+    _registeredFamilies.add(family);
+  }
+
   static Future<void> _loadWithFontLoader(String family, Uint8List bytes) async {
     final loader = FontLoader(family)..addFont(Future.value(ByteData.sublistView(bytes)));
     await loader.load();
@@ -38,14 +58,14 @@ class CustomFontStore {
       supportedExtensions.contains(p.extension(path).replaceFirst('.', '').toLowerCase());
 
   /// The family name for the font file at [path].
-  static String familyOf(String path) => p.basenameWithoutExtension(path);
+  static String familyOf(String path) => p.basenameWithoutExtension(path).trim();
 
   /// Families of the imported fonts, sorted.
   Future<List<String>> list() async {
     if (!directory.existsSync()) {
       return const [];
     }
-    final families = <String>[];
+    final families = <String>{};
     try {
       await for (final entity in directory.list()) {
         if (entity is File && isSupported(entity.path)) {
@@ -55,7 +75,7 @@ class CustomFontStore {
     } on FileSystemException {
       return const [];
     }
-    return families..sort();
+    return families.toList()..sort();
   }
 
   /// Copy the font file [source] into the store, register it and return its family name.
@@ -67,14 +87,20 @@ class CustomFontStore {
       throw FormatException('unsupported font file', source.path);
     }
     final family = familyOf(source.path);
+    if (family.isEmpty || reservedFamilies.contains(family.toLowerCase())) {
+      throw FormatException('reserved font name', source.path);
+    }
     final bytes = await source.readAsBytes();
     // Register first so a broken file is never kept.
     try {
-      await _registerFont(family, bytes);
+      await _register(family, bytes);
     } on Object catch (e) {
       throw FormatException('font file can not be loaded: $e', source.path);
     }
     await directory.create(recursive: true);
+    // Same name with the other extension is replaced, not kept beside it.
+    await delete(family);
+    // If the write fails the font works for this session only.
     await _fileOf(family, p.extension(source.path).toLowerCase()).writeAsBytes(bytes, flush: true);
     return family;
   }
@@ -87,6 +113,23 @@ class CustomFontStore {
         await file.delete();
       }
     }
+  }
+
+  /// Register the imported font [family] with the engine; false when there is no such font or it fails to load.
+  Future<bool> load(String family) async {
+    for (final ext in supportedExtensions) {
+      final file = _fileOf(family, '.$ext');
+      if (!file.existsSync()) {
+        continue;
+      }
+      try {
+        await _register(family, await file.readAsBytes());
+        return true;
+      } on Object {
+        return false;
+      }
+    }
+    return false;
   }
 
   /// Register all imported fonts with the engine, returning the families that loaded.
@@ -104,7 +147,7 @@ class CustomFontStore {
         }
         final family = familyOf(entity.path);
         try {
-          await _registerFont(family, await entity.readAsBytes());
+          await _register(family, await entity.readAsBytes());
           loaded.add(family);
         } on Object {
           // Broken file: skip, the default font stays.

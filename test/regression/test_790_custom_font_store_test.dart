@@ -29,6 +29,7 @@ void main() {
     root = Directory.systemTemp.createTempSync('font_store_test');
     fonts = Directory('${root.path}/store/fonts');
     registered = [];
+    CustomFontStore.resetRegisteredFamilies();
   });
 
   tearDown(() => root.deleteSync(recursive: true));
@@ -55,6 +56,28 @@ void main() {
     expect(await store.list(), isEmpty);
   });
 
+  test('importing a family again with another extension replaces the file', () async {
+    final store = makeStore();
+    await store.import(makeSource('Dup.ttf'));
+    await store.import(makeSource('Dup.otf'));
+    expect(await store.list(), ['Dup']);
+    expect(fonts.listSync().length, 1);
+  });
+
+  test('generic family names are refused', () async {
+    await expectLater(makeStore().import(makeSource('Monospace.ttf')), throwsFormatException);
+  });
+
+  test('load registers only the named font', () async {
+    await makeStore().import(makeSource('One.ttf'));
+    await makeStore().import(makeSource('Two.ttf'));
+    registered.clear();
+    CustomFontStore.resetRegisteredFamilies();
+    expect(await makeStore().load('Two'), isTrue);
+    expect(registered, ['Two']);
+    expect(await makeStore().load('Missing'), isFalse);
+  });
+
   test('delete removes the file', () async {
     final store = makeStore();
     await store.import(makeSource('A.ttf'));
@@ -68,6 +91,7 @@ void main() {
     await makeStore().import(makeSource('Bad.ttf'));
     File('${fonts.path}/readme.txt').writeAsStringSync('x');
     registered.clear();
+    CustomFontStore.resetRegisteredFamilies();
     final loaded = await makeStore(failing: {'Bad'}).loadAll();
     expect(loaded, ['Good']);
     expect(registered, ['Good']);

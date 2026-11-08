@@ -177,9 +177,12 @@ Future<void> _boot(List<String> args) async {
     }
   }
 
-  // Register the imported font files before the theme is built; a family that fails to load falls back to the default.
+  // Register the selected font if it is an imported file before the theme is built (the others are registered when the
+  // font dialog opens); a font that fails to load falls back to the default.
   try {
-    await (await CustomFontStore.open()).loadAll().timeout(const Duration(seconds: 5));
+    if (settings.fontFamily.isNotEmpty) {
+      await (await CustomFontStore.open()).load(settings.fontFamily).timeout(const Duration(seconds: 5));
+    }
   } on Object catch (e, st) {
     talker.handle(e, st, 'load imported fonts failed');
   }
