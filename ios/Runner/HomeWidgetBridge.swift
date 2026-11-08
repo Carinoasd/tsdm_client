@@ -128,7 +128,8 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
   // MARK: - Scene events
 
   // The selectors are spelled out: the protocol methods are optional, so a Swift name that missed them would only warn
-  // and never be called; with the selector a mismatch does not compile.
+  // and never be called. With the selector the Swift name does not matter, but the selector strings must be the ones
+  // of the Flutter headers (test_770 checks them).
 
   @objc(scene:willConnectToSession:options:)
   func scene(

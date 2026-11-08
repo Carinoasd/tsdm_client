@@ -149,6 +149,14 @@ void main() {
         expect(bridge, contains('args["$key"]'));
       }
       expect(read('ios/Runner/AppDelegate.swift'), contains('HomeWidgetBridge.register(with:'));
+      // The optional protocol methods are bound by their selectors, as the Flutter headers declare them.
+      for (final selector in [
+        'scene:willConnectToSession:options:',
+        'scene:openURLContexts:',
+        'application:openURL:options:',
+      ]) {
+        expect(bridge, contains('@objc($selector)'));
+      }
     });
 
     test('the widget opens the links of Dart', () {
