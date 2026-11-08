@@ -118,7 +118,25 @@ class KeyboardShortcutsHost extends StatelessWidget {
     const SingleActivator(LogicalKeyboardKey.numpadEnter): const OpenItemIntent(),
     const SingleActivator(LogicalKeyboardKey.home): const ScrollToStartIntent(),
     const SingleActivator(LogicalKeyboardKey.end): const ScrollToEndIntent(),
+    ..._withPrimary(LogicalKeyboardKey.keyW, const ClosePaneTabIntent()),
+    // Control on every platform: Cmd+Tab switches the apps of macOS.
+    const SingleActivator(LogicalKeyboardKey.tab, control: true): const NextPaneTabIntent(),
+    const SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true): const PreviousPaneTabIntent(),
+    for (final (index, key) in _digits.indexed) ..._withPrimary(key, SelectPaneTabIntent(index)),
   };
+
+  /// The keys 1 to 9, for the tabs of the detail pane.
+  static const List<LogicalKeyboardKey> _digits = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+    LogicalKeyboardKey.digit7,
+    LogicalKeyboardKey.digit8,
+    LogicalKeyboardKey.digit9,
+  ];
 
   @override
   Widget build(BuildContext context) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/blocking/models/thread_filter.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -583,6 +584,17 @@ final class SyncRepository with LoggerMixin {
     }
     doc = doc.withItems('blocks', blocks);
 
+    // Thread filters: the records this device holds, removals included (a removal is recorded when it is made, never
+    // read from a record missing here), over the forum's items this device never took (a device of a version that did
+    // not read them kept them in its last document: they are carried, not deleted).
+    final filters = await _store.threadFilters(uid);
+    for (final (section, records) in <(String, List<ThreadFilterRecord>)>[
+      ('block_keywords', filters.keywordRecords),
+      ('block_forums', filters.forumRecords),
+    ]) {
+      doc = doc.withItems(section, {...base.items(section), for (final r in records) r.key: r.toItem()});
+    }
+
     // Rate templates: one item, like the phrases. A category left out keeps the forum's section as it is.
     if (_on(SyncCategory.rateTemplates)) {
       final templates = await _store.rateTemplates();
@@ -674,10 +686,26 @@ final class SyncRepository with LoggerMixin {
       visits.where((e) => SyncDocument.isDeleted(e.value) && SyncDocument.updatedOf(e.value) >= keepSince),
       syncVisitTombstonesMax,
     );
-    final blocks = {
-      for (final e in doc.items('blocks').entries)
+    Map<String, Map<String, dynamic>> withoutOldDeletions(String section) => {
+      for (final e in doc.items(section).entries)
         if (!SyncDocument.isDeleted(e.value) || SyncDocument.updatedOf(e.value) >= keepSince) e.key: e.value,
     };
+    final blocks = withoutOldDeletions('blocks');
+    // The filters in use, the latest [threadFilterMax] of each, and the recent removals.
+    Map<String, Map<String, dynamic>> filters(String section) {
+      final kept = withoutOldDeletions(section).entries;
+      // In the order of the devices' own cap (compareThreadFilterRecords): the same latest ones, ties by key.
+      final live = kept.where((e) => !SyncDocument.isDeleted(e.value)).toList()
+        ..sort((a, b) {
+          final byTime = SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value));
+          return byTime != 0 ? byTime : a.key.compareTo(b.key);
+        });
+      return {
+        for (final e in live.take(threadFilterMax)) e.key: e.value,
+        for (final e in kept.where((e) => SyncDocument.isDeleted(e.value))) e.key: e.value,
+      };
+    }
+
     // Private messages never go to the forum's table, whoever wrote them there.
     final draftItems = doc.items('drafts').entries.where((e) => syncsDraft(e.key));
     final liveDrafts = latest(draftItems.where((e) => !SyncDocument.isDeleted(e.value)), syncDraftsMax);
@@ -700,6 +728,8 @@ final class SyncRepository with LoggerMixin {
     var fitted = doc
         .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
         .withItems('blocks', blocks)
+        .withItems('block_keywords', filters('block_keywords'))
+        .withItems('block_forums', filters('block_forums'))
         .withItems('drafts', drafts());
     // Size: the oldest visits go first, then the oldest deletion records, then the drafts.
     while (fitted.encodedLength > _documentMaxBytes) {
@@ -786,6 +816,21 @@ final class SyncRepository with LoggerMixin {
     final localBlocks = await _store.blocks(uid);
     if (merged.items('blocks').isNotEmpty && !setEquals(blocks.toSet(), localBlocks.toSet())) {
       await _store.saveBlocks(uid, blocks);
+    }
+
+    // Thread filters record by record, each where the merge is later than this device's.
+    final keywordItems = merged.items('block_keywords');
+    final forumItems = merged.items('block_forums');
+    if (keywordItems.isNotEmpty || forumItems.isNotEmpty) {
+      await _store.applyThreadFilters(
+        uid,
+        keywords: [
+          for (final MapEntry(:key, :value) in keywordItems.entries) ?BlockedKeyword.fromItem(key, value),
+        ],
+        forums: [
+          for (final MapEntry(:key, :value) in forumItems.entries) ?BlockedForum.fromItem(key, value),
+        ],
+      );
     }
 
     // The stamps are written before the values: the change the streams report next is the sync's, not the user's.
