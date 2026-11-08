@@ -33,6 +33,9 @@ class _FakeEngine implements TtsEngine {
   int prepared = 0;
   int released = 0;
 
+  /// Whether [stop] takes a trip to the platform (a moment) before it returns.
+  bool slowStop = false;
+
   @override
   Stream<void> get interruptions => _interruptions.stream;
 
@@ -62,6 +65,9 @@ class _FakeEngine implements TtsEngine {
   @override
   Future<void> stop() async {
     stops++;
+    if (slowStop) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
     finish(TtsOutcome.cancelled);
   }
 
@@ -252,5 +258,102 @@ void main() {
     await c.next();
     await _settle();
     expect(c.currentPid, '3');
+  });
+
+  test('closing right after next is not undone by the next floor', () async {
+    engine.slowStop = true;
+    final c = make()..updateFloors([_post(1), _post(2)], canLoadMore: false);
+    await c.start('1');
+    await _settle();
+    final moving = c.next();
+    final closing = c.stop();
+    await Future.wait([moving, closing]);
+    await _settle();
+    expect(c.status, TtsStatus.idle);
+    expect(c.currentPid, isNull);
+  });
+
+  test('pausing right after previous is not undone', () async {
+    engine.slowStop = true;
+    final c = make()..updateFloors([_post(1), _post(2)], canLoadMore: false);
+    await c.start('2');
+    await _settle();
+    final moving = c.previous();
+    final pausing = c.pause();
+    await Future.wait([moving, pausing]);
+    await _settle();
+    expect(c.status, TtsStatus.paused);
+  });
+
+  test('closing while the speed changes stays closed', () async {
+    engine.slowStop = true;
+    final c = make()..updateFloors([_post(1)], canLoadMore: false);
+    await c.start('1');
+    await _settle();
+    final changing = c.setRate(1.25);
+    final closing = c.stop();
+    await Future.wait([changing, closing]);
+    await _settle();
+    expect(c.status, TtsStatus.idle);
+  });
+
+  test('a page that arrives with nothing to read asks for the one after it', () async {
+    final c = make()..updateFloors([_post(1)], canLoadMore: true);
+    await c.start('1');
+    await _settle();
+    engine.finish();
+    await _settle();
+    engine.finish();
+    await _settle();
+    expect(pageRequests, 1);
+    c.updateFloors([_post(1), _post(2, hot: true), _post(3, hot: true)], canLoadMore: true);
+    expect(c.status, TtsStatus.waitingPage);
+    expect(pageRequests, 2);
+    // No page after that one: over.
+    c.updateFloors([_post(1), _post(2, hot: true), _post(3, hot: true), _post(4, hot: true)], canLoadMore: false);
+    await _settle();
+    expect(c.status, TtsStatus.idle);
+  });
+
+  test('paused while waiting for a page: the floor that arrives is read on resume, not before', () async {
+    final c = make()..updateFloors([_post(1)], canLoadMore: true);
+    await c.start('1');
+    await _settle();
+    engine.finish();
+    await _settle();
+    engine.finish();
+    await _settle();
+    expect(c.status, TtsStatus.waitingPage);
+    await c.pause();
+    expect(c.status, TtsStatus.paused);
+    c.updateFloors([_post(1), _post(2)], canLoadMore: false);
+    await _settle();
+    expect(c.status, TtsStatus.paused);
+    expect(engine.said, ['head 1', 'body 1']);
+    c.resume();
+    await _settle();
+    expect(c.status, TtsStatus.speaking);
+    expect(c.currentPid, '2');
+    expect(engine.said.last, 'head 2');
+  });
+
+  test('resumed while the page is still missing: waits for it', () async {
+    final c = make()..updateFloors([_post(1)], canLoadMore: true);
+    await c.start('1');
+    await _settle();
+    engine.finish();
+    await _settle();
+    engine.finish();
+    await _settle();
+    await c.pause();
+    c.resume();
+    expect(c.status, TtsStatus.waitingPage);
+  });
+
+  test('the speed of the engine: a multiple of the normal one, shifted on Windows', () {
+    expect(engineRateOf(1, windows: false), 0.5);
+    expect(engineRateOf(1.5, windows: false), 0.75);
+    expect(engineRateOf(1, windows: true), 0.5);
+    expect(engineRateOf(1.5, windows: true), 1.0);
   });
 }

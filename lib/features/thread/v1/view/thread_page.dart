@@ -782,7 +782,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     var tts = _tts;
     if (tts == null) {
       final tr = context.t.threadTts;
-      final blocks = currentBlockList(context, listen: false);
       tts = _tts = ThreadTtsController(
         engine: FlutterTtsEngine(),
         languageTag: switch (LocaleSettings.currentLocale) {
@@ -790,7 +789,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           AppLocale.zhCn => 'zh-CN',
           AppLocale.zhTw => 'zh-TW',
         },
-        skip: (post) => post.hot || blocks.hidesString(post.author.uid),
+        // Asked each time: an author blocked while reading is not read from then on.
+        skip: (post) => post.hot || (mounted && currentBlockList(context, listen: false).hidesString(post.author.uid)),
         speechOf: (post) {
           final t = mounted ? context.t.threadTts : tr;
           final floor = post.shownFloor;

@@ -75,6 +75,7 @@ class ThreadTtsController extends ChangeNotifier {
   int _token = 0;
   int? _requestedAt;
   FloorSpeech? _speech;
+  bool _pausedWaiting = false;
   bool _disposed = false;
 
   /// What the reader is doing.
@@ -108,11 +109,9 @@ class ThreadTtsController extends ChangeNotifier {
       final next = _playableAfter(pid);
       if (next != null) {
         _begin(next.postID);
-      } else if (_nextFailed || !_canLoadMore) {
-        if (_nextFailed) {
-          onFailed?.call();
-        }
-        unawaited(stop());
+      } else {
+        // Nothing to read in what arrived (every floor skipped): the page after it, or the end.
+        _waitForPage();
       }
     }
   }
@@ -139,6 +138,14 @@ class ThreadTtsController extends ChangeNotifier {
 
   /// Pauses; [resume] goes on from the part that was being said.
   Future<void> pause() async {
+    if (_status == TtsStatus.waitingPage) {
+      // Nothing is being said: the floor after the loaded ones is read when the reader is resumed.
+      _token++;
+      _pausedWaiting = true;
+      _status = TtsStatus.paused;
+      _notify();
+      return;
+    }
     if (_status != TtsStatus.speaking) {
       return;
     }
@@ -157,6 +164,16 @@ class ThreadTtsController extends ChangeNotifier {
     if (pid == null) {
       return;
     }
+    if (_pausedWaiting) {
+      _pausedWaiting = false;
+      final target = _playableAfter(pid);
+      if (target != null) {
+        _begin(target.postID);
+      } else {
+        _waitForPage();
+      }
+      return;
+    }
     _status = TtsStatus.speaking;
     _notify();
     unawaited(_play());
@@ -168,8 +185,12 @@ class ThreadTtsController extends ChangeNotifier {
     if (!active || pid == null) {
       return;
     }
-    _token++;
+    final token = ++_token;
     await engine.stop();
+    if (token != _token || _disposed) {
+      // Closed, paused or moved on meanwhile.
+      return;
+    }
     final target = _playableAfter(pid);
     if (target != null) {
       _begin(target.postID);
@@ -184,8 +205,11 @@ class ThreadTtsController extends ChangeNotifier {
     if (!active || pid == null) {
       return;
     }
-    _token++;
+    final token = ++_token;
     await engine.stop();
+    if (token != _token || _disposed) {
+      return;
+    }
     final index = _indexOf(pid);
     Post? target;
     for (var i = (index < 0 ? _floors.length : index) - 1; i >= 0; i--) {
@@ -208,8 +232,11 @@ class ThreadTtsController extends ChangeNotifier {
     _notify();
     await engine.setRate(rate);
     if (_status == TtsStatus.speaking) {
-      _token++;
+      final token = ++_token;
       await engine.stop();
+      if (token != _token || _disposed || _status != TtsStatus.speaking) {
+        return;
+      }
       unawaited(_play());
     }
   }
@@ -223,6 +250,7 @@ class ThreadTtsController extends ChangeNotifier {
     _part = 0;
     _speech = null;
     _requestedAt = null;
+    _pausedWaiting = false;
     _notify();
     if (wasActive) {
       await engine.stop();
@@ -268,6 +296,7 @@ class ThreadTtsController extends ChangeNotifier {
     _speech = speechOf(post);
     _status = TtsStatus.speaking;
     _requestedAt = null;
+    _pausedWaiting = false;
     _notify();
     unawaited(_play());
   }

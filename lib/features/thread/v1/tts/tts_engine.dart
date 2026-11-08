@@ -45,6 +45,10 @@ abstract interface class TtsEngine {
 /// The speed the platform engines take for the normal one: 0.5 on Android (doubled by the plugin), iOS and macOS.
 const _normalEngineRate = 0.5;
 
+/// What `flutter_tts` takes for [rate] times the normal speed: on Windows the plugin adds 0.5 to the number (the
+/// speaking rate of WinRT, 1.0 being normal).
+double engineRateOf(double rate, {required bool windows}) => windows ? rate - 0.5 : _normalEngineRate * rate;
+
 /// [TtsEngine] on `flutter_tts` (Android, iOS, Windows and macOS) and `audio_session` (Android and iOS).
 final class FlutterTtsEngine implements TtsEngine {
   /// Constructor.
@@ -86,7 +90,8 @@ final class FlutterTtsEngine implements TtsEngine {
           _subscriptions
             ..add(
               session.interruptionEventStream.listen((event) {
-                if (event.begin) {
+                // Ducked (a notification sound, a navigation prompt): the reader goes on, quieter.
+                if (event.begin && event.type != AudioInterruptionType.duck) {
                   _interruptions.add(null);
                 }
               }),
@@ -111,7 +116,7 @@ final class FlutterTtsEngine implements TtsEngine {
   @override
   Future<void> setRate(double rate) async {
     try {
-      await _tts.setSpeechRate(_normalEngineRate * rate);
+      await _tts.setSpeechRate(engineRateOf(rate, windows: isWindows));
     } on Object {
       // Keeps the speed it had.
     }
