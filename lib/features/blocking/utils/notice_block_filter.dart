@@ -24,7 +24,7 @@ bool isMutedPersonalMessagePeer(int? peerUid, UserBlockList list) => list.hides(
 /// back rather than announced, and nothing is written to the list.
 Future<UserBlockList> noticeBlockListOf(StorageProvider storage, int uid) async {
   try {
-    return await UserBlockRepository(storage).load(uid);
+    return await UserBlockRepository(storage).load(uid, withFilters: false);
   } on UserBlockStorageException {
     return UserBlockList.unknown(uid, status: UserBlockListStatus.failed);
   }

@@ -89,7 +89,11 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
     recordAuthors(group);
     final blockList = currentBlockList(context);
     final listTileList = group.threadList
-        .where((e) => !blockList.hides(uidOfProfileUrl(e.authorUrl)))
+        .where(
+          (e) =>
+              !blockList.hides(uidOfProfileUrl(e.authorUrl)) &&
+              (group.isRank || !blockList.hidesThread(title: e.threadTitle)),
+        )
         .map((e) => _sectionThreadBuilder(context, e, isRank: group.isRank))
         .toList();
 

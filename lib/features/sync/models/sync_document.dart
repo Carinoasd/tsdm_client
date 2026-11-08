@@ -59,6 +59,10 @@ const int syncBookmarksMaxBytes = 24 * 1024;
 ///  "phrases": {"updated": ms, "items": ["…"]},
 ///  "blocks":  {"<uid>": {"updated": ms, "username": "…"},
 ///              "<uid>": {"updated": ms, "deleted": true}},
+///  "block_keywords": {"<keyword, lower case>": {"updated": ms, "text": "…"},
+///                     "<keyword, lower case>": {"updated": ms, "deleted": true}},
+///  "block_forums":   {"<fid>": {"updated": ms, "name": "…"},
+///                     "<fid>": {"updated": ms, "deleted": true}},
 ///  "rate_templates": {"updated": ms, "items": [{"name": "…", "ww": 0, "tsb": 0, "xc": 0, "tr": 0, "fh": 0,
 ///                                               "jl": 0, "special": 0, "special2": 0}]},
 ///  "settings": {"updated": ms, "values": {"<settings name>": value}},
@@ -79,7 +83,9 @@ const int syncBookmarksMaxBytes = 24 * 1024;
 /// message, `pm:<uid>`, which stays on its device): the latest [syncDraftsMax] within [syncDraftsMaxBytes], none over
 /// [syncDraftMaxBytes]. `bookmarks` holds the floor bookmarks of the account (`FloorBookmark`): the latest
 /// [syncBookmarksMax] within [syncBookmarksMaxBytes]. Each of the four can be left out of
-/// the sync on a device (its section is then neither read nor written there).
+/// the sync on a device (its section is then neither read nor written there). `block_keywords` and `block_forums`
+/// (the thread list filters, added after the first release of `schema` 1) go with the block list; a version that does
+/// not read them carries them through as unknown sections, and a document without them reads as no filter.
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device
@@ -169,13 +175,14 @@ final class SyncDocument {
   bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
-  static const itemSections = ['visits', 'blocks', 'drafts', 'bookmarks'];
+  static const itemSections = ['visits', 'blocks', 'block_keywords', 'block_forums', 'drafts', 'bookmarks'];
 
   /// The sections this version reads as one item each.
   static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`, `drafts`, `bookmarks`) by key, empty when the section is missing
-  /// or not an object. Items that are not objects are left out.
+  /// The items of section [name] (`visits`, `blocks`, `block_keywords`, `block_forums`, `drafts`, `bookmarks`) by key,
+  /// empty when the section is missing or not an object.
+  /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];
     if (section is! Map) {
