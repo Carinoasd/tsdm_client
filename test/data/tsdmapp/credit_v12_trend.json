@@ -1,0 +1,243 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794132000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "credit",
+ "schema": 12,
+ "timeoffset": 8,
+ "op": "log",
+ "query": {
+  "exttype": 0,
+  "income": 0,
+  "optype": "",
+  "starttime": "2026-09-14",
+  "endtime": "2026-11-08"
+ },
+ "filters": {
+  "exttype": [
+   {
+    "value": 0,
+    "name": "全部"
+   }
+  ],
+  "income": [],
+  "optype": []
+ },
+ "count": 8,
+ "page": 1,
+ "pages": 1,
+ "has_next": 0,
+ "logs": [
+  {
+   "logid": 897,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": 1,
+     "text": "威望 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1794124800
+  },
+  {
+   "logid": 898,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1,
+     "text": "天使币 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1794121200
+  },
+  {
+   "logid": 899,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1794099600
+  },
+  {
+   "logid": 896,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -5,
+     "text": "天使币 -5"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "expense",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1794016800
+  },
+  {
+   "logid": 894,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 0,
+     "text": "天使币 清零"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1793671200
+  },
+  {
+   "logid": 895,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1793498400
+  },
+  {
+   "logid": 893,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 7,
+     "text": "天使币 +7"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1791597600
+  },
+  {
+   "logid": 892,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 2,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 100,
+     "text": "天使币 +100"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 500
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1788228000
+  }
+ ]
+}

@@ -28,7 +28,7 @@ enum PollAvailability {
 /// One option and its result, only when the server actually supplies it.
 final class PollOption {
   /// Constructor.
-  const PollOption({required this.label, this.id, this.result, this.image});
+  const PollOption({required this.label, this.id, this.result, this.image, this.votes, this.percent});
 
   /// Submission identifier; absent when the server doesn't offer a choice.
   final String? id;
@@ -38,6 +38,12 @@ final class PollOption {
 
   /// Original visible result. Never inferred from missing markup.
   final String? result;
+
+  /// Number of votes, only when the server shows the results to this account.
+  final int? votes;
+
+  /// Share of the votes in percent (0 to 100), only when the server shows the results to this account.
+  final double? percent;
 
   /// The image of an image poll's choice (absolute url), when the forum's app API gives it (plugin 2.8.0).
   final String? image;
@@ -125,7 +131,16 @@ ForumPoll parseForumPoll(uh.Document document, {required bool loggedIn}) {
     final result = summary.contains('投票后结果可见') || resultRow?.querySelector('.pbg') == null
         ? null
         : _text(resultRow?.querySelectorAll('td').lastOrNull);
-    options.add(PollOption(label: _text(cell), id: input?.getAttribute('value'), result: result));
+    final counted = result == null ? null : RegExp(r'([\d.]+)\s*%\s*\((\d+)\)').firstMatch(result);
+    options.add(
+      PollOption(
+        label: _text(cell),
+        id: input?.getAttribute('value'),
+        result: result,
+        votes: int.tryParse(counted?.group(2) ?? ''),
+        percent: double.tryParse(counted?.group(1) ?? ''),
+      ),
+    );
   }
   final hash = form.querySelector('input[name="formhash"]')?.getAttribute('value');
   final rawAction = Uri.tryParse(form.getAttribute('action') ?? '');
@@ -200,6 +215,8 @@ ForumPoll forumPollFromSpecial(PollSpecial special, {required bool loggedIn}) {
             ? null
             : '${choice.percent!.toStringAsFixed(2)}% (${choice.votes})',
         image: choice.image?.small ?? choice.image?.big,
+        votes: choice.votes,
+        percent: choice.percent,
       ),
   ]);
   final maximum = special.multiple ? (special.maxChoices > 0 ? special.maxChoices : options.length) : 1;

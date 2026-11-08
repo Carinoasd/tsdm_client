@@ -11,6 +11,7 @@ import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/map.dart';
+import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/points/stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -92,6 +93,7 @@ extension _WithFormExt<T> on Dio {
     Map<String, dynamic>? queryParameters,
     bool singleAttempt = false,
     Set<int> acceptStatus = const {},
+    Map<String, String> headers = const {},
   }) => AsyncEither.tryCatch(
     () async => post(
       path,
@@ -100,7 +102,7 @@ extension _WithFormExt<T> on Dio {
       options: _withAjaxHeader(
         path,
         Options(
-          headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded'},
+          headers: {HttpHeaders.contentTypeHeader: 'application/x-www-form-urlencoded', ...headers},
           followRedirects: singleAttempt ? false : null,
           extra: singleAttempt ? {singleAttemptHttpRequestKey: true} : null,
           // An error status the caller reads the body of (the app API's 409 and 413 of `sync`) is a response, not an
@@ -304,7 +306,7 @@ final class NetClientProvider with LoggerMixin {
   /// redirect, which an older plugin (or none) answers as before; the forum handles the form the same either way. A
   /// form the plugin leaves alone (the login, the plugin's own API) or whose answer is another plugin's JSON (the
   /// red packet, the `@` search) is posted as it is with [tsdmAppJson] false. The readers of every form posted with
-  /// the parameter take the JSON result first.
+  /// the parameter take the JSON result first. [headers] are added to the request's.
   AsyncEither<Response<dynamic>> postForm(
     String path, {
     Object? data,
@@ -312,6 +314,7 @@ final class NetClientProvider with LoggerMixin {
     bool singleAttempt = false,
     bool tsdmAppJson = true,
     Set<int> acceptStatus = const {},
+    Map<String, String> headers = const {},
   }) => AsyncEither(
     () => _dio
         .postWithForm(
@@ -320,6 +323,7 @@ final class NetClientProvider with LoggerMixin {
           queryParameters: queryParameters,
           singleAttempt: singleAttempt,
           acceptStatus: acceptStatus,
+          headers: headers,
         )
         .run(),
   );
@@ -640,9 +644,23 @@ final class _IdentityGuard extends Interceptor with LoggerMixin {
 }
 
 /// Handle exceptions during web request.
+///
+/// Also carries the device id of the forum's app API both ways ([LoginDeviceHeader]): every client has this
+/// interceptor (the login, the switch's check and the polls of every account too), after `_IdentityGuard`, and one
+/// more interceptor would be one more hop on the event loop for every request.
 class _ErrorHandler extends Interceptor with LoggerMixin {
   @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    LoginDeviceHeader.addTo(options);
+    handler.next(options);
+  }
+
+  @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+    if (LoginDeviceHeader.revokedError(response) case final revoked?) {
+      handler.reject(revoked);
+      return;
+    }
     getIt.get<NetErrorSaver>().clear();
     handler.next(response);
   }

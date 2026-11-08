@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
@@ -58,6 +60,8 @@ class _MunchedHtmlState extends State<MunchedHtml> {
       postContent: postContent,
       // Only a post's content is marked: a signature under the same scope does not depend on the words searched for.
       highlight: postContent ? SearchHighlightScope.maybeOf(context)?.identity : null,
+      // Read, not watched: a floor built after the setting changed is munched again instead of taken from the cache.
+      threadLinkCard: context.readOrNull<SettingsBloc>()?.state.settingsMap.threadLinkCard ?? true,
     );
     final cache = MunchCacheScope.maybeOf(context);
     if (deps != _deps || cache != _cache) {
@@ -127,6 +131,7 @@ final class _MunchDeps {
     required this.typography,
     required this.postContent,
     required this.highlight,
+    required this.threadLinkCard,
   });
 
   final ThemeData theme;
@@ -138,6 +143,9 @@ final class _MunchDeps {
   /// The words searched for marked in the text ([SearchHighlightScope.identity]), null when none.
   final (String, Color, Color)? highlight;
 
+  /// Links to threads drawn as cards (the `threadLinkCard` setting).
+  final bool threadLinkCard;
+
   @override
   bool operator ==(Object other) =>
       other is _MunchDeps &&
@@ -146,10 +154,11 @@ final class _MunchDeps {
       other.locale == locale &&
       other.typography == typography &&
       other.postContent == postContent &&
-      other.highlight == highlight;
+      other.highlight == highlight &&
+      other.threadLinkCard == threadLinkCard;
 
   @override
-  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent, highlight);
+  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent, highlight, threadLinkCard);
 }
 
 /// Munched contents kept for one page that shows many of them (the thread page): the content of a floor built again

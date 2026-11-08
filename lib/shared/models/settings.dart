@@ -199,6 +199,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// center showed who did what, and no expanded list of items.
   notificationHideContent<bool>(name: 'notificationHideContent', type: bool, defaultValue: false),
 
+  /// Count the time spent reading threads (the reading statistics of the "me" page), kept on this device only.
+  readingTimeStats<bool>(name: 'readingTimeStats', type: bool, defaultValue: true),
+
   /// Announce replies (and quotes) of the auto sync in system notifications.
   notifyReply<bool>(name: 'notifyReply', type: bool, defaultValue: true),
 
@@ -213,6 +216,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// Announce system notices, broadcast messages and every other notice kind of the auto sync in system notifications.
   notifySystem<bool>(name: 'notifySystem', type: bool, defaultValue: true),
+
+  /// Announce new replies of the threads the account follows (`FollowedThread`) in system notifications.
+  notifyFollowedThread<bool>(name: 'notifyFollowedThread', type: bool, defaultValue: true),
+
+  /// Minutes between two checks of the followed threads for new replies: 15, 30 or 60.
+  followedThreadCheckMinutes<int>(name: 'followedThreadCheckMinutes', type: int, defaultValue: 30),
 
   /// Do not post system notifications between [notifyQuietStart] and [notifyQuietEnd]; what arrives meanwhile is not announced afterwards.
   notifyQuietHours<bool>(name: 'notifyQuietHours', type: bool, defaultValue: false),
@@ -272,9 +281,25 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// right).
   threadSwipePaging<bool>(name: 'threadSwipePaging', type: bool, defaultValue: false),
 
+  /// Forums whose threads open in immersive reading (the app bar and the reply bar hidden until a tap): the ids
+  /// separated by commas, a `+` after an id taking the subforums along (`12,34+`). Kept as text so the cross-device sync
+  /// carries it. See `ImmersiveForums`.
+  immersiveForums<String>(name: 'immersiveForums', type: String, defaultValue: ''),
+
+  /// Every thread opens in immersive reading, whatever [immersiveForums] holds.
+  immersiveAllForums<bool>(name: 'immersiveAllForums', type: bool, defaultValue: false),
+
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
+
+  /// Width of the list pane of [twoPaneLayout] the divider was dragged to, in logical pixels; 0 while never dragged
+  /// (the list then takes its share of the window, see `twoPaneListWidthFor`). Tied to the screen: not synced.
+  twoPaneListWidth<double>(name: 'twoPaneListWidth', type: double, defaultValue: 0),
+
+  /// A video of bilibili or YouTube in a post shows its cover, title, author and length on the card, asked from the
+  /// site when the card is shown. Off: the card names the site only and nothing is asked.
+  postMediaPreview<bool>(name: 'postMediaPreview', type: bool, defaultValue: true),
 
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
   /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
@@ -314,7 +339,7 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: 1,
   ),
 
-  /// Line height of the post content in thread page, a multiple of the font size (1.4 to 2.0).
+  /// Line height of the post content in thread page, a multiple of the font size (1.2 to 2.0).
   ///
   /// Posts written with few line breaks read as a wall of text on a phone at the line height of the body text (1.43).
   threadContentLineHeight<double>(
@@ -329,6 +354,15 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     type: double,
     defaultValue: PostTypography.defaultParagraphSpacing,
   ),
+
+  /// Draw the links in the post content that show the url of a thread of the forum as cards of the thread (its title,
+  /// author, forum, replies and views, time), asked when the card comes into view.
+  threadLinkCard<bool>(name: 'threadLinkCard', type: bool, defaultValue: true),
+
+  /// Widest the floors of the thread page grow, in logical pixels (600 to 1200); 0: as the app lays them out
+  /// (`appReadingMaxWidth`, the content at most `htmlContentMaxWidth`). Only a window wider than it shows a difference.
+  /// Tied to the screen: not synced.
+  threadContentMaxWidth<double>(name: 'threadContentMaxWidth', type: double, defaultValue: 0),
 
   /// Cut long paragraphs of the post content after the end of a sentence (layout only, the text is not changed).
   threadContentSplitLongParagraphs<bool>(
@@ -373,11 +407,24 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// on a network that is not metered, or never (each loads when tapped).
   postImageAutoLoad<int>(name: 'postImageAutoLoad', type: int, defaultValue: 0),
 
+  /// When the data saver holds the large pictures back, the index of a `DataSaverMode`: never (the default), on a
+  /// metered network, or always. Tied to the device, not synced.
+  dataSaverMode<int>(name: 'dataSaverMode', type: int, defaultValue: 0),
+
   /// The quick phrases of the editors' toolbar button (a JSON list of strings, the order the user arranged), see
   /// `decodeQuickPhrases`.
   ///
   /// One value for every account; it lives in the settings table, so a backup carries it.
   editorQuickPhrases<String>(name: 'editorQuickPhrases', type: String, defaultValue: ''),
+
+  /// Every image uploaded in the post editor opens the image editor first; off, only when asked for.
+  editImageBeforeUpload<bool>(name: 'editImageBeforeUpload', type: bool, defaultValue: false),
+
+  /// The longest side an image is scaled down to before it is uploaded (one of `uploadImageMaxSides`), 0 for its size.
+  uploadImageMaxSide<int>(name: 'uploadImageMaxSide', type: int, defaultValue: 0),
+
+  /// The JPEG quality an edited or scaled image is uploaded with.
+  uploadImageQuality<int>(name: 'uploadImageQuality', type: int, defaultValue: 90),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});
