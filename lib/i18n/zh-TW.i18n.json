@@ -249,6 +249,7 @@
       "myThreads": "我的貼文",
       "favorites": "收藏",
       "history": "瀏覽紀錄",
+      "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
       "messages": "私訊",
@@ -2149,6 +2150,15 @@
   "musicCard": {
     "title": "音樂",
     "openLink": "開啟連結"
+  },
+  "readLater": {
+    "title": "稍後閱讀",
+    "add": "稍後閱讀",
+    "remove": "移出稍後閱讀",
+    "clear": "清空",
+    "clearConfirm": "清空稍後閱讀清單？",
+    "empty": "沒有待讀的貼文",
+    "needLogin": "請先登入"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",

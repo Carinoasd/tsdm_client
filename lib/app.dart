@@ -41,6 +41,7 @@ import 'package:tsdm_client/features/notification/repository/notification_reposi
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -567,6 +568,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           // so the marks are loaded before the first list shows.
           BlocProvider(
             create: (context) => RepliedThreadCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
+            lazy: false,
+          ),
+          // The threads the current account put aside to read later; not lazy so the lists know them at once.
+          BlocProvider(
+            create: (context) => ReadLaterCubit(storageProvider: getIt(), authenticationRepository: context.repo()),
             lazy: false,
           ),
           // Where the current account stopped reading the threads it visited: the thread lists mark them, the thread

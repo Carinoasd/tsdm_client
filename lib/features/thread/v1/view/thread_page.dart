@@ -33,6 +33,8 @@ import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
+import 'package:tsdm_client/features/read_later/utils/read_to_end.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -371,7 +373,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     } else if (page > 1 && bloc.state.tid != null) {
       bloc.add(ThreadJumpPageRequested(page));
     } else {
-      bloc.add(ThreadRefreshRequested());
+      bloc.add(_refreshEvent());
     }
   }
 
@@ -547,7 +549,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         if (tid == null) {
           return (
             title: neutral,
-            body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(ThreadRefreshRequested())),
+            body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(_refreshEvent())),
           );
         }
         _resolveThreadAuthor(context, tid);
@@ -600,7 +602,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     switch (done) {
       case ModerateDone.changed:
-        context.read<ThreadBloc>().add(ThreadRefreshRequested());
+        context.read<ThreadBloc>().add(_refreshEvent());
       case ModerateDone.deleted:
         final pane = TwoPaneScope.detailOf(context);
         if (pane != null && pane.pop()) {
@@ -608,7 +610,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         }
         // Nothing to go back to: the thread shows the forum's word that it is gone.
         if (!await Navigator.of(context).maybePop() && context.mounted) {
-          context.read<ThreadBloc>().add(ThreadRefreshRequested());
+          context.read<ThreadBloc>().add(_refreshEvent());
         }
     }
   }
@@ -782,6 +784,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         if (atOpen) {
           _resumeAt = progress;
         } else {
+          _readOn.continueFrom(_threadBloc?.state.generation ?? 0);
           _threadBloc?.add(
             ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page),
           );
@@ -809,6 +812,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// thread whose visit is kept ([_mayKeepVisit]).
   void _onTopFloorChanged(Post post, {required bool atThreadTop}) {
     _topPid = post.postID;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkReadToEnd();
+      }
+    });
     final offer = _resumeOffer;
     if (offer != null && (!atThreadTop || (post.shownFloor ?? 0) >= (offer.floor ?? 0))) {
       // Read on from the start, or got there: nothing to offer any more.
@@ -858,6 +866,54 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _pendingProgress = pending;
     _progressTimer?.cancel();
     _progressTimer = Timer(const Duration(seconds: 1), _keepProgress);
+  }
+
+  /// Whether the floors on screen go on from the start of the thread (or from where the reading stopped): a jump to
+  /// the last page does not read the thread.
+  final _readOn = ReadOnTracker();
+
+  /// The event of a refresh: the floors loaded again are read on from the start when the ones on screen were.
+  ThreadRefreshRequested _refreshEvent() {
+    _readOn.keepFrom(_threadBloc?.state.generation ?? 0);
+    return ThreadRefreshRequested();
+  }
+
+  /// The thread put aside from this page: it stays on the list until the page is opened again.
+  int? _readLaterAddedHere;
+
+  /// Take the thread off the read later list once its last floor is on screen: the last page is loaded, the floors
+  /// are in order from the first one and the list is scrolled to its end (or is short enough not to scroll).
+  ///
+  /// Only floors from the forum count (not an offline copy, not one author's floors).
+  void _checkReadToEnd() {
+    final cubit = context.readOrNull<ReadLaterCubit>();
+    final bloc = _threadBloc;
+    if (cubit == null || bloc == null || bloc.isClosed || !_listScrollController.hasClients) {
+      return;
+    }
+    final state = bloc.state;
+    if (state.status == ThreadStatus.success && state.postList.isNotEmpty) {
+      _readOn.floorsShown(generation: state.generation, firstPage: state.firstPage, openedResumed: _resumeAt != null);
+    }
+    final tid = int.tryParse(state.tid ?? '');
+    if (tid == null || tid == _readLaterAddedHere || !cubit.state.contains(tid)) {
+      return;
+    }
+    final position = _listScrollController.position;
+    if (!position.hasContentDimensions ||
+        !hasReadToEnd(
+          loaded: state.status == ThreadStatus.success,
+          offline: state.isOffline,
+          onlyOneAuthor: state.onlyVisibleUid != null,
+          readOnFromStart: _readOn.readOnFromStart,
+          newestFirst: state.shownNewestFirst,
+          canLoadMore: state.canLoadMore,
+          hasFloors: state.postList.isNotEmpty,
+          extentAfter: position.extentAfter,
+        )) {
+      return;
+    }
+    unawaited(cubit.remove(tid));
   }
 
   /// Keep the reading progress told last ([_onTopFloorChanged]).
@@ -1412,6 +1468,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (offer == null) {
       return;
     }
+    _readOn.continueFrom(_threadBloc?.state.generation ?? 0);
     _threadBloc?.add(ThreadJumpToFloorRequested(offer.floor ?? 1, pid: offer.pid?.toString(), page: offer.page));
   }
 
@@ -1793,7 +1850,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         threadState.exactOrder == 1 ||
         (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
     if (newestFirst) {
-      threadBloc.add(ThreadRefreshRequested());
+      threadBloc.add(_refreshEvent());
     } else {
       _landOnLastPost = true;
       threadBloc.add(const ThreadJumpPageRequested(lastPageAsked, pageFallback: 1));
@@ -1818,7 +1875,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Reloads by itself after its login: the reload kept for when this page shows again would be a second.
             _reloadWhenShown = false;
             // Still opening on the last floor: its page again, not the first one.
-            context.read<ThreadBloc>().add(_landOnLastPost ? _retryLoad(state) : ThreadRefreshRequested());
+            context.read<ThreadBloc>().add(_landOnLastPost ? _retryLoad(state) : _refreshEvent());
           },
         ),
       );
@@ -1861,6 +1918,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchEdited);
+    _listScrollController.addListener(_checkReadToEnd);
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
       _takeSavedProgress(progress, atOpen: true);
@@ -2084,7 +2142,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                 if (!newestFirst && page > 1) {
                   threadBloc.add(ThreadJumpPageRequested(page));
                 } else {
-                  threadBloc.add(ThreadRefreshRequested());
+                  threadBloc.add(_refreshEvent());
                 }
               } else if (state.status == ReplyStatus.failure) {
                 final tr = context.t.threadPage;
@@ -2195,7 +2253,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                       context.read<JumpPageCubit>().markLoading();
                       context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
                     },
-                    onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+                    onRefresh: () => context.read<ThreadBloc>().add(_refreshEvent()),
                     onCopyUrl: () async => copyToClipboard(context, threadUrl!),
                     onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
                     onBackToTop: () async => _backToTop(context),
@@ -2258,6 +2316,34 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             onSelected: () async =>
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
                           ),
+                        // Put aside on this device for the account in use: offline floors can be too.
+                        if (context.readOrNull<ReadLaterCubit>() != null &&
+                            context.select<ReadLaterCubit, int?>((cubit) => cubit.state.uid) != null)
+                          MenuCustomItem(
+                            icon: isReadLater(context, state.tid) ? Icons.watch_later : Icons.watch_later_outlined,
+                            description: isReadLater(context, state.tid)
+                                ? context.t.readLater.remove
+                                : context.t.readLater.add,
+                            onSelected: () async {
+                              // Before the list changes: nothing may take it off in between.
+                              final tid = int.tryParse(state.tid!);
+                              if (tid != null &&
+                                  !(context.readOrNull<ReadLaterCubit>()?.state.contains(tid) ?? false)) {
+                                _readLaterAddedHere = tid;
+                              }
+                              final added = await toggleReadLater(
+                                context,
+                                tid: state.tid!,
+                                title: state.title ?? widget.title ?? '',
+                                author: state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name,
+                                forumName: state.forumName,
+                              );
+                              _readLaterAddedHere = added ? tid : null;
+                              if (mounted) {
+                                setState(() {});
+                              }
+                            },
+                          ),
                         // Floor numbers are where the floors are only when every author's floors are listed.
                         if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
                           MenuCustomItem(
@@ -2303,7 +2389,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own
             // (`canCloseQuietly`), and the back swipe still closes it.
             return KeyboardPageActions(
-              onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+              onRefresh: () => context.read<ThreadBloc>().add(_refreshEvent()),
               onNextItem: () => _postListKey.currentState?.scrollByFloor(1),
               onPreviousItem: () => _postListKey.currentState?.scrollByFloor(-1),
               onNextPage: () => _swipePage(ThreadSwipe.next),
