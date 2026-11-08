@@ -17,6 +17,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
@@ -116,6 +117,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   final _permissionCubit = AndroidPermissionCubit();
   String? _logExportPath;
 
+  /// A login or logout while the page shows: the devices row follows the account in use.
+  StreamSubscription<AuthStatus>? _authSub;
+
   Future<(AppLocale?, bool)?> selectLanguageDialog(BuildContext context, String currentLocale) async {
     return showDialog<(AppLocale?, bool)>(
       context: context,
@@ -156,7 +160,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     ),
   );
 
-  Widget _buildAccountSection(BuildContext context, SettingsState state) {
+  Widget _buildAccountSection(BuildContext context, SettingsState state) => ValueListenableBuilder(
+    valueListenable: TsdmAppApi.pluginInfo,
+    builder: (context, _, _) => _buildAccountGroup(
+      context,
+      state,
+      devices: TsdmAppApi.knowsDevice && context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null,
+    ),
+  );
+
+  Widget _buildAccountGroup(BuildContext context, SettingsState state, {required bool devices}) {
     final tr = context.t.settingsPage.accountSection;
     return AppTileGroup(
       title: tr.title,
@@ -168,6 +181,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        // Only once the forum's plugin said it keeps the devices (`status`, plugin 3.6.0), for an account in use.
+        if (devices)
+          SectionListTile(
+            key: const ValueKey('settings-login-devices'),
+            leading: const Icon(Icons.devices_outlined),
+            title: Text(tr.loginDevices),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.loginDevices),
+          ),
         SectionSwitchListTile(
           key: const ValueKey('settings-cross-device-sync'),
           secondary: const Icon(Icons.sync_outlined),
@@ -1592,11 +1614,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_permissionCubit.refresh());
+    _authSub = context.readOrNull<AuthenticationRepository>()?.status.listen((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_authSub?.cancel());
     unawaited(_permissionCubit.close());
     scrollController.dispose();
     super.dispose();

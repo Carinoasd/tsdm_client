@@ -351,7 +351,8 @@
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
         "drafts": "本机草稿"
-      }
+      },
+      "loginDevices": "登录设备"
     },
     "appearanceSection": {
       "title": "外观",
@@ -1943,6 +1944,22 @@
     "unzipPassword": "解压密码",
     "open": "打开",
     "copyAll": "复制全部网盘信息"
+  },
+  "threadTts": {
+    "menu": "朗读",
+    "heading": "第 ${floor: int} 楼，作者：${author: String}",
+    "headingNoFloor": "作者：${author: String}",
+    "labelImage": "图片",
+    "labelFold": "折叠",
+    "labelHidden": "隐藏内容",
+    "labelMedia": "媒体",
+    "previous": "上一楼",
+    "next": "下一楼",
+    "pause": "暂停",
+    "resume": "继续",
+    "rate": "语速",
+    "close": "关闭",
+    "failed": "朗读失败"
   },
   "threadExport": {
     "copyPlain": "复制为纯文本",
@@ -3623,5 +3640,18 @@
     "exportFailed": "导出失败",
     "empty": "还没有表情包",
     "count": "${count: int} 张"
+  },
+  "loginDevicesPage": {
+    "title": "登录设备",
+    "current": "本机",
+    "loggedOut": "已登出",
+    "logOut": "登出",
+    "logOutTitle": "登出这台设备？",
+    "remove": "移除",
+    "unsupported": "论坛没有开启登录设备管理",
+    "writeFailed": "操作失败，请稍后再试",
+    "revoked": "$name 已在其他设备上登出本机",
+    "revokedUnknown": "一个账号已在其他设备上登出本机",
+    "login": "登录"
   }
 }

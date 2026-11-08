@@ -351,7 +351,8 @@
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
         "drafts": "Local drafts"
-      }
+      },
+      "loginDevices": "Login devices"
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -1943,6 +1944,22 @@
     "unzipPassword": "Unzip password",
     "open": "Open",
     "copyAll": "Copy all cloud storage info"
+  },
+  "threadTts": {
+    "menu": "Read aloud",
+    "heading": "Floor ${floor: int}, by ${author: String}",
+    "headingNoFloor": "By ${author: String}",
+    "labelImage": "image",
+    "labelFold": "folded",
+    "labelHidden": "hidden content",
+    "labelMedia": "media",
+    "previous": "Previous floor",
+    "next": "Next floor",
+    "pause": "Pause",
+    "resume": "Resume",
+    "rate": "Speed",
+    "close": "Close",
+    "failed": "Reading aloud failed"
   },
   "threadExport": {
     "copyPlain": "Copy as plain text",
@@ -3623,5 +3640,18 @@
     "exportFailed": "Export failed",
     "empty": "No emoji packs yet",
     "count": "${count: int}"
+  },
+  "loginDevicesPage": {
+    "title": "Login devices",
+    "current": "This device",
+    "loggedOut": "Logged out",
+    "logOut": "Log out",
+    "logOutTitle": "Log out this device?",
+    "remove": "Remove",
+    "unsupported": "The forum does not keep login devices",
+    "writeFailed": "Failed, please try again later",
+    "revoked": "$name was logged out of this device from another device",
+    "revokedUnknown": "An account was logged out of this device from another device",
+    "login": "Log in"
   }
 }
