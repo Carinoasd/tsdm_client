@@ -17,6 +17,24 @@ import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 
+/// Fails each time; while asked, the app goes inactive like under the system prompt.
+final class _PromptBiometrics implements BiometricAuthenticator {
+  _PromptBiometrics(this.binding);
+
+  final TestWidgetsFlutterBinding binding;
+  int calls = 0;
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    calls += 1;
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    return false;
+  }
+
+  @override
+  Future<bool> isAvailable() async => true;
+}
+
 final class _NoBiometrics implements BiometricAuthenticator {
   @override
   Future<bool> authenticate(String reason) async => false;
@@ -39,15 +57,16 @@ void main() {
   late bool forgetResult;
   late AppLockBackGuard guard;
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<void> pumpApp(WidgetTester tester, {BiometricAuthenticator? biometrics}) async {
     store = AppLockStore.memory();
     final pin = await _hasher.hash('1234');
     cubit = AppLockCubit(
-      config: AppLockConfig(method: AppLockMethod.pin, pin: pin),
+      config: AppLockConfig(method: biometrics == null ? AppLockMethod.pin : AppLockMethod.biometric, pin: pin),
       store: store,
-      biometrics: _NoBiometrics(),
+      biometrics: biometrics ?? _NoBiometrics(),
       hasher: _hasher,
     );
+    await cubit.refreshBiometricAvailability();
     forgetCalls = 0;
     forgetResult = true;
     // Before the app, like main(): first in line for the back button.
@@ -214,5 +233,40 @@ void main() {
     await tester.pumpAndSettle();
     await enter(tester, '1234');
     expect(await result, isTrue);
+  });
+
+  testWidgets('the system unlock asks by itself once per return, not again when its prompt closes', (tester) async {
+    void lifecycle(AppLifecycleState state) => tester.binding.handleAppLifecycleStateChanged(state);
+    lifecycle(AppLifecycleState.resumed);
+    final biometrics = _PromptBiometrics(tester.binding);
+    await pumpApp(tester, biometrics: biometrics);
+    expect(biometrics.calls, 1, reason: 'asked when the lock screen first shows');
+
+    // The prompt closed: the app is resumed again.
+    lifecycle(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(biometrics.calls, 1, reason: 'closing the prompt does not ask again');
+    expect(cubit.state.locked, isTrue);
+    await tester.tap(find.byKey(const ValueKey('app-lock-biometric')));
+    await tester.pumpAndSettle();
+    expect(biometrics.calls, 2, reason: 'the button asks again');
+    lifecycle(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(biometrics.calls, 2);
+
+    // A real return asks again.
+    [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ].forEach(lifecycle);
+    await tester.pumpAndSettle();
+    expect(biometrics.calls, 3);
+    lifecycle(AppLifecycleState.resumed);
+    await enter(tester, '1234');
+    expect(cubit.state.locked, isFalse, reason: 'the PIN pad still works');
   });
 }

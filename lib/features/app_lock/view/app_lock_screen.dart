@@ -47,16 +47,21 @@ class _AppLockScreenState extends State<AppLockScreen> {
   bool _forgetting = false;
   bool _forgetFailed = false;
 
+  /// The system unlock is asked by itself once each time the app comes back: the prompt makes the app inactive and
+  /// resumed again, which must not ask again after the user closed it (the fingerprint button still does).
+  bool _autoPromptArmed = true;
+
   AppLockCubit get _cubit => widget.cubit;
 
   @override
   void initState() {
     super.initState();
-    _lifecycle = AppLifecycleListener(onResume: _promptBiometric);
+    // onShow is hidden to inactive, a real return; the prompt only moves between inactive and resumed.
+    _lifecycle = AppLifecycleListener(onShow: () => _autoPromptArmed = true, onResume: _autoPrompt);
     _syncTicker();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-        _promptBiometric();
+        _autoPrompt();
       }
     });
   }
@@ -67,6 +72,14 @@ class _AppLockScreenState extends State<AppLockScreen> {
     _lifecycle.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _autoPrompt() {
+    if (!_autoPromptArmed) {
+      return;
+    }
+    _autoPromptArmed = false;
+    _promptBiometric();
   }
 
   void _promptBiometric() {
