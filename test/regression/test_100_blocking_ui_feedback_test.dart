@@ -59,6 +59,9 @@ final class _Auth extends Fake implements AuthenticationRepository {
 }
 
 /// Settings rows kept in memory; reads of a block list fail while [failures] is positive.
+///
+/// Only the row of the blocked users counts as a read of the list (read first by every load); the rows of the thread
+/// filters read after it in the same load are not counted.
 final class _FlakySettings extends Fake implements StorageProvider {
   final rows = <String, List<String>>{};
   int failures = 0;
@@ -66,6 +69,9 @@ final class _FlakySettings extends Fake implements StorageProvider {
 
   @override
   Future<List<String>?> getStringList(String key) async {
+    if (!key.startsWith(UserBlockRepository.keyPrefix)) {
+      return rows[key];
+    }
     reads++;
     if (failures > 0) {
       failures--;

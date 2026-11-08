@@ -44,6 +44,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
+import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart';
@@ -51,6 +52,7 @@ import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/reading_gestures.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -282,6 +284,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// Immersive reading: the reader tapped the floors to hide the app bar and the reply bar, until tapped again. Only
   /// while on this page.
   bool _immersive = false;
+
+  /// The forum of the thread was checked against the immersive forums (`immersiveForums`) once the floors came: the
+  /// thread opens in immersive reading at most once, a bar the reader called back stays.
+  bool _immersiveChecked = false;
 
   /// Shown part of the reply bar (and the banner above it): hidden while [_immersive].
   late final AnimationController _bottomBarController;
@@ -629,6 +635,45 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     threadBloc.add(ThreadJumpPageRequested(post.page));
   }
 
+  /// The replies of the thread in [state] as a check of a followed thread counts them (`followedThreadStateOf`).
+  int? _followedReplies(ThreadState state) => state.paginationReplies ?? state.replyCount;
+
+  /// A followed thread was loaded from the forum: its new replies are read, the next ones are announced again.
+  void _markFollowedThreadRead(BuildContext context, ThreadState state) {
+    final tid = int.tryParse(state.tid ?? '');
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    final cubit = context.readOrNull<FollowedThreadsCubit>();
+    if (tid == null || uid == null || cubit == null || state.isOffline || state.onlyVisibleUid != null) {
+      return;
+    }
+    unawaited(cubit.markRead(uid: uid, tid: tid, replies: _followedReplies(state), title: state.title));
+  }
+
+  /// Follow the thread in [state] for the account in use, or stop following it.
+  Future<void> _toggleFollow(BuildContext context, ThreadState state) async {
+    final tid = int.tryParse(state.tid ?? '');
+    final cubit = context.readOrNull<FollowedThreadsCubit>();
+    if (tid == null || cubit == null) {
+      return;
+    }
+    final tr = context.t.threadPage.follow;
+    if (cubit.state.of(tid) != null) {
+      await cubit.unfollow(tid);
+      if (context.mounted) {
+        showSnackBar(context: context, message: context.t.followedThreads.unfollowed);
+      }
+      return;
+    }
+    final followed = await cubit.follow(
+      tid: tid,
+      title: state.title ?? '',
+      replies: _followedReplies(state) ?? 0,
+    );
+    if (followed && context.mounted) {
+      showSnackBar(context: context, message: tr.added);
+    }
+  }
+
   /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
   void _recordVisitHistory(BuildContext context, ThreadState state) {
     // Floors read back from an offline copy are no visit of the forum: the history and the replied marks stay.
@@ -917,16 +962,56 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
   }
 
+  /// The forums opening in immersive reading as the settings hold them now.
+  ImmersiveForums _immersiveForums(BuildContext context) {
+    final settings = context.readOrNull<SettingsBloc>()?.state.settingsMap;
+    return ImmersiveForums.parse(settings?.immersiveForums ?? '', all: settings?.immersiveAllForums ?? false);
+  }
+
+  /// The forums opening in immersive reading, the build following the settings (the menu item's check).
+  ImmersiveForums _watchedImmersiveForums(BuildContext context) {
+    final (raw, all) = context.select<SettingsBloc, (String, bool)>(
+      (bloc) => (bloc.state.settingsMap.immersiveForums, bloc.state.settingsMap.immersiveAllForums),
+    );
+    return ImmersiveForums.parse(raw, all: all);
+  }
+
+  /// Whether a reply is being written: the editor is open or a text field has the focus.
+  bool get _editingReply =>
+      _replyBarController.showingEditor ||
+      FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
+
+  /// The forums of the breadcrumbs of [state], the ones above its own forum.
+  static List<int> _forumsAbove(ThreadState state) => breadcrumbForumIds(state.breadcrumbs.map((e) => e.link));
+
+  /// Open in immersive reading once the floors of a thread of a forum picked for it came.
+  void _enterImmersiveForForum(BuildContext context, ThreadState state) {
+    if (_immersiveChecked || !_showsFloors(state) || state.postList.isEmpty) {
+      return;
+    }
+    _immersiveChecked = true;
+    // A reply being written keeps its bars, as a tap on the floors does ([_toggleImmersive]).
+    if (_editingReply) {
+      return;
+    }
+    if (_immersiveForums(context).matches(state.fid, ancestors: _forumsAbove(state))) {
+      _setImmersive(hidden: true);
+    }
+  }
+
+  /// Pick the forum of the thread to open in immersive reading, or take it back.
+  void _toggleImmersiveForum(BuildContext context, int fid, {required bool picked}) {
+    final next = _immersiveForums(context).withForum(fid, picked: picked);
+    context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.immersiveForums, next.raw));
+  }
+
   /// A tap on the floors nothing in them took: the bars go, or come back. Not while searching (the search bar stays),
   /// nor while a reply is being written: the tap leaves the editor.
   void _toggleImmersive() {
     if (_searching) {
       return;
     }
-    final editing =
-        _replyBarController.showingEditor ||
-        FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
-    if (editing && !_immersive) {
+    if (_editingReply && !_immersive) {
       return;
     }
     _setImmersive(hidden: !_immersive);
@@ -1553,8 +1638,15 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       ..requestFocus();
   }
 
-  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
-  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
+  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]), and the banners in line with
+  /// them: as wide as the reader let the floors grow ([ReadingWidthScope]).
+  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) => ReadingWidthScope(
+    maxWidth: context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.readingMaxWidth),
+    child: Builder(builder: (context) => _buildFloors(context, state, hits)),
+  );
+
+  /// See [_buildContent].
+  Widget _buildFloors(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
     final swipePaging = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadSwipePaging);
     final searchHits = {for (final post in hits) floorKeyOf(post)};
@@ -1575,7 +1667,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             child: Padding(
               padding: edgeInsetsL12T8R12,
               child: AppContentWidth(
-                maxWidth: appReadingMaxWidth,
+                maxWidth: ReadingWidthScope.floorOf(context),
                 child: AppNoticeBanner(
                   key: const ValueKey('thread-offline-banner'),
                   tone: AppNoticeTone.warning,
@@ -1713,7 +1805,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                         child: Padding(
                           padding: edgeInsetsL12T8R12,
                           child: AppContentWidth(
-                            maxWidth: appReadingMaxWidth,
+                            maxWidth: ReadingWidthScope.floorOf(context),
                             child: AppNoticeBanner(
                               tone: AppNoticeTone.warning,
                               icon: Icons.lock_clock_outlined,
@@ -1863,7 +1955,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (_paneThread == null) {
       final scope = TwoPaneScope.readOf(context);
       if (scope != null && scope.side == TwoPaneSide.detail) {
-        _paneThread = scope.controller.top?..resolver = _paneQuery;
+        _paneThread = scope.tab?.top?..resolver = _paneQuery;
       }
     }
   }
@@ -1982,6 +2074,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
+                _markFollowedThreadRead(context, state);
                 _askModerator(context, state);
                 // Not on a page without floors (a message, no permission): a later load (after logging in) still
                 // lands on the last floor.
@@ -1996,6 +2089,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                     context.read<ThreadBloc>().add(const ThreadJumpPageRequested(1));
                   }
                 }
+                _enterImmersiveForForum(context, state);
               }
             },
           ),
@@ -2096,6 +2190,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             }
 
             final title = widget.title ?? state.title;
+            // The tab of the detail pane shows it.
+            _paneThread?.reportTitle(title);
             final replied = isThreadReplied(context, state.tid ?? widget.threadID);
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {
@@ -2137,6 +2233,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // In the detail pane of a list page the back button would close that page: none, or one taking the
             // thread opened above this one away.
             final pane = TwoPaneScope.detailOf(context);
+            // Watched here, in the build: the menu items are made later, when the menu opens.
+            final immersiveForums = _watchedImmersiveForums(context);
             final appBar = _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
@@ -2168,6 +2266,18 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           onSelected: _openSearch,
                         ),
                       if (state.tid != null) ...[
+                        if (state.fid != null && !immersiveForums.all)
+                          MenuCustomItem(
+                            icon: immersiveForums.picks(state.fid!)
+                                ? Icons.check_box_outlined
+                                : Icons.check_box_outline_blank,
+                            description: context.t.threadPage.immersiveForum,
+                            onSelected: () => _toggleImmersiveForum(
+                              context,
+                              state.fid!,
+                              picked: !immersiveForums.picks(state.fid!),
+                            ),
+                          ),
                         // Favorite and share need the network: not offered on floors read back offline.
                         if (!state.isOffline)
                           MenuCustomItem(
@@ -2184,6 +2294,20 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 setState(() {});
                               }
                             },
+                          ),
+                        // Not on one author's floors: their count is not the thread's.
+                        if (!state.isOffline &&
+                            state.onlyVisibleUid == null &&
+                            context.read<AuthenticationRepository>().effectiveCurrentUid != null &&
+                            context.readOrNull<FollowedThreadsCubit>() != null)
+                          MenuCustomItem(
+                            icon: followedThreadOf(context, state.tid) != null
+                                ? Icons.notifications_off_outlined
+                                : Icons.notifications_active_outlined,
+                            description: followedThreadOf(context, state.tid) != null
+                                ? context.t.threadPage.follow.remove
+                                : context.t.threadPage.follow.add,
+                            onSelected: () async => _toggleFollow(context, state),
                           ),
                         if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
                           MenuCustomItem(
