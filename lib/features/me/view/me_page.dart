@@ -151,6 +151,12 @@ class _MePageState extends State<MePage> {
         label: tr.checkinCalendar,
         onTap: () => _open(ScreenPaths.checkinCalendar),
       ),
+      (
+        key: const ValueKey('me-rating-stats'),
+        icon: Icons.thumb_up_alt_outlined,
+        label: tr.ratingStats,
+        onTap: () => _open(ScreenPaths.ratingStats),
+      ),
     ];
   }
 
