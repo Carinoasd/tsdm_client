@@ -506,6 +506,10 @@ final class WebdavBackupRepository with LoggerMixin {
         return false;
       }
       await store.writeState(WebdavBackupState(lastBackupAt: state.lastBackupAt, lastAttemptAt: now));
+      // [suspend] may have been called while the attempt was written.
+      if (_suspended) {
+        return false;
+      }
       await backupNow();
       return true;
     } on Object catch (e, st) {
