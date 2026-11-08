@@ -794,7 +794,13 @@
       "recordReadingTime": "Record reading time",
       "clearReadingTime": "Clear reading time data",
       "clearReadingTimeConfirm": "Clear the reading time of every account on this device? This cannot be undone.",
-      "readingTimeCleared": "Reading time data cleared"
+      "readingTimeCleared": "Reading time data cleared",
+      "dataSaver": {
+        "title": "Data saver",
+        "off": "Off",
+        "meteredOnly": "On mobile data",
+        "always": "Always"
+      }
     }
   },
   "aboutPage": {
@@ -1728,7 +1734,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "Failed to load, tap to retry",
-    "tapToLoad": "Tap to load image"
+    "tapToLoad": "Tap to load image",
+    "loadFloorImages": "Load all in this floor"
   },
   "forumCard": {
     "links": "Links",
@@ -1937,6 +1944,22 @@
     "unzipPassword": "Unzip password",
     "open": "Open",
     "copyAll": "Copy all cloud storage info"
+  },
+  "threadTts": {
+    "menu": "Read aloud",
+    "heading": "Floor ${floor: int}, by ${author: String}",
+    "headingNoFloor": "By ${author: String}",
+    "labelImage": "image",
+    "labelFold": "folded",
+    "labelHidden": "hidden content",
+    "labelMedia": "media",
+    "previous": "Previous floor",
+    "next": "Next floor",
+    "pause": "Pause",
+    "resume": "Resume",
+    "rate": "Speed",
+    "close": "Close",
+    "failed": "Reading aloud failed"
   },
   "threadExport": {
     "copyPlain": "Copy as plain text",

@@ -14,6 +14,7 @@ environment:
 dependencies:
   archive: ^4.0.7
   args: ^2.6.0
+  audio_session: ^0.2.4
   bloc: ^9.2.0
   chat_bottom_container: ^0.4.0
   # Blocked by flutter
@@ -57,6 +58,7 @@ dependencies:
     path: ./packages/flutter_bbcode_editor/packages/flutter-quill
   flutter_styled_toast: ^2.3.0
   flutter_svg: ^2.2.3
+  flutter_tts: ^4.2.5
   font_awesome_flutter: ^10.12.0
   fpdart: ^1.2.0
   get_it: ^9.2.0

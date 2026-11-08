@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Android 11+: lets the reader aloud (flutter_tts) see the installed text-to-speech engines. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
     <application
             android:label="天使动漫"
             android:name=".TsdmApplication"

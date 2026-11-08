@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread_preview/widgets/thread_preview_section.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -498,63 +499,69 @@ class _CardLayout extends StatelessWidget {
     final showExcerpt = state.settingsMap.threadCardShowExcerpt;
     final thumbnailMode = state.settingsMap.threadThumbnailMode;
     final externalImages = state.settingsMap.threadCardExternalThumbnails;
+    final dataSaver = DataSaverMode.fromIndex(state.settingsMap.dataSaverMode);
 
-    return _wrapWithCard(
-      context,
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // TODO: Tap to navigate to user space.
-          _buildCardTitle(context, state),
-          Padding(
-            padding: edgeInsetsL16R16B12,
-            child: Row(
-              children: [
-                Expanded(
-                  // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
-                  // thread read before is dimmed, as visited links are.
-                  child: Text(
-                    title,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: visitedTitleStyle(
-                      context,
-                      Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: css?.color,
-                        fontWeight: css?.fontWeight ?? FontWeight.w500,
-                        height: 1.45,
+    // The list decides on the data saver when its first card is built, thumbnails or not.
+    return DataSaverPageDecision(
+      mode: dataSaver,
+      child: _wrapWithCard(
+        context,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // TODO: Tap to navigate to user space.
+            _buildCardTitle(context, state),
+            Padding(
+              padding: edgeInsetsL16R16B12,
+              child: Row(
+                children: [
+                  Expanded(
+                    // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
+                    // thread read before is dimmed, as visited links are.
+                    child: Text(
+                      title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: visitedTitleStyle(
+                        context,
+                        Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: css?.color,
+                          fontWeight: css?.fontWeight ?? FontWeight.w500,
+                          height: 1.45,
+                        ),
+                        visited: progress != null,
                       ),
-                      visited: progress != null,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (ThreadPreviewSection.shows(
-            preview,
-            showExcerpt: showExcerpt,
-            thumbnailMode: thumbnailMode,
-            externalImages: externalImages,
-          ))
-            ThreadPreviewSection(
-              preview!,
+            if (ThreadPreviewSection.shows(
+              preview,
               showExcerpt: showExcerpt,
               thumbnailMode: thumbnailMode,
               externalImages: externalImages,
+            ))
+              ThreadPreviewSection(
+                preview!,
+                showExcerpt: showExcerpt,
+                thumbnailMode: thumbnailMode,
+                externalImages: externalImages,
+                dataSaver: dataSaver,
+              ),
+            if (quotedMessage != null)
+              Padding(
+                padding: edgeInsetsL16R16B12,
+                child: Row(children: [Expanded(child: QuotedText(quotedMessage ?? ''))]),
+              ),
+            _buildInfoWidgetRow(
+              context: context,
+              infoRowAlignCenter: infoRowAlignCenter,
+              showLastReplyAuthor: showLastReplyAuthor,
+              highlightInfoRow: highlightInfoRow,
             ),
-          if (quotedMessage != null)
-            Padding(
-              padding: edgeInsetsL16R16B12,
-              child: Row(children: [Expanded(child: QuotedText(quotedMessage ?? ''))]),
-            ),
-          _buildInfoWidgetRow(
-            context: context,
-            infoRowAlignCenter: infoRowAlignCenter,
-            showLastReplyAuthor: showLastReplyAuthor,
-            highlightInfoRow: highlightInfoRow,
-          ),
-        ].insertBetween(sizedBoxW4H4),
+          ].insertBetween(sizedBoxW4H4),
+        ),
       ),
     );
   }

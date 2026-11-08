@@ -47,6 +47,10 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/features/thread/v1/tts/thread_tts_bar.dart';
+import 'package:tsdm_client/features/thread/v1/tts/thread_tts_controller.dart';
+import 'package:tsdm_client/features/thread/v1/tts/thread_tts_text.dart';
+import 'package:tsdm_client/features/thread/v1/tts/tts_engine.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
 import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
@@ -287,6 +291,15 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The floor at the top of the list, as it told last ([_onTopFloorChanged]): a new search starts from there.
   String? _topPid;
+
+  /// Reads the floors aloud; null until the first time it is asked for.
+  ThreadTtsController? _tts;
+
+  /// The floor being read aloud, null when none is: the cards mark it.
+  final _speakingPid = ValueNotifier<String?>(null);
+
+  /// The floor the list was last brought to for the reader, so a change of speed or pause does not scroll again.
+  String? _ttsRevealedPid;
 
   static const _searchDelay = Duration(milliseconds: 300);
 
@@ -855,6 +868,114 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page);
     }
     return ThreadLoadMoreRequested(int.tryParse(widget.pageNumber) ?? 1);
+  }
+
+  /// Whether the platform has a speech engine the reader can use (no Linux plugin of `flutter_tts`).
+  static bool get _canSpeak => !isWeb && (isAndroid || isIOS || isWindows || isMacOS);
+
+  /// Starts reading aloud from the floor at the top of the list.
+  void _startTts(ThreadState state) {
+    final floors = state.postList;
+    if (floors.isEmpty) {
+      return;
+    }
+    var tts = _tts;
+    if (tts == null) {
+      final tr = context.t.threadTts;
+      tts = _tts = ThreadTtsController(
+        engine: FlutterTtsEngine(),
+        languageTag: switch (LocaleSettings.currentLocale) {
+          AppLocale.en => 'en-US',
+          AppLocale.zhCn => 'zh-CN',
+          AppLocale.zhTw => 'zh-TW',
+        },
+        // Asked each time: an author blocked while reading is not read from then on.
+        skip: (post) => post.hot || (mounted && currentBlockList(context, listen: false).hidesString(post.author.uid)),
+        speechOf: (post) {
+          final t = mounted ? context.t.threadTts : tr;
+          final floor = post.shownFloor;
+          return floorSpeechOf(
+            post,
+            heading: floor == null
+                ? t.headingNoFloor(author: post.author.name)
+                : t.heading(floor: floor, author: post.author.name),
+            labels: SpeechLabels(image: t.labelImage, fold: t.labelFold, hidden: t.labelHidden, media: t.labelMedia),
+          );
+        },
+        requestNextPage: () {
+          final bloc = _threadBloc;
+          if (bloc != null && !bloc.isClosed) {
+            bloc.add(ThreadLoadMoreRequested(bloc.state.currentPage + 1));
+          }
+        },
+        onFailed: () {
+          if (mounted) {
+            showSnackBar(context: context, message: context.t.threadTts.failed);
+          }
+        },
+      )..addListener(_onTtsChanged);
+      setState(() {});
+    }
+    tts.updateFloors(floors, canLoadMore: state.canLoadMore, nextFailed: state.nextStatus == ThreadEdgeStatus.failed);
+    final top = _topPid;
+    final from = top != null && floors.any((e) => e.postID == top) ? top : floors.first.postID;
+    _ttsRevealedPid = null;
+    unawaited(tts.start(from));
+  }
+
+  /// The reader moved on: mark the floor and bring it into view.
+  void _onTtsChanged() {
+    final tts = _tts;
+    if (tts == null) {
+      return;
+    }
+    final pid = tts.active ? tts.currentPid : null;
+    _speakingPid.value = pid;
+    if (pid == null) {
+      _ttsRevealedPid = null;
+    } else if (pid != _ttsRevealedPid) {
+      _ttsRevealedPid = pid;
+      _postListKey.currentState?.revealPost(pid);
+    }
+  }
+
+  /// [card] of [post], marked while it is the floor being read aloud.
+  ///
+  /// The card is always under the same widgets, read or not: it keeps its state when the reader reaches it.
+  Widget _markSpeaking(BuildContext context, Post post, Widget card) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ValueListenableBuilder<String?>(
+      valueListenable: _speakingPid,
+      child: card,
+      builder: (context, speaking, child) {
+        final on = !post.hot && speaking == post.postID;
+        return Stack(
+          fit: StackFit.passthrough,
+          children: [
+            child!,
+            if (on)
+              Positioned.fill(
+                key: ValueKey('thread-tts-speaking-${post.postID}'),
+                child: IgnorePointer(
+                  child: ColoredBox(color: colorScheme.primary.withValues(alpha: 0.08)),
+                ),
+              ),
+            if (on)
+              Positioned(
+                left: 0,
+                top: 12,
+                bottom: 12,
+                width: 4,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: colorScheme.primary, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   /// The list told the floor at its top ([post]): the page goes on from there next time, see [ReadingProgress].
@@ -1871,27 +1992,31 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 context,
                                 post,
                                 searchHits,
-                                PostCard(
-                                  _asWarnedByMe(post),
-                                  replyCallback: replyPostCallback,
-                                  multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
-                                      ? null
-                                      : _multiQuote,
-                                  onEdited: () => _scrollToPidOnReload = post.postID,
-                                  onJoinDebate: state.replyParameters == null || state.threadClosed
-                                      ? null
-                                      : _joinDebate,
-                                  onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
-                                      ? (action) => _moderateFloor(context, state, post, action)
-                                      : null,
-                                  // Not the account's own floors: the forum never lets staff ban themselves.
-                                  onBanAuthor:
-                                      post.banAuthorUid != null &&
-                                          post.banAuthorUid != state.floorsUid &&
-                                          !state.isOffline &&
-                                          state.fid != null
-                                      ? () => _banAuthor(context, state, post)
-                                      : null,
+                                _markSpeaking(
+                                  context,
+                                  post,
+                                  PostCard(
+                                    _asWarnedByMe(post),
+                                    replyCallback: replyPostCallback,
+                                    multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
+                                        ? null
+                                        : _multiQuote,
+                                    onEdited: () => _scrollToPidOnReload = post.postID,
+                                    onJoinDebate: state.replyParameters == null || state.threadClosed
+                                        ? null
+                                        : _joinDebate,
+                                    onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
+                                        ? (action) => _moderateFloor(context, state, post, action)
+                                        : null,
+                                    // Not the account's own floors: the forum never lets staff ban themselves.
+                                    onBanAuthor:
+                                        post.banAuthorUid != null &&
+                                            post.banAuthorUid != state.floorsUid &&
+                                            !state.isOffline &&
+                                            state.fid != null
+                                        ? () => _banAuthor(context, state, post)
+                                        : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1947,6 +2072,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             ),
           ),
         ),
+        if (_tts case final tts?) ThreadTtsBar(controller: tts, safeBottom: _immersive),
         // Hidden with the app bar for immersive reading; kept built (the reply written stays).
         AnimatedBuilder(
           animation: _bottomBarController,
@@ -2175,6 +2301,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _authorLookup++;
     unawaited(_accountSub?.cancel());
     unawaited(_progressWait?.cancel());
+    _tts?.removeListener(_onTtsChanged);
+    _tts?.dispose();
+    _speakingPid.dispose();
     _listScrollController.dispose();
     _appBarController.dispose();
     _bottomBarController.dispose();
@@ -2277,6 +2406,18 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                 _enterImmersiveForForum(context, state);
               }
             },
+          ),
+          // The reader aloud goes on with the floors that arrive.
+          BlocListener<ThreadBloc, ThreadState>(
+            listenWhen: (prev, curr) =>
+                !identical(prev.postList, curr.postList) ||
+                prev.canLoadMore != curr.canLoadMore ||
+                prev.nextStatus != curr.nextStatus,
+            listener: (context, state) => _tts?.updateFloors(
+              state.postList,
+              canLoadMore: state.canLoadMore,
+              nextFailed: state.nextStatus == ThreadEdgeStatus.failed,
+            ),
           ),
           // A jump to a floor (asked, a hot reply going to its floor) goes from where the reading stopped: the floor
           // jumped to is where it is now, not scrolled to by the user's own hand ([_heldPosition]).
@@ -2544,6 +2685,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             icon: Icons.file_download_outlined,
                             description: context.t.threadExport.menu,
                             onSelected: () async => exportThread(context, state),
+                          ),
+                        if (state.postList.isNotEmpty && _canSpeak)
+                          MenuCustomItem(
+                            icon: Icons.record_voice_over_outlined,
+                            description: context.t.threadTts.menu,
+                            onSelected: () async => _startTts(state),
                           ),
                         MenuCustomItem(
                           icon: Icons.numbers_outlined,

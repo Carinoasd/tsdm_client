@@ -83,6 +83,7 @@ class SettingsMap with SettingsMapMappable {
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
+    this.dataSaverMode = 0,
     this.editorQuickPhrases = '',
     this.editImageBeforeUpload = false,
     this.uploadImageMaxSide = 0,
@@ -310,6 +311,10 @@ class SettingsMap with SettingsMapMappable {
   /// older versions lack it.
   final int postImageAutoLoad;
 
+  /// When the data saver holds the large pictures back, the index of a `DataSaverMode`. Not required: backups from
+  /// older versions lack it.
+  final int dataSaverMode;
+
   /// The quick phrases of the editors' toolbar button, a JSON list of strings in the user's order (see
   /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
@@ -423,6 +428,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.homepagePinnedGroup => copyWith(homepagePinnedGroup: value as String?),
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
+      SettingsKeys.dataSaverMode => copyWith(dataSaverMode: value as int?),
       SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
       SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
       SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),

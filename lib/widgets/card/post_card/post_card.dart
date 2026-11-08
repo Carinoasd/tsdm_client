@@ -36,6 +36,7 @@ import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart'
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
@@ -417,6 +418,9 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final imageAutoLoad = PostImageAutoLoad.fromIndex(
       context.select<SettingsBloc, int>((e) => e.state.settingsMap.postImageAutoLoad),
     );
+    final dataSaver = DataSaverMode.fromIndex(
+      context.select<SettingsBloc, int>((e) => e.state.settingsMap.dataSaverMode),
+    );
     // The experimental app renderer draws the floor from its bbcode where it can (off by default: the html as before).
     final appRenderer = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.enableAppPostRenderer);
     // Line height and paragraphs of the content as the reader set them (a taller line and a gap between paragraphs by
@@ -433,14 +437,19 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             padding: edgeInsetsL16R16,
             child: PostTypographyScope(
               typography: typography,
-              child: PostImageScope(
-                images: _floorImages,
-                autoLoad: imageAutoLoad,
-                child: widget.post.isSpoofed
-                    ? const _ContentUnavailable()
-                    : appRenderer
-                    ? PostBbcodeBody(widget.post)
-                    : MunchedHtml(widget.post.data),
+              // The page decides on the data saver when its first floor is built, pictures or not.
+              child: DataSaverPageDecision(
+                mode: dataSaver,
+                child: PostImageScope(
+                  images: _floorImages,
+                  autoLoad: imageAutoLoad,
+                  dataSaver: dataSaver,
+                  child: widget.post.isSpoofed
+                      ? const _ContentUnavailable()
+                      : appRenderer
+                      ? PostBbcodeBody(widget.post)
+                      : MunchedHtml(widget.post.data),
+                ),
               ),
             ),
           ),

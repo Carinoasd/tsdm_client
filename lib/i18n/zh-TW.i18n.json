@@ -794,7 +794,13 @@
       "recordReadingTime": "記錄閱讀時間",
       "clearReadingTime": "清除閱讀時間資料",
       "clearReadingTimeConfirm": "清除這台裝置上所有帳號的閱讀時間資料？清除後無法復原。",
-      "readingTimeCleared": "閱讀時間資料已清除"
+      "readingTimeCleared": "閱讀時間資料已清除",
+      "dataSaver": {
+        "title": "省流",
+        "off": "關",
+        "meteredOnly": "使用行動網路時",
+        "always": "一律"
+      }
     }
   },
   "aboutPage": {
@@ -1728,7 +1734,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "載入失敗，點擊重試",
-    "tapToLoad": "點擊載入圖片"
+    "tapToLoad": "點擊載入圖片",
+    "loadFloorImages": "載入本樓全部"
   },
   "forumCard": {
     "links": "連結",
@@ -1937,6 +1944,22 @@
     "unzipPassword": "解壓密碼",
     "open": "開啟",
     "copyAll": "複製全部網盤資訊"
+  },
+  "threadTts": {
+    "menu": "朗讀",
+    "heading": "第 ${floor: int} 樓，作者：${author: String}",
+    "headingNoFloor": "作者：${author: String}",
+    "labelImage": "圖片",
+    "labelFold": "折疊",
+    "labelHidden": "隱藏內容",
+    "labelMedia": "媒體",
+    "previous": "上一樓",
+    "next": "下一樓",
+    "pause": "暫停",
+    "resume": "繼續",
+    "rate": "語速",
+    "close": "關閉",
+    "failed": "朗讀失敗"
   },
   "threadExport": {
     "copyPlain": "複製為純文字",
