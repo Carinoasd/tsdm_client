@@ -326,6 +326,9 @@ class ScreenPaths {
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
 
+  /// Page listing the threads the current account follows.
+  static const String followedThreads = '/followedThreads';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 

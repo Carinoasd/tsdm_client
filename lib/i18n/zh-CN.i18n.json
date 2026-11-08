@@ -253,7 +253,8 @@
       "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
-      "points": "积分"
+      "points": "积分",
+      "followedThreads": "追踪的帖子"
     }
   },
   "home": {
@@ -543,6 +544,9 @@
         "rate": "评分／点评",
         "pm": "私信",
         "system": "系统通知",
+        "followedThread": "追踪的帖子",
+        "followedThreadInterval": "检查间隔",
+        "followedThreadMinutes": "${n} 分钟",
         "quietHours": "静音时段",
         "quietStart": "开始",
         "quietEnd": "结束"
@@ -1088,6 +1092,11 @@
       "message": "上次看到第 ${floor: int} 楼",
       "action": "继续",
       "close": "关闭"
+    },
+    "follow": {
+      "add": "追踪",
+      "remove": "取消追踪",
+      "added": "已追踪"
     }
   },
   "topicsPage": {
@@ -2218,7 +2227,8 @@
       "mention": "@提到我",
       "rate": "评分／点评",
       "pm": "私信",
-      "system": "系统通知"
+      "system": "系统通知",
+      "followedThread": "追踪的帖子"
     },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
@@ -3442,6 +3452,18 @@
       "bold": "粗体",
       "italic": "斜体",
       "underline": "下划线"
+    }
+  },
+  "followedThreads": {
+    "title": "追踪的帖子",
+    "empty": "还没有追踪的帖子",
+    "needLogin": "登录后可以追踪帖子",
+    "newReplies": "${n} 条新回复",
+    "unfollowed": "已取消追踪",
+    "undo": "撤销",
+    "notice": {
+      "body": "《${title}》有 ${n} 条新回复",
+      "hidden": "追踪的帖子有 ${n} 条新回复"
     }
   }
 }

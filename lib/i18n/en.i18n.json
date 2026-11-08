@@ -253,7 +253,8 @@
       "localDrafts": "Local drafts",
       "messages": "Messages",
       "friends": "Friends",
-      "points": "Points"
+      "points": "Points",
+      "followedThreads": "Followed threads"
     }
   },
   "home": {
@@ -543,6 +544,9 @@
         "rate": "Ratings and comments",
         "pm": "Private messages",
         "system": "System notices",
+        "followedThread": "Followed threads",
+        "followedThreadInterval": "Check every",
+        "followedThreadMinutes": "${n} min",
         "quietHours": "Quiet hours",
         "quietStart": "From",
         "quietEnd": "Until"
@@ -1088,6 +1092,11 @@
       "message": "Last read: floor ${floor: int}",
       "action": "Continue",
       "close": "Dismiss"
+    },
+    "follow": {
+      "add": "Follow",
+      "remove": "Unfollow",
+      "added": "Following"
     }
   },
   "topicsPage": {
@@ -2218,7 +2227,8 @@
       "mention": "Mentions",
       "rate": "Ratings and comments",
       "pm": "Private messages",
-      "system": "System notices"
+      "system": "System notices",
+      "followedThread": "Followed threads"
     },
     "channelName": "New auto sync notice",
     "channelDesc": "Received new notice when auto sync",
@@ -3442,6 +3452,18 @@
       "bold": "Bold",
       "italic": "Italic",
       "underline": "Underline"
+    }
+  },
+  "followedThreads": {
+    "title": "Followed threads",
+    "empty": "No followed threads yet",
+    "needLogin": "Log in to follow threads",
+    "newReplies": "${n} new",
+    "unfollowed": "Unfollowed",
+    "undo": "Undo",
+    "notice": {
+      "body": "\"${title}\" has ${n} new replies",
+      "hidden": "A followed thread has ${n} new replies"
     }
   }
 }

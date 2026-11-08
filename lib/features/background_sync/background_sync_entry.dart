@@ -14,6 +14,10 @@ import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_check.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_fetch.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -37,7 +41,8 @@ import 'package:tsdm_client/utils/redacting_talker.dart';
 /// entry point.
 /// Everything the service isolate needs, built once when it starts.
 final class _BackgroundSyncRuntime {
-  _BackgroundSyncRuntime._(this.db, this.storage, this.settings, this.proxy, this.repository, this.plugin);
+  _BackgroundSyncRuntime._(this.db, this.storage, this.settings, this.proxy, this.repository, this.plugin)
+    : followed = FollowedThreadStore(storage);
 
   final AppDatabase db;
   final StorageProvider storage;
@@ -45,6 +50,18 @@ final class _BackgroundSyncRuntime {
   final ProxyProvider proxy;
   final NotificationSyncAllRepository repository;
   final FlutterLocalNotificationsPlugin plugin;
+
+  /// The threads each account follows, checked by the service too (`followedThreadsTick`).
+  final FollowedThreadStore followed;
+
+  /// The check of one followed thread of account [uid], with a client built as the sync's clients are.
+  Future<FollowedThreadFetch> Function(int tid) followedFetcherOf(int uid) => followedThreadFetcherOf(
+    uid,
+    clientFactory: (cookie) => NetClientProvider.buildNoCookie(
+      dio: settings.buildDefaultDio(nativeHttp: false),
+      cookie: cookie,
+    ),
+  );
 
   /// Open the shared database and register what the shared repositories look up in `getIt` of this isolate.
   static Future<_BackgroundSyncRuntime> create() async {
@@ -99,6 +116,7 @@ final class _BackgroundSyncRuntime {
   }
 
   Future<void> dispose() async {
+    await followed.dispose();
     await repository.dispose();
     await db.close();
   }
@@ -159,8 +177,10 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
   }
 
   Timer? timer;
+  Timer? followTimer;
   var period = Duration.zero;
   var ticking = false;
+  var followChecking = false;
   var stopping = false;
 
   Future<void> stop(String why) async {
@@ -170,6 +190,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     stopping = true;
     talker.info('background sync: stop ($why)');
     timer?.cancel();
+    followTimer?.cancel();
     await runtime.dispose();
     await logSink.flush();
     await service.stopSelf();
@@ -250,6 +271,45 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     }
   }
 
+  /// Check the followed threads of the account in use when a check is due (shared with the app's own check through
+  /// the settings table); one check at a time, apart from the notification tick.
+  Future<void> followTick() async {
+    if (stopping || followChecking) {
+      return;
+    }
+    followChecking = true;
+    try {
+      final uid = (await readBackgroundSyncSettings(runtime.storage)).loginUid;
+      await followedThreadsTick(
+        storage: runtime.storage,
+        store: runtime.followed,
+        uid: uid,
+        fetch: runtime.followedFetcherOf(uid),
+        prepare: runtime.refreshNetwork,
+        keepGoing: () => !stopping,
+        announce: (thread) async {
+          if (stopping) {
+            return;
+          }
+          await showFollowedThreadNotification(
+            plugin: runtime.plugin,
+            translations: t,
+            thread: thread,
+            uid: uid,
+            hideContent:
+                await runtime.storage.getBool(SettingsKeys.notificationHideContent.name) ??
+                SettingsKeys.notificationHideContent.defaultValue,
+          );
+        },
+      );
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'background sync: followed threads check failed');
+    } finally {
+      followChecking = false;
+      await logSink.flush();
+    }
+  }
+
   /// Read the settings again: stop when the switch is off or auto sync is never, otherwise follow the interval.
   Future<void> reschedule() async {
     final settings = await readBackgroundSyncSettings(runtime.storage);
@@ -286,5 +346,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     await service.setAsForegroundService();
   }
   await reschedule();
+  followTimer = Timer.periodic(followedThreadHeartbeat, (_) => unawaited(followTick()));
   await tick();
+  unawaited(followTick());
 }

@@ -211,6 +211,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Announce system notices, broadcast messages and every other notice kind of the auto sync in system notifications.
   notifySystem<bool>(name: 'notifySystem', type: bool, defaultValue: true),
 
+  /// Announce new replies of the threads the account follows (`FollowedThread`) in system notifications.
+  notifyFollowedThread<bool>(name: 'notifyFollowedThread', type: bool, defaultValue: true),
+
+  /// Minutes between two checks of the followed threads for new replies: 15, 30 or 60.
+  followedThreadCheckMinutes<int>(name: 'followedThreadCheckMinutes', type: int, defaultValue: 30),
+
   /// Do not post system notifications between [notifyQuietStart] and [notifyQuietEnd]; what arrives meanwhile is not announced afterwards.
   notifyQuietHours<bool>(name: 'notifyQuietHours', type: bool, defaultValue: false),
 

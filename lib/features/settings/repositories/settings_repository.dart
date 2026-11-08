@@ -156,6 +156,8 @@ final class SettingsRepository with LoggerMixin {
       notifyRate: s.extract(_SK.notifyRate),
       notifyPersonalMessage: s.extract(_SK.notifyPersonalMessage),
       notifySystem: s.extract(_SK.notifySystem),
+      notifyFollowedThread: s.extract(_SK.notifyFollowedThread),
+      followedThreadCheckMinutes: s.extract(_SK.followedThreadCheckMinutes),
       notifyQuietHours: s.extract(_SK.notifyQuietHours),
       notifyQuietStart: s.extract(_SK.notifyQuietStart),
       notifyQuietEnd: s.extract(_SK.notifyQuietEnd),

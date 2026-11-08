@@ -253,7 +253,8 @@
       "localDrafts": "本機草稿",
       "messages": "私訊",
       "friends": "好友",
-      "points": "積分"
+      "points": "積分",
+      "followedThreads": "追蹤的帖子"
     }
   },
   "home": {
@@ -543,6 +544,9 @@
         "rate": "評分／點評",
         "pm": "私訊",
         "system": "系統通知",
+        "followedThread": "追蹤的帖子",
+        "followedThreadInterval": "檢查間隔",
+        "followedThreadMinutes": "${n} 分鐘",
         "quietHours": "靜音時段",
         "quietStart": "開始",
         "quietEnd": "結束"
@@ -1088,6 +1092,11 @@
       "message": "上次看到第 ${floor: int} 樓",
       "action": "繼續",
       "close": "關閉"
+    },
+    "follow": {
+      "add": "追蹤",
+      "remove": "取消追蹤",
+      "added": "已追蹤"
     }
   },
   "topicsPage": {
@@ -2218,7 +2227,8 @@
       "mention": "@提到我",
       "rate": "評分／點評",
       "pm": "私訊",
-      "system": "系統通知"
+      "system": "系統通知",
+      "followedThread": "追蹤的帖子"
     },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
@@ -3442,6 +3452,18 @@
       "bold": "粗體",
       "italic": "斜體",
       "underline": "底線"
+    }
+  },
+  "followedThreads": {
+    "title": "追蹤的帖子",
+    "empty": "還沒有追蹤的帖子",
+    "needLogin": "登入後可以追蹤帖子",
+    "newReplies": "${n} 條新回覆",
+    "unfollowed": "已取消追蹤",
+    "undo": "復原",
+    "notice": {
+      "body": "《${title}》有 ${n} 條新回覆",
+      "hidden": "追蹤的帖子有 ${n} 條新回覆"
     }
   }
 }
