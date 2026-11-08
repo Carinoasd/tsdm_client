@@ -630,9 +630,8 @@ final class ModerateRepository with LoggerMixin {
   ///
   /// The panel words its success and its refusals itself (no message key): a message page is a success unless the
   /// forum marks it an error (the app API's `alert`; the page's class other than `alert_info` or `alert_right`). A
-  /// redirect is not the panel's answer
-  /// ([MemberBanUnknown]), unless to the login. A page is never a success: the panel's login form is
-  /// [MemberBanSessionEnded], anything else a refusal without words.
+  /// redirect is not the panel's answer ([MemberBanUnknown]), unless to the login. A page is never a success: the
+  /// panel's login form is [MemberBanSessionEnded], anything else a refusal without words.
   static Either<AppException, MemberBanOutcome> memberBanOutcomeOf(Object? data, {required int uid}) {
     final uh.Document doc;
     if (tsdmAppWriteResultOf(data) case final result?) {

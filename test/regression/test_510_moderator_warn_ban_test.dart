@@ -335,6 +335,29 @@ void main() {
       expect(posts.single['reason'], '刷屏');
     });
 
+    testWidgets('a result unknown: the window again tells whether it was done', (tester) async {
+      Future<bool?> run({required String after}) async {
+        var gets = 0;
+        final repo = ModerateRepository(
+          get: (_) async => right(_ok(_data(gets++ == 0 ? 'member_ban_form.html' : after))),
+          post: (_, _) async => right((statusCode: 302, data: '')),
+          currentUid: () => _uid,
+        );
+        bool? closed;
+        await open(tester, repo, onClosed: ({required done}) => closed = done);
+        await tester.tap(find.text(t.general.ok));
+        await tester.pumpAndSettle();
+        return closed;
+      }
+
+      // Banned now: it was done, the dialog closes as done.
+      expect(await run(after: 'member_ban_form_banned.html'), isTrue);
+      // Still not banned: asked again, nothing to undo.
+      expect(await run(after: 'member_ban_form.html'), isNull);
+      expect(find.text(t.moderate.batch.unknown), findsOneWidget);
+      expect(find.text(t.moderate.banMember), findsWidgets);
+    });
+
     testWidgets('a banned member: lifting it, no days to choose', (tester) async {
       final repo = ModerateRepository(
         get: (_) async => right(_ok(_data('member_ban_form_banned.html'))),

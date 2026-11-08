@@ -169,9 +169,16 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
           _error = message.isNotEmpty ? message : context.t.moderate.failed;
         });
       case Right(value: MemberBanUnknown()):
-        // The window as it is now, then why it is asked again.
+        // The window as it is now tells: the member's state turned over, it was done; otherwise it is asked again
+        // (sending the window as it was would undo a ban done after all).
         await _load();
-        if (mounted) {
+        if (!mounted) {
+          return;
+        }
+        if (_form case final now? when now.banned != form.banned) {
+          showSnackBar(context: context, message: context.t.moderate.done);
+          Navigator.of(context).pop(true);
+        } else {
           setState(() => _error = context.t.moderate.batch.unknown);
         }
       case Right(value: MemberBanSessionEnded(:final formHash)):
