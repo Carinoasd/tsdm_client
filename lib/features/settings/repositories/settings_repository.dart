@@ -185,6 +185,7 @@ final class SettingsRepository with LoggerMixin {
       threadContentLineHeight: s.extract(_SK.threadContentLineHeight),
       threadContentParagraphSpacing: s.extract(_SK.threadContentParagraphSpacing),
       threadContentSplitLongParagraphs: s.extract(_SK.threadContentSplitLongParagraphs),
+      threadContentMaxWidth: s.extract(_SK.threadContentMaxWidth),
       highRefreshRate: s.extract(_SK.highRefreshRate),
       offlineThreads: s.extract(_SK.offlineThreads),
       offlineThreadsLimit: s.extract(_SK.offlineThreadsLimit),

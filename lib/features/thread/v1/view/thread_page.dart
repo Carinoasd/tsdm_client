@@ -1496,8 +1496,15 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       ..requestFocus();
   }
 
-  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]).
-  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) {
+  /// The floors of [state], [hits] the hits of the search among them ([_searchHits]), and the banners in line with
+  /// them: as wide as the reader let the floors grow ([ReadingWidthScope]).
+  Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) => ReadingWidthScope(
+    maxWidth: context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.threadContentMaxWidth),
+    child: Builder(builder: (context) => _buildFloors(context, state, hits)),
+  );
+
+  /// See [_buildContent].
+  Widget _buildFloors(BuildContext context, ThreadState state, List<Post> hits) {
     final tr = context.t.threadPage;
     final swipePaging = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadSwipePaging);
     final searchHits = {for (final post in hits) floorKeyOf(post)};
@@ -1518,7 +1525,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             child: Padding(
               padding: edgeInsetsL12T8R12,
               child: AppContentWidth(
-                maxWidth: appReadingMaxWidth,
+                maxWidth: ReadingWidthScope.floorOf(context),
                 child: AppNoticeBanner(
                   key: const ValueKey('thread-offline-banner'),
                   tone: AppNoticeTone.warning,
@@ -1656,7 +1663,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                         child: Padding(
                           padding: edgeInsetsL12T8R12,
                           child: AppContentWidth(
-                            maxWidth: appReadingMaxWidth,
+                            maxWidth: ReadingWidthScope.floorOf(context),
                             child: AppNoticeBanner(
                               tone: AppNoticeTone.warning,
                               icon: Icons.lock_clock_outlined,

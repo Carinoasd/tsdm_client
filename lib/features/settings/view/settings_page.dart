@@ -329,7 +329,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     },
   );
 
-  /// Pick the line height and the paragraph spacing of the post content ([ThreadContentLayoutDialog]) and save them.
+  /// Pick the line height, the paragraph spacing and the widest floors of the post content
+  /// ([ThreadContentLayoutDialog]) and save them.
   Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
     final picked = await showDialog<PostTypography>(
       context: context,
@@ -339,10 +340,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       ),
     );
     if (!context.mounted || picked == null) return;
-    // Both at once: the floors kept alive are laid out again once, not twice.
+    // All at once: the floors kept alive are laid out again once, not for each.
     await getIt.get<SettingsRepository>().setValues<double>([
       (SettingsKeys.threadContentLineHeight, picked.lineHeight),
       (SettingsKeys.threadContentParagraphSpacing, picked.paragraphSpacing),
+      (SettingsKeys.threadContentMaxWidth, picked.maxWidth),
     ]);
   }
 
@@ -360,7 +362,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
-    final postTypography = state.settingsMap.postTypography;
+    final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.threadContentMaxWidth);
 
     return AppTileGroup(
       title: tr.title,
@@ -479,19 +481,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentScale, selectedScale));
           },
         ),
-        // Line height and paragraph spacing of the post content: one dialog with both and a preview.
+        // Line height, paragraph spacing and widest floors of the post content: one dialog with them and a preview.
         SectionListTile(
+          key: const ValueKey('settings-reading-layout'),
           leading: const Icon(Icons.format_line_spacing_outlined),
-          title: Text(tr.threadContentLineHeight.title),
-          subtitle: Text(tr.threadContentLineHeight.detail),
-          trailing: _trailingValue(context, postTypography.lineHeight.toStringAsFixed(1)),
-          onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
-        ),
-        SectionListTile(
-          leading: const Icon(Icons.segment_outlined),
-          title: Text(tr.threadContentParagraphSpacing.title),
-          subtitle: Text(tr.threadContentParagraphSpacing.detail),
-          trailing: _trailingValue(context, postTypography.paragraphSpacing.toStringAsFixed(0)),
+          title: Text(tr.threadContentLayout.title),
+          trailing: const Icon(Icons.chevron_right),
           onTap: () async => _pickThreadContentLayout(context, postTypography, threadContentScale),
         ),
         SectionSwitchListTile(
