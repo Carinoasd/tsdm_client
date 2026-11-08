@@ -12,6 +12,7 @@ part 'image.dart';
 part 'notice.dart';
 part 'offline_thread.dart';
 part 'personal_message.dart';
+part 'read_later.dart';
 part 'replied_thread.dart';
 part 'settings.dart';
 part 'thread_visit_history.dart';

@@ -25,6 +25,36 @@ bool isBlockedByCurrentUser(BuildContext context, String? uid) {
   }
 }
 
+/// Whether a thread titled [title] in forum [fid] is hidden by the keyword and forum filters of the current account,
+/// see [ThreadFilters.hides]: the one check of every thread list. [byForum] is false in the page of one forum (the
+/// user opened that forum: all its threads show).
+///
+/// Rebuilds the calling widget when the result changes. False when no [UserBlockCubit] is provided above [context].
+bool isThreadFilteredOut(BuildContext context, {required String? title, int? fid, bool byForum = true}) {
+  try {
+    return context.select<UserBlockCubit, bool>((c) => c.state.hidesThread(title: title, fid: fid, byForum: byForum));
+  } on ProviderNotFoundException {
+    return false;
+  }
+}
+
+final _forumRewriteRe = RegExp(r'^forum-(\d+)-\d+\.html$');
+
+/// The forum id of a forum page [url] (`forum.php?mod=forumdisplay&fid=N` or `forum-N-1.html`), null when it has
+/// none.
+int? fidOfForumUrl(String? url) {
+  if (url == null) {
+    return null;
+  }
+  final uri = Uri.tryParse(url.replaceAll('&amp;', '&'));
+  if (uri == null) {
+    return null;
+  }
+  final rewrite = uri.pathSegments.isEmpty ? null : _forumRewriteRe.firstMatch(uri.pathSegments.last);
+  final fid = int.tryParse(rewrite?.group(1) ?? safeQueryParameters(uri)?['fid'] ?? '');
+  return fid != null && fid > 0 ? fid : null;
+}
+
 /// The block list of the current account, rebuilding the caller on change when [listen] is true.
 ///
 /// A known empty list when no [UserBlockCubit] is provided above [context].

@@ -104,10 +104,22 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-followed-threads'),
+        icon: Icons.notifications_active_outlined,
+        label: tr.followedThreads,
+        onTap: () => _open(ScreenPaths.followedThreads),
+      ),
+      (
         key: const ValueKey('me-history'),
         icon: Icons.history_outlined,
         label: tr.history,
         onTap: () => _open(ScreenPaths.threadVisitHistory),
+      ),
+      (
+        key: const ValueKey('me-read-later'),
+        icon: Icons.watch_later_outlined,
+        label: tr.readLater,
+        onTap: () => _open(ScreenPaths.readLater),
       ),
       // The drafts kept on this device while writing, and the drafts box of the forum (the third tab of "my threads"):
       // named apart so the one is not taken for the other.
