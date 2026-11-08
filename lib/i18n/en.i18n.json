@@ -3660,6 +3660,9 @@
   "twoPane": {
     "tabsFull": "Up to ${count: int} tabs can be open"
   },
+  "quickOpen": {
+    "search": "Search: $text"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
@@ -3671,6 +3674,7 @@
     },
     "commands": {
       "search": "Search",
+      "quickOpen": "Quick open",
       "settings": "Settings",
       "back": "Close dialog, go back",
       "refresh": "Refresh",

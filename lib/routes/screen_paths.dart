@@ -519,6 +519,9 @@ class DialogPaths {
   /// Dialog showing the progress of saving the favorites offline or updating the offline copies.
   static const String offlineBatch = '/dialog/offlineBatch';
 
+  /// Box to jump to a thread, forum, user or search by typing (Ctrl+K).
+  static const String quickOpen = '/dialog/quickOpen';
+
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
 

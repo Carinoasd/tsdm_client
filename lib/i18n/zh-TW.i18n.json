@@ -3660,6 +3660,9 @@
   "twoPane": {
     "tabsFull": "最多同時開啟 ${count: int} 個分頁"
   },
+  "quickOpen": {
+    "search": "搜尋：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
@@ -3671,6 +3674,7 @@
     },
     "commands": {
       "search": "搜尋",
+      "quickOpen": "快速跳轉",
       "settings": "設定",
       "back": "關閉對話框、返回",
       "refresh": "重新整理",
