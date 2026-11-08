@@ -120,6 +120,21 @@ void main() {
     });
   });
 
+  group('login', () {
+    uh.Document message(String text, {bool loginBox = false}) => parseHtmlDocument(
+      '<html><body><div id="ct"><div id="messagetext" class="alert_error"><p>$text</p></div>'
+      '${loginBox ? '<div id="messagelogin"></div>' : ''}</div></body></html>',
+    );
+
+    test('only the login box or "先登录" asks to log in', () {
+      expect(parseSpaceBlogDetail(message('您需要先登录才能继续本操作')).needLogin, isTrue);
+      expect(parseSpaceBlogDetail(message('提示', loginBox: true)).needLogin, isTrue);
+      final other = parseSpaceBlogDetail(message('该日志仅登录用户之间的好友可见'));
+      expect(other.needLogin, isFalse);
+      expect(other.message, '该日志仅登录用户之间的好友可见');
+    });
+  });
+
   group('albums', () {
     test('the album list with the default album', () {
       final page = parseSpaceAlbumListPage(_page('album_list_own'));

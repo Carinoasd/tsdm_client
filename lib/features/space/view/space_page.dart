@@ -60,8 +60,8 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
   late final SpaceListCubit<SpaceBlog> _blogs;
   late final SpaceListCubit<SpaceAlbum> _albums;
 
-  /// The account changes, to show the owner's actions to the owner only.
-  late final Stream<AuthStatus> _authChanges = context.read<AuthenticationRepository>().status;
+  /// The account changes: the owner's actions follow the account in use.
+  StreamSubscription<AuthStatus>? _authSubscription;
 
   @override
   void initState() {
@@ -81,10 +81,14 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
     );
     unawaited(_blogs.load());
     unawaited(_albums.load());
+    _authSubscription = context.read<AuthenticationRepository>().status.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    unawaited(_authSubscription?.cancel());
     _tabController.dispose();
     unawaited(_blogs.close());
     unawaited(_albums.close());
@@ -120,16 +124,13 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
         ),
       ),
       // Follows the account in use: another account's space offers nothing to write.
-      floatingActionButton: StreamBuilder<AuthStatus>(
-        stream: _authChanges,
-        builder: (context, _) => _own
-            ? FloatingActionButton(
-                tooltip: tab == SpaceTab.blog ? tr.newBlog : tr.upload,
-                onPressed: _write,
-                child: Icon(tab == SpaceTab.blog ? Icons.edit_outlined : Icons.add_photo_alternate_outlined),
-              )
-            : const SizedBox.shrink(),
-      ),
+      floatingActionButton: _own
+          ? FloatingActionButton(
+              tooltip: tab == SpaceTab.blog ? tr.newBlog : tr.upload,
+              onPressed: _write,
+              child: Icon(tab == SpaceTab.blog ? Icons.edit_outlined : Icons.add_photo_alternate_outlined),
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: TabBarView(

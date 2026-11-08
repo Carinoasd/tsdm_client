@@ -58,7 +58,9 @@ String? _textOf(uh.Element? e) {
   final messageText = document.querySelector('div#messagetext');
   if (messageText != null) {
     final text = _textOf(messageText.querySelector('p')) ?? _textOf(messageText) ?? '';
-    final needLogin = document.querySelector('div#messagelogin') != null || text.contains('登录') || text.contains('登入');
+    // The login box, or the forum's "您需要先登录才能继续本操作"; a message merely naming the login is shown as it is.
+    final needLogin =
+        document.querySelector('div#messagelogin') != null || text.contains('先登录') || text.contains('先登入');
     return (message: text, needLogin: needLogin, passwordRequired: false);
   }
   return null;

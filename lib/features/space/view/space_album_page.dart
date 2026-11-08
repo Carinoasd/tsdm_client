@@ -49,8 +49,8 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
   late final SpaceListCubit<SpacePhoto> _cubit;
 
-  /// The account changes, to show the owner's actions to the owner only.
-  late final Stream<AuthStatus> _authChanges = context.read<AuthenticationRepository>().status;
+  /// The account changes: the owner's actions follow the account in use.
+  StreamSubscription<AuthStatus>? _authSubscription;
 
   @override
   void initState() {
@@ -61,10 +61,14 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
       keyOf: (e) => e.picId,
     );
     unawaited(_cubit.load());
+    _authSubscription = context.read<AuthenticationRepository>().status.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    unawaited(_authSubscription?.cancel());
     _refreshController.dispose();
     unawaited(_cubit.close());
     super.dispose();
@@ -202,16 +206,13 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
               ],
             ),
             // Follows the account in use: only the owner uploads, and not to the default album.
-            floatingActionButton: StreamBuilder<AuthStatus>(
-              stream: _authChanges,
-              builder: (context, _) => widget.albumId > 0 && auth.currentUser?.uid == widget.uid
-                  ? FloatingActionButton(
-                      tooltip: context.t.spacePage.upload,
-                      onPressed: _upload,
-                      child: const Icon(Icons.add_photo_alternate_outlined),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            floatingActionButton: widget.albumId > 0 && auth.currentUser?.uid == widget.uid
+                ? FloatingActionButton(
+                    tooltip: context.t.spacePage.upload,
+                    onPressed: _upload,
+                    child: const Icon(Icons.add_photo_alternate_outlined),
+                  )
+                : null,
             body: SafeArea(bottom: false, child: body),
           );
         },

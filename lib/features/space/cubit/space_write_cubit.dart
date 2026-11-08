@@ -205,7 +205,15 @@ final class AlbumUploadCubit extends _SpaceWriteCubit<AlbumUploadForm> {
     final refused = <({String path, SpaceUploadRefusal reason})>[];
     for (final (i, path) in paths.indexed) {
       if (isClosed || state.status == SpaceWriteStatus.identityChanged) return;
-      emit(SpaceWriteState(status: SpaceWriteStatus.sending, form: form, sent: i, total: paths.length));
+      emit(
+        SpaceWriteState(
+          status: SpaceWriteStatus.sending,
+          form: form,
+          sent: i,
+          total: paths.length,
+          pending: _pending.length,
+        ),
+      );
       switch (await repository.uploadPhoto(form, path, fileSize: fileSize)) {
         case Left(value: SpaceUploadRefusal.identityChanged):
           _finish(const SpaceWriteResult(SpaceWriteOutcome.identityChanged));
@@ -221,7 +229,15 @@ final class AlbumUploadCubit extends _SpaceWriteCubit<AlbumUploadForm> {
       _finish(const SpaceWriteResult(SpaceWriteOutcome.rejected), refused: refused);
       return;
     }
-    emit(SpaceWriteState(status: SpaceWriteStatus.sending, form: form, sent: paths.length, total: paths.length));
+    emit(
+      SpaceWriteState(
+        status: SpaceWriteStatus.sending,
+        form: form,
+        sent: paths.length,
+        total: paths.length,
+        pending: _pending.length,
+      ),
+    );
     final result = await repository.fileUploads(form, picIds, target);
     // Refused: the pictures stay taken (in the default album), filed with the next send.
     _pending = result.outcome == SpaceWriteOutcome.rejected ? picIds : const [];

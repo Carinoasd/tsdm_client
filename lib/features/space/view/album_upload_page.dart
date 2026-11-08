@@ -138,7 +138,8 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
         setState(() => _paths.retainWhere((p) => state.refused.any((e) => e.path == p)));
         showSnackBar(
           context: context,
-          message: state.message ?? (state.refused.isEmpty ? tr.sendFailed : tr.albumUpload.noneTaken),
+          message:
+              state.message ?? (state.refused.isEmpty || state.pending > 0 ? tr.sendFailed : tr.albumUpload.noneTaken),
         );
       case SpaceWriteStatus.unconfirmed:
         showSnackBar(context: context, message: state.message ?? tr.unconfirmed);
