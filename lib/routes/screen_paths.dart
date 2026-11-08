@@ -484,6 +484,9 @@ class DialogPaths {
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
 
+  /// Dialog to select the script Chinese text is shown in.
+  static const String selectChineseDisplay = '/dialog/selectChineseDisplay';
+
   /// Dialog to select when the thread lists show the thumbnails of the threads.
   static const String selectThreadThumbnailMode = '/dialog/selectThreadThumbnailMode';
 

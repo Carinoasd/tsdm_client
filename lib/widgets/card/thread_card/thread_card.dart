@@ -25,6 +25,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -356,7 +357,7 @@ class _CardLayout extends StatelessWidget {
     final meta = <Widget>[
       if (publishTime != null) SingleLineText(publishTime!.yyyyMMDD(), style: timeStyle),
       // The forum is the title of the head already when there is no author.
-      if (author != null && forum != null) SingleLineText(forum!, style: forumNameStyle),
+      if (author != null && forum != null) SingleLineText(context.displayText(forum!), style: forumNameStyle),
     ];
 
     // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before and above it, 4
@@ -440,7 +441,7 @@ class _CardLayout extends StatelessWidget {
                   // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
                   // thread read before is dimmed, as visited links are.
                   child: Text(
-                    title,
+                    context.displayText(title),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: visitedTitleStyle(

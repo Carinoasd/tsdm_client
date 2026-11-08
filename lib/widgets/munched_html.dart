@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
@@ -12,9 +14,9 @@ import 'package:universal_html/parsing.dart';
 /// Parsing a post and turning it into spans is the most expensive thing a card does. Done straight in `build`, it ran
 /// again on every rebuild of the page: a badge update or the keyboard coming up re-munched every floor on the thread
 /// page, which is where most of the dropped frames came from. Here the result is kept and only rebuilt when the html
-/// changes or something the spans were built from changes: the theme, the text scale, the locale, the
-/// [PostTypography] of a post's content (and whether it is one, [PostTypographyScope.postContent]) or the words
-/// searched for in it ([SearchHighlightScope]).
+/// changes or something the spans were built from changes: the theme, the text scale, the locale, the script shown
+/// ([ChineseDisplayMode]), the [PostTypography] of a post's content (and whether it is one,
+/// [PostTypographyScope.postContent]) or the words searched for in it ([SearchHighlightScope]).
 ///
 /// Under a [MunchCacheScope] (the thread page) the result is kept in its [MunchCache] instead, so a floor scrolled
 /// away (its card is not kept alive) and built again later takes it back rather than munching its html again.
@@ -56,6 +58,7 @@ class _MunchedHtmlState extends State<MunchedHtml> {
       locale: Localizations.maybeLocaleOf(context),
       typography: PostTypographyScope.maybeOf(context),
       postContent: postContent,
+      chineseDisplay: context.chineseDisplayMode,
       // Only a post's content is marked: a signature under the same scope does not depend on the words searched for.
       highlight: postContent ? SearchHighlightScope.maybeOf(context)?.identity : null,
     );
@@ -126,6 +129,7 @@ final class _MunchDeps {
     required this.locale,
     required this.typography,
     required this.postContent,
+    required this.chineseDisplay,
     required this.highlight,
   });
 
@@ -134,6 +138,9 @@ final class _MunchDeps {
   final Locale? locale;
   final PostTypography? typography;
   final bool postContent;
+
+  /// The script the text is shown in, converted while munching.
+  final ChineseDisplayMode chineseDisplay;
 
   /// The words searched for marked in the text ([SearchHighlightScope.identity]), null when none.
   final (String, Color, Color)? highlight;
@@ -146,10 +153,11 @@ final class _MunchDeps {
       other.locale == locale &&
       other.typography == typography &&
       other.postContent == postContent &&
+      other.chineseDisplay == chineseDisplay &&
       other.highlight == highlight;
 
   @override
-  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent, highlight);
+  int get hashCode => Object.hash(theme, textScaler, locale, typography, postContent, chineseDisplay, highlight);
 }
 
 /// Munched contents kept for one page that shows many of them (the thread page): the content of a floor built again

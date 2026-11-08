@@ -6,6 +6,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/shared/models/thread_open_position.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 
 /// A setting the cross-device sync carries in the `settings` section, by its stored name ([SettingsKeys.name]).
@@ -98,6 +99,12 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: PostTypography.maxParagraphSpacing,
   ),
   SyncedSetting._(SettingsKeys.threadContentSplitLongParagraphs, (s) => s.threadContentSplitLongParagraphs),
+  SyncedSetting._(
+    SettingsKeys.chineseDisplayMode,
+    (s) => s.chineseDisplayMode,
+    min: 0,
+    max: ChineseDisplayMode.values.length - 1,
+  ),
   // Thread lists.
   SyncedSetting._(SettingsKeys.showShortcutInForumCard, (s) => s.showShortcutInForumCard),
   SyncedSetting._(SettingsKeys.threadCardInfoRowAlignCenter, (s) => s.threadCardInfoRowAlignCenter),

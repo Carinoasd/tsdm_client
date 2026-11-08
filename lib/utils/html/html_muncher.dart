@@ -17,6 +17,8 @@ import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/full_width_block.dart';
@@ -446,7 +448,8 @@ final class _Muncher with LoggerMixin {
   _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options})
     : typography = PostTypographyScope.maybeOf(context),
       postContent = PostTypographyScope.isPostContent(context),
-      highlight = PostTypographyScope.isPostContent(context) ? SearchHighlightScope.maybeOf(context) : null;
+      highlight = PostTypographyScope.isPostContent(context) ? SearchHighlightScope.maybeOf(context) : null,
+      _displayMode = context.chineseDisplayModeNow;
 
   /// Context to build widget when munching.
   final BuildContext context;
@@ -460,6 +463,9 @@ final class _Muncher with LoggerMixin {
 
   /// The words searched for, marked in the text of a post's content; null when nothing is searched.
   final SearchHighlightScope? highlight;
+
+  /// The script the text is shown in.
+  final ChineseDisplayMode _displayMode;
 
   /// Text spans of preformatted text (`<pre>`): their lines are kept as they are ([layOutParagraphs]).
   final _keptLines = Set<InlineSpan>.identity();
@@ -1022,7 +1028,7 @@ final class _Muncher with LoggerMixin {
       return [
         textWidgetSpan(
           SpoilerCard(
-            title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : text),
+            title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : _display(text)),
             content: TextSpan(children: _layOut(content)),
             elevation: elevation,
           ),
@@ -1120,6 +1126,9 @@ final class _Muncher with LoggerMixin {
           }
           if (text == null || text.isEmpty) {
             return null;
+          }
+          if (!state.inPre) {
+            text = _display(text);
           }
           // The first line of a block starts with its indent, after the line break a paragraph before it left.
           final indent = _takeIndent();
@@ -1851,7 +1860,7 @@ final class _Muncher with LoggerMixin {
     state.headingBrNodePassed = true;
     final ret = textWidgetSpan(
       SpoilerCard(
-        title: TextSpan(text: title),
+        title: TextSpan(text: _display(title)),
         content: TextSpan(children: _layOut(content)),
         elevation: elevation,
       ),
@@ -1972,6 +1981,9 @@ final class _Muncher with LoggerMixin {
 
   /// Split [text] into plain spans and tappable spans for every bare `http(s)://` url in it (GitHub #24).
   ///
+  /// [text] in the script the user chose to see, see [ChineseDisplayMode].
+  String _display(String text) => ChineseDisplay.instance.convert(_displayMode, text);
+
   /// Trailing punctuation that is not part of a url (closing brackets, full-width punctuation, quotes) stays plain
   /// text; urls that are not inside an anchor are the only ones reaching here because anchors set `tapUrl`.
   List<InlineSpan> _linkifySpans(String text, TextStyle? style) {
@@ -2572,7 +2584,7 @@ final class _Muncher with LoggerMixin {
       return null;
     }
     state.headingBrNodePassed = true;
-    return [TextSpan(text: text, style: _buildTextStyle())];
+    return [TextSpan(text: _display(text), style: _buildTextStyle())];
   }
 
   /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.

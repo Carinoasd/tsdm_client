@@ -294,6 +294,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: ThreadFloorInteractionMode.adaptiveTapMenu,
   ),
 
+  /// index of a `ChineseDisplayMode`, 0 as the forum sends it (the default), 1 shown as Traditional, 2 as Simplified.
+  chineseDisplayMode<int>(name: 'chineseDisplayMode', type: int, defaultValue: 0),
+
   /// Global text scale factor.
   textScaleFactor<double>(
     name: 'textScaleFactor',
