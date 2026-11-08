@@ -126,7 +126,6 @@ struct HomeWidgetView: View {
       checkin
         .frame(maxWidth: .infinity)
     }
-    .padding(4)
   }
 
   private func smallRow(_ label: String, _ value: String) -> some View {

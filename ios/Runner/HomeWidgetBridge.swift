@@ -29,7 +29,8 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
 
   private var shortcuts: FlutterMethodChannel?
 
-  /// The link opened before Dart asked for it (a cold start from the widget).
+  /// The link opened before Dart asked for it (a cold start from the widget). Only the last one is kept on purpose: a
+  /// cold start opens one link, and of several taps before Dart runs the last is the wish.
   private var pendingLink: String?
 
   /// Dart asked for the initial link: its handler for the links opened later is set.
@@ -126,6 +127,10 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
 
   // MARK: - Scene events
 
+  // The selectors are spelled out: the protocol methods are optional, so a Swift name that missed them would only warn
+  // and never be called; with the selector a mismatch does not compile.
+
+  @objc(scene:willConnectToSession:options:)
   func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
@@ -135,12 +140,14 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
     return open(contexts)
   }
 
+  @objc(scene:openURLContexts:)
   func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) -> Bool {
     return open(URLContexts)
   }
 
   // MARK: - Application events (without the UIScene lifecycle)
 
+  @objc(application:openURL:options:)
   func application(
     _ application: UIApplication,
     open url: URL,
