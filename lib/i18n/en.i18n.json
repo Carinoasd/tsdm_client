@@ -253,6 +253,7 @@
       "localDrafts": "Local drafts",
       "messages": "Messages",
       "friends": "Friends",
+      "visitors": "Recent visitors",
       "points": "Points"
     }
   },
@@ -1332,6 +1333,10 @@
   },
   "friendPage": {
     "title": "Friends",
+    "visitor": {
+      "title": "Recent visitors",
+      "empty": "No visitors yet"
+    },
     "subtitle": "${name} · ${count: int} friends",
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",

@@ -260,7 +260,8 @@ class ScreenPaths {
   ///
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
   ///
-  /// Query parameters: `uid` or `username` of the user; none for the current user.
+  /// Query parameters: `uid` or `username` of the user; none for the current user. `view=visitor` lists the recent
+  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
   static const String friend = '/friend';
 
   /// Page to show "Latest thread" on web side.

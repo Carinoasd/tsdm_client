@@ -253,6 +253,7 @@
       "localDrafts": "本機草稿",
       "messages": "私訊",
       "friends": "好友",
+      "visitors": "最近訪客",
       "points": "積分"
     }
   },
@@ -1332,6 +1333,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近訪客",
+      "empty": "還沒有訪客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "還沒有好友",

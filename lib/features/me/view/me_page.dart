@@ -140,6 +140,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.friend),
       ),
       (
+        key: const ValueKey('me-visitors'),
+        icon: Icons.visibility_outlined,
+        label: tr.visitors,
+        onTap: () => _open(ScreenPaths.friend, query: {'view': 'visitor'}),
+      ),
+      (
         key: const ValueKey('me-points'),
         icon: Icons.show_chart_outlined,
         label: tr.points,

@@ -57,7 +57,11 @@ final _cssColorRe = RegExp(r'color\s*:\s*([^;]+)');
 /// `<li id="friend_UID_li">` items whose `h4` starts with a "热度" link and carries the group icon, with a manage menu
 /// (分组／备注／删除); when the owner has no friends yet the same shape lists "在线成员" suggestions instead, each with a
 /// "加为好友" link, and those are not friends.
-FriendListPage parseFriendListPage(uh.Document document) {
+///
+/// With [visitor] the page is the own visitors list (`view=visitor`): its `<li id="friend_UID_li">` items are the
+/// visitors, whether or not they are friends (a "加为好友" link does not make one a suggestion here), the `p.maxh` line
+/// is the visitor's last mood, not a user group, and the date of the visit is the `span.xg1` in the `h4`.
+FriendListPage parseFriendListPage(uh.Document document, {bool visitor = false}) {
   final title = document.querySelector('title')?.text ?? '';
   final ownerName = _ownerRe.firstMatch(title)?.group(1)?.trim();
   final lists = document.querySelectorAll('ul.buddy');
@@ -78,8 +82,10 @@ FriendListPage parseFriendListPage(uh.Document document) {
   final items = <Friend>[];
   for (final list in lists) {
     for (final li in list.children.where((e) => e.localName == 'li')) {
-      if (li.classes.contains('bbda') || (_isOwnListItem(li) && !_hasAddFriendLink(li))) {
-        final friend = _parseItem(li);
+      if (visitor
+          ? _isOwnListItem(li)
+          : li.classes.contains('bbda') || (_isOwnListItem(li) && !_hasAddFriendLink(li))) {
+        final friend = visitor ? _parseVisitor(li) : _parseItem(li);
         if (friend != null) {
           items.add(friend);
         }
@@ -163,5 +169,24 @@ Friend? _parseItem(uh.Element li) {
         ?.trim()
         .prependHost(),
     credits: credits,
+  );
+}
+
+/// A visitor of the visitors list: the member, the avatar and the date the page prints ("11月8日").
+Friend? _parseVisitor(uh.Element li) {
+  final nameNode = _nameLink(li);
+  final uid = nameNode?.attributes['href']?.uriQueryParameter('uid');
+  final username = nameNode?.innerText.trim() ?? '';
+  if (uid == null || uid.isEmpty || username.isEmpty) {
+    return null;
+  }
+  final avatarUrl = li.querySelector('div.avt img')?.dataOriginalOrSrcImgUrl()?.trim();
+  final date = li.querySelector('h4 span.xg1')?.innerText.trim();
+  return Friend(
+    uid: uid,
+    username: username,
+    avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : avatarUrl.prependHost(),
+    nameColor: _colorInStyle(nameNode?.attributes['style']),
+    visitedText: date == null || date.isEmpty ? null : date,
   );
 }
