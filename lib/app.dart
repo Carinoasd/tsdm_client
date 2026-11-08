@@ -588,7 +588,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               fetchFor: followedThreadFetcherOf,
               announce: (uid, thread) async {
                 if (!autoSyncPostsNotifications) {
-                  return;
+                  // Nothing is posted here: the list shows the new replies.
+                  return true;
                 }
                 await showFollowedThreadNotification(
                   plugin: flnp,
@@ -597,7 +598,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                   uid: uid,
                   hideContent: getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
                 );
+                return true;
               },
+              onRead: autoSyncPostsNotifications
+                  ? (tid) => unawaited(flnp.cancel(id: followedThreadNoticeId(tid)))
+                  : null,
             )..start(),
             lazy: false,
           ),

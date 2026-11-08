@@ -47,16 +47,19 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
   /// Constructor.
   ///
   /// [fetchFor] builds the check of one thread for an account (its own client); [announce] posts the notification of
-  /// a thread with new replies, for that account. Without [authenticationRepository] the list of [uid] is followed
+  /// a thread with new replies, for that account, and tells whether it did; [onRead] takes back the notification of a
+  /// thread read (its new replies are no news any more). Without [authenticationRepository] the list of [uid] is followed
   /// and nothing is checked (tests).
   FollowedThreadsCubit({
     required FollowedThreadStore store,
     required StorageProvider storage,
     AuthenticationRepository? authenticationRepository,
     Future<FollowedThreadFetch> Function(int tid) Function(int uid)? fetchFor,
-    Future<void> Function(int uid, FollowedThread thread)? announce,
+    Future<bool> Function(int uid, FollowedThread thread)? announce,
+    void Function(int tid)? onRead,
     int? uid,
   }) : _store = store,
+       _onRead = onRead,
        _storage = storage,
        _auth = authenticationRepository,
        _fetchFor = fetchFor,
@@ -80,7 +83,8 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
   final StorageProvider _storage;
   final AuthenticationRepository? _auth;
   final Future<FollowedThreadFetch> Function(int tid) Function(int uid)? _fetchFor;
-  final Future<void> Function(int uid, FollowedThread thread)? _announce;
+  final Future<bool> Function(int uid, FollowedThread thread)? _announce;
+  final void Function(int tid)? _onRead;
 
   StreamSubscription<void>? _authSub;
   late final StreamSubscription<int> _changesSub;
@@ -139,7 +143,7 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
         store: _store,
         uid: uid,
         fetch: fetchFor(uid),
-        announce: (thread) async => _announce?.call(uid, thread),
+        announce: (thread) async => await _announce?.call(uid, thread) ?? false,
         keepGoing: () => !isClosed && auth.effectiveCurrentUid == uid,
       );
     } on Object catch (e, st) {
@@ -168,9 +172,11 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
   }
 
   /// Put [thread] back in the list of the account in use as it was (undo of [unfollow]).
-  Future<void> restore(FollowedThread thread) async {
+  ///
+  /// [index] is where it was in the list.
+  Future<void> restore(FollowedThread thread, {int? index}) async {
     if (_uid case final uid?) {
-      await _store.update(uid, thread.tid, (current) => current ?? thread);
+      await _store.update(uid, thread.tid, (current) => current ?? thread, insertAt: index);
     }
   }
 
@@ -183,11 +189,23 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
     String? title,
     DateTime? lastReplyAt,
   }) async {
-    if (uid == state.uid && state.loaded && state.of(tid) == null) {
-      return;
+    if (uid == state.uid && state.loaded) {
+      final known = state.of(tid);
+      // Not followed, or nothing to clear: no write (the thread page tells every page it loads).
+      if (known == null ||
+          (!known.notified &&
+              known.newReplies == 0 &&
+              (replies == null || replies == known.seenReplies) &&
+              (title == null || title.isEmpty || title == known.title))) {
+        return;
+      }
     }
     try {
+      final before = await _store.of(uid, tid);
       await _store.markRead(uid, tid, replies: replies, title: title, lastReplyAt: lastReplyAt);
+      if (before != null && (before.notified || before.newReplies > 0)) {
+        _onRead?.call(tid);
+      }
     } on Object catch (e, st) {
       error('failed to mark followed thread $tid read: $e', e, st);
     }

@@ -660,7 +660,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     final followed = await cubit.follow(
       tid: tid,
       title: state.title ?? '',
-      replies: state.onlyVisibleUid == null ? (_followedReplies(state) ?? 0) : (state.replyCount ?? 0),
+      replies: _followedReplies(state) ?? 0,
     );
     if (followed && context.mounted) {
       showSnackBar(context: context, message: tr.added);
@@ -2168,7 +2168,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                               }
                             },
                           ),
+                        // Not on one author's floors: their count is not the thread's.
                         if (!state.isOffline &&
+                            state.onlyVisibleUid == null &&
                             context.read<AuthenticationRepository>().effectiveCurrentUid != null &&
                             context.readOrNull<FollowedThreadsCubit>() != null)
                           MenuCustomItem(

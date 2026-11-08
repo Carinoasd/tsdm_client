@@ -59,12 +59,12 @@ abstract final class FollowedThreadCheckSlot {
       });
 
   /// Give back the check taken as [slot] when nothing was asked: the next heartbeat may check after all.
-  static Future<void> release(StorageProvider storage, int uid, int slot) async {
+  static Future<void> release(StorageProvider storage, int uid, int slot) => storage.exclusively(() async {
     final key = StorageProvider.followedThreadsCheckedAtKey(uid);
     if (await storage.getInt(key) == slot) {
       await storage.deleteKey(key);
     }
-  }
+  });
 }
 
 /// Whether the new replies of followed threads are announced at [now]: the category is on and it is not the quiet
@@ -88,7 +88,10 @@ typedef FollowedThreadRound = ({int asked, int failed, List<FollowedThread> anno
 /// A thread read is stored right away (its replies, title, newest floor and the time of the check) under the store's
 /// lock, on the entry stored then: a thread unfollowed meanwhile stays unfollowed, a thread read meanwhile keeps what
 /// was read. A thread with replies not read yet that was not announced since it was read is handed to [announce] when
-/// [announcing] says so at that moment, and marked announced ([FollowedThread.notified]): once until it is read.
+/// [announcing] says so at that moment, and marked announced ([FollowedThread.notified]): once until it is read. When
+/// [announce] says it did not post it (or throws), the mark is taken back and the next round announces it.
+///
+/// Fewer replies than were read (floors deleted) lower what was read with them: the next replies count from there.
 ///
 /// A failure is not announced and the thread is asked again next round. The round stops when the forum asks to slow
 /// down (429), when a page was served to another account or to a guest (the session expired, or the account was
@@ -98,7 +101,7 @@ Future<FollowedThreadRound> checkFollowedThreads({
   required int uid,
   required Future<FollowedThreadFetch> Function(int tid) fetch,
   required Future<bool> Function() announcing,
-  required Future<void> Function(FollowedThread thread) announce,
+  required Future<bool> Function(FollowedThread thread) announce,
   bool Function()? keepGoing,
   DateTime Function() clock = DateTime.now,
   int limit = followedThreadRoundLimit,
@@ -154,6 +157,10 @@ Future<FollowedThreadRound> checkFollowedThreads({
         );
       case FollowedThreadFetched(:final replies, :final title, :final lastReplyAt):
         final allowed = await announcing();
+        if (keepGoing != null && !keepGoing()) {
+          stopped = true;
+          break;
+        }
         var toAnnounce = false;
         final stored = await store.update(uid, thread.tid, (current) {
           if (current == null) {
@@ -161,6 +168,7 @@ Future<FollowedThreadRound> checkFollowedThreads({
           }
           final next = current.copyWith(
             title: title == null || title.isEmpty ? null : title,
+            seenReplies: replies < current.seenReplies ? replies : null,
             knownReplies: replies,
             lastReplyAt: lastReplyAt,
             checkedAt: now,
@@ -169,11 +177,21 @@ Future<FollowedThreadRound> checkFollowedThreads({
           return toAnnounce ? next.copyWith(notified: true) : next;
         });
         if (toAnnounce && stored != null) {
-          announced.add(stored);
+          var shown = false;
           try {
-            await announce(stored);
+            shown = await announce(stored);
           } on Object catch (e, st) {
             talker.handle(e, st, 'followed thread ${thread.tid}: announcing failed');
+          }
+          if (shown) {
+            announced.add(stored);
+          } else {
+            // Not posted: the next round announces it, unless it was read meanwhile.
+            await store.update(
+              uid,
+              thread.tid,
+              (current) => current != null && current.notified ? current.copyWith(notified: false) : current,
+            );
           }
         }
     }
@@ -192,7 +210,7 @@ Future<FollowedThreadRound?> followedThreadsTick({
   required FollowedThreadStore store,
   required int uid,
   required Future<FollowedThreadFetch> Function(int tid) fetch,
-  required Future<void> Function(FollowedThread thread) announce,
+  required Future<bool> Function(FollowedThread thread) announce,
   Future<void> Function()? prepare,
   bool Function()? keepGoing,
   DateTime Function() clock = DateTime.now,

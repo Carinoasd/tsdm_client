@@ -48,6 +48,7 @@ class _FollowedThreadsPageState extends State<FollowedThreadsPage> {
   Future<void> _unfollow(BuildContext context, FollowedThread thread) async {
     final cubit = context.read<FollowedThreadsCubit>();
     final tr = context.t.followedThreads;
+    final index = cubit.state.threads.indexWhere((e) => e.tid == thread.tid);
     await cubit.unfollow(thread.tid);
     if (!context.mounted) {
       return;
@@ -56,7 +57,10 @@ class _FollowedThreadsPageState extends State<FollowedThreadsPage> {
       context: context,
       message: tr.unfollowed,
       clearPrevious: true,
-      action: SnackBarAction(label: tr.undo, onPressed: () => unawaited(cubit.restore(thread))),
+      action: SnackBarAction(
+        label: tr.undo,
+        onPressed: () => unawaited(cubit.restore(thread, index: index < 0 ? null : index)),
+      ),
     );
   }
 

@@ -39,8 +39,14 @@ final class FollowedThreadStore with LoggerMixin {
 
   /// Change the entry of thread [tid] of account [uid] to what [change] makes of the stored one (null: not followed).
   ///
-  /// [change] returning null removes the entry; a new entry goes first in the list. Returns the entry as stored.
-  Future<FollowedThread?> update(int uid, int tid, FollowedThread? Function(FollowedThread? current) change) async {
+  /// [change] returning null removes the entry; a new entry goes first in the list, or at [insertAt] when given (an
+  /// entry put back where it was). Returns the entry as stored.
+  Future<FollowedThread?> update(
+    int uid,
+    int tid,
+    FollowedThread? Function(FollowedThread? current) change, {
+    int? insertAt,
+  }) async {
     final result = await _storage.exclusively(() async {
       final list = await load(uid);
       final index = list.indexWhere((e) => e.tid == tid);
@@ -52,14 +58,14 @@ final class FollowedThreadStore with LoggerMixin {
       if (next == null) {
         list.removeAt(index);
       } else if (index < 0) {
-        list.insert(0, next);
+        list.insert((insertAt ?? 0).clamp(0, list.length), next);
       } else {
         list[index] = next;
       }
       await _write(uid, list);
       return (changed: true, entry: next);
     });
-    if (result.changed) {
+    if (result.changed && !_changes.isClosed) {
       _changes.add(uid);
     }
     return result.entry;

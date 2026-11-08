@@ -191,7 +191,10 @@ void main() {
       uid: _uid,
       fetch: fetch,
       announcing: () async => allowed,
-      announce: (t) async => announced?.add(t),
+      announce: (t) async {
+        announced?.add(t);
+        return true;
+      },
       clock: () => now ?? DateTime(2026, 11, 8, 12),
       gap: Duration.zero,
     );
@@ -252,6 +255,51 @@ void main() {
       expect(announced.single.newReplies, 2);
     });
 
+    test('fewer replies than were read (floors deleted): the next ones count from there', () async {
+      await seed([_thread(1, seen: 10, known: 10)]);
+      final announced = <FollowedThread>[];
+      await round((_) async => _replies(7), announced: announced);
+      expect(announced, isEmpty);
+      expect((await store.of(_uid, 1))!.seenReplies, 7);
+      await round((_) async => _replies(9), announced: announced);
+      expect(announced.single.newReplies, 2);
+    });
+
+    test('a notification not posted is taken back and posted next round', () async {
+      await seed([_thread(1, seen: 1, known: 1)]);
+      final r = await checkFollowedThreads(
+        store: store,
+        uid: _uid,
+        fetch: (_) async => _replies(3),
+        announcing: () async => true,
+        announce: (_) async => false,
+        gap: Duration.zero,
+      );
+      expect(r.announced, isEmpty);
+      expect((await store.of(_uid, 1))!.notified, isFalse);
+      final thrown = await checkFollowedThreads(
+        store: store,
+        uid: _uid,
+        fetch: (_) async => _replies(3),
+        announcing: () async => true,
+        announce: (_) async => throw StateError('plugin'),
+        gap: Duration.zero,
+      );
+      expect(thrown.announced, isEmpty);
+      expect((await store.of(_uid, 1))!.notified, isFalse);
+      final announced = <FollowedThread>[];
+      await round((_) async => _replies(3), announced: announced);
+      expect(announced.single.newReplies, 2);
+    });
+
+    test('put back where it was', () async {
+      await seed([_thread(1), _thread(2), _thread(3)]);
+      final second = (await store.of(_uid, 2))!;
+      await store.unfollow(_uid, 2);
+      await store.update(_uid, 2, (c) => c ?? second, insertAt: 1);
+      expect((await store.load(_uid)).map((e) => e.tid), [1, 2, 3]);
+    });
+
     test('the category and the quiet hours', () async {
       final noon = DateTime(2026, 11, 8, 12);
       expect(await followedThreadsAnnounced(storage, noon), isTrue);
@@ -308,7 +356,7 @@ void main() {
 
       final t0 = DateTime(2026, 11, 8, 12);
       expect(
-        await followedThreadsTick(storage: storage, store: store, uid: _uid, fetch: fetch, announce: (_) async {}),
+        await followedThreadsTick(storage: storage, store: store, uid: _uid, fetch: fetch, announce: (_) async => true),
         isNull,
       );
       await seed([_thread(1)]);
@@ -317,7 +365,7 @@ void main() {
         store: store,
         uid: _uid,
         fetch: fetch,
-        announce: (_) async {},
+        announce: (_) async => true,
         clock: () => t0,
         gap: Duration.zero,
       );
@@ -328,7 +376,7 @@ void main() {
           store: store,
           uid: _uid,
           fetch: fetch,
-          announce: (_) async {},
+          announce: (_) async => true,
           clock: () => t0.add(const Duration(minutes: 5)),
         ),
         isNull,

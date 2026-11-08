@@ -181,6 +181,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
   var period = Duration.zero;
   var ticking = false;
   var followChecking = false;
+  Completer<void>? followDone;
   var stopping = false;
 
   Future<void> stop(String why) async {
@@ -191,6 +192,9 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     talker.info('background sync: stop ($why)');
     timer?.cancel();
     followTimer?.cancel();
+    // A check of the followed threads stops at its next thread (`keepGoing`): its writes land before the database
+    // closes.
+    await followDone?.future.timeout(const Duration(seconds: 40), onTimeout: () {});
     await runtime.dispose();
     await logSink.flush();
     await service.stopSelf();
@@ -278,6 +282,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
       return;
     }
     followChecking = true;
+    followDone = Completer<void>();
     try {
       final uid = (await readBackgroundSyncSettings(runtime.storage)).loginUid;
       await followedThreadsTick(
@@ -289,7 +294,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
         keepGoing: () => !stopping,
         announce: (thread) async {
           if (stopping) {
-            return;
+            return false;
           }
           await showFollowedThreadNotification(
             plugin: runtime.plugin,
@@ -300,12 +305,15 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
                 await runtime.storage.getBool(SettingsKeys.notificationHideContent.name) ??
                 SettingsKeys.notificationHideContent.defaultValue,
           );
+          return true;
         },
       );
     } on Object catch (e, st) {
       talker.handle(e, st, 'background sync: followed threads check failed');
     } finally {
       followChecking = false;
+      followDone?.complete();
+      followDone = null;
       await logSink.flush();
     }
   }
