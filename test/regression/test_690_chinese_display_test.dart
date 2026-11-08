@@ -155,13 +155,25 @@ void main() {
 
     testWidgets('a page calling munchElement builds again when the mode changes', (tester) async {
       ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
-      Widget app(ChineseDisplayMode mode) => _app(
-        mode,
-        Builder(builder: (context) => munchElement(context, parseHtmlDocument('<p>动漫</p>').body!)),
-      );
-      await tester.pumpWidget(app(ChineseDisplayMode.off));
+      // One instance: only the scope's notification can build it again.
+      final page = Builder(builder: (context) => munchElement(context, parseHtmlDocument('<p>动漫</p>').body!));
+      await tester.pumpWidget(_app(ChineseDisplayMode.off, page));
       expect(_richText(tester), '动漫');
-      await tester.pumpWidget(app(ChineseDisplayMode.traditional));
+      await tester.pumpWidget(_app(ChineseDisplayMode.traditional, page));
+      await tester.pump();
+      expect(_richText(tester), '動漫');
+    });
+
+    testWidgets('a page calling munchElement builds again when the dictionary arrives', (tester) async {
+      ChineseDisplay.instance.useConverters();
+      final page = Builder(builder: (context) => munchElement(context, parseHtmlDocument('<p>动漫</p>').body!));
+      await tester.pumpWidget(_app(ChineseDisplayMode.traditional, page));
+      await tester.pump();
+      expect(_richText(tester), '动漫');
+      ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
+      // The host asks again when its widget is updated with the mode it was waiting for.
+      await tester.pumpWidget(_app(ChineseDisplayMode.off, page));
+      await tester.pumpWidget(_app(ChineseDisplayMode.traditional, page));
       await tester.pump();
       expect(_richText(tester), '動漫');
     });

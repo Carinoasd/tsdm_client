@@ -35,16 +35,21 @@ class ChineseDisplay {
     if (isReady(mode)) {
       return;
     }
-    final loading = switch (mode) {
-      ChineseDisplayMode.traditional => _loadingS2t ??= _loadS2t(),
-      ChineseDisplayMode.simplified => _loadingT2s ??= _loadT2s(),
-      ChineseDisplayMode.off => Future<void>.value(),
-    };
     try {
-      await loading;
+      switch (mode) {
+        case ChineseDisplayMode.traditional:
+          await (_loadingS2t ??= _loadS2t());
+        case ChineseDisplayMode.simplified:
+          await (_loadingT2s ??= _loadT2s());
+        case ChineseDisplayMode.off:
+          break;
+      }
     } on Object {
-      _loadingS2t = null;
-      _loadingT2s = null;
+      if (mode == ChineseDisplayMode.traditional) {
+        _loadingS2t = null;
+      } else {
+        _loadingT2s = null;
+      }
       rethrow;
     }
   }

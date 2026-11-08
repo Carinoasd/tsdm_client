@@ -41,8 +41,8 @@ def build(chars, phrases):
 
     A phrase the characters convert to the same text is redundant, unless it changes how a neighbouring phrase is
     cut: the longest match takes it where a shorter or an overlapping one would match otherwise. Every phrase that
-    is a candidate to be dropped is tried against the phrases it overlaps (one starting inside it, one ending inside
-    its start) and kept when the text built from the two converts differently without it.
+    is a candidate to be dropped is tried alone and against the phrases it overlaps (one starting inside it, one
+    ending inside its start) and kept when the text built from the two converts differently without it.
     """
     full = {k: v for k, v in chars.items() if k != v}
     full.update(phrases)
@@ -63,7 +63,8 @@ def build(chars, phrases):
     table = dict(full)
     for key in sorted(candidates, key=len, reverse=True):
         value = table.pop(key)
-        contexts = []
+        # The phrase itself too: a shorter phrase inside it would cut it differently.
+        contexts = [key]
         for t in range(1, len(key)):
             for other in by_prefix.get(key[t:], ()):
                 if other != key:
