@@ -17,6 +17,7 @@ String userBlockResultText(BuildContext context, UserBlockResult result, {requir
     UserBlockResult.invalid => tr.invalid,
     UserBlockResult.accountChanged => tr.accountChanged,
     UserBlockResult.storageError => tr.storageError,
+    UserBlockResult.limitReached => tr.filter.limitReached,
   };
 }
 

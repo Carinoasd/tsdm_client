@@ -10,6 +10,7 @@ import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
@@ -177,6 +178,7 @@ Future<void> _boot(List<String> args) async {
     }
   }
 
+  await initAudioPlayer();
   // Register the selected font if it is an imported file before the theme is built (the others are registered when the
   // font dialog opens); a font that fails to load falls back to the default.
   try {

@@ -21,7 +21,11 @@ enum NoticeCategory {
   pm,
 
   /// Broadcast messages and every other kind of notice: the forum's system notices, moderation, friends, medals...
-  system
+  system,
+
+  /// New replies of the threads the account follows, found by the app itself (`checkFollowedThreads`): the forum
+  /// sends no notice for them, so no notice is of this category.
+  followedThread
   ;
 
   /// The setting that switches this category on.
@@ -31,6 +35,7 @@ enum NoticeCategory {
     rate => SettingsKeys.notifyRate,
     pm => SettingsKeys.notifyPersonalMessage,
     system => SettingsKeys.notifySystem,
+    followedThread => SettingsKeys.notifyFollowedThread,
   };
 
   /// Id of the Android notification channel of this category.
@@ -40,6 +45,7 @@ enum NoticeCategory {
     rate => 'noticeRate',
     pm => 'noticePm',
     system => 'noticeSystem',
+    followedThread => 'noticeFollowedThread',
   };
 }
 
