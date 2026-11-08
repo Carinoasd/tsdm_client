@@ -378,12 +378,17 @@ void main() {
     });
   }
 
-  test('upgrade from 18 to 19 adds the reading time table', () async {
+  test('upgrade from 18 to 19 creates the read later table, keeping the visits', () async {
     final verifier = SchemaVerifier(GeneratedHelper());
-    final connection = await verifier.startAt(18);
-    final db = AppDatabase(connection);
+    final schema = await verifier.schemaAt(18);
+    schema.rawDatabase.execute(
+      'INSERT INTO thread_visit_history (uid, tid, username, thread_title, fid, forum_name, visit_time) '
+      "VALUES (1000, 1264975, 'Alice', 'title', 2, 'forum', 100)",
+    );
+    final db = AppDatabase(schema.newConnection());
     await verifier.migrateAndValidate(db, 19);
-    expect(await db.select(db.readingTime).get(), isEmpty);
+    expect((await db.select(db.threadVisitHistory).get()).single.tid, 1264975);
+    expect(await db.select(db.readLater).get(), isEmpty);
     await db.close();
   });
 
@@ -395,4 +400,47 @@ void main() {
     await verifier.migrateAndValidate(db, 19);
     await db.close();
   });
+
+  for (final from in [10, 16, 17]) {
+    test('upgrade from $from to 19 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 19);
+      await db.close();
+    });
+  }
+
+  test('upgrade from 19 to 20 adds the reading time table, keeping the read later list', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(19);
+    schema.rawDatabase.execute(
+      'INSERT INTO read_later (uid, tid, thread_title, added_at) '
+      "VALUES (1000, 1264975, 'title', 100)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 20);
+    expect((await db.select(db.readLater).get()).single.tid, 1264975);
+    expect(await db.select(db.readingTime).get(), isEmpty);
+    await db.close();
+  });
+
+  test('the 19 to 20 step runs again safely when another connection already created the table', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(20);
+    schema.rawDatabase.execute('PRAGMA user_version = 19');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 20);
+    await db.close();
+  });
+
+  for (final from in [10, 17, 18]) {
+    test('upgrade from $from to 20 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 20);
+      await db.close();
+    });
+  }
 }

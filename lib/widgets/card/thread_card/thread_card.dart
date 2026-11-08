@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/my_thread/models/models.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -39,7 +40,7 @@ typedef _ThreadInfo = (IconData, String, String?);
 /// All actions used in the context menu.
 ///
 /// The context menu is opened by either long press or right click, depending on the platform.
-enum _CtxMenuActions { openInBrowser, viewInfo }
+enum _CtxMenuActions { openInNewTab, openInBrowser, viewInfo, readLater }
 
 class _CardLayout extends StatelessWidget {
   const _CardLayout({
@@ -93,7 +94,13 @@ class _CardLayout extends StatelessWidget {
   /// replies posted since its last visit are told ("+N" after the reply count).
   final ReadingProgress? progress;
 
-  Card _wrapWithCard(BuildContext context, Widget child) => Card(
+  /// A middle click opens the thread in a new tab of the wide list page's detail pane.
+  Widget _wrapWithCard(BuildContext context, Widget child) => TwoPaneMiddleClickOpener(
+    query: disableTap ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
+    child: _card(context, child),
+  );
+
+  Card _card(BuildContext context, Widget child) => Card(
     margin: EdgeInsets.zero,
     clipBehavior: Clip.antiAlias,
     child: AdaptiveInkResponse(
@@ -107,10 +114,26 @@ class _CardLayout extends StatelessWidget {
           tapPosition.globalPosition & Size.zero, // Rect from the tap position
           Offset.zero & MediaQuery.of(context).size, // Bounding box for the menu
         );
+        // Put aside for the account in use: not offered without one.
+        final readLater = context.readOrNull<ReadLaterCubit>();
+        final readLaterId = int.tryParse(threadID);
+        final canReadLater = readLater != null && readLater.state.uid != null && readLaterId != null;
+        final isReadLater = canReadLater && readLater.state.contains(readLaterId);
         final choice = await showMenu<_CtxMenuActions>(
           context: context,
           position: position,
           items: <PopupMenuEntry<_CtxMenuActions>>[
+            if (!disableTap && TwoPaneScope.readOf(context)?.side == TwoPaneSide.list)
+              PopupMenuItem(
+                value: _CtxMenuActions.openInNewTab,
+                child: Row(
+                  children: [
+                    const Icon(Icons.tab_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.threadCard.openInNewTab),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               value: _CtxMenuActions.openInBrowser,
               child: Row(
@@ -131,6 +154,17 @@ class _CardLayout extends StatelessWidget {
                 ],
               ),
             ),
+            if (canReadLater)
+              PopupMenuItem(
+                value: _CtxMenuActions.readLater,
+                child: Row(
+                  children: [
+                    Icon(isReadLater ? Icons.watch_later : Icons.watch_later_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(isReadLater ? context.t.readLater.remove : context.t.readLater.add),
+                  ],
+                ),
+              ),
           ],
         );
 
@@ -139,6 +173,8 @@ class _CardLayout extends StatelessWidget {
         }
 
         switch (choice) {
+          case _CtxMenuActions.openInNewTab:
+            await openThread(context, threadID: threadID, title: title, threadType: threadType, newTab: true);
           case _CtxMenuActions.openInBrowser:
             await launchUrl(
               Uri.parse('$baseUrl/forum.php?mod=viewthread&tid=$threadID'),
@@ -146,6 +182,14 @@ class _CardLayout extends StatelessWidget {
             );
           case _CtxMenuActions.viewInfo:
             await showCopyThreadInfoDialog(context: context, tid: threadID, title: title);
+          case _CtxMenuActions.readLater:
+            await toggleReadLater(
+              context,
+              tid: threadID,
+              title: title,
+              author: author?.name,
+              forumName: forum,
+            );
         }
       },
       child: child,
@@ -506,21 +550,26 @@ class _CardLayout extends StatelessWidget {
   }
 }
 
-/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own.
+/// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
+Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {
+  // FIXME: Query parameters are not recognized by v2 yet.
+  'tid': threadID,
+  'appBarTitle': title,
+  'threadTypeName': threadType?.name,
+  'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+};
+
+/// Opens a thread as its card does: on the right of a wide list page, else as a page of its own. [newTab] as
+/// [openThreadInPane] has it.
 Future<void> openThread(
   BuildContext context, {
   required String threadID,
   required String title,
   ThreadType? threadType,
+  bool? newTab,
 }) async {
-  // FIXME: Query parameters are not recognized by v2 yet.
-  final query = {
-    'tid': threadID,
-    'appBarTitle': title,
-    'threadTypeName': threadType?.name,
-    'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-  };
-  if (openThreadInPane(context, query)) {
+  final query = threadQuery(threadID: threadID, title: title, threadType: threadType);
+  if (openThreadInPane(context, query, newTab: newTab)) {
     return;
   }
   await context.pushNamed(ScreenPaths.threadV1, queryParameters: query);
@@ -541,7 +590,9 @@ class NormalThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Topics of locally blocked users are hidden, the list and its pagination stay untouched.
     ThreadAuthorCache.record(thread.threadID, thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    // The page of one forum: the forum filters do not apply, the user opened it.
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, byForum: false)) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -578,7 +629,8 @@ class SearchedThreadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ThreadAuthorCache.record('${thread.threadID}', thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -633,7 +685,8 @@ class LatestThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final showExcerpt = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardShowExcerpt);
     ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
-    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
+    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
