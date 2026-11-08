@@ -74,7 +74,8 @@ PreparedCustomEmoji? prepareCustomEmoji(Uint8List bytes) {
     if (info.width > 16384 || info.height > 16384 || info.width * info.height > customEmojiMaxPixels) {
       return null;
     }
-    image = decoder.decode(bytes);
+    // The first frame only: the pixel check is of one frame, and an animated PNG or WebP keeps its first.
+    image = decoder.decode(bytes, frame: 0);
   } on Object {
     return null;
   }

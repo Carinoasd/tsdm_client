@@ -99,6 +99,23 @@ void main() {
       expect(prepareCustomEmoji(png), isNull);
     });
 
+    test('an animated image: its first frame only', () {
+      final frames = img.Image(width: 20, height: 10)..clear(img.ColorRgb8(1, 2, 3));
+      for (var i = 0; i < 3; i++) {
+        frames.addFrame(img.Image(width: 20, height: 10)..clear(img.ColorRgb8(i * 50, 0, 0)));
+      }
+      final apng = img.encodePng(frames);
+      expect(img.decodePng(apng)!.numFrames, greaterThan(1), reason: 'an animated PNG');
+      final prepared = prepareCustomEmoji(apng)!;
+      expect(prepared.bytes, apng, reason: 'small enough: kept');
+      final large = img.Image(width: 1024, height: 64);
+      for (var i = 0; i < 3; i++) {
+        large.addFrame(img.Image(width: 1024, height: 64));
+      }
+      final scaled = img.decodePng(prepareCustomEmoji(img.encodePng(large))!.bytes)!;
+      expect((scaled.width, scaled.numFrames), (512, 1));
+    });
+
     test('no image: null', () {
       expect(prepareCustomEmoji(Uint8List.fromList(utf8.encode('not an image'))), isNull);
       expect(prepareCustomEmoji(Uint8List(0)), isNull);
@@ -352,6 +369,10 @@ void main() {
       }
       expect(patched, 2);
       expect(ZipDecoder().decodeBytes(zip).files.firstWhere((e) => e.name == 'images/$name').size, 100);
+      // The premise: the archive decompresses past the size it declares, only the limit stops it.
+      final plain = OutputMemoryStream();
+      ZipDecoder().decodeBytes(zip).files.firstWhere((e) => e.name == 'images/$name').writeContent(plain);
+      expect(plain.length, huge.length);
       expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
     });
 

@@ -117,7 +117,7 @@ Uint8List encodeCustomEmojiArchive(List<CustomEmojiPack> packs, Uint8List? Funct
 ///
 /// Nothing in it is trusted: only `manifest.json` and the entries named exactly `images/<sha256>.<ext>` are read; an
 /// image larger than [customEmojiArchiveMaxImageBytes] (decompressed, whatever the archive declares), past
-/// [customEmojiArchiveMaxTotalBytes] of images, whose bytes are not of its name (hash, format) or past the
+/// [customEmojiArchiveMaxTotalBytes] of images decompressed, whose bytes are not of its name (hash, format) or past the
 /// first [customEmojiArchiveMaxImages] is left out, as is a name of the manifest no entry has.
 List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
   if (bytes.length > customEmojiArchiveMaxBytes) return null;
@@ -166,11 +166,12 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
     if (data == null) {
       return null;
     }
+    // Counted whether kept or not: entries thrown away cost their decompression too.
+    total += data.length;
     final dot = name.indexOf('.');
     if (customEmojiFormatOf(data) != name.substring(dot + 1) || sha256Hex(data) != name.substring(0, dot)) {
       return null;
     }
-    total += data.length;
     return data;
   });
 

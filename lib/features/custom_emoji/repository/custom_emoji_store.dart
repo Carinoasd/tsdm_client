@@ -103,7 +103,8 @@ final class CustomEmojiStore with LoggerMixin {
 
   /// The saved map of [file] with a [key], null when there is no file. One this cannot read (broken, of a later
   /// version) is renamed out of the way first (`<name>.bad-<ms>`; a later version's file goes back by renaming it): the
-  /// next write would replace it otherwise. One that cannot be renamed is never written.
+  /// next write would replace it otherwise. One that cannot be renamed is never written. The images only a file set
+  /// aside lists may still be deleted as unused ones.
   Future<Map<Object?, Object?>?> _read(File file, String key) async {
     if (!file.existsSync()) return null;
     try {
