@@ -3049,6 +3049,15 @@
         "ruleNotFound": "這條設定已不存在，請重新載入",
         "unknownAfterSubmit": "已送出但無法確認結果，請重新載入確認"
       }
+    },
+    "filter": {
+      "keywords": "屏蔽關鍵字",
+      "keyword": "關鍵字",
+      "add": "新增",
+      "keywordExists": "已有這個關鍵字",
+      "forums": "屏蔽版塊",
+      "pickForums": "選擇",
+      "limitReached": "已達上限"
     }
   },
   "medalTitleTools": {

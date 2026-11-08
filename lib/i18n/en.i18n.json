@@ -3049,6 +3049,15 @@
         "ruleNotFound": "This setting is not there any more, please reload",
         "unknownAfterSubmit": "Sent, but the result could not be confirmed, please reload to check"
       }
+    },
+    "filter": {
+      "keywords": "Blocked keywords",
+      "keyword": "Keyword",
+      "add": "Add",
+      "keywordExists": "This keyword is already blocked",
+      "forums": "Blocked forums",
+      "pickForums": "Choose",
+      "limitReached": "The limit is reached"
     }
   },
   "medalTitleTools": {

@@ -565,7 +565,9 @@ class NormalThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Topics of locally blocked users are hidden, the list and its pagination stay untouched.
     ThreadAuthorCache.record(thread.threadID, thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    // The page of one forum: the forum filters do not apply, the user opened it.
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, byForum: false)) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -602,7 +604,8 @@ class SearchedThreadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ThreadAuthorCache.record('${thread.threadID}', thread.author.uid);
-    if (isBlockedByCurrentUser(context, thread.author.uid)) {
+    if (isBlockedByCurrentUser(context, thread.author.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(
@@ -657,7 +660,8 @@ class LatestThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final showExcerpt = context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardShowExcerpt);
     ThreadAuthorCache.record(thread.threadID, thread.threadAuthor?.uid);
-    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid)) {
+    if (isBlockedByCurrentUser(context, thread.threadAuthor?.uid) ||
+        isThreadFilteredOut(context, title: thread.title, fid: fidOfForumUrl(thread.forumUrl))) {
       return const SizedBox.shrink();
     }
     return _CardLayout(

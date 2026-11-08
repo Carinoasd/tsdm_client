@@ -3049,6 +3049,15 @@
         "ruleNotFound": "这条设置已不存在，请重新加载",
         "unknownAfterSubmit": "已发送但无法确认结果，请重新加载确认"
       }
+    },
+    "filter": {
+      "keywords": "屏蔽关键字",
+      "keyword": "关键字",
+      "add": "添加",
+      "keywordExists": "已有这个关键字",
+      "forums": "屏蔽版块",
+      "pickForums": "选择",
+      "limitReached": "已达上限"
     }
   },
   "medalTitleTools": {
