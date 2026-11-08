@@ -37,6 +37,8 @@ import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/read_later/utils/read_to_end.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
+import 'package:tsdm_client/features/reading_time/reading_time_tracker.dart';
+import 'package:tsdm_client/features/reading_time/repository/reading_time_repository.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -338,6 +340,24 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// Whether this page is the one on top, no other page or dialog above it (see [_RouteOnTopListener]).
   bool _onTop = true;
 
+  /// Counts the time this page is read, see [ReadingTimeTracker].
+  late final ReadingTimeTracker _readingTime = ReadingTimeTracker(
+    enabled: () => getIt.get<SettingsRepository>().currentSettings.readingTimeStats,
+    sink: (day, fid, forumName, seconds) async {
+      final uid = _readingUid;
+      if (uid == null) {
+        return;
+      }
+      await StorageReadingTimeStore(
+        getIt.get<StorageProvider>(),
+      ).add(uid: uid, day: day, fid: fid, forumName: forumName, seconds: seconds);
+    },
+  );
+
+  /// The account the time is counted for is read at every flush (not through the context: the last flush is at dispose).
+  AuthenticationRepository? _readingAuth;
+  int? get _readingUid => _readingAuth?.effectiveCurrentUid;
+
   /// The account changed while another page or a dialog covered this one: reload once it shows again.
   bool _reloadWhenShown = false;
 
@@ -379,6 +399,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   void _onTopChanged({required bool onTop}) {
     _onTop = onTop;
+    _readingTime.setOnTop(onTop: onTop);
     if (onTop && _reloadWhenShown) {
       _reloadForAccount();
     }
@@ -1919,6 +1940,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     super.initState();
     _searchController.addListener(_onSearchEdited);
     _listScrollController.addListener(_checkReadToEnd);
+    _readingAuth = context.read<AuthenticationRepository>();
+    _readingTime.attach();
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
       _takeSavedProgress(progress, atOpen: true);
@@ -2000,6 +2023,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _paneThread?.detach(_paneQuery);
     // Where the reading is when leaving the page.
     _keepProgress();
+    _readingTime.dispose();
     _munchCache.clear();
     _authorLookup++;
     unawaited(_accountSub?.cancel());
@@ -2013,7 +2037,17 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   }
 
   @override
-  Widget build(BuildContext context) => _RouteOnTopListener(onChanged: _onTopChanged, child: _buildPage(context));
+  Widget build(BuildContext context) => _RouteOnTopListener(
+    onChanged: _onTopChanged,
+    // Any touch on the page tells the reader is there.
+    child: Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _readingTime.touch(),
+      onPointerMove: (_) => _readingTime.touch(),
+      onPointerSignal: (_) => _readingTime.touch(),
+      child: _buildPage(context),
+    ),
+  );
 
   /// The page, under the [_RouteOnTopListener] of [build].
   Widget _buildPage(BuildContext context) {
@@ -2072,6 +2106,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                 context.read<ReplyBloc>().add(const ReplyThreadClosed(closed: false));
               }
 
+              _readingTime.setForum(state.fid, state.forumName);
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
                 _markFollowedThreadRead(context, state);
