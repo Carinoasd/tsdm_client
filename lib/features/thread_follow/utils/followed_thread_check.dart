@@ -91,7 +91,8 @@ typedef FollowedThreadRound = ({int asked, int failed, List<FollowedThread> anno
 /// [announcing] says so at that moment, and marked announced ([FollowedThread.notified]): once until it is read. When
 /// [announce] says it did not post it (or throws), the mark is taken back and the next round announces it.
 ///
-/// Fewer replies than were read (floors deleted) lower what was read with them: the next replies count from there.
+/// Fewer replies than were read (floors deleted) lower what was read with them: the next replies count from there. A
+/// thread announced that has nothing new left that way is handed to [onCleared] (its notification is taken back).
 ///
 /// A failure is not announced and the thread is asked again next round. The round stops when the forum asks to slow
 /// down (429), when a page was served to another account or to a guest (the session expired, or the account was
@@ -102,6 +103,7 @@ Future<FollowedThreadRound> checkFollowedThreads({
   required Future<FollowedThreadFetch> Function(int tid) fetch,
   required Future<bool> Function() announcing,
   required Future<bool> Function(FollowedThread thread) announce,
+  void Function(int tid)? onCleared,
   bool Function()? keepGoing,
   DateTime Function() clock = DateTime.now,
   int limit = followedThreadRoundLimit,
@@ -162,6 +164,7 @@ Future<FollowedThreadRound> checkFollowedThreads({
           break;
         }
         var toAnnounce = false;
+        var cleared = false;
         final stored = await store.update(uid, thread.tid, (current) {
           if (current == null) {
             return null;
@@ -175,11 +178,15 @@ Future<FollowedThreadRound> checkFollowedThreads({
           );
           if (next.newReplies == 0) {
             // Nothing new any more (floors deleted): the next replies are announced again.
-            return next.notified ? next.copyWith(notified: false) : next;
+            cleared = next.notified;
+            return cleared ? next.copyWith(notified: false) : next;
           }
           toAnnounce = allowed && !next.notified;
           return toAnnounce ? next.copyWith(notified: true) : next;
         });
+        if (cleared) {
+          onCleared?.call(thread.tid);
+        }
         if (toAnnounce && stored != null) {
           var shown = false;
           try {
@@ -215,6 +222,7 @@ Future<FollowedThreadRound?> followedThreadsTick({
   required int uid,
   required Future<FollowedThreadFetch> Function(int tid) fetch,
   required Future<bool> Function(FollowedThread thread) announce,
+  void Function(int tid)? onCleared,
   Future<void> Function()? prepare,
   bool Function()? keepGoing,
   DateTime Function() clock = DateTime.now,
@@ -245,6 +253,7 @@ Future<FollowedThreadRound?> followedThreadsTick({
     fetch: fetch,
     announcing: () => followedThreadsAnnounced(storage, clock()),
     announce: announce,
+    onCleared: onCleared,
     keepGoing: keepGoing,
     clock: clock,
     gap: gap,

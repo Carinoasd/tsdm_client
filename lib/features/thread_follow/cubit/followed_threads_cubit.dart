@@ -145,6 +145,7 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
         fetch: fetchFor(uid),
         // Without a notification to post the list shows the new replies: announced all the same.
         announce: (thread) async => await _announce?.call(uid, thread) ?? true,
+        onCleared: _onRead,
         keepGoing: () => !isClosed && auth.effectiveCurrentUid == uid,
       );
     } on Object catch (e, st) {
@@ -190,9 +191,11 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
     String? title,
     DateTime? lastReplyAt,
   }) async {
-    if (uid == state.uid && state.loaded) {
-      final known = state.of(tid);
-      // Not followed, or nothing to clear: no write (the thread page tells every page it loads).
+    try {
+      // Not followed, or nothing to clear: no write (the thread page tells every page it loads). Read from the
+      // database without its lock, not from [state]: the background service may have announced the thread since the
+      // list was read.
+      final known = await _store.of(uid, tid);
       if (known == null ||
           (!known.notified &&
               known.newReplies == 0 &&
@@ -200,8 +203,6 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
               (title == null || title.isEmpty || title == known.title))) {
         return;
       }
-    }
-    try {
       // Told by the entry seen under the store's lock: the background service may have announced it just now.
       var hadNews = false;
       await _store.update(uid, tid, (current) {

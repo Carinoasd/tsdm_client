@@ -295,7 +295,17 @@ void main() {
 
     test('deleted floors leaving nothing new clear the announcement', () async {
       await seed([_thread(1, seen: 10, known: 12, notified: true)]);
-      await round((_) async => _replies(9));
+      final cleared = <int>[];
+      await checkFollowedThreads(
+        store: store,
+        uid: _uid,
+        fetch: (_) async => _replies(9),
+        announcing: () async => true,
+        announce: (_) async => true,
+        onCleared: cleared.add,
+        gap: Duration.zero,
+      );
+      expect(cleared, [1]);
       final e = (await store.of(_uid, 1))!;
       expect((e.newReplies, e.notified), (0, false));
       final announced = <FollowedThread>[];
@@ -317,6 +327,12 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(taken, [2]);
       expect((await store.of(_uid, 2))!.notified, isFalse);
+      // Announced by the background service behind the cubit's back: the read still clears it.
+      await FollowedThreadStore(storage).update(_uid, 1, (e) => e!.copyWith(knownReplies: 5, notified: true));
+      expect(cubit.state.of(1)!.notified, isFalse);
+      await cubit.markRead(uid: _uid, tid: 1, replies: 5);
+      expect(taken, [2, 1]);
+      expect((await store.of(_uid, 1))!.notified, isFalse);
       await sub.cancel();
       await cubit.close();
     });

@@ -292,6 +292,7 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
         fetch: runtime.followedFetcherOf(uid),
         prepare: runtime.refreshNetwork,
         keepGoing: () => !stopping,
+        onCleared: (tid) => unawaited(runtime.plugin.cancel(id: followedThreadNoticeId(tid))),
         announce: (thread) async {
           if (stopping) {
             return false;
