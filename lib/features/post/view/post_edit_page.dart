@@ -5,11 +5,13 @@ import 'dart:io';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tsdm_client/constants/constants.dart';
@@ -42,12 +44,15 @@ import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/utils/image_edits.dart';
 import 'package:tsdm_client/features/post/utils/pasted_image.dart';
+import 'package:tsdm_client/features/post/view/image_upload_edit_page.dart';
 import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/cron_publish_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/image_drop_area.dart';
+import 'package:tsdm_client/features/post/widgets/image_upload_button.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/poll_settings_dialog.dart';
@@ -657,11 +662,18 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     if (!mounted || !initialized) return false;
     final images = await _clipboardImages.read();
     if (images == null || !mounted) return false;
+    _uploadClipboardImages(images);
+    return true;
+  }
+
+  /// Upload what [images] took from the clipboard: the copied files as [_uploadImageFiles], a picture written to a
+  /// temporary file ([writeUploadImage]); through the image editor when [edit] (null: as the settings say).
+  void _uploadClipboardImages(ClipboardImages images, {bool? edit}) {
     switch (images) {
       case ClipboardImagePaths(:final paths):
-        _uploadImageFiles(paths);
+        _uploadImageFiles(paths, edit: edit);
       case ClipboardImageBytes(:final bytes):
-        _queueImageUpload((upload) async {
+        _queueImageUpload(edit: edit, (upload) async {
           final stem = 'paste_${DateTime.now().millisecondsSinceEpoch}';
           UploadImageFile? file;
           try {
@@ -673,32 +685,65 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           return (files: [?file], refused: [if (file == null) '$stem.${sniffImageExtension(bytes) ?? 'bin'}']);
         });
     }
-    return true;
   }
 
-  /// Upload the member's image files at [paths] (dropped, copied in the file manager), each as it is when the forum
-  /// takes its type, else as a PNG copy ([prepareImageFile]). The files themselves are kept.
-  void _uploadImageFiles(List<String> paths) => _queueImageUpload((upload) async {
-    final dir = await _uploadTempDir();
-    final stamp = DateTime.now().millisecondsSinceEpoch;
-    final files = <UploadImageFile>[];
-    final refused = <String>[];
-    for (final (i, path) in paths.indexed) {
-      UploadImageFile? file;
-      try {
-        file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
-      } on Object catch (e, st) {
-        // A copy that could not be written: this one is refused, the copies written before still go up and away.
-        handleRaw(e, st);
-      }
-      if (file != null) {
-        files.add(file);
-      } else {
-        refused.add(path.split(RegExp(r'[/\\]')).last);
-      }
+  /// Images to upload from [source] (the image button), through the image editor when [edit].
+  Future<void> _pickImages(ImageUploadSource source, {required bool edit}) async {
+    try {
+      await _pickImagesFrom(source, edit: edit);
+    } on Object catch (e, st) {
+      // A picker refused (no camera permission) or failed: nothing picked.
+      handleRaw(e, st);
     }
-    return (files: files, refused: refused);
-  });
+  }
+
+  Future<void> _pickImagesFrom(ImageUploadSource source, {required bool edit}) async {
+    switch (source) {
+      case ImageUploadSource.gallery:
+        final picked = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
+        final paths = picked?.files.map((e) => e.path).nonNulls.toList() ?? const <String>[];
+        if (paths.isNotEmpty && mounted) _uploadImageFiles(paths, edit: edit);
+      case ImageUploadSource.camera:
+        final photo = await ImagePicker().pickImage(source: ImageSource.camera);
+        // The photo is a copy the picker wrote for the app: gone once it went up.
+        if (photo != null && mounted) _uploadImageFiles([photo.path], edit: edit, temporary: true);
+      case ImageUploadSource.clipboard:
+        // Asked for: text beside the picture does not keep it.
+        final images = await _clipboardImages.read(textWins: false);
+        if (!mounted) return;
+        if (images == null) {
+          showSnackBar(context: context, message: context.t.imageUpload.noClipboardImage);
+        } else {
+          _uploadClipboardImages(images, edit: edit);
+        }
+    }
+  }
+
+  /// Upload the image files at [paths] (dropped, copied in the file manager, picked), each as it is when the forum
+  /// takes its type, else as a PNG copy ([prepareImageFile]); through the image editor when [edit] (null: as the
+  /// settings say). The member's files are kept, [temporary] ones deleted.
+  void _uploadImageFiles(List<String> paths, {bool? edit, bool temporary = false}) =>
+      _queueImageUpload(edit: edit, discard: temporary ? paths : const [], (upload) async {
+        final dir = await _uploadTempDir();
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final files = <UploadImageFile>[];
+        final refused = <String>[];
+        for (final (i, path) in paths.indexed) {
+          UploadImageFile? file;
+          try {
+            file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
+          } on Object catch (e, st) {
+            // A copy that could not be written: this one is refused, the copies written before still go up and away.
+            handleRaw(e, st);
+          }
+          if (file != null) {
+            files.add(file);
+          } else {
+            refused.add(path.split(RegExp(r'[/\\]')).last);
+          }
+        }
+        return (files: files, refused: refused);
+      });
 
   /// Where the images written for an upload go until they went up.
   static Future<Directory> _uploadTempDir() async =>
@@ -713,14 +758,19 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Only the form of the forum's app API offers the upload ([PostForm.attachmentUpload]); a page without it, or a
   /// forum where the account may not upload images, is told so and [discard] (temporary files already written) are
   /// deleted.
+  ///
+  /// With [edit] (null: as the settings say, [SettingsMap.editImageBeforeUpload]) each image opens the image editor
+  /// first ([ImageUploadEditPage]); leaving it uploads nothing of that image. Otherwise an image larger than the
+  /// size set ([SettingsMap.uploadImageMaxSide]) is scaled down ([writeEditedImage]).
   void _queueImageUpload(
     Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare, {
     List<String> discard = const [],
+    bool? edit,
   }) {
     setState(() => _imageUploadBatches++);
     _imageUploadQueue = _imageUploadQueue.then((_) async {
       try {
-        await _runImageUpload(prepare, discard);
+        await _runImageUpload(prepare, discard, edit: edit);
       } on Object catch (e, st) {
         handleRaw(e, st);
         discardSharedFiles(discard);
@@ -733,8 +783,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
 
   Future<void> _runImageUpload(
     Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare,
-    List<String> discard,
-  ) async {
+    List<String> discard, {
+    required bool? edit,
+  }) async {
     if (!mounted) {
       discardSharedFiles(discard);
       return;
@@ -753,14 +804,24 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       return;
     }
     final repo = context.read<PostEditRepository>();
+    // Read before the files are written: once they are, only the try below deletes them.
+    final settings = context.read<SettingsBloc>().state.settingsMap;
     final (:files, :refused) = await prepare(upload);
     // What went wrong, told once at the end: one failure with its reason, several as their count.
     final failures = [for (final name in refused) tr.uploadRefusedType(name: name)];
+    final edits = edit ?? settings.editImageBeforeUpload;
+    // The edited copies, deleted with the other temporary files.
+    final written = <String>[];
     try {
-      for (final file in files) {
+      for (final picked in files) {
         if (!mounted || !repo.isCurrent) {
           break;
         }
+        final file = await _editedForUpload(picked, upload, settings, edit: edits);
+        if (file == null || !mounted || !repo.isCurrent) {
+          continue;
+        }
+        if (file != picked) written.add(file.path);
         final result = await repo.uploadImage(upload, file.path).run();
         if (!mounted) {
           break;
@@ -788,6 +849,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     } finally {
       discardSharedFiles({
         ...discard,
+        ...written,
         for (final file in files)
           if (file.temporary) file.path,
       });
@@ -801,6 +863,42 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           );
         }
       }
+    }
+  }
+
+  /// [file] as it goes up: edited in the image editor when [edit] (null when the editor was left: not uploaded),
+  /// else scaled down to the size of [settings]; [file] itself when nothing changes or it can not be edited.
+  Future<UploadImageFile?> _editedForUpload(
+    UploadImageFile file,
+    AttachmentUpload upload,
+    SettingsMap settings, {
+    required bool edit,
+  }) async {
+    var edits = ImageEdits(maxSide: settings.uploadImageMaxSide, quality: settings.uploadImageQuality);
+    Uint8List? bytes;
+    if (edit) {
+      try {
+        bytes = await File(file.path).readAsBytes();
+      } on Object {
+        return file;
+      }
+      if (!isEditableImage(bytes) || !mounted) return file;
+      final chosen = await ImageUploadEditPage.show(context, bytes, maxSide: edits.maxSide, quality: edits.quality);
+      if (chosen == null) return null;
+      edits = chosen;
+    }
+    try {
+      return await writeEditedImage(
+        file,
+        edits,
+        dir: await _uploadTempDir(),
+        stem: 'edited_${DateTime.now().microsecondsSinceEpoch}',
+        accepts: upload.acceptsImage,
+        bytes: bytes,
+      );
+    } on Object catch (e, st) {
+      handleRaw(e, st);
+      return file;
     }
   }
 
@@ -1447,6 +1545,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             focusNode.requestFocus();
           },
         ),
+        if (state.content?.form?.attachmentUpload?.image ?? false)
+          ImageUploadButton(
+            editsByDefault: context.read<SettingsBloc>().state.settingsMap.editImageBeforeUpload,
+            onPicked: (source, {required edit}) async => _pickImages(source, edit: edit),
+          ),
         if (state.content?.permList?.isNotEmpty ?? false)
           Badge(
             label: Text(threadPerm?.perm ?? ''),

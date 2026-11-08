@@ -51,6 +51,7 @@ import 'package:tsdm_client/features/settings/widgets/select_thread_floor_intera
 import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/upload_image_settings.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
@@ -1600,6 +1601,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         ];
         final end = [
           _buildBehaviorSection(context, state),
+          UploadImageSettingsGroup(state.settingsMap),
           _buildNoticeSyncSection(context, state),
           if (autoSyncPostsNotifications) _buildNoticeCategoriesSection(context, state),
           _buildStorageSection(context, state),

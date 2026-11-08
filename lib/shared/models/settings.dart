@@ -405,6 +405,15 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   ///
   /// One value for every account; it lives in the settings table, so a backup carries it.
   editorQuickPhrases<String>(name: 'editorQuickPhrases', type: String, defaultValue: ''),
+
+  /// Every image uploaded in the post editor opens the image editor first; off, only when asked for.
+  editImageBeforeUpload<bool>(name: 'editImageBeforeUpload', type: bool, defaultValue: false),
+
+  /// The longest side an image is scaled down to before it is uploaded (one of `uploadImageMaxSides`), 0 for its size.
+  uploadImageMaxSide<int>(name: 'uploadImageMaxSide', type: int, defaultValue: 0),
+
+  /// The JPEG quality an edited or scaled image is uploaded with.
+  uploadImageQuality<int>(name: 'uploadImageQuality', type: int, defaultValue: 90),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});
