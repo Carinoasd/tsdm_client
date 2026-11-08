@@ -369,11 +369,11 @@ void main() {
   });
 
   for (final from in [10, 15, 16]) {
-    test('upgrade from $from to 18 in one go', () async {
+    test('upgrade from $from to 19 in one go', () async {
       final verifier = SchemaVerifier(GeneratedHelper());
       final connection = await verifier.startAt(from);
       final db = AppDatabase(connection);
-      await verifier.migrateAndValidate(db, 18);
+      await verifier.migrateAndValidate(db, 19);
       await db.close();
     });
   }
@@ -407,6 +407,39 @@ void main() {
       final connection = await verifier.startAt(from);
       final db = AppDatabase(connection);
       await verifier.migrateAndValidate(db, 19);
+      await db.close();
+    });
+  }
+
+  test('upgrade from 19 to 20 adds the reading time table, keeping the read later list', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(19);
+    schema.rawDatabase.execute(
+      'INSERT INTO read_later (uid, tid, thread_title, added_at) '
+      "VALUES (1000, 1264975, 'title', 100)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 20);
+    expect((await db.select(db.readLater).get()).single.tid, 1264975);
+    expect(await db.select(db.readingTime).get(), isEmpty);
+    await db.close();
+  });
+
+  test('the 19 to 20 step runs again safely when another connection already created the table', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(20);
+    schema.rawDatabase.execute('PRAGMA user_version = 19');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 20);
+    await db.close();
+  });
+
+  for (final from in [10, 17, 18]) {
+    test('upgrade from $from to 20 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 20);
       await db.close();
     });
   }

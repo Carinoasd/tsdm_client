@@ -250,8 +250,8 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the threads it follows, the pages saved for the next start ([SavedAnswerStore]) and
-  /// the drafts its editors kept ([LocalDraftStore]).
+  /// pages, the times it was polled for notifications, the threads it follows, the pages saved for the next start
+  /// ([SavedAnswerStore]), the drafts its editors kept ([LocalDraftStore]) and the time it spent reading.
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
     // The pages saved to show at the next start (the homepage, the guide) were served to the account.
@@ -260,6 +260,7 @@ class StorageProvider with LoggerMixin {
     await RepliedThreadDao(_db).deleteByUid(uid);
     await ReadLaterDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
+    await ReadingTimeDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
@@ -855,6 +856,26 @@ class StorageProvider with LoggerMixin {
     await ThreadVisitHistoryDao(_db).deleteAll();
     return rightVoid();
   });
+
+  /*        reading time        */
+
+  /// Add [seconds] to the time user [uid] spent reading forum [fid] on [day] (`yyyyMMdd`).
+  Future<void> addReadingTime({
+    required int uid,
+    required int day,
+    required int fid,
+    required String forumName,
+    required int seconds,
+  }) async => ReadingTimeDao(_db).addSeconds(uid: uid, day: day, fid: fid, forumName: forumName, seconds: seconds);
+
+  /// The reading time rows of user [uid] from day [from] to day [to], both included (`yyyyMMdd`).
+  Future<List<ReadingTimeEntity>> fetchReadingTime({required int uid, required int from, required int to}) async =>
+      ReadingTimeDao(_db).selectRange(uid: uid, from: from, to: to);
+
+  /// Delete the reading time of every account.
+  Future<void> deleteAllReadingTime() async {
+    await ReadingTimeDao(_db).deleteAll();
+  }
 
   /*        session expiry        */
 
