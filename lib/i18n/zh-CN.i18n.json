@@ -238,6 +238,7 @@
   "checkinCalendar": {
     "title": "签到日历",
     "thisMonth": "本月",
+    "thatMonth": "当月",
     "streak": "连续",
     "total": "累计"
   },

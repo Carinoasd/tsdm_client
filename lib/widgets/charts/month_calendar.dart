@@ -23,7 +23,7 @@ class MonthCalendar extends StatelessWidget {
   /// Today, outlined when it is in [month].
   final DateTime today;
 
-  /// Show the month before.
+  /// Show the month before; null disables the arrow.
   final VoidCallback? onPrevious;
 
   /// Show the month after; null disables the arrow.
@@ -50,21 +50,27 @@ class MonthCalendar extends StatelessWidget {
       final isMarked = marked.contains(day);
       final isToday = isThisMonth && today.day == day;
       return Center(
-        child: Container(
-          key: ValueKey('calendar-day-$day'),
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isMarked ? colorScheme.primary : null,
-            border: isToday ? Border.all(color: colorScheme.primary, width: 2) : null,
-          ),
-          child: Text(
-            '$day',
-            style: textTheme.bodyMedium?.copyWith(
-              color: isMarked ? colorScheme.onPrimary : colorScheme.onSurface,
-              fontWeight: isMarked || isToday ? FontWeight.bold : null,
+        child: Semantics(
+          label: '$day',
+          selected: isMarked,
+          container: true,
+          excludeSemantics: true,
+          child: Container(
+            key: ValueKey('calendar-day-$day'),
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isMarked ? colorScheme.primary : null,
+              border: isToday ? Border.all(color: colorScheme.primary, width: 2) : null,
+            ),
+            child: Text(
+              '$day',
+              style: textTheme.bodyMedium?.copyWith(
+                color: isMarked ? colorScheme.onPrimary : colorScheme.onSurface,
+                fontWeight: isMarked || isToday ? FontWeight.bold : null,
+              ),
             ),
           ),
         ),
