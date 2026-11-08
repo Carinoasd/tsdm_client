@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
 import 'package:tsdm_client/features/blocking/repository/notice_ignore_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/notice_ignore_actions.dart';
+import 'package:tsdm_client/features/blocking/widgets/thread_filter_sections.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -389,6 +390,11 @@ class _UserBlockPageState extends State<UserBlockPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: appSurfaceGap),
+              // 4. Keywords and forums whose threads the lists leave out, kept and synced with the local list.
+              const ThreadKeywordFilterSection(),
+              const SizedBox(height: appSurfaceGap),
+              const ThreadForumFilterSection(),
             ],
           ),
         ),
