@@ -242,6 +242,11 @@
     "streak": "連續",
     "total": "累計"
   },
+  "ratingStats": {
+    "title": "評分統計",
+    "count": "次數",
+    "topRaters": "評分最多的人"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的帳號",
@@ -264,7 +269,8 @@
       "points": "積分",
       "followedThreads": "追蹤的帖子",
       "readingStats": "閱讀統計",
-      "checkinCalendar": "簽到日曆"
+      "checkinCalendar": "簽到日曆",
+      "ratingStats": "評分統計"
     }
   },
   "home": {
