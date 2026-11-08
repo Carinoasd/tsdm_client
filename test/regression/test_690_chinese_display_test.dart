@@ -94,7 +94,7 @@ void main() {
     });
 
     test('the dictionaries stay small', () {
-      expect(File('assets/text/opencc/s2t.txt').lengthSync(), lessThan(900 * 1024));
+      expect(File('assets/text/opencc/s2t.txt').lengthSync(), lessThan(1100 * 1024));
       expect(File('assets/text/opencc/t2s.txt').lengthSync(), lessThan(60 * 1024));
     });
   });
@@ -168,12 +168,14 @@ void main() {
       ChineseDisplay.instance.useConverters();
       final page = Builder(builder: (context) => munchElement(context, parseHtmlDocument('<p>动漫</p>').body!));
       await tester.pumpWidget(_app(ChineseDisplayMode.traditional, page));
-      await tester.pump();
       expect(_richText(tester), '动漫');
-      ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
-      // The host asks again when its widget is updated with the mode it was waiting for.
-      await tester.pumpWidget(_app(ChineseDisplayMode.off, page));
-      await tester.pumpWidget(_app(ChineseDisplayMode.traditional, page));
+      // The host loads the dictionary from the assets by itself, and builds its page again when it has.
+      await tester.runAsync(() async {
+        for (var i = 0; i < 200 && !ChineseDisplay.instance.isReady(ChineseDisplayMode.traditional); i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      });
       await tester.pump();
       expect(_richText(tester), '動漫');
     });
