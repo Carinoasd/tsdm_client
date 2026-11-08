@@ -5,13 +5,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 
 /**
- * The app icon the user picked: each icon is the launcher entry of an `activity-alias` of [MainActivity] (see the
+ * The app icon the user picked: each icon is the launcher entry of an `activity-alias` of [MainActivityImpl] (see the
  * manifest), and exactly one of them is enabled.
  */
 object AppIconSwitcher {
     /** Icon name sent by Dart, to the alias class that shows it. The first is the one enabled at install. */
     private val aliases = linkedMapOf(
-        "default" to "IconDefault",
+        "default" to "MainActivity",
         "dark" to "IconDark",
         "mono" to "IconMono",
         "pink" to "IconPink",

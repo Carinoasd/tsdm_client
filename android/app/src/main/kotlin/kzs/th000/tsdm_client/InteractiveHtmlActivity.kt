@@ -204,7 +204,7 @@ class InteractiveHtmlActivity : Activity() {
             if (InteractiveHtmlPolicy.isForumUrl(url)) {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url.toString()))
-                        .setClassName(packageName, "kzs.th000.tsdm_client.MainActivity")
+                        .setClassName(packageName, "kzs.th000.tsdm_client.MainActivityImpl")
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
                     finish()
                 } catch (_: Exception) { showMessage(labels.linkFailed) }

@@ -26,6 +26,9 @@ enum AppIcon {
   /// Name in the settings and on the platform side.
   final String storedName;
 
+  /// Preview image of the icon, in the settings.
+  String get previewAsset => 'assets/images/app_icons/$storedName.png';
+
   /// The icon stored as [name]; the default icon for a name this version does not know (a backup of a newer version).
   static AppIcon fromStoredName(String name) =>
       AppIcon.values.firstWhere((e) => e.storedName == name, orElse: () => AppIcon.defaultIcon);
@@ -41,11 +44,12 @@ typedef AppIconSetter = Future<bool> Function(String name);
 final class AppIconFollower with LoggerMixin {
   /// Constructor.
   AppIconFollower(Stream<SettingsMap> settings, {AppIconSetter setter = setPlatformAppIcon}) : _setter = setter {
-    _sub = settings.map((e) => AppIcon.fromStoredName(e.appIcon)).distinct().listen(_apply);
+    // One switch at a time, in the order of the changes: the iOS call finishes later than it starts.
+    _sub = settings.map((e) => AppIcon.fromStoredName(e.appIcon)).distinct().asyncMap(_apply).listen(null);
   }
 
   final AppIconSetter _setter;
-  late final StreamSubscription<AppIcon> _sub;
+  late final StreamSubscription<void> _sub;
 
   Future<void> _apply(AppIcon icon) async {
     try {

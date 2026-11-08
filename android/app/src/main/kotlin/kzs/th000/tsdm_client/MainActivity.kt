@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
 
-class MainActivity: FlutterActivity() {
+class MainActivityImpl: FlutterActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"

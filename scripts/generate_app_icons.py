@@ -41,7 +41,7 @@ def lum(c):
 
 
 def gradient_map(glyph, palette):
-    """Re-colour [glyph] (RGBA, the default blues) to [palette], keeping its alpha and anti-aliasing."""
+    """Re-colour [glyph] (RGBA with a transparent background, the default blues) to [palette], keeping its alpha and anti-aliasing."""
     src = sorted((lum(rgb(c)), i) for i, c in enumerate(DEFAULT['cls']))
     stops = [(l, rgb(palette['cls'][i])) for l, i in src]
     out = Image.new('RGBA', glyph.size)

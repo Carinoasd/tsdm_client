@@ -6,7 +6,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [MainActivity] with
+ * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [MainActivityImpl] with
  * `tsdm://shortcut/<id>` as data, and the id is handed to Dart, which navigates.
  *
  * A cold start keeps the id until Dart asks for it ([GET_INITIAL_SHORTCUT]); an activity already running gets the

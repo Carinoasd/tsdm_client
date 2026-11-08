@@ -532,7 +532,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             leading: const Icon(Icons.apps_outlined),
             title: Text(tr.appIcon.title),
             trailing: Image.asset(
-              'assets/images/app_icons/${AppIcon.fromStoredName(state.settingsMap.appIcon).storedName}.png',
+              AppIcon.fromStoredName(state.settingsMap.appIcon).previewAsset,
               width: 32,
               height: 32,
               errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 32),

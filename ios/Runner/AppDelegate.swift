@@ -20,7 +20,8 @@ import UIKit
           result(FlutterMethodNotImplemented)
           return
         }
-        let icons = ["default": nil, "dark": "AppIconDark", "mono": "AppIconMono", "pink": "AppIconPink"]
+        // A nil name is the primary icon.
+        let icons: [String: String?] = ["default": nil, "dark": "AppIconDark", "mono": "AppIconMono", "pink": "AppIconPink"]
         guard let iconName = icons[name] else {
           result(FlutterError(code: "unknown_icon", message: "No such app icon: \(name)", details: nil))
           return
@@ -34,10 +35,13 @@ import UIKit
           return
         }
         application.setAlternateIconName(iconName) { error in
-          if let error = error {
-            result(FlutterError(code: "set_icon_failed", message: error.localizedDescription, details: nil))
-          } else {
-            result(true)
+          // The completion handler is not promised to run on the main queue, the result must be.
+          DispatchQueue.main.async {
+            if let error = error {
+              result(FlutterError(code: "set_icon_failed", message: error.localizedDescription, details: nil))
+            } else {
+              result(true)
+            }
           }
         }
       }

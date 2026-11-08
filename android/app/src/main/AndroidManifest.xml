@@ -34,7 +34,7 @@
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize" />
         <activity
-                android:name=".MainActivity"
+                android:name=".MainActivityImpl"
                 android:exported="true"
                 android:launchMode="singleTop"
                 android:theme="@style/Theme.TsdmClient.Launcher"
@@ -64,11 +64,12 @@
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
-        <!-- The launcher entries of MainActivity, one per app icon (AppIconSwitcher.kt enables exactly one). The default
-             one is the only one enabled at install. -->
+        <!-- The launcher entries of MainActivityImpl, one per app icon (AppIconSwitcher.kt enables exactly one). The default
+             one keeps the name MainActivity the entry had before the icons, so the shortcuts users put on their home
+             screen still find it; it is the only one enabled at install. -->
         <activity-alias
-                android:name=".IconDefault"
-                android:targetActivity=".MainActivity"
+                android:name=".MainActivity"
+                android:targetActivity=".MainActivityImpl"
                 android:enabled="true"
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher">
@@ -80,7 +81,7 @@
         </activity-alias>
         <activity-alias
                 android:name=".IconDark"
-                android:targetActivity=".MainActivity"
+                android:targetActivity=".MainActivityImpl"
                 android:enabled="false"
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_dark">
@@ -92,7 +93,7 @@
         </activity-alias>
         <activity-alias
                 android:name=".IconMono"
-                android:targetActivity=".MainActivity"
+                android:targetActivity=".MainActivityImpl"
                 android:enabled="false"
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_mono">
@@ -104,7 +105,7 @@
         </activity-alias>
         <activity-alias
                 android:name=".IconPink"
-                android:targetActivity=".MainActivity"
+                android:targetActivity=".MainActivityImpl"
                 android:enabled="false"
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_pink">

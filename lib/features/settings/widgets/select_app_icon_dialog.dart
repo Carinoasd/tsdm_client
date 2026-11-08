@@ -59,7 +59,7 @@ class _SelectAppIconDialog extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.asset(
-                      'assets/images/app_icons/${icon.storedName}.png',
+                      icon.previewAsset,
                       width: 72,
                       height: 72,
                       // A missing preview must not take the whole dialog down.

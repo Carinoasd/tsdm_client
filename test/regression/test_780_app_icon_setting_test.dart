@@ -129,10 +129,15 @@ void main() {
     final switcher = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/AppIconSwitcher.kt').readAsStringSync();
     final ios = File('ios/Runner.xcodeproj/project.pbxproj').readAsStringSync();
     for (final icon in AppIcon.values) {
-      final alias =
-          'Icon${icon == AppIcon.defaultIcon ? 'Default' : icon.name[0].toUpperCase() + icon.name.substring(1)}';
+      // The default entry keeps the name the launcher activity had before the icons, for the shortcuts on home screens.
+      final alias = icon == AppIcon.defaultIcon
+          ? 'MainActivity'
+          : 'Icon${icon.name[0].toUpperCase()}${icon.name.substring(1)}';
       expect(manifest, contains('android:name=".$alias"'), reason: icon.name);
       expect(switcher, contains('"${icon.storedName}" to "$alias"'), reason: icon.name);
+      // Only the default entry is enabled at install; the others wait for the user.
+      final tag = RegExp('<activity-alias[^>]*android:name="\\.$alias"[^>]*>').firstMatch(manifest)!.group(0)!;
+      expect(tag.contains('android:enabled="true"'), icon == AppIcon.defaultIcon, reason: icon.name);
       if (icon != AppIcon.defaultIcon) {
         final set = 'AppIcon${icon.name[0].toUpperCase()}${icon.name.substring(1)}';
         expect(ios, contains(set), reason: icon.name);
