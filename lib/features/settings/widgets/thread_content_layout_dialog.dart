@@ -45,6 +45,9 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
       ? _widthSteps
       : ((maxWidth - PostTypography.minMaxWidth) / PostTypography.maxWidthStep).round().clamp(0, _widthSteps - 1);
 
+  /// Whether the width is offered: only a screen wider than the narrowest width shows a difference.
+  static bool _offersWidth(BuildContext context) => MediaQuery.sizeOf(context).width > PostTypography.minMaxWidth;
+
   /// The width at [position] of the width slider, 0 for none.
   static double _widthAt(int position) =>
       position >= _widthSteps ? 0 : PostTypography.minMaxWidth + position * PostTypography.maxWidthStep;
@@ -135,8 +138,7 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
             divisions: 8,
             onChanged: (v) => setState(() => _paragraphSpacing = v.roundToDouble()),
           ),
-          // Only a screen wider than the narrowest width shows a difference.
-          if (MediaQuery.sizeOf(context).width > PostTypography.minMaxWidth)
+          if (_offersWidth(context))
             slider(
               label: tr.maxWidth,
               value: _maxWidth > 0 ? _maxWidth.toStringAsFixed(0) : tr.unlimited,
@@ -167,7 +169,10 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
           onPressed: () => setState(() {
             _lineHeight = PostTypography.defaultLineHeight;
             _paragraphSpacing = PostTypography.defaultParagraphSpacing;
-            _maxWidth = 0;
+            // Only what is offered: a width set on a wider window stays.
+            if (_offersWidth(context)) {
+              _maxWidth = 0;
+            }
           }),
           child: Text(context.t.general.reset),
         ),

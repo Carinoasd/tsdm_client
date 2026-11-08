@@ -230,6 +230,13 @@ void main() {
       expect(settings.currentSettings.postTypography.maxWidth, 0);
     });
 
+    test('a width out of range (an old backup, written by hand) is clamped where it is used', () async {
+      for (final (saved, used) in [(20.0, 600.0), (5000.0, 1200.0), (-3.0, 0.0), (900.0, 900.0)]) {
+        await settings.setValue<double>(SettingsKeys.threadContentMaxWidth, saved);
+        expect(settings.currentSettings.readingMaxWidth, used, reason: '$saved');
+      }
+    });
+
     test('tied to the screen: never synced', () {
       expect([for (final s in syncedSettings) s.key], isNot(contains(SettingsKeys.threadContentMaxWidth)));
     });
@@ -277,9 +284,13 @@ void main() {
       final picked = await _openDialog(tester, const PostTypography(maxWidth: 800), size: const Size(390, 844));
       expect(find.byType(Slider), findsNWidgets(2));
       expect(find.text(t.settingsPage.appearanceSection.threadContentLayout.maxWidth), findsNothing);
+      // Reset: the width it does not offer stays.
+      await tester.tap(find.text(t.general.reset));
+      await tester.pump();
       await tester.tap(find.text(t.general.ok));
       await tester.pumpAndSettle();
       expect(picked.value?.maxWidth, 800);
+      expect(picked.value?.lineHeight, PostTypography.defaultLineHeight);
     });
   });
 }

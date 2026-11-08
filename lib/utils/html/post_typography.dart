@@ -78,7 +78,10 @@ final class PostTypography {
 
   /// Width of the content of a floor this layout lets it grow to: its [maxWidth] less the padding of the floor, else
   /// [htmlContentMaxWidth].
-  double get contentMaxWidth => maxWidth > 0 ? maxWidth - floorPadding : htmlContentMaxWidth;
+  double get contentMaxWidth => contentMaxWidthFor(maxWidth);
+
+  /// Width of the content of a floor at most [maxWidth] wide (0: as the app lays it out), see [contentMaxWidth].
+  static double contentMaxWidthFor(double maxWidth) => maxWidth > 0 ? maxWidth - floorPadding : htmlContentMaxWidth;
 
   /// This layout with its values in the ranges offered in the settings.
   PostTypography clamped() => PostTypography(
@@ -149,7 +152,7 @@ class ReadingWidthScope extends InheritedWidget {
   }
 
   /// Widest the content of a floor grows under [context].
-  static double contentOf(BuildContext context) => PostTypography(maxWidth: maxWidthOf(context)).contentMaxWidth;
+  static double contentOf(BuildContext context) => PostTypography.contentMaxWidthFor(maxWidthOf(context));
 
   @override
   bool updateShouldNotify(ReadingWidthScope oldWidget) => maxWidth != oldWidget.maxWidth;

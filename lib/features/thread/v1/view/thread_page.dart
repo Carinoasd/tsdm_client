@@ -1499,7 +1499,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The floors of [state], [hits] the hits of the search among them ([_searchHits]), and the banners in line with
   /// them: as wide as the reader let the floors grow ([ReadingWidthScope]).
   Widget _buildContent(BuildContext context, ThreadState state, List<Post> hits) => ReadingWidthScope(
-    maxWidth: context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.threadContentMaxWidth),
+    maxWidth: context.select<SettingsBloc, double>((bloc) => bloc.state.settingsMap.readingMaxWidth),
     child: Builder(builder: (context) => _buildFloors(context, state, hits)),
   );
 

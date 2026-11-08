@@ -243,6 +243,10 @@ class SettingsMap with SettingsMapMappable {
   /// Widest the floors grow, 0: as the app lays them out. Not required: backups from older versions lack it.
   final double threadContentMaxWidth;
 
+  /// The widest the floors grow ([threadContentMaxWidth]) in the range the settings offer, 0 for none (a value from an
+  /// older backup or written by hand is clamped).
+  double get readingMaxWidth => PostTypography(maxWidth: threadContentMaxWidth).clamped().maxWidth;
+
   /// How the post content is laid out with these settings, in the ranges the settings offer (a value from an older
   /// backup or written by hand is clamped).
   PostTypography get postTypography => PostTypography(

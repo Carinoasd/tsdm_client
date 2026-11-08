@@ -329,7 +329,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     },
   );
 
-  /// Pick the line height, the paragraph spacing and the widest floors of the post content
+  /// Pick the line height and the paragraph spacing of the post content and the widest the floors grow
   /// ([ThreadContentLayoutDialog]) and save them.
   Future<void> _pickThreadContentLayout(BuildContext context, PostTypography current, double contentScale) async {
     final picked = await showDialog<PostTypography>(
@@ -362,7 +362,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
-    final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.threadContentMaxWidth);
+    final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
 
     return AppTileGroup(
       title: tr.title,
