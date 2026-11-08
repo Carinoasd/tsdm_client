@@ -59,35 +59,47 @@ class _TrendBody extends StatelessWidget {
     final daily = dailyNetOf(state.changes, kind, state.today);
     final weekly = weeklyNetOf(state.changes, kind, state.today);
     final today = state.today;
-    final weekLabels = [
+    final weekStarts = [
       for (var week = 0; week < weekly.length; week++)
-        shortDate(DateTime(today.year, today.month, today.day - (weekly.length - week) * 7 + 1)),
+        DateTime(today.year, today.month, today.day - (weekly.length - week) * 7 + 1),
     ];
+    // A read cut at the page limit misses what is older than its oldest record: the weeks that reach back that far
+    // may be short (the day of the oldest record itself too).
+    final oldest = state.oldest;
+    final cutAt = state.complete || oldest == null ? null : DateTime(oldest.year, oldest.month, oldest.day);
+    final dimmed = {
+      for (var week = 0; week < weekStarts.length; week++)
+        if (cutAt != null && !weekStarts[week].isAfter(cutAt)) week,
+    };
     return AppCenteredList(
       builder: (context, side, width) => ListView(
         padding: side.copyWith(top: 12, bottom: 12).add(context.safePadding()),
         children: [
-          if (state.kinds.length > 1)
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (var i = 0; i < state.kinds.length; i++)
-                  ChoiceChip(
-                    key: ValueKey('trend-kind-$i'),
-                    label: Text(state.kinds[i]),
-                    selected: i == state.selected,
-                    onSelected: (_) => context.read<PointsTrendCubit>().select(i),
-                  ),
-              ],
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (var i = 0; i < state.kinds.length; i++)
+                ChoiceChip(
+                  key: ValueKey('trend-kind-$i'),
+                  label: Text(state.kinds[i]),
+                  selected: i == state.selected,
+                  onSelected: (_) => context.read<PointsTrendCubit>().select(i),
+                ),
+            ],
+          ),
           appListSeparator,
           AppSurface(
             child: TrendLineChart(key: const ValueKey('trend-line'), values: daily, end: today),
           ),
           appListSeparator,
           AppSurface(
-            child: NetBarChart(key: const ValueKey('trend-bars'), values: weekly, labels: weekLabels),
+            child: NetBarChart(
+              key: const ValueKey('trend-bars'),
+              values: weekly,
+              labels: [for (final start in weekStarts) shortDate(start)],
+              dimmed: dimmed,
+            ),
           ),
         ],
       ),

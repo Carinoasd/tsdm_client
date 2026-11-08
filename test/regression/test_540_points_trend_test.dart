@@ -28,14 +28,19 @@ List<PointsChange> _fixtureChanges() {
 
 final _today = DateTime(2026, 11, 8);
 
-ChangelogRangeFetcher _fetcher(List<PointsChange> changes, {List<(DateTime, DateTime)>? asked, bool fail = false}) =>
-    ({required start, required end}) async {
-      asked?.add((start, end));
-      if (fail) {
-        return Left(LoadFailure(LoadFailureKind.timeout));
-      }
-      return Right((changes: changes, complete: true, oldest: null));
-    };
+ChangelogRangeFetcher _fetcher(
+  List<PointsChange> changes, {
+  List<(DateTime, DateTime)>? asked,
+  bool fail = false,
+  bool complete = true,
+  DateTime? oldest,
+}) => ({required start, required end}) async {
+  asked?.add((start, end));
+  if (fail) {
+    return Left(LoadFailure(LoadFailureKind.timeout));
+  }
+  return Right((changes: changes, complete: complete, oldest: oldest));
+};
 
 void main() {
   group('the numbers', () {
@@ -121,9 +126,17 @@ void main() {
   });
 
   group('the tab', () {
-    Future<PointsTrendCubit> pump(WidgetTester tester, List<PointsChange> changes) async {
+    Future<PointsTrendCubit> pump(
+      WidgetTester tester,
+      List<PointsChange> changes, {
+      bool complete = true,
+      DateTime? oldest,
+    }) async {
       await LocaleSettings.setLocale(AppLocale.en);
-      final cubit = PointsTrendCubit(fetchRange: _fetcher(changes), now: DateTime.utc(2026, 11, 8, 4));
+      final cubit = PointsTrendCubit(
+        fetchRange: _fetcher(changes, complete: complete, oldest: oldest),
+        now: DateTime.utc(2026, 11, 8, 4),
+      );
       await tester.runAsync(cubit.load);
       await tester.pumpWidget(
         TranslationProvider(
@@ -146,6 +159,30 @@ void main() {
       await tester.pump();
       expect(tester.widget<TrendLineChart>(find.byKey(const ValueKey('trend-line'))).values.last, 1);
       expect(tester.takeException(), isNull);
+      await cubit.close();
+    });
+
+    testWidgets('the line has several date labels, the last day among them', (tester) async {
+      final cubit = await pump(tester, _fixtureChanges());
+      final labels = find.descendant(
+        of: find.byType(TrendLineChart),
+        matching: find.textContaining(RegExp(r'^\d+/\d+$')),
+      );
+      expect(labels.evaluate().length, greaterThanOrEqualTo(4));
+      expect(find.descendant(of: find.byType(TrendLineChart), matching: find.text('11/8')), findsOneWidget);
+      await cubit.close();
+    });
+
+    testWidgets('a read cut at the page limit draws the weeks it may miss faint', (tester) async {
+      final cubit = await pump(tester, _fixtureChanges(), complete: false, oldest: DateTime(2026, 10, 25));
+      expect(tester.widget<NetBarChart>(find.byKey(const ValueKey('trend-bars'))).dimmed, {0, 1, 2, 3, 4, 5});
+      await cubit.close();
+    });
+
+    testWidgets('a complete read dims nothing; one kind still shows its chip', (tester) async {
+      final cubit = await pump(tester, _fixtureChanges().where((e) => e.changeMap.containsKey('威望')).toList());
+      expect(tester.widget<NetBarChart>(find.byKey(const ValueKey('trend-bars'))).dimmed, isEmpty);
+      expect(find.byKey(const ValueKey('trend-kind-0')), findsOneWidget);
       await cubit.close();
     });
 

@@ -5,13 +5,22 @@ import 'package:tsdm_client/widgets/charts/chart_format.dart';
 /// Bars over named steps: a positive value rises in the primary color, a negative one falls in the error color.
 class NetBarChart extends StatelessWidget {
   /// Constructor.
-  const NetBarChart({required this.values, required this.labels, this.height = 200, super.key});
+  const NetBarChart({
+    required this.values,
+    required this.labels,
+    this.dimmed = const {},
+    this.height = 200,
+    super.key,
+  });
 
   /// The value of every bar, left to right.
   final List<int> values;
 
   /// The label under every bar, as many as [values].
   final List<String> labels;
+
+  /// The indexes of the bars drawn faint: the ones that may be short of data.
+  final Set<int> dimmed;
 
   /// Height of the chart.
   final double height;
@@ -76,7 +85,9 @@ class NetBarChart extends StatelessWidget {
                 barRods: [
                   BarChartRodData(
                     toY: values[i].toDouble(),
-                    color: values[i] >= 0 ? colorScheme.primary : colorScheme.error,
+                    color: (values[i] >= 0 ? colorScheme.primary : colorScheme.error).withValues(
+                      alpha: dimmed.contains(i) ? 0.35 : 1,
+                    ),
                     width: 14,
                     borderRadius: BorderRadius.vertical(
                       top: values[i] >= 0 ? const Radius.circular(3) : Radius.zero,
