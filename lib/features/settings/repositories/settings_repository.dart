@@ -180,10 +180,13 @@ final class SettingsRepository with LoggerMixin {
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
       twoPaneListWidth: s.extract(_SK.twoPaneListWidth),
       postMediaPreview: s.extract(_SK.postMediaPreview),
+      inAppBrowserForForum: s.extract(_SK.inAppBrowserForForum),
+      inAppBrowserForAll: s.extract(_SK.inAppBrowserForAll),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),
       crossDeviceSyncRateTemplates: s.extract(_SK.crossDeviceSyncRateTemplates),
       crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),
       crossDeviceSyncDrafts: s.extract(_SK.crossDeviceSyncDrafts),
+      crossDeviceSyncBookmarks: s.extract(_SK.crossDeviceSyncBookmarks),
       themeModeScheduled: s.extract(_SK.themeModeScheduled),
       darkScheduleStart: s.extract(_SK.darkScheduleStart),
       darkScheduleEnd: s.extract(_SK.darkScheduleEnd),
@@ -207,6 +210,7 @@ final class SettingsRepository with LoggerMixin {
       editImageBeforeUpload: s.extract(_SK.editImageBeforeUpload),
       uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
       uploadImageQuality: s.extract(_SK.uploadImageQuality),
+      frequentForums: s.extract(_SK.frequentForums),
     );
   }
 

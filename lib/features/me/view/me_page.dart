@@ -110,6 +110,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.followedThreads),
       ),
       (
+        key: const ValueKey('me-floor-bookmarks'),
+        icon: Icons.turned_in_not_outlined,
+        label: tr.bookmarks,
+        onTap: () => _open(ScreenPaths.floorBookmarks),
+      ),
+      (
         key: const ValueKey('me-history'),
         icon: Icons.history_outlined,
         label: tr.history,
@@ -156,6 +162,12 @@ class _MePageState extends State<MePage> {
         icon: Icons.people_outline,
         label: tr.friends,
         onTap: () => _open(ScreenPaths.friend),
+      ),
+      (
+        key: const ValueKey('me-visitors'),
+        icon: Icons.visibility_outlined,
+        label: tr.visitors,
+        onTap: () => _open(ScreenPaths.friend, query: {'view': 'visitor'}),
       ),
       (
         key: const ValueKey('me-points'),
@@ -218,6 +230,14 @@ class _MePageState extends State<MePage> {
       ),
       _row(
         context,
+        key: const ValueKey('me-tasks'),
+        icon: Icons.task_alt,
+        title: context.t.taskCenter.title,
+        path: ScreenPaths.taskCenter,
+        needLogin: !loggedIn,
+      ),
+      _row(
+        context,
         key: const ValueKey('me-medal-center'),
         icon: Icons.military_tech_outlined,
         title: context.t.medalCenter.title,
@@ -255,6 +275,13 @@ class _MePageState extends State<MePage> {
         title: context.t.pokemon.title,
         path: ScreenPaths.pokemon,
         needLogin: !loggedIn,
+      ),
+      _row(
+        context,
+        key: const ValueKey('me-ranklist'),
+        icon: Icons.leaderboard_outlined,
+        title: context.t.ranklistPage.title,
+        path: ScreenPaths.ranklist,
       ),
       _row(
         context,

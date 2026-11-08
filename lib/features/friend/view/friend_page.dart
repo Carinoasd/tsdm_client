@@ -19,9 +19,13 @@ import 'package:tsdm_client/widgets/list_skeleton.dart';
 /// Page listing the friends of a user.
 ///
 /// The user is located by [uid] (preferred) or [username]; when both are null the current user's list is shown.
+/// With [visitor] it lists the recent visitors of the current user instead.
 class FriendPage extends StatefulWidget {
   /// Constructor.
-  const FriendPage({this.uid, this.username, super.key});
+  const FriendPage({this.uid, this.username, this.visitor = false, super.key});
+
+  /// Show the recent visitors of the current user.
+  final bool visitor;
 
   /// Uid of the user whose friends are listed.
   final String? uid;
@@ -46,6 +50,7 @@ class _FriendPageState extends State<FriendPage> {
 
   Widget _buildList(BuildContext context, FriendState state) {
     final tr = context.t.friendPage;
+    final visitor = widget.visitor;
     // The list of the account in use: no member named, or the account's own uid.
     final selfUid = context.read<AuthenticationRepository>().currentUser?.uid;
     final own = (widget.uid == null && widget.username == null) || (selfUid != null && widget.uid == '$selfUid');
@@ -70,9 +75,9 @@ class _FriendPageState extends State<FriendPage> {
               children: [
                 sizedBoxW32H32,
                 AppStateView(
-                  icon: Icons.people_outline,
-                  message: own ? tr.empty : tr.emptyOther,
-                  detail: own ? tr.emptyHint : null,
+                  icon: visitor ? Icons.visibility_outlined : Icons.people_outline,
+                  message: visitor ? tr.visitor.empty : (own ? tr.empty : tr.emptyOther),
+                  detail: !visitor && own ? tr.emptyHint : null,
                   scrollable: false,
                 ),
               ],
@@ -105,7 +110,7 @@ class _FriendPageState extends State<FriendPage> {
                     columns: columns,
                     count: state.items.length,
                     gap: gap,
-                    itemBuilder: (context, index) => FriendCard(state.items[index]),
+                    itemBuilder: (context, index) => FriendCard(state.items[index], visitor: visitor),
                   ),
             separatorBuilder: (context, index) => SizedBox(height: gap),
           );
@@ -136,6 +141,9 @@ class _FriendPageState extends State<FriendPage> {
 
   Widget _buildTitle(BuildContext context, FriendState state) {
     final tr = context.t.friendPage;
+    if (widget.visitor) {
+      return Text(tr.visitor.title);
+    }
     final name = state.ownerName ?? widget.username;
     final count = state.totalCount;
     final String? subtitle;
@@ -165,7 +173,7 @@ class _FriendPageState extends State<FriendPage> {
     final uid = widget.uid ?? (widget.username == null ? selfUid?.toString() : null);
     if (uid == null && widget.username == null) {
       return Scaffold(
-        appBar: AppBar(title: Text(tr.title)),
+        appBar: AppBar(title: Text(widget.visitor ? tr.visitor.title : tr.title)),
         body: NeedLoginPage(backUri: GoRouterState.of(context).uri, needPop: true),
       );
     }
@@ -174,7 +182,9 @@ class _FriendPageState extends State<FriendPage> {
       child: BlocProvider(
         create: (context) => FriendBloc(
           friendRepository: context.repo(),
-          firstPageUrl: FriendRepository.listUrl(uid: uid, username: widget.username),
+          firstPageUrl: widget.visitor
+              ? FriendRepository.visitorListUrl
+              : FriendRepository.listUrl(uid: uid, username: widget.username),
         )..add(const FriendLoadRequested()),
         child: BlocListener<FriendBloc, FriendState>(
           // A refresh that failed keeps the friends on screen and says so.

@@ -264,13 +264,15 @@
       "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
+      "bookmarks": "Bookmarks",
       "messages": "Messages",
       "friends": "Friends",
       "points": "Points",
       "followedThreads": "Followed threads",
       "readingStats": "Reading stats",
       "checkinCalendar": "Check-in calendar",
-      "ratingStats": "Rating statistics"
+      "ratingStats": "Rating statistics",
+      "visitors": "Recent visitors"
     }
   },
   "home": {
@@ -350,7 +352,8 @@
         "title": "Sync across devices",
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
-        "drafts": "Local drafts"
+        "drafts": "Local drafts",
+        "bookmarks": "Floor bookmarks"
       },
       "loginDevices": "Login devices"
     },
@@ -813,7 +816,9 @@
         "off": "Off",
         "meteredOnly": "On mobile data",
         "always": "Always"
-      }
+      },
+      "inAppBrowserForForum": "Open forum pages in the in-app browser",
+      "inAppBrowserForAll": "Open all links in the in-app browser"
     }
   },
   "aboutPage": {
@@ -1396,6 +1401,10 @@
   },
   "friendPage": {
     "title": "Friends",
+    "visitor": {
+      "title": "Recent visitors",
+      "empty": "No visitors yet"
+    },
     "subtitle": "${name} · ${count: int} friends",
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",
@@ -1754,7 +1763,9 @@
     "links": "Links",
     "subForums": "Subreddit",
     "privateForum": "Private forum",
-    "redirectForum": "Links to an external address"
+    "redirectForum": "Links to an external address",
+    "pin": "Pin",
+    "unpin": "Unpin"
   },
   "networkList": {
     "actionRefresh": "Refresh",
@@ -2306,6 +2317,13 @@
     "invalidBrowserLink": "Enter a web link starting with http:// or https://",
     "browserLaunchFailed": "Could not open the link in the browser"
   },
+  "inAppBrowserPage": {
+    "back": "Back",
+    "forward": "Forward",
+    "refresh": "Refresh",
+    "openExternal": "Open in external browser",
+    "copyUrl": "Copy URL"
+  },
   "shareReceive": {
     "pickForum": "Post to which forum",
     "uploadUnavailable": "Images cannot be uploaded to this forum",
@@ -2493,6 +2511,12 @@
     "confirmMessage": "Are you sure to switch to user group ${to: String} from ${from: String}",
     "switchFailed": "Switch failed",
     "switchSucceeded": "Switched to ${to: String}"
+  },
+  "userGroupProgress": {
+    "title": "User group progress",
+    "creditsLeft": "Credits needed: ${n: int}",
+    "noNext": "No higher user group",
+    "extraGroups": "Extra user groups"
   },
   "editAvatarPage": {
     "title": "Edit avatar",
@@ -2912,6 +2936,25 @@
     "unconfirmed": "The purchase of “${name}” was sent but could not be confirmed. Check My titles before trying again.",
     "termsChanged": "“${name}” changed before the purchase. Nothing was bought; check the price and confirm again.",
     "unavailableNow": "“${name}” can no longer be bought. Nothing was bought."
+  },
+  "taskCenter": {
+    "title": "Tasks",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "tabAvailable": "Available",
+    "tabDoing": "In progress",
+    "tabDone": "Completed",
+    "apply": "Apply",
+    "claim": "Claim reward",
+    "progress": "${percent}%",
+    "empty": "No tasks.",
+    "loginRequired": "Sign in to use tasks.",
+    "applied": "Applied for \"${name}\".",
+    "rewarded": "Reward of \"${name}\" claimed.",
+    "inProgress": "\"${name}\" is not complete yet.",
+    "failed": "\"${name}\" failed.",
+    "refused": "\"${name}\" was refused.",
+    "unconfirmed": "The result of \"${name}\" could not be confirmed. Check the lists before trying again."
   },
   "magicCenter": {
     "title": "Magic",
@@ -3607,6 +3650,16 @@
     "minutes": "$minutes min",
     "seconds": "$seconds s"
   },
+  "floorBookmark": {
+    "title": "Bookmarks",
+    "add": "Add bookmark",
+    "edit": "Edit bookmark",
+    "note": "Note",
+    "remove": "Delete",
+    "removeConfirm": "Delete this bookmark?",
+    "empty": "No bookmarks",
+    "needLogin": "Log in to see your bookmarks."
+  },
   "localDraft": {
     "title": "Local drafts",
     "details": "Replies, messages, threads and edits not sent yet, kept on this device",
@@ -3664,6 +3717,9 @@
   "twoPane": {
     "tabsFull": "Up to ${count: int} tabs can be open"
   },
+  "quickOpen": {
+    "search": "Search: $text"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
@@ -3675,6 +3731,7 @@
     },
     "commands": {
       "search": "Search",
+      "quickOpen": "Quick open",
       "settings": "Settings",
       "back": "Close dialog, go back",
       "refresh": "Refresh",
@@ -3743,5 +3800,23 @@
     "revoked": "$name was logged out of this device from another device",
     "revokedUnknown": "An account was logged out of this device from another device",
     "login": "Log in"
+  },
+  "ranklistPage": {
+    "title": "Rankings",
+    "tabs": {
+      "credit": "Credits",
+      "post": "Posts",
+      "online": "Online",
+      "thread": "Hot threads"
+    },
+    "threadViews": {
+      "replies": "Replies",
+      "views": "Views",
+      "favtimes": "Favorites",
+      "heats": "Heat"
+    },
+    "empty": "No rankings yet",
+    "minutes": "$n minutes",
+    "updated": "Updated $last · next $next"
   }
 }

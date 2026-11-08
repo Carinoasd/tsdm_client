@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
+import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
@@ -26,6 +27,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
+import 'package:tsdm_client/features/in_app_browser/view/in_app_browser_page.dart';
 import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
@@ -72,6 +74,8 @@ import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
 import 'package:tsdm_client/features/profile/view/switch_user_group_page.dart';
+import 'package:tsdm_client/features/profile/view/user_group_progress_page.dart';
+import 'package:tsdm_client/features/ranklist/view/ranklist_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
@@ -89,6 +93,7 @@ import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
+import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_follow/view/followed_threads_page.dart';
@@ -262,10 +267,14 @@ final List<RouteBase> _appRoutes = [
     ),
   ),
   AppRoute(path: ScreenPaths.offlineThreads, builder: (state) => const OfflineThreadsPage()),
+  AppRoute(path: ScreenPaths.floorBookmarks, builder: (_) => const FloorBookmarkPage()),
   AppRoute(
     path: ScreenPaths.friend,
-    builder: (state) =>
-        FriendPage(uid: state.uri.queryParameters['uid'], username: state.uri.queryParameters['username']),
+    builder: (state) => FriendPage(
+      uid: state.uri.queryParameters['uid'],
+      username: state.uri.queryParameters['username'],
+      visitor: state.uri.queryParameters['view'] == 'visitor',
+    ),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(
@@ -301,18 +310,21 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.editAvatar, builder: (_) => const EditAvatarPage()),
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
+  AppRoute(path: ScreenPaths.userGroupProgress, builder: (_) => const UserGroupProgressPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
   AppRoute(path: ScreenPaths.magicCenter, builder: (_) => const MagicCenterPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
+  AppRoute(path: ScreenPaths.ranklist, builder: (_) => const RanklistPage()),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
   AppRoute(path: ScreenPaths.medalGrant, builder: (_) => const MedalGrantPage()),
   AppRoute(path: ScreenPaths.titleIssue, builder: (_) => const TitleIssuePage()),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
+  AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
   AppRoute(
     path: ScreenPaths.pokemon,
     builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),
@@ -491,6 +503,10 @@ final List<RouteBase> _appRoutes = [
       final autoOpen = state.uri.queryParameters['autoOpen'] == 'true';
       return OpenInAppPage(initialUrl: url, autoOpen: autoOpen);
     },
+  ),
+  AppRoute(
+    path: ScreenPaths.inAppBrowser,
+    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
   ),
 ];
 

@@ -264,13 +264,15 @@
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
       "points": "積分",
       "followedThreads": "追蹤的帖子",
       "readingStats": "閱讀統計",
       "checkinCalendar": "簽到日曆",
-      "ratingStats": "評分統計"
+      "ratingStats": "評分統計",
+      "visitors": "最近訪客"
     }
   },
   "home": {
@@ -350,7 +352,8 @@
         "title": "跨裝置同步",
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
-        "drafts": "本機草稿"
+        "drafts": "本機草稿",
+        "bookmarks": "樓層書籤"
       },
       "loginDevices": "登入裝置"
     },
@@ -813,7 +816,9 @@
         "off": "關",
         "meteredOnly": "使用行動網路時",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
+      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟"
     }
   },
   "aboutPage": {
@@ -1396,6 +1401,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近訪客",
+      "empty": "還沒有訪客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "還沒有好友",
@@ -1754,7 +1763,9 @@
     "links": "連結",
     "subForums": "子版塊",
     "privateForum": "私密版塊",
-    "redirectForum": "連結到外部地址"
+    "redirectForum": "連結到外部地址",
+    "pin": "釘選",
+    "unpin": "取消釘選"
   },
   "networkList": {
     "actionRefresh": "刷新",
@@ -2306,6 +2317,13 @@
     "invalidBrowserLink": "請輸入以 http:// 或 https:// 開頭的網頁連結",
     "browserLaunchFailed": "無法在瀏覽器中開啟此連結"
   },
+  "inAppBrowserPage": {
+    "back": "上一頁",
+    "forward": "下一頁",
+    "refresh": "重新整理",
+    "openExternal": "用外部瀏覽器開啟",
+    "copyUrl": "複製網址"
+  },
   "shareReceive": {
     "pickForum": "要發到哪個版塊",
     "uploadUnavailable": "這個版塊不能上傳圖片",
@@ -2493,6 +2511,12 @@
     "confirmMessage": "你確定要從 ${from: String} 切換到 ${to: String} 嗎？",
     "switchFailed": "切換失敗",
     "switchSucceeded": "已切換至 ${to: String}"
+  },
+  "userGroupProgress": {
+    "title": "用戶組升級進度",
+    "creditsLeft": "還需 ${n: int} 積分",
+    "noNext": "目前用戶組沒有下一級",
+    "extraGroups": "擴展用戶組"
   },
   "editAvatarPage": {
     "title": "編輯頭像",
@@ -2912,6 +2936,25 @@
     "unconfirmed": "已送出「${name}」的購買，但無法確認結果。再次購買前請先查看「我的頭銜」。",
     "termsChanged": "「${name}」在購買前已變更，未進行購買；請確認價格後重新操作。",
     "unavailableNow": "「${name}」已無法購買，未進行購買。"
+  },
+  "taskCenter": {
+    "title": "任務",
+    "refresh": "重新整理",
+    "openBrowser": "在瀏覽器開啟",
+    "tabAvailable": "可申請",
+    "tabDoing": "進行中",
+    "tabDone": "已完成",
+    "apply": "申請",
+    "claim": "領取獎勵",
+    "progress": "${percent}%",
+    "empty": "暫無任務。",
+    "loginRequired": "請登入後查看任務。",
+    "applied": "已申請「${name}」。",
+    "rewarded": "已領取「${name}」的獎勵。",
+    "inProgress": "「${name}」尚未完成。",
+    "failed": "「${name}」已失敗。",
+    "refused": "「${name}」未成功。",
+    "unconfirmed": "無法確認「${name}」的結果，請先查看列表再重試。"
   },
   "magicCenter": {
     "title": "道具",
@@ -3607,6 +3650,16 @@
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
   },
+  "floorBookmark": {
+    "title": "書籤",
+    "add": "加書籤",
+    "edit": "編輯書籤",
+    "note": "備註",
+    "remove": "刪除",
+    "removeConfirm": "刪除這個書籤？",
+    "empty": "沒有書籤",
+    "needLogin": "登入後可以查看書籤。"
+  },
   "localDraft": {
     "title": "本機草稿",
     "details": "還沒送出的回覆、私信、新帖與編輯，保存在這台裝置上",
@@ -3664,6 +3717,9 @@
   "twoPane": {
     "tabsFull": "最多同時開啟 ${count: int} 個分頁"
   },
+  "quickOpen": {
+    "search": "搜尋：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {
@@ -3675,6 +3731,7 @@
     },
     "commands": {
       "search": "搜尋",
+      "quickOpen": "快速跳轉",
       "settings": "設定",
       "back": "關閉對話框、返回",
       "refresh": "重新整理",
@@ -3743,5 +3800,23 @@
     "revoked": "$name 已在其他裝置上登出本機",
     "revokedUnknown": "一個帳號已在其他裝置上登出本機",
     "login": "登入"
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "積分",
+      "post": "發帖",
+      "online": "在線",
+      "thread": "熱帖"
+    },
+    "threadViews": {
+      "replies": "回覆",
+      "views": "檢視",
+      "favtimes": "收藏",
+      "heats": "熱度"
+    },
+    "empty": "暫無排行",
+    "minutes": "$n 分鐘",
+    "updated": "更新於 $last · 下次 $next"
   }
 }

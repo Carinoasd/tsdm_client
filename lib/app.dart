@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.
 import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
+import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
@@ -47,6 +48,7 @@ import 'package:tsdm_client/features/notification/repository/notification_reposi
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
@@ -321,6 +323,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       return;
     }
     unawaited(router.pushNamed(path));
+  }
+
+  void _openQuickOpen() {
+    final context = router.routerDelegate.navigatorKey.currentState?.overlay?.context;
+    if (context != null && context.mounted) {
+      unawaited(showQuickOpenDialog(context));
+    }
   }
 
   @override
@@ -644,6 +653,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             )..start(),
             lazy: false,
           ),
+          // The floor bookmarks of the current account: the floors mark theirs, the thread page and "my" list them.
+          BlocProvider(
+            create: (context) => FloorBookmarkCubit(store: getIt(), authenticationRepository: context.repo()),
+            lazy: false,
+          ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use
           // expires while the app runs (issue #25).
           BlocProvider(
@@ -855,6 +869,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                             KeyboardShortcutsHost(
                               onSearch: () => _openFromKeyboard(ScreenPaths.search),
                               onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                              onQuickOpen: _openQuickOpen,
                               // The mini player below every page while something is played.
                               child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
                             ),

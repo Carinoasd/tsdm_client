@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -71,6 +72,8 @@ void main() {
         ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter())),
       );
     await settings.init();
+    // The route to the "Open in app" page (#105) as before the in-app browser, which has its own test (700).
+    await settings.setValue(SettingsKeys.inAppBrowserForForum, false);
     launched.clear();
     for (final channel in ['plugins.flutter.io/url_launcher', 'plugins.flutter.io/url_launcher_linux']) {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
