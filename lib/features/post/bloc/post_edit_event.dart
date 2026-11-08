@@ -45,18 +45,18 @@ final class PostEditCompleteEditRequested extends PostEditEvent with PostEditCom
     required this.perm,
     required this.price,
     this.draftKey,
+    this.attachNew = const [],
     this.rewardPrice,
     this.activity,
     this.debate,
     this.poll,
-    this.attachNew = const [],
   }) : super();
+
+  /// The attachments uploaded while the post was edited, by `aid` ([PostFormEdits.attachNew]).
+  final List<int> attachNew;
 
   /// The poll settings of the first post of a poll ([PostFormEdits.poll]), null to post them as served.
   final PollEdits? poll;
-
-  /// The images uploaded while editing (custom emojis) the post still shows, by aid ([PostFormEdits.attachNew]).
-  final List<int> attachNew;
 
   /// The reward price of the first post of an open reward thread ([PostFormEdits.rewardPrice]), null to keep it.
   final int? rewardPrice;

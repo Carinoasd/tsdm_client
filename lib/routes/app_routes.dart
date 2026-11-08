@@ -73,6 +73,8 @@ import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_post_page.dart';
+import 'package:tsdm_client/features/read_later/view/read_later_page.dart';
+import 'package:tsdm_client/features/reading_time/view/reading_stats_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/search/view/search_page.dart';
 import 'package:tsdm_client/features/settings/models/historical_log.dart';
@@ -85,6 +87,7 @@ import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.da
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
+import 'package:tsdm_client/features/thread_follow/view/followed_threads_page.dart';
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
 import 'package:tsdm_client/features/title_shop/view/title_shop_page.dart';
 import 'package:tsdm_client/features/topics/view/topics_page.dart';
@@ -443,7 +446,10 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => ShareFloorImagePage(state.extra! as ShareFloorImageArgs),
   ),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),
+  AppRoute(path: ScreenPaths.readLater, builder: (_) => const ReadLaterPage()),
+  AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
+  AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
   AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),
   AppRoute(
     path: ScreenPaths.customEmojiPack,
