@@ -323,8 +323,14 @@ class ScreenPaths {
   /// Page to view and thread visit history.
   static const String threadVisitHistory = '/threadVisitHistory';
 
+  /// Page listing the threads put aside to read later.
+  static const String readLater = '/readLater';
+
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
+
+  /// Page listing the threads the current account follows.
+  static const String followedThreads = '/followedThreads';
 
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';

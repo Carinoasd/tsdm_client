@@ -249,11 +249,13 @@
       "myThreads": "My threads",
       "favorites": "Favorites",
       "history": "History",
+      "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
       "messages": "Messages",
       "friends": "Friends",
-      "points": "Points"
+      "points": "Points",
+      "followedThreads": "Followed threads"
     }
   },
   "home": {
@@ -378,6 +380,13 @@
         "title": "Unread Info Hint",
         "detail": "Show badge or count for user unread info on notice button"
       },
+      "immersiveReading": {
+        "title": "Immersive reading",
+        "allForums": "All forums",
+        "withSubforums": "With subforums",
+        "forumId": "Forum $fid",
+        "forumCount": "$count forums"
+      },
       "threadCard": {
         "title": "Thread card",
         "detail": "Configure the appearance of thread card",
@@ -480,22 +489,20 @@
         "detail": "Extra scale for post content in thread page, on top of text scale",
         "dialogTitle": "Thread content scale factor"
       },
-      "threadContentLineHeight": {
-        "title": "Post line height",
-        "detail": "Height of each line of post content, a multiple of the font size"
-      },
-      "threadContentParagraphSpacing": {
-        "title": "Post paragraph spacing",
-        "detail": "Space between the paragraphs of post content"
-      },
       "threadContentSplitLongParagraphs": {
         "title": "Split long paragraphs",
         "detail": "Show very long paragraphs broken after the end of a sentence; the text and what is copied stay unchanged"
       },
+      "threadLinkCard": {
+        "title": "Preview cards for thread links"
+      },
       "threadContentLayout": {
-        "dialogTitle": "Post layout",
+        "title": "Reading layout",
+        "dialogTitle": "Reading layout",
         "lineHeight": "Line height",
         "paragraphSpacing": "Paragraph spacing",
+        "maxWidth": "Content max width",
+        "unlimited": "No limit",
         "preview": "Preview",
         "previewText": "This is sample text to preview the layout of post content. A larger line height spreads the lines further apart; paragraph spacing is the space between two paragraphs.<br />A phone screen is much narrower than the web page: a paragraph of a few lines there becomes a dozen lines here, and a little more room makes it easier to read."
       }
@@ -543,6 +550,9 @@
         "rate": "Ratings and comments",
         "pm": "Private messages",
         "system": "System notices",
+        "followedThread": "Followed threads",
+        "followedThreadInterval": "Check every",
+        "followedThreadMinutes": "${n} min",
         "quietHours": "Quiet hours",
         "quietStart": "From",
         "quietEnd": "Until"
@@ -1045,6 +1055,7 @@
       "threadUrlBBCode": "Url BBCode",
       "threadUrlBBCodeWithDomain": "Url BBCode (with domain)"
     },
+    "immersiveForum": "Immersive by default in this forum",
     "copyTid": "Copy tid(${tid: String})",
     "favorite": {
       "add": "Add to favorites",
@@ -1094,6 +1105,11 @@
       "message": "Last read: floor ${floor: int}",
       "action": "Continue",
       "close": "Dismiss"
+    },
+    "follow": {
+      "add": "Follow",
+      "remove": "Unfollow",
+      "added": "Following"
     }
   },
   "topicsPage": {
@@ -1890,6 +1906,12 @@
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
   },
+  "netdisk": {
+    "extractCode": "Extract code",
+    "unzipPassword": "Unzip password",
+    "open": "Open",
+    "copyAll": "Copy all cloud storage info"
+  },
   "threadExport": {
     "copyPlain": "Copy as plain text",
     "copyMarkdown": "Copy as Markdown",
@@ -2136,6 +2158,15 @@
     "title": "Music",
     "openLink": "Open link"
   },
+  "readLater": {
+    "title": "Read later",
+    "add": "Read later",
+    "remove": "Remove from read later",
+    "clear": "Clear all",
+    "clearConfirm": "Clear the read later list?",
+    "empty": "No threads to read later",
+    "needLogin": "Log in first"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
     "allAccounts": "All accounts",
@@ -2225,7 +2256,8 @@
       "mention": "Mentions",
       "rate": "Ratings and comments",
       "pm": "Private messages",
-      "system": "System notices"
+      "system": "System notices",
+      "followedThread": "Followed threads"
     },
     "channelName": "New auto sync notice",
     "channelDesc": "Received new notice when auto sync",
@@ -2518,6 +2550,7 @@
   "threadCard": {
     "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
+    "openInNewTab": "Open in new tab",
     "replied": "Replied",
     "newReplies": "${count: int} new replies since your last visit"
   },
@@ -3046,6 +3079,15 @@
         "ruleNotFound": "This setting is not there any more, please reload",
         "unknownAfterSubmit": "Sent, but the result could not be confirmed, please reload to check"
       }
+    },
+    "filter": {
+      "keywords": "Blocked keywords",
+      "keyword": "Keyword",
+      "add": "Add",
+      "keywordExists": "This keyword is already blocked",
+      "forums": "Blocked forums",
+      "pickForums": "Choose",
+      "limitReached": "The limit is reached"
     }
   },
   "medalTitleTools": {
@@ -3421,13 +3463,17 @@
   "appShortcuts": {
     "checkinNotVerified": "The login is not verified yet, check in later"
   },
+  "twoPane": {
+    "tabsFull": "Up to ${count: int} tabs can be open"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
       "global": "Everywhere",
       "thread": "Thread",
       "list": "Lists",
-      "editor": "Editor"
+      "editor": "Editor",
+      "tabs": "Tabs"
     },
     "commands": {
       "search": "Search",
@@ -3448,7 +3494,23 @@
       "send": "Send",
       "bold": "Bold",
       "italic": "Italic",
-      "underline": "Underline"
+      "underline": "Underline",
+      "closeTab": "Close tab",
+      "nextTab": "Next tab",
+      "previousTab": "Previous tab",
+      "selectTab": "Tab 1–9"
+    }
+  },
+  "followedThreads": {
+    "title": "Followed threads",
+    "empty": "No followed threads yet",
+    "needLogin": "Log in to follow threads",
+    "newReplies": "${n} new",
+    "unfollowed": "Unfollowed",
+    "undo": "Undo",
+    "notice": {
+      "body": "\"${title}\" has ${n} new replies",
+      "hidden": "A followed thread has ${n} new replies"
     }
   }
 }
