@@ -73,6 +73,7 @@ import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_post_page.dart';
 import 'package:tsdm_client/features/read_later/view/read_later_page.dart';
+import 'package:tsdm_client/features/reading_time/view/reading_stats_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/search/view/search_page.dart';
 import 'package:tsdm_client/features/settings/models/historical_log.dart';
@@ -445,6 +446,7 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.threadVisitHistory, builder: (_) => const ThreadVisitHistoryPage()),
   AppRoute(path: ScreenPaths.readLater, builder: (_) => const ReadLaterPage()),
+  AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
   AppRoute(path: ScreenPaths.autoCheckinDetail, builder: (_) => const AutoCheckinPage()),

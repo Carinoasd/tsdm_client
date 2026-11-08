@@ -196,6 +196,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// center showed who did what, and no expanded list of items.
   notificationHideContent<bool>(name: 'notificationHideContent', type: bool, defaultValue: false),
 
+  /// Count the time spent reading threads (the reading statistics of the "me" page), kept on this device only.
+  readingTimeStats<bool>(name: 'readingTimeStats', type: bool, defaultValue: true),
+
   /// Announce replies (and quotes) of the auto sync in system notifications.
   notifyReply<bool>(name: 'notifyReply', type: bool, defaultValue: true),
 

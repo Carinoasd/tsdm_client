@@ -255,7 +255,8 @@
       "messages": "私訊",
       "friends": "好友",
       "points": "積分",
-      "followedThreads": "追蹤的帖子"
+      "followedThreads": "追蹤的帖子",
+      "readingStats": "閱讀統計"
     }
   },
   "home": {
@@ -771,7 +772,11 @@
       "about": "關於",
       "update": "取得更新",
       "updateCheckOnStartup": "應用程式啟動時檢查更新",
-      "changelog": "變更記錄"
+      "changelog": "變更記錄",
+      "recordReadingTime": "記錄閱讀時間",
+      "clearReadingTime": "清除閱讀時間資料",
+      "clearReadingTimeConfirm": "清除這台裝置上所有帳號的閱讀時間資料？清除後無法復原。",
+      "readingTimeCleared": "閱讀時間資料已清除"
     }
   },
   "aboutPage": {
@@ -3408,6 +3413,19 @@
       "unknownOrder": "未能確認是否已下單，請在交易記錄中查看。"
     },
     "already": "之前已經完成。"
+  },
+  "readingStats": {
+    "title": "閱讀統計",
+    "today": "今天",
+    "week": "本週",
+    "month": "本月",
+    "last14Days": "近 14 天",
+    "forums": "版塊佔比",
+    "otherForums": "其他",
+    "empty": "還沒有閱讀紀錄",
+    "hoursMinutes": "$hours 小時 $minutes 分",
+    "minutes": "$minutes 分",
+    "seconds": "$seconds 秒"
   },
   "localDraft": {
     "title": "本機草稿",

@@ -255,7 +255,8 @@
       "messages": "Messages",
       "friends": "Friends",
       "points": "Points",
-      "followedThreads": "Followed threads"
+      "followedThreads": "Followed threads",
+      "readingStats": "Reading stats"
     }
   },
   "home": {
@@ -771,7 +772,11 @@
       "about": "About",
       "update": "Get updates",
       "updateCheckOnStartup": "Check update when app startup",
-      "changelog": "Changelog"
+      "changelog": "Changelog",
+      "recordReadingTime": "Record reading time",
+      "clearReadingTime": "Clear reading time data",
+      "clearReadingTimeConfirm": "Clear the reading time of every account on this device? This cannot be undone.",
+      "readingTimeCleared": "Reading time data cleared"
     }
   },
   "aboutPage": {
@@ -3408,6 +3413,19 @@
       "unknownOrder": "Could not confirm whether the order was placed; check the trade records."
     },
     "already": "Done already."
+  },
+  "readingStats": {
+    "title": "Reading stats",
+    "today": "Today",
+    "week": "This week",
+    "month": "This month",
+    "last14Days": "Last 14 days",
+    "forums": "By forum",
+    "otherForums": "Others",
+    "empty": "Nothing read yet",
+    "hoursMinutes": "$hours h $minutes min",
+    "minutes": "$minutes min",
+    "seconds": "$seconds s"
   },
   "localDraft": {
     "title": "Local drafts",

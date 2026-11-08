@@ -326,6 +326,9 @@ class ScreenPaths {
   /// Page listing the threads put aside to read later.
   static const String readLater = '/readLater';
 
+  /// Page of the time spent reading threads.
+  static const String readingStats = '/readingStats';
+
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
 
