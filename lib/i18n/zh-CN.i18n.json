@@ -1891,6 +1891,12 @@
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
   },
+  "netdisk": {
+    "extractCode": "提取码",
+    "unzipPassword": "解压密码",
+    "open": "打开",
+    "copyAll": "复制全部网盘信息"
+  },
   "threadExport": {
     "copyPlain": "复制为纯文本",
     "copyMarkdown": "复制为 Markdown",

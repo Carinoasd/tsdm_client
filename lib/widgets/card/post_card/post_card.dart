@@ -18,6 +18,8 @@ import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
+import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -103,6 +105,9 @@ enum _PostCardActions {
 
   /// Copy the content as Markdown.
   copyAsMarkdown,
+
+  /// Copy every online storage link of the floor with its codes.
+  copyNetdisk,
 
   /// Copy post id.
   copyPid,
@@ -450,6 +455,18 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     };
   }
 
+  /// Online storage links written in the floor.
+  List<NetdiskLink> _netdiskLinks() {
+    final data = widget.post.data;
+    if (_netdiskOf?.data != data) {
+      final body = parseHtmlDocument(data).body;
+      _netdiskOf = (data: data, links: body == null ? const [] : parseNetdiskLinks(netdiskTextOf(body)));
+    }
+    return _netdiskOf!.links;
+  }
+
+  ({String data, List<NetdiskLink> links})? _netdiskOf;
+
   List<PopupMenuEntry<_PostCardActions>> _buildContextMenuEntries(BuildContext context) {
     final threadBloc = context.readOrNull<ThreadBloc>();
     final onlyVisibleUid = threadBloc?.state.onlyVisibleUid;
@@ -503,6 +520,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
           item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
           item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
+          if (_netdiskLinks().isNotEmpty)
+            item(_PostCardActions.copyNetdisk, Icons.cloud_download_outlined, context.t.netdisk.copyAll),
           item(
             _PostCardActions.copyPid,
             Icons.numbers_outlined,
@@ -648,6 +667,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         await copyPostAsText(context, widget.post, PostExportFormat.plainText);
       case _PostCardActions.copyAsMarkdown:
         await copyPostAsText(context, widget.post, PostExportFormat.markdown);
+      case _PostCardActions.copyNetdisk:
+        await copyToClipboard(
+          context,
+          netdiskLinksToText(
+            _netdiskLinks(),
+            extractCodeLabel: context.t.netdisk.extractCode,
+            unzipPasswordLabel: context.t.netdisk.unzipPassword,
+          ),
+        );
       case _PostCardActions.copyPid:
         await copyToClipboard(context, widget.post.postID);
       case _PostCardActions.report:
