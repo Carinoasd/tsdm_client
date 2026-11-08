@@ -3869,5 +3869,52 @@
     "empty": "No rankings yet",
     "minutes": "$n minutes",
     "updated": "Updated $last · next $next"
+  },
+  "spacePage": {
+    "blogs": "Blogs",
+    "albums": "Albums",
+    "comments": "Comments",
+    "emptyBlogs": "No blogs yet",
+    "emptyAlbums": "No albums yet",
+    "emptyPhotos": "No photos in this album yet",
+    "newBlog": "New blog",
+    "upload": "Upload photos",
+    "blogEdit": {
+      "subject": "Title",
+      "message": "Content",
+      "category": "Category",
+      "noCategory": "None",
+      "newCategory": "New category",
+      "newCategoryName": "Category name",
+      "systemCategory": "Site category",
+      "privacy": "Privacy",
+      "password": "Password",
+      "send": "Post",
+      "sending": "Posting…",
+      "done": "Blog posted",
+      "emptyMessage": "Write something first",
+      "emptyPassword": "Enter a password"
+    },
+    "albumUpload": {
+      "pick": "Choose photos",
+      "album": "Album",
+      "newAlbum": "New album",
+      "albumName": "Album name",
+      "privacy": "Privacy",
+      "password": "Password",
+      "send": "Upload",
+      "sending": "Uploading ${sent: int} / ${total: int}",
+      "filing": "Adding to the album…",
+      "done": "Uploaded: ${count: int}",
+      "refusedType": "Unsupported format",
+      "refusedSize": "File too large",
+      "refusedRejected": "Not taken by the forum",
+      "refusedFailed": "Upload failed",
+      "noneTaken": "No photo was uploaded",
+      "emptyAlbumName": "Enter an album name"
+    },
+    "unconfirmed": "The result is unknown: check the list before sending again",
+    "sendFailed": "Failed to send",
+    "identityChanged": "The account changed: this page sends nothing more"
   }
 }

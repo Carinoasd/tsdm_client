@@ -3869,5 +3869,52 @@
     "empty": "暫無排行",
     "minutes": "$n 分鐘",
     "updated": "更新於 $last · 下次 $next"
+  },
+  "spacePage": {
+    "blogs": "日誌",
+    "albums": "相冊",
+    "comments": "評論",
+    "emptyBlogs": "還沒有日誌",
+    "emptyAlbums": "還沒有相冊",
+    "emptyPhotos": "相冊裡還沒有圖片",
+    "newBlog": "發表日誌",
+    "upload": "上傳圖片",
+    "blogEdit": {
+      "subject": "標題",
+      "message": "內容",
+      "category": "分類",
+      "noCategory": "不分類",
+      "newCategory": "新建分類",
+      "newCategoryName": "分類名稱",
+      "systemCategory": "系統分類",
+      "privacy": "隱私",
+      "password": "密碼",
+      "send": "發表",
+      "sending": "正在發表…",
+      "done": "日誌已發表",
+      "emptyMessage": "請填寫內容",
+      "emptyPassword": "請填寫密碼"
+    },
+    "albumUpload": {
+      "pick": "選擇圖片",
+      "album": "相冊",
+      "newAlbum": "新建相冊",
+      "albumName": "相冊名稱",
+      "privacy": "隱私",
+      "password": "密碼",
+      "send": "上傳",
+      "sending": "正在上傳 ${sent: int} / ${total: int}",
+      "filing": "正在存入相冊…",
+      "done": "已上傳 ${count: int} 張",
+      "refusedType": "格式不支援",
+      "refusedSize": "檔案太大",
+      "refusedRejected": "論壇未接收",
+      "refusedFailed": "上傳失敗",
+      "noneTaken": "沒有圖片上傳成功",
+      "emptyAlbumName": "請填寫相冊名稱"
+    },
+    "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
+    "sendFailed": "送出失敗",
+    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
   }
 }

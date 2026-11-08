@@ -28,6 +28,7 @@ import 'package:tsdm_client/features/profile/repository/profile_repository.dart'
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
+import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
@@ -803,6 +804,31 @@ class _ProfilePageState extends State<ProfilePage> {
                   .toList(),
             ),
           ],
+        ),
+
+      // The member's blogs and albums, own or another's.
+      if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int spaceUid)
+        AppSurface(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final (i, (tab, icon, title)) in [
+                (SpaceTab.blog, Icons.article_outlined, context.t.spacePage.blogs),
+                (SpaceTab.album, Icons.photo_library_outlined, context.t.spacePage.albums),
+              ].indexed) ...[
+                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(icon),
+                  title: Text(title),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async => context.pushNamed(
+                    ScreenPaths.space,
+                    queryParameters: {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
 
       // Medal centre, own titles and title shop: all meant for the logged user (buy/apply/switch for themselves), so

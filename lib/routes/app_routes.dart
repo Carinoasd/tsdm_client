@@ -93,6 +93,11 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/space/view/album_upload_page.dart';
+import 'package:tsdm_client/features/space/view/blog_post_page.dart';
+import 'package:tsdm_client/features/space/view/space_album_page.dart';
+import 'package:tsdm_client/features/space/view/space_blog_page.dart';
+import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
@@ -277,6 +282,36 @@ final List<RouteBase> _appRoutes = [
       username: state.uri.queryParameters['username'],
       visitor: state.uri.queryParameters['view'] == 'visitor',
     ),
+  ),
+  // A member's blogs and albums: home.php?mod=space&uid=N&do=blog|album[&id=M].
+  AppRoute(
+    path: ScreenPaths.space,
+    builder: (state) => SpacePage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
+      username: state.uri.queryParameters['username'],
+      initialTab: SpaceTab.of(state.uri.queryParameters['tab']),
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.spaceBlog,
+    builder: (state) => SpaceBlogPage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
+      blogId: int.tryParse(state.uri.queryParameters['blogId'] ?? '') ?? 0,
+      title: state.uri.queryParameters['title'],
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.spaceAlbum,
+    builder: (state) => SpaceAlbumPage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
+      albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '') ?? 0,
+      name: state.uri.queryParameters['name'],
+    ),
+  ),
+  AppRoute(path: ScreenPaths.spaceBlogPost, builder: (_) => const BlogPostPage()),
+  AppRoute(
+    path: ScreenPaths.spaceAlbumUpload,
+    builder: (state) => AlbumUploadPage(albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '')),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
   AppRoute(

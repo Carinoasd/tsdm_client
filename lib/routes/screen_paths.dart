@@ -282,6 +282,31 @@ class ScreenPaths {
   /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
   static const String friend = '/friend';
 
+  /// The blogs and the albums of a member, a tab each.
+  ///
+  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog
+  ///
+  /// Query parameters: `uid`, the member; `username` for the title; `tab`, `blog` (default) or `album`.
+  static const String space = '/space';
+
+  /// A blog with its comments: https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog&id=yyy
+  ///
+  /// Query parameters: `uid`, the author; `blogId`; `title`, shown until it loaded.
+  static const String spaceBlog = '/space/blog';
+
+  /// The pictures of an album: https://tsdm39.com/home.php?mod=space&uid=xxx&do=album&id=yyy
+  ///
+  /// Query parameters: `uid`, the owner; `albumId` (-1 the default album); `name`, shown until it loaded.
+  static const String spaceAlbum = '/space/album';
+
+  /// Write a new blog (https://tsdm39.com/home.php?mod=spacecp&ac=blog); pops `true` once posted.
+  static const String spaceBlogPost = '/space/blogPost';
+
+  /// Upload pictures to an album (https://tsdm39.com/home.php?mod=spacecp&ac=upload); pops `true` once filed.
+  ///
+  /// Query parameters: `albumId`, the album chosen first.
+  static const String spaceAlbumUpload = '/space/albumUpload';
+
   /// Page to show "Latest thread" on web side.
   ///
   /// https://tsdm39.com/home.php?mod=forum&searchid=xxx&orderby...

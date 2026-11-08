@@ -191,6 +191,23 @@ extension ParseUrl on String {
       );
     }
 
+    // A member's blogs and albums: home.php?mod=space&uid=N&do=blog|album, a blog (&id=M), an album (&id=M).
+    if (mod == 'space' &&
+        (queryParameters['do'] == 'blog' || queryParameters['do'] == 'album') &&
+        int.tryParse(queryParameters['uid'] ?? '') != null) {
+      final uid = queryParameters['uid']!;
+      final id = int.tryParse(queryParameters['id'] ?? '');
+      final blog = queryParameters['do'] == 'blog';
+      if (id != null && (blog ? id > 0 : id != 0)) {
+        return blog
+            ? RecognizedRoute(ScreenPaths.spaceBlog, queryParameters: {'uid': uid, 'blogId': '$id'})
+            : RecognizedRoute(ScreenPaths.spaceAlbum, queryParameters: {'uid': uid, 'albumId': '$id'});
+      }
+      if (queryParameters['id'] == null && queryParameters['picid'] == null) {
+        return RecognizedRoute(ScreenPaths.space, queryParameters: {'uid': uid, 'tab': blog ? 'blog' : 'album'});
+      }
+    }
+
     // FIXME: Do NOT glob access user profile page by uid.
     if (mod == 'space' && queryParameters['do'] != 'friend') {
       // Access by uid.
