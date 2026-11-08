@@ -15,10 +15,12 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import io.flutter.Log
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragment
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import com.ryanheise.audioservice.AudioServicePlugin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +35,12 @@ import java.lang.ref.WeakReference
 
 // The file keeps its name (tests and the workflow path filters read it); the launcher entries named MainActivity and
 // IconDark, IconMono, IconPink are activity-aliases of this class (see the manifest and AppIconSwitcher).
-class MainActivityImpl: FlutterActivity() {
+/**
+ * A [FlutterFragmentActivity] for the system biometric prompt of the app lock (`local_auth` shows it as a fragment), on
+ * the audio service's engine ([AudioServiceFragmentActivity], just_audio_background): the player plays in it with the
+ * app in the background.
+ */
+class MainActivityImpl: AudioServiceFragmentActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
@@ -42,6 +49,12 @@ class MainActivityImpl: FlutterActivity() {
         const val SET_APP_ICON = "setAppIcon"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
         const val DEVICE_NAME = "deviceName"
+        /**
+         * Whether the system draws the biometric prompt (Android 9+). Before that androidx.biometric shows its own
+         * fingerprint dialog, which needs an AppCompat theme this activity does not have: the app lock offers the PIN
+         * only there.
+         */
+        const val HAS_SYSTEM_BIOMETRIC_PROMPT = "hasSystemBiometricPrompt"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
@@ -377,7 +390,7 @@ class MainActivityImpl: FlutterActivity() {
         if (flutterViewWatched) {
             return
         }
-        val flutterView = findViewById<View>(FLUTTER_VIEW_ID) ?: return
+        val flutterView = findViewById<View>(FlutterFragment.FLUTTER_VIEW_ID) ?: return
         flutterViewWatched = true
         flutterView.addOnLayoutChangeListener { view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
             val width = right - left
@@ -482,6 +495,7 @@ class MainActivityImpl: FlutterActivity() {
                 val model = Build.MODEL.orEmpty().trim()
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
+            HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             else -> result.notImplemented()
         }
     }

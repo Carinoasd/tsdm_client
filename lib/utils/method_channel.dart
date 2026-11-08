@@ -50,6 +50,12 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
       },
     );
 
+const _methodHasSystemBiometricPrompt = 'hasSystemBiometricPrompt';
+
+/// Whether Android draws the biometric prompt itself (Android 9+); before that the app lock offers the PIN only.
+Future<bool> androidHasSystemBiometricPrompt() async =>
+    await _mainChannel.invokeMethod<bool>(_methodHasSystemBiometricPrompt) ?? false;
+
 const _methodDeviceName = 'deviceName';
 
 /// The maker and the model of this Android device (`Build.MANUFACTURER`, `Build.MODEL`), the model alone when it

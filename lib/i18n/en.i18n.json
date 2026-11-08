@@ -3318,6 +3318,47 @@
     "issueRecordsEmpty": "No issues yet.",
     "issueLogLine": "${by} → ${to}"
   },
+  "appLock": {
+    "title": "App lock",
+    "method": {
+      "title": "Unlock with",
+      "off": "Off",
+      "pin": "PIN",
+      "biometric": "PIN and biometrics"
+    },
+    "timing": {
+      "title": "Lock",
+      "immediately": "Every time the app is left",
+      "oneMinute": "After 1 minute away",
+      "fiveMinutes": "After 5 minutes away"
+    },
+    "changePin": "Change PIN",
+    "requireForAccountSwitch": "Unlock before switching accounts",
+    "biometricUnavailable": "Biometrics are not available on this device",
+    "setPin": {
+      "title": "Set PIN",
+      "pin": "PIN",
+      "confirm": "Enter the PIN again",
+      "invalid": "Enter 4 to 6 digits",
+      "mismatch": "The PINs do not match"
+    },
+    "lockScreen": {
+      "enterPin": "Enter PIN",
+      "wrongPin": "Wrong PIN",
+      "retryIn": "Try again in ${seconds} s",
+      "biometric": "Unlock with biometrics",
+      "reason": "Unlock ${appName}",
+      "delete": "Delete",
+      "confirm": "OK"
+    },
+    "forgot": {
+      "title": "Forgot PIN",
+      "detail": "Every account saved on this device will be removed and the app lock turned off. You will need to log in again.",
+      "confirmTitle": "Remove every account?",
+      "confirmDetail": "This can not be undone.",
+      "failed": "Not every account could be removed, the app lock stays on"
+    }
+  },
   "currentAccount": {
     "tooltip": "Current account: ${username}",
     "replyAs": "Reply as ${username}...",
