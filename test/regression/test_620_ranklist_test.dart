@@ -113,6 +113,8 @@ void main() {
       expect(ranklistOnlineMinutes('11160 分钟'), 11160);
       expect(ranklistOnlineMinutes('10 minutes'), 10);
       expect(ranklistOnlineMinutes('1 天 2 小时'), isNull);
+      expect(ranklistOnlineMinutes('2 小时'), isNull);
+      expect(ranklistOnlineMinutes('42'), 42);
     });
 
     test('a notice without recognized times is kept as printed', () {

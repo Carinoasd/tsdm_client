@@ -152,9 +152,10 @@ String? _groupOf(uh.Element p, String beforeColon) {
   return label <= 0 ? null : nonEmpty(beforeColon.substring(0, label).trim());
 }
 
-/// Minutes of an online time value as the forum prints it (`11160 分钟`), null when it is not one.
-int? ranklistOnlineMinutes(String value) =>
-    int.tryParse(RegExp(r'^(\d+)\s*\D*$').firstMatch(value.trim())?.group(1) ?? '');
+/// Minutes of an online time value as the forum prints it (`11160 分钟`), null for another unit or shape.
+int? ranklistOnlineMinutes(String value) => int.tryParse(
+  RegExp(r'^(\d+)\s*(?:分钟|分鐘|minutes?)?$', caseSensitive: false).firstMatch(value.trim())?.group(1) ?? '',
+);
 
 /// The message of the forum's 提示信息 page (a ranking turned off: `此排行功能已关闭`), null for any other page.
 String? ranklistServerMessage(uh.Document document) {
