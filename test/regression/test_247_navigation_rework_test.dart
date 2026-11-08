@@ -1022,7 +1022,8 @@ void main() {
         expect(app.top, ScreenPaths.login);
         await tester.binding.handlePopRoute();
         await _settle(tester, rounds: 6);
-        await tester.drag(list, const Offset(0, 2000));
+        // Scrolled back to the login card: a drag may still meet the login page closing over the list.
+        await tester.ensureVisible(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);
