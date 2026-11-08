@@ -72,6 +72,16 @@ void main() {
     expect(parseFriendListPage(parseHtmlDocument(_data('friend_visitor_x5.html'))).items, isEmpty);
   });
 
+  test('a visitor whose link has no text is named by its title', () {
+    final document = parseHtmlDocument(
+      '<ul class="buddy cl"><li id="friend_9_li"><div class="avt"></div><h4><span class="xg1 y">1月1日</span> '
+      '<a href="home.php?mod=space&uid=9" title="Nine"></a></h4></li></ul>',
+    );
+    final page = parseFriendListPage(document, visitor: true);
+    expect(page.items.single.username, 'Nine');
+    expect(page.items.single.visitedText, '1月1日');
+  });
+
   test('the visitors url is told from a friends list', () {
     expect(FriendRepository.isVisitorUrl(FriendRepository.visitorListUrl), isTrue);
     expect(FriendRepository.isVisitorUrl('$baseUrl/home.php?mod=space&do=friend&view=visitor&page=2'), isTrue);
@@ -118,6 +128,11 @@ void main() {
       expect(find.text('ag_low'), findsOneWidget);
       expect(find.textContaining('2026'), findsOneWidget);
       expect(find.byIcon(Icons.email_outlined), findsNothing);
+    });
+
+    testWidgets('a visit without a time leaves no empty line', (tester) async {
+      await pump(tester, const Friend(uid: '31', username: 'ag_low'));
+      expect(find.byType(Text), findsOneWidget);
     });
 
     testWidgets('shows the printed date of the web page', (tester) async {

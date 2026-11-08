@@ -46,6 +46,7 @@ class FriendCard extends StatelessWidget {
     final groupName = friend.groupName;
     final groupIconUrl = friend.groupIconUrl;
     final credits = friend.credits;
+    final visitTime = friend.visitedAt?.yyyyMMDDHHMM() ?? friend.visitedText;
 
     return AppSurface(
       padding: edgeInsetsL12T12R12B12,
@@ -73,10 +74,10 @@ class FriendCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                sizedBoxW4H4,
-                if (visitor)
-                  Text(friend.visitedAt?.yyyyMMDDHHMM() ?? friend.visitedText ?? '', style: secondaryStyle)
-                else
+                if (visitor) ...[
+                  if (visitTime != null) ...[sizedBoxW4H4, Text(visitTime, style: secondaryStyle)],
+                ] else ...[
+                  sizedBoxW4H4,
                   // Group and credits; a long group name pushes the credits to the next line instead of being cut.
                   Wrap(
                     spacing: 8,
@@ -111,6 +112,7 @@ class FriendCard extends StatelessWidget {
                         ),
                     ],
                   ),
+                ],
               ],
             ),
           ),

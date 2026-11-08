@@ -176,7 +176,10 @@ Friend? _parseItem(uh.Element li) {
 Friend? _parseVisitor(uh.Element li) {
   final nameNode = _nameLink(li);
   final uid = nameNode?.attributes['href']?.uriQueryParameter('uid');
-  final username = nameNode?.innerText.trim() ?? '';
+  var username = nameNode?.innerText.trim() ?? '';
+  if (username.isEmpty) {
+    username = nameNode?.attributes['title']?.trim() ?? '';
+  }
   if (uid == null || uid.isEmpty || username.isEmpty) {
     return null;
   }
