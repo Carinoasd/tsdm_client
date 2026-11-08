@@ -264,13 +264,15 @@
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
       "points": "积分",
       "followedThreads": "追踪的帖子",
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
-      "ratingStats": "评分统计"
+      "ratingStats": "评分统计",
+      "visitors": "最近访客"
     }
   },
   "home": {
@@ -350,7 +352,8 @@
         "title": "跨设备同步",
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
-        "drafts": "本机草稿"
+        "drafts": "本机草稿",
+        "bookmarks": "楼层书签"
       },
       "loginDevices": "登录设备"
     },
@@ -505,6 +508,12 @@
       "fontFamily": {
         "title": "字体",
         "dialogTitle": "选择字体"
+      },
+      "chineseDisplay": {
+        "title": "简繁显示",
+        "off": "关闭",
+        "traditional": "繁体",
+        "simplified": "简体"
       },
       "textScaleFactor": {
         "title": "文字缩放",
@@ -807,7 +816,9 @@
         "off": "关",
         "meteredOnly": "使用移动网络时",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "论坛网页用内置浏览器打开",
+      "inAppBrowserForAll": "所有链接用内置浏览器打开"
     }
   },
   "aboutPage": {
@@ -1390,6 +1401,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近访客",
+      "empty": "还没有访客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "还没有好友",
@@ -1748,7 +1763,9 @@
     "links": "链接",
     "subForums": "子版块",
     "privateForum": "私密版块",
-    "redirectForum": "链接到外部地址"
+    "redirectForum": "链接到外部地址",
+    "pin": "钉选",
+    "unpin": "取消钉选"
   },
   "networkList": {
     "actionRefresh": "刷新",
@@ -2300,6 +2317,13 @@
     "invalidBrowserLink": "请输入以 http:// 或 https:// 开头的网页链接",
     "browserLaunchFailed": "无法在浏览器中打开此链接"
   },
+  "inAppBrowserPage": {
+    "back": "后退",
+    "forward": "前进",
+    "refresh": "刷新",
+    "openExternal": "用外部浏览器打开",
+    "copyUrl": "复制网址"
+  },
   "shareReceive": {
     "pickForum": "发到哪个版块",
     "uploadUnavailable": "这个版块不能上传图片",
@@ -2487,6 +2511,12 @@
     "confirmMessage": "你确定要从 ${from: String} 切换到 ${to: String} 吗？",
     "switchFailed": "切换失败",
     "switchSucceeded": "已切换至 ${to: String}"
+  },
+  "userGroupProgress": {
+    "title": "用户组升级进度",
+    "creditsLeft": "还需 ${n: int} 积分",
+    "noNext": "当前用户组没有下一级",
+    "extraGroups": "扩展用户组"
   },
   "editAvatarPage": {
     "title": "编辑头像",
@@ -3593,6 +3623,16 @@
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
   },
+  "floorBookmark": {
+    "title": "书签",
+    "add": "加书签",
+    "edit": "编辑书签",
+    "note": "备注",
+    "remove": "删除",
+    "removeConfirm": "删除这个书签？",
+    "empty": "没有书签",
+    "needLogin": "登录后可以查看书签。"
+  },
   "localDraft": {
     "title": "本机草稿",
     "details": "还没发出的回复、私信、新帖与编辑，保存在这台设备上",
@@ -3650,6 +3690,9 @@
   "twoPane": {
     "tabsFull": "最多同时打开 ${count: int} 个标签页"
   },
+  "quickOpen": {
+    "search": "搜索：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {
@@ -3661,6 +3704,7 @@
     },
     "commands": {
       "search": "搜索",
+      "quickOpen": "快速跳转",
       "settings": "设置",
       "back": "关闭对话框、返回",
       "refresh": "刷新",
@@ -3729,5 +3773,23 @@
     "revoked": "$name 已在其他设备上登出本机",
     "revokedUnknown": "一个账号已在其他设备上登出本机",
     "login": "登录"
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "积分",
+      "post": "发帖",
+      "online": "在线",
+      "thread": "热帖"
+    },
+    "threadViews": {
+      "replies": "回复",
+      "views": "查看",
+      "favtimes": "收藏",
+      "heats": "热度"
+    },
+    "empty": "暂无排行",
+    "minutes": "$n 分钟",
+    "updated": "更新于 $last · 下次 $next"
   }
 }

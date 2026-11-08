@@ -1031,7 +1031,7 @@ void main() {
         expect(app.top, ScreenPaths.login);
         await tester.binding.handlePopRoute();
         await _settle(tester, rounds: 6);
-        // The services list is longer than the screen: bring the login card back without a drag.
+        // Scrolled back to the login card: a drag may still meet the login page closing over the list.
         await tester.ensureVisible(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));
