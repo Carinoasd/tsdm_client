@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:collection/collection.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -20,6 +22,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
+import 'package:tsdm_client/features/editor/utils/paste_aware_controller.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
@@ -39,10 +42,12 @@ import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/utils/pasted_image.dart';
 import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/cron_publish_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/image_drop_area.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/poll_settings_dialog.dart';
@@ -276,8 +281,17 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// The shared images were taken (uploading, or done): they are uploaded once, whatever rebuilds the page.
   bool _sharedImagesTaken = false;
 
-  /// A shared image is on its way to the forum.
-  bool _uploadingSharedImages = false;
+  /// Images going up to the forum one batch after another (shared, pasted, dropped), in the order they came.
+  Future<void> _imageUploadQueue = Future<void>.value();
+
+  /// The batches queued on [_imageUploadQueue] and not done yet.
+  int _imageUploadBatches = 0;
+
+  /// An image is on its way to the forum: nothing is sent or saved until it is there.
+  bool get _uploadingImages => _imageUploadBatches > 0;
+
+  /// What a paste takes from the clipboard instead of text.
+  final _clipboardImages = ClipboardImageReader.platform();
 
   /// The attachments uploaded for this thread, by aid ([PostFormEdits.attachNew]).
   final _attachNew = <int>[];
@@ -588,7 +602,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         widget.editType.isEditingDraft &&
         (bloc.state.content?.canSaveDraft ?? false) &&
         bloc.canSubmit &&
-        !_uploadingSharedImages;
+        !_uploadingImages;
     _leaving = true;
     final LeaveEditChoice choice;
     try {
@@ -629,42 +643,124 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
   }
 
-  /// Upload the images another app shared ([PostEditPage.sharedImages]) as attachments of this thread, one after the
-  /// other, each shown in the post at the cursor as the website's image list inserts it (`[attachimg]aid[/attachimg]`)
-  /// and bound to the post when it is published ([ThreadPubPostThread.attachNew]).
+  /// Upload the images another app shared ([PostEditPage.sharedImages]) as attachments of this thread
+  /// ([_queueImageUpload]). The shared files are deleted either way.
+  void _uploadSharedImages(List<String> paths) => _queueImageUpload(
+    (_) async => (files: [for (final path in paths) UploadImageFile(path, temporary: true)], refused: const <String>[]),
+    discard: paths,
+  );
+
+  /// A paste in the editor ([buildPasteAwareEditorController]): images on the clipboard without text
+  /// ([ClipboardImageReader]) are uploaded and shown at the cursor instead ([_queueImageUpload]); anything else is
+  /// pasted by the editor as before.
+  Future<bool> _onClipboardPaste() async {
+    if (!mounted || !initialized) return false;
+    final images = await _clipboardImages.read();
+    if (images == null || !mounted) return false;
+    switch (images) {
+      case ClipboardImagePaths(:final paths):
+        _uploadImageFiles(paths);
+      case ClipboardImageBytes(:final bytes):
+        _queueImageUpload((upload) async {
+          final file = await writeUploadImage(
+            bytes,
+            dir: await _uploadTempDir(),
+            stem: 'paste_${DateTime.now().millisecondsSinceEpoch}',
+            accepts: upload.acceptsImage,
+          );
+          return (files: [?file], refused: [if (file == null) 'paste']);
+        });
+    }
+    return true;
+  }
+
+  /// Upload the member's image files at [paths] (dropped, copied in the file manager), each as it is when the forum
+  /// takes its type, else as a PNG copy ([prepareImageFile]). The files themselves are kept.
+  void _uploadImageFiles(List<String> paths) => _queueImageUpload((upload) async {
+    final dir = await _uploadTempDir();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final files = <UploadImageFile>[];
+    final refused = <String>[];
+    for (final (i, path) in paths.indexed) {
+      final file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
+      if (file != null) {
+        files.add(file);
+      } else {
+        refused.add(path.split(RegExp(r'[/\\]')).last);
+      }
+    }
+    return (files: files, refused: refused);
+  });
+
+  /// Where the images written for an upload go until they went up.
+  static Future<Directory> _uploadTempDir() async =>
+      Directory('${(await getTemporaryDirectory()).path}${Platform.pathSeparator}image_upload');
+
+  /// Upload a batch of images as attachments of this post, after the batches before it: [prepare] gets the upload
+  /// of the form and returns the files to send (writing the temporary ones) and the names of those the forum takes
+  /// in no form. Each image is shown in the post at the cursor as the website's image list inserts it
+  /// (`[attachimg]aid[/attachimg]`) and bound to the post when it is published or the edit saved
+  /// ([PostFormEdits.attachNew]); the temporary files are deleted once tried.
   ///
   /// Only the form of the forum's app API offers the upload ([PostForm.attachmentUpload]); a page without it, or a
-  /// forum where the account may not upload images, is told so and the images are dropped. The shared files are
-  /// deleted either way.
-  Future<void> _uploadSharedImages(PostEditState state, List<String> paths) async {
-    final upload = state.content?.form?.attachmentUpload;
+  /// forum where the account may not upload images, is told so and [discard] (temporary files already written) are
+  /// deleted.
+  void _queueImageUpload(
+    Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare, {
+    List<String> discard = const [],
+  }) {
+    setState(() => _imageUploadBatches++);
+    _imageUploadQueue = _imageUploadQueue.then((_) async {
+      try {
+        await _runImageUpload(prepare, discard);
+      } on Object catch (e, st) {
+        handleRaw(e, st);
+        discardSharedFiles(discard);
+      } finally {
+        _imageUploadBatches--;
+        if (mounted) setState(() {});
+      }
+    });
+  }
+
+  Future<void> _runImageUpload(
+    Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare,
+    List<String> discard,
+  ) async {
     if (!mounted) {
-      discardSharedFiles(paths);
+      discardSharedFiles(discard);
       return;
     }
     final tr = context.t.shareReceive;
+    final state = context.read<PostEditBloc>().state;
+    if (state.status == PostEditStatus.uploading || state.status == PostEditStatus.success) {
+      // The post is on its way or gone: an image now would be bound to nothing.
+      discardSharedFiles(discard);
+      return;
+    }
+    final upload = state.content?.form?.attachmentUpload;
     if (upload == null || !upload.image) {
-      discardSharedFiles(paths);
+      discardSharedFiles(discard);
       showSnackBar(context: context, message: tr.uploadUnavailable);
       return;
     }
     final repo = context.read<PostEditRepository>();
-    setState(() => _uploadingSharedImages = true);
+    final (:files, :refused) = await prepare(upload);
     // What went wrong, told once at the end: one failure with its reason, several as their count.
-    final failures = <String>[];
+    final failures = [for (final name in refused) tr.uploadRefusedType(name: name)];
     try {
-      for (final path in paths) {
+      for (final file in files) {
         if (!mounted || !repo.isCurrent) {
           break;
         }
-        final result = await repo.uploadImage(upload, path).run();
+        final result = await repo.uploadImage(upload, file.path).run();
         if (!mounted) {
           break;
         }
         result.match(
           (e) {
             handle(e);
-            final name = path.split(RegExp(r'[/\\]')).last;
+            final name = file.path.split(RegExp(r'[/\\]')).last;
             failures.add(switch (e) {
               AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(name: name),
               AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
@@ -682,9 +778,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         );
       }
     } finally {
-      discardSharedFiles(paths);
+      discardSharedFiles({
+        ...discard,
+        for (final file in files)
+          if (file.temporary) file.path,
+      });
       if (mounted) {
-        setState(() => _uploadingSharedImages = false);
         if (failures.length == 1) {
           showSnackBar(context: context, message: failures.single);
         } else if (failures.length > 1) {
@@ -840,7 +939,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     // Shared images still going up: sent now, the post would miss them and the rest would be uploaded for nothing.
-    if (_uploadingSharedImages) return;
+    if (_uploadingImages) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
     if (_waitingSeconds > 0) return;
     final issue = _formIssue(context, state.content!);
@@ -1000,6 +1099,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           perm: threadPerm?.perm,
           price: price,
           draftKey: _draftKey?.value,
+          attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
           rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
           activity: state.content!.form?.activity == null ? null : activity,
           debate: state.content!.form?.debate == null ? null : debate,
@@ -1600,7 +1700,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       final shared = widget.sharedImages;
       if (!_sharedImagesTaken && shared != null && shared.isNotEmpty && widget.editType == PostEditType.newThread) {
         _sharedImagesTaken = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _uploadSharedImages(state, shared));
+        WidgetsBinding.instance.addPostFrameCallback((_) => _uploadSharedImages(shared));
       }
     }
 
@@ -1626,18 +1726,21 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       ),
                     ),
             ),
-            if (_uploadingSharedImages) const LinearProgressIndicator(minHeight: 2),
+            if (_uploadingImages) const LinearProgressIndicator(minHeight: 2),
             Padding(padding: horizontal.add(edgeInsetsT12), child: _buildTitleRow(context, state)),
             // Post data editor.
             // Now we don't restrict the thread type and thread title, so it's better to focus on content area.
             Expanded(
               child: Padding(
                 padding: horizontal.add(const EdgeInsets.symmetric(vertical: 12)),
-                child: EditorFrame(
-                  focusNode: focusNode,
-                  child: MentionSuggestionsScope(
-                    suggestions: widget.mentionSuggestions ?? const [],
-                    child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                child: ImageDropArea(
+                  onImages: _uploadImageFiles,
+                  child: EditorFrame(
+                    focusNode: focusNode,
+                    child: MentionSuggestionsScope(
+                      suggestions: widget.mentionSuggestions ?? const [],
+                      child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                    ),
                   ),
                 ),
               ),
@@ -1888,7 +1991,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       'enter post edit page: '
       'editType=${widget.editType}, fid=${widget.fid}',
     );
-    bbcodeController = buildBBCodeEditorController();
+    // A pasted image goes up as an attachment.
+    bbcodeController = buildPasteAwareEditorController(onPaste: _onClipboardPaste);
     fullScreen = isDesktop;
     // The local draft: written while the title and the post change, for the account this editor opened for.
     _draftUid = context.read<AuthenticationRepository>().effectiveCurrentUid;
@@ -2060,10 +2164,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         listener: (context, state) async => _onListen(context, state),
         builder: (context, state) {
           bool canPublish() =>
-              !(_confirming ||
-                  _uploadingSharedImages ||
-                  _waitingSeconds > 0 ||
-                  !context.read<PostEditBloc>().canSubmit);
+              !(_confirming || _uploadingImages || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit);
           // Below the bloc: leaving asks what to do with content not sent yet, and may save it as a draft.
           return PopScope(
             canPop: false,
@@ -2122,7 +2223,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       IconButton(
                         onPressed:
                             _confirming ||
-                                _uploadingSharedImages ||
+                                _uploadingImages ||
                                 _waitingSeconds > 0 ||
                                 !context.read<PostEditBloc>().canSubmit
                             ? null
