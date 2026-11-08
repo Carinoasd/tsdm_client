@@ -69,10 +69,16 @@ dependencies:
   image: ^4.7.2
   image_picker: ^1.2.1
   json_annotation: ^4.9.0
+  just_audio: ^0.10.6
+  just_audio_background: ^0.0.1-beta.17
+  just_audio_media_kit: ^2.1.0
   loading_indicator_m3e: ^0.1.1
+  local_auth: ^3.0.0
   m3e_design: ^0.2.1
   material_design_icons_flutter: ^7.0.7296
   material_symbols_icons: ^4.2892.0
+  media_kit_libs_linux: ^1.2.1
+  media_kit_libs_windows_audio: ^1.0.9
   native_flutter_proxy: ^0.3.1
   # 0.6 requires Flutter 3.44.
   pasteboard: ^0.5.0
@@ -128,6 +134,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/emoji/
+    - assets/images/app_icons/
     - assets/text/
 
 flutter_launcher_icons:

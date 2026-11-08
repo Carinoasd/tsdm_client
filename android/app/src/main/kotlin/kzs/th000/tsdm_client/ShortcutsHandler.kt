@@ -6,7 +6,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [MainActivity] with
+ * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [MainActivityImpl] with
  * `tsdm://shortcut/<id>` as data, and the id is handed to Dart, which navigates.
  *
  * A cold start keeps the id until Dart asks for it ([GET_INITIAL_SHORTCUT]); an activity already running gets the
@@ -48,7 +48,12 @@ class ShortcutsHandler {
         }
     }
 
-    fun attach(messenger: BinaryMessenger) {
+    /**
+     * Listen on [messenger]. [listening]: Dart runs since an activity before and listens already (it asks for the
+     * initial shortcut once, at its start): the shortcut this activity was launched with is pushed by [pushPending].
+     */
+    fun attach(messenger: BinaryMessenger, listening: Boolean = false) {
+        dartListening = listening
         channel = MethodChannel(messenger, CHANNEL).also {
             it.setMethodCallHandler { call, result ->
                 if (call.method == GET_INITIAL_SHORTCUT) {
@@ -59,6 +64,16 @@ class ShortcutsHandler {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    /** Push the shortcut the activity was launched with to a Dart that listens already. */
+    fun pushPending() {
+        val channel = channel ?: return
+        if (!dartListening) return
+        pending?.let {
+            pending = null
+            channel.invokeMethod(ON_SHORTCUT, it)
         }
     }
 

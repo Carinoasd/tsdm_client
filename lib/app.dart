@@ -8,6 +8,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:rxdart/rxdart.dart' show Rx;
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
+import 'package:tsdm_client/features/audio_player/widgets/audio_mini_player.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
@@ -26,6 +29,7 @@ import 'package:tsdm_client/features/favorite/repository/favorite_repository.dar
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
+import 'package:tsdm_client/features/home_widget/repository/home_widget_channel.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
@@ -78,6 +82,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/app_icon.dart';
 import 'package:tsdm_client/utils/app_text_scale.dart';
 import 'package:tsdm_client/utils/high_refresh_rate.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -154,6 +159,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
   /// Applies the high refresh rate setting on Android (GitHub #182).
   HighRefreshRateFollower? _highRefreshRate;
 
+  /// Applies the app icon setting (Android and iOS).
+  AppIconFollower? _appIcon;
+
   /// Text, links and images other apps share to this one (Android).
   ShareReceiver? _shareReceiver;
 
@@ -183,6 +191,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
 
     if (isAndroid) {
       _highRefreshRate = HighRefreshRateFollower(getIt.get<SettingsRepository>().settings);
+    }
+
+    if (isAndroid || isIOS) {
+      _appIcon = AppIconFollower(getIt.get<SettingsRepository>().settings);
     }
 
     // 【新增】监听 Deep Link，将链接通过 pushNamed 压入路由栈（仅 Android）
@@ -250,6 +262,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowPositionTimer?.cancel();
     windowSizeTimer?.cancel();
     unawaited(_highRefreshRate?.dispose());
+    unawaited(_appIcon?.dispose());
     if (isWindows) {
       unawaited(TrayHelper.instance.dispose());
     }
@@ -540,7 +553,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               return bloc;
             },
           ),
-          if (isAndroid)
+          if (HomeWidgetChannel.platformHasWidget)
             // The home screen widget follows the unread counts, the check-in record and the account in use.
             BlocProvider(
               create: (context) {
@@ -831,10 +844,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: KeyboardShortcutsHost(
-                          onSearch: () => _openFromKeyboard(ScreenPaths.search),
-                          onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
-                          child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                        child: _withAppLock(
+                          KeyboardShortcutsHost(
+                            onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                            onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                            // The mini player below every page while something is played.
+                            child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                          ),
                         ),
                       );
                     },
@@ -852,6 +868,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       ),
     );
   }
+
+  /// The lock screen over [app] while the app lock is locked (missing only in tests that do not register it).
+  Widget _withAppLock(Widget app) =>
+      getIt.isRegistered<AppLockCubit>() ? AppLockGate(cubit: getIt.get<AppLockCubit>(), child: app) : app;
 
   Future<bool> _hasNormalWindowBounds() async =>
       !await windowManager.isMaximized() && !await windowManager.isMinimized() && !await windowManager.isFullScreen();

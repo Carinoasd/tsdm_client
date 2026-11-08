@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as fp;
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
+import 'package:tsdm_client/features/audio_player/widgets/audio_controls.dart';
+import 'package:tsdm_client/features/audio_player/widgets/netease_play.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -112,10 +115,29 @@ class _NeteaseCardState extends State<NeteaseCard> with LoggerMixin {
               },
             ),
             sizedBoxW12H12,
-            OutlinedButton.icon(
-              icon: const Icon(Icons.launch_outlined),
-              label: Text(tr.openLink),
-              onPressed: () async => launchUrlString('$urlPrefix${widget.id}'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Played in the app when the song is public; else the link is what is left.
+                FutureBuilder(
+                  future: _info,
+                  initialData: _infoById[widget.id],
+                  builder: (context, snapshot) => AudioPlayButton(
+                    track: AudioTrack.netease(widget.id),
+                    onPressed: () async => playNeteaseSong(
+                      context,
+                      widget.id,
+                      title: snapshot.data == fallbackInfo ? null : snapshot.data,
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.launch_outlined),
+                  label: Text(tr.openLink),
+                  onPressed: () async => launchUrlString('$urlPrefix${widget.id}'),
+                ),
+              ],
             ),
           ],
         ),

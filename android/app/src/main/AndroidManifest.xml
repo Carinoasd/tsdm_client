@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The fingerprint or face unlock of the app lock. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- User-confirmed installation of an update downloaded into the app's private cache. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Android 13+ runtime permission for the auto sync local notification (#13). -->
@@ -10,6 +12,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -40,14 +43,14 @@
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize" />
         <activity
-                android:name=".MainActivity"
+                android:name=".MainActivityImpl"
                 android:exported="true"
                 android:launchMode="singleTop"
                 android:theme="@style/Theme.TsdmClient.Launcher"
                 android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize">
-            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivity 主动获取 -->
+            <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivityImpl 主动获取 -->
             <meta-data
                     android:name="flutter_deeplinking_enabled"
                     android:value="false" />
@@ -59,11 +62,6 @@
                     android:name="io.flutter.embedding.android.NormalTheme"
                     android:resource="@style/NormalTheme"
             />
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
             <!-- 【Deep Link 监听】捕获论坛链接，支持在外部点击直接跳转App -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -75,6 +73,57 @@
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
             </intent-filter>
         </activity>
+        <!-- The launcher entries of MainActivityImpl, one per app icon (AppIconSwitcher.kt enables exactly one). The default
+             one keeps the name MainActivity the entry had before the icons, so the shortcuts users put on their home
+             screen still find it; it is the only one enabled at install. -->
+        <activity-alias
+                android:name=".MainActivity"
+                android:targetActivity=".MainActivityImpl"
+                android:enabled="true"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconDark"
+                android:targetActivity=".MainActivityImpl"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_dark">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconMono"
+                android:targetActivity=".MainActivityImpl"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_mono">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+                android:name=".IconPink"
+                android:targetActivity=".MainActivityImpl"
+                android:enabled="false"
+                android:exported="true"
+                android:icon="@mipmap/ic_launcher_pink">
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
         <!-- The home screen widget: unread counts and the check-in of the account in use (HomeWidgetProvider). -->
         <receiver
                 android:name=".HomeWidgetProvider"
@@ -87,7 +136,7 @@
                     android:name="android.appwidget.provider"
                     android:resource="@xml/home_widget_info" />
         </receiver>
-        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivity
+        <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivityImpl
              in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
         <activity
                 android:name=".ShareActivity"
@@ -131,5 +180,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keep user logged in to the forum and poll new messages in background" />
         </service>
+        <!-- The audio attachments played in the app (just_audio_background): the media notification and playing on
+             with the app in the background. MainActivityImpl runs on the engine this service plays in. -->
+        <service
+              android:name="com.ryanheise.audioservice.AudioService"
+              android:foregroundServiceType="mediaPlayback"
+              android:exported="true"
+              tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+              android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+              android:exported="true"
+              tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
