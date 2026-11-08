@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
+import 'package:tsdm_client/features/in_app_browser/view/in_app_browser_page.dart';
 import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
@@ -489,6 +490,10 @@ final List<RouteBase> _appRoutes = [
       final autoOpen = state.uri.queryParameters['autoOpen'] == 'true';
       return OpenInAppPage(initialUrl: url, autoOpen: autoOpen);
     },
+  ),
+  AppRoute(
+    path: ScreenPaths.inAppBrowser,
+    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
   ),
 ];
 

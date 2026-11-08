@@ -98,6 +98,8 @@ class SettingsMap with SettingsMapMappable {
     this.twoPaneLayout = true,
     this.twoPaneListWidth = 0,
     this.postMediaPreview = true,
+    this.inAppBrowserForForum = true,
+    this.inAppBrowserForAll = false,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -237,6 +239,13 @@ class SettingsMap with SettingsMapMappable {
 
   /// Cards of videos in posts show cover, title and length. Not required: backups from older versions lack it.
   final bool postMediaPreview;
+
+  /// Forum pages the app has no screen for open in the in-app browser. Not required: backups from older versions lack
+  /// it.
+  final bool inAppBrowserForForum;
+
+  /// Every web link opens in the in-app browser. Not required: backups from older versions lack it.
+  final bool inAppBrowserForAll;
 
   /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
   /// settings and the drafts each on their own switch too). Not required: backups from older
@@ -414,6 +423,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),
+      SettingsKeys.inAppBrowserForForum => copyWith(inAppBrowserForForum: value as bool?),
+      SettingsKeys.inAppBrowserForAll => copyWith(inAppBrowserForAll: value as bool?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
