@@ -7,7 +7,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 /// The app's pages ([child]) with the mini player below them while something is played: the track's name, where it
 /// is, play or pause, close. It stays from page to page until closed; it steps aside while the keyboard is up.
 ///
-/// Above the app's navigator: nothing in it may ask for an overlay (no tooltips).
+/// Above the app's navigator: nothing in it may ask for an overlay (no tooltips, the labels are semantics only).
 class AudioMiniPlayerHost extends StatelessWidget {
   /// Constructor.
   const AudioMiniPlayerHost({required this.child, super.key});
@@ -102,6 +102,7 @@ class _MiniPlayerBar extends StatelessWidget {
                         Semantics(
                           button: true,
                           label: state.status == AudioPlayerStatus.playing ? tr.pause : tr.play,
+                          onTap: controller.toggle,
                           excludeSemantics: true,
                           child: IconButton(
                             icon: Icon(switch (state.status) {
@@ -115,6 +116,7 @@ class _MiniPlayerBar extends StatelessWidget {
                       Semantics(
                         button: true,
                         label: tr.close,
+                        onTap: controller.dismiss,
                         excludeSemantics: true,
                         child: IconButton(icon: const Icon(Icons.close), onPressed: controller.dismiss),
                       ),

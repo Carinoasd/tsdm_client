@@ -4,6 +4,9 @@
 /// Music has a mark that plays it ([NeteasePlayMark]); the mini player shows what plays and closes.
 library;
 
+// HTML fixtures are split into lines at tag boundaries.
+// ignore_for_file: missing_whitespace_between_adjacent_strings
+
 import 'dart:async';
 import 'dart:io';
 
@@ -144,6 +147,20 @@ void main() {
     await tester.pump();
     expect(controller.state.queue, isNull);
     expect(find.text('sine_b.flac'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('a card in a table cell, in a table wider than the screen', (tester) async {
+    const block =
+        '<ignore_js_op><img src="static/image/filetype/av.gif" class="vm" /><span id="attach_7">'
+        '<a href="forum.php?mod=attachment&amp;aid=7">a.mp3</a> <em class="xg1">(1.00 MB, 下载次数: 0)</em>'
+        '</span></ignore_js_op>';
+    await pump(
+      tester,
+      '<table><tr><td>曲目</td><td>$block</td></tr></table>'
+      '<table width="1600"><tr><td>1</td><td>2</td><td>3</td><td>$block</td></tr></table>',
+    );
+    expect(find.byType(PostAudioCard), findsNWidgets(2));
     await finish(tester);
   });
 

@@ -55,14 +55,16 @@ class NeteasePlayMark extends StatelessWidget {
           AudioPlayerStatus.failed => Icon(Icons.music_off_outlined, size: size, color: colorScheme.error),
           _ => Icon(Icons.play_circle_outline, size: size, color: colorScheme.primary),
         };
+        Future<void> play() => playNeteaseSong(context, songId, title: title);
         return Semantics(
           button: true,
           label: status == AudioPlayerStatus.playing ? tr.pause : tr.play,
+          onTap: play,
           excludeSemantics: true,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: () async => playNeteaseSong(context, songId, title: title),
+              onTap: play,
               child: Padding(padding: const EdgeInsets.only(right: 2), child: icon),
             ),
           ),

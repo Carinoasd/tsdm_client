@@ -41,17 +41,13 @@ class AudioPlayButton extends StatelessWidget {
                 child: CircularProgressIndicator(value: state.progress, strokeWidth: 2.5),
               )
             : Icon(icon, size: iconSize, color: status == AudioPlayerStatus.failed ? colorScheme.error : null);
-        return Semantics(
-          button: true,
-          label: label,
-          excludeSemantics: true,
-          child: SizedBox.square(
-            dimension: size,
-            child: IconButton.filledTonal(
-              padding: EdgeInsets.zero,
-              onPressed: onPressed,
-              icon: child,
-            ),
+        return SizedBox.square(
+          dimension: size,
+          child: IconButton.filledTonal(
+            padding: EdgeInsets.zero,
+            tooltip: label,
+            onPressed: onPressed,
+            icon: child,
           ),
         );
       },
