@@ -207,9 +207,34 @@ void main() {
       now = now.add(floorBookmarkTombstoneKeptFor + const Duration(days: 1));
       await store.put(_uid, tid: 9, pid: 102);
       expect((await store.items(_uid)).map((e) => e.key), ['9:102']);
-      await store.forget(_uid);
+      // Forgotten with the account (its row is deleted with the account's other marks).
+      rows.remove(FloorBookmarkStore.rowKeyOf(_uid));
+      store.forget(_uid);
       expect(await store.items(_uid), isEmpty);
-      expect(rows.containsKey(FloorBookmarkStore.rowKeyOf(_uid)), isFalse);
+    });
+
+    test('forget is at once, not in the queue; a write queued before it is not done', () async {
+      // A write waits on the row (the database busy with the transaction removing the account).
+      var gate = Completer<void>()..complete();
+      final slow = <String, String>{};
+      final waiting = FloorBookmarkStore.memory(now: () => now, rows: slow, beforeWrite: () => gate.future);
+      await waiting.put(_uid, tid: 9, pid: 101);
+      gate = Completer<void>();
+      final queued = waiting.put(_uid, tid: 9, pid: 102);
+      final afterIt = waiting.applySynced(_uid, [_bookmark(103, _t + 1)]);
+      // The put waits in its write when the account is removed.
+      await pumpEventQueue();
+      waiting.forget(_uid);
+      slow.remove(FloorBookmarkStore.rowKeyOf(_uid));
+      gate.complete();
+      await queued;
+      await afterIt;
+      expect(slow.containsKey(FloorBookmarkStore.rowKeyOf(_uid)), isFalse, reason: 'nothing written back');
+      expect(await waiting.items(_uid), isEmpty);
+      // The account logs in again: its bookmarks are kept as before.
+      await waiting.put(_uid, tid: 9, pid: 104);
+      expect((await waiting.list(_uid)).map((e) => e.key), ['9:104']);
+      await waiting.dispose();
     });
 
     test('a damaged row reads as none and is replaced at the next write', () async {
@@ -379,6 +404,36 @@ void main() {
       expect(written, isNot(contains('9:${1000 + syncBookmarksMax}')), reason: 'the oldest live ones go');
       expect(written, contains('9:2'));
       expect(written, isNot(contains('9:1')), reason: 'deleted more than half a year ago');
+    });
+
+    test('bookmarks as they are: some 35 or more of the latest go, the oldest item of either kind first', () async {
+      final at = now.millisecondsSinceEpoch;
+      store.bookmarksByUid[_uid] = {
+        for (var i = 0; i < syncBookmarksMax; i++)
+          FloorBookmark.keyOf(tid: 1000000 + i, pid: 30000000 + i): FloorBookmark(
+            tid: 1000000 + i,
+            pid: 30000000 + i,
+            updated: at - 2 * i,
+            floor: 100 + i,
+            page: 5,
+            note: i.isEven ? '' : '备注' * 10,
+            excerpt: '文' * floorBookmarkExcerptLength,
+            threadTitle: '标题' * 15,
+          ),
+        // Removed between the 10th and 11th latest: kept over the older bookmarks.
+        for (var i = 0; i < 20; i++) '1:${10 + i}': FloorBookmark.deletedAt('1:${10 + i}', at - 19 - i % 2),
+      };
+      await repo().pull(_uid);
+      final written = api.lastPushed['bookmarks'] as Map<String, dynamic>;
+      final live = written.values.where((e) => (e as Map)['deleted'] != true).length;
+      expect(live, greaterThanOrEqualTo(35));
+      expect(written.keys.where((k) => k.startsWith('1:')), hasLength(20), reason: 'newer than most bookmarks');
+      expect(written.keys, contains('1000000:30000000'));
+      expect(utf8.encode(jsonEncode(written)).length, lessThanOrEqualTo(syncBookmarksMaxBytes));
+      // What the forum holds is what this device writes: the next push asks nothing.
+      final pulls = api.pulls;
+      expect(await repo().pushNow(_uid), SyncOutcome.upToDate);
+      expect(api.pulls, pulls);
     });
 
     test('long notes and excerpts: the latest ones within the budget of the bookmarks', () async {

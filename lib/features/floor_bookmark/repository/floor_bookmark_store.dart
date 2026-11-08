@@ -23,14 +23,17 @@ final class FloorBookmarkStore with LoggerMixin {
       _delete = ((key) => getIt.get<StorageProvider>().deleteKey(key)),
       _now = now ?? DateTime.now;
 
-  /// A store in memory (tests).
+  /// A store in memory (tests); each write waits for [beforeWrite] first.
   @visibleForTesting
-  FloorBookmarkStore.memory({DateTime Function()? now, Map<String, String>? rows})
-    : this._custom(rows ?? <String, String>{}, now: now);
+  FloorBookmarkStore.memory({DateTime Function()? now, Map<String, String>? rows, Future<void> Function()? beforeWrite})
+    : this._custom(rows ?? <String, String>{}, now: now, beforeWrite: beforeWrite);
 
-  FloorBookmarkStore._custom(Map<String, String> rows, {DateTime Function()? now})
+  FloorBookmarkStore._custom(Map<String, String> rows, {DateTime Function()? now, Future<void> Function()? beforeWrite})
     : _read = ((key) async => rows[key]),
-      _write = ((key, value) async => rows[key] = value),
+      _write = ((key, value) async {
+        await beforeWrite?.call();
+        rows[key] = value;
+      }),
       _delete = ((key) async => rows.remove(key)),
       _now = now ?? DateTime.now;
 
@@ -49,6 +52,9 @@ final class FloorBookmarkStore with LoggerMixin {
   /// The items of each account read so far, by key.
   final _accounts = <int, Map<String, FloorBookmark>>{};
 
+  /// How many times each account was forgotten ([forget]): a write queued before it is dropped.
+  final _generations = <int, int>{};
+
   final _changes = StreamController<int>.broadcast();
   Future<void> _queue = Future.value();
 
@@ -65,6 +71,13 @@ final class FloorBookmarkStore with LoggerMixin {
       }
     });
     return completer.future;
+  }
+
+  /// [action] one after another, given the generation of account [uid] when it was asked ([_save] drops its write when
+  /// the account was forgotten meanwhile).
+  Future<T> _serialOf<T>(int uid, Future<T> Function(int generation) action) {
+    final generation = _generations[uid] ?? 0;
+    return _serial(() => action(generation));
   }
 
   Future<Map<String, FloorBookmark>> _load(int uid) async {
@@ -93,13 +106,22 @@ final class FloorBookmarkStore with LoggerMixin {
     return _accounts[uid] = items;
   }
 
-  Future<void> _save(int uid, Map<String, FloorBookmark> items) async {
+  Future<void> _save(int uid, Map<String, FloorBookmark> items, int generation) async {
+    if (generation != (_generations[uid] ?? 0)) {
+      // The account was removed from the device meanwhile: nothing of it is written back.
+      return;
+    }
     final keepSince = _now().millisecondsSinceEpoch - floorBookmarkTombstoneKeptFor.inMilliseconds;
     items.removeWhere((_, b) => b.deleted && b.updated < keepSince);
     if (items.isEmpty) {
       await _delete(rowKeyOf(uid));
     } else {
       await _write(rowKeyOf(uid), jsonEncode({for (final MapEntry(:key, :value) in items.entries) key: value.raw}));
+      if (generation != (_generations[uid] ?? 0)) {
+        // Forgotten while the write waited (for the transaction removing the account): its row goes again.
+        await _delete(rowKeyOf(uid));
+        return;
+      }
     }
     _accounts[uid] = items;
     _changes.add(uid);
@@ -133,7 +155,7 @@ final class FloorBookmarkStore with LoggerMixin {
     String note = '',
     String excerpt = '',
     String threadTitle = '',
-  }) => _serial(() async {
+  }) => _serialOf(uid, (generation) async {
     final items = {...await _load(uid)};
     final key = FloorBookmark.keyOf(tid: tid, pid: pid);
     final previous = items[key];
@@ -149,24 +171,24 @@ final class FloorBookmarkStore with LoggerMixin {
       unknown: previous == null || previous.deleted ? const {} : previous.raw,
     );
     items[key] = bookmark;
-    await _save(uid, items);
+    await _save(uid, items, generation);
     return bookmark;
   });
 
   /// Remove the bookmark under [key] of account [uid] (kept as the record of its deletion).
-  Future<void> remove(int uid, String key) => _serial(() async {
+  Future<void> remove(int uid, String key) => _serialOf(uid, (generation) async {
     final items = {...await _load(uid)};
     final previous = items[key];
     if (previous == null || previous.deleted) {
       return;
     }
     items[key] = FloorBookmark.deletedAt(key, _stamp(previous));
-    await _save(uid, items);
+    await _save(uid, items, generation);
   });
 
   /// Keep [save] (bookmarks and records of deletions the cross-device sync took) for account [uid], each replacing the
   /// item of its key unless that one changed later meanwhile.
-  Future<void> applySynced(int uid, List<FloorBookmark> save) => _serial(() async {
+  Future<void> applySynced(int uid, List<FloorBookmark> save) => _serialOf(uid, (generation) async {
     if (save.isEmpty) {
       return;
     }
@@ -181,16 +203,18 @@ final class FloorBookmarkStore with LoggerMixin {
       changed = true;
     }
     if (changed) {
-      await _save(uid, items);
+      await _save(uid, items, generation);
     }
   });
 
-  /// Drop every bookmark of account [uid] (the account was removed from the device).
-  Future<void> forget(int uid) => _serial(() async {
+  /// Forget the bookmarks of account [uid] (the account was removed from the device; its row is deleted with the
+  /// account's other marks): the cache is dropped and a write still queued is not done. At once, not in the queue: the
+  /// account is removed in a database transaction a queued write would wait for.
+  void forget(int uid) {
+    _generations[uid] = (_generations[uid] ?? 0) + 1;
     _accounts.remove(uid);
-    await _delete(rowKeyOf(uid));
     _changes.add(uid);
-  });
+  }
 
   /// Stop.
   Future<void> dispose() => _changes.close();

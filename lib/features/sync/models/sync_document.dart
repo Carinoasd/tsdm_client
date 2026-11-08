@@ -38,13 +38,14 @@ const int syncDraftMaxBytes = 8 * 1024;
 const int syncDraftsMaxBytes = 16 * 1024;
 
 /// Most live floor bookmarks a document carries: the latest ones, by their time.
-const syncBookmarksMax = 200;
+const syncBookmarksMax = 100;
 
 /// Most records of removed floor bookmarks a document carries, the latest first.
-const syncBookmarkTombstonesMax = 200;
+const syncBookmarkTombstonesMax = 100;
 
 /// Most bytes the floor bookmarks of a document take together (two fifths of it at most): with the drafts, the
-/// reading progress keeps a third of the room.
+/// reading progress keeps a third of the room. A bookmark with a Chinese excerpt and title takes about 400 bytes, 700
+/// with a long note: some 35 to 60 of the latest go with the sync, the older ones stay on their device.
 const int syncBookmarksMaxBytes = 24 * 1024;
 
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
@@ -173,9 +174,8 @@ final class SyncDocument {
   /// The sections this version reads as one item each.
   static const singleSections = ['phrases', 'rate_templates', 'settings'];
 
-  /// The items of section [name] (`visits`, `blocks`, `drafts`, `bookmarks`) by key, empty when the section is missing or not an
-  /// object.
-  /// Items that are not objects are left out.
+  /// The items of section [name] (`visits`, `blocks`, `drafts`, `bookmarks`) by key, empty when the section is missing
+  /// or not an object. Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];
     if (section is! Map) {

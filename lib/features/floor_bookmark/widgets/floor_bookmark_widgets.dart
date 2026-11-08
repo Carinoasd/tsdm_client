@@ -63,7 +63,7 @@ class _FloorBookmarkDialogState extends State<_FloorBookmarkDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.floorBookmark;
     return AlertDialog(
-      icon: Icon(widget.current == null ? Icons.bookmark_add_outlined : Icons.bookmark_outlined),
+      icon: Icon(widget.current == null ? Icons.turned_in_not_outlined : Icons.turned_in_outlined),
       title: Text(widget.current == null ? tr.add : tr.edit),
       scrollable: true,
       content: ConstrainedBox(

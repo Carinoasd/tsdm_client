@@ -57,8 +57,8 @@ enum SyncCategory {
 }
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
-/// local drafts and the floor bookmarks of an account the same on every device it logs in on, through the forum's `sync` action (plugin
-/// 3.4.0, one document per account, see [SyncDocument]).
+/// local drafts and the floor bookmarks of an account the same on every device it logs in on, through the forum's
+/// `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
 /// wins), applies the result here and writes it back when this device had something newer. [schedulePush] waits a
@@ -668,7 +668,8 @@ final class SyncRepository with LoggerMixin {
   /// [doc] within the caps: the latest [syncVisitsMax] visits and [syncVisitTombstonesMax] records of removed visits,
   /// the latest [syncDraftsMax] drafts and [syncDraftTombstonesMax] records of deleted drafts within
   /// [syncDraftsMaxBytes] (a quarter of the document at most), the latest [syncBookmarksMax] floor bookmarks and
-  /// [syncBookmarkTombstonesMax] records of removed ones within [syncBookmarksMaxBytes] (two fifths at most), deletion
+  /// [syncBookmarkTombstonesMax] records of removed ones within [syncBookmarksMaxBytes] (two fifths at most, the
+  /// oldest of either dropped first), deletion
   /// records older than [syncTombstoneKeptFor] dropped, and at most [syncDocumentMaxBytes] or the forum's limit when it
   /// said a smaller one (the oldest visits dropped first, then the oldest deletion records of visits, then the drafts,
   /// then the bookmarks). Dropping is by time alone, so every device drops the same items of the same document; a
@@ -724,9 +725,12 @@ final class SyncRepository with LoggerMixin {
       for (final e in liveBookmarks) e.key: e.value,
       for (final e in goneBookmarks) e.key: e.value,
     };
+    // Over the budget, the oldest item goes first, a bookmark or the record of a removal alike.
     final bookmarksMax = math.min(syncBookmarksMaxBytes, _documentMaxBytes * 2 ~/ 5);
     while ((liveBookmarks.isNotEmpty || goneBookmarks.isNotEmpty) && _bytesOf(bookmarks()) > bookmarksMax) {
-      if (liveBookmarks.isNotEmpty) {
+      if (goneBookmarks.isEmpty ||
+          (liveBookmarks.isNotEmpty &&
+              SyncDocument.updatedOf(liveBookmarks.last.value) <= SyncDocument.updatedOf(goneBookmarks.last.value))) {
         liveBookmarks.removeLast();
       } else {
         goneBookmarks.removeLast();

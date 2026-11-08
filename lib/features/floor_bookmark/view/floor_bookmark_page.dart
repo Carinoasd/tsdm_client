@@ -66,7 +66,7 @@ class FloorBookmarkPage extends StatelessWidget {
     } else if (!state.loaded) {
       body = const CenteredCircularIndicator();
     } else if (state.items.isEmpty) {
-      body = AppStateView(icon: Icons.bookmark_border_outlined, message: tr.empty);
+      body = AppStateView(icon: Icons.turned_in_not_outlined, message: tr.empty);
     } else {
       final groups = groupFloorBookmarks(state.items);
       body = AppCenteredList(

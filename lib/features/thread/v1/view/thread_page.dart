@@ -2181,7 +2181,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                         // The floors of this thread the account bookmarked.
                         if (_threadBookmarks(context, state) case final bookmarks when bookmarks.isNotEmpty)
                           MenuCustomItem(
-                            icon: Icons.bookmarks_outlined,
+                            icon: Icons.turned_in_not_outlined,
                             description: context.t.floorBookmark.title,
                             onSelected: () async => _showBookmarks(context, bookmarks),
                           ),

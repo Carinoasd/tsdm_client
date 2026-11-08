@@ -191,7 +191,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             ),
             (
               SettingsKeys.crossDeviceSyncBookmarks,
-              Icons.bookmark_border_outlined,
+              Icons.turned_in_not_outlined,
               tr.crossDeviceSync.bookmarks,
               state.settingsMap.crossDeviceSyncBookmarks,
             ),

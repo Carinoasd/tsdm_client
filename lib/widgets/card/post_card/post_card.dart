@@ -350,7 +350,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               child: Tooltip(
                 message: bookmark.note.isEmpty ? context.t.floorBookmark.title : bookmark.note,
                 child: Icon(
-                  Icons.bookmark,
+                  Icons.turned_in,
                   key: ValueKey('floor-bookmarked-${widget.post.postID}'),
                   size: 20,
                   color: colorScheme.primary,
@@ -502,11 +502,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (_bookmarkTarget(context) != null)
-          item(
-            _PostCardActions.bookmark,
-            _bookmarkOf(context, listen: false) == null ? Icons.bookmark_add_outlined : Icons.bookmark_outlined,
-            _bookmarkOf(context, listen: false) == null ? context.t.floorBookmark.add : context.t.floorBookmark.edit,
-          ),
+          if (_bookmarkOf(context, listen: false) == null)
+            item(_PostCardActions.bookmark, Icons.turned_in_not_outlined, context.t.floorBookmark.add)
+          else
+            item(_PostCardActions.bookmark, Icons.turned_in_outlined, context.t.floorBookmark.edit),
       ],
       [
         // Viewing all authors, can switch to only view current author mode.
@@ -725,9 +724,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       return;
     }
     final current = _bookmarkOf(context, listen: false);
-    final excerpt = floorBookmarkExcerpt(
-      postHtmlToText(widget.post.data, format: PostExportFormat.plainText, labels: exportLabelsOf(context)),
-    );
+    // Nothing of a floor of a blocked user goes into the bookmark (nor to the other devices with it).
+    final excerpt = currentBlockList(context, listen: false).hidesString(widget.post.author.uid)
+        ? ''
+        : floorBookmarkExcerpt(
+            postHtmlToText(widget.post.data, format: PostExportFormat.plainText, labels: exportLabelsOf(context)),
+          );
     final edit = await showFloorBookmarkDialog(context, current: current);
     switch (edit) {
       case null:

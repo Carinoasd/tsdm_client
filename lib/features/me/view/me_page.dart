@@ -105,7 +105,7 @@ class _MePageState extends State<MePage> {
       ),
       (
         key: const ValueKey('me-floor-bookmarks'),
-        icon: Icons.bookmarks_outlined,
+        icon: Icons.turned_in_not_outlined,
         label: tr.bookmarks,
         onTap: () => _open(ScreenPaths.floorBookmarks),
       ),

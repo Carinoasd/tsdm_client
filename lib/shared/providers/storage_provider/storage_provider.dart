@@ -256,8 +256,9 @@ class StorageProvider with LoggerMixin {
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
-    // The floor bookmarks (and the sync's records of the removed ones).
-    await FloorBookmarkStore.app?.forget(uid);
+    // The floor bookmarks (and the sync's records of the removed ones): the store forgets them at once (a write it has
+    // queued waits for this transaction), the row goes here.
+    FloorBookmarkStore.app?.forget(uid);
     await settings.deleteByName(FloorBookmarkStore.rowKeyOf(uid));
   }
 
