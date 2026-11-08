@@ -1883,6 +1883,12 @@
     "hotReply": "推薦",
     "jumpToHotFloor": "跳到該樓"
   },
+  "netdisk": {
+    "extractCode": "提取碼",
+    "unzipPassword": "解壓密碼",
+    "open": "開啟",
+    "copyAll": "複製全部網盤資訊"
+  },
   "threadExport": {
     "copyPlain": "複製為純文字",
     "copyMarkdown": "複製為 Markdown",

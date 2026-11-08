@@ -1883,6 +1883,12 @@
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
   },
+  "netdisk": {
+    "extractCode": "Extract code",
+    "unzipPassword": "Unzip password",
+    "open": "Open",
+    "copyAll": "Copy all cloud storage info"
+  },
   "threadExport": {
     "copyPlain": "Copy as plain text",
     "copyMarkdown": "Copy as Markdown",
