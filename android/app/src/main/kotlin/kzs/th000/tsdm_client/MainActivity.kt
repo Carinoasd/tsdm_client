@@ -15,7 +15,8 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import io.flutter.Log
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragment
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -29,13 +30,22 @@ import kotlinx.coroutines.withContext
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
 
-class MainActivity: FlutterActivity() {
+/**
+ * A [FlutterFragmentActivity] for the system biometric prompt of the app lock (`local_auth` shows it as a fragment).
+ */
+class MainActivity: FlutterFragmentActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
+        /**
+         * Whether the system draws the biometric prompt (Android 9+). Before that androidx.biometric shows its own
+         * fingerprint dialog, which needs an AppCompat theme this activity does not have: the app lock offers the PIN
+         * only there.
+         */
+        const val HAS_SYSTEM_BIOMETRIC_PROMPT = "hasSystemBiometricPrompt"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
@@ -326,7 +336,7 @@ class MainActivity: FlutterActivity() {
         if (flutterViewWatched) {
             return
         }
-        val flutterView = findViewById<View>(FLUTTER_VIEW_ID) ?: return
+        val flutterView = findViewById<View>(FlutterFragment.FLUTTER_VIEW_ID) ?: return
         flutterViewWatched = true
         flutterView.addOnLayoutChangeListener { view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
             val width = right - left
@@ -416,6 +426,7 @@ class MainActivity: FlutterActivity() {
                 val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 result.success(manager?.isActiveNetworkMetered ?: true)
             }
+            HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             else -> result.notImplemented()
         }
     }
