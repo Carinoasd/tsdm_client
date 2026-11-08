@@ -3443,5 +3443,51 @@
       "italic": "斜体",
       "underline": "下划线"
     }
+  },
+  "spacePage": {
+    "blogs": "日志",
+    "albums": "相册",
+    "comments": "评论",
+    "photos": "${count: int} 张",
+    "emptyBlogs": "还没有日志",
+    "emptyAlbums": "还没有相册",
+    "emptyPhotos": "相册里还没有图片",
+    "newBlog": "发表日志",
+    "upload": "上传图片",
+    "blogEdit": {
+      "subject": "标题",
+      "message": "内容",
+      "category": "分类",
+      "noCategory": "不分类",
+      "newCategory": "新建分类",
+      "newCategoryName": "分类名称",
+      "systemCategory": "系统分类",
+      "privacy": "隐私",
+      "password": "密码",
+      "send": "发表",
+      "sending": "正在发表…",
+      "done": "日志已发表",
+      "emptyMessage": "请填写内容",
+      "emptyPassword": "请填写密码"
+    },
+    "albumUpload": {
+      "pick": "选择图片",
+      "album": "相册",
+      "newAlbum": "新建相册",
+      "albumName": "相册名称",
+      "privacy": "隐私",
+      "password": "密码",
+      "send": "上传",
+      "sending": "正在上传 ${sent: int} / ${total: int}",
+      "filing": "正在存入相册…",
+      "done": "已上传 ${count: int} 张",
+      "refusedType": "格式不支持",
+      "refusedSize": "文件太大",
+      "refusedRejected": "论坛未接收",
+      "refusedFailed": "上传失败",
+      "noneTaken": "没有图片上传成功"
+    },
+    "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
+    "identityChanged": "账号已切换，这个页面不会再发送任何内容"
   }
 }
