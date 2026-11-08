@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
+import 'package:tsdm_client/features/poll/models/poll_voters.dart';
 import 'package:tsdm_client/features/poll/repository/poll_repository.dart';
 import 'package:tsdm_client/features/special_thread/repository/special_thread_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -79,9 +80,75 @@ class PollCubit extends Cubit<PollState> {
   /// arrives (a failed request, or the card closed meanwhile).
   static final _votesSent = <(int, String)>{};
 
-  /// Forget the votes sent, for tests.
+  /// The options an account is known to have voted for, as (account, [url]) to option ids; in memory only. The forum's
+  /// poll answer does not say which options the viewer chose: they are known from the vote sent from here and from
+  /// the voters lists of a public vote that name the account.
+  ///
+  /// Only grows within a session on purpose; a handful of ids per poll voted.
+  static final _mine = <(int, String), Set<String>>{};
+
+  /// Forget the votes sent and the choices known, for tests.
   @visibleForTesting
-  static void forgetVotesSent() => _votesSent.clear();
+  static void forgetVotesSent() {
+    _votesSent.clear();
+    _mine.clear();
+  }
+
+  /// The options this account is known to have voted for in this poll.
+  Set<String> get mine {
+    final uid = currentUid();
+    return uid == null ? const {} : Set.unmodifiable(_mine[(uid, url)] ?? const <String>{});
+  }
+
+  /// Forget [ids] this account sent for the poll: the forum did not take them. The choices known from a public voters
+  /// list stay.
+  void _forget(int uid, Set<String> ids) {
+    final known = _mine[(uid, url)];
+    if (known == null) return;
+    final left = known.difference(ids);
+    if (left.isEmpty) {
+      _mine.remove((uid, url));
+    } else {
+      _mine[(uid, url)] = left;
+    }
+  }
+
+  void _remember(int uid, Set<String> ids) {
+    if (ids.isEmpty) return;
+    _mine[(uid, url)] = {...?_mine[(uid, url)], ...ids};
+  }
+
+  /// Page [page] of the voters of the option [optionId], for the account the poll was read for. Throws when the
+  /// account changed meanwhile or the forum does not answer a voters list. An account named in the list is known to
+  /// have voted for the option ([mine]).
+  Future<PollVotersPage> loadVoters(String optionId, {int page = 1}) async {
+    final votersUrl = state.poll?.votersUrl;
+    final uid = state.uid;
+    if (votersUrl == null || uid == null || uid != currentUid()) {
+      throw const FormatException('Voters are not available');
+    }
+    final result = await repository().fetchVoters(votersUrl, optionId, page: page);
+    if (uid != currentUid()) {
+      throw const FormatException('Poll identity changed');
+    }
+    if (!isClosed && result.voters.any((e) => e.uid == uid) && !mine.contains(optionId)) {
+      _remember(uid, {optionId});
+      // Same snapshot, new instance: the card draws the option as the account's.
+      final current = state;
+      emit(
+        PollState(
+          poll: current.poll,
+          uid: current.uid,
+          busy: current.busy,
+          failed: current.failed,
+          submissionUnconfirmed: current.submissionUnconfirmed,
+          choices: current.choices,
+          refusal: current.refusal,
+        ),
+      );
+    }
+    return result;
+  }
 
   /// Hide old-account data immediately, including during a login transition.
   void invalidate() {
@@ -202,6 +269,7 @@ class PollCubit extends Cubit<PollState> {
     final generation = ++_generation;
     emit(PollState(poll: poll, uid: snapshot.uid, busy: true, choices: snapshot.choices));
     _votesSent.add((snapshot.uid!, url));
+    _remember(snapshot.uid!, snapshot.choices);
     TsdmAppWriteResult? result;
     try {
       result = await repo.vote(poll, snapshot.choices);
@@ -222,6 +290,7 @@ class PollCubit extends Cubit<PollState> {
           refusal = message;
           // The forum said no: the vote was not counted.
           _votesSent.remove((snapshot.uid!, url));
+          _forget(snapshot.uid!, snapshot.choices);
         case SpecialActionDone() || SpecialActionUnknown():
           break;
       }
@@ -229,6 +298,10 @@ class PollCubit extends Cubit<PollState> {
     try {
       final refreshed = await repo.fetch(url, snapshot.uid);
       if (!_current(generation, snapshot.uid)) return;
+      // The forum still takes a vote: it did not count this one, so the choices are not the account's.
+      if (refreshed.availability == PollAvailability.available) {
+        _forget(snapshot.uid!, snapshot.choices);
+      }
       emit(
         PollState(
           poll: refreshed,

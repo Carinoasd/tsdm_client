@@ -26,13 +26,14 @@ final class PostTypography {
     this.paragraphSpacing = defaultParagraphSpacing,
     this.splitLongParagraphs = false,
     this.lineWidth = defaultLineWidth,
+    this.maxWidth = 0,
   });
 
   /// Default [lineHeight].
   static const defaultLineHeight = 1.7;
 
   /// Lowest [lineHeight] offered in the settings.
-  static const minLineHeight = 1.4;
+  static const minLineHeight = 1.2;
 
   /// Highest [lineHeight] offered in the settings.
   static const maxLineHeight = 2.0;
@@ -45,6 +46,15 @@ final class PostTypography {
 
   /// Highest [paragraphSpacing] offered in the settings.
   static const maxParagraphSpacing = 16.0;
+
+  /// Lowest [maxWidth] offered in the settings, besides none (0).
+  static const minMaxWidth = 600.0;
+
+  /// Highest [maxWidth] offered in the settings.
+  static const maxMaxWidth = 1200.0;
+
+  /// Steps of [maxWidth] offered in the settings.
+  static const maxWidthStep = 100.0;
 
   /// Default [lineWidth]: a phone 390 wide at a text scale of 1 (346 / 14).
   static const double defaultLineWidth = phoneLineWidth;
@@ -62,12 +72,24 @@ final class PostTypography {
   /// short line and what is a long paragraph depends on it.
   final double lineWidth;
 
+  /// Widest the floors grow (the reader's setting), in logical pixels; 0 (the default): as the app lays them out
+  /// ([appReadingMaxWidth], the content at most [htmlContentMaxWidth]). See [ReadingWidthScope].
+  final double maxWidth;
+
+  /// Width of the content of a floor this layout lets it grow to: its [maxWidth] less the padding of the floor, else
+  /// [htmlContentMaxWidth].
+  double get contentMaxWidth => contentMaxWidthFor(maxWidth);
+
+  /// Width of the content of a floor at most [maxWidth] wide (0: as the app lays it out), see [contentMaxWidth].
+  static double contentMaxWidthFor(double maxWidth) => maxWidth > 0 ? maxWidth - floorPadding : htmlContentMaxWidth;
+
   /// This layout with its values in the ranges offered in the settings.
   PostTypography clamped() => PostTypography(
     lineHeight: lineHeight.clamp(minLineHeight, maxLineHeight),
     paragraphSpacing: paragraphSpacing.clamp(minParagraphSpacing, maxParagraphSpacing),
     splitLongParagraphs: splitLongParagraphs,
     lineWidth: math.max<double>(1, lineWidth),
+    maxWidth: maxWidth <= 0 ? 0 : maxWidth.clamp(minMaxWidth, maxMaxWidth),
   );
 
   /// This layout for lines holding [lineWidth] characters.
@@ -76,6 +98,16 @@ final class PostTypography {
     paragraphSpacing: paragraphSpacing,
     splitLongParagraphs: splitLongParagraphs,
     lineWidth: lineWidth,
+    maxWidth: maxWidth,
+  );
+
+  /// This layout with floors at most [maxWidth] wide (0: as the app lays them out).
+  PostTypography withMaxWidth(double maxWidth) => PostTypography(
+    lineHeight: lineHeight,
+    paragraphSpacing: paragraphSpacing,
+    splitLongParagraphs: splitLongParagraphs,
+    lineWidth: lineWidth,
+    maxWidth: maxWidth,
   );
 
   @override
@@ -84,26 +116,57 @@ final class PostTypography {
       other.lineHeight == lineHeight &&
       other.paragraphSpacing == paragraphSpacing &&
       other.splitLongParagraphs == splitLongParagraphs &&
-      other.lineWidth == lineWidth;
+      other.lineWidth == lineWidth &&
+      other.maxWidth == maxWidth;
 
   @override
-  int get hashCode => Object.hash(lineHeight, paragraphSpacing, splitLongParagraphs, lineWidth);
+  int get hashCode => Object.hash(lineHeight, paragraphSpacing, splitLongParagraphs, lineWidth, maxWidth);
 
   @override
   String toString() =>
       'PostTypography(lineHeight: $lineHeight, paragraphSpacing: $paragraphSpacing, '
-      'splitLongParagraphs: $splitLongParagraphs, lineWidth: $lineWidth)';
+      'splitLongParagraphs: $splitLongParagraphs, lineWidth: $lineWidth, maxWidth: $maxWidth)';
+}
+
+/// Padding of a floor's content, both sides (16 a side).
+const floorPadding = 32.0;
+
+/// The widest the floors of a thread and what is laid out in line with them (the title, the banners) grow below it:
+/// the reader's setting ([PostTypography.maxWidth]) on the thread page, the app's widths ([appReadingMaxWidth], the
+/// content at most [htmlContentMaxWidth]) where there is none or it is 0.
+class ReadingWidthScope extends InheritedWidget {
+  /// Constructor.
+  const ReadingWidthScope({required this.maxWidth, required super.child, super.key});
+
+  /// Widest the floors grow; 0: as the app lays them out.
+  final double maxWidth;
+
+  /// The [maxWidth] above [context], 0 without a scope.
+  static double maxWidthOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ReadingWidthScope>()?.maxWidth ?? 0;
+
+  /// Widest a floor grows under [context].
+  static double floorOf(BuildContext context) {
+    final maxWidth = maxWidthOf(context);
+    return maxWidth > 0 ? maxWidth : appReadingMaxWidth;
+  }
+
+  /// Widest the content of a floor grows under [context].
+  static double contentOf(BuildContext context) => PostTypography.contentMaxWidthFor(maxWidthOf(context));
+
+  @override
+  bool updateShouldNotify(ReadingWidthScope oldWidget) => maxWidth != oldWidget.maxWidth;
 }
 
 /// How many Chinese characters (body text) a line of a floor's content holds when the floors are [width] wide (the
 /// width the thread page gives its list, the safe area left out): the content width (the floor's margins and padding
-/// off, at most [appReadingMaxWidth] for the floor and [htmlContentMaxWidth] for its content) over the size of the body
-/// text at the text scale of [context]. Not rounded.
+/// off, at most [ReadingWidthScope.floorOf] for the floor and [ReadingWidthScope.contentOf] for its content) over the
+/// size of the body text at the text scale of [context]. Not rounded.
 double postContentLineWidthIn(BuildContext context, double width) {
   // The floor's margins (6 on a phone, 16 wider: the screen decides, as for the floor) and its padding (16 a side).
   final margin = MediaQuery.sizeOf(context).width < 600 ? 6.0 : 16.0;
-  final floor = math.min(width - 2 * margin, appReadingMaxWidth);
-  final content = math.min(floor - 32, htmlContentMaxWidth);
+  final floor = math.min(width - 2 * margin, ReadingWidthScope.floorOf(context));
+  final content = math.min(floor - floorPadding, ReadingWidthScope.contentOf(context));
   final fontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
   final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
   return math.max<double>(1, content / scaled);
