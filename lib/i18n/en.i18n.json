@@ -3415,6 +3415,9 @@
   "appShortcuts": {
     "checkinNotVerified": "The login is not verified yet, check in later"
   },
+  "twoPane": {
+    "tabsFull": "Up to ${count: int} tabs can be open"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {

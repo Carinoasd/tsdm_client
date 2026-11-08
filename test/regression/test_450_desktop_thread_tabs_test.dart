@@ -349,7 +349,7 @@ void main() {
       expect(tidOf(tabs.active), '2');
     });
 
-    test('at most 20 tabs: one more opens in the tab shown', () {
+    test('at most 20 tabs: one more does not open, the tab shown stays as it is', () {
       final tabs = TwoPaneTabs();
       addTearDown(tabs.dispose);
       tabs.open(q(0));
@@ -359,7 +359,8 @@ void main() {
       expect(tabs.length, twoPaneMaxTabs);
       expect(tabs.openInNewTab(q(99)), isFalse);
       expect(tabs.length, twoPaneMaxTabs);
-      expect(tidOf(tabs.active), '99');
+      expect(tidOf(tabs.active), '0');
+      expect(tabs.tabs.map(tidOf), isNot(contains('99')));
     });
 
     test('closing the tab shown shows the one after it, or the one before at the end', () {
@@ -579,6 +580,67 @@ void main() {
       await _settle(tester);
       expect(strip(), findsNothing);
       expect(shownTid(tester), second);
+      await _finish(tester);
+    });
+
+    testWidgets('Ctrl+W with the focus in the thread keeps the keys working', (tester) async {
+      await app.pump(tester);
+      final first = tidOfCard(tester, 0);
+      await tester.tap(cards().at(0));
+      await _settle(tester);
+      for (final index in [1, 2]) {
+        await withControl(tester, () => tester.tap(cards().at(index)));
+        await _settle(tester);
+      }
+      // A click in the thread puts the focus there.
+      await tester.tap(find.textContaining('正文 $first', findRichText: true));
+      await _settle(tester);
+      expect(
+        FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<ThreadPage>(),
+        isNotNull,
+        reason: 'the focus is in the thread',
+      );
+      await keys(tester, LogicalKeyboardKey.keyW);
+      expect(stripTabs(), findsNWidgets(2));
+      await keys(tester, LogicalKeyboardKey.keyW);
+      expect(strip(), findsNothing);
+      await keys(tester, LogicalKeyboardKey.keyW);
+      expect(paneThread(), findsNothing);
+      await _finish(tester);
+    });
+
+    testWidgets('with 20 tabs one more is not opened, a snack bar tells it', (tester) async {
+      await app.pump(tester);
+      await tester.tap(cards().at(0));
+      await _settle(tester);
+      final tabs = TwoPaneScope.readOf(tester.element(paneThread()))!.tabs;
+      for (var i = 1; i < twoPaneMaxTabs; i++) {
+        tabs.openInNewTab({'tid': '${1000 + i}'});
+      }
+      await _settle(tester, rounds: 2);
+      final shown = shownTid(tester);
+      await withControl(tester, () => tester.tap(cards().at(1)));
+      await _settle(tester, rounds: 3);
+      expect(tabs.length, twoPaneMaxTabs);
+      expect(shownTid(tester), shown);
+      expect(find.text('最多同时打开 20 个标签页'), findsOneWidget);
+      await _finish(tester);
+    });
+
+    testWidgets('turning the setting off closes the tabs left', (tester) async {
+      await app.pump(tester);
+      await tester.tap(cards().at(0));
+      await _settle(tester);
+      await withControl(tester, () => tester.tap(cards().at(1)));
+      await _settle(tester);
+      await tester.runAsync(() => app.settings.setValue(SettingsKeys.twoPaneLayout, false));
+      await _settle(tester, rounds: 4);
+      expect(app.stack, ['/', ScreenPaths.forum, ScreenPaths.threadV1]);
+      await tester.binding.handlePopRoute();
+      await _settle(tester, rounds: 4);
+      await tester.runAsync(() => app.settings.setValue(SettingsKeys.twoPaneLayout, true));
+      await _settle(tester, rounds: 4);
+      expect(find.byType(TwoPaneEmptyDetail), findsOneWidget, reason: 'no tab comes back');
       await _finish(tester);
     });
 

@@ -3415,6 +3415,9 @@
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
   },
+  "twoPane": {
+    "tabsFull": "最多同时打开 ${count: int} 个标签页"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {

@@ -3415,6 +3415,9 @@
   "appShortcuts": {
     "checkinNotVerified": "登入狀態尚未確認，請稍後再簽到"
   },
+  "twoPane": {
+    "tabsFull": "最多同時開啟 ${count: int} 個分頁"
+  },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
     "groups": {

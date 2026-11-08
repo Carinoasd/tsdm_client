@@ -12,8 +12,10 @@ import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 
 /// Windows at least this wide (Material's "expanded" class) show a list page and the thread opened from it side by
 /// side, see [TwoPaneLayout].
@@ -202,10 +204,9 @@ class TwoPaneTabs extends ChangeNotifier {
   }
 
   /// Show [query] in a new tab at the end, behind the tab shown (the first tab is shown). With [twoPaneMaxTabs] tabs
-  /// already, it is shown in the tab shown instead; false then.
+  /// already, nothing opens and nothing shown changes; false then.
   bool openInNewTab(Map<String, String> query) {
     if (_tabs.length >= twoPaneMaxTabs) {
-      active!.open(query);
       return false;
     }
     _tabs.add(_newTab()..open(query));
@@ -268,6 +269,14 @@ class TwoPaneTabs extends ChangeNotifier {
     return tab;
   }
 
+  /// Close every tab without telling the listeners: for the pane being out of the tree.
+  void _clear() {
+    while (_tabs.isNotEmpty) {
+      _remove(_tabs.length - 1);
+    }
+    _active = 0;
+  }
+
   void _remove(int index) {
     final tab = _tabs.removeAt(index);
     if (index < _active || (index == _active && _active == _tabs.length && _active > 0)) {
@@ -328,7 +337,10 @@ class TwoPaneScope extends InheritedNotifier<TwoPaneTabs> {
 }
 
 /// Whether a click now asks for a new tab: Ctrl (Cmd) held.
-bool _newTabRequested() => HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+///
+/// Cmd on macOS, where Ctrl with a click is the right click; Ctrl elsewhere.
+bool _newTabRequested() =>
+    isMacOS ? HardwareKeyboard.instance.isMetaPressed : HardwareKeyboard.instance.isControlPressed;
 
 /// Open the thread of [queryParameters] (the query of [ScreenPaths.threadV1]) in the detail pane of the layout
 /// [context] is in: from the list it replaces what the tab shown holds, from the detail pane it goes on top. With
@@ -344,7 +356,13 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
   };
   final tabs = scope.tabs;
   if (newTab ?? _newTabRequested()) {
-    tabs.openInNewTab(query);
+    if (!tabs.openInNewTab(query)) {
+      showSnackBar(
+        context: context,
+        message: context.t.twoPane.tabsFull(count: twoPaneMaxTabs),
+        clearPrevious: true,
+      );
+    }
     return true;
   }
   switch (scope.side) {
@@ -398,8 +416,8 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   /// Keeps the state of [TwoPaneLayout.list] (its scroll positions, its tabs) when the layout changes shape.
   final GlobalKey _listKey = GlobalKey();
 
-  /// The window is narrow and the list shown alone: the thread shown went on as a page of its own, the other tabs
-  /// wait for the window to be wide again.
+  /// The last build showed the list alone (the window narrow, or the setting off): the thread shown then went on as a
+  /// page of its own, the other tabs wait for the window to be wide again. Set and cleared by [build] only.
   var _collapsed = false;
 
   @override
@@ -453,8 +471,13 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
           });
         }
       }
+      if (MediaQuery.sizeOf(context).width >= twoPaneMinWidth) {
+        // Wide, the setting off: the panes are not to come back on their own, the tabs left go.
+        _tabs._clear();
+      }
       return list;
     }
+    // The last build laid out the panes: the next narrow one takes the tab shown out again.
     _collapsed = false;
     final colorScheme = Theme.of(context).colorScheme;
     // Held under another page while narrow: laid out as a wide window would be, not squeezed.
@@ -611,7 +634,7 @@ class _TwoPaneTabStrip extends StatelessWidget {
   }
 }
 
-class _TwoPaneTab extends StatelessWidget {
+class _TwoPaneTab extends StatefulWidget {
   const _TwoPaneTab({
     required this.tab,
     required this.selected,
@@ -626,33 +649,64 @@ class _TwoPaneTab extends StatelessWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
 
+  @override
+  State<_TwoPaneTab> createState() => _TwoPaneTabState();
+}
+
+class _TwoPaneTabState extends State<_TwoPaneTab> {
   /// For a tab with no thread: none is left open, the tab is closing.
   static final _noTitle = ValueNotifier<String?>(null);
+
+  @override
+  void initState() {
+    super.initState();
+    _showWhenSelected();
+  }
+
+  @override
+  void didUpdateWidget(_TwoPaneTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.selected) {
+      _showWhenSelected();
+    }
+  }
+
+  /// The tab shown scrolls into view of the strip.
+  void _showWhenSelected() {
+    if (!widget.selected) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.selected) {
+        unawaited(Scrollable.ensureVisible(context, duration: const Duration(milliseconds: 150)));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final top = tab.top;
+    final top = widget.tab.top;
     return Listener(
       onPointerDown: (event) {
         if (event.buttons == kMiddleMouseButton) {
-          onClose();
+          widget.onClose();
         }
       },
       child: Material(
-        color: selected ? colorScheme.surface : Colors.transparent,
+        color: widget.selected ? colorScheme.surface : Colors.transparent,
         child: InkWell(
-          onTap: onSelect,
+          onTap: widget.onSelect,
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: selected ? colorScheme.primary : Colors.transparent, width: 2),
+                bottom: BorderSide(color: widget.selected ? colorScheme.primary : Colors.transparent, width: 2),
                 right: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
             child: SizedBox(
-              width: width,
+              width: widget.width,
               child: Row(
                 children: [
                   const SizedBox(width: 12),
@@ -667,7 +721,7 @@ class _TwoPaneTab extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                            color: widget.selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -678,7 +732,7 @@ class _TwoPaneTab extends StatelessWidget {
                     iconSize: 16,
                     visualDensity: VisualDensity.compact,
                     tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                   ),
                   const SizedBox(width: 4),
                 ],
