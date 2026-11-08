@@ -131,10 +131,18 @@ final class ReadLaterCubit extends Cubit<ReadLaterState> with LoggerMixin {
     if (uid == null) {
       return;
     }
+    // Gone from the state at once: a swiped away entry must not stay in the tree until the stream delivers.
+    final before = state;
+    if (before.contains(tid)) {
+      emit(ReadLaterState(uid: uid, items: before.items.where((e) => e.tid != tid).toList(), loaded: before.loaded));
+    }
     try {
       await _storage.removeReadLater(uid, tid);
     } on Object catch (e, st) {
       error('failed to take thread $tid off the read later list: $e', e, st);
+      if (!isClosed && _uid == uid) {
+        emit(before);
+      }
     }
   }
 
@@ -144,10 +152,15 @@ final class ReadLaterCubit extends Cubit<ReadLaterState> with LoggerMixin {
     if (uid == null) {
       return;
     }
+    final before = state;
+    emit(ReadLaterState(uid: uid, loaded: before.loaded));
     try {
       await _storage.clearReadLater(uid);
     } on Object catch (e, st) {
       error('failed to clear the read later list: $e', e, st);
+      if (!isClosed && _uid == uid) {
+        emit(before);
+      }
     }
   }
 

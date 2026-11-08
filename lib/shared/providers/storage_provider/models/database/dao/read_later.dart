@@ -35,14 +35,22 @@ final class ReadLaterDao extends DatabaseAccessor<AppDatabase> with _$ReadLaterD
   Stream<List<ReadLaterEntity>> watchByUid(int uid) =>
       (select(readLater)
             ..where((e) => e.uid.equals(uid))
-            ..orderBy([(e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc)]))
+            ..orderBy([
+              (e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc),
+              // The time is kept in seconds: threads put aside within one second keep the later thread id first.
+              (e) => OrderingTerm(expression: e.tid, mode: OrderingMode.desc),
+            ]))
           .watch();
 
   /// The entries of user [uid], the latest put aside first.
   Future<List<ReadLaterEntity>> selectByUid(int uid) async =>
       (select(readLater)
             ..where((e) => e.uid.equals(uid))
-            ..orderBy([(e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc)]))
+            ..orderBy([
+              (e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc),
+              // The time is kept in seconds: threads put aside within one second keep the later thread id first.
+              (e) => OrderingTerm(expression: e.tid, mode: OrderingMode.desc),
+            ]))
           .get();
 
   /// Delete every entry of user [uid].

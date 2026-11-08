@@ -102,6 +102,26 @@ void main() {
       expect(cubit.state.loaded, isTrue);
     });
 
+    test('threads put aside within one second keep the later thread id first', () async {
+      final at = DateTime(2026, 5, 5, 10);
+      await storage.addReadLater(uid: 31, tid: 3, title: 'three', time: at);
+      await storage.addReadLater(uid: 31, tid: 9, title: 'nine', time: at);
+      await storage.addReadLater(uid: 31, tid: 5, title: 'five', time: at);
+      expect((await storage.fetchReadLater(31)).map((e) => e.tid), [9, 5, 3]);
+    });
+
+    test('a removed entry is gone from the state at once', () async {
+      await storage.addReadLater(uid: 31, tid: 1, title: 'one');
+      final cubit = ReadLaterCubit(storageProvider: storage, uid: 31);
+      addTearDown(cubit.close);
+      await settle();
+      final removal = cubit.remove(1);
+      expect(cubit.state.contains(1), isFalse);
+      await removal;
+      await cubit.clear();
+      expect(cubit.state.items, isEmpty);
+    });
+
     test('without an account nothing is kept', () async {
       final cubit = ReadLaterCubit(storageProvider: storage);
       addTearDown(cubit.close);
@@ -118,6 +138,7 @@ void main() {
       bool loaded = true,
       bool offline = false,
       bool onlyOneAuthor = false,
+      bool readOnFromStart = true,
       bool newestFirst = false,
       bool canLoadMore = false,
       bool hasFloors = true,
@@ -126,6 +147,7 @@ void main() {
       loaded: loaded,
       offline: offline,
       onlyOneAuthor: onlyOneAuthor,
+      readOnFromStart: readOnFromStart,
       newestFirst: newestFirst,
       canLoadMore: canLoadMore,
       hasFloors: hasFloors,
@@ -145,6 +167,8 @@ void main() {
       expect(read(offline: true), isFalse);
       expect(read(onlyOneAuthor: true), isFalse);
       expect(read(newestFirst: true), isFalse);
+      // Jumped to the last page: the floors before it were not read.
+      expect(read(readOnFromStart: false), isFalse);
     });
   });
 }

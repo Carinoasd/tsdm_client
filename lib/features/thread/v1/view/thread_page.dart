@@ -822,6 +822,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _progressTimer = Timer(const Duration(seconds: 1), _keepProgress);
   }
 
+  /// The generation of the floors on screen [_readOnFromStart] was worked out for.
+  int? _readGeneration;
+
+  /// Whether the floors on screen go on from the start of the thread (the first page is among them, or the page opened
+  /// where the reading stopped): a jump to the last page does not read the thread.
+  bool _readOnFromStart = false;
+
+  /// The thread put aside from this page: it stays on the list until the page is opened again.
+  int? _readLaterAddedHere;
+
   /// Take the thread off the read later list once its last floor is on screen: the last page is loaded, the floors
   /// are in order from the first one and the list is scrolled to its end (or is short enough not to scroll).
   ///
@@ -833,8 +843,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     final state = bloc.state;
+    if (state.status == ThreadStatus.success && state.postList.isNotEmpty && state.generation != _readGeneration) {
+      // The first floors on screen of this generation: the page opened where the reading stopped counts as reading on.
+      _readOnFromStart = state.firstPage == 1 || (_readGeneration == null && _resumeAt != null);
+      _readGeneration = state.generation;
+    }
     final tid = int.tryParse(state.tid ?? '');
-    if (tid == null || !cubit.state.contains(tid)) {
+    if (tid == null || tid == _readLaterAddedHere || !cubit.state.contains(tid)) {
       return;
     }
     final position = _listScrollController.position;
@@ -843,6 +858,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           loaded: state.status == ThreadStatus.success,
           offline: state.isOffline,
           onlyOneAuthor: state.onlyVisibleUid != null,
+          readOnFromStart: _readOnFromStart,
           newestFirst: state.shownNewestFirst,
           canLoadMore: state.canLoadMore,
           hasFloors: state.postList.isNotEmpty,
@@ -2174,20 +2190,22 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
                           ),
                         // Put aside on this device for the account in use: offline floors can be too.
-                        if (context.readOrNull<ReadLaterCubit>()?.state.uid != null)
+                        if (context.readOrNull<ReadLaterCubit>() != null &&
+                            context.select<ReadLaterCubit, int?>((cubit) => cubit.state.uid) != null)
                           MenuCustomItem(
                             icon: isReadLater(context, state.tid) ? Icons.watch_later : Icons.watch_later_outlined,
                             description: isReadLater(context, state.tid)
                                 ? context.t.readLater.remove
                                 : context.t.readLater.add,
                             onSelected: () async {
-                              await toggleReadLater(
+                              final added = await toggleReadLater(
                                 context,
                                 tid: state.tid!,
                                 title: state.title ?? widget.title ?? '',
                                 author: state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name,
                                 forumName: state.forumName,
                               );
+                              _readLaterAddedHere = added ? int.tryParse(state.tid!) : null;
                               if (mounted) {
                                 setState(() {});
                               }
