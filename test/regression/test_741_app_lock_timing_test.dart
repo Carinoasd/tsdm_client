@@ -149,6 +149,30 @@ void main() {
     await cubit.close();
   });
 
+  test('back on the screen before the prompt answered: the time away is checked once it does', () async {
+    final cubit = await unlocked(AppLockTiming.oneMinute, method: AppLockMethod.biometric);
+    now = now.add(const Duration(minutes: 1));
+    final pending = cubit.requestVerification();
+    biometrics
+      ..result = false
+      ..during = () {
+        go(cubit, [..._away, ..._back]);
+        now = now.add(const Duration(seconds: 10));
+      };
+    expect(await cubit.unlockWithBiometric('unlock'), isFalse);
+    expect(cubit.state.locked, isFalse, reason: '10 seconds away is less than a minute');
+    cubit.cancelVerification();
+    expect(await pending, isFalse);
+
+    // A later short leave starts from its own time, not from the one during the prompt.
+    now = now.add(const Duration(minutes: 5));
+    go(cubit, _away);
+    now = now.add(const Duration(seconds: 5));
+    go(cubit, _back);
+    expect(cubit.state.locked, isFalse);
+    await cubit.close();
+  });
+
   test('a failed system unlock keeps the app locked, the PIN still unlocks', () async {
     final cubit = await unlocked(AppLockTiming.immediately, method: AppLockMethod.biometric);
     cubit.onLifecycleChanged(AppLifecycleState.hidden);

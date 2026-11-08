@@ -82,11 +82,12 @@ class AppLockSettingsSection extends StatelessWidget {
                     current: config.timing,
                     label: (v) => appLockTimingLabel(context, v),
                   );
-                  if (timing == null || timing == config.timing) {
+                  final current = lock.state.config.timing;
+                  if (timing == null || timing == current) {
                     return;
                   }
                   // A longer time away loosens the lock: only after unlocking.
-                  if (timing.delay > config.timing.delay && !await lock.requestVerification(always: true)) {
+                  if (timing.delay > current.delay && !await lock.requestVerification(always: true)) {
                     return;
                   }
                   await lock.setTiming(timing);

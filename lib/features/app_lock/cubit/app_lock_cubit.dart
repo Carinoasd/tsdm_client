@@ -125,12 +125,17 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     PinHasher hasher = const PinHasher(),
   }) async {
     final s = store ?? AppLockStore();
+    final saved = await s.load();
     final cubit = AppLockCubit(
-      config: await s.load(),
+      config: saved,
       store: s,
       biometrics: biometrics ?? LocalBiometricAuthenticator(),
       hasher: hasher,
     );
+    if (cubit.state.config.lockedOutUntil != saved.lockedOutUntil) {
+      // Cut to its count: the next start must not wait the whole time again.
+      unawaited(cubit._save(cubit.state.config));
+    }
     unawaited(cubit.refreshBiometricAvailability());
     return cubit;
   }
@@ -274,6 +279,10 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
       return ok;
     } finally {
       _authenticating = false;
+      // Back on the screen before the prompt answered: the return check skipped while it was up.
+      if (_lifecycle == AppLifecycleState.resumed && _timer.leftAt != null) {
+        onLifecycleChanged(AppLifecycleState.resumed);
+      }
     }
   }
 
