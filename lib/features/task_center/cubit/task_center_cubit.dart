@@ -27,6 +27,7 @@ final class TaskCenterState {
     this.busyTaskId,
     this.result,
     this.resultName = '',
+    this.resultTab,
   });
 
   /// The account the lists belong to.
@@ -47,6 +48,9 @@ final class TaskCenterState {
   /// The name of the task of [result].
   final String resultName;
 
+  /// The tab [result] was acted from, the only one showing it.
+  final TaskCenterTab? resultTab;
+
   /// The state of [tab], empty when not loaded yet.
   TaskTabState tab(TaskCenterTab tab) => tabs[tab] ?? const TaskTabState();
 
@@ -56,6 +60,7 @@ final class TaskCenterState {
     int? Function()? busyTaskId,
     TaskActionResult? Function()? result,
     String? resultName,
+    TaskCenterTab? resultTab,
   }) => TaskCenterState(
     uid: uid,
     tabs: tabs ?? this.tabs,
@@ -63,6 +68,7 @@ final class TaskCenterState {
     busyTaskId: busyTaskId == null ? this.busyTaskId : busyTaskId(),
     result: result == null ? this.result : result(),
     resultName: resultName ?? this.resultName,
+    resultTab: resultTab ?? this.resultTab,
   );
 }
 
@@ -181,9 +187,18 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
     } finally {
       if (account == _account) _acting = false;
     }
-    if (!_current(account, uid)) return;
-    emit(state._copyWith(busyTaskId: () => null, result: () => result, resultName: task.name));
-    if (result.outcome == TaskActionOutcome.loginRequired) return;
+    if (!_current(account, uid)) {
+      // The account changed without an invalidate (a caller not listening to account changes): unlock the buttons.
+      if (!isClosed && account == _account) emit(state._copyWith(busyTaskId: () => null));
+      return;
+    }
+    if (result.outcome == TaskActionOutcome.loginRequired) {
+      // The session expired: the lists are a guest's now, nothing more is sent from them.
+      _account++;
+      emit(const TaskCenterState(loginRequired: true));
+      return;
+    }
+    emit(state._copyWith(busyTaskId: () => null, result: () => result, resultName: task.name, resultTab: tab));
     final affected = kind == TaskActionKind.apply
         ? const [TaskCenterTab.available, TaskCenterTab.doing]
         : const [TaskCenterTab.doing, TaskCenterTab.done];

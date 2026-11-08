@@ -121,6 +121,31 @@ void main() {
     await forum.cubit.close();
   });
 
+  test('a write answered to a guest shows the login, not the lists', () async {
+    final forum = _Forum(writes: [() => _answer('apply_guest.json')]);
+    await forum.cubit.load(TaskCenterTab.available);
+    await forum.cubit.act(TaskCenterTab.available, forum.cubit.state.tab(TaskCenterTab.available).list!.tasks[1]);
+    expect(forum.cubit.state.loginRequired, isTrue);
+    expect(forum.cubit.state.tabs, isEmpty);
+    await forum.cubit.close();
+  });
+
+  test('an account change without an invalidate still unlocks the buttons', () async {
+    final answer = Completer<TaskWriteAnswer>();
+    final forum = _Forum(writes: [() => answer.future]);
+    await forum.cubit.load(TaskCenterTab.available);
+    final pending = forum.cubit.act(
+      TaskCenterTab.available,
+      forum.cubit.state.tab(TaskCenterTab.available).list!.tasks[1],
+    );
+    forum.uid = () => 32;
+    answer.complete(_answer('apply_applied.json'));
+    await pending;
+    expect(forum.cubit.state.busyTaskId, isNull);
+    expect(forum.cubit.state.result, isNull);
+    await forum.cubit.close();
+  });
+
   test('switching accounts while a request is pending drops its completion', () async {
     final answer = Completer<TaskWriteAnswer>();
     final forum = _Forum(writes: [() => answer.future]);

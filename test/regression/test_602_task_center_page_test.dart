@@ -114,6 +114,13 @@ void main() {
     await tester.tap(find.text(t.taskCenter.tabDone));
     await tester.pumpAndSettle();
     expect(find.text('上传头像'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-center-result')), findsNothing, reason: 'shown on its own tab only');
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.refresh)).onPressed, isNotNull);
+    await tester.tap(find.text(t.taskCenter.tabDoing));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task-center-result-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task-center-result')), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await h.cubit.close();
   });

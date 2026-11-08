@@ -27,7 +27,7 @@ class TaskCenterRepository {
   ///
   /// The lists are asked in the JSON mode of the forum's app API, which answers them as the web page (the plugin has
   /// no structured task list). The apply and the claim are AJAX GETs that write: asked for the plugin's write result
-  /// (plugin 2.6.0), sent once without following a redirect (an apply of a task that completes on applying redirects
+  /// (since plugin 2.6.0), sent once without following a redirect (an apply of a task that completes on applying redirects
   /// to its claim, never sent by itself), the redirect's target kept for the answer without the plugin.
   factory TaskCenterRepository.network(NetClientProvider client) => TaskCenterRepository(
     getPage: (url) => fetchTsdmAppPageHtml(client, url),

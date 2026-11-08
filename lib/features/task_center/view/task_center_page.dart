@@ -43,7 +43,10 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
     super.initState();
     _tabs = TabController(length: TaskCenterTab.values.length, vsync: this)
       ..addListener(() {
-        if (!_tabs.indexIsChanging) unawaited(_cubit.ensureLoaded(_tab));
+        if (_tabs.indexIsChanging) return;
+        // The app bar's buttons follow the tab shown.
+        setState(() {});
+        unawaited(_cubit.ensureLoaded(_tab));
       });
     if (widget.controller case final controller?) {
       _cubit = controller;
@@ -95,6 +98,14 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
         title: message != null ? text : null,
         message: message ?? text,
         selectable: message != null,
+        actions: [
+          IconButton(
+            key: const ValueKey('task-center-result-close'),
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+            icon: const Icon(Icons.close),
+            onPressed: _cubit.dismissResult,
+          ),
+        ],
       ),
     );
   }
@@ -209,7 +220,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
             padding: padding.copyWith(top: 12, bottom: 12),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              if (result != null) _result(state, tr),
+              if (result != null && state.resultTab == tab) _result(state, tr),
               if (list.message case final message?)
                 AppStateView(icon: Icons.task_alt, message: message, scrollable: false)
               else if (tasks.isEmpty)
