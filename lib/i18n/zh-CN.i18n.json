@@ -249,11 +249,13 @@
       "myThreads": "我的帖子",
       "favorites": "收藏",
       "history": "浏览记录",
+      "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
-      "points": "积分"
+      "points": "积分",
+      "followedThreads": "追踪的帖子"
     }
   },
   "home": {
@@ -378,6 +380,13 @@
         "title": "未读信息提示",
         "detail": "有未读消息时消息按钮上显示红点或数量"
       },
+      "immersiveReading": {
+        "title": "沉浸式阅读",
+        "allForums": "所有版块",
+        "withSubforums": "连同子版块",
+        "forumId": "版块 $fid",
+        "forumCount": "$count 个版块"
+      },
       "threadCard": {
         "title": "帖子卡片",
         "detail": "设置帖子卡片的外观",
@@ -480,22 +489,20 @@
         "detail": "在文字缩放之上，额外放大帖子页面中的楼层内容",
         "dialogTitle": "帖子内容缩放系数"
       },
-      "threadContentLineHeight": {
-        "title": "帖子行高",
-        "detail": "楼层内文每一行的高度，是字号的倍数"
-      },
-      "threadContentParagraphSpacing": {
-        "title": "帖子段落间距",
-        "detail": "楼层内文段落之间的空白"
-      },
       "threadContentSplitLongParagraphs": {
         "title": "长段落自动分段",
         "detail": "很长的段落在句末断开显示，原文和复制的文字不变"
       },
+      "threadLinkCard": {
+        "title": "帖子链接显示预览卡"
+      },
       "threadContentLayout": {
-        "dialogTitle": "帖子排版",
+        "title": "阅读排版",
+        "dialogTitle": "阅读排版",
         "lineHeight": "行高",
         "paragraphSpacing": "段落间距",
+        "maxWidth": "内文最大宽度",
+        "unlimited": "不限",
         "preview": "预览",
         "previewText": "这是一段示例文字，用来预览帖子内文的排版。行高越大，行与行之间越宽松；段落间距是两个段落之间的空白。<br />手机屏幕比网页窄得多，网页上几行的段落在手机上会变成十几行，适当加大行高和段距会更容易阅读。"
       }
@@ -543,6 +550,9 @@
         "rate": "评分／点评",
         "pm": "私信",
         "system": "系统通知",
+        "followedThread": "追踪的帖子",
+        "followedThreadInterval": "检查间隔",
+        "followedThreadMinutes": "${n} 分钟",
         "quietHours": "静音时段",
         "quietStart": "开始",
         "quietEnd": "结束"
@@ -1039,6 +1049,7 @@
       "threadUrlBBCode": "链接BBCode",
       "threadUrlBBCodeWithDomain": "链接BBCode（有域名）"
     },
+    "immersiveForum": "预设沉浸此版块",
     "copyTid": "复制tid（${tid: String}）",
     "favorite": {
       "add": "收藏",
@@ -1088,6 +1099,11 @@
       "message": "上次看到第 ${floor: int} 楼",
       "action": "继续",
       "close": "关闭"
+    },
+    "follow": {
+      "add": "追踪",
+      "remove": "取消追踪",
+      "added": "已追踪"
     }
   },
   "topicsPage": {
@@ -1883,6 +1899,12 @@
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
   },
+  "netdisk": {
+    "extractCode": "提取码",
+    "unzipPassword": "解压密码",
+    "open": "打开",
+    "copyAll": "复制全部网盘信息"
+  },
   "threadExport": {
     "copyPlain": "复制为纯文本",
     "copyMarkdown": "复制为 Markdown",
@@ -2129,6 +2151,15 @@
     "title": "音乐",
     "openLink": "打开链接"
   },
+  "readLater": {
+    "title": "稍后阅读",
+    "add": "稍后阅读",
+    "remove": "移出稍后阅读",
+    "clear": "清空",
+    "clearConfirm": "清空稍后阅读列表？",
+    "empty": "没有待读的帖子",
+    "needLogin": "请先登录"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
     "allAccounts": "全部账号",
@@ -2218,7 +2249,8 @@
       "mention": "@提到我",
       "rate": "评分／点评",
       "pm": "私信",
-      "system": "系统通知"
+      "system": "系统通知",
+      "followedThread": "追踪的帖子"
     },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
@@ -2511,6 +2543,7 @@
   "threadCard": {
     "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
+    "openInNewTab": "在新标签页打开",
     "replied": "已回复",
     "newReplies": "上次看过之后有 ${count: int} 条新回复"
   },
@@ -3039,6 +3072,15 @@
         "ruleNotFound": "这条设置已不存在，请重新加载",
         "unknownAfterSubmit": "已发送但无法确认结果，请重新加载确认"
       }
+    },
+    "filter": {
+      "keywords": "屏蔽关键字",
+      "keyword": "关键字",
+      "add": "添加",
+      "keywordExists": "已有这个关键字",
+      "forums": "屏蔽版块",
+      "pickForums": "选择",
+      "limitReached": "已达上限"
     }
   },
   "medalTitleTools": {
@@ -3414,13 +3456,17 @@
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
   },
+  "twoPane": {
+    "tabsFull": "最多同时打开 ${count: int} 个标签页"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {
       "global": "全局",
       "thread": "帖子页",
       "list": "列表",
-      "editor": "编辑器"
+      "editor": "编辑器",
+      "tabs": "标签页"
     },
     "commands": {
       "search": "搜索",
@@ -3441,7 +3487,23 @@
       "send": "发送",
       "bold": "粗体",
       "italic": "斜体",
-      "underline": "下划线"
+      "underline": "下划线",
+      "closeTab": "关闭标签页",
+      "nextTab": "下一个标签页",
+      "previousTab": "上一个标签页",
+      "selectTab": "第 1–9 个标签页"
+    }
+  },
+  "followedThreads": {
+    "title": "追踪的帖子",
+    "empty": "还没有追踪的帖子",
+    "needLogin": "登录后可以追踪帖子",
+    "newReplies": "${n} 条新回复",
+    "unfollowed": "已取消追踪",
+    "undo": "撤销",
+    "notice": {
+      "body": "《${title}》有 ${n} 条新回复",
+      "hidden": "追踪的帖子有 ${n} 条新回复"
     }
   }
 }

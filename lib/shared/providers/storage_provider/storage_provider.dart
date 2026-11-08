@@ -234,6 +234,13 @@ class StorageProvider with LoggerMixin {
   /// (`NotificationPollSlot.takeForManualSync`).
   static String notificationPolledManuallyAtKey(int uid) => 'notificationPolledManuallyAt.$uid';
 
+  /// Settings name of the threads account [uid] follows (`FollowedThreadStore`), a JSON list.
+  static String followedThreadsKey(int uid) => 'followedThreads.$uid';
+
+  /// Settings name of the time the followed threads of account [uid] were last checked (`FollowedThreadCheckSlot`), in
+  /// milliseconds since epoch.
+  static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
+
   /// How many times the cookie of each uid was saved or removed through this provider: a read of its row that one of
   /// them overtook does not put what it read into the cache ([fetchCookieOfUid]).
   final _cookieWrites = <int, int>{};
@@ -243,7 +250,7 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
+  /// pages, the times it was polled for notifications, the threads it follows, the pages saved for the next start ([SavedAnswerStore]) and
   /// the drafts its editors kept ([LocalDraftStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
@@ -251,10 +258,13 @@ class StorageProvider with LoggerMixin {
     SavedAnswerStore.app?.forget(uid);
     LocalDraftStore.app?.forget(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
+    await ReadLaterDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
+    await settings.deleteByName(followedThreadsKey(uid));
+    await settings.deleteByName(followedThreadsCheckedAtKey(uid));
   }
 
   /*             cookie             */
@@ -930,6 +940,38 @@ class StorageProvider with LoggerMixin {
   /// Delete every replied mark of user [uid].
   Future<void> deleteRepliedThreadsByUid(int uid) async {
     await RepliedThreadDao(_db).deleteByUid(uid);
+  }
+
+  /*        read later        */
+
+  /// Put thread [tid] aside for user [uid] to read later; an entry already there is replaced.
+  ///
+  /// A local list only. Removed with the account.
+  Future<void> addReadLater({
+    required int uid,
+    required int tid,
+    required String title,
+    String? author,
+    String? forumName,
+    DateTime? time,
+  }) async {
+    await ReadLaterDao(_db).add(uid: uid, tid: tid, title: title, author: author, forumName: forumName, time: time);
+  }
+
+  /// Take thread [tid] off the read later list of user [uid].
+  Future<void> removeReadLater(int uid, int tid) async {
+    await ReadLaterDao(_db).remove(uid, tid);
+  }
+
+  /// The read later entries of user [uid], the latest put aside first.
+  Future<List<ReadLaterEntity>> fetchReadLater(int uid) async => ReadLaterDao(_db).selectByUid(uid);
+
+  /// Watch the read later entries of user [uid], the latest put aside first.
+  Stream<List<ReadLaterEntity>> watchReadLater(int uid) => ReadLaterDao(_db).watchByUid(uid);
+
+  /// Empty the read later list of user [uid].
+  Future<void> clearReadLater(int uid) async {
+    await ReadLaterDao(_db).deleteByUid(uid);
   }
 
   /*        offline threads        */
