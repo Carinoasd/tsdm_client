@@ -173,7 +173,7 @@ class BrowserIntentsTest {
     private fun appFilters(): List<IntentFilter> {
         val root = DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(File(requireNotNull(System.getProperty("appManifest")))).documentElement
-        val activity = root.elements("activity").single { it.getAttribute("android:name") == ".MainActivity" }
+        val activity = root.elements("activity").single { it.getAttribute("android:name") == ".MainActivityImpl" }
         return activity.elements("intent-filter").map { node ->
             IntentFilter().apply {
                 node.elements("action").forEach { addAction(it.getAttribute("android:name")) }

@@ -85,7 +85,7 @@ abstract class UpdateDeviceActions {
         val context = instrumentation.targetContext
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         assertEquals("Only disposable lower-version emulator build may run this test", 1199L, info.longVersionCode)
-        context.startActivity(Intent().setClassName(context.packageName, "kzs.th000.tsdm_client.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent().setClassName(context.packageName, "kzs.th000.tsdm_client.MainActivityImpl").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         waitForFlutterFrame()
     }
 
@@ -99,12 +99,12 @@ abstract class UpdateDeviceActions {
 
     private fun waitForFlutterFrame() {
         val deadline = SystemClock.uptimeMillis() + 30000
-        var lastState = "No resumed MainActivity"
+        var lastState = "No resumed MainActivityImpl"
         while (SystemClock.uptimeMillis() < deadline) {
             var ready = false
             instrumentation.runOnMainSync {
                 val activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
-                    .filterIsInstance<MainActivity>().singleOrNull()
+                    .filterIsInstance<MainActivityImpl>().singleOrNull()
                 if (activity != null) {
                     val view = flutterView(activity.window.decorView)
                     val rendered = view?.hasRenderedFirstFrame() == true

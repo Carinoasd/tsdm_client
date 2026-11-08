@@ -27,6 +27,8 @@ import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.d
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/full_width_block.dart';
@@ -458,7 +460,8 @@ final class _Muncher with LoggerMixin {
   _Muncher(this.context, {required this.parseLockedWithPurchase, required this.options})
     : typography = PostTypographyScope.maybeOf(context),
       postContent = PostTypographyScope.isPostContent(context),
-      highlight = PostTypographyScope.isPostContent(context) ? SearchHighlightScope.maybeOf(context) : null;
+      highlight = PostTypographyScope.isPostContent(context) ? SearchHighlightScope.maybeOf(context) : null,
+      _displayMode = context.chineseDisplayMode;
 
   /// Context to build widget when munching.
   final BuildContext context;
@@ -472,6 +475,9 @@ final class _Muncher with LoggerMixin {
 
   /// The words searched for, marked in the text of a post's content; null when nothing is searched.
   final SearchHighlightScope? highlight;
+
+  /// The script the text is shown in.
+  final ChineseDisplayMode _displayMode;
 
   /// Text spans of preformatted text (`<pre>`): their lines are kept as they are ([layOutParagraphs]).
   final _keptLines = Set<InlineSpan>.identity();
@@ -1049,7 +1055,7 @@ final class _Muncher with LoggerMixin {
       return [
         textWidgetSpan(
           SpoilerCard(
-            title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : text),
+            title: TextSpan(text: text.isEmpty ? context.t.spoilerCard.title : _display(text)),
             content: TextSpan(children: _layOut(content)),
             elevation: elevation,
           ),
@@ -1172,9 +1178,9 @@ final class _Muncher with LoggerMixin {
           final style = _buildTextStyle();
           if (recognizer == null && options.renderUrl && text.contains('://')) {
             // Bare urls in plain text (the forum does not link them in notices, e.g. the reason of a rating).
-            spans = _linkifySpans(text, style);
+            spans = _linkifySpans(text, style, convert: state.inPre ? null : _display);
           } else {
-            spans = [TextSpan(text: text, recognizer: recognizer, style: style)];
+            spans = [TextSpan(text: state.inPre ? text : _display(text), recognizer: recognizer, style: style)];
           }
           if (highlight case final highlight?) {
             spans = highlight.mark(spans);
@@ -1879,7 +1885,7 @@ final class _Muncher with LoggerMixin {
     state.headingBrNodePassed = true;
     final ret = textWidgetSpan(
       SpoilerCard(
-        title: TextSpan(text: title),
+        title: TextSpan(text: _display(title)),
         content: TextSpan(children: _layOut(content)),
         elevation: elevation,
       ),
@@ -1998,11 +2004,17 @@ final class _Muncher with LoggerMixin {
       };
   }
 
+  /// [text] in the script the user chose to see, see [ChineseDisplayMode].
+  String _display(String text) => ChineseDisplay.instance.convert(_displayMode, text);
+
   /// Split [text] into plain spans and tappable spans for every bare `http(s)://` url in it (GitHub #24).
   ///
+  /// The urls are found in [text] as it is and open as they are; [convert] (if any) is applied to the text around
+  /// them only.
   /// Trailing punctuation that is not part of a url (closing brackets, full-width punctuation, quotes) stays plain
   /// text; urls that are not inside an anchor are the only ones reaching here because anchors set `tapUrl`.
-  List<InlineSpan> _linkifySpans(String text, TextStyle? style) {
+  List<InlineSpan> _linkifySpans(String text, TextStyle? style, {String Function(String)? convert}) {
+    String plain(String t) => convert == null ? t : convert(t);
     final spans = <InlineSpan>[];
     var last = 0;
     for (final match in _bareUrlRe.allMatches(text)) {
@@ -2017,7 +2029,7 @@ final class _Muncher with LoggerMixin {
       final start = match.start;
       final end = start + url.length;
       if (start > last) {
-        spans.add(TextSpan(text: text.substring(last, start), style: style));
+        spans.add(TextSpan(text: plain(text.substring(last, start)), style: style));
       }
       spans.add(
         TextSpan(
@@ -2033,10 +2045,10 @@ final class _Muncher with LoggerMixin {
       spans.addAll(_netdiskRow(url));
     }
     if (last == 0) {
-      return [TextSpan(text: text, style: style)];
+      return [TextSpan(text: plain(text), style: style)];
     }
     if (last < text.length) {
-      spans.add(TextSpan(text: text.substring(last), style: style));
+      spans.add(TextSpan(text: plain(text.substring(last)), style: style));
     }
     return spans;
   }
@@ -2680,7 +2692,7 @@ final class _Muncher with LoggerMixin {
       return null;
     }
     state.headingBrNodePassed = true;
-    return [TextSpan(text: text, style: _buildTextStyle())];
+    return [TextSpan(text: _display(text), style: _buildTextStyle())];
   }
 
   /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.

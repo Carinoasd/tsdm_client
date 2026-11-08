@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_content.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
-/// Receives what other apps share to this one from the Android side (`MainActivity`, `ShareIntents.kt`).
+/// Receives what other apps share to this one from the Android side (`MainActivityImpl`, `ShareIntents.kt`).
 ///
 /// A share the app was launched with is asked for once ([start]: `getInitialShare`); a share arriving while the app
 /// runs is pushed (`onShare`). Each one goes to [onShare], one at a time in the order they arrived.
