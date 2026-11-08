@@ -83,6 +83,8 @@ class PollCubit extends Cubit<PollState> {
   /// The options an account is known to have voted for, as (account, [url]) to option ids; in memory only. The forum's
   /// poll answer does not say which options the viewer chose: they are known from the vote sent from here and from
   /// the voters lists of a public vote that name the account.
+  ///
+  /// Only grows within a session on purpose; a handful of ids per poll voted.
   static final _mine = <(int, String), Set<String>>{};
 
   /// Forget the votes sent and the choices known, for tests.
@@ -96,6 +98,19 @@ class PollCubit extends Cubit<PollState> {
   Set<String> get mine {
     final uid = currentUid();
     return uid == null ? const {} : Set.unmodifiable(_mine[(uid, url)] ?? const <String>{});
+  }
+
+  /// Forget [ids] this account sent for the poll: the forum did not take them. The choices known from a public voters
+  /// list stay.
+  void _forget(int uid, Set<String> ids) {
+    final known = _mine[(uid, url)];
+    if (known == null) return;
+    final left = known.difference(ids);
+    if (left.isEmpty) {
+      _mine.remove((uid, url));
+    } else {
+      _mine[(uid, url)] = left;
+    }
   }
 
   void _remember(int uid, Set<String> ids) {
@@ -275,7 +290,7 @@ class PollCubit extends Cubit<PollState> {
           refusal = message;
           // The forum said no: the vote was not counted.
           _votesSent.remove((snapshot.uid!, url));
-          _mine.remove((snapshot.uid!, url));
+          _forget(snapshot.uid!, snapshot.choices);
         case SpecialActionDone() || SpecialActionUnknown():
           break;
       }
@@ -283,6 +298,10 @@ class PollCubit extends Cubit<PollState> {
     try {
       final refreshed = await repo.fetch(url, snapshot.uid);
       if (!_current(generation, snapshot.uid)) return;
+      // The forum still takes a vote: it did not count this one, so the choices are not the account's.
+      if (refreshed.availability == PollAvailability.available) {
+        _forget(snapshot.uid!, snapshot.choices);
+      }
       emit(
         PollState(
           poll: refreshed,

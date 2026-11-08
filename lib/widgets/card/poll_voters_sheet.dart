@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/poll/cubit/poll_cubit.dart';
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/models/poll_voters.dart';
@@ -123,15 +124,27 @@ class _PollVotersListState extends State<PollVotersList> {
             title: Text(voter.name),
             onTap: () async {
               // Close the sheet first: the profile page opens on the page below it.
+              final router = GoRouter.of(context);
               context.pop();
-              await context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '${voter.uid}'});
+              await router.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '${voter.uid}'});
             },
           ),
         if (_loading)
           const Center(
             child: Padding(padding: EdgeInsets.all(16), child: CircularIndicator()),
           ),
-        if (_failed) TextButton(onPressed: _more, child: Text(tr.retry)),
+        if (_failed)
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(onPressed: _more, child: Text(tr.retry)),
+              if (widget.cubit.state.poll?.votersUrl case final url?)
+                TextButton(
+                  onPressed: () async => context.dispatchAsUrl(url, external: true),
+                  child: Text(tr.openInBrowser),
+                ),
+            ],
+          ),
         if (!_loading && !_failed && _hasNext) TextButton(onPressed: _more, child: Text(tr.more)),
         if (!_loading && !_failed && _voters.isEmpty && _page > 0) Center(child: Text(tr.noData)),
       ],

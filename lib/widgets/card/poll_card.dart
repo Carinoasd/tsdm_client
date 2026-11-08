@@ -465,14 +465,10 @@ class _PollCardState extends State<PollCard> {
                     TextButton.icon(
                       icon: const Icon(Icons.groups_outlined),
                       label: Text(context.t.specialThread.poll.viewVoters),
-                      onPressed: poll!.options.isEmpty || !poll.options.any((e) => e.id != null)
-                          ? () async => context.dispatchAsUrl(voters, external: true)
-                          : () async => showPollVoters(
-                              context,
-                              _cubit,
-                              poll,
-                              poll.options.firstWhere((e) => e.id != null),
-                            ),
+                      onPressed: poll!.options.any((e) => e.id != null)
+                          ? () async =>
+                                showPollVoters(context, _cubit, poll, poll.options.firstWhere((e) => e.id != null))
+                          : () async => context.dispatchAsUrl(voters, external: true),
                     ),
                 if (!offline)
                   TextButton.icon(

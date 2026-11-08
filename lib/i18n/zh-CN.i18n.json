@@ -2277,7 +2277,9 @@
   "pollCard": {
     "title": "投票",
     "detail": "此楼层包含投票，在浏览器中打开以参加投票",
-    "openInBrowser": "在浏览器中打开"
+    "openInBrowser": "在浏览器中打开",
+    "resultLabel": "$votes 票，$percent%",
+    "myChoice": "我的选择"
   },
   "manageAccountPage": {
     "title": "管理账户",

@@ -131,6 +131,20 @@ void main() {
       await cubit.close();
     });
 
+    test("a vote the forum did not count is not marked as the account's own", () async {
+      final page = File('test/data/tsdmapp/special_v15_poll_single_before.json').readAsStringSync();
+      final repo = PollRepository(getPage: (_) async => page, postForm: (_, _) async => '');
+      final cubit = PollCubit(url: 'poll', currentUid: () => 35, repository: () => repo)
+        ..adoptSpecial(_special('single_before'));
+      final choice = cubit.state.poll!.options.first.id!;
+      cubit.select(choice, selected: true);
+      await cubit.submit();
+      // The page after the vote still offers the vote.
+      expect(cubit.state.poll!.availability, PollAvailability.available);
+      expect(cubit.mine, isEmpty);
+      await cubit.close();
+    });
+
     test('a poll without a voters page reads no voters', () async {
       final cubit = PollCubit(
         url: 'poll',
@@ -184,18 +198,23 @@ void main() {
     });
 
     testWidgets('the bar is as wide as the share and the own option is in the primary color', (tester) async {
+      await LocaleSettings.setLocale(AppLocale.en);
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: Column(
-              children: [
-                SizedBox(width: 400, child: PollResultBar(votes: 3, percent: 25)),
-                SizedBox(width: 400, child: PollResultBar(votes: 9, percent: 75, mine: true)),
-              ],
+        TranslationProvider(
+          child: const MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(width: 400, child: PollResultBar(votes: 3, percent: 25)),
+                  SizedBox(width: 400, child: PollResultBar(votes: 9, percent: 75, mine: true)),
+                ],
+              ),
             ),
           ),
         ),
       );
+      expect(find.bySemanticsLabel('3 votes, 25.00%'), findsOneWidget);
+      expect(find.bySemanticsLabel('9 votes, 75.00%, Your choice'), findsOneWidget);
       final fills = find.byKey(const ValueKey('poll-result-fill'));
       final factors = tester
           .widgetList<FractionallySizedBox>(find.ancestor(of: fills, matching: find.byType(FractionallySizedBox)))
