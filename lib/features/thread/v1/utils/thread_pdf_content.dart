@@ -163,7 +163,9 @@ const _blockTags = {
 };
 
 final class _Builder {
-  _Builder(this.labels, this.root) : hidden = HiddenContent.of(root, postContent: true);
+  /// [hidden] of the whole floor is given for a part of it (a cell of a table).
+  _Builder(this.labels, this.root, [HiddenContent? hidden])
+    : hidden = hidden ?? HiddenContent.of(root, postContent: true);
 
   final PostExportLabels labels;
   final uh.Element root;
@@ -522,7 +524,7 @@ final class _Builder {
           _add(' | ');
         }
         first = false;
-        final inner = _Builder(labels, cell)
+        final inner = _Builder(labels, cell, hidden)
           .._quote = _quote
           .._children(cell)
           .._flush();

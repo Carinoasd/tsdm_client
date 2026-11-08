@@ -236,14 +236,26 @@ void main() {
       expect(_pageCount(pdf), 1);
     });
 
-    test('images the PDF takes: a JPEG as it is, others as a PNG no wider than 1600, unreadable ones none', () {
+    test('images the PDF takes: a JPEG as it is, others as a PNG within 1600 × 2400, unreadable ones none', () {
       final jpeg = Uint8List.fromList(img.encodeJpg(img.Image(width: 10, height: 10)));
-      expect(identical(pdfImageBytes(jpeg), jpeg), isTrue);
-      final gif = Uint8List.fromList(img.encodeGif(img.Image(width: 3200, height: 100)));
-      final png = pdfImageBytes(gif)!;
-      expect(img.PngDecoder().isValidFile(png), isTrue);
-      expect(img.decodePng(png)!.width, 1600);
+      final asIs = pdfImageBytes(jpeg)!;
+      expect(identical(asIs.bytes, jpeg), isTrue);
+      expect(asIs.cost, jpeg.length);
+      final wide = pdfImageBytes(Uint8List.fromList(img.encodeGif(img.Image(width: 3200, height: 100))))!;
+      expect(img.PngDecoder().isValidFile(wide.bytes), isTrue);
+      expect(img.decodePng(wide.bytes)!.width, 1600);
+      // The pdf package decodes a PNG to pixels: that is its cost.
+      expect(wide.cost, 1600 * 50 * 4);
+      final tall = pdfImageBytes(Uint8List.fromList(img.encodePng(img.Image(width: 100, height: 4800))))!;
+      expect([img.decodePng(tall.bytes)!.width, img.decodePng(tall.bytes)!.height], [50, 2400]);
       expect(pdfImageBytes(Uint8List.fromList(utf8.encode('<html>not an image</html>'))), isNull);
+    });
+
+    test('bold text is cut in words and CJK characters, a line break kept apart', () {
+      List<String> pieces(String s) => boldPieceRe.allMatches(s).map((m) => m[0]!).toList();
+      expect(pieces('Hello\nWorld'), ['Hello', '\n', 'World']);
+      expect(pieces('two words'), ['two ', 'words']);
+      expect(pieces('粗體 bold'), ['粗', '體', ' ', 'bold']);
     });
 
     test('the file name ends with .pdf', () {

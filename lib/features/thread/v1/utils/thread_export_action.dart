@@ -79,19 +79,38 @@ String _runExport(_ExportJob job) => buildThreadExportOfFloors(
 @immutable
 final class ThreadExportChoice {
   /// Constructor.
-  const ThreadExportChoice({required this.format, required this.allPages, required this.share, this.pdf = false});
+  const ThreadExportChoice({required this.kind, required this.allPages, required this.share});
 
-  /// Plain text or Markdown.
-  final PostExportFormat format;
+  /// What is written.
+  final ThreadExportKind kind;
 
-  /// A PDF instead of text ([format] is unused then).
-  final bool pdf;
+  /// The format of the text, null for a PDF.
+  PostExportFormat? get format => switch (kind) {
+    ThreadExportKind.plainText => PostExportFormat.plainText,
+    ThreadExportKind.markdown => PostExportFormat.markdown,
+    ThreadExportKind.pdf => null,
+  };
+
+  /// Whether a PDF is written.
+  bool get pdf => kind == ThreadExportKind.pdf;
 
   /// Every page of the thread, not only the floors loaded.
   final bool allPages;
 
   /// Hand the file to the share sheet instead of saving it where the user picks.
   final bool share;
+}
+
+/// What the export writes.
+enum ThreadExportKind {
+  /// Plain text.
+  plainText,
+
+  /// Markdown.
+  markdown,
+
+  /// A PDF.
+  pdf,
 }
 
 /// Whether an export is on its way: a second one would only make a second file.
@@ -154,7 +173,8 @@ Future<void> _exportThread(BuildContext context, ThreadState state, String tid) 
   if (!context.mounted) {
     return;
   }
-  if (choice.pdf) {
+  final format = choice.format;
+  if (format == null) {
     await exportThreadPdf(context, title: state.title ?? tid, tid: tid, posts: posts, share: choice.share);
     return;
   }
@@ -163,7 +183,7 @@ Future<void> _exportThread(BuildContext context, ThreadState state, String tid) 
   final job = _ExportJob(
     title: title,
     floors: posts.map(exportFloorOf).toList(),
-    format: choice.format,
+    format: format,
     url: '$baseUrl/forum.php?mod=viewthread&tid=$tid',
     labels: exportLabelsOf(context),
   );
@@ -180,12 +200,12 @@ Future<void> _exportThread(BuildContext context, ThreadState state, String tid) 
   if (!context.mounted) {
     return;
   }
-  final fileName = threadExportFileName(title: title, tid: tid, format: choice.format);
+  final fileName = threadExportFileName(title: title, tid: tid, format: format);
   await writeExportFile(
     context,
     Uint8List.fromList(utf8.encode(text)),
     fileName: fileName,
-    mimeType: choice.format.mimeType,
+    mimeType: format.mimeType,
     share: choice.share,
   );
 }
@@ -381,19 +401,12 @@ class _ExportDialog extends StatefulWidget {
   State<_ExportDialog> createState() => _ExportDialogState();
 }
 
-/// What the dialog offers to write.
-enum _ExportKind { plainText, markdown, pdf }
-
 class _ExportDialogState extends State<_ExportDialog> {
-  _ExportKind _kind = _ExportKind.markdown;
+  ThreadExportKind _kind = ThreadExportKind.markdown;
   bool _allPages = false;
 
-  ThreadExportChoice _choice({required bool share}) => ThreadExportChoice(
-    format: _kind == _ExportKind.plainText ? PostExportFormat.plainText : PostExportFormat.markdown,
-    pdf: _kind == _ExportKind.pdf,
-    allPages: _allPages,
-    share: share,
-  );
+  ThreadExportChoice _choice({required bool share}) =>
+      ThreadExportChoice(kind: _kind, allPages: _allPages, share: share);
 
   @override
   Widget build(BuildContext context) {
@@ -404,12 +417,12 @@ class _ExportDialogState extends State<_ExportDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<_ExportKind>(
+          SegmentedButton<ThreadExportKind>(
             showSelectedIcon: false,
             segments: [
-              ButtonSegment(value: _ExportKind.plainText, label: Text(tr.plain)),
-              ButtonSegment(value: _ExportKind.markdown, label: Text(tr.markdown)),
-              ButtonSegment(value: _ExportKind.pdf, label: Text(tr.pdf)),
+              ButtonSegment(value: ThreadExportKind.plainText, label: Text(tr.plain)),
+              ButtonSegment(value: ThreadExportKind.markdown, label: Text(tr.markdown)),
+              ButtonSegment(value: ThreadExportKind.pdf, label: Text(tr.pdf)),
             ],
             selected: {_kind},
             onSelectionChanged: (v) => setState(() => _kind = v.first),

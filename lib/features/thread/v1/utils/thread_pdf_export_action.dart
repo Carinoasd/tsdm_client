@@ -20,11 +20,15 @@ import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_pr
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-/// The most bytes of images one PDF takes: the images after are drawn as placeholders, the PDF is built in memory.
-const int _maxImageBytes = 256 * 1024 * 1024;
+/// The most memory the images of one PDF may take, as [pdfImageBytes] counts it: the images after are drawn as
+/// placeholders. The PDF is built in memory, and the data is copied to the isolate building it.
+const int _maxImageCost = 96 * 1024 * 1024;
 
 /// Widest an image is put in the PDF: a page is about 500 points wide.
 const _maxImageWidth = 1600;
+
+/// Highest an image is put in the PDF: it is drawn at most 560 points high.
+const _maxImageHeight = 2400;
 
 /// How long one image may take to load.
 const _imageTimeout = Duration(seconds: 30);
@@ -88,7 +92,7 @@ Future<void> exportThreadPdf(
     }.toList();
     final images = <String, Uint8List>{};
     var total = 0;
-    for (var i = 0; i < urls.length && total < _maxImageBytes; i++) {
+    for (var i = 0; i < urls.length && total < _maxImageCost; i++) {
       dialog.update(
         tr.imageProgress(done: i + 1, total: urls.length),
         value: i / urls.length,
@@ -97,9 +101,9 @@ Future<void> exportThreadPdf(
       if (dialog.cancelled) {
         return;
       }
-      if (data != null && total + data.length <= _maxImageBytes) {
-        images[urls[i]] = data;
-        total += data.length;
+      if (data != null && total + data.cost <= _maxImageCost) {
+        images[urls[i]] = data.bytes;
+        total += data.cost;
       }
     }
 
@@ -115,7 +119,8 @@ Future<void> exportThreadPdf(
       images: images,
     );
     // A cancellation can not stop the isolate: its result is not used then.
-    bytes = await Isolate.run(() => buildThreadPdf(job));
+    // A tear-off: a closure here would take the dialog and the navigator to the isolate with it.
+    bytes = await compute(buildThreadPdf, job);
     if (dialog.cancelled) {
       return;
     }
@@ -152,7 +157,7 @@ Future<List<PdfFloor>> _floorsOf(List<Post> posts, PostExportLabels labels) asyn
 String _megabytes(int bytes) => (bytes / 1024 / 1024).toStringAsFixed(1);
 
 /// The image at [url] as the PDF can hold it, null when it could not be had.
-Future<Uint8List?> _imageOf(String url) async {
+Future<PdfImageData?> _imageOf(String url) async {
   try {
     final cached = await getIt
         .get<ImageCacheProvider>()
@@ -162,19 +167,26 @@ Future<Uint8List?> _imageOf(String url) async {
     if (data == null || data.isEmpty) {
       return null;
     }
-    return await compute(pdfImageBytes, data);
+    // A JPEG is taken as it is: no isolate for it.
+    return img.JpegDecoder().isValidFile(data) ? (bytes: data, cost: data.length) : await compute(pdfImageBytes, data);
   } on Object catch (e, st) {
     talker.handle(e, st, 'failed to load an image of the PDF export');
     return null;
   }
 }
 
-/// [data] of an image as the PDF takes it: a JPEG as it is, any other image the image package reads as a PNG of its
-/// first frame, no wider than [_maxImageWidth]; null when it is no image the package reads (AVIF).
+/// An image as the PDF takes it, and the memory it costs building the PDF.
+typedef PdfImageData = ({Uint8List bytes, int cost});
+
+/// [data] of an image as the PDF takes it.
+///
+/// A JPEG is put in the PDF as it is (its size is its cost). Any other image the image package reads is a PNG of its
+/// first frame, within [_maxImageWidth] × [_maxImageHeight]; the pdf package decodes it to pixels, 4 bytes each, which
+/// is its cost. Null when it is no image the package reads (AVIF).
 @visibleForTesting
-Uint8List? pdfImageBytes(Uint8List data) {
+PdfImageData? pdfImageBytes(Uint8List data) {
   if (img.JpegDecoder().isValidFile(data)) {
-    return data;
+    return (bytes: data, cost: data.length);
   }
   final decoder = img.findDecoderForData(data);
   if (decoder == null) {
@@ -184,6 +196,13 @@ Uint8List? pdfImageBytes(Uint8List data) {
   if (image == null || image.width == 0 || image.height == 0) {
     return null;
   }
-  final fitted = image.width > _maxImageWidth ? img.copyResize(image, width: _maxImageWidth) : image;
-  return img.encodePng(fitted);
+  final scale = [1.0, _maxImageWidth / image.width, _maxImageHeight / image.height].reduce((a, b) => a < b ? a : b);
+  final fitted = scale < 1
+      ? img.copyResize(
+          image,
+          width: (image.width * scale).round().clamp(1, _maxImageWidth),
+          height: (image.height * scale).round().clamp(1, _maxImageHeight),
+        )
+      : image;
+  return (bytes: img.encodePng(fitted), cost: fitted.width * fitted.height * 4);
 }

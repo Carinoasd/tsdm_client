@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show immutable;
+import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -251,7 +251,8 @@ pw.InlineSpan _span(PdfSpan s) {
 }
 
 /// A CJK character, or a word with the white space after it.
-final _boldPieceRe = RegExp(r'\n|[^\s⺀-鿿가-힯豈-﫿＀-￯]+\s*|\s+|.', unicode: true);
+@visibleForTesting
+final boldPieceRe = RegExp(r'\n|[^\s⺀-鿿가-힯豈-﫿＀-￯]+[^\S\n]*|\s+|.', unicode: true);
 
 /// [text] in bold.
 ///
@@ -262,7 +263,7 @@ pw.InlineSpan _boldSpans(String text, [pw.TextStyle? style, pw.AnnotationBuilder
   style: style,
   annotation: annotation,
   children: [
-    for (final m in _boldPieceRe.allMatches(text))
+    for (final m in boldPieceRe.allMatches(text))
       if (m[0]!.trim().isEmpty)
         pw.TextSpan(text: m[0])
       else
