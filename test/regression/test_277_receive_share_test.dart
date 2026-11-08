@@ -424,6 +424,8 @@ void main() {
         'operation': 'upload',
         'fid': '2',
         'type': 'image',
+        // The forum answers DISCUZUPLOAD|… only with it, the bare aid otherwise.
+        'simple': '2',
       });
       expect(upload.uid, 31);
       expect(upload.hash, '00000000000000000000000000000000');

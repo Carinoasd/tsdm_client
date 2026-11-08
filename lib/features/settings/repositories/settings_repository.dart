@@ -151,6 +151,7 @@ final class SettingsRepository with LoggerMixin {
       enableBackgroundMessageService: s.extract(_SK.enableBackgroundMessageService),
       backgroundSyncAllAccounts: s.extract(_SK.backgroundSyncAllAccounts),
       notificationHideContent: s.extract(_SK.notificationHideContent),
+      readingTimeStats: s.extract(_SK.readingTimeStats),
       notifyReply: s.extract(_SK.notifyReply),
       notifyMention: s.extract(_SK.notifyMention),
       notifyRate: s.extract(_SK.notifyRate),
@@ -199,6 +200,9 @@ final class SettingsRepository with LoggerMixin {
       notificationPermissionPrompted: s.extract(_SK.notificationPermissionPrompted),
       postImageAutoLoad: s.extract(_SK.postImageAutoLoad),
       editorQuickPhrases: s.extract(_SK.editorQuickPhrases),
+      editImageBeforeUpload: s.extract(_SK.editImageBeforeUpload),
+      uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
+      uploadImageQuality: s.extract(_SK.uploadImageQuality),
     );
   }
 

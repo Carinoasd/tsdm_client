@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/special_thread/widgets/special_thread_card.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
@@ -41,6 +42,7 @@ import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -68,6 +70,9 @@ double postAuthorSecondBadgeWidth(double availableWidth) =>
 ///   there is no available thread above current post in the widget tree.
 enum _PostCardActions {
   reply,
+
+  /// Start picking floors to quote in one reply.
+  addQuote,
   rate,
 
   /// Only view posts published by current author.
@@ -132,7 +137,15 @@ enum _PostCardActions {
 /// Usually inside a ThreadPage.
 class PostCard extends StatefulWidget {
   /// Constructor.
-  const PostCard(this.post, {this.replyCallback, this.onEdited, this.onJoinDebate, this.onModerate, super.key});
+  const PostCard(
+    this.post, {
+    this.replyCallback,
+    this.onEdited,
+    this.onJoinDebate,
+    this.onModerate,
+    this.multiQuote,
+    super.key,
+  });
 
   /// [Post] model to show.
   final Post post;
@@ -150,6 +163,9 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
+
+  /// The floors picked to be quoted in one reply; null where floors can not be picked (outside a thread, no reply).
+  final MultiQuoteSelection? multiQuote;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -495,6 +511,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final groups = <List<PopupMenuEntry<_PostCardActions>>>[
       [
         if (online) item(_PostCardActions.reply, Icons.reply_outlined, context.t.postCard.reply),
+        if (online && _quotable)
+          item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
           item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
       ],
@@ -575,6 +593,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     switch (value) {
       case _PostCardActions.reply:
         await widget.replyCallback?.call(widget.post.author, widget.post.shownFloor, widget.post.replyAction);
+      case _PostCardActions.addQuote:
+        widget.multiQuote?.begin(_quoteEntry);
       case _PostCardActions.rate:
         if (widget.post.rateAction != null) {
           await _rateCallback.call();
@@ -734,10 +754,66 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     ],
   );
 
+  /// Whether the floor can be quoted with others: it has a quoting reply link (the first floor has none).
+  bool get _quotable => widget.multiQuote != null && (widget.post.replyAction?.contains('repquote=') ?? false);
+
+  MultiQuoteEntry get _quoteEntry => MultiQuoteEntry(pid: widget.post.postID, replyAction: widget.post.replyAction!);
+
+  void _toggleQuote() {
+    final selection = widget.multiQuote;
+    if (selection == null || !_quotable) {
+      return;
+    }
+    if (!selection.toggle(_quoteEntry)) {
+      showSnackBar(
+        context: context,
+        message: context.t.threadPage.multiQuote.limit(max: MultiQuoteSelection.maxEntries),
+      );
+    }
+  }
+
   // TODO: Handle better.
   // FIXME: Fix rebuild when interacting with widgets inside.
   @override
   Widget build(BuildContext context) {
+    final selection = widget.multiQuote;
+    if (selection == null) {
+      return _buildCard(context);
+    }
+    // The same tree whether floors are picked or not: the card keeps its state (munched content, pictures).
+    return ListenableBuilder(
+      listenable: selection,
+      builder: (context, _) {
+        final picking = selection.active;
+        return GestureDetector(
+          behavior: picking ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+          onTap: picking ? _toggleQuote : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: picking ? 48 : 0,
+                child: picking && _quotable
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Checkbox(
+                          value: selection.contains(widget.post.postID),
+                          onChanged: (_) => _toggleQuote(),
+                        ),
+                      )
+                    : null,
+              ),
+              Expanded(
+                child: IgnorePointer(ignoring: picking, child: _buildCard(context)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

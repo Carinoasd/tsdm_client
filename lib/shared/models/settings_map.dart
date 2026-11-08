@@ -66,6 +66,7 @@ class SettingsMap with SettingsMapMappable {
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
     this.notificationHideContent = false,
+    this.readingTimeStats = true,
     this.notifyReply = true,
     this.notifyMention = true,
     this.notifyRate = true,
@@ -83,6 +84,9 @@ class SettingsMap with SettingsMapMappable {
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
     this.editorQuickPhrases = '',
+    this.editImageBeforeUpload = false,
+    this.uploadImageMaxSide = 0,
+    this.uploadImageQuality = 90,
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -158,6 +162,9 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the system notifications only show the counts, no content. Not required: backups from older versions
   /// lack it.
   final bool notificationHideContent;
+
+  /// See `SettingsKeys.readingTimeStats`. Not required: backups from older versions lack it.
+  final bool readingTimeStats;
 
   /// See `SettingsKeys.notifyReply`. Not required: backups from older versions lack it.
   final bool notifyReply;
@@ -303,6 +310,15 @@ class SettingsMap with SettingsMapMappable {
   /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
 
+  /// See `SettingsKeys.editImageBeforeUpload`. Not required: backups from older versions lack it.
+  final bool editImageBeforeUpload;
+
+  /// See `SettingsKeys.uploadImageMaxSide`. Not required: backups from older versions lack it.
+  final int uploadImageMaxSide;
+
+  /// See `SettingsKeys.uploadImageQuality`. Not required: backups from older versions lack it.
+  final int uploadImageQuality;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -352,6 +368,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.enableBackgroundMessageService => copyWith(enableBackgroundMessageService: value as bool?),
       SettingsKeys.backgroundSyncAllAccounts => copyWith(backgroundSyncAllAccounts: value as bool?),
       SettingsKeys.notificationHideContent => copyWith(notificationHideContent: value as bool?),
+      SettingsKeys.readingTimeStats => copyWith(readingTimeStats: value as bool?),
       SettingsKeys.notifyReply => copyWith(notifyReply: value as bool?),
       SettingsKeys.notifyMention => copyWith(notifyMention: value as bool?),
       SettingsKeys.notifyRate => copyWith(notifyRate: value as bool?),
@@ -402,6 +419,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
       SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
+      SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
+      SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
+      SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
     };
   }
 }
