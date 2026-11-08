@@ -71,79 +71,85 @@ class FavoriteCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final description = item.description;
     final isForum = item is FavoriteForum;
-    return AppSurface(
-      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-      color: selected ? colorScheme.secondaryContainer : null,
-      onLongPress: onSelect,
-      onTap: onToggle ?? () async => _open(context),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppIconTile(
-            switch ((isForum, selected, offline)) {
-              (true, _, _) => Icons.folder_outlined,
-              (_, true, _) => Icons.check_circle_outline,
-              (_, _, true) => Icons.offline_pin_outlined,
-              _ => Icons.bookmark_outline,
-            },
-            size: 36,
-          ),
-          sizedBoxW12H12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                sizedBoxW8H8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    AppInfoPill(
-                      icon: Icons.access_time_outlined,
-                      label: item.time == null ? '-' : tr.favoritedAt(time: item.time!.yyyyMMDDHHMM()),
-                    ),
-                  ],
-                ),
-                if (description != null) ...[
+    return TwoPaneMiddleClickOpener(
+      query: switch (item) {
+        FavoriteThread(:final tid, :final title) when onToggle == null => {'tid': tid, 'appBarTitle': title},
+        _ => null,
+      },
+      child: AppSurface(
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        color: selected ? colorScheme.secondaryContainer : null,
+        onLongPress: onSelect,
+        onTap: onToggle ?? () async => _open(context),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppIconTile(
+              switch ((isForum, selected, offline)) {
+                (true, _, _) => Icons.folder_outlined,
+                (_, true, _) => Icons.check_circle_outline,
+                (_, _, true) => Icons.offline_pin_outlined,
+                _ => Icons.bookmark_outline,
+              },
+              size: 36,
+            ),
+            sizedBoxW12H12,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                   sizedBoxW8H8,
-                  // The note of the favorite, set on the forum: quoted in an inner block.
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(appInnerRadius),
-                    ),
-                    child: Padding(
-                      padding: edgeInsetsL12T8R12B8,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.format_quote_outlined, size: 16, color: colorScheme.secondary),
-                          sizedBoxW8H8,
-                          Expanded(
-                            child: Text(
-                              description,
-                              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.secondary),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      AppInfoPill(
+                        icon: Icons.access_time_outlined,
+                        label: item.time == null ? '-' : tr.favoritedAt(time: item.time!.yyyyMMDDHHMM()),
+                      ),
+                    ],
+                  ),
+                  if (description != null) ...[
+                    sizedBoxW8H8,
+                    // The note of the favorite, set on the forum: quoted in an inner block.
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(appInnerRadius),
+                      ),
+                      child: Padding(
+                        padding: edgeInsetsL12T8R12B8,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.format_quote_outlined, size: 16, color: colorScheme.secondary),
+                            sizedBoxW8H8,
+                            Expanded(
+                              child: Text(
+                                description,
+                                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.secondary),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          sizedBoxW4H4,
-          if (removing)
-            const Padding(padding: edgeInsetsL8R8, child: sizedCircularProgressIndicator)
-          else
-            IconButton(
-              icon: Icon(isForum ? Icons.folder_off_outlined : Icons.bookmark_remove_outlined),
-              tooltip: tr.remove,
-              onPressed: onRemove,
-            ),
-        ],
+            sizedBoxW4H4,
+            if (removing)
+              const Padding(padding: edgeInsetsL8R8, child: sizedCircularProgressIndicator)
+            else
+              IconButton(
+                icon: Icon(isForum ? Icons.folder_off_outlined : Icons.bookmark_remove_outlined),
+                tooltip: tr.remove,
+                onPressed: onRemove,
+              ),
+          ],
+        ),
       ),
     );
   }

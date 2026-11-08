@@ -312,7 +312,11 @@ void main() {
       for (final entry in keyboardShortcutCatalog.where((e) => e.group != KeyboardShortcutGroup.editor))
         for (final keys in entry.alternatives)
           for (final key in keys)
-            if (!{primaryModifierToken, 'Shift', 'Esc'}.contains(key)) key,
+            // The tabs of the detail pane: Ctrl+Tab is Ctrl on every platform, "1–9" one row for nine keys.
+            if (key == '1–9')
+              for (var i = 1; i <= 9; i++) '$i'
+            else if (!{primaryModifierToken, 'Ctrl', 'Shift', 'Esc'}.contains(key))
+              key,
     };
     expect(listed, bound);
   });

@@ -37,7 +37,8 @@ List<FloorModerateAction> floorModerateActionsFor({required bool first}) => [
 ];
 
 /// Do [action] on floor [pid] of thread [tid] in forum [fid]: the forum's window of it, confirmed by the moderator,
-/// sent once. True once the forum carried it out.
+/// sent once. True once the forum carried it out; [onDone] is then called with the window sent (whether it undid the
+/// warning or the hiding: [FloorModerateForm.undo]).
 Future<bool> showFloorModerateDialog(
   BuildContext context, {
   required FloorModerateAction action,
@@ -45,6 +46,7 @@ Future<bool> showFloorModerateDialog(
   required int fid,
   required String pid,
   ModerateRepository? repository,
+  void Function(FloorModerateForm form)? onDone,
 }) async {
   final done = await showDialog<bool>(
     context: context,
@@ -54,6 +56,7 @@ Future<bool> showFloorModerateDialog(
       fid: fid,
       pid: pid,
       repository: repository ?? ModerateRepository.network(),
+      onDone: onDone,
     ),
   );
   return done ?? false;
@@ -69,8 +72,12 @@ class FloorModerateDialog extends StatefulWidget {
     required this.fid,
     required this.pid,
     required this.repository,
+    this.onDone,
     super.key,
   });
+
+  /// Called with the window once the forum carried it out, before the dialog pops.
+  final void Function(FloorModerateForm form)? onDone;
 
   /// The operation.
   final FloorModerateAction action;
@@ -156,6 +163,7 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
     }
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
+        widget.onDone?.call(form);
         showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
         Navigator.of(context).pop(true);
       case Right(value: ModerateRefused(:final message)):

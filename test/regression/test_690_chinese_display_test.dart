@@ -138,7 +138,7 @@ void main() {
     testWidgets('a bare url keeps its address, the text around it is converted', (tester) async {
       ChineseDisplay.instance.useConverters(s2t: s2t, t2s: t2s);
       await tester.pumpWidget(
-        _app(ChineseDisplayMode.traditional, const MunchedHtml('<p>见 https://a.com/后来 后来</p>')),
+        _app(ChineseDisplayMode.traditional, const MunchedHtml('<p>见 https://a.com/x?q=1后来 后来</p>')),
       );
       await tester.pump();
       final root = (find.byType(RichText).evaluate().first.widget as RichText).text;
@@ -149,8 +149,9 @@ void main() {
         }
         return true;
       });
-      expect(spans.map((e) => e.text).join(), '見 https://a.com/后来 後來');
-      expect(spans.singleWhere((e) => e.recognizer != null).text, 'https://a.com/后来');
+      // A bare url ends before the first CJK character (see `_bareUrlRe`).
+      expect(spans.map((e) => e.text).join(), '見 https://a.com/x?q=1後來 後來');
+      expect(spans.singleWhere((e) => e.recognizer != null).text, 'https://a.com/x?q=1');
     });
 
     testWidgets('a page calling munchElement builds again when the mode changes', (tester) async {

@@ -1,4 +1,5 @@
 import 'package:system_network_proxy/system_network_proxy.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
 import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
@@ -71,7 +72,9 @@ Future<void> initProviders() async {
     ..registerSingleton(OfflineThreadRepository())
     // The drafts the editors did not send, a file per account; the emojis used lately.
     ..registerSingleton(LocalDraftStore())
-    ..registerSingleton(RecentEmojiStore());
+    ..registerSingleton(RecentEmojiStore())
+    // The custom emoji packs and the uploads made of their images.
+    ..registerSingleton(CustomEmojiStore());
   await getIt.allReady();
 
   getIt.registerSingleton(
