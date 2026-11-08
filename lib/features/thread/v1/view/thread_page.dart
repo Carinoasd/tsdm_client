@@ -1857,7 +1857,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (_paneThread == null) {
       final scope = TwoPaneScope.readOf(context);
       if (scope != null && scope.side == TwoPaneSide.detail) {
-        _paneThread = scope.controller.top?..resolver = _paneQuery;
+        _paneThread = scope.tab?.top?..resolver = _paneQuery;
       }
     }
   }
@@ -2091,6 +2091,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             }
 
             final title = widget.title ?? state.title;
+            // The tab of the detail pane shows it.
+            _paneThread?.reportTitle(title);
             final replied = isThreadReplied(context, state.tid ?? widget.threadID);
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {

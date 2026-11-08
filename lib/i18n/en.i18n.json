@@ -2520,6 +2520,7 @@
   "threadCard": {
     "previewImages": "${count: int} image(s)",
     "viewInfo": "View thread info",
+    "openInNewTab": "Open in new tab",
     "replied": "Replied",
     "newReplies": "${count: int} new replies since your last visit"
   },
@@ -3423,13 +3424,17 @@
   "appShortcuts": {
     "checkinNotVerified": "The login is not verified yet, check in later"
   },
+  "twoPane": {
+    "tabsFull": "Up to ${count: int} tabs can be open"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
       "global": "Everywhere",
       "thread": "Thread",
       "list": "Lists",
-      "editor": "Editor"
+      "editor": "Editor",
+      "tabs": "Tabs"
     },
     "commands": {
       "search": "Search",
@@ -3450,7 +3455,11 @@
       "send": "Send",
       "bold": "Bold",
       "italic": "Italic",
-      "underline": "Underline"
+      "underline": "Underline",
+      "closeTab": "Close tab",
+      "nextTab": "Next tab",
+      "previousTab": "Previous tab",
+      "selectTab": "Tab 1–9"
     }
   }
 }
