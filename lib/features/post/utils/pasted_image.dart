@@ -83,19 +83,33 @@ Future<UploadImageFile?> writeUploadImage(
   required bool Function(String filename) accepts,
 }) async {
   final ext = sniffImageExtension(bytes);
+  final asIs = ext != null && accepts('$stem.$ext');
   var data = bytes;
   var name = '$stem.$ext';
-  // A bitmap goes up as a PNG even where the forum names no types: the same picture, a fraction of the size.
-  if (ext == null || ext == 'bmp' || !accepts(name)) {
-    name = '$stem.png';
-    if (!accepts(name)) return null;
-    final converted = await Isolate.run(() => convertToPng(bytes));
-    if (converted == null) return null;
-    data = converted;
+  // A bitmap goes up as a PNG even where the forum names no types: the same picture, a fraction of the size. One the
+  // `image` package cannot read goes as it is where the forum takes bitmaps.
+  if (!asIs || ext == 'bmp') {
+    final converted = accepts('$stem.png') ? await Isolate.run(() => convertToPng(bytes)) : null;
+    if (converted != null) {
+      name = '$stem.png';
+      data = converted;
+    } else if (!asIs) {
+      return null;
+    }
   }
   await dir.create(recursive: true);
   final file = File('${dir.path}${Platform.pathSeparator}$name');
-  await file.writeAsBytes(data, flush: true);
+  try {
+    await file.writeAsBytes(data, flush: true);
+  } on Object {
+    // Nothing half written stays behind.
+    try {
+      if (file.existsSync()) file.deleteSync();
+    } on Object {
+      // Left to the temporary directory.
+    }
+    rethrow;
+  }
   return UploadImageFile(file.path, temporary: true);
 }
 
@@ -148,7 +162,7 @@ final class ClipboardImageBytes extends ClipboardImages {
 ///    them the paste is left to the editor. They come first: a file manager puts their names as text beside them.
 /// 2. Text wins over a picture: a clipboard with text (alone, or beside a picture as office programs copy cells)
 ///    pastes the text as before. Only whether there is text is asked, not the text: on iOS reading it would ask the
-///    member to allow the paste once more, the editor reading it again.
+///    member to allow the paste once more, the editor reading it again. So text of only spaces counts as text too.
 /// 3. A picture is taken only without text.
 ///
 /// The readers are injectable for tests; each one failing counts as nothing there.

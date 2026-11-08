@@ -155,6 +155,14 @@ void main() {
       expect(copy.path, endsWith('image_9.png'));
     });
 
+    test('a bitmap the image package cannot read goes as it is where the forum takes bitmaps', () async {
+      final odd = Uint8List.fromList([...ascii.encode('BM'), 1, 2, 3]);
+      final file = (await writeUploadImage(odd, dir: tmp, stem: 'paste_5', accepts: (_) => true))!;
+      expect(file.path, endsWith('paste_5.bmp'));
+      expect(File(file.path).readAsBytesSync(), odd);
+      expect(await writeUploadImage(odd, dir: tmp, stem: 'paste_6', accepts: _forumTakes), isNull);
+    });
+
     test('a PNG with transparency keeps it', () async {
       final file = (await writeUploadImage(_png(alpha: true), dir: tmp, stem: 'paste_3', accepts: _forumTakes))!;
       final decoded = img.decodePng(File(file.path).readAsBytesSync())!;
