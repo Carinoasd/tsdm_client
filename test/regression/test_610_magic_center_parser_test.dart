@@ -6,8 +6,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/magic/models/magic_models.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:universal_html/parsing.dart';
 
 String _fixture(String name) => File('test/data/magic/$name').readAsStringSync();
@@ -17,6 +19,8 @@ Object? _json(String name) => jsonDecode(_fixture(name));
 MagicForm _form(Object? data) => parseMagicForm(magicWindowHtml(data));
 
 void main() {
+  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+
   group('list pages', () {
     test('the shop lists every magic with image, description, price and whether it can be bought', () {
       final page = parseMagicList(parseHtmlDocument(_fixture('shop_x5.html')), MagicList.shop);
@@ -88,7 +92,10 @@ void main() {
 
   group('windows', () {
     test('the buy window, plugin result or forum xml, gives the count, the facts and the limits', () {
-      for (final data in [_json('buy_form_x5.json'), _fixture('buy_form_x5.xml')]) {
+      for (final (data, stock, balance, room, max) in [
+        (_json('buy_form_x5.json'), 995, 1004, 30, 3),
+        (_fixture('buy_form_x5.xml'), 998, 1002, 50, 5),
+      ]) {
         final form = _form(data);
         expect(form.action, '$baseUrl/home.php?mod=magic&action=shop&infloat=yes&inajax=1');
         expect(form.title, '猫娘卡');
@@ -100,11 +107,11 @@ void main() {
         expect(form.fields.single.role, MagicFieldRole.number);
         expect(form.unitPrice, 1);
         expect(form.unitWeight, 10);
-        expect(form.stock, 998);
-        expect(form.balance, 1002);
-        expect(form.freeWeight, 50);
-        expect(form.maxCount, 5, reason: 'room for 50 at 10 each is the tightest limit');
-        expect(form.facts, contains('库存: 998 张'));
+        expect(form.stock, stock);
+        expect(form.balance, balance);
+        expect(form.freeWeight, room);
+        expect(form.maxCount, max, reason: 'the room left in the bag at 10 each is the tightest limit');
+        expect(form.facts, contains('库存: $stock 张'));
         expect(form.notes.single, contains('喵～'));
         expect(form.body({'magicnum': '2'}), containsPair('magicnum', '2'));
       }

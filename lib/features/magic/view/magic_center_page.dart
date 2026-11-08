@@ -40,6 +40,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
   late final MagicCenterCubit _cubit;
   StreamSubscription<AuthStatus>? _authSubscription;
   bool _dialogOpen = false;
+  final Map<MagicList, ScrollController> _scroll = {for (final list in MagicList.values) list: ScrollController()};
 
   @override
   void initState() {
@@ -68,6 +69,9 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
   void dispose() {
     unawaited(_authSubscription?.cancel());
     if (widget.controller == null) unawaited(_cubit.close());
+    for (final c in _scroll.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -104,6 +108,11 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
       final values = await showMagicFormDialog(context, form: form, item: item, image: _image(item.imageUrl, 48));
       if (values == null || !mounted) return;
       await _cubit.submit(form, values, name: item.name);
+      // The result banner heads the list: bring it into view.
+      final scroll = _scroll[buy ? MagicList.shop : MagicList.box]!;
+      if (mounted && scroll.hasClients) {
+        await scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+      }
     } finally {
       if (mounted) setState(() => _dialogOpen = false);
     }
@@ -256,6 +265,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
           final gap = width < 600 ? appSurfaceGapCompact : appSurfaceGap;
           return ListView(
             key: PageStorageKey('magic-${page.list.name}'),
+            controller: _scroll[page.list],
             padding: padding.copyWith(top: 12, bottom: 12),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [

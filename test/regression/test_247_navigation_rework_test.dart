@@ -1022,7 +1022,7 @@ void main() {
         expect(app.top, ScreenPaths.login);
         await tester.binding.handlePopRoute();
         await _settle(tester, rounds: 6);
-        await tester.drag(list, const Offset(0, 2000));
+        await tester.scrollUntilVisible(find.byKey(const ValueKey('me-login')), -200, scrollable: list);
         await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);

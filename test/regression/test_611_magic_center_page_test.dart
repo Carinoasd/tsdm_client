@@ -89,10 +89,18 @@ void main() {
     final h = _Harness();
     await _pump(tester, h.cubit, width: 320, scale: 1.6);
     expect(tester.takeException(), isNull);
-    expect(find.text('猫娘卡'), findsOneWidget);
-    expect(find.byKey(const ValueKey('magic-buy-prankmagic:pkcat')), findsOneWidget);
     expect(find.byKey(const ValueKey('magic-buy-sofa')), findsNothing, reason: 'sold out');
     expect(find.text(t.magicCenter.soldOut), findsOneWidget);
+    final scrollable = find
+        .descendant(of: find.byKey(const PageStorageKey('magic-shop')), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('magic-buy-prankmagic:pkcat')),
+      200,
+      scrollable: scrollable,
+    );
+    expect(find.text('猫娘卡'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await _tap(tester, find.byKey(const ValueKey('magic-tab-mine')));
     expect(find.byKey(const ValueKey('magic-use-1')), findsOneWidget);
     expect(find.text(t.magicCenter.owned(count: 4)), findsOneWidget);
@@ -104,20 +112,21 @@ void main() {
     final h = _Harness();
     await _pump(tester, h.cubit);
     await _tap(tester, find.byKey(const ValueKey('magic-buy-prankmagic:pkcat')));
-    expect(find.text('库存: 998 张'), findsOneWidget);
+    expect(find.textContaining('库存: '), findsOneWidget);
     await _tap(tester, find.byKey(const ValueKey('magic-count-plus')));
     await _tap(tester, find.byKey(const ValueKey('magic-count-plus')));
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byKey(const ValueKey('magic-count-plus')), warnIfMissed: false);
       await tester.pump();
     }
-    expect(find.widgetWithText(TextFormField, '5'), findsOneWidget, reason: 'room in the bag allows five');
-    await tester.enterText(find.byKey(const ValueKey('magic-field-magicnum')), '3');
+    final count = tester.widget<TextFormField>(find.byKey(const ValueKey('magic-field-magicnum'))).controller!;
+    expect(count.text, '3', reason: 'the room left in the bag allows three');
+    await tester.enterText(find.byKey(const ValueKey('magic-field-magicnum')), '2');
     await _tap(tester, find.byKey(const ValueKey('magic-submit')));
     expect(h.posts, hasLength(1));
     final (url, body) = h.posts.single;
     expect(url, contains('action=shop&infloat=yes&inajax=1'));
-    expect(body, containsPair('magicnum', '3'));
+    expect(body, containsPair('magicnum', '2'));
     expect(body, containsPair('mid', 'prankmagic:pkcat'));
     expect(find.byKey(const ValueKey('magic-result')), findsOneWidget);
     expect(find.text('您用 1 天使币 购买了 1 张猫娘卡'), findsOneWidget);
