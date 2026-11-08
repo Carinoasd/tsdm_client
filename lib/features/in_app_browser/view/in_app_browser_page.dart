@@ -150,6 +150,13 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }
       case ExternalLaunchFallback(:final uri):
+        // A program load is not seen by the navigation check (Android): a page the app has opens in the app here.
+        if (browserNavigationOf(uri, mainFrame: true) is BrowserNavigationOpenInApp) {
+          if (mounted) {
+            await context.dispatchAsUrl('$uri');
+          }
+          return;
+        }
         await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(uri)));
       case ExternalLaunchNone():
         break;
@@ -172,6 +179,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.inAppBrowserPage;
+    final valid = isInAppBrowserUrl(widget.url);
     return PopScope(
       canPop: !_canGoBack,
       onPopInvokedWithResult: (didPop, _) async {
@@ -185,39 +193,41 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           leading: CloseButton(onPressed: () => Navigator.of(context).pop()),
           title: Text(_title?.isNotEmpty ?? false ? _title! : _url.host, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: tr.back,
-              onPressed: _canGoBack ? () async => _controller?.goBack() : null,
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward),
-              tooltip: tr.forward,
-              onPressed: _canGoForward ? () async => _controller?.goForward() : null,
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: tr.refresh,
-              onPressed: () async => _controller?.reload(),
-            ),
-            PopupMenuButton<_MenuAction>(
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: _MenuAction.openExternal,
-                  child: ListTile(leading: const Icon(Icons.open_in_browser), title: Text(tr.openExternal)),
-                ),
-                PopupMenuItem(
-                  value: _MenuAction.copyUrl,
-                  child: ListTile(leading: const Icon(Icons.copy_outlined), title: Text(tr.copyUrl)),
-                ),
-              ],
-              onSelected: (action) async => switch (action) {
-                _MenuAction.openExternal => _openExternal(_url),
-                _MenuAction.copyUrl => copyToClipboard(context, '$_url'),
-              },
-            ),
+            if (valid) ...[
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: tr.back,
+                onPressed: _canGoBack ? () async => _controller?.goBack() : null,
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                tooltip: tr.forward,
+                onPressed: _canGoForward ? () async => _controller?.goForward() : null,
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: tr.refresh,
+                onPressed: () async => _controller?.reload(),
+              ),
+              PopupMenuButton<_MenuAction>(
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: _MenuAction.openExternal,
+                    child: ListTile(leading: const Icon(Icons.open_in_browser), title: Text(tr.openExternal)),
+                  ),
+                  PopupMenuItem(
+                    value: _MenuAction.copyUrl,
+                    child: ListTile(leading: const Icon(Icons.copy_outlined), title: Text(tr.copyUrl)),
+                  ),
+                ],
+                onSelected: (action) async => switch (action) {
+                  _MenuAction.openExternal => _openExternal(_url),
+                  _MenuAction.copyUrl => copyToClipboard(context, '$_url'),
+                },
+              ),
+            ],
           ],
-          bottom: isInAppBrowserUrl(widget.url) && _progress < 100
+          bottom: valid && _progress < 100
               ? PreferredSize(
                   preferredSize: const Size.fromHeight(2),
                   child: LinearProgressIndicator(value: _progress == 0 ? null : _progress / 100, minHeight: 2),
@@ -226,7 +236,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         ),
         body: SafeArea(
           top: false,
-          child: !isInAppBrowserUrl(widget.url)
+          child: !valid
               ? Center(child: Text(context.t.openInAppPage.invalidBrowserLink))
               : InAppWebView(
                   initialSettings: InAppWebViewSettings(useShouldOverrideUrlLoading: true),
@@ -240,12 +250,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
                   },
                   // A page that failed to load may never stop loading on some platforms.
                   onReceivedError: (_, request, _) {
-                    if (request.isForMainFrame ?? true) {
-                      _initialPending = false;
-                    }
-                  },
-                  onReceivedHttpError: (_, request, _) {
-                    if (request.isForMainFrame ?? true) {
+                    if (request.isForMainFrame ?? false) {
                       _initialPending = false;
                     }
                   },
