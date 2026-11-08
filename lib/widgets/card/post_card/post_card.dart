@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -130,6 +131,9 @@ enum _PostCardActions {
 
   /// Delete the reply (moderators, not the first floor).
   moderateDelete,
+
+  /// Ban the floor's author from posting, or lift the ban ([PostCard.onBanAuthor]).
+  banAuthor,
 }
 
 /// Card for a [Post] model.
@@ -143,6 +147,7 @@ class PostCard extends StatefulWidget {
     this.onEdited,
     this.onJoinDebate,
     this.onModerate,
+    this.onBanAuthor,
     this.multiQuote,
     super.key,
   });
@@ -163,6 +168,9 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
+
+  /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
+  final VoidCallback? onBanAuthor;
 
   /// The floors picked to be quoted in one reply; null where floors can not be picked (outside a thread, no reply).
   final MultiQuoteSelection? multiQuote;
@@ -359,6 +367,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             ),
           ),
           sizedBoxW8H8,
+          if (widget.post.warned) ...[
+            Tooltip(
+              message: context.t.moderate.warned,
+              child: Icon(Icons.report_outlined, size: 20, color: colorScheme.error),
+            ),
+            sizedBoxW4H4,
+          ],
           _FloorBadge(widget.post),
         ],
       ),
@@ -558,10 +573,17 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                 FloorModerateAction.ban => _PostCardActions.moderateBan,
                 FloorModerateAction.delete => _PostCardActions.moderateDelete,
               },
-              floorModerateIcon(action),
-              floorModerateName(context, action),
+              // A floor known warned is offered taking it back (the forum's window decides all the same).
+              floorModerateIcon(action, undo: action == FloorModerateAction.warn && widget.post.warned),
+              floorModerateName(context, action, undo: action == FloorModerateAction.warn && widget.post.warned),
               color: action == FloorModerateAction.delete ? colorScheme.error : null,
             ),
+        if (online && widget.onBanAuthor != null)
+          item(
+            _PostCardActions.banAuthor,
+            memberBanIcon(undo: widget.post.authorBanned),
+            widget.post.authorBanned ? context.t.moderate.unbanMember : context.t.moderate.banMember,
+          ),
       ],
       [
         if (online && widget.post.reportTarget != null)
@@ -708,6 +730,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         widget.onModerate?.call(FloorModerateAction.ban);
       case _PostCardActions.moderateDelete:
         widget.onModerate?.call(FloorModerateAction.delete);
+      case _PostCardActions.banAuthor:
+        widget.onBanAuthor?.call();
     }
   }
 
