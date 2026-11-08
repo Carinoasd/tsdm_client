@@ -190,6 +190,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
                       price: event.price,
                       options: {for (final option in event.options) option.name: option.checked},
                       save: event.save,
+                      attachNew: event.attachNew,
                       rewardPrice: event.rewardPrice,
                       activity: event.activity,
                       debate: event.debate,

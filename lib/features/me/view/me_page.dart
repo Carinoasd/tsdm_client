@@ -104,10 +104,28 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-followed-threads'),
+        icon: Icons.notifications_active_outlined,
+        label: tr.followedThreads,
+        onTap: () => _open(ScreenPaths.followedThreads),
+      ),
+      (
         key: const ValueKey('me-history'),
         icon: Icons.history_outlined,
         label: tr.history,
         onTap: () => _open(ScreenPaths.threadVisitHistory),
+      ),
+      (
+        key: const ValueKey('me-read-later'),
+        icon: Icons.watch_later_outlined,
+        label: tr.readLater,
+        onTap: () => _open(ScreenPaths.readLater),
+      ),
+      (
+        key: const ValueKey('me-reading-stats'),
+        icon: Icons.bar_chart_outlined,
+        label: tr.readingStats,
+        onTap: () => _open(ScreenPaths.readingStats),
       ),
       // The drafts kept on this device while writing, and the drafts box of the forum (the third tab of "my threads"):
       // named apart so the one is not taken for the other.
@@ -150,6 +168,18 @@ class _MePageState extends State<MePage> {
         icon: Icons.show_chart_outlined,
         label: tr.points,
         onTap: () => _open(ScreenPaths.points),
+      ),
+      (
+        key: const ValueKey('me-checkin-calendar'),
+        icon: Icons.event_available_outlined,
+        label: tr.checkinCalendar,
+        onTap: () => _open(ScreenPaths.checkinCalendar),
+      ),
+      (
+        key: const ValueKey('me-rating-stats'),
+        icon: Icons.thumb_up_alt_outlined,
+        label: tr.ratingStats,
+        onTap: () => _open(ScreenPaths.ratingStats),
       ),
     ];
   }

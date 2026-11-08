@@ -229,6 +229,18 @@ final class IdentityChangedException extends AppException with IdentityChangedEx
   IdentityChangedException() : super(message: 'account changed, request dropped');
 }
 
+/// The forum's app API answered that this device was logged out of the account from another device
+/// (`error: device_revoked`, plugin 3.6.0): the request was not handled, and the login of [uid] on this device is
+/// dropped (`LoginDeviceCoordinator`).
+@MappableClass()
+final class LoginDeviceRevokedException extends AppException with LoginDeviceRevokedExceptionMappable {
+  /// Constructor.
+  LoginDeviceRevokedException(this.uid) : super(message: 'this device was logged out of the account');
+
+  /// The account the answer was for.
+  final int uid;
+}
+
 /// The form hash used to logout is not found.
 @MappableClass()
 final class LogoutFormHashNotFoundException extends AppException with LogoutFormHashNotFoundExceptionMappable {}
