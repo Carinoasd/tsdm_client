@@ -872,6 +872,19 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     return ImmersiveForums.parse(settings?.immersiveForums ?? '', all: settings?.immersiveAllForums ?? false);
   }
 
+  /// The forums opening in immersive reading, the build following the settings (the menu item's check).
+  ImmersiveForums _watchedImmersiveForums(BuildContext context) {
+    final (raw, all) = context.select<SettingsBloc, (String, bool)>(
+      (bloc) => (bloc.state.settingsMap.immersiveForums, bloc.state.settingsMap.immersiveAllForums),
+    );
+    return ImmersiveForums.parse(raw, all: all);
+  }
+
+  /// Whether a reply is being written: the editor is open or a text field has the focus.
+  bool get _editingReply =>
+      _replyBarController.showingEditor ||
+      FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
+
   /// The forums of the breadcrumbs of [state], the ones above its own forum.
   static List<int> _forumsAbove(ThreadState state) => breadcrumbForumIds(state.breadcrumbs.map((e) => e.link));
 
@@ -881,6 +894,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     _immersiveChecked = true;
+    // A reply being written keeps its bars, as a tap on the floors does ([_toggleImmersive]).
+    if (_editingReply) {
+      return;
+    }
     if (_immersiveForums(context).matches(state.fid, ancestors: _forumsAbove(state))) {
       _setImmersive(hidden: true);
     }
@@ -890,8 +907,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   void _toggleImmersiveForum(BuildContext context, int fid, {required bool picked}) {
     final next = _immersiveForums(context).withForum(fid, picked: picked);
     context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.immersiveForums, next.raw));
-    // Relabel the menu item.
-    setState(() {});
   }
 
   /// A tap on the floors nothing in them took: the bars go, or come back. Not while searching (the search bar stays),
@@ -900,10 +915,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (_searching) {
       return;
     }
-    final editing =
-        _replyBarController.showingEditor ||
-        FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
-    if (editing && !_immersive) {
+    if (_editingReply && !_immersive) {
       return;
     }
     _setImmersive(hidden: !_immersive);
@@ -2113,6 +2125,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // In the detail pane of a list page the back button would close that page: none, or one taking the
             // thread opened above this one away.
             final pane = TwoPaneScope.detailOf(context);
+            // Watched here, in the build: the menu items are made later, when the menu opens.
+            final immersiveForums = _watchedImmersiveForums(context);
             final appBar = _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
@@ -2144,16 +2158,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           onSelected: _openSearch,
                         ),
                       if (state.tid != null) ...[
-                        if (state.fid != null && !_immersiveForums(context).all)
+                        if (state.fid != null && !immersiveForums.all)
                           MenuCustomItem(
-                            icon: _immersiveForums(context).picks(state.fid!)
+                            icon: immersiveForums.picks(state.fid!)
                                 ? Icons.check_box_outlined
                                 : Icons.check_box_outline_blank,
                             description: context.t.threadPage.immersiveForum,
                             onSelected: () => _toggleImmersiveForum(
                               context,
                               state.fid!,
-                              picked: !_immersiveForums(context).picks(state.fid!),
+                              picked: !immersiveForums.picks(state.fid!),
                             ),
                           ),
                         // Favorite and share need the network: not offered on floors read back offline.
