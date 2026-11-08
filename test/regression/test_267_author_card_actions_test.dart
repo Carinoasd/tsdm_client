@@ -488,8 +488,14 @@ void main() {
     }
     final dialog = find.byType(SingleChildScrollView).last;
     final info = find.text(tr.postCard.profileDialog.tabName.info);
-    // The info header sits at the top of the dialog body: no empty block and no separator above it.
-    expect(tester.getTopLeft(info).dy - tester.getTopLeft(dialog).dy, lessThan(12), reason: "the header padding only");
+    // The info header sits at the top of the dialog body: no empty block and no separator above it. The body's own
+    // top inset (room for a floating label, see CustomAlertDialog) is not the header's.
+    final inset = tester.widget<SingleChildScrollView>(dialog).padding?.resolve(TextDirection.ltr).top ?? 0;
+    expect(
+      tester.getTopLeft(info).dy - tester.getTopLeft(dialog).dy - inset,
+      lessThan(12),
+      reason: 'the header padding only',
+    );
     expect(tester.takeException(), isNull);
   });
 
