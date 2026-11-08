@@ -254,6 +254,14 @@ class _MePageState extends State<MePage> {
       ),
       _row(
         context,
+        key: const ValueKey('me-magic'),
+        icon: Icons.auto_fix_high_outlined,
+        title: context.t.magicCenter.title,
+        path: ScreenPaths.magicCenter,
+        needLogin: !loggedIn,
+      ),
+      _row(
+        context,
         key: const ValueKey('me-bank'),
         icon: Icons.account_balance_outlined,
         title: context.t.bank.title,

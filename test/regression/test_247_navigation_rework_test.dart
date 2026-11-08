@@ -1031,7 +1031,9 @@ void main() {
         expect(app.top, ScreenPaths.login);
         await tester.binding.handlePopRoute();
         await _settle(tester, rounds: 6);
-        // Scrolled back to the login card: a drag may still meet the login page closing over the list.
+        // Scrolled back to the login card (the services list is long: the card may be gone from the lazy list), then a
+        // tap: a drag may still meet the login page closing over the list.
+        await tester.scrollUntilVisible(find.byKey(const ValueKey('me-login')), -200, scrollable: list);
         await tester.ensureVisible(find.byKey(const ValueKey('me-login')));
         await _settle(tester, rounds: 6);
         await tester.tap(find.byKey(const ValueKey('me-login')));

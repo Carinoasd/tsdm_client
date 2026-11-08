@@ -32,6 +32,7 @@ import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart'
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/login_device/view/login_devices_page.dart';
+import 'package:tsdm_client/features/magic/view/magic_center_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -312,6 +313,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.userGroupProgress, builder: (_) => const UserGroupProgressPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
+  AppRoute(path: ScreenPaths.magicCenter, builder: (_) => const MagicCenterPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),

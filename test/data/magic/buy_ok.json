@@ -1,0 +1,1 @@
+{"ok":1,"api":1,"time":1700000000,"uid":31,"formhash":"f1f2f3f4","type":"result","schema":13,"kind":"handle","message":"您用 1 天使币 购买了 1 张猫娘卡","message_key":"magics_buy_succeed","url":"home.php?mod=magic&action=mybox","handlekey":"magics","values":{"magicname":"猫娘卡","num":"1","credit":"1 天使币"},"login":0,"alert":"right"}
