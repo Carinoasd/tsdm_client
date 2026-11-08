@@ -8,6 +8,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:rxdart/rxdart.dart' show Rx;
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/widgets/audio_mini_player.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
@@ -832,11 +834,13 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                       final data = MediaQuery.of(context);
                       return MediaQuery(
                         data: data.copyWith(textScaler: appTextScaler(data.textScaler, textScaleFactor)),
-                        child: KeyboardShortcutsHost(
-                          onSearch: () => _openFromKeyboard(ScreenPaths.search),
-                          onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
-                          // The mini player below every page while something is played.
-                          child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                        child: _withAppLock(
+                          KeyboardShortcutsHost(
+                            onSearch: () => _openFromKeyboard(ScreenPaths.search),
+                            onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
+                            // The mini player below every page while something is played.
+                            child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
+                          ),
                         ),
                       );
                     },
@@ -854,6 +858,10 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
       ),
     );
   }
+
+  /// The lock screen over [app] while the app lock is locked (missing only in tests that do not register it).
+  Widget _withAppLock(Widget app) =>
+      getIt.isRegistered<AppLockCubit>() ? AppLockGate(cubit: getIt.get<AppLockCubit>(), child: app) : app;
 
   Future<bool> _hasNormalWindowBounds() async =>
       !await windowManager.isMaximized() && !await windowManager.isMinimized() && !await windowManager.isFullScreen();

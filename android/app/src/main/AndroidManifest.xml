@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The fingerprint or face unlock of the app lock. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- User-confirmed installation of an update downloaded into the app's private cache. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Android 13+ runtime permission for the auto sync local notification (#13). -->

@@ -3311,6 +3311,47 @@
     "issueRecordsEmpty": "還沒有頒發紀錄。",
     "issueLogLine": "${by} → ${to}"
   },
+  "appLock": {
+    "title": "App 鎖",
+    "method": {
+      "title": "解鎖方式",
+      "off": "關閉",
+      "pin": "PIN",
+      "biometric": "PIN 與生物辨識"
+    },
+    "timing": {
+      "title": "鎖定時機",
+      "immediately": "每次離開",
+      "oneMinute": "離開 1 分鐘後",
+      "fiveMinutes": "離開 5 分鐘後"
+    },
+    "changePin": "變更 PIN",
+    "requireForAccountSwitch": "切換帳號前要求解鎖",
+    "biometricUnavailable": "此裝置無法使用生物辨識",
+    "setPin": {
+      "title": "設定 PIN",
+      "pin": "PIN",
+      "confirm": "再次輸入 PIN",
+      "invalid": "請輸入 4～6 位數字",
+      "mismatch": "兩次輸入的 PIN 不一致"
+    },
+    "lockScreen": {
+      "enterPin": "輸入 PIN",
+      "wrongPin": "PIN 錯誤",
+      "retryIn": "請在 ${seconds} 秒後重試",
+      "biometric": "生物辨識解鎖",
+      "reason": "解鎖${appName}",
+      "delete": "刪除",
+      "confirm": "確定"
+    },
+    "forgot": {
+      "title": "忘記 PIN",
+      "detail": "將移除本機儲存的全部帳號並關閉 App 鎖，之後需要重新登入。",
+      "confirmTitle": "確定移除全部帳號？",
+      "confirmDetail": "此操作無法復原。",
+      "failed": "未能移除全部帳號，App 鎖仍然有效"
+    }
+  },
   "currentAccount": {
     "tooltip": "目前帳號：${username}",
     "replyAs": "以 ${username} 回覆",
