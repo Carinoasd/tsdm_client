@@ -33,17 +33,20 @@ import okhttp3.Response
 import java.io.ByteArrayOutputStream
 import java.lang.ref.WeakReference
 
+// The file keeps its name (tests and the workflow path filters read it); the launcher entries named MainActivity and
+// IconDark, IconMono, IconPink are activity-aliases of this class (see the manifest and AppIconSwitcher).
 /**
  * A [FlutterFragmentActivity] for the system biometric prompt of the app lock (`local_auth` shows it as a fragment), on
  * the audio service's engine ([AudioServiceFragmentActivity], just_audio_background): the player plays in it with the
  * app in the background.
  */
-class MainActivity: AudioServiceFragmentActivity() {
+class MainActivityImpl: AudioServiceFragmentActivity() {
     companion object {
         const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"
         const val EXIT_APP = "exitApp"
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
+        const val SET_APP_ICON = "setAppIcon"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
         const val DEVICE_NAME = "deviceName"
         /**
@@ -470,6 +473,14 @@ class MainActivity: AudioServiceFragmentActivity() {
             SET_HIGH_REFRESH_RATE -> {
                 preferHighRefreshRate = call.argument<Any>("enable") as? Boolean ?: false
                 result.success(applyRefreshRate())
+            }
+            SET_APP_ICON -> {
+                val name = call.argument<Any>("name") as? String
+                if (name != null && AppIconSwitcher.apply(applicationContext, name)) {
+                    result.success(true)
+                } else {
+                    result.error("unknown_icon", "No such app icon: $name", null)
+                }
             }
             // Whether large downloads should wait (the thread list thumbnails "on Wi-Fi only"): the system's own answer,
             // true without a network. Needs ACCESS_NETWORK_STATE, which the manifest has.

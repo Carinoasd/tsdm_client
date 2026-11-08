@@ -381,6 +381,13 @@
         "followSystem": "Follow System",
         "selectLanguage": "Select Language"
       },
+      "appIcon": {
+        "title": "App icon",
+        "defaultIcon": "Default",
+        "dark": "Dark",
+        "mono": "Mono",
+        "pink": "Pink"
+      },
       "highRefreshRate": {
         "title": "High Refresh Rate",
         "detail": "Run at the highest refresh rate the screen supports, smoother scrolling but uses a little more battery"
