@@ -34,7 +34,7 @@ ChangelogRangeFetcher _fetcher(List<PointsChange> changes, {List<(DateTime, Date
       if (fail) {
         return Left(LoadFailure(LoadFailureKind.timeout));
       }
-      return Right((changes: changes, complete: true));
+      return Right((changes: changes, complete: true, oldest: null));
     };
 
 void main() {

@@ -61,8 +61,9 @@ final class CheckinCalendarState {
   /// Whether [streak] is only the least: the row reached back into a month whose records were not all read.
   final bool streakAtLeast;
 
-  /// The months ([monthKey]) whose records were cut at the page limit: their first days may be missing.
-  final Set<int> incompleteMonths;
+  /// The months ([monthKey]) whose records were cut at the page limit, with the time of the oldest record read: the
+  /// days from that day back may be missing.
+  final Map<int, DateTime> incompleteMonths;
 
   /// All the days the account ever checked in, told by the forum; null when it does not tell.
   final int? totalDays;
@@ -86,7 +87,7 @@ final class CheckinCalendarState {
     Map<int, Set<int>>? daysByMonth,
     int? streak,
     bool? streakAtLeast,
-    Set<int>? incompleteMonths,
+    Map<int, DateTime>? incompleteMonths,
     int? totalDays,
     bool? loadingMonth,
     LoadFailure? failure,
@@ -155,6 +156,8 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
   Future<void> load() async {
     final generation = ++_generation;
     _reading.clear();
+    // The count of a load before may still be reading; the new one does not wait for it.
+    _streakRun = Future.value();
     // The day is taken again: a page kept open past midnight starts the new day here.
     final today = forumToday(_now);
     emit(CheckinCalendarState(today: today, month: _firstOf(today)));
@@ -212,10 +215,19 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
   /// Read the month starting at [first] into the state, once however many ask; the failure when it failed.
   Future<LoadFailure?> _readMonth(DateTime first, int generation) async {
     final key = monthKey(first);
-    final reading = _reading[key] ??= _fetchMonth(first, generation).whenComplete(() {
-      // Not an arrow: the removed future returned from here would be waited for by itself.
-      unawaited(_reading.remove(key));
+    final existing = _reading[key];
+    if (existing != null) {
+      return existing;
+    }
+    late final Future<LoadFailure?> reading;
+    reading = _fetchMonth(first, generation).whenComplete(() {
+      // Only its own entry (a load since may have put another there), and not an arrow: the removed future returned
+      // from here would be waited for by itself.
+      if (identical(_reading[key], reading)) {
+        unawaited(_reading.remove(key));
+      }
     });
+    _reading[key] = reading;
     return reading;
   }
 
@@ -233,7 +245,9 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
         emit(
           state.copyWith(
             daysByMonth: {...state.daysByMonth, monthKey(first): days},
-            incompleteMonths: value.complete ? null : {...state.incompleteMonths, monthKey(first)},
+            incompleteMonths: value.complete || value.oldest == null
+                ? null
+                : {...state.incompleteMonths, monthKey(first): value.oldest!},
             failure: state.failure,
           ),
         );
@@ -256,8 +270,10 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
       final row = checkinStreakOf(days, state.today);
       final today = _firstOf(state.today);
       final monthsBack = (today.year - row.before.year) * 12 + today.month - row.before.month;
-      // The row ends where the records of an incomplete month end: there may be more days before them.
-      final atLeast = state.incompleteMonths.contains(monthKey(row.before));
+      // The row ends where the records of an incomplete month end: a day that is not older than the oldest record
+      // read may only be missing. A break inside what was read is a break.
+      final cut = state.incompleteMonths[monthKey(row.before)];
+      final atLeast = cut != null && !row.before.isAfter(DateTime(cut.year, cut.month, cut.day));
       if (state.streak != row.length || state.streakAtLeast != atLeast) {
         emit(state.copyWith(streak: row.length, streakAtLeast: atLeast, failure: state.failure));
       }
