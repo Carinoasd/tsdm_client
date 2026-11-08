@@ -289,6 +289,28 @@ void main() {
       );
     });
 
+    test('an answer the app can not read: the threads sent may be done', () async {
+      final repo = ModerateRepository(
+        get: (url) async => throw StateError('no window'),
+        post: (url, body) async => right((statusCode: 200, data: '<html><body>maintenance</body></html>')),
+        currentUid: () => _uid,
+      );
+      final report = await repo.runBatch(
+        _window('batch_window_stick_digest.json', ModerateOperation.stick),
+        const ModerateRequest(operation: ModerateOperation.stick, level: '1'),
+        tids: _asked,
+        fid: _fid,
+      );
+      expect(
+        {for (final (tid, failure) in report.failed) tid: failure.kind},
+        {
+          '1234567': ModerateBatchFailure.unknown,
+          '1234568': ModerateBatchFailure.unknown,
+          '1': ModerateBatchFailure.refused,
+        },
+      );
+    });
+
     test('the window of one account is never posted for another', () async {
       var posts = 0;
       final repo = ModerateRepository(

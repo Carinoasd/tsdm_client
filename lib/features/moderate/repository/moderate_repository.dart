@@ -304,6 +304,10 @@ final class ModerateRepository with LoggerMixin {
               }
               remaining.removeWhere(batch.tids.contains);
             case ModerateRefused(:final message):
+              if (message.isEmpty) {
+                // An answer the app can not read (a maintenance page, a proxy's): the forum may have done them.
+                unknown(batch.tids);
+              }
               failRemaining(ModerateBatchFailure.refused, message);
           }
       }
