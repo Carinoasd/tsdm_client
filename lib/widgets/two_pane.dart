@@ -568,37 +568,40 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   Widget _panes(BuildContext context, ColorScheme colorScheme, double listWidth, Widget list) => Stack(
     children: [
       Positioned.fill(child: _row(colorScheme, listWidth, list)),
-      Positioned(
-        // Below the app bars: their buttons at the edges of the panes (the back button of a thread opened above
-        // another) are not covered.
-        top: MediaQuery.paddingOf(context).top + kToolbarHeight,
-        bottom: 0,
-        left: listWidth - _TwoPaneDivider.reachIntoList,
-        width: _TwoPaneDivider.reach,
-        child: _TwoPaneDivider(
-          onDragStart: () => setState(() {
-            _dragging = true;
-            _draggedWidth = listWidth;
-            _dragStartWidth = listWidth;
-            _dragDistance = 0;
-          }),
-          onDragUpdate: (dx) => setState(() {
-            final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
-            _dragDistance += dx;
-            _draggedWidth = twoPaneListWidthFor(width, _dragStartWidth + _dragDistance);
-          }),
-          onDragEnd: () {
-            // A tap ends a drag that never started (cancelled): nothing moved, nothing to keep.
-            if (!_dragging) {
-              return;
-            }
-            _dragging = false;
-            _save(_draggedWidth ?? listWidth);
-          },
-          onReset: () => _save(0),
-        ),
-      ),
+      // Below the tab strip too while it shows.
+      ListenableBuilder(listenable: _tabs, builder: (context, _) => _divider(context, listWidth)),
     ],
+  );
+
+  Widget _divider(BuildContext context, double listWidth) => Positioned(
+    // Below the app bars (and the tab strip of the detail pane): their buttons at the edges of the panes (the back
+    // button of a thread opened above another) are not covered.
+    top: MediaQuery.paddingOf(context).top + kToolbarHeight + (_tabs.length > 1 ? _TwoPaneTabStrip._height : 0),
+    bottom: 0,
+    left: listWidth - _TwoPaneDivider.reachIntoList,
+    width: _TwoPaneDivider.reach,
+    child: _TwoPaneDivider(
+      onDragStart: () => setState(() {
+        _dragging = true;
+        _draggedWidth = listWidth;
+        _dragStartWidth = listWidth;
+        _dragDistance = 0;
+      }),
+      onDragUpdate: (dx) => setState(() {
+        final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
+        _dragDistance += dx;
+        _draggedWidth = twoPaneListWidthFor(width, _dragStartWidth + _dragDistance);
+      }),
+      onDragEnd: () {
+        // A tap ends a drag that never started (cancelled): nothing moved, nothing to keep.
+        if (!_dragging) {
+          return;
+        }
+        _dragging = false;
+        _save(_draggedWidth ?? listWidth);
+      },
+      onReset: () => _save(0),
+    ),
   );
 
   Widget _row(ColorScheme colorScheme, double listWidth, Widget list) => Row(
