@@ -1883,6 +1883,22 @@
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
   },
+  "threadTts": {
+    "menu": "朗读",
+    "heading": "第 ${floor: int} 楼，作者：${author: String}",
+    "headingNoFloor": "作者：${author: String}",
+    "labelImage": "图片",
+    "labelFold": "折叠",
+    "labelHidden": "隐藏内容",
+    "labelMedia": "媒体",
+    "previous": "上一楼",
+    "next": "下一楼",
+    "pause": "暂停",
+    "resume": "继续",
+    "rate": "语速",
+    "close": "关闭",
+    "failed": "朗读失败"
+  },
   "threadExport": {
     "copyPlain": "复制为纯文本",
     "copyMarkdown": "复制为 Markdown",

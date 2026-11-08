@@ -1883,6 +1883,22 @@
     "hotReply": "Recommended",
     "jumpToHotFloor": "Go to the floor"
   },
+  "threadTts": {
+    "menu": "Read aloud",
+    "heading": "Floor ${floor: int}, by ${author: String}",
+    "headingNoFloor": "By ${author: String}",
+    "labelImage": "image",
+    "labelFold": "folded",
+    "labelHidden": "hidden content",
+    "labelMedia": "media",
+    "previous": "Previous floor",
+    "next": "Next floor",
+    "pause": "Pause",
+    "resume": "Resume",
+    "rate": "Speed",
+    "close": "Close",
+    "failed": "Reading aloud failed"
+  },
   "threadExport": {
     "copyPlain": "Copy as plain text",
     "copyMarkdown": "Copy as Markdown",
