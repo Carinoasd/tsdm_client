@@ -27,7 +27,26 @@ enum DataSaverMode {
 /// moment on load as usual. A page that came while the network was free starts holding them back once the network
 /// counts the data.
 abstract final class DataSaver {
-  static final _held = Expando<bool>('data saver');
+  /// What each page decided: held back, or not and the [_meteredSpells] it saw then.
+  static final _decisions = Expando<_Decision>('data saver');
+
+  /// How many times the network became metered so far in this run, counted whether or not a picture was built then:
+  /// a page that decided "not held back" holds back once this grew since (it was on a metered network meanwhile).
+  static int _meteredSpells = 0;
+
+  static bool _watching = false;
+
+  static void _watch() {
+    if (_watching) {
+      return;
+    }
+    _watching = true;
+    NetworkUsage.unmetered.addListener(() {
+      if (NetworkUsage.unmetered.value == false) {
+        _meteredSpells++;
+      }
+    });
+  }
 
   /// Whether the pictures of the page of [context] are held back with [mode]; null while the network is not known yet
   /// (the first answer of [NetworkUsage] is coming). Asks [NetworkUsage] again when its answer is old.
@@ -41,6 +60,7 @@ abstract final class DataSaver {
       case DataSaverMode.always:
         return true;
       case DataSaverMode.meteredOnly:
+        _watch();
         NetworkUsage.refreshIfStale();
         final unmetered = NetworkUsage.unmetered.value;
         final metered = unmetered == null ? null : !unmetered;
@@ -48,15 +68,25 @@ abstract final class DataSaver {
         if (route == null) {
           return metered;
         }
-        final held = _held[route];
-        if (held ?? false) {
-          return true;
-        }
-        if (metered != null) {
-          _held[route] = metered;
+        final decision = _decisions[route];
+        if (decision == null) {
+          if (metered != null) {
+            _decisions[route] = _Decision(held: metered, spells: _meteredSpells);
+          }
           return metered;
         }
-        return held;
+        if (!decision.held && ((metered ?? false) || decision.spells != _meteredSpells)) {
+          decision.held = true;
+        }
+        return decision.held;
     }
   }
+}
+
+final class _Decision {
+  _Decision({required this.held, required this.spells});
+
+  bool held;
+
+  final int spells;
 }

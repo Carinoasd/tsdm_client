@@ -141,7 +141,7 @@ Future<T?> showCustomBottomSheet<T>({
 /// * Jump to related href url (optional).
 /// * Reload image, save it to the user's images.
 /// * Its cache statistics ([onShowStatistics], the gallery).
-/// * Load every picture of its floor ([onLoadFloor], a placeholder of the data saver), first.
+/// * Load every picture of its floor ([onLoadFloor], a picture that does not load by itself), first.
 ///
 /// [showCheckDetail] is false when the sheet is opened from the full page viewer itself.
 ///

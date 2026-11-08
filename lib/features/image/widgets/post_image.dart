@@ -78,9 +78,19 @@ bool isForumStaticImage(String url) {
 /// is told by [PostImagePart]: the gallery lists them in the order of the floor, whenever they were built.
 final class FloorImages {
   /// Constructor.
-  FloorImages([List<PostAttachment> attachments = const [], this.pageImages]) {
+  FloorImages([List<PostAttachment> attachments = const [], this.pageImages]) : _parent = null {
     updateAttachments(attachments);
   }
+
+  /// Pictures of their own (a gallery of their own) in the floor of [parent], as the table of the floor opened full
+  /// screen: "load all in this floor" there loads the floor's, and the floor's loads these.
+  FloorImages.within(FloorImages parent) : pageImages = null, _parent = parent {
+    parent._children.add(WeakReference(this));
+  }
+
+  final FloorImages? _parent;
+
+  final _children = <WeakReference<FloorImages>>[];
 
   /// The pictures of every floor of the page the floor is on, for the gallery's "save all" (worked out when asked for);
   /// null outside a thread page.
@@ -106,17 +116,30 @@ final class FloorImages {
 
   /// Every picture of the floor was asked for at once ("load all in this floor" on a placeholder): those built later
   /// (a fold opened, a quote) load as well.
-  bool get loadsAll => _loadsAll;
+  bool get loadsAll => _loadsAll || (_parent?.loadsAll ?? false);
   bool _loadsAll = false;
 
-  /// Load every picture of the floor, those shown now and those built later.
+  /// Load every picture of the floor, those shown now and those built later, its tables opened full screen too.
   void loadAll() {
+    final parent = _parent;
+    if (parent != null) {
+      parent.loadAll();
+      return;
+    }
     if (_loadsAll) {
       return;
     }
     _loadsAll = true;
+    _notifyLoadAll();
+  }
+
+  void _notifyLoadAll() {
     for (final image in _shown.toList()) {
       image._onLoadAll();
+    }
+    _children.removeWhere((e) => e.target == null);
+    for (final child in _children) {
+      child.target?._notifyLoadAll();
     }
   }
 
@@ -358,7 +381,8 @@ class _PostImageState extends State<PostImage> {
       case true:
         return false;
       case null:
-        return null;
+        // Waits for a tap anyway.
+        return _autoLoad == PostImageAutoLoad.never ? false : null;
       case false:
         break;
     }
@@ -415,12 +439,9 @@ class _PostImageState extends State<PostImage> {
     hrefUrl: widget.image.linkUrl,
     shownUrl: widget.image.floorUrl,
     onCheckDetail: _openGallery,
-    // A placeholder waiting for a tap offers to load the whole floor.
-    onLoadFloor: _waitsForTap ? _floor?.loadAll : null,
+    // A picture that does not load by itself (the data saver, the auto load off) offers to load the whole floor.
+    onLoadFloor: _fetches == false ? _floor?.loadAll : null,
   );
-
-  /// The last build showed the placeholder waiting for a tap (not loaded by itself, not cached).
-  bool _waitsForTap = false;
 
   void _load() => setState(() => _requested = true);
 
@@ -434,7 +455,6 @@ class _PostImageState extends State<PostImage> {
       declaredHeight: widget.declaredHeight,
     );
     final fetches = _fetches;
-    _waitsForTap = false;
     // Waited for while it loads by itself; one waiting for a tap or the network's answer is not coming by itself.
     final loads = (fetches ?? false) ? _loads : null;
     loads?.expect(image.floorUrl);
@@ -459,10 +479,7 @@ class _PostImageState extends State<PostImage> {
         child: switch (fetches) {
           // Not cached, and the network is being asked about: tapping comes once it answered.
           null => const _ImageLoading(null),
-          false => () {
-            _waitsForTap = true;
-            return _TapToLoad(image: image, onTap: _load);
-          }(),
+          false => _TapToLoad(image: image, onTap: _load),
           true => () {
             loads?.settle(image.floorUrl);
             return _ImageFailed(url: image.floorUrl, onRetry: retry);

@@ -1138,7 +1138,7 @@ class _PostTableScrollViewState extends State<PostTableScrollView> {
     if (PostImageScope.find(context) case final images?) {
       // Pictures of their own: the gallery opened there is the table's, not the floor's twice.
       table = PostImageScope(
-        images: FloorImages(),
+        images: FloorImages.within(images.images),
         autoLoad: images.autoLoad,
         dataSaver: images.dataSaver,
         child: table,

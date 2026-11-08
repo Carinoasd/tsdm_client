@@ -5,7 +5,7 @@
 ///    free again; a page opened then loads; a page opened on Wi-Fi starts holding back once the network counts;
 /// 3. the pictures of a floor: a placeholder of the size the forum tells, a tap loads that one, a cached one shows;
 ///    back on Wi-Fi nothing loads by itself; the image sheet of a placeholder offers "load all in this floor", which
-///    loads those shown and those built later (a fold opened);
+///    loads those shown and those built later (a fold opened, a table opened full screen);
 /// 4. the thumbnails of the thread lists: none while held back.
 library;
 
@@ -377,6 +377,18 @@ void main() {
       expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
     });
 
+    testWidgets('a page on Wi-Fi that built nothing while on mobile data holds back all the same', (tester) async {
+      NetworkUsage.check = () async => true;
+      NetworkUsage.handlePlatformChange(metered: false);
+      await pumpPages(tester, () => probe(DataSaverMode.meteredOnly));
+      final page = tester.element(find.byType(SizedBox).first);
+      expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isFalse);
+      // Nothing asks while the network counts the data (no picture built then).
+      NetworkUsage.handlePlatformChange(metered: true);
+      NetworkUsage.handlePlatformChange(metered: false);
+      expect(DataSaver.holdsBack(page, DataSaverMode.meteredOnly), isTrue);
+    });
+
     testWidgets('the network not known yet: no answer, then the first one', (tester) async {
       final answer = Completer<bool>();
       NetworkUsage.check = () => answer.future;
@@ -467,6 +479,37 @@ void main() {
       );
       await _settle(tester, until: () => shown(_s));
       expect(shown(_s), isTrue, reason: 'built after "load all": loads too');
+    });
+
+    testWidgets('"load all" on a placeholder of the auto load off too, the data saver off', (tester) async {
+      await pumpPages(tester, () => floorOf(_floorHtml, DataSaverMode.off, autoLoad: PostImageAutoLoad.never));
+      expect(placeholderOf(_a), findsOneWidget);
+      await tester.longPress(placeholderOf(_a));
+      await _settle(tester, until: () => find.byKey(const ValueKey('image-sheet-load-floor')).evaluate().isNotEmpty);
+      tester.widget<ListTile>(find.byKey(const ValueKey('image-sheet-load-floor'))).onTap!();
+      await _settle(tester, until: () => shown(_a) && shown(_b));
+      expect(shown(_a) && shown(_b), isTrue);
+    });
+
+    testWidgets('the auto load off and the network not known yet: the placeholder at once', (tester) async {
+      final answer = Completer<bool>();
+      NetworkUsage.check = () => answer.future;
+      await pumpPages(tester, () => floorOf(_floorHtml, DataSaverMode.meteredOnly, autoLoad: PostImageAutoLoad.never));
+      expect(placeholderOf(_a), findsOneWidget);
+      answer.complete(true);
+      await _settle(tester, rounds: 5);
+    });
+
+    test('a table opened full screen: "load all" there or in the floor loads both', () {
+      final parent = FloorImages();
+      final table = FloorImages.within(parent);
+      parent.loadAll();
+      expect(table.loadsAll, isTrue);
+
+      final other = FloorImages();
+      final otherTable = FloorImages.within(other)..loadAll();
+      expect(other.loadsAll, isTrue);
+      expect(otherTable.loadsAll, isTrue);
     });
 
     testWidgets('a picture shown offers no "load all" in its sheet', (tester) async {
