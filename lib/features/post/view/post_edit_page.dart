@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -19,7 +23,12 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_reuse.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
+import 'package:tsdm_client/features/editor/utils/paste_aware_controller.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
@@ -39,10 +48,15 @@ import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
+import 'package:tsdm_client/features/post/utils/image_edits.dart';
+import 'package:tsdm_client/features/post/utils/pasted_image.dart';
+import 'package:tsdm_client/features/post/view/image_upload_edit_page.dart';
 import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/cron_publish_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/image_drop_area.dart';
+import 'package:tsdm_client/features/post/widgets/image_upload_button.dart';
 import 'package:tsdm_client/features/post/widgets/input_price_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/leave_edit_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/poll_settings_dialog.dart';
@@ -276,11 +290,33 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// The shared images were taken (uploading, or done): they are uploaded once, whatever rebuilds the page.
   bool _sharedImagesTaken = false;
 
-  /// A shared image is on its way to the forum.
-  bool _uploadingSharedImages = false;
+  /// Images going up to the forum one batch after another (shared, pasted, dropped), in the order they came.
+  Future<void> _imageUploadQueue = Future<void>.value();
+
+  /// The batches queued on [_imageUploadQueue] and not done yet.
+  int _imageUploadBatches = 0;
+
+  /// An image is on its way to the forum: nothing is sent or saved until it is there.
+  bool get _uploadingImages => _imageUploadBatches > 0;
+
+  /// What a paste takes from the clipboard instead of text.
+  final _clipboardImages = ClipboardImageReader.platform();
 
   /// The attachments uploaded for this thread, by aid ([PostFormEdits.attachNew]).
   final _attachNew = <int>[];
+
+  /// The context of the page's builder, under its providers (the page's own one is above them): what an image upload
+  /// started outside a build (a paste, a shared image) reads the bloc and the repository from.
+  BuildContext? _below;
+
+  /// Custom emojis going up as attachments.
+  int _uploadingCustomEmoji = 0;
+
+  /// The custom emojis already attachments of this post, by SHA-256 of the image ([decideCustomEmojiAttachment]).
+  final _customEmojiAids = <String, int>{};
+
+  /// An image (shared or a custom emoji) is on its way to the forum.
+  bool get _uploading => _uploadingImages || _uploadingCustomEmoji > 0;
 
   /// Content switched in from the poll editor by the same account, dropped on any identity change.
   ThreadModeTransfer? _transfer;
@@ -585,10 +621,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     }
     // Not offered while shared images are still going up: saving would be refused without a word (see _onFinish).
     final canSaveDraft =
-        widget.editType.isEditingDraft &&
-        (bloc.state.content?.canSaveDraft ?? false) &&
-        bloc.canSubmit &&
-        !_uploadingSharedImages;
+        widget.editType.isEditingDraft && (bloc.state.content?.canSaveDraft ?? false) && bloc.canSubmit && !_uploading;
     _leaving = true;
     final LeaveEditChoice choice;
     try {
@@ -629,42 +662,189 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     return '$baseUrl/forum.php?mod=post&action=edit&fid=$fid&tid=$tid&pid=$pid';
   }
 
-  /// Upload the images another app shared ([PostEditPage.sharedImages]) as attachments of this thread, one after the
-  /// other, each shown in the post at the cursor as the website's image list inserts it (`[attachimg]aid[/attachimg]`)
-  /// and bound to the post when it is published ([ThreadPubPostThread.attachNew]).
+  /// Upload the images another app shared ([PostEditPage.sharedImages]) as attachments of this thread
+  /// ([_queueImageUpload]). The shared files are deleted either way.
+  void _uploadSharedImages(List<String> paths) => _queueImageUpload(
+    (_) async => (files: [for (final path in paths) UploadImageFile(path, temporary: true)], refused: const <String>[]),
+    discard: paths,
+  );
+
+  /// A paste in the editor ([buildPasteAwareEditorController]): images on the clipboard without text
+  /// ([ClipboardImageReader]) are uploaded and shown at the cursor instead ([_queueImageUpload]); anything else is
+  /// pasted by the editor as before.
+  Future<bool> _onClipboardPaste() async {
+    if (!mounted || !initialized) return false;
+    final images = await _clipboardImages.read();
+    if (images == null || !mounted) return false;
+    _uploadClipboardImages(images);
+    return true;
+  }
+
+  /// Upload what [images] took from the clipboard: the copied files as [_uploadImageFiles], a picture written to a
+  /// temporary file ([writeUploadImage]); through the image editor when [edit] (null: as the settings say).
+  void _uploadClipboardImages(ClipboardImages images, {bool? edit}) {
+    switch (images) {
+      case ClipboardImagePaths(:final paths):
+        _uploadImageFiles(paths, edit: edit);
+      case ClipboardImageBytes(:final bytes):
+        _queueImageUpload(edit: edit, (upload) async {
+          final stem = 'paste_${DateTime.now().millisecondsSinceEpoch}';
+          UploadImageFile? file;
+          try {
+            file = await writeUploadImage(bytes, dir: await _uploadTempDir(), stem: stem, accepts: upload.acceptsImage);
+          } on Object catch (e, st) {
+            handleRaw(e, st);
+          }
+          // Told as the file it would have been.
+          return (files: [?file], refused: [if (file == null) '$stem.${sniffImageExtension(bytes) ?? 'bin'}']);
+        });
+    }
+  }
+
+  /// Images to upload from [source] (the image button), through the image editor when [edit].
+  Future<void> _pickImages(ImageUploadSource source, {required bool edit}) async {
+    try {
+      await _pickImagesFrom(source, edit: edit);
+    } on Object catch (e, st) {
+      // A picker refused (no camera permission) or failed: nothing picked.
+      handleRaw(e, st);
+    }
+  }
+
+  Future<void> _pickImagesFrom(ImageUploadSource source, {required bool edit}) async {
+    switch (source) {
+      case ImageUploadSource.gallery:
+        final picked = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
+        final paths = picked?.files.map((e) => e.path).nonNulls.toList() ?? const <String>[];
+        if (paths.isNotEmpty && mounted) _uploadImageFiles(paths, edit: edit);
+      case ImageUploadSource.camera:
+        final photo = await ImagePicker().pickImage(source: ImageSource.camera);
+        // The photo is a copy the picker wrote for the app: gone once it went up.
+        if (photo != null && mounted) _uploadImageFiles([photo.path], edit: edit, temporary: true);
+      case ImageUploadSource.clipboard:
+        // Asked for: text beside the picture does not keep it.
+        final images = await _clipboardImages.read(textWins: false);
+        if (!mounted) return;
+        if (images == null) {
+          showSnackBar(context: context, message: context.t.imageUpload.noClipboardImage);
+        } else {
+          _uploadClipboardImages(images, edit: edit);
+        }
+    }
+  }
+
+  /// Upload the image files at [paths] (dropped, copied in the file manager, picked), each as it is when the forum
+  /// takes its type, else as a PNG copy ([prepareImageFile]); through the image editor when [edit] (null: as the
+  /// settings say). The member's files are kept, [temporary] ones deleted.
+  void _uploadImageFiles(List<String> paths, {bool? edit, bool temporary = false}) =>
+      _queueImageUpload(edit: edit, discard: temporary ? paths : const [], (upload) async {
+        final dir = await _uploadTempDir();
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final files = <UploadImageFile>[];
+        final refused = <String>[];
+        for (final (i, path) in paths.indexed) {
+          UploadImageFile? file;
+          try {
+            file = await prepareImageFile(path, dir: dir, stem: 'image_${stamp}_$i', accepts: upload.acceptsImage);
+          } on Object catch (e, st) {
+            // A copy that could not be written: this one is refused, the copies written before still go up and away.
+            handleRaw(e, st);
+          }
+          if (file != null) {
+            files.add(file);
+          } else {
+            refused.add(path.split(RegExp(r'[/\\]')).last);
+          }
+        }
+        return (files: files, refused: refused);
+      });
+
+  /// Where the images written for an upload go until they went up.
+  static Future<Directory> _uploadTempDir() async =>
+      Directory('${(await getTemporaryDirectory()).path}${Platform.pathSeparator}image_upload');
+
+  /// Upload a batch of images as attachments of this post, after the batches before it: [prepare] gets the upload
+  /// of the form and returns the files to send (writing the temporary ones) and the names of those the forum takes
+  /// in no form. Each image is shown in the post at the cursor as the website's image list inserts it
+  /// (`[attachimg]aid[/attachimg]`) and bound to the post when it is published or the edit saved
+  /// ([PostFormEdits.attachNew]); the temporary files are deleted once tried.
   ///
   /// Only the form of the forum's app API offers the upload ([PostForm.attachmentUpload]); a page without it, or a
-  /// forum where the account may not upload images, is told so and the images are dropped. The shared files are
-  /// deleted either way.
-  Future<void> _uploadSharedImages(PostEditState state, List<String> paths) async {
-    final upload = state.content?.form?.attachmentUpload;
-    if (!mounted) {
-      discardSharedFiles(paths);
+  /// forum where the account may not upload images, is told so and [discard] (temporary files already written) are
+  /// deleted.
+  ///
+  /// With [edit] (null: as the settings say, [SettingsMap.editImageBeforeUpload]) each image opens the image editor
+  /// first ([ImageUploadEditPage]); leaving it uploads nothing of that image. Otherwise an image larger than the
+  /// size set ([SettingsMap.uploadImageMaxSide]) is scaled down ([writeEditedImage]).
+  void _queueImageUpload(
+    Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare, {
+    List<String> discard = const [],
+    bool? edit,
+  }) {
+    setState(() => _imageUploadBatches++);
+    _imageUploadQueue = _imageUploadQueue.then((_) async {
+      try {
+        await _runImageUpload(prepare, discard, edit: edit);
+      } on Object catch (e, st) {
+        handleRaw(e, st);
+        discardSharedFiles(discard);
+      } finally {
+        _imageUploadBatches--;
+        if (mounted) setState(() {});
+      }
+    });
+  }
+
+  Future<void> _runImageUpload(
+    Future<({List<UploadImageFile> files, List<String> refused})> Function(AttachmentUpload upload) prepare,
+    List<String> discard, {
+    required bool? edit,
+  }) async {
+    final below = _below;
+    if (!mounted || below == null || !below.mounted) {
+      discardSharedFiles(discard);
       return;
     }
     final tr = context.t.shareReceive;
+    final state = below.read<PostEditBloc>().state;
+    if (state.status == PostEditStatus.uploading || state.status == PostEditStatus.success) {
+      // The post is on its way or gone: an image now would be bound to nothing.
+      discardSharedFiles(discard);
+      return;
+    }
+    final upload = state.content?.form?.attachmentUpload;
     if (upload == null || !upload.image) {
-      discardSharedFiles(paths);
+      discardSharedFiles(discard);
       showSnackBar(context: context, message: tr.uploadUnavailable);
       return;
     }
-    final repo = context.read<PostEditRepository>();
-    setState(() => _uploadingSharedImages = true);
+    final repo = below.read<PostEditRepository>();
+    // Read before the files are written: once they are, only the try below deletes them.
+    final settings = context.read<SettingsBloc>().state.settingsMap;
+    final (:files, :refused) = await prepare(upload);
     // What went wrong, told once at the end: one failure with its reason, several as their count.
-    final failures = <String>[];
+    final failures = [for (final name in refused) tr.uploadRefusedType(name: name)];
+    final edits = edit ?? settings.editImageBeforeUpload;
+    // The edited copies, deleted with the other temporary files.
+    final written = <String>[];
     try {
-      for (final path in paths) {
+      for (final picked in files) {
         if (!mounted || !repo.isCurrent) {
           break;
         }
-        final result = await repo.uploadImage(upload, path).run();
+        final file = await _editedForUpload(picked, upload, settings, edit: edits);
+        if (file == null || !mounted || !repo.isCurrent) {
+          continue;
+        }
+        if (file != picked) written.add(file.path);
+        final result = await repo.uploadImage(upload, file.path).run();
         if (!mounted) {
           break;
         }
         result.match(
           (e) {
             handle(e);
-            final name = path.split(RegExp(r'[/\\]')).last;
+            final name = file.path.split(RegExp(r'[/\\]')).last;
             failures.add(switch (e) {
               AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(name: name),
               AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
@@ -682,9 +862,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         );
       }
     } finally {
-      discardSharedFiles(paths);
+      discardSharedFiles({
+        ...discard,
+        ...written,
+        for (final file in files)
+          if (file.temporary) file.path,
+      });
       if (mounted) {
-        setState(() => _uploadingSharedImages = false);
         if (failures.length == 1) {
           showSnackBar(context: context, message: failures.single);
         } else if (failures.length > 1) {
@@ -694,6 +878,117 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           );
         }
       }
+    }
+  }
+
+  /// Whether the custom emoji packs are offered: the form of the forum's app API lets the member upload images here.
+  bool _offersCustomEmoji(PostEditState state) => state.content?.form?.attachmentUpload?.image ?? false;
+
+  /// Put the custom emoji [emoji] into the post as an attachment ([CustomEmojiSender]): the code of the attachment
+  /// it already is in this post, of the account's unused upload of the image the form lists (bound to the post when
+  /// it is published), else of a new upload, remembered for the account ([CustomEmojiStore.rememberUpload]). Null
+  /// when it cannot go up (told why). [below] is a context under the page's providers.
+  Future<String?> _sendCustomEmoji(BuildContext below, CustomEmoji emoji) async {
+    final store = CustomEmojiStore.app;
+    final form = below.read<PostEditBloc>().state.content?.form;
+    final upload = form?.attachmentUpload;
+    final repo = below.read<PostEditRepository>();
+    final uid = repo.ownerUid;
+    final tr = context.t.shareReceive;
+    final file = store?.fileOf(emoji);
+    if (store == null || form == null || upload == null || !upload.image || uid == null || file == null) {
+      showSnackBar(context: context, message: tr.uploadUnavailable);
+      return null;
+    }
+    final decision = decideCustomEmojiAttachment(
+      sha256: emoji.sha256,
+      inPost: _customEmojiAids,
+      remembered: store.uploadedAid(uid, emoji.sha256),
+      unused: form.unusedAttachmentImages,
+      used: form.usedAttachments,
+    );
+    switch (decision) {
+      case CustomEmojiInPost(:final aid):
+        _customEmojiAids[emoji.sha256] = aid;
+        return attachmentImageBBCode(aid);
+      case CustomEmojiUnused(:final aid):
+        _customEmojiAids[emoji.sha256] = aid;
+        if (!_attachNew.contains(aid)) _attachNew.add(aid);
+        return attachmentImageBBCode(aid);
+      case CustomEmojiUpload(:final forget):
+        if (forget) store.forgetUpload(uid, emoji.sha256);
+    }
+    setState(() => _uploadingCustomEmoji++);
+    try {
+      final result = await repo.uploadImage(upload, file.path).run();
+      return result.match(
+        (e) {
+          handle(e);
+          if (mounted) {
+            showSnackBar(
+              context: context,
+              message: switch (e) {
+                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(
+                  name: emoji.fileName,
+                ),
+                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
+                  name: emoji.fileName,
+                  limit: upload.maxKb ?? 0,
+                ),
+                AttachmentUploadFailedException(:final code?) => tr.uploadFailed(code: '$code'),
+                _ => tr.uploadFailed(code: ''),
+              },
+            );
+          }
+          return null;
+        },
+        (aid) {
+          store.rememberUpload(uid, emoji.sha256, aid);
+          // Uploaded for an account no longer in use, or a page gone: not bound to anything here.
+          if (!mounted || !repo.isCurrent) return null;
+          _customEmojiAids[emoji.sha256] = aid;
+          _attachNew.add(aid);
+          return attachmentImageBBCode(aid);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingCustomEmoji--);
+    }
+  }
+
+  /// [file] as it goes up: edited in the image editor when [edit] (null when the editor was left: not uploaded),
+  /// else scaled down to the size of [settings]; [file] itself when nothing changes or it can not be edited.
+  Future<UploadImageFile?> _editedForUpload(
+    UploadImageFile file,
+    AttachmentUpload upload,
+    SettingsMap settings, {
+    required bool edit,
+  }) async {
+    var edits = ImageEdits(maxSide: settings.uploadImageMaxSide, quality: settings.uploadImageQuality);
+    Uint8List? bytes;
+    if (edit) {
+      try {
+        bytes = await File(file.path).readAsBytes();
+      } on Object {
+        return file;
+      }
+      if (!isEditableImage(bytes) || !mounted) return file;
+      final chosen = await ImageUploadEditPage.show(context, bytes, maxSide: edits.maxSide, quality: edits.quality);
+      if (chosen == null) return null;
+      edits = chosen;
+    }
+    try {
+      return await writeEditedImage(
+        file,
+        edits,
+        dir: await _uploadTempDir(),
+        stem: 'edited_${DateTime.now().microsecondsSinceEpoch}',
+        accepts: upload.acceptsImage,
+        bytes: bytes,
+      );
+    } on Object catch (e, st) {
+      handleRaw(e, st);
+      return file;
     }
   }
 
@@ -840,7 +1135,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     final bloc = context.read<PostEditBloc>();
     if (_confirming || !bloc.canSubmit || !identical(state.content, bloc.state.content)) return;
     // Shared images still going up: sent now, the post would miss them and the rest would be uploaded for nothing.
-    if (_uploadingSharedImages) return;
+    if (_uploading) return;
     if (saveDraft && !state.content!.canSaveDraft) return;
     if (_waitingSeconds > 0) return;
     final issue = _formIssue(context, state.content!);
@@ -1000,6 +1295,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           perm: threadPerm?.perm,
           price: price,
           draftKey: _draftKey?.value,
+          attachNew: attachmentsInMessage(bbcodeController.toForumBBCode(), _attachNew),
           rewardPrice: (state.content!.form?.reward?.editable ?? false) ? rewardPrice : null,
           activity: state.content!.form?.activity == null ? null : activity,
           debate: state.content!.form?.debate == null ? null : debate,
@@ -1079,6 +1375,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
               editorFocusNode: focusNode,
               collectDocumentMetadata: collectThreadMetata,
               applyDocumentMetadata: (metadata) => applyThreadMetadata(metadata, state),
+              sendCustomEmoji: _offersCustomEmoji(state) ? (emoji) => _sendCustomEmoji(context, emoji) : null,
             ),
           ),
         };
@@ -1339,6 +1636,11 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             focusNode.requestFocus();
           },
         ),
+        if (state.content?.form?.attachmentUpload?.image ?? false)
+          ImageUploadButton(
+            editsByDefault: context.read<SettingsBloc>().state.settingsMap.editImageBeforeUpload,
+            onPicked: (source, {required edit}) async => _pickImages(source, edit: edit),
+          ),
         if (state.content?.permList?.isNotEmpty ?? false)
           Badge(
             label: Text(threadPerm?.perm ?? ''),
@@ -1600,7 +1902,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       final shared = widget.sharedImages;
       if (!_sharedImagesTaken && shared != null && shared.isNotEmpty && widget.editType == PostEditType.newThread) {
         _sharedImagesTaken = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _uploadSharedImages(state, shared));
+        WidgetsBinding.instance.addPostFrameCallback((_) => _uploadSharedImages(shared));
       }
     }
 
@@ -1626,18 +1928,21 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                       ),
                     ),
             ),
-            if (_uploadingSharedImages) const LinearProgressIndicator(minHeight: 2),
+            if (_uploading) const LinearProgressIndicator(minHeight: 2),
             Padding(padding: horizontal.add(edgeInsetsT12), child: _buildTitleRow(context, state)),
             // Post data editor.
             // Now we don't restrict the thread type and thread title, so it's better to focus on content area.
             Expanded(
               child: Padding(
                 padding: horizontal.add(const EdgeInsets.symmetric(vertical: 12)),
-                child: EditorFrame(
-                  focusNode: focusNode,
-                  child: MentionSuggestionsScope(
-                    suggestions: widget.mentionSuggestions ?? const [],
-                    child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                child: ImageDropArea(
+                  onImages: initialized ? _uploadImageFiles : null,
+                  child: EditorFrame(
+                    focusNode: focusNode,
+                    child: MentionSuggestionsScope(
+                      suggestions: widget.mentionSuggestions ?? const [],
+                      child: RichEditor(autoFocus: true, controller: bbcodeController, editorFocusNode: focusNode),
+                    ),
                   ),
                 ),
               ),
@@ -1654,6 +1959,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     editorFocusNode: focusNode,
                     collectDocumentMetadata: collectThreadMetata,
                     applyDocumentMetadata: (metadata) => applyThreadMetadata(metadata, state),
+                    sendCustomEmoji: _offersCustomEmoji(state) ? (emoji) => _sendCustomEmoji(context, emoji) : null,
                   ),
                 ),
               ),
@@ -1682,6 +1988,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       _stopDraft(delete: false);
       _transfer = null;
       _attachNew.clear();
+      _customEmojiAids.clear();
       threadTitleController.clear();
       threadTypeController.clear();
       bbcodeController.setDocumentFromRawText('');
@@ -1888,7 +2195,8 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       'enter post edit page: '
       'editType=${widget.editType}, fid=${widget.fid}',
     );
-    bbcodeController = buildBBCodeEditorController();
+    // A pasted image goes up as an attachment.
+    bbcodeController = buildPasteAwareEditorController(onPaste: _onClipboardPaste);
     fullScreen = isDesktop;
     // The local draft: written while the title and the post change, for the account this editor opened for.
     _draftUid = context.read<AuthenticationRepository>().effectiveCurrentUid;
@@ -2059,11 +2367,9 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
       child: BlocConsumer<PostEditBloc, PostEditState>(
         listener: (context, state) async => _onListen(context, state),
         builder: (context, state) {
+          _below = context;
           bool canPublish() =>
-              !(_confirming ||
-                  _uploadingSharedImages ||
-                  _waitingSeconds > 0 ||
-                  !context.read<PostEditBloc>().canSubmit);
+              !(_confirming || _uploading || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit);
           // Below the bloc: leaving asks what to do with content not sent yet, and may save it as a draft.
           return PopScope(
             canPop: false,
@@ -2121,10 +2427,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     if (widget.editType.isEditingDraft && (state.content?.canSaveDraft ?? false)) ...[
                       IconButton(
                         onPressed:
-                            _confirming ||
-                                _uploadingSharedImages ||
-                                _waitingSeconds > 0 ||
-                                !context.read<PostEditBloc>().canSubmit
+                            _confirming || _uploading || _waitingSeconds > 0 || !context.read<PostEditBloc>().canSubmit
                             ? null
                             : () async => _onFinish(context, state, saveDraft: true),
                         icon: state.status == PostEditStatus.uploading && uploadMethod == _UploadMethod.saveDraft

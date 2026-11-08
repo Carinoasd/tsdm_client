@@ -39,6 +39,7 @@ String noticeChannelName(Translations translations, NoticeCategory category) {
     NoticeCategory.rate => tr.rate,
     NoticeCategory.pm => tr.pm,
     NoticeCategory.system => tr.system,
+    NoticeCategory.followedThread => tr.followedThread,
   };
 }
 
