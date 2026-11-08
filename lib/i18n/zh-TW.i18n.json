@@ -2190,6 +2190,35 @@
     "uploadRefusedSize": "圖片超過 ${limit: int} KB：$name",
     "uploadFailedCount": "${count: int} 張圖片上傳失敗"
   },
+  "imageUpload": {
+    "button": "上傳圖片",
+    "gallery": "相簿",
+    "camera": "拍照",
+    "clipboard": "剪貼簿",
+    "editFirst": "編輯後上傳",
+    "noClipboardImage": "剪貼簿裡沒有圖片",
+    "edit": {
+      "title": "編輯圖片",
+      "skip": "略過",
+      "upload": "上傳",
+      "crop": "裁切",
+      "mosaic": "打碼",
+      "rotate": "旋轉",
+      "undo": "復原",
+      "free": "自由",
+      "original": "原圖",
+      "quality": "品質",
+      "failed": "無法讀取這張圖片"
+    },
+    "settings": {
+      "title": "發帖",
+      "editFirst": "每次上傳圖片前先編輯",
+      "output": "上傳圖片大小",
+      "longSide": "長邊",
+      "quality": "品質",
+      "original": "原圖"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自動簽到",
     "autoCheckinFinished": "自動簽到已完成",

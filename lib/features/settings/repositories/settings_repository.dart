@@ -192,6 +192,9 @@ final class SettingsRepository with LoggerMixin {
       notificationPermissionPrompted: s.extract(_SK.notificationPermissionPrompted),
       postImageAutoLoad: s.extract(_SK.postImageAutoLoad),
       editorQuickPhrases: s.extract(_SK.editorQuickPhrases),
+      editImageBeforeUpload: s.extract(_SK.editImageBeforeUpload),
+      uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
+      uploadImageQuality: s.extract(_SK.uploadImageQuality),
     );
   }
 

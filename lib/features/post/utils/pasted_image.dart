@@ -196,12 +196,13 @@ final class ClipboardImageReader {
   }
 
   /// The images to upload instead of pasting, null when the paste is the editor's (text, other files, nothing).
-  Future<ClipboardImages?> read() async {
+  /// Without [textWins] (an upload from the clipboard asked for) text beside a picture does not keep it.
+  Future<ClipboardImages?> read({bool textWins = true}) async {
     final files = await _safe(readFiles) ?? const <String>[];
     if (files.isNotEmpty) {
       return files.every(isImageFilePath) ? ClipboardImagePaths(List.of(files)) : null;
     }
-    if (await _safe(hasText) ?? false) return null;
+    if (textWins && (await _safe(hasText) ?? false)) return null;
     final bytes = await _safe(readImage);
     if (bytes == null || bytes.isEmpty) return null;
     return ClipboardImageBytes(bytes);

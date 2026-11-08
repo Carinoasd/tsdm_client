@@ -2190,6 +2190,35 @@
     "uploadRefusedSize": "图片超过 ${limit: int} KB：$name",
     "uploadFailedCount": "${count: int} 张图片上传失败"
   },
+  "imageUpload": {
+    "button": "上传图片",
+    "gallery": "相册",
+    "camera": "拍照",
+    "clipboard": "剪贴板",
+    "editFirst": "编辑后上传",
+    "noClipboardImage": "剪贴板里没有图片",
+    "edit": {
+      "title": "编辑图片",
+      "skip": "跳过",
+      "upload": "上传",
+      "crop": "裁剪",
+      "mosaic": "打码",
+      "rotate": "旋转",
+      "undo": "撤销",
+      "free": "自由",
+      "original": "原图",
+      "quality": "质量",
+      "failed": "无法读取这张图片"
+    },
+    "settings": {
+      "title": "发帖",
+      "editFirst": "每次上传图片前先编辑",
+      "output": "上传图片大小",
+      "longSide": "长边",
+      "quality": "质量",
+      "original": "原图"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",

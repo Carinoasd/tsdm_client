@@ -79,6 +79,9 @@ class SettingsMap with SettingsMapMappable {
     this.enableAppPostRenderer = false,
     this.postImageAutoLoad = 0,
     this.editorQuickPhrases = '',
+    this.editImageBeforeUpload = false,
+    this.uploadImageMaxSide = 0,
+    this.uploadImageQuality = 90,
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -269,6 +272,15 @@ class SettingsMap with SettingsMapMappable {
   /// `decodeQuickPhrases`). Not required: backups from older versions lack it.
   final String editorQuickPhrases;
 
+  /// See `SettingsKeys.editImageBeforeUpload`. Not required: backups from older versions lack it.
+  final bool editImageBeforeUpload;
+
+  /// See `SettingsKeys.uploadImageMaxSide`. Not required: backups from older versions lack it.
+  final int uploadImageMaxSide;
+
+  /// See `SettingsKeys.uploadImageQuality`. Not required: backups from older versions lack it.
+  final int uploadImageQuality;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -361,6 +373,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notificationPermissionPrompted => copyWith(notificationPermissionPrompted: value as bool?),
       SettingsKeys.postImageAutoLoad => copyWith(postImageAutoLoad: value as int?),
       SettingsKeys.editorQuickPhrases => copyWith(editorQuickPhrases: value as String?),
+      SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
+      SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
+      SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
     };
   }
 }
