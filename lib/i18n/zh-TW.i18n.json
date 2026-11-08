@@ -2011,7 +2011,18 @@
     "panelLogin": "管理面板",
     "password": "密碼",
     "wrongPassword": "密碼錯誤",
-    "nextPage": "下一頁"
+    "nextPage": "下一頁",
+    "bump": "提升",
+    "down": "下沉",
+    "batch": {
+      "selected": "已選 $count 個",
+      "selectAll": "全選",
+      "select": "多選",
+      "title": "$operation（$count）",
+      "done": "已處理 $count 個主題",
+      "failed": "$count 個主題未完成",
+      "unknown": "結果未知，請重新整理確認"
+    }
   },
   "packetCard": {
     "title": "紅包",

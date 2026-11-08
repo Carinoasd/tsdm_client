@@ -26,6 +26,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
+import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -40,7 +41,7 @@ typedef _ThreadInfo = (IconData, String, String?);
 /// All actions used in the context menu.
 ///
 /// The context menu is opened by either long press or right click, depending on the platform.
-enum _CtxMenuActions { openInNewTab, openInBrowser, viewInfo, readLater }
+enum _CtxMenuActions { select, openInNewTab, openInBrowser, viewInfo, readLater }
 
 class _CardLayout extends StatelessWidget {
   const _CardLayout({
@@ -64,6 +65,8 @@ class _CardLayout extends StatelessWidget {
     this.isRecentThread = false,
     this.replied = false,
     this.progress,
+    this.onPick,
+    this.onStartPicking,
   });
 
   final String threadID;
@@ -94,9 +97,15 @@ class _CardLayout extends StatelessWidget {
   /// replies posted since its last visit are told ("+N" after the reply count).
   final ReadingProgress? progress;
 
+  /// See [NormalThreadCard.onPick].
+  final VoidCallback? onPick;
+
+  /// See [NormalThreadCard.onStartPicking].
+  final VoidCallback? onStartPicking;
+
   /// A middle click opens the thread in a new tab of the wide list page's detail pane.
   Widget _wrapWithCard(BuildContext context, Widget child) => TwoPaneMiddleClickOpener(
-    query: disableTap ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
+    query: disableTap || onPick != null ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
     child: _card(context, child),
   );
 
@@ -106,8 +115,16 @@ class _CardLayout extends StatelessWidget {
     child: AdaptiveInkResponse(
       onTap: disableTap
           ? null
-          : () async => openThread(context, threadID: threadID, title: title, threadType: threadType),
+          : onPick ?? () async => openThread(context, threadID: threadID, title: title, threadType: threadType),
       onAdaptiveContextTap: (tapPosition) async {
+        if (onPick case final pick?) {
+          pick();
+          return;
+        }
+        if (onStartPicking case final start? when isMobile) {
+          start();
+          return;
+        }
         // Get the position where the tap occurred.
         RelativeRect? position;
         position = RelativeRect.fromRect(
@@ -123,6 +140,17 @@ class _CardLayout extends StatelessWidget {
           context: context,
           position: position,
           items: <PopupMenuEntry<_CtxMenuActions>>[
+            if (onStartPicking != null)
+              PopupMenuItem(
+                value: _CtxMenuActions.select,
+                child: Row(
+                  children: [
+                    const Icon(Icons.checklist_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.moderate.batch.select),
+                  ],
+                ),
+              ),
             if (!disableTap && TwoPaneScope.readOf(context)?.side == TwoPaneSide.list)
               PopupMenuItem(
                 value: _CtxMenuActions.openInNewTab,
@@ -173,6 +201,8 @@ class _CardLayout extends StatelessWidget {
         }
 
         switch (choice) {
+          case _CtxMenuActions.select:
+            onStartPicking?.call();
           case _CtxMenuActions.openInNewTab:
             await openThread(context, threadID: threadID, title: title, threadType: threadType, newTab: true);
           case _CtxMenuActions.openInBrowser:
@@ -578,13 +608,19 @@ Future<void> openThread(
 /// Card to show thread info.
 class NormalThreadCard extends StatelessWidget {
   /// Constructor.
-  const NormalThreadCard(this.thread, {this.disableTap = false, super.key});
+  const NormalThreadCard(this.thread, {this.disableTap = false, this.onPick, this.onStartPicking, super.key});
 
   /// Thread data.
   final NormalThread thread;
 
   /// Creat a card that disable tap gestures.
   final bool disableTap;
+
+  /// The list is picking threads: a tap (or a long press) picks or unpicks this one instead of opening it.
+  final VoidCallback? onPick;
+
+  /// The list can pick threads: a long press (the context menu on desktop) starts picking with this one.
+  final VoidCallback? onStartPicking;
 
   @override
   Widget build(BuildContext context) {
@@ -614,6 +650,8 @@ class NormalThreadCard extends StatelessWidget {
       isRecentThread: thread.isRecentThread,
       replied: isThreadReplied(context, thread.threadID),
       progress: readingProgressOf(context, thread.threadID),
+      onPick: onPick,
+      onStartPicking: onStartPicking,
     );
   }
 }
