@@ -2,7 +2,7 @@
 ///
 /// The app makes one id for its installation ([LoginDeviceIdentity]) and, once `status` said the forum keeps devices
 /// (`device: 1`, [TsdmAppApi.knowsDevice]), sends it in `X-Tsdmapp-Device` with every request to the forum
-/// ([LoginDeviceInterceptor]). Each account is registered after its login. A device logged out from another device
+/// ([LoginDeviceHeader]). Each account is registered after its login. A device logged out from another device
 /// gets `error: device_revoked` (HTTP 200) for its next request: the request fails, the id is replaced, the login of
 /// that account is dropped from this device and the user is told; the account is not registered again (a register
 /// with the cookie still valid on the forum would undo the logout) until it is logged in again. The settings page
@@ -626,6 +626,30 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(forum.deviceCalls, isEmpty, reason: 'Bob was logged out with the old id: never registered');
       expect(await storage.hasCookieOfUid(35), isFalse);
+    });
+
+    test('a check that throws leaves the next registers working', () async {
+      await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
+      await storage.saveCookie(username: 'bob', uid: 35, cookie: {'${cookiePrefix}_auth': 'b1'});
+      final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
+      final coordinator = LoginDeviceCoordinator(
+        authentication: AuthenticationRepository(user: const UserLoginInfo(username: 'bob', uid: 35)),
+        storage: storage,
+        repository: LoginDeviceRepository(
+          buildClient: (_) => _client(forum),
+          buildStoredClient: (_) async => throw StateError('no database'),
+        ),
+        deviceName: () async => '',
+      );
+      addTearDown(coordinator.dispose);
+      await coordinator.start();
+      LoginDeviceIdentity.onRevoked!(31, LoginDeviceIdentity.id!);
+      for (var i = 0; i < 20 && forum.deviceCalls.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      expect(forum.deviceCalls, hasLength(1), reason: 'the account in use registered after the check');
+      await coordinator.register(40);
+      expect(forum.deviceCalls, hasLength(2));
     });
 
     test('another stored account logged out: the account in use registered with the new id, that one not', () async {

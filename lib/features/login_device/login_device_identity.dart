@@ -5,13 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
-import 'package:tsdm_client/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 
 /// The id of this app installation the forum's app API keeps the logins by (plugin 3.6.0, the `device` action): a
 /// random UUID made once and stored on this device, the same for every account, sent in [header] with the requests to
-/// the forum ([LoginDeviceInterceptor]) once `status` said the plugin keeps devices ([TsdmAppApi.knowsDevice]).
+/// the forum ([LoginDeviceHeader]) once `status` said the plugin keeps devices ([TsdmAppApi.knowsDevice]).
 ///
 /// A new one is made when the forum answers that this device was logged out of an account ([renew]): the old one is
 /// logged out for that account for good. Not in a backup ([storageKey] is dropped from an export) nor in the
@@ -37,7 +37,7 @@ abstract final class LoginDeviceIdentity {
   static set id(String? value) => _id = value;
 
   /// Called with the account and the id of every answer `device_revoked` that names an account
-  /// ([LoginDeviceInterceptor]); set by the `LoginDeviceCoordinator` of the app, which tells the answers of the ids
+  /// ([LoginDeviceHeader]); set by the `LoginDeviceCoordinator` of the app, which tells the answers of the ids
   /// this device used apart (the id in use, and those it replaced in this run) and each account once.
   static void Function(int uid, String device)? onRevoked;
 
@@ -101,45 +101,44 @@ abstract final class LoginDeviceIdentity {
 
 /// Sends [LoginDeviceIdentity.id] in [LoginDeviceIdentity.header] with every request to the forum while the plugin
 /// keeps devices ([TsdmAppApi.knowsDevice]), and turns an answer `device_revoked` into a failed request
-/// ([LoginDeviceRevokedException]): the forum did not handle it, and the answer is no page any reader knows.
+/// ([LoginDeviceRevokedException]): the forum did not handle it, and the answer is no page any reader knows. Called by
+/// an interceptor every client of the app has (`NetClientProvider`).
 ///
 /// A request that sets the header itself keeps it (the `register` names the id it registers, the check of another
-/// account the id replaced, `LoginDeviceRepository.probe`). Every answer naming an
-/// account is told to [LoginDeviceIdentity.onRevoked], which decides what to do of it; nothing waits here: the logout
-/// runs on its own.
-final class LoginDeviceInterceptor extends Interceptor with LoggerMixin {
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+/// account the id replaced, `LoginDeviceRepository.probe`). Every answer naming an account is told to
+/// [LoginDeviceIdentity.onRevoked], which decides what to do of it; nothing waits here: the logout runs on its own.
+abstract final class LoginDeviceHeader {
+  /// Add the header to [options] when it goes to the forum.
+  static void addTo(RequestOptions options) {
     final id = LoginDeviceIdentity.id;
+    if (id == null || !TsdmAppApi.knowsDevice) {
+      return;
+    }
     final host = options.uri.host;
-    if (id != null &&
-        TsdmAppApi.knowsDevice &&
-        (host == baseHost || host == baseHostAlt) &&
+    if ((host == baseHost || host == baseHostAlt) &&
         !options.headers.keys.any((k) => k.toLowerCase() == LoginDeviceIdentity.header.toLowerCase())) {
       options.headers[LoginDeviceIdentity.header] = id;
     }
-    handler.next(options);
   }
 
-  @override
-  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+  /// The failure to give for [response] when it is an answer `device_revoked`, null otherwise.
+  static DioException? revokedError(Response<dynamic> response) {
     final revoked = loginDeviceRevokedOf(response.data);
     if (revoked == null) {
-      handler.next(response);
-      return;
+      return null;
     }
-    warning('the forum answered that this device was logged out of the account: ${response.requestOptions.uri.path}');
+    talker.warning(
+      'the forum answered that this device was logged out of the account: ${response.requestOptions.uri.path}',
+    );
     if (revoked.uid > 0 && revoked.device.isNotEmpty) {
       LoginDeviceIdentity.onRevoked?.call(revoked.uid, revoked.device);
     }
-    handler.reject(
-      DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: LoginDeviceRevokedException(revoked.uid),
-        message: 'device logged out of the account',
-      ),
+    return DioException(
+      requestOptions: response.requestOptions,
+      response: response,
+      type: DioExceptionType.badResponse,
+      error: LoginDeviceRevokedException(revoked.uid),
+      message: 'device logged out of the account',
     );
   }
 }

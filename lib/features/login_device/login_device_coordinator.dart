@@ -181,9 +181,12 @@ final class LoginDeviceCoordinator with LoggerMixin {
       // it as this one), before the account in use is registered with the new id.
       if (renew && old != null) {
         final checking = _checking = _checkOthers(uid, old);
-        await checking;
-        if (identical(_checking, checking)) {
-          _checking = null;
+        try {
+          await checking;
+        } finally {
+          if (identical(_checking, checking)) {
+            _checking = null;
+          }
         }
       }
       // The account in use goes on with the new id, which the forum only keeps once registered.
@@ -210,9 +213,14 @@ final class LoginDeviceCoordinator with LoggerMixin {
       if (other == null || other == uid || _revoked.contains(other) || _followed.contains('$other/$old')) {
         continue;
       }
-      if (!await _repository.probe(account.user, old)) {
-        // Logged out with it too (dropped by now), or the request failed.
-        debug('device: a stored account not confirmed with the id replaced');
+      try {
+        if (!await _repository.probe(account.user, old)) {
+          // Logged out with it too (dropped by now), or the request failed.
+          debug('device: a stored account not confirmed with the id replaced');
+        }
+      } on Object catch (e, st) {
+        // One account that could not be asked does not keep the others from it.
+        error('device: failed to ask a stored account with the id replaced: $e', e, st);
       }
     }
   }

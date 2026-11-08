@@ -153,8 +153,6 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_PointsChangesChecker());
       d.interceptors.add(_GzipEncodingChecker());
       d.interceptors.add(AntitheftInterceptor(d));
-      // Last: the answers of a previous account or session are dropped before it (`_IdentityGuard`).
-      d.interceptors.add(LoginDeviceInterceptor());
       // decode br content-type.
       d.transformer = DioBrotliTransformer();
     }
@@ -184,8 +182,6 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_ForceDesktopLayoutInterceptor());
     }
     d.interceptors.add(AntitheftInterceptor(d));
-    // The login, the switch's check and the polls of every account carry the device too.
-    d.interceptors.add(LoginDeviceInterceptor());
     // decode br content-type.
     d.transformer = DioBrotliTransformer();
     return NetClientProvider._(d);
@@ -648,9 +644,23 @@ final class _IdentityGuard extends Interceptor with LoggerMixin {
 }
 
 /// Handle exceptions during web request.
+///
+/// Also carries the device id of the forum's app API both ways ([LoginDeviceHeader]): every client has this
+/// interceptor (the login, the switch's check and the polls of every account too), after `_IdentityGuard`, and one
+/// more interceptor would be one more hop on the event loop for every request.
 class _ErrorHandler extends Interceptor with LoggerMixin {
   @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    LoginDeviceHeader.addTo(options);
+    handler.next(options);
+  }
+
+  @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+    if (LoginDeviceHeader.revokedError(response) case final revoked?) {
+      handler.reject(revoked);
+      return;
+    }
     getIt.get<NetErrorSaver>().clear();
     handler.next(response);
   }
