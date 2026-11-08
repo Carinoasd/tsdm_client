@@ -85,6 +85,7 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
   Future<void> _load() async {
     setState(() {
       _loading = true;
+      _sending = false;
       _error = null;
       _form = null;
       _loginFormHash = null;
@@ -141,7 +142,6 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
         });
       case Right(value: ModeratePanelLoggedIn()) || Left():
         // Logged in, or the answer could not be read: the window tells (the panel asks again when it was wrong).
-        _sending = false;
         await _load();
     }
   }
@@ -168,6 +168,12 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
           _sending = false;
           _error = message.isNotEmpty ? message : context.t.moderate.failed;
         });
+      case Right(value: MemberBanUnknown()):
+        // The window as it is now, then why it is asked again.
+        await _load();
+        if (mounted) {
+          setState(() => _error = context.t.moderate.batch.unknown);
+        }
       case Right(value: MemberBanSessionEnded(:final formHash)):
         // Nothing was done: the password, then the window again.
         setState(() {

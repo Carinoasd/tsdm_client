@@ -1,12 +1,12 @@
-/// A moderator bans the author of a floor from posting (the moderation panel's 禁止用户), sees the floors warned, and
-/// is offered only the floor operations the forum offers the account.
+/// A moderator bans the author of a floor from posting (the moderation panel's 禁止用户), offered where the forum prints
+/// the ban link, and sees the floors warned.
 ///
 /// The fixtures `test/data/moderate/member_ban_*` and `thread_*` are the test forum's answers to a moderator (Discuz!
 /// X5 with plugin tsdmapp 3.4.0), scrubbed: the panel's ban page `forum.php?mod=modcp&action=member&op=ban&uid=UID`
 /// cut to its main column for a member in good standing and for a banned one, its refusal of a member of a special
 /// group, the answers to a ban sent (with `tsdmapp=json`: the success, the refusal, the panel's login form after its
 /// session ended; without: the 提示信息 page); a warned floor of the web page and the same floor of the app API's
-/// thread answer; the moderator's floor menu `div#mdly` of the thread page.
+/// thread answer.
 library;
 
 import 'dart:async';
@@ -19,11 +19,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
-import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
-import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
-import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -100,6 +97,17 @@ void main() {
       );
     });
 
+    test("the panel's search form alone: why the member was not loaded, from its caption", () {
+      final html = _text('member_ban_form.html')
+          .replaceFirst(
+            RegExp(r'<form method="post" autocomplete="off" action="[^"]*" class="schresult">[\s\S]*</form>'),
+            '',
+          )
+          .replaceFirst('<caption>\n</caption>', '<caption>\n您没有权限管理该用户\n</caption>');
+      final answer = ModerateRepository.memberBanWindowOf(html, memberUid: _member, uid: _uid).getRight().toNullable();
+      expect((answer! as MemberBanWindowRefused).message, '您没有权限管理该用户');
+    });
+
     test('the panel refuses a member of a special group in its words', () {
       final answer = _windowOf('member_ban_illegal.html').getRight().toNullable();
       expect(answer, isA<MemberBanWindowRefused>());
@@ -142,12 +150,12 @@ void main() {
       expect(ModerateRepository.memberBanOutcomeOf(page, uid: _uid).getRight().toNullable(), isA<MemberBanRefused>());
     });
 
-    test('a redirect back to the ban page is a success; elsewhere is not', () {
+    test('a redirect is not the panel answering a ban: unknown, or the login asked', () {
       final json = _data('member_ban_result_succeed.json')! as Map<String, dynamic>;
       final back = {...json, 'kind': 'redirect', 'message': '', 'alert': ''};
-      expect(ModerateRepository.memberBanOutcomeOf(back, uid: _uid).getRight().toNullable(), isA<MemberBanDone>());
-      final away = {...back, 'url': 'forum.php?mod=modcp&action=home'};
-      expect(ModerateRepository.memberBanOutcomeOf(away, uid: _uid).getRight().toNullable(), isA<MemberBanRefused>());
+      expect(ModerateRepository.memberBanOutcomeOf(back, uid: _uid).getRight().toNullable(), isA<MemberBanUnknown>());
+      final login = {...back, 'ok': 0, 'login': 1, 'url': 'member.php?mod=logging&action=login'};
+      expect(ModerateRepository.memberBanOutcomeOf(login, uid: _uid).getRight().toNullable(), isA<MemberBanRefused>());
     });
 
     test('without the plugin: the 提示信息 page, by its class', () {
@@ -155,6 +163,8 @@ void main() {
       final refused = _outcomeOf('member_ban_illegal.html').getRight().toNullable();
       expect((refused! as MemberBanRefused).message, '您不能直接禁止该用户');
       expect(_outcomeOf('queue_login.html').getRight().toNullable(), isA<MemberBanSessionEnded>());
+      final other = _text('member_ban_result_succeed.html').replaceFirst('alert_info', 'alert_other');
+      expect(ModerateRepository.memberBanOutcomeOf(other, uid: _uid).getRight().toNullable(), isA<MemberBanRefused>());
     });
 
     test('an answer for another account', () {
@@ -195,7 +205,7 @@ void main() {
       expect(posts.single.$2['bannew'], '4');
     });
 
-    test('nothing is posted once the account changed; a redirect answered is a success', () async {
+    test('nothing is posted once the account changed; a redirect answered leaves it unknown', () async {
       var uid = _uid;
       var posted = 0;
       final repo = ModerateRepository(
@@ -207,7 +217,7 @@ void main() {
         currentUid: () => uid,
       );
       final form = _window('member_ban_form.html');
-      expect((await repo.submitMemberBan(form).run()).getRight().toNullable(), isA<MemberBanDone>());
+      expect((await repo.submitMemberBan(form).run()).getRight().toNullable(), isA<MemberBanUnknown>());
       uid = 35;
       expect((await repo.submitMemberBan(form).run()).getLeft().toNullable(), isA<IdentityChangedException>());
       expect(posted, 1);
@@ -220,6 +230,9 @@ void main() {
       final post = Post.fromPostNode(doc.querySelector('div#post_7654321')!, 1)!;
       expect(post.warned, isTrue);
       expect(post.banAuthorUid, _member);
+      expect(post.authorBanned, isFalse);
+      final banned = _text('thread_floor_warned.html').replaceAll('ac=usergroup&amp;gid=22', 'ac=usergroup&amp;gid=4');
+      expect(Post.fromPostNode(parseHtmlDocument(banned).querySelector('div#post_7654321')!, 1)!.authorBanned, isTrue);
 
       final plain = _text('thread_floor_warned.html')
           .replaceAll(RegExp(r'<a href="forum.php\?mod=misc&amp;action=viewwarning[^>]*></a>'), '')
@@ -234,6 +247,12 @@ void main() {
       final post = Post.fromApi(floor, tid: '1234567', fid: _fid, viewerUid: _uid, page: 1);
       expect(post.banAuthorUid, _member);
       expect(post.warned, isFalse);
+      expect(post.authorBanned, isFalse);
+      final banned = {
+        ...floor,
+        'group': {...(floor['group']! as Map<String, dynamic>), 'gid': 4},
+      };
+      expect(Post.fromApi(banned, tid: '1234567', fid: _fid, viewerUid: _uid, page: 1).authorBanned, isTrue);
     });
 
     test("an administrator's ban link to the admin center names the floor's author", () {
@@ -248,24 +267,13 @@ void main() {
       expect(memberBanUidIn(other.body, authorUid: 42), isNull);
     });
 
-    test('the floor operations offered are those of the moderator floor menu', () {
-      final doc = parseHtmlDocument(_text('thread_floor_menu.html'));
-      expect(floorModerateOfferedIn(doc), ['warn', 'banpost', 'delpost']);
-      expect(floorModerateOfferedIn(parseHtmlDocument('<p></p>')), isNull);
-
-      expect(floorModerateActionsFor(first: false), [
-        FloorModerateAction.warn,
-        FloorModerateAction.ban,
-        FloorModerateAction.delete,
-      ]);
-      expect(floorModerateActionsFor(first: false, offered: ['banpost', 'delpost']), [
-        FloorModerateAction.ban,
-        FloorModerateAction.delete,
-      ]);
-      expect(floorModerateActionsFor(first: true, offered: ['warn', 'banpost', 'delpost']), [
-        FloorModerateAction.warn,
-        FloorModerateAction.ban,
-      ]);
+    test("a ban link naming someone else than the floor's author is not this floor's", () {
+      final column = parseHtmlDocument(
+        '<td class="pls"><p><a href="forum.php?mod=modcp&amp;action=member&amp;op=ban&amp;uid=9">禁止</a></p></td>',
+      ).body;
+      expect(memberBanUidIn(column, authorUid: 42), isNull);
+      expect(memberBanUidIn(column, authorUid: 9), 9);
+      expect(memberBanUidIn(column), 9);
     });
   });
 

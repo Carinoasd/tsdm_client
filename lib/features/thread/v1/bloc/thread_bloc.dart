@@ -790,7 +790,6 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
       exactOrder: state.exactOrder,
       isDraft: info.isDraft,
       latestModAct: info.latestModAct,
-      floorModerateOffered: info.floorModerateOffered,
       breadcrumbs: info.breadcrumbs,
       // Each page prints the medal menus of its own floors: keep those of the pages on screen.
       postMedals: keep ? _mergeMedals(state.postMedals, info.postMedals) : info.postMedals,

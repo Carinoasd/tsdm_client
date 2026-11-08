@@ -140,6 +140,13 @@ final class MemberBanRefused extends MemberBanOutcome {
   final String message;
 }
 
+/// The ban was sent, but the answer tells nothing of it (a redirect the forum does not answer a ban with: a proxy's,
+/// the site's own); it may have been carried out.
+final class MemberBanUnknown extends MemberBanOutcome {
+  /// Constructor.
+  const MemberBanUnknown();
+}
+
 /// The panel's session ended before the ban was sent: it answered its login form, and nothing was done.
 final class MemberBanSessionEnded extends MemberBanOutcome {
   /// Constructor.

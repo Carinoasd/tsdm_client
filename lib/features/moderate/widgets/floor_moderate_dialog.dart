@@ -29,11 +29,11 @@ String floorModerateName(BuildContext context, FloorModerateAction action, {bool
 }
 
 /// The operations offered on a floor: warn, hide, and the deletion of a reply last (not on the [first] floor, whose
-/// deletion is the thread's). When the page tells the ones the forum offers the account ([offered], the forum's
-/// `action`s of its floor menu), only those.
-List<FloorModerateAction> floorModerateActionsFor({required bool first, Iterable<String>? offered}) => [
-  for (final action in [FloorModerateAction.warn, FloorModerateAction.ban, if (!first) FloorModerateAction.delete])
-    if (offered == null || offered.contains(action.action)) action,
+/// deletion is the thread's).
+List<FloorModerateAction> floorModerateActionsFor({required bool first}) => [
+  FloorModerateAction.warn,
+  FloorModerateAction.ban,
+  if (!first) FloorModerateAction.delete,
 ];
 
 /// Do [action] on floor [pid] of thread [tid] in forum [fid]: the forum's window of it, confirmed by the moderator,

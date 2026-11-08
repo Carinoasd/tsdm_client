@@ -9,7 +9,6 @@ import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
-import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -592,7 +591,11 @@ final class ModerateRepository with LoggerMixin {
     if (MemberBanForm.parse(doc, memberUid: memberUid, uid: uid) case final form?) {
       return right(MemberBanWindowReady(form));
     }
-    final message = moderatePageMessage(doc);
+    var message = moderatePageMessage(doc);
+    if (message.isEmpty) {
+      // The panel's search form alone, with why the member was not loaded in its caption (staff of the forum).
+      message = (doc.querySelector('div.mn form caption')?.text ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
     if (message.isNotEmpty || doc.querySelector('form') != null) {
       // A message, or the panel's page without a window the app can send: nothing to offer.
       return right(MemberBanWindowRefused(message));
@@ -603,30 +606,33 @@ final class ModerateRepository with LoggerMixin {
   /// Send the ban window [form]: ban the member from posting for [days] (null for ever), or lift the ban of a banned
   /// member, with [reason], once; never when the account changed since the window was served
   /// ([IdentityChangedException]).
-  AsyncEither<MemberBanOutcome> submitMemberBan(MemberBanForm form, {int? days, String reason = ''}) =>
-      AsyncEither(() async {
-        final uid = _currentUid();
-        if (uid <= 0 || form.uid != uid) {
-          return left(IdentityChangedException());
-        }
-        final resp = await _post(withTsdmAppJsonWrite(MemberBanForm.submitUrl), form.body(days: days, reason: reason));
-        return switch (resp) {
-          Left(:final value) => left(value),
-          // The forum sends the moderator back to the panel's ban page once done (its quick forward of a message).
-          Right(:final value) when value.statusCode >= 300 && value.statusCode < 400 => right(const MemberBanDone('')),
-          Right(:final value) when value.statusCode != HttpStatus.ok => left(
-            HttpRequestFailedException(value.statusCode),
-          ),
-          Right(:final value) => memberBanOutcomeOf(value.data, uid: uid),
-        };
-      });
+  AsyncEither<MemberBanOutcome> submitMemberBan(MemberBanForm form, {int? days, String reason = ''}) => AsyncEither(
+    () async {
+      final uid = _currentUid();
+      if (uid <= 0 || form.uid != uid) {
+        return left(IdentityChangedException());
+      }
+      final resp = await _post(withTsdmAppJsonWrite(MemberBanForm.submitUrl), form.body(days: days, reason: reason));
+      return switch (resp) {
+        Left(:final value) => left(value),
+        // The panel answers a ban with its message page, never a redirect (its quick forward is asked by the message's
+        // language key, and the panel gives translated words): whatever sent this one, the ban may have been done.
+        Right(:final value) when value.statusCode >= 300 && value.statusCode < 400 => right(const MemberBanUnknown()),
+        Right(:final value) when value.statusCode != HttpStatus.ok => left(
+          HttpRequestFailedException(value.statusCode),
+        ),
+        Right(:final value) => memberBanOutcomeOf(value.data, uid: uid),
+      };
+    },
+  );
 
   /// The panel's verdict in answer [data] to a ban sent by account [uid].
   ///
   /// The panel words its success and its refusals itself (no message key): a message page is a success unless the
-  /// forum marks it an error (the app API's `alert`, the page's `alert_error`); a redirect back to the ban page is a
-  /// success. A page is never one: the panel's login form is [MemberBanSessionEnded], anything else a refusal without
-  /// words.
+  /// forum marks it an error (the app API's `alert`; the page's class other than `alert_info` or `alert_right`). A
+  /// redirect is not the panel's answer
+  /// ([MemberBanUnknown]), unless to the login. A page is never a success: the panel's login form is
+  /// [MemberBanSessionEnded], anything else a refusal without words.
   static Either<AppException, MemberBanOutcome> memberBanOutcomeOf(Object? data, {required int uid}) {
     final uh.Document doc;
     if (tsdmAppWriteResultOf(data) case final result?) {
@@ -639,9 +645,7 @@ final class ModerateRepository with LoggerMixin {
             result.succeeded && !result.isError ? MemberBanDone(result.message) : MemberBanRefused(result.reason),
           );
         case TsdmAppWriteKind.redirect:
-          return right(
-            result.succeeded && isMemberBanUrl(result.url) ? const MemberBanDone('') : MemberBanRefused(result.reason),
-          );
+          return right(result.login ? MemberBanRefused(result.reason) : const MemberBanUnknown());
         case TsdmAppWriteKind.handle:
           return right(MemberBanRefused(result.reason));
         case TsdmAppWriteKind.page:
@@ -654,7 +658,9 @@ final class ModerateRepository with LoggerMixin {
       }
       if (doc.querySelector('div#messagetext') case final box?) {
         final message = moderatePageMessage(doc);
-        return right(box.classes.contains('alert_error') ? MemberBanRefused(message) : MemberBanDone(message));
+        // Success as the panel shows it (`alert_info`, or `alert_right`); anything else a refusal.
+        final done = box.classes.contains('alert_info') || box.classes.contains('alert_right');
+        return right(done ? MemberBanDone(message) : MemberBanRefused(message));
       }
     }
     if (moderatePanelLoginFormHash(doc) case final formHash?) {

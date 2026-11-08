@@ -1600,8 +1600,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                   onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
                                       ? (action) => _moderateFloor(context, state, post, action)
                                       : null,
-                                  moderateOffered: state.floorModerateOffered,
-                                  onBanAuthor: post.banAuthorUid != null && !state.isOffline && state.fid != null
+                                  // Not the account's own floors: the forum never lets staff ban themselves.
+                                  onBanAuthor:
+                                      post.banAuthorUid != null &&
+                                          post.banAuthorUid != state.floorsUid &&
+                                          !state.isOffline &&
+                                          state.fid != null
                                       ? () => _banAuthor(context, state, post)
                                       : null,
                                 ),

@@ -77,7 +77,6 @@ class ThreadState with ThreadStateMappable {
     this.newRepliesSerial = 0,
     this.newRepliesCount = 0,
     this.newestFirst = false,
-    this.floorModerateOffered,
   });
 
   /// Status.
@@ -187,10 +186,6 @@ class ThreadState with ThreadStateMappable {
 
   /// Latest modification log.
   final String? latestModAct;
-
-  /// The forum's `action`s of the floor management the page offers the account (see
-  /// `ThreadPageInfo.floorModerateOffered`); null when the page does not tell.
-  final List<String>? floorModerateOffered;
 
   /// All breadcrumbs that describe the position of current thread.
   ///

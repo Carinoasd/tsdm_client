@@ -137,7 +137,6 @@ class PostCard extends StatefulWidget {
     this.onEdited,
     this.onJoinDebate,
     this.onModerate,
-    this.moderateOffered,
     this.onBanAuthor,
     super.key,
   });
@@ -158,10 +157,6 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
-
-  /// The forum's `action`s of the floor management the page offers ([floorModerateActionsFor]); null when it does not
-  /// tell.
-  final Iterable<String>? moderateOffered;
 
   /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
   final VoidCallback? onBanAuthor;
@@ -539,22 +534,24 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.onModerate != null)
-          for (final action in floorModerateActionsFor(
-            first: widget.post.postFloor == 1,
-            offered: widget.moderateOffered,
-          ))
+          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
             item(
               switch (action) {
                 FloorModerateAction.warn => _PostCardActions.moderateWarn,
                 FloorModerateAction.ban => _PostCardActions.moderateBan,
                 FloorModerateAction.delete => _PostCardActions.moderateDelete,
               },
-              floorModerateIcon(action),
-              floorModerateName(context, action),
+              // A floor known warned is offered taking it back (the forum's window decides all the same).
+              floorModerateIcon(action, undo: action == FloorModerateAction.warn && widget.post.warned),
+              floorModerateName(context, action, undo: action == FloorModerateAction.warn && widget.post.warned),
               color: action == FloorModerateAction.delete ? colorScheme.error : null,
             ),
         if (online && widget.onBanAuthor != null)
-          item(_PostCardActions.banAuthor, memberBanIcon(), context.t.moderate.banMember),
+          item(
+            _PostCardActions.banAuthor,
+            memberBanIcon(undo: widget.post.authorBanned),
+            widget.post.authorBanned ? context.t.moderate.unbanMember : context.t.moderate.banMember,
+          ),
       ],
       [
         if (online && widget.post.reportTarget != null)

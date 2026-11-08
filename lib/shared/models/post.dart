@@ -89,6 +89,7 @@ class Post with PostMappable {
     this.fromApp = false,
     this.warned = false,
     this.banAuthorUid,
+    this.authorBanned = false,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -277,6 +278,9 @@ class Post with PostMappable {
       hotFloor: hot && _apiInt(p['hot_position']) > 0 ? _apiInt(p['hot_position']) : null,
       fromApp: _apiInt(p['from_app']) == 1,
       banAuthorUid: memberBanUidIn(table.querySelector('td.pls'), authorUid: authorId),
+      authorBanned:
+          (group != null && memberBannedGroups.contains(_apiInt(group['gid']))) ||
+          memberBannedIn(table.querySelector('td.pls')),
     );
   }
 
@@ -475,6 +479,10 @@ class Post with PostMappable {
   /// The member the forum offers the account to ban from posting from this floor (the 禁止 link of the author column,
   /// printed to a user group that may ban members, see [memberBanUidIn]); null when it offers none.
   final int? banAuthorUid;
+
+  /// The author column names the author's user group one of the banned ones ([memberBannedGroups]): the ban offered
+  /// ([banAuthorUid]) would be lifted.
+  final bool authorBanned;
 
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).
   int? get shownFloor => postFloor ?? hotFloor;
@@ -728,6 +736,7 @@ class Post with PostMappable {
       fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
       warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
       banAuthorUid: memberBanUidIn(userProfileNode, authorUid: int.tryParse(postAuthor.uid ?? '')),
+      authorBanned: memberBannedIn(userProfileNode),
     );
   }
 
@@ -969,7 +978,8 @@ int? memberBanUidIn(uh.Element? column, {int? authorUid}) {
     final href = link.attributes['href'] ?? '';
     if (isMemberBanUrl(href)) {
       final uid = int.tryParse(_forumScriptQuery(href)?['uid'] ?? '');
-      if (uid != null && uid > 0) {
+      // A link to ban someone else than the floor's author (when known) is not this floor's.
+      if (uid != null && uid > 0 && (authorUid == null || authorUid <= 0 || uid == authorUid)) {
         return uid;
       }
     } else if (authorUid != null && authorUid > 0 && _isAdminMemberBanUrl(href)) {
@@ -977,6 +987,26 @@ int? memberBanUidIn(uh.Element? column, {int? authorUid}) {
     }
   }
   return null;
+}
+
+/// The user groups of banned members: 禁止发言 (4) and 禁止访问 (5).
+const memberBannedGroups = {4, 5};
+
+/// Whether the author column [column] links the author's user group (`home.php?mod=spacecp&ac=usergroup&gid=GID`) as
+/// one of [memberBannedGroups].
+bool memberBannedIn(uh.Element? column) {
+  final link = column?.querySelector('a[href*="ac=usergroup"]');
+  if (link == null) {
+    return false;
+  }
+  final Uri uri;
+  try {
+    uri = Uri.parse((link.attributes['href'] ?? '').replaceAll('&amp;', '&'));
+  } on FormatException {
+    return false;
+  }
+  final query = isForumScriptUri(uri, 'home.php') ? uniqueQueryParameters(uri) : null;
+  return query != null && query['ac'] == 'usergroup' && memberBannedGroups.contains(int.tryParse(query['gid'] ?? ''));
 }
 
 bool _isAdminMemberBanUrl(String url) {
