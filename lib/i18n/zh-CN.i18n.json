@@ -271,7 +271,8 @@
       "followedThreads": "追踪的帖子",
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
-      "ratingStats": "评分统计"
+      "ratingStats": "评分统计",
+      "visitors": "最近访客"
     }
   },
   "home": {
@@ -394,6 +395,16 @@
         "title": "高刷新率",
         "detail": "使用屏幕支持的最高刷新率，滚动更流畅，但会稍微多耗电"
       },
+      "homeLayout": {
+        "title": "主页版面",
+        "reset": "恢复默认",
+        "greeting": "签到与每日",
+        "support": "支持开发",
+        "pinned": "置顶帖",
+        "guide": "论坛导读",
+        "stats": "论坛动态",
+        "tools": "我的工具"
+      },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
         "detail": "论坛卡片上显示可跳转到最新帖子和子板块的部件"
@@ -506,7 +517,13 @@
       "unreadBadgeLimitation": "上述三项打开后将在消息页卡片上显示未读小圆点，提醒和公共消息的已读/未读状态仅本机有效",
       "fontFamily": {
         "title": "字体",
-        "dialogTitle": "选择字体"
+        "dialogTitle": "选择字体",
+        "importFile": "从文件导入",
+        "importFailed": "导入失败：不是可用的字体文件",
+        "importReservedName": "字体名称已被系统占用，请改文件名",
+        "importNameInUse": "已有同名字体，请先删除并重启应用后再导入",
+        "importIoFailed": "导入失败，请稍后再试",
+        "deleteFont": "删除字体"
       },
       "chineseDisplay": {
         "title": "简繁显示",
@@ -772,6 +789,41 @@
           "skip": "跳过，只导入其他数据",
           "restore": "恢复"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "服务器地址",
+        "username": "账号",
+        "password": "密码",
+        "directory": "目录",
+        "invalidUrl": "请填写 http:// 或 https:// 开头的地址",
+        "autoBackup": "自动备份",
+        "schedule": {
+          "off": "关闭",
+          "daily": "每天",
+          "weekly": "每周"
+        },
+        "keep": "保留份数",
+        "invalidKeep": "请填写 1～$max",
+        "saveFailed": "保存失败，请稍后再试",
+        "test": {
+          "idle": "测试连接",
+          "testing": "测试中…",
+          "ok": "连接成功",
+          "unauthorized": "账号或密码错误",
+          "notFound": "地址不存在或不是 WebDAV",
+          "unreachable": "无法连接服务器",
+          "failed": "连接失败"
+        },
+        "backupNow": "立即备份",
+        "lastBackup": "上次备份：$time",
+        "backupDone": "已备份到 WebDAV",
+        "backupFailed": "备份失败，现有数据未变更",
+        "backupUnauthorized": "备份失败：WebDAV 账号或密码错误",
+        "restore": "从 WebDAV 恢复",
+        "restoreEmpty": "WebDAV 上没有备份",
+        "listFailed": "无法读取 WebDAV 上的备份",
+        "downloadFailed": "下载备份失败"
       }
     },
     "debugSection": {
@@ -1400,6 +1452,10 @@
   },
   "friendPage": {
     "title": "好友",
+    "visitor": {
+      "title": "最近访客",
+      "empty": "还没有访客"
+    },
     "subtitle": "${name} · ${count: int} 位好友",
     "subtitleCountOnly": "${count: int} 位好友",
     "empty": "还没有好友",
@@ -2514,6 +2570,12 @@
     "switchFailed": "切换失败",
     "switchSucceeded": "已切换至 ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "用户组升级进度",
+    "creditsLeft": "还需 ${n: int} 积分",
+    "noNext": "当前用户组没有下一级",
+    "extraGroups": "扩展用户组"
+  },
   "editAvatarPage": {
     "title": "编辑头像",
     "currentAvatar": "当前头像",
@@ -2932,6 +2994,52 @@
     "unconfirmed": "已送出“${name}”的购买，但无法确认结果。再次购买前请先查看“我的称号”。",
     "termsChanged": "“${name}”在购买前已变更，未进行购买；请确认价格后重新操作。",
     "unavailableNow": "“${name}”已无法购买，未进行购买。"
+  },
+  "taskCenter": {
+    "title": "任务",
+    "refresh": "刷新",
+    "openBrowser": "在浏览器打开",
+    "tabAvailable": "可申请",
+    "tabDoing": "进行中",
+    "tabDone": "已完成",
+    "apply": "申请",
+    "claim": "领取奖励",
+    "progress": "${percent}%",
+    "empty": "暂无任务。",
+    "loginRequired": "请登录后查看任务。",
+    "applied": "已申请“${name}”。",
+    "rewarded": "已领取“${name}”的奖励。",
+    "inProgress": "“${name}”尚未完成。",
+    "failed": "“${name}”已失败。",
+    "refused": "“${name}”未成功。",
+    "unconfirmed": "无法确认“${name}”的结果，请先查看列表再重试。"
+  },
+  "magicCenter": {
+    "title": "道具",
+    "shop": "商店",
+    "mine": "我的道具",
+    "refresh": "刷新",
+    "openBrowser": "在浏览器打开",
+    "previous": "上一页",
+    "next": "下一页",
+    "loginRequired": "请登录后使用道具。",
+    "empty": "暂无道具",
+    "soldOut": "缺货",
+    "buy": "购买",
+    "use": "使用",
+    "owned": "× ${count}",
+    "unsupported": "这个道具只能在网页上使用。",
+    "fieldThread": "主题 ID 或链接",
+    "threadInvalid": "请输入主题 ID 或主题链接",
+    "fieldUser": "用户名",
+    "fieldNewName": "新用户名",
+    "fieldCount": "数量",
+    "required": "请填写",
+    "bought": "已购买“${name}”",
+    "used": "已使用“${name}”",
+    "rejected": "论坛未完成“${name}”的操作",
+    "unknown": "已送出“${name}”，但无法确认结果。再次操作前请先看“我的道具”里的数量。",
+    "windowFailed": "无法打开道具窗口"
   },
   "editUserProfilePage": {
     "title": "编辑资料",
@@ -3667,6 +3775,9 @@
   "twoPane": {
     "tabsFull": "最多同时打开 ${count: int} 个标签页"
   },
+  "quickOpen": {
+    "search": "搜索：$text"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {
@@ -3678,6 +3789,7 @@
     },
     "commands": {
       "search": "搜索",
+      "quickOpen": "快速跳转",
       "settings": "设置",
       "back": "关闭对话框、返回",
       "refresh": "刷新",
@@ -3746,5 +3858,70 @@
     "revoked": "$name 已在其他设备上登出本机",
     "revokedUnknown": "一个账号已在其他设备上登出本机",
     "login": "登录"
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "积分",
+      "post": "发帖",
+      "online": "在线",
+      "thread": "热帖"
+    },
+    "threadViews": {
+      "replies": "回复",
+      "views": "查看",
+      "favtimes": "收藏",
+      "heats": "热度"
+    },
+    "empty": "暂无排行",
+    "minutes": "$n 分钟",
+    "updated": "更新于 $last · 下次 $next"
+  },
+  "spacePage": {
+    "blogs": "日志",
+    "albums": "相册",
+    "comments": "评论",
+    "emptyBlogs": "还没有日志",
+    "emptyAlbums": "还没有相册",
+    "emptyPhotos": "相册里还没有图片",
+    "newBlog": "发表日志",
+    "upload": "上传图片",
+    "blogEdit": {
+      "subject": "标题",
+      "message": "内容",
+      "category": "分类",
+      "noCategory": "不分类",
+      "newCategory": "新建分类",
+      "newCategoryName": "分类名称",
+      "systemCategory": "系统分类",
+      "privacy": "隐私",
+      "password": "密码",
+      "send": "发表",
+      "sending": "正在发表…",
+      "done": "日志已发表",
+      "emptyMessage": "请填写内容",
+      "emptyPassword": "请填写密码"
+    },
+    "albumUpload": {
+      "pick": "选择图片",
+      "album": "相册",
+      "newAlbum": "新建相册",
+      "albumName": "相册名称",
+      "privacy": "隐私",
+      "password": "密码",
+      "send": "上传",
+      "sending": "正在上传 ${sent: int} / ${total: int}",
+      "filing": "正在存入相册…",
+      "done": "已上传 ${count: int} 张",
+      "refusedType": "格式不支持",
+      "refusedSize": "文件太大",
+      "refusedRejected": "论坛未接收",
+      "refusedFailed": "上传失败",
+      "noneTaken": "没有图片上传成功",
+      "emptyAlbumName": "请填写相册名称"
+    },
+    "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
+    "sendFailed": "发送失败",
+    "identityChanged": "账号已切换，这个页面不会再发送任何内容"
   }
 }

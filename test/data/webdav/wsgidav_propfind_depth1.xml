@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ns0:multistatus xmlns:ns0="DAV:">
+  <ns0:response>
+    <ns0:href>/dav/%E5%A4%A9%E4%BD%BF%E5%A4%87%E4%BB%BD/</ns0:href>
+    <ns0:propstat>
+      <ns0:prop>
+        <ns0:resourcetype><ns0:collection /></ns0:resourcetype>
+        <ns0:getlastmodified>Sun, 08 Nov 2026 17:14:23 GMT</ns0:getlastmodified>
+        <ns0:displayname>天使备份</ns0:displayname>
+      </ns0:prop>
+      <ns0:status>HTTP/1.1 200 OK</ns0:status>
+    </ns0:propstat>
+  </ns0:response>
+  <ns0:response>
+    <ns0:href>/dav/%E5%A4%A9%E4%BD%BF%E5%A4%87%E4%BB%BD/tsdm_client_data_1.db</ns0:href>
+    <ns0:propstat>
+      <ns0:prop>
+        <ns0:resourcetype />
+        <ns0:getcontentlength>6</ns0:getcontentlength>
+        <ns0:getcontenttype>application/octet-stream</ns0:getcontenttype>
+        <ns0:getlastmodified>Sun, 08 Nov 2026 17:14:23 GMT</ns0:getlastmodified>
+        <ns0:displayname>tsdm_client_data_1.db</ns0:displayname>
+      </ns0:prop>
+      <ns0:status>HTTP/1.1 200 OK</ns0:status>
+    </ns0:propstat>
+  </ns0:response>
+</ns0:multistatus>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<form id="magicform" method="post" action="home.php?mod=magic&amp;action=mybox&amp;infloat=yes" onsubmit="ajaxpost('magicform', 'return_magics', 'return_magics', 'onerror');return false;">
+<div class="f_c">
+<h3 class="flb">
+<em>
+使用道具
+</em>
+<span><a href="javascript:;" class="flbc" onclick="hideWindow('magics');return false;" title="关闭">关闭</a></span>
+</h3>
+<div class="c" id="hkey_magics">
+<div id="return_magics"></div>
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="handlekey" value="magics" />
+<input type="hidden" name="operation" value="use" />
+<input type="hidden" name="magicid" value="34" />
+<dl class="xld cl">
+<dd class="m"><img src="source/plugin/prankmagic/magic/magic_pkcat.gif" alt="猫娘卡"></dd>
+<dt class="z">
+猫娘卡<div class="pns xw0 cl">
+<p><p>被施法的人在帖子里说的每句话结尾都会多一个「喵～」，持续 24 小时。</p><p>只改大家看到的样子，原文不会被修改。</p><p class="mtm mbn">目标用户名</p><input type="text" name="username" class="px p_fre" value="" size="12" autocomplete="off" />
+</p></div>
+</dt>
+</dl>
+<input type="hidden" name="usesubmit" value="yes" />
+<input type="hidden" name="operation" value="use" />
+<input type="hidden" name="magicid" value="34" />
+</div>
+</div>
+
+<div class="o pns" id="hbtn_magics">
+<button class="pn pnc" type="submit" name="usesubmit" id="usesubmit" value="true"><span>使用</span></button>
+</div>
+</form>
+
+<script type="text/javascript" reload="1">
+function confirmMagicOp(e) {
+e = e ? e : window.event;
+showDialog('确认该操作', 'confirm', '', 'ajaxpost(\'magicform\', \'return_magics\', \'return_magics\', \'onerror\');');
+doane(e);
+return false;
+}
+function succeedhandle_magics(url, msg) {
+hideWindow('magics');
+if(arguments[2] && arguments[2]['avatar']) {
+msg += ' <ul class="ml mls cl"><li><a class="avt" target="_blank" href="home.php?mod=space&amp;uid='+arguments[2]['uid']+'"><em class=""></em><img src="./avatar.php?uid='+arguments[2]['uid']+'&size=small" /></a><p><a title="admin" href="home.php?mod=space&amp;uid='+arguments[2]['uid']+'" target="_blank"><b>'+arguments[2]['username']+'</b></a></p></li></ul>';
+}
+showDialog(msg, 'notice', null, function () { location.href=url; }, 0);
+showCreditPrompt();
+}
+</script>
+
+]]></root>

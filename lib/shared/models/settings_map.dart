@@ -62,6 +62,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadCardThumbnailMode = 1,
     this.chineseDisplayMode = 0,
     this.threadCardExternalThumbnails = false,
+    this.homeLayout = '',
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
     this.notificationPermissionPrompted = false,
@@ -153,6 +154,10 @@ class SettingsMap with SettingsMapMappable {
   /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
   /// lack it.
   final int chineseDisplayMode;
+
+  /// Order and visibility of the homepage blocks, see `HomeBlockLayout`. Not required: backups from older versions
+  /// lack it.
+  final String homeLayout;
 
   /// When the thread lists show a thumbnail.
   ThreadThumbnailMode get threadThumbnailMode => ThreadThumbnailMode.fromIndex(threadCardThumbnailMode);
@@ -393,6 +398,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.chineseDisplayMode => copyWith(chineseDisplayMode: value as int?),
       SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
       SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
+      SettingsKeys.homeLayout => copyWith(homeLayout: value as String?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
       SettingsKeys.netClientUseProxy => copyWith(netClientUseProxy: value as bool?),
       SettingsKeys.autoCheckin => copyWith(autoCheckin: value as bool?),

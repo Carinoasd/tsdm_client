@@ -271,7 +271,8 @@
       "followedThreads": "Followed threads",
       "readingStats": "Reading stats",
       "checkinCalendar": "Check-in calendar",
-      "ratingStats": "Rating statistics"
+      "ratingStats": "Rating statistics",
+      "visitors": "Recent visitors"
     }
   },
   "home": {
@@ -394,6 +395,16 @@
         "title": "High Refresh Rate",
         "detail": "Run at the highest refresh rate the screen supports, smoother scrolling but uses a little more battery"
       },
+      "homeLayout": {
+        "title": "Home layout",
+        "reset": "Reset",
+        "greeting": "Check-in & daily",
+        "support": "Support",
+        "pinned": "Pinned threads",
+        "guide": "Forum guide",
+        "stats": "Forum activity",
+        "tools": "My tools"
+      },
       "showShortcutInForumCard": {
         "title": "Forum Card Shortcut Entries",
         "detail": "Show shortcut entries towards latest thread and subreddits in forum card"
@@ -506,7 +517,13 @@
       "unreadBadgeLimitation": "Show badge unread notice on card in notification, read/unread status only valid on current machine",
       "fontFamily": {
         "title": "Font family",
-        "dialogTitle": "Choose font"
+        "dialogTitle": "Choose font",
+        "importFile": "Import from file",
+        "importFailed": "Import failed: not a usable font file",
+        "importReservedName": "This name is reserved, rename the file",
+        "importNameInUse": "A font with this name exists, delete it and restart the app before importing again",
+        "importIoFailed": "Import failed, try again later",
+        "deleteFont": "Delete font"
       },
       "chineseDisplay": {
         "title": "Chinese script",
@@ -772,6 +789,41 @@
           "skip": "Skip, import the rest",
           "restore": "Restore"
         }
+      },
+      "webdav": {
+        "title": "WebDAV",
+        "url": "Server URL",
+        "username": "Username",
+        "password": "Password",
+        "directory": "Directory",
+        "invalidUrl": "Enter a URL starting with http:// or https://",
+        "autoBackup": "Automatic backup",
+        "schedule": {
+          "off": "Off",
+          "daily": "Daily",
+          "weekly": "Weekly"
+        },
+        "keep": "Backups to keep",
+        "invalidKeep": "Enter 1 to $max",
+        "saveFailed": "Could not save; try again later",
+        "test": {
+          "idle": "Test connection",
+          "testing": "Testing…",
+          "ok": "Connected",
+          "unauthorized": "Wrong username or password",
+          "notFound": "Not found or not a WebDAV server",
+          "unreachable": "Server unreachable",
+          "failed": "Connection failed"
+        },
+        "backupNow": "Back up now",
+        "lastBackup": "Last backup: $time",
+        "backupDone": "Backed up to WebDAV",
+        "backupFailed": "Backup failed; nothing was changed",
+        "backupUnauthorized": "Backup failed: wrong WebDAV username or password",
+        "restore": "Restore from WebDAV",
+        "restoreEmpty": "No backups on WebDAV",
+        "listFailed": "Could not read the backups on WebDAV",
+        "downloadFailed": "Could not download the backup"
       }
     },
     "debugSection": {
@@ -1400,6 +1452,10 @@
   },
   "friendPage": {
     "title": "Friends",
+    "visitor": {
+      "title": "Recent visitors",
+      "empty": "No visitors yet"
+    },
     "subtitle": "${name} · ${count: int} friends",
     "subtitleCountOnly": "${count: int} friends",
     "empty": "No friends yet",
@@ -2514,6 +2570,12 @@
     "switchFailed": "Switch failed",
     "switchSucceeded": "Switched to ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "User group progress",
+    "creditsLeft": "Credits needed: ${n: int}",
+    "noNext": "No higher user group",
+    "extraGroups": "Extra user groups"
+  },
   "editAvatarPage": {
     "title": "Edit avatar",
     "currentAvatar": "Current avatar",
@@ -2932,6 +2994,52 @@
     "unconfirmed": "The purchase of “${name}” was sent but could not be confirmed. Check My titles before trying again.",
     "termsChanged": "“${name}” changed before the purchase. Nothing was bought; check the price and confirm again.",
     "unavailableNow": "“${name}” can no longer be bought. Nothing was bought."
+  },
+  "taskCenter": {
+    "title": "Tasks",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "tabAvailable": "Available",
+    "tabDoing": "In progress",
+    "tabDone": "Completed",
+    "apply": "Apply",
+    "claim": "Claim reward",
+    "progress": "${percent}%",
+    "empty": "No tasks.",
+    "loginRequired": "Sign in to use tasks.",
+    "applied": "Applied for \"${name}\".",
+    "rewarded": "Reward of \"${name}\" claimed.",
+    "inProgress": "\"${name}\" is not complete yet.",
+    "failed": "\"${name}\" failed.",
+    "refused": "\"${name}\" was refused.",
+    "unconfirmed": "The result of \"${name}\" could not be confirmed. Check the lists before trying again."
+  },
+  "magicCenter": {
+    "title": "Magic",
+    "shop": "Shop",
+    "mine": "My magic",
+    "refresh": "Refresh",
+    "openBrowser": "Open in browser",
+    "previous": "Previous",
+    "next": "Next",
+    "loginRequired": "Log in to use magic items.",
+    "empty": "No items",
+    "soldOut": "Sold out",
+    "buy": "Buy",
+    "use": "Use",
+    "owned": "× ${count}",
+    "unsupported": "This item can only be used on the website.",
+    "fieldThread": "Thread ID or link",
+    "threadInvalid": "Enter a thread ID or a thread link",
+    "fieldUser": "Username",
+    "fieldNewName": "New username",
+    "fieldCount": "Quantity",
+    "required": "Required",
+    "bought": "Bought \"${name}\"",
+    "used": "Used \"${name}\"",
+    "rejected": "The forum did not complete \"${name}\"",
+    "unknown": "\"${name}\" was sent but the result could not be confirmed. Check the count in My magic before trying again.",
+    "windowFailed": "Could not open the item window"
   },
   "editUserProfilePage": {
     "title": "Edit profile",
@@ -3667,6 +3775,9 @@
   "twoPane": {
     "tabsFull": "Up to ${count: int} tabs can be open"
   },
+  "quickOpen": {
+    "search": "Search: $text"
+  },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
     "groups": {
@@ -3678,6 +3789,7 @@
     },
     "commands": {
       "search": "Search",
+      "quickOpen": "Quick open",
       "settings": "Settings",
       "back": "Close dialog, go back",
       "refresh": "Refresh",
@@ -3746,5 +3858,70 @@
     "revoked": "$name was logged out of this device from another device",
     "revokedUnknown": "An account was logged out of this device from another device",
     "login": "Log in"
+  },
+  "ranklistPage": {
+    "title": "Rankings",
+    "tabs": {
+      "credit": "Credits",
+      "post": "Posts",
+      "online": "Online",
+      "thread": "Hot threads"
+    },
+    "threadViews": {
+      "replies": "Replies",
+      "views": "Views",
+      "favtimes": "Favorites",
+      "heats": "Heat"
+    },
+    "empty": "No rankings yet",
+    "minutes": "$n minutes",
+    "updated": "Updated $last · next $next"
+  },
+  "spacePage": {
+    "blogs": "Blogs",
+    "albums": "Albums",
+    "comments": "Comments",
+    "emptyBlogs": "No blogs yet",
+    "emptyAlbums": "No albums yet",
+    "emptyPhotos": "No photos in this album yet",
+    "newBlog": "New blog",
+    "upload": "Upload photos",
+    "blogEdit": {
+      "subject": "Title",
+      "message": "Content",
+      "category": "Category",
+      "noCategory": "None",
+      "newCategory": "New category",
+      "newCategoryName": "Category name",
+      "systemCategory": "Site category",
+      "privacy": "Privacy",
+      "password": "Password",
+      "send": "Post",
+      "sending": "Posting…",
+      "done": "Blog posted",
+      "emptyMessage": "Write something first",
+      "emptyPassword": "Enter a password"
+    },
+    "albumUpload": {
+      "pick": "Choose photos",
+      "album": "Album",
+      "newAlbum": "New album",
+      "albumName": "Album name",
+      "privacy": "Privacy",
+      "password": "Password",
+      "send": "Upload",
+      "sending": "Uploading ${sent: int} / ${total: int}",
+      "filing": "Adding to the album…",
+      "done": "Uploaded: ${count: int}",
+      "refusedType": "Unsupported format",
+      "refusedSize": "File too large",
+      "refusedRejected": "Not taken by the forum",
+      "refusedFailed": "Upload failed",
+      "noneTaken": "No photo was uploaded",
+      "emptyAlbumName": "Enter an album name"
+    },
+    "unconfirmed": "The result is unknown: check the list before sending again",
+    "sendFailed": "Failed to send",
+    "identityChanged": "The account changed: this page sends nothing more"
   }
 }
