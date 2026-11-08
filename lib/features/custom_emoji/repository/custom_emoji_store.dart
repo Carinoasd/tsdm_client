@@ -11,7 +11,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 
-/// The user's custom emoji packs, kept on this device for every account in `emoji_packs` of the app's documents
+/// The user's custom emoji packs, kept on this device for every account in `emoji_packs` of the app's support
 /// directory: `packs.json` (the packs and the order of their images), the images as `images/<sha256>.<ext>`, and
 /// `uploads.json`, the attachment each account last uploaded of an image (by SHA-256, [uploadedAid]).
 ///
@@ -20,7 +20,7 @@ import 'package:uuid/uuid.dart';
 final class CustomEmojiStore with LoggerMixin {
   /// Constructor.
   ///
-  /// The files live in [directory] (`emoji_packs` in the app's documents directory by default); [prepare] reads an
+  /// The files live in [directory] (`emoji_packs` in the app's support directory by default: the app's own, never the user's Documents of a desktop); [prepare] reads an
   /// added image ([prepareCustomEmoji] in an isolate by default).
   CustomEmojiStore({
     Future<Directory> Function()? directory,
@@ -33,7 +33,7 @@ final class CustomEmojiStore with LoggerMixin {
 
   static Future<Directory> _defaultDirectory() async {
     final sep = Platform.pathSeparator;
-    return Directory('${(await getApplicationDocumentsDirectory()).path}${sep}emoji_packs');
+    return Directory('${(await getApplicationSupportDirectory()).path}${sep}emoji_packs');
   }
 
   static Future<PreparedCustomEmoji?> _prepareInIsolate(Uint8List bytes) => compute(prepareCustomEmoji, bytes);
