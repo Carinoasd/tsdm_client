@@ -202,6 +202,19 @@ final class UserBlockCubit extends Cubit<UserBlockList> with LoggerMixin {
   Future<UserBlockResult> unblock(int uid, {required int? expectedOwner}) =>
       _guarded(expectedOwner, (owner) => _repository.unblock(ownerUid: owner, uid: uid));
 
+  /// Hide the threads whose title contains [text] for the account [expectedOwner], only if that is still the current
+  /// account.
+  Future<UserBlockResult> addKeyword(String text, {required int? expectedOwner}) =>
+      _guarded(expectedOwner, (owner) => _repository.addKeyword(ownerUid: owner, text: text));
+
+  /// Stop hiding the threads of the keyword of [key] for the account [expectedOwner].
+  Future<UserBlockResult> removeKeyword(String key, {required int? expectedOwner}) =>
+      _guarded(expectedOwner, (owner) => _repository.removeKeyword(ownerUid: owner, key: key));
+
+  /// Hide the threads of exactly [forums] (id to name) in the lists of many forums for the account [expectedOwner].
+  Future<UserBlockResult> setForums(Map<int, String> forums, {required int? expectedOwner}) =>
+      _guarded(expectedOwner, (owner) => _repository.setForums(ownerUid: owner, forums: forums));
+
   @override
   Future<void> close() async {
     _retryTimer?.cancel();
