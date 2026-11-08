@@ -2,14 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/repository/mention_repository.dart';
+import 'package:tsdm_client/features/editor/widgets/mention_picker.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
-
-/// Where the friends and the users mentioned recently come from; kept for the run so reopening the box is quick.
-final MentionRepository _mentionRepository = MentionRepository();
 
 /// The forums of [groups], unique by id in the order of the index; the forums that only redirect elsewhere are left
 /// out as they have no page of their own.
@@ -42,13 +40,16 @@ List<QuickOpenUser> quickOpenUsersOf(MentionCandidates candidates) {
   ];
 }
 
+/// Hands one loaded source of the box over; the others stay as they were.
+typedef QuickOpenSourcesArrived =
+    void Function({List<QuickOpenForum>? forums, List<QuickOpenThread>? threads, List<QuickOpenUser>? users});
+
 /// Loads each source of the box on its own and hands it to [onLoaded] as it arrives; a source that fails stays empty.
 ///
-/// [isActive] tells whether the box is still open, so a closed box asks nothing more.
+/// The users come from the repository the mention picker uses, so the two share one cache. [isActive] tells whether the box is still open, so a closed box asks nothing more.
 Future<void> loadQuickOpenSources(
   BuildContext context, {
-  required void Function({List<QuickOpenForum>? forums, List<QuickOpenThread>? threads, List<QuickOpenUser>? users})
-  onLoaded,
+  required QuickOpenSourcesArrived onLoaded,
   required bool Function() isActive,
 }) async {
   final historyRepository = context.read<ThreadVisitHistoryRepo>();
@@ -73,7 +74,7 @@ Future<void> loadQuickOpenSources(
     if (selfUid == null) {
       return;
     }
-    final result = await _mentionRepository.loadCandidates(selfUid: selfUid).run();
+    final result = await sharedMentionRepository().loadCandidates(selfUid: selfUid).run();
     if (isActive()) {
       result.fold((_) {}, (value) => onLoaded(users: quickOpenUsersOf(value)));
     }

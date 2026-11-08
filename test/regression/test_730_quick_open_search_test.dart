@@ -99,6 +99,14 @@ void main() {
       expect(buildQuickOpenCandidates('anime', words).first.route.queryParameters, {'tid': '2'});
     });
 
+    test('the brackets around a title end the word before them', () {
+      const brackets = QuickOpenSources(
+        threads: [(tid: 1, title: '总结版规说明'), (tid: 2, title: '【公告】版规说明')],
+      );
+      final tids = buildQuickOpenCandidates('版规', brackets).where((e) => e.kind == QuickOpenKind.thread);
+      expect(tids.map((e) => e.route.queryParameters['tid']), ['2', '1']);
+    });
+
     test('the threads keep the order of the source: newest first', () {
       const threads = QuickOpenSources(
         threads: [(tid: 3, title: 'chat c'), (tid: 2, title: 'chat b'), (tid: 1, title: 'chat a')],

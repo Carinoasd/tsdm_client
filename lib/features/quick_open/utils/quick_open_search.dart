@@ -66,8 +66,23 @@ int? matchScore(String text, List<String> tokens) {
   return lower == tokens.join(' ') ? 0 : score + 1;
 }
 
-bool _isWordChar(int unit) =>
-    (unit >= 0x30 && unit <= 0x39) || (unit >= 0x61 && unit <= 0x7a) || unit == 0x5f || unit > 0x7f;
+/// Whether [unit] is a letter or a digit, so a word goes on through it.
+///
+/// Chinese has no word boundary: a character after another counts as inside the word, but the punctuation around
+/// titles (`【】`, `「」`, the full width space and marks) ends it.
+bool _isWordChar(int unit) {
+  if (unit <= 0x7f) {
+    return (unit >= 0x30 && unit <= 0x39) || (unit >= 0x61 && unit <= 0x7a) || unit == 0x5f;
+  }
+  final isPunctuation =
+      (unit >= 0x2000 && unit <= 0x206f) ||
+      (unit >= 0x3000 && unit <= 0x303f) ||
+      (unit >= 0xff00 && unit <= 0xff0f) ||
+      (unit >= 0xff1a && unit <= 0xff20) ||
+      (unit >= 0xff3b && unit <= 0xff40) ||
+      (unit >= 0xff5b && unit <= 0xff65);
+  return !isPunctuation && unit != 0xa0;
+}
 
 /// The lines of the box for the typed [input], first the one Enter opens.
 ///

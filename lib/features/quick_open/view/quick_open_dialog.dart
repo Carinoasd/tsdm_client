@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
 import 'package:tsdm_client/features/quick_open/repository/quick_open_sources_loader.dart';
 import 'package:tsdm_client/features/quick_open/utils/quick_open_search.dart';
@@ -31,11 +33,16 @@ IconData quickOpenIconOf(QuickOpenKind kind) => switch (kind) {
 /// user. Up and down move the selection, Enter opens it (the first line at first), Esc closes the box.
 class QuickOpenDialog extends StatefulWidget {
   /// Constructor.
-  const QuickOpenDialog({this.sources, super.key});
+  const QuickOpenDialog({this.sources, this.loader, super.key});
 
   /// Fixed sources instead of loading them from the app, for tests.
   @visibleForTesting
   final QuickOpenSources? sources;
+
+  /// Loads the sources instead of the app's own, for tests; with [sources] given and no loader, nothing is loaded.
+  @visibleForTesting
+  final Future<void> Function(BuildContext context, {QuickOpenSourcesArrived onLoaded, bool Function() isActive})?
+  loader;
 
   @override
   State<QuickOpenDialog> createState() => _QuickOpenDialogState();
@@ -54,9 +61,10 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   void initState() {
     super.initState();
     _controller.addListener(_refresh);
-    if (widget.sources == null) {
+    final load = widget.loader ?? (widget.sources == null ? loadQuickOpenSources : null);
+    if (load != null) {
       unawaited(
-        loadQuickOpenSources(
+        load(
           context,
           isActive: () => mounted,
           onLoaded: ({forums, threads, users}) {
@@ -65,7 +73,7 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
               threads: threads ?? _sources.threads,
               users: users ?? _sources.users,
             );
-            _refresh();
+            _rebuildCandidates(keepSelection: true);
           },
         ),
       );
@@ -79,21 +87,41 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
     super.dispose();
   }
 
-  void _refresh() {
+  /// Typing starts the list over; a source arriving late only adds to it, and the line selected stays the selected.
+  void _refresh() => _rebuildCandidates(keepSelection: false);
+
+  void _rebuildCandidates({required bool keepSelection}) {
+    final previous = _candidates.isEmpty ? null : _candidates[_selected];
+    final candidates = buildQuickOpenCandidates(_controller.text, _sources);
+    var selected = 0;
+    if (keepSelection && previous != null) {
+      final index = candidates.indexWhere(
+        (e) => e.kind == previous.kind && e.title == previous.title && _sameRoute(e.route, previous.route),
+      );
+      selected = index < 0 ? 0 : index;
+    }
     setState(() {
-      _candidates = buildQuickOpenCandidates(_controller.text, _sources);
-      _selected = 0;
+      _candidates = candidates;
+      _selected = selected;
     });
-    if (_scrollController.hasClients) {
+    if (!keepSelection && _scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
   }
+
+  bool _sameRoute(RecognizedRoute a, RecognizedRoute b) =>
+      a.screenPath == b.screenPath &&
+      mapEquals(a.pathParameters, b.pathParameters) &&
+      mapEquals(a.queryParameters, b.queryParameters);
 
   void _move(int delta) {
     if (_candidates.isEmpty) {
       return;
     }
     setState(() => _selected = (_selected + delta) % _candidates.length);
+    if (!_scrollController.hasClients) {
+      return;
+    }
     final top = _selected * _itemExtent;
     final position = _scrollController.position;
     if (top < position.pixels) {
