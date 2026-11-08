@@ -301,6 +301,11 @@ class ScreenPaths {
   /// Need to login before see the content.
   static const String points = '/points';
 
+  /// The page to show the days the current logged user checked in on a calendar.
+  ///
+  /// Need to login before see the content.
+  static const String checkinCalendar = '/checkinCalendar';
+
   /// Page to edit a post or thread.
   ///
   /// Contains:

@@ -163,6 +163,12 @@ class _MePageState extends State<MePage> {
         label: tr.points,
         onTap: () => _open(ScreenPaths.points),
       ),
+      (
+        key: const ValueKey('me-checkin-calendar'),
+        icon: Icons.event_available_outlined,
+        label: tr.checkinCalendar,
+        onTap: () => _open(ScreenPaths.checkinCalendar),
+      ),
     ];
   }
 

@@ -235,6 +235,13 @@
     "me": "我的",
     "settings": "設定"
   },
+  "checkinCalendar": {
+    "title": "簽到日曆",
+    "thisMonth": "本月",
+    "thatMonth": "當月",
+    "streak": "連續",
+    "total": "累計"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的帳號",
@@ -256,7 +263,8 @@
       "friends": "好友",
       "points": "積分",
       "followedThreads": "追蹤的帖子",
-      "readingStats": "閱讀統計"
+      "readingStats": "閱讀統計",
+      "checkinCalendar": "簽到日曆"
     }
   },
   "home": {

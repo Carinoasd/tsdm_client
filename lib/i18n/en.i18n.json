@@ -235,6 +235,13 @@
     "me": "Me",
     "settings": "Settings"
   },
+  "checkinCalendar": {
+    "title": "Check-in calendar",
+    "thisMonth": "This month",
+    "thatMonth": "That month",
+    "streak": "Streak",
+    "total": "Total"
+  },
   "mePage": {
     "title": "Me",
     "mine": "My account",
@@ -256,7 +263,8 @@
       "friends": "Friends",
       "points": "Points",
       "followedThreads": "Followed threads",
-      "readingStats": "Reading stats"
+      "readingStats": "Reading stats",
+      "checkinCalendar": "Check-in calendar"
     }
   },
   "home": {

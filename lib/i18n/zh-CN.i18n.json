@@ -235,6 +235,13 @@
     "me": "我的",
     "settings": "设置"
   },
+  "checkinCalendar": {
+    "title": "签到日历",
+    "thisMonth": "本月",
+    "thatMonth": "当月",
+    "streak": "连续",
+    "total": "累计"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的账号",
@@ -256,7 +263,8 @@
       "friends": "好友",
       "points": "积分",
       "followedThreads": "追踪的帖子",
-      "readingStats": "阅读统计"
+      "readingStats": "阅读统计",
+      "checkinCalendar": "签到日历"
     }
   },
   "home": {
