@@ -123,6 +123,8 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: ThreadOpenPosition.values.length - 1,
   ),
   SyncedSetting._(SettingsKeys.threadSwipePaging, (s) => s.threadSwipePaging),
+  SyncedSetting._(SettingsKeys.immersiveForums, (s) => s.immersiveForums),
+  SyncedSetting._(SettingsKeys.immersiveAllForums, (s) => s.immersiveAllForums),
   SyncedSetting._(SettingsKeys.threadFloorInteractionMode, (s) => s.threadFloorInteractionMode),
   SyncedSetting._(
     SettingsKeys.postImageAutoLoad,
