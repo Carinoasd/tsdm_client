@@ -273,6 +273,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
 
+  /// A video of bilibili or YouTube in a post shows its cover, title, author and length on the card, asked from the
+  /// site when the card is shown. Off: the card names the site only and nothing is asked.
+  postMediaPreview<bool>(name: 'postMediaPreview', type: bool, defaultValue: true),
+
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
   /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
   /// local drafts too, each on its own switch below. Off: nothing is read or written there.

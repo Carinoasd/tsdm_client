@@ -374,6 +374,9 @@
       "twoPaneLayout": {
         "title": "宽屏双栏"
       },
+      "postMediaPreview": {
+        "title": "视频卡片显示封面"
+      },
       "showUnreadInfoHint": {
         "title": "未读信息提示",
         "detail": "有未读消息时消息按钮上显示红点或数量"

@@ -374,6 +374,9 @@
       "twoPaneLayout": {
         "title": "寬螢幕雙欄"
       },
+      "postMediaPreview": {
+        "title": "影片卡片顯示封面"
+      },
       "showUnreadInfoHint": {
         "title": "未讀取訊息提示",
         "detail": "有未讀訊息時訊息按鈕上顯示紅點或數量"

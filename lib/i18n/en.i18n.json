@@ -374,6 +374,9 @@
       "twoPaneLayout": {
         "title": "Two panes on wide windows"
       },
+      "postMediaPreview": {
+        "title": "Show video covers on cards"
+      },
       "showUnreadInfoHint": {
         "title": "Unread Info Hint",
         "detail": "Show badge or count for user unread info on notice button"

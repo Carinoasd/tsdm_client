@@ -524,6 +524,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: state.settingsMap.twoPaneLayout,
           onChanged: (v) async => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.twoPaneLayout, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-post-media-preview'),
+          secondary: const Icon(Icons.smart_display_outlined),
+          title: Text(tr.postMediaPreview.title),
+          value: state.settingsMap.postMediaPreview,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.postMediaPreview, v)),
+        ),
         if (isAndroid)
           SectionSwitchListTile(
             secondary: const Icon(Icons.speed_outlined),
