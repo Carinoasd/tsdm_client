@@ -1024,6 +1024,12 @@
   "threadPage": {
     "title": "貼文",
     "sendReplyHint": "回覆",
+    "multiQuote": {
+      "selected": "已選 $count/$max",
+      "reply": "引用回覆",
+      "limit": "最多引用 $max 樓",
+      "failed": "取得引用失敗"
+    },
     "sendReply": "傳送",
     "closed": "貼文已關閉",
     "needLogin": "需要登入",
@@ -1820,6 +1826,7 @@
   },
   "postCard": {
     "fromApp": "來自天使動漫App",
+    "addQuote": "加入引用",
     "contentUnavailable": "此樓內容無法顯示",
     "bbcode": {
       "attachmentLocked": "無法查看：需要購買、權限不足或要先登入"

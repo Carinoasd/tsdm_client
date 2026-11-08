@@ -1024,6 +1024,12 @@
   "threadPage": {
     "title": "Thread",
     "sendReplyHint": "Reply...",
+    "multiQuote": {
+      "selected": "$count/$max selected",
+      "reply": "Reply with quotes",
+      "limit": "At most $max floors can be quoted",
+      "failed": "Failed to get the quotes"
+    },
     "sendReply": "Reply",
     "closed": "Thread is closed",
     "needLogin": "Need login",
@@ -1820,6 +1826,7 @@
   },
   "postCard": {
     "fromApp": "From the TSDM app",
+    "addQuote": "Add quote",
     "contentUnavailable": "This floor's content can not be shown",
     "bbcode": {
       "attachmentLocked": "Not available to you: to buy, no permission, or log in first"

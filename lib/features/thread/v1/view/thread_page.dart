@@ -44,6 +44,7 @@ import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/dialog.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
@@ -249,6 +250,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   final _munchCache = MunchCache();
 
   final _replyBarController = ReplyBarController();
+
+  /// The floors picked to be quoted in one reply: the app bar is the picking bar meanwhile, and stays shown.
+  final _multiQuote = MultiQuoteSelection();
+
+  /// Whether picking floors was on when the page last looked, see [_onMultiQuoteChanged].
+  bool _pickingShown = false;
 
   /// Searching the floors on screen: the app bar is the search bar meanwhile, and stays shown.
   bool _searching = false;
@@ -1128,11 +1135,115 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// Back closes the search first, the page stays: only while it is the page on top (not under a dialog or a page
   /// opened from it).
   Future<bool> _onBackPressed() async {
-    if (!_searching || !mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      return false;
+    }
+    if (_multiQuote.active) {
+      _multiQuote.exit();
+      return true;
+    }
+    if (!_searching) {
       return false;
     }
     _closeSearch();
     return true;
+  }
+
+  /// Picking floors started or ended: the bars come back and stay while picking. The count and the busy state are
+  /// the bar's own ([ListenableBuilder]); the floors check themselves.
+  void _onMultiQuoteChanged() {
+    final picking = _multiQuote.active;
+    if (!mounted || picking == _pickingShown) {
+      return;
+    }
+    _pickingShown = picking;
+    if (picking) {
+      _setImmersive(hidden: false);
+      _appBarCollapser.show();
+    }
+    setState(() {});
+  }
+
+  /// The bar of picking floors to quote: how many are picked and the reply with their quotes.
+  PreferredSizeWidget _buildMultiQuoteBar(BuildContext context, PreferredSizeWidget breadcrumbs) {
+    final tr = context.t.threadPage.multiQuote;
+    return AppBar(
+      automaticallyImplyLeading: false,
+      leading: IconButton(
+        key: const ValueKey('multi-quote-exit'),
+        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+        icon: const Icon(Icons.close),
+        onPressed: _multiQuote.exit,
+      ),
+      title: ListenableBuilder(
+        listenable: _multiQuote,
+        builder: (context, _) => Text(
+          tr.selected(count: _multiQuote.length, max: MultiQuoteSelection.maxEntries),
+          key: const ValueKey('multi-quote-count'),
+        ),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: ListenableBuilder(
+            listenable: _multiQuote,
+            builder: (context, _) => FilledButton(
+              key: const ValueKey('multi-quote-reply'),
+              onPressed: _multiQuote.length == 0 || _multiQuote.busy ? null : _replyWithQuotes,
+              child: _multiQuote.busy
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(tr.reply),
+            ),
+          ),
+        ),
+      ],
+      bottom: breadcrumbs,
+    );
+  }
+
+  /// Reply to the thread with the quote of every floor picked, in the order picked, each followed by a blank line.
+  ///
+  /// The quote of a floor is what the forum's reply window of the floor gives (the one a reply to the floor puts in
+  /// front of the reply), so it is the same as the quote of a single floor. Nothing is put into the reply when any of
+  /// them could not be read.
+  Future<void> _replyWithQuotes() async {
+    if (_multiQuote.busy || _multiQuote.length == 0) {
+      return;
+    }
+    final entries = _multiQuote.entries;
+    // The picking is held while the quotes come: one after the other, not ten requests at once.
+    _multiQuote.busy = true;
+    final quotes = <String>[];
+    try {
+      for (final e in entries) {
+        final quote = (await const ReplyRepository().fetchReplyFormInfo(e.replyAction))?.quote;
+        if (quote == null) {
+          break;
+        }
+        quotes.add(quote);
+      }
+    } finally {
+      // The page may be gone by now, with its selection.
+      if (mounted) {
+        _multiQuote.busy = false;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    if (quotes.length != entries.length || (_threadBloc?.state.isOffline ?? false)) {
+      showSnackBar(context: context, message: context.t.threadPage.multiQuote.failed);
+      return;
+    }
+    _multiQuote.exit();
+    _setImmersive(hidden: false);
+    // The reply to the thread; the text of a reply to a floor written so far goes along (the bar moves the text with
+    // its target). Put in before the editor opens on the box.
+    _replyBarController
+      ..replyAction = null
+      ..insertBBCode([for (final q in quotes) '$q\n\n'].join())
+      ..setHintText(context.t.threadPage.sendReplyHint)
+      ..requestFocus();
   }
 
   /// Whether the input method is still composing the words in [value] (a pinyin or a kana not chosen yet).
@@ -1739,6 +1850,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 PostCard(
                                   post,
                                   replyCallback: replyPostCallback,
+                                  multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
+                                      ? null
+                                      : _multiQuote,
                                   onEdited: () => _scrollToPidOnReload = post.postID,
                                   onJoinDebate: state.replyParameters == null || state.threadClosed
                                       ? null
@@ -1939,6 +2053,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchEdited);
+    _multiQuote.addListener(_onMultiQuoteChanged);
     _listScrollController.addListener(_checkReadToEnd);
     _readingAuth = context.read<AuthenticationRepository>();
     _readingTime.attach();
@@ -2033,6 +2148,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _bottomBarController.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _multiQuote
+      ..removeListener(_onMultiQuoteChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -2251,7 +2369,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // The search bar stays while searching (the order with immersive reading: [_onScrollNotification]).
             _appBarCollapser.enabled =
                 context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.collapseAppBarWhenScroll) &&
-                !_searching;
+                !_searching &&
+                !_multiQuote.active;
             if (!_appBarCollapser.enabled && !_appBarCollapser.held && _appBarController.value < 1) {
               // Turned off while the bar was hidden: show it again, not from inside this build.
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2270,7 +2389,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             final pane = TwoPaneScope.detailOf(context);
             // Watched here, in the build: the menu items are made later, when the menu opens.
             final immersiveForums = _watchedImmersiveForums(context);
-            final appBar = _searching
+            final appBar = _multiQuote.active
+                ? _buildMultiQuoteBar(context, breadcrumbs)
+                : _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
                     leading: pane != null && pane.threads.length > 1 ? BackButton(onPressed: pane.pop) : null,
