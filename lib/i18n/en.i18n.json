@@ -2340,7 +2340,8 @@
   },
   "userGroupProgress": {
     "title": "User group progress",
-    "creditsLeft": "${n: int} more credits needed",
+    "creditsLeft": "Credits needed: ${n: int}",
+    "noNext": "No higher user group",
     "extraGroups": "Extra user groups"
   },
   "editAvatarPage": {

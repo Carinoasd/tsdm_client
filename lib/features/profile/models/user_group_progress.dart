@@ -67,6 +67,9 @@ final class UserGroupPage {
     }
     final uidMatch = RegExp(r"discuz_uid\s*=\s*'(\d+)'").firstMatch(html);
     final credits = _firstInt(document.querySelector('th.alt span.notice')?.text);
+    if (credits == null) {
+      return null;
+    }
     final viewedTitle = document.querySelector('ul#tba li')?.text?.trim();
     final notice = document.querySelector('div.tscr th.alt.h span.notice');
 
@@ -84,10 +87,10 @@ final class UserGroupPage {
     return UserGroupPage._(
       uid: uidMatch == null ? null : int.tryParse(uidMatch.group(1)!),
       mainGroupName: _afterDash(mainTitle),
-      credits: credits ?? 0,
+      credits: credits,
       viewedGroupName: viewedTitle == null || viewedTitle.isEmpty ? null : _afterDash(viewedTitle),
       viewedGid: viewedAnchor == null ? null : _gidOf(viewedAnchor.attributes['href']),
-      viewedThreshold: _thresholdOf(notice, credits ?? 0),
+      viewedThreshold: _thresholdOf(notice, credits),
       memberGroups: memberGroups,
       extraGroups: menu('gmy_menu'),
     );
@@ -138,7 +141,8 @@ final class UserGroupPage {
       }
       return null;
     }
-    return _firstInt(before);
+    // No unit element to tell the two apart: not read rather than guessed.
+    return null;
   }
 }
 
@@ -151,6 +155,7 @@ final class UserGroupProgress {
     required this.currentFrom,
     required this.nextName,
     required this.nextFrom,
+    this.currentGid,
     this.tiers = const [],
     this.extraGroups = const [],
   });
@@ -163,6 +168,9 @@ final class UserGroupProgress {
 
   /// The credits the main group starts at, null when not known.
   final int? currentFrom;
+
+  /// Group id of the main group, null when not known.
+  final int? currentGid;
 
   /// Name of the next group.
   final String nextName;
@@ -195,6 +203,7 @@ final class UserGroupProgress {
         mainGroupName: mainGroupName,
         credits: credits,
         currentFrom: currentFrom,
+        currentGid: currentGid,
         nextName: nextName,
         nextFrom: nextFrom,
         tiers: tiers,

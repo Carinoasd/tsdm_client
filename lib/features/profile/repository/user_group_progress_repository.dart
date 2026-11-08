@@ -93,8 +93,11 @@ final class UserGroupProgressRepository {
         final tiers = <UserGroupTier>[];
         for (final (i, result) in pages.indexed) {
           switch (result) {
-            case Left(:final value):
+            case Left(:final value) when value is IdentityChangedException:
               return left(value);
+            case Left():
+              // A group whose page failed is left out of the table.
+              break;
             case Right(value: final page):
               if (_from(page) case final from?) {
                 tiers.add(
@@ -111,6 +114,7 @@ final class UserGroupProgressRepository {
             mainGroupName: value.mainGroupName,
             credits: value.credits,
             currentFrom: currentFrom,
+            currentGid: currentGid,
             nextName: next.name,
             nextFrom: next.from,
             tiers: tiers,

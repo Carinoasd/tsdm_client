@@ -48,10 +48,12 @@ class _UserGroupProgressPageState extends State<UserGroupProgressPage> {
               children: [
                 for (final tier in progress.tiers)
                   SectionListTile(
-                    selected: tier.name == progress.mainGroupName,
+                    selected: progress.currentGid != null
+                        ? tier.gid == progress.currentGid
+                        : tier.name == progress.mainGroupName,
                     selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.4),
                     title: Text(tier.name),
-                    trailing: Text('${tier.creditsFrom}'),
+                    trailing: Text(tier.creditsFrom < 0 ? '—' : '${tier.creditsFrom}'),
                   ),
               ],
             ),
@@ -89,7 +91,10 @@ class _UserGroupProgressPageState extends State<UserGroupProgressPage> {
             () => unawaited(_cubit.load(detail: true)),
             message: context.t.general.failedToLoad,
           ),
-          UserGroupProgressStatus.success => progress == null ? sizedBoxEmpty : _buildContent(context, progress),
+          UserGroupProgressStatus.success =>
+            progress == null
+                ? Center(child: Text(context.t.userGroupProgress.noNext))
+                : _buildContent(context, progress),
         };
         return Scaffold(
           appBar: AppBar(title: Text(context.t.userGroupProgress.title)),

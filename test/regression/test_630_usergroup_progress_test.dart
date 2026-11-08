@@ -120,6 +120,12 @@ void main() {
       expect(page.extraGroups.map((g) => (g.gid, g.name)), [(22, '测试字幕组')]);
     });
 
+    test('whose notice has no unit element is not guessed, nor is one without credits', () {
+      final plain = _sample('default_member_mid').replaceAll('<span title="">积分</span>', '积分');
+      expect(UserGroupPage.parse(plain)!.viewedThreshold, isNull);
+      expect(UserGroupPage.parse(_sample('default_member_mid').replaceAll('积分: 700', '')), isNull);
+    });
+
     test('that is no user group page is not read', () {
       expect(UserGroupPage.parse('<html><body>login</body></html>'), isNull);
     });
