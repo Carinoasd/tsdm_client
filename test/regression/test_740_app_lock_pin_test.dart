@@ -50,7 +50,7 @@ void main() {
   });
 
   test('a file naming a lock without a readable PIN is no lock', () {
-    final config = AppLockConfig.fromJson({
+    final config = AppLockConfig.fromJson(const {
       'v': 1,
       'method': 'pin',
       'pin': {'iterations': 10, 'salt': '%%'},
@@ -132,6 +132,29 @@ void main() {
     expect((await store.load()).lockedOutUntil, isNull);
     await cubit.close();
     await start().close();
+  });
+
+  test('a wait saved too far ahead (the clock went back) is cut to the one of its count', () async {
+    final now = DateTime(2026, 11, 9, 12);
+    final cubit = AppLockCubit(
+      config: AppLockConfig(
+        method: AppLockMethod.pin,
+        pin: await hasher.hash('1234'),
+        failedAttempts: 5,
+        lockedOutUntil: now.add(const Duration(days: 3)),
+      ),
+      store: AppLockStore.memory(),
+      biometrics: _NoBiometrics(),
+      hasher: hasher,
+      now: () => now,
+    );
+    expect(cubit.lockedOutUntil, now.add(const Duration(seconds: 30)));
+    await cubit.close();
+  });
+
+  test('a saved hash with an absurd round count is a damaged file', () {
+    expect(PinHash.fromJson({'iterations': PinHash.maxIterations + 1, 'salt': 'AA==', 'hash': 'AA=='}), isNull);
+    expect(PinHash.fromJson({'iterations': 10, 'salt': 'AA==', 'hash': 'AA=='}), isNotNull);
   });
 
   test('turning the lock off forgets the PIN', () async {

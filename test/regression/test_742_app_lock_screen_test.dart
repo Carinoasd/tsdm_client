@@ -13,7 +13,9 @@ import 'package:tsdm_client/features/app_lock/models/app_lock_config.dart';
 import 'package:tsdm_client/features/app_lock/repository/app_lock_store.dart';
 import 'package:tsdm_client/features/app_lock/repository/biometric_authenticator.dart';
 import 'package:tsdm_client/features/app_lock/repository/pin_hasher.dart';
+import 'package:tsdm_client/features/app_lock/view/app_lock_screen.dart';
 import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_settings_section.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 
@@ -56,8 +58,11 @@ void main() {
   late int forgetCalls;
   late bool forgetResult;
   late AppLockBackGuard guard;
+  late GlobalKey<ScaffoldMessengerState> messengerKey;
 
-  Future<void> pumpApp(WidgetTester tester, {BiometricAuthenticator? biometrics}) async {
+  setUp(() => messengerKey = GlobalKey<ScaffoldMessengerState>());
+
+  Future<void> pumpApp(WidgetTester tester, {BiometricAuthenticator? biometrics, Widget? home}) async {
     store = AppLockStore.memory();
     final pin = await _hasher.hash('1234');
     cubit = AppLockCubit(
@@ -77,18 +82,21 @@ void main() {
     await tester.pumpWidget(
       TranslationProvider(
         child: MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('second page')))),
-                  child: const Text('content'),
+          scaffoldMessengerKey: messengerKey,
+          home:
+              home ??
+              Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('second page')))),
+                      child: const Text('content'),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
           builder: (context, child) => AppLockGate(
             cubit: cubit,
             forgetAccounts: (_) async {
@@ -268,5 +276,72 @@ void main() {
     lifecycle(AppLifecycleState.resumed);
     await enter(tester, '1234');
     expect(cubit.state.locked, isFalse, reason: 'the PIN pad still works');
+  });
+
+  testWidgets('snack bars of the covered app are not drawn on the lock screen', (tester) async {
+    await pumpApp(tester);
+    messengerKey.currentState!.showSnackBar(const SnackBar(content: Text('secret toast')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byType(AppLockScreen), matching: find.text('secret toast')),
+      findsNothing,
+      reason: 'only on the covered page underneath',
+    );
+    await enter(tester, '1234');
+    messengerKey.currentState!
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(content: Text('later toast')));
+    await tester.pumpAndSettle();
+    expect(find.text('later toast'), findsOneWidget, reason: 'unlocked, the app shows them as before');
+  });
+
+  testWidgets('loosening the lock in the settings asks to unlock first', (tester) async {
+    await pumpApp(
+      tester,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ListView(children: [AppLockSettingsSection(cubit: cubit)]),
+        ),
+      ),
+    );
+    await enter(tester, '1234');
+    await cubit.setRequireForAccountSwitch(value: true);
+    await tester.pumpAndSettle();
+
+    // Turning the account switch check off: cancelled, so it stays on.
+    await tester.tap(find.byKey(const ValueKey('settings-app-lock-account-switch')));
+    await tester.pumpAndSettle();
+    expect(find.text(t.appLock.lockScreen.enterPin), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('app-lock-cancel')));
+    await tester.pumpAndSettle();
+    expect(cubit.state.config.requireForAccountSwitch, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('settings-app-lock-account-switch')));
+    await tester.pumpAndSettle();
+    await enter(tester, '1234');
+    expect(cubit.state.config.requireForAccountSwitch, isFalse);
+
+    // Turning it on again needs nothing.
+    await tester.tap(find.byKey(const ValueKey('settings-app-lock-account-switch')));
+    await tester.pumpAndSettle();
+    expect(find.text(t.appLock.lockScreen.enterPin), findsNothing);
+    expect(cubit.state.config.requireForAccountSwitch, isTrue);
+
+    // A longer time away asks to unlock, a shorter one does not.
+    await cubit.setTiming(AppLockTiming.oneMinute);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-app-lock-timing')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('app-lock-choice-${AppLockTiming.fiveMinutes}')));
+    await tester.pumpAndSettle();
+    expect(find.text(t.appLock.lockScreen.enterPin), findsOneWidget);
+    await enter(tester, '1234');
+    expect(cubit.state.config.timing, AppLockTiming.fiveMinutes);
+    await tester.tap(find.byKey(const ValueKey('settings-app-lock-timing')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('app-lock-choice-${AppLockTiming.immediately}')));
+    await tester.pumpAndSettle();
+    expect(find.text(t.appLock.lockScreen.enterPin), findsNothing);
+    expect(cubit.state.config.timing, AppLockTiming.immediately);
   });
 }

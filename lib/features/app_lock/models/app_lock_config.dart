@@ -46,7 +46,8 @@ final class PinHash {
     final iterations = json['iterations'];
     final salt = json['salt'];
     final hash = json['hash'];
-    if (iterations is! int || iterations <= 0 || salt is! String || hash is! String) {
+    // A huge count (a damaged file) would hold every check for minutes.
+    if (iterations is! int || iterations <= 0 || iterations > maxIterations || salt is! String || hash is! String) {
       return null;
     }
     try {
@@ -55,6 +56,9 @@ final class PinHash {
       return null;
     }
   }
+
+  /// Most PBKDF2 rounds a saved hash may have.
+  static const maxIterations = 10000000;
 
   /// PBKDF2 rounds.
   final int iterations;

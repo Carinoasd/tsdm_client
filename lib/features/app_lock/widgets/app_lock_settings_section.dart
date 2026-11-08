@@ -36,7 +36,8 @@ String appLockTimingLabel(BuildContext context, AppLockTiming timing) {
 
 /// The app lock group of the settings page.
 ///
-/// Turning the lock off, changing the way to unlock or the PIN first asks for the PIN (or the system unlock).
+/// Turning the lock off, changing the way to unlock or the PIN, a longer time before locking and switching accounts
+/// without unlocking first ask for the PIN (or the system unlock).
 class AppLockSettingsSection extends StatelessWidget {
   /// Constructor; [cubit] is the app's one by default.
   const AppLockSettingsSection({this.cubit, super.key});
@@ -81,9 +82,14 @@ class AppLockSettingsSection extends StatelessWidget {
                     current: config.timing,
                     label: (v) => appLockTimingLabel(context, v),
                   );
-                  if (timing != null) {
-                    await lock.setTiming(timing);
+                  if (timing == null || timing == config.timing) {
+                    return;
                   }
+                  // A longer time away loosens the lock: only after unlocking.
+                  if (timing.delay > config.timing.delay && !await lock.requestVerification(always: true)) {
+                    return;
+                  }
+                  await lock.setTiming(timing);
                 },
               ),
               SectionListTile(
@@ -106,7 +112,13 @@ class AppLockSettingsSection extends StatelessWidget {
                 secondary: const Icon(Icons.switch_account_outlined),
                 title: Text(tr.requireForAccountSwitch),
                 value: config.requireForAccountSwitch,
-                onChanged: (v) async => lock.setRequireForAccountSwitch(value: v),
+                onChanged: (v) async {
+                  // Turning it off loosens the lock: only after unlocking.
+                  if (!v && !await lock.requestVerification(always: true)) {
+                    return;
+                  }
+                  await lock.setRequireForAccountSwitch(value: v);
+                },
               ),
             ],
           ],

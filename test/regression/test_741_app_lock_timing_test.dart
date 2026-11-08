@@ -63,8 +63,9 @@ void main() {
 
   group('AppLockTimer', () {
     test('keeps the first time the app left and locks after the delay', () {
-      final timer = AppLockTimer()..left(now);
-      timer.left(now.add(const Duration(seconds: 30)));
+      final timer = AppLockTimer()
+        ..left(now)
+        ..left(now.add(const Duration(seconds: 30)));
       expect(timer.leftAt, now);
       expect(timer.returned(now.add(const Duration(seconds: 59)), AppLockTiming.oneMinute), isFalse);
       expect(timer.leftAt, isNull);
@@ -83,9 +84,7 @@ void main() {
     final cubit = await unlocked(AppLockTiming.immediately);
     cubit.onLifecycleChanged(AppLifecycleState.inactive);
     expect(cubit.state.locked, isFalse, reason: 'losing the focus is not leaving');
-    cubit.onLifecycleChanged(AppLifecycleState.resumed);
-    cubit.onLifecycleChanged(AppLifecycleState.inactive);
-    cubit.onLifecycleChanged(AppLifecycleState.hidden);
+    go(cubit, [AppLifecycleState.resumed, AppLifecycleState.inactive, AppLifecycleState.hidden]);
     expect(cubit.state.locked, isTrue);
     go(cubit, [AppLifecycleState.paused, ..._back]);
     expect(cubit.state.locked, isTrue);
@@ -113,8 +112,7 @@ void main() {
       // The time away counts from the first leaving, not from the hidden of the way back.
       go(cubit, _away);
       now = now.add(delay);
-      cubit.onLifecycleChanged(AppLifecycleState.hidden);
-      cubit.onLifecycleChanged(AppLifecycleState.inactive);
+      go(cubit, [AppLifecycleState.hidden, AppLifecycleState.inactive]);
       expect(cubit.state.locked, isTrue);
       await cubit.close();
     });
@@ -122,14 +120,32 @@ void main() {
 
   test('a lifecycle change while the system biometric prompt is up is not leaving', () async {
     final cubit = await unlocked(AppLockTiming.immediately, method: AppLockMethod.biometric);
-    cubit.onLifecycleChanged(AppLifecycleState.hidden);
+    go(cubit, [..._away, ..._back]);
     expect(cubit.state.locked, isTrue);
-    biometrics.during = () =>
-        go(cubit, [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]);
+    biometrics.during = () => go(cubit, [AppLifecycleState.inactive]);
     expect(await cubit.unlockWithBiometric('unlock'), isTrue);
     expect(cubit.state.locked, isFalse);
-    go(cubit, _back);
+    go(cubit, [AppLifecycleState.resumed]);
     expect(cubit.state.locked, isFalse, reason: 'the prompt closing must not lock again');
+    await cubit.close();
+  });
+
+  test('leaving while the system prompt of a cancellable unlock is up locks the app', () async {
+    final cubit = await unlocked(AppLockTiming.immediately, method: AppLockMethod.biometric);
+    now = now.add(const Duration(minutes: 1));
+    final pending = cubit.requestVerification();
+    expect(cubit.state.verifying, isTrue);
+    expect(cubit.state.locked, isFalse);
+    biometrics
+      ..result = false
+      ..during = () => go(cubit, _away);
+    expect(await cubit.unlockWithBiometric('unlock'), isFalse);
+    expect(cubit.state.locked, isTrue, reason: 'the leave during the prompt counts');
+    go(cubit, _back);
+    cubit.cancelVerification();
+    expect(cubit.state.locked, isTrue, reason: 'no way back without unlocking');
+    expect(await cubit.unlockWithPin('1234'), isTrue);
+    expect(await pending, isTrue);
     await cubit.close();
   });
 

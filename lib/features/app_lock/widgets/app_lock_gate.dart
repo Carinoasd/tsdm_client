@@ -66,14 +66,17 @@ class _AppLockGateState extends State<AppLockGate> {
             ),
           ),
           if (covering)
-            // Its own heroes: the app's navigator keeps the hero controller of the MaterialApp.
-            HeroControllerScope.none(
-              child: Navigator(
-                key: _lockNavigatorKey,
-                onGenerateRoute: (_) => PageRouteBuilder<void>(
-                  pageBuilder: (_, _, _) => widget.forgetAccounts == null
-                      ? AppLockScreen(cubit: widget.cubit)
-                      : AppLockScreen(cubit: widget.cubit, forgetAccounts: widget.forgetAccounts!),
+            // Its own heroes: the app's navigator keeps the hero controller of the MaterialApp. Its own snack bars:
+            // the ones the covered app shows on the app's messenger must not be drawn over the lock screen.
+            ScaffoldMessenger(
+              child: HeroControllerScope.none(
+                child: Navigator(
+                  key: _lockNavigatorKey,
+                  onGenerateRoute: (_) => PageRouteBuilder<void>(
+                    pageBuilder: (_, _, _) => widget.forgetAccounts == null
+                        ? AppLockScreen(cubit: widget.cubit)
+                        : AppLockScreen(cubit: widget.cubit, forgetAccounts: widget.forgetAccounts!),
+                  ),
                 ),
               ),
             ),

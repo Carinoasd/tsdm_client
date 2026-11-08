@@ -209,7 +209,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
         final busy = state.checking || _forgetting;
         final String? message;
         if (until != null) {
-          message = tr.retryIn(seconds: until.difference(DateTime.now()).inSeconds + 1);
+          message = tr.retryIn(seconds: until.difference(_cubit.now()).inSeconds + 1);
         } else if (_forgetFailed) {
           message = context.t.appLock.forgot.failed;
         } else if (state.wrongPin) {

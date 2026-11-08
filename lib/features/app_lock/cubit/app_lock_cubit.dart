@@ -102,7 +102,21 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
        _biometrics = biometrics,
        _hasher = hasher,
        _now = now ?? DateTime.now,
-       super(AppLockState(config: config, locked: config.enabled));
+       super(AppLockState(config: _boundLockout(config, (now ?? DateTime.now)()), locked: config.enabled));
+
+  /// A wait saved longer than the one of its count of wrong PINs (the clock went back, by hand or by a correction)
+  /// is cut to that, counted from [now]: it must not keep the PIN pad closed for days.
+  static AppLockConfig _boundLockout(AppLockConfig config, DateTime now) {
+    final until = config.lockedOutUntil;
+    final allowed = appLockLockoutFor(config.failedAttempts) ?? Duration.zero;
+    if (until == null || until.difference(now) <= allowed) {
+      return config;
+    }
+    return config.copyWith(lockedOutUntil: now.add(allowed));
+  }
+
+  /// The clock of the lock (tests replace it).
+  DateTime now() => _now();
 
   /// Read the saved settings first, so the first frame is already the lock screen.
   static Future<AppLockCubit> load({
@@ -169,18 +183,19 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
   /// The app lifecycle changed.
   ///
   /// The app leaves on its way from inactive to hidden, or paused; hidden right after paused is its way back (it
-  /// also passes through hidden then). Changes while the system unlock is asked are not the user leaving.
+  /// also passes through hidden then). While the system unlock is asked only a leave counts: the prompt itself moves
+  /// the app between inactive and resumed, but the user may still leave from it.
   void onLifecycleChanged(AppLifecycleState lifecycle) {
     final previous = _lifecycle;
     _lifecycle = lifecycle;
-    if (!state.config.enabled || _authenticating) {
-      return;
-    }
     final leaving = switch (lifecycle) {
       AppLifecycleState.hidden => previous != AppLifecycleState.paused,
       AppLifecycleState.paused || AppLifecycleState.detached => true,
       AppLifecycleState.inactive || AppLifecycleState.resumed => false,
     };
+    if (!state.config.enabled || (_authenticating && !leaving)) {
+      return;
+    }
     if (leaving) {
       if (state.locked) {
         return;
@@ -259,8 +274,6 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
       return ok;
     } finally {
       _authenticating = false;
-      // Whatever the system prompt did to the lifecycle is not the user leaving.
-      _timer.reset();
     }
   }
 
