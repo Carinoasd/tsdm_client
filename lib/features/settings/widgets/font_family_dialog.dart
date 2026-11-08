@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
@@ -29,7 +30,8 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
   late TextEditingController _fontController;
   CustomFontStore? _store;
   List<String> _imported = const [];
-  bool _importFailed = false;
+  FontImportError? _importError;
+  bool _importIoFailed = false;
 
   @override
   void initState() {
@@ -39,17 +41,24 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
   }
 
   Future<void> _loadStore() async {
-    final store = widget.store ?? await CustomFontStore.open();
-    // Register them all so every row can be previewed.
-    await store.loadAll();
-    final imported = await store.list();
-    if (!mounted) {
-      return;
+    try {
+      final store = widget.store ?? await CustomFontStore.open();
+      final imported = await store.list();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _store = store;
+        _imported = imported;
+      });
+      // Register them all so every row can be previewed.
+      await store.loadAll();
+      if (mounted) {
+        setState(() {});
+      }
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'load imported fonts failed');
     }
-    setState(() {
-      _store = store;
-      _imported = imported;
-    });
   }
 
   Future<void> _import() async {
@@ -64,12 +73,20 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
     if (path == null || !mounted) {
       return;
     }
-    setState(() => _importFailed = false);
+    setState(() {
+      _importError = null;
+      _importIoFailed = false;
+    });
     String? family;
+    FontImportError? error;
+    var ioFailed = false;
     try {
       family = await store.import(File(path));
-    } on Object {
-      family = null;
+    } on FontImportException catch (e) {
+      error = e.error;
+    } on Object catch (e, st) {
+      ioFailed = true;
+      talker.handle(e, st, 'import font failed');
     }
     if (!mounted) {
       return;
@@ -79,7 +96,8 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
       return;
     }
     setState(() {
-      _importFailed = family == null;
+      _importError = error;
+      _importIoFailed = ioFailed;
       _imported = imported;
       if (family != null) {
         _fontController.text = family;
@@ -141,8 +159,12 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
               onPressed: _store == null ? null : _import,
             ),
           ),
-          if (_importFailed)
-            Text(tr.importFailed, style: textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error)),
+          if (_importError != null || _importIoFailed)
+            Text(switch (_importError) {
+              FontImportError.reservedName => tr.importReservedName,
+              FontImportError.nameInUse => tr.importNameInUse,
+              FontImportError.unusable || null => tr.importFailed,
+            }, style: textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error)),
           for (final family in _imported)
             ListTile(
               dense: true,

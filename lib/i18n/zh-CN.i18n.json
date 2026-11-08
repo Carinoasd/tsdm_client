@@ -472,6 +472,8 @@
         "dialogTitle": "选择字体",
         "importFile": "从文件导入",
         "importFailed": "导入失败：不是可用的字体文件",
+        "importReservedName": "字体名称已被系统占用，请改文件名",
+        "importNameInUse": "同名字体需重启应用后才能替换",
         "deleteFont": "删除字体"
       },
       "textScaleFactor": {

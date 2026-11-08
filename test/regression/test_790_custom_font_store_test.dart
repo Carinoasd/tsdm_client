@@ -51,21 +51,13 @@ void main() {
 
   test('import rejects unsupported extensions and unloadable files without keeping anything', () async {
     final store = makeStore(failing: {'Broken'});
-    await expectLater(store.import(makeSource('notes.txt')), throwsFormatException);
-    await expectLater(store.import(makeSource('Broken.ttf')), throwsFormatException);
+    await expectLater(store.import(makeSource('notes.txt')), throwsA(isA<FontImportException>()));
+    await expectLater(store.import(makeSource('Broken.ttf')), throwsA(isA<FontImportException>()));
     expect(await store.list(), isEmpty);
   });
 
-  test('importing a family again with another extension replaces the file', () async {
-    final store = makeStore();
-    await store.import(makeSource('Dup.ttf'));
-    await store.import(makeSource('Dup.otf'));
-    expect(await store.list(), ['Dup']);
-    expect(fonts.listSync().length, 1);
-  });
-
   test('generic family names are refused', () async {
-    await expectLater(makeStore().import(makeSource('Monospace.ttf')), throwsFormatException);
+    await expectLater(makeStore().import(makeSource('Monospace.ttf')), throwsA(isA<FontImportException>()));
   });
 
   test('load registers only the named font', () async {
@@ -76,6 +68,25 @@ void main() {
     expect(await makeStore().load('Two'), isTrue);
     expect(registered, ['Two']);
     expect(await makeStore().load('Missing'), isFalse);
+  });
+
+  test('a same-name file is refused after the family is registered and the stored font stays', () async {
+    final store = makeStore();
+    await store.import(makeSource('Foo.ttf'));
+    await expectLater(
+      store.import(makeSource('Foo.otf', [9, 9])),
+      throwsA(isA<FontImportException>().having((e) => e.error, 'error', FontImportError.nameInUse)),
+    );
+    expect(File('${fonts.path}/Foo.ttf').readAsBytesSync(), [1, 2, 3]);
+    expect(fonts.listSync().length, 1);
+  });
+
+  test('a replaced extension is swapped after a restart', () async {
+    await makeStore().import(makeSource('Bar.ttf'));
+    CustomFontStore.resetRegisteredFamilies();
+    await makeStore().import(makeSource('Bar.otf'));
+    expect(await makeStore().list(), ['Bar']);
+    expect(fonts.listSync().length, 1);
   });
 
   test('delete removes the file', () async {

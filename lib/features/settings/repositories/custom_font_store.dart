@@ -5,6 +5,33 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+/// Why a font file was refused by [CustomFontStore.import].
+enum FontImportError {
+  /// Not a .ttf / .otf file, or the engine can not load it.
+  unusable,
+
+  /// The file name is a generic family name.
+  reservedName,
+
+  /// A font with this name is already registered in this session; the engine can not replace it before a restart.
+  nameInUse,
+}
+
+/// A font file refused by [CustomFontStore.import].
+class FontImportException implements Exception {
+  /// Constructor.
+  const FontImportException(this.error, this.path);
+
+  /// Reason.
+  final FontImportError error;
+
+  /// The refused file.
+  final String path;
+
+  @override
+  String toString() => 'FontImportException($error, $path)';
+}
+
 /// Manages the font files the user imported (.ttf / .otf) into the app's own directory.
 ///
 /// A font's family name is its file name without the extension.
@@ -80,28 +107,35 @@ class CustomFontStore {
 
   /// Copy the font file [source] into the store, register it and return its family name.
   ///
-  /// A font with the same name is replaced. Throws [FormatException] when [source] is not a font file the engine can
-  /// load; nothing is kept then.
+  /// A font with the same name is replaced. Throws [FontImportException] when the file is refused; nothing is kept then.
   Future<String> import(File source) async {
     if (!isSupported(source.path)) {
-      throw FormatException('unsupported font file', source.path);
+      throw FontImportException(FontImportError.unusable, source.path);
     }
     final family = familyOf(source.path);
     if (family.isEmpty || reservedFamilies.contains(family.toLowerCase())) {
-      throw FormatException('reserved font name', source.path);
+      throw FontImportException(FontImportError.reservedName, source.path);
+    }
+    // The registration below is skipped for a known family, so a same-name file could not be validated.
+    if (_registeredFamilies.contains(family)) {
+      throw FontImportException(FontImportError.nameInUse, source.path);
     }
     final bytes = await source.readAsBytes();
     // Register first so a broken file is never kept.
     try {
       await _register(family, bytes);
-    } on Object catch (e) {
-      throw FormatException('font file can not be loaded: $e', source.path);
+    } on Object {
+      throw FontImportException(FontImportError.unusable, source.path);
     }
     await directory.create(recursive: true);
+    // Write aside first so a failed write does not lose the font that is there; if it fails the font works for this
+    // session only.
+    final target = _fileOf(family, p.extension(source.path).toLowerCase());
+    final temp = File('${target.path}.tmp');
+    await temp.writeAsBytes(bytes, flush: true);
     // Same name with the other extension is replaced, not kept beside it.
     await delete(family);
-    // If the write fails the font works for this session only.
-    await _fileOf(family, p.extension(source.path).toLowerCase()).writeAsBytes(bytes, flush: true);
+    await temp.rename(target.path);
     return family;
   }
 
@@ -117,6 +151,9 @@ class CustomFontStore {
 
   /// Register the imported font [family] with the engine; false when there is no such font or it fails to load.
   Future<bool> load(String family) async {
+    if (p.basename(family) != family) {
+      return false;
+    }
     for (final ext in supportedExtensions) {
       final file = _fileOf(family, '.$ext');
       if (!file.existsSync()) {

@@ -472,6 +472,8 @@
         "dialogTitle": "Choose font",
         "importFile": "Import from file",
         "importFailed": "Import failed: not a usable font file",
+        "importReservedName": "This name is reserved, rename the file",
+        "importNameInUse": "A font with this name can only be replaced after restarting the app",
         "deleteFont": "Delete font"
       },
       "textScaleFactor": {
