@@ -128,6 +128,34 @@ final _spaceRe = RegExp(r'\s+');
 
 String _textOf(uh.Element? element) => (element?.text ?? '').replaceAll(_spaceRe, ' ').trim();
 
+/// The user group in the member info [p] of a member ranking, before its value label; [beforeColon] is the text of
+/// [p] up to the colon of the label.
+///
+/// The forum prints the group in `<font>` or as text followed by its icon (`<img class="vm">`), then the label: the
+/// group is the font, else the text before the icon, else the text before the last space (`管理员 积分数`). The post
+/// ranking prints no group (`帖子数: …`).
+String? _groupOf(uh.Element p, String beforeColon) {
+  String? nonEmpty(String s) => s.isEmpty ? null : s;
+  if (p.querySelector('font') case final font?) {
+    return nonEmpty(_textOf(font));
+  }
+  if (p.querySelector('img') != null) {
+    final buffer = StringBuffer();
+    for (final node in p.nodes) {
+      if (node is uh.Element && node.localName == 'img') {
+        return nonEmpty(buffer.toString().replaceAll(_spaceRe, ' ').trim());
+      }
+      buffer.write(node.text ?? '');
+    }
+  }
+  final label = beforeColon.trimRight().lastIndexOf(' ');
+  return label <= 0 ? null : nonEmpty(beforeColon.substring(0, label).trim());
+}
+
+/// Minutes of an online time value as the forum prints it (`11160 分钟`), null when it is not one.
+int? ranklistOnlineMinutes(String value) =>
+    int.tryParse(RegExp(r'^(\d+)\s*\D*$').firstMatch(value.trim())?.group(1) ?? '');
+
 /// The message of the forum's 提示信息 page (a ranking turned off: `此排行功能已关闭`), null for any other page.
 String? ranklistServerMessage(uh.Document document) {
   final node = document.querySelector('div#messagetext > p');
@@ -155,19 +183,18 @@ RanklistData parseRanklistPage(uh.Document document) {
     if (uid == null || username.isEmpty) {
       continue;
     }
-    final info = _textOf(dl.querySelectorAll('dd > p').lastOrNull);
+    final p = dl.querySelectorAll('dd > p').lastOrNull;
+    final info = _textOf(p);
     final colon = info.lastIndexOf(RegExp('[:：]'));
     final value = colon < 0 ? info : info.substring(colon + 1).trim();
-    // Before the label: the user group, when the forum shows one (`管理员 积分数`); the post ranking shows none.
-    final labelStart = colon < 0 ? -1 : info.substring(0, colon).trimRight().lastIndexOf(' ');
-    final group = labelStart <= 0 ? null : info.substring(0, labelStart).trim();
+    final group = p == null || colon < 0 ? null : _groupOf(p, info.substring(0, colon));
     members.add(
       RanklistMember(
         rank: int.tryParse(_textOf(dl.querySelector('dd.ranknum'))) ?? index + 1,
         uid: uid,
         username: username,
         value: value,
-        groupName: group == null || group.isEmpty ? null : group,
+        groupName: group,
       ),
     );
   }

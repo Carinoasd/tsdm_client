@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/ranklist/models/ranklist.dart';
 import 'package:tsdm_client/features/ranklist/repository/ranklist_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -129,7 +130,11 @@ class _RanklistTabState extends State<_RanklistTab> with AutomaticKeepAliveClien
             RanklistStatus.failed => FailureView(failure: state.failure, onRetry: cubit.load),
             RanklistStatus.success => _buildList(context, state),
           };
-          if (widget.kind != RanklistKind.thread) {
+          // A ranking the forum turned off answers so in every order: nothing to choose then.
+          final turnedOff =
+              state.status == RanklistStatus.failed &&
+              const {LoadFailureKind.forumMessage, LoadFailureKind.noPermission}.contains(state.failure?.kind);
+          if (widget.kind != RanklistKind.thread || turnedOff) {
             return body;
           }
           return Column(
@@ -152,7 +157,17 @@ class _RanklistTabState extends State<_RanklistTab> with AutomaticKeepAliveClien
       _ => page.notice,
     };
     final rows = <Widget>[
-      for (final member in page.members) _MemberTile(member),
+      for (final member in page.members)
+        _MemberTile(
+          member,
+          value: switch (widget.kind) {
+            RanklistKind.online => switch (ranklistOnlineMinutes(member.value)) {
+              final minutes? => tr.minutes(n: minutes),
+              null => member.value,
+            },
+            _ => member.value,
+          },
+        ),
       for (final thread in page.threads) _ThreadTile(thread),
     ];
     return EasyRefresh.builder(
@@ -261,9 +276,12 @@ class _Value extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile(this.member);
+  const _MemberTile(this.member, {required this.value});
 
   final RanklistMember member;
+
+  /// The value shown.
+  final String value;
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -278,7 +296,7 @@ class _MemberTile extends StatelessWidget {
     ),
     title: Text(member.username, maxLines: 1, overflow: TextOverflow.ellipsis),
     subtitle: member.groupName == null ? null : Text(member.groupName!, maxLines: 1, overflow: TextOverflow.ellipsis),
-    trailing: _Value(member.value),
+    trailing: _Value(value),
     onTap: () => context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': member.uid}),
   );
 }

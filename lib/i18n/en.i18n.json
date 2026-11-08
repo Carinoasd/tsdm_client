@@ -3459,6 +3459,7 @@
       "heats": "Heat"
     },
     "empty": "No rankings yet",
+    "minutes": "$n minutes",
     "updated": "Updated $last · next $next"
   }
 }

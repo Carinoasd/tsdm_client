@@ -3459,6 +3459,7 @@
       "heats": "熱度"
     },
     "empty": "暫無排行",
+    "minutes": "$n 分鐘",
     "updated": "更新於 $last · 下次 $next"
   }
 }

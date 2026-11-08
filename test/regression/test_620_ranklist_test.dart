@@ -104,6 +104,17 @@ void main() {
       expect(page.lastUpdate, '2026-11-9 00:42');
     });
 
+    test('heat: the same rows, the value of the order asked', () {
+      final page = parseRanklistPage(parseHtmlDocument(_fixture('thread_heats_x5.html')));
+      expect(page.threads.map((e) => (e.tid, e.value)), [('1001', '88'), ('1002', '57'), ('1003', '9')]);
+    });
+
+    test('online minutes', () {
+      expect(ranklistOnlineMinutes('11160 分钟'), 11160);
+      expect(ranklistOnlineMinutes('10 minutes'), 10);
+      expect(ranklistOnlineMinutes('1 天 2 小时'), isNull);
+    });
+
     test('a notice without recognized times is kept as printed', () {
       final page = parseRanklistPage(
         parseHtmlDocument(
@@ -134,6 +145,8 @@ void main() {
       expect(e, isA<ServerRespondedErrorException>());
       expect(e!.message, '此排行功能已关闭');
       expect(LoadFailure.of(e).message, '此排行功能已关闭');
+      expect(LoadFailure.of(e).kind, LoadFailureKind.forumMessage);
+      expect(LoadFailure.of(ServerRespondedErrorException('排行榜功能关闭')).kind, LoadFailureKind.forumMessage);
     });
 
     test('an empty ranking stays an empty ranking', () {
@@ -224,6 +237,35 @@ void main() {
       }
     }
 
+    testWidgets('the thread orders, each its own page', (tester) async {
+      final pages = {
+        ranklistUrl(RanklistKind.credit): _fixture('member_credit_x5.html'),
+        ranklistUrl(RanklistKind.post): _fixture('member_post_x5.html'),
+        ranklistUrl(RanklistKind.online): _fixture('member_onlinetime_x5.html'),
+        ranklistUrl(RanklistKind.thread): _fixture('thread_replies_x5.html'),
+        ranklistUrl(RanklistKind.thread, threadView: RanklistThreadView.heats): _fixture('thread_heats_x5.html'),
+      };
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: BlocProvider<SettingsBloc>.value(
+            value: settingsBloc,
+            child: MaterialApp(home: RanklistPage(repository: _forum(pages))),
+          ),
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.widgetWithText(Tab, t.ranklistPage.tabs.thread));
+      await tester.pumpAndSettle();
+      await settle(tester);
+      expect(find.byKey(const ValueKey('ranklist-thread-1001')), findsOneWidget);
+      expect(find.text('301'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ranklist-view-heats')));
+      await settle(tester);
+      expect(find.text('88'), findsOneWidget);
+      expect(find.text('301'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('tabs, members with their values, the update time, a turned-off ranking', (tester) async {
       final pages = {
         ranklistUrl(RanklistKind.credit): _fixture('member_credit_x5.html'),
@@ -254,7 +296,13 @@ void main() {
       await tester.pumpAndSettle();
       await settle(tester);
       expect(find.text('此排行功能已关闭'), findsOneWidget);
-      expect(find.byKey(const ValueKey('ranklist-view-heats')), findsOneWidget);
+      expect(find.byKey(const ValueKey('ranklist-view-heats')), findsNothing, reason: 'turned off in every order');
+
+      await tester.tap(find.widgetWithText(Tab, tr.tabs.online));
+      await tester.pumpAndSettle();
+      await settle(tester);
+      expect(find.text(tr.minutes(n: 11160)), findsOneWidget);
+      expect(find.text('使者'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
