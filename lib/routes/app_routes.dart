@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
+import 'package:tsdm_client/features/checkin/view/checkin_calendar_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
@@ -74,6 +75,7 @@ import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_post_page.dart';
+import 'package:tsdm_client/features/rate_stats/view/rate_stats_page.dart';
 import 'package:tsdm_client/features/read_later/view/read_later_page.dart';
 import 'package:tsdm_client/features/reading_time/view/reading_stats_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
@@ -365,6 +367,8 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.points, builder: (_) => const PointsPage()),
+  AppRoute(path: ScreenPaths.checkinCalendar, builder: (_) => const CheckinCalendarPage()),
+  AppRoute(path: ScreenPaths.ratingStats, builder: (_) => const RateStatsPage()),
   AppRoute(path: ScreenPaths.achievements, builder: (_) => const AchievementsPage()),
   AppRoute(
     path: ScreenPaths.editPost,

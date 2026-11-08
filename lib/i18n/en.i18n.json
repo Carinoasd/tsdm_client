@@ -235,6 +235,18 @@
     "me": "Me",
     "settings": "Settings"
   },
+  "checkinCalendar": {
+    "title": "Check-in calendar",
+    "thisMonth": "This month",
+    "thatMonth": "That month",
+    "streak": "Streak",
+    "total": "Total"
+  },
+  "ratingStats": {
+    "title": "Rating statistics",
+    "count": "Ratings",
+    "topRaters": "Top raters"
+  },
   "mePage": {
     "title": "Me",
     "mine": "My account",
@@ -256,7 +268,9 @@
       "friends": "Friends",
       "points": "Points",
       "followedThreads": "Followed threads",
-      "readingStats": "Reading stats"
+      "readingStats": "Reading stats",
+      "checkinCalendar": "Check-in calendar",
+      "ratingStats": "Rating statistics"
     }
   },
   "home": {
@@ -377,6 +391,9 @@
       },
       "twoPaneLayout": {
         "title": "Two panes on wide windows"
+      },
+      "postMediaPreview": {
+        "title": "Show video covers on cards"
       },
       "showUnreadInfoHint": {
         "title": "Unread Info Hint",
@@ -1466,6 +1483,9 @@
       "recentChangelog": "Recent Changelog",
       "emptyRecent": "No recent changes"
     },
+    "trendTab": {
+      "title": "Trend"
+    },
     "changelogTab": {
       "title": "Points Changelog",
       "extType": "Points Type",
@@ -2002,6 +2022,10 @@
     "ban": "Hide",
     "unban": "Unhide",
     "deletePost": "Delete reply",
+    "banMember": "Ban from posting",
+    "unbanMember": "Lift posting ban",
+    "banDays": "$days d",
+    "warned": "Warned",
     "queue": "Moderation queue",
     "queueThreads": "Threads",
     "queueReplies": "Replies",

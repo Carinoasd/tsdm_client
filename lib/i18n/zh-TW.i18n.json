@@ -235,6 +235,18 @@
     "me": "我的",
     "settings": "設定"
   },
+  "checkinCalendar": {
+    "title": "簽到日曆",
+    "thisMonth": "本月",
+    "thatMonth": "當月",
+    "streak": "連續",
+    "total": "累計"
+  },
+  "ratingStats": {
+    "title": "評分統計",
+    "count": "次數",
+    "topRaters": "評分最多的人"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的帳號",
@@ -256,7 +268,9 @@
       "friends": "好友",
       "points": "積分",
       "followedThreads": "追蹤的帖子",
-      "readingStats": "閱讀統計"
+      "readingStats": "閱讀統計",
+      "checkinCalendar": "簽到日曆",
+      "ratingStats": "評分統計"
     }
   },
   "home": {
@@ -377,6 +391,9 @@
       },
       "twoPaneLayout": {
         "title": "寬螢幕雙欄"
+      },
+      "postMediaPreview": {
+        "title": "影片卡片顯示封面"
       },
       "showUnreadInfoHint": {
         "title": "未讀取訊息提示",
@@ -1466,6 +1483,9 @@
       "recentChangelog": "近期積分記錄",
       "emptyRecent": "近期沒有積分變動"
     },
+    "trendTab": {
+      "title": "走勢"
+    },
     "changelogTab": {
       "title": "積分記錄",
       "extType": "積分",
@@ -2002,6 +2022,10 @@
     "ban": "屏蔽",
     "unban": "解除屏蔽",
     "deletePost": "刪除回覆",
+    "banMember": "禁言",
+    "unbanMember": "解除禁言",
+    "banDays": "$days 天",
+    "warned": "已警告",
     "queue": "審核",
     "queueThreads": "主題",
     "queueReplies": "回覆",
