@@ -376,6 +376,52 @@ void main() {
       expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
     });
 
+    test('entries stopped at the limit use up what may be decompressed', () {
+      // 40 entries of 8 MiB+1 zeros (headers telling the truth would be refused before; these lie): 320 MiB tried.
+      final archive = Archive();
+      final names = <String>[];
+      for (var i = 0; i < 40; i++) {
+        final huge = Uint8List(customEmojiArchiveMaxImageBytes + 1)
+          ..setAll(0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+          ..[9] = i;
+        final name = '${sha256Hex(huge)}.png';
+        names.add(name);
+        archive.addFile(ArchiveFile.bytes('images/$name', huge));
+      }
+      final small = _png(4, 4);
+      final smallName = '${sha256Hex(small)}.png';
+      archive
+        ..addFile(ArchiveFile.bytes('images/$smallName', small))
+        ..addFile(
+          ArchiveFile.bytes(
+            'manifest.json',
+            utf8.encode(
+              jsonEncode({
+                'format': customEmojiArchiveFormat,
+                'v': 1,
+                'packs': [
+                  {
+                    'name': 'x',
+                    'emojis': [...names, smallName],
+                  },
+                ],
+              }),
+            ),
+          ),
+        );
+      final zip = ZipEncoder().encodeBytes(archive);
+      final view = ByteData.sublistView(zip);
+      for (var i = 0; i + 30 < zip.length; i++) {
+        final sig = view.getUint32(i, Endian.little);
+        final declared = sig == 0x04034b50 ? i + 22 : (sig == 0x02014b50 ? i + 24 : -1);
+        if (declared >= 0 && view.getUint32(declared, Endian.little) == customEmojiArchiveMaxImageBytes + 1) {
+          view.setUint32(declared, 100, Endian.little);
+        }
+      }
+      // 32 stopped entries spend the 256 MiB: the small image after them is not read.
+      expect(decodeCustomEmojiArchive(zip)!.single.emojis, isEmpty);
+    });
+
     test('no archive of packs: null', () {
       expect(decodeCustomEmojiArchive(Uint8List.fromList(utf8.encode('not a zip'))), isNull);
       final noManifest = Archive()..addFile(ArchiveFile.bytes('a.txt', utf8.encode('x')));

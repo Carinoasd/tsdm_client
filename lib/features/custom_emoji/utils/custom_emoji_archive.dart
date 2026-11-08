@@ -39,8 +39,14 @@ final class _LimitedOutput extends OutputMemoryStream {
 
   final int limit;
 
+  /// Whether a write went past [limit].
+  bool stopped = false;
+
   void _check(int n) {
-    if (length + n > limit) throw const _TooLarge();
+    if (length + n > limit) {
+      stopped = true;
+      throw const _TooLarge();
+    }
   }
 
   @override
@@ -62,15 +68,19 @@ final class _LimitedOutput extends OutputMemoryStream {
   }
 }
 
-/// The content of [file], null when it is (or decompresses to) more than [limit] bytes or cannot be read.
-Uint8List? _readLimited(ArchiveFile file, int limit) {
+/// The content of [file], null when it is (or decompresses to) more than [limit] bytes or cannot be read. [spent] is
+/// told how many bytes were decompressed, also when that was stopped.
+Uint8List? _readLimited(ArchiveFile file, int limit, {void Function(int bytes)? spent}) {
   if (file.size > limit) return null;
+  final output = _LimitedOutput(limit);
   try {
-    final output = _LimitedOutput(limit);
     file.writeContent(output);
     return output.getBytes();
   } on Object {
     return null;
+  } finally {
+    // Stopped at the limit: what was written, and the write it refused.
+    spent?.call(output.stopped ? limit : output.length);
   }
 }
 
@@ -162,12 +172,15 @@ List<ArchivedCustomEmojiPack>? decodeCustomEmojiArchive(Uint8List bytes) {
     final left = customEmojiArchiveMaxTotalBytes - total;
     final data = file == null || left <= 0
         ? null
-        : _readLimited(file, left < customEmojiArchiveMaxImageBytes ? left : customEmojiArchiveMaxImageBytes);
+        : _readLimited(
+            file,
+            left < customEmojiArchiveMaxImageBytes ? left : customEmojiArchiveMaxImageBytes,
+            // Counted whether kept, thrown away or stopped: each costs its decompression.
+            spent: (bytes) => total += bytes,
+          );
     if (data == null) {
       return null;
     }
-    // Counted whether kept or not: entries thrown away cost their decompression too.
-    total += data.length;
     final dot = name.indexOf('.');
     if (customEmojiFormatOf(data) != name.substring(dot + 1) || sha256Hex(data) != name.substring(0, dot)) {
       return null;
