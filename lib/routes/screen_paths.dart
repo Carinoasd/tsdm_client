@@ -326,6 +326,12 @@ class ScreenPaths {
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
 
+  /// Page managing the custom emoji packs.
+  static const String customEmojiPacks = '/customEmojiPacks';
+
+  /// Page of one custom emoji pack: its images.
+  static const String customEmojiPack = '/customEmojiPack/:packId';
+
   /// Page  to show auto checkin detail information.
   static const String autoCheckinDetail = '/autoCheckinDetail';
 

@@ -320,7 +320,10 @@ final class AttachmentUpload {
   final List<String> imageExts;
 
   /// The url an image is posted to: [url] with `type=image`, as the website's image uploader does.
-  Uri get imageUrl => url.replace(queryParameters: {...url.queryParameters, 'type': 'image'});
+  ///
+  /// With `simple=2` the forum answers `DISCUZUPLOAD|1|error|aid|…` (`parseAttachmentUploadAnswer`); without it only
+  /// the bare aid (or the negated error).
+  Uri get imageUrl => url.replace(queryParameters: {...url.queryParameters, 'type': 'image', 'simple': '2'});
 
   /// Whether the forum takes an image file named [filename], by its extension; any when the forum names none.
   bool acceptsImage(String filename) {
@@ -846,6 +849,22 @@ final class PostForm {
   /// The upload the forum offers for this form (`attach.upload`), null when the member may not upload here (no
   /// permission, the day's quota used up, a plugin replacing the upload) or the answer is of a plugin before it.
   AttachmentUpload? get attachmentUpload => AttachmentUpload.fromJson(_block('attach')?['upload']);
+
+  /// The images the member uploaded and the forum keeps unused (`attach.unused`, by aid): bound to the post when it is
+  /// published with them, deleted by the forum a day after the upload otherwise.
+  Set<int> get unusedAttachmentImages => _attachAids('unused', imagesOnly: true);
+
+  /// The attachments of the edited post (`attach.used`, by aid), empty for a new thread or a reply.
+  Set<int> get usedAttachments => _attachAids('used', imagesOnly: false);
+
+  Set<int> _attachAids(String key, {required bool imagesOnly}) {
+    final list = _block('attach')?[key];
+    return {
+      for (final e in list is List ? list : const [])
+        if (e is Map && e['aid'] is num && (e['aid'] as num) > 0 && (!imagesOnly || e['isimage'] == 1))
+          (e['aid'] as num).toInt(),
+    };
+  }
 
   /// What the app's editor of [expectedAction] (`newthread` for a new ordinary thread, `edit`, `reply`) can do with
   /// this form: [PostFormSupport.verification] when the forum asks for a captcha or a security question without telling

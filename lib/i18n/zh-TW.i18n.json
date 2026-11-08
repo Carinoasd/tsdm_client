@@ -3443,5 +3443,25 @@
       "italic": "斜體",
       "underline": "底線"
     }
+  },
+  "customEmoji": {
+    "title": "自訂表情包",
+    "newPack": "新增表情包",
+    "name": "名稱",
+    "rename": "重新命名",
+    "delete": "刪除表情包",
+    "deleteConfirm": "刪除「$name」和其中的圖片？",
+    "addImages": "加入圖片",
+    "added": "已加入 ${count: int} 張圖片",
+    "noneAdded": "沒有可加入的圖片",
+    "removeTitle": "移除圖片",
+    "remove": "移除這張圖片？",
+    "export": "匯出",
+    "import": "匯入",
+    "imported": "已匯入 ${count: int} 張圖片",
+    "importInvalid": "不是表情包檔案",
+    "exportFailed": "匯出失敗",
+    "empty": "還沒有表情包",
+    "count": "${count: int} 張"
   }
 }
