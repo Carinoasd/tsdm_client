@@ -27,6 +27,9 @@ const int _maxImageCost = 96 * 1024 * 1024;
 /// Widest an image is put in the PDF: a page is about 500 points wide.
 const _maxImageWidth = 1600;
 
+/// Most pixels of an image the PDF takes: a bigger one is not decoded (a placeholder is drawn).
+const int _maxImagePixels = 40 * 1000 * 1000;
+
 /// Highest an image is put in the PDF: it is drawn at most 560 points high.
 const _maxImageHeight = 2400;
 
@@ -97,7 +100,8 @@ Future<void> exportThreadPdf(
         tr.imageProgress(done: i + 1, total: urls.length),
         value: i / urls.length,
       );
-      final data = await _imageOf(urls[i]);
+      // A cancellation does not wait for the image: what it brings is not used then.
+      final data = await Future.any([_imageOf(urls[i]), cancelToken.whenCancel.then((_) => null)]);
       if (dialog.cancelled) {
         return;
       }
@@ -182,7 +186,7 @@ typedef PdfImageData = ({Uint8List bytes, int cost});
 ///
 /// A JPEG is put in the PDF as it is (its size is its cost). Any other image the image package reads is a PNG of its
 /// first frame, within [_maxImageWidth] × [_maxImageHeight]; the pdf package decodes it to pixels, 4 bytes each, which
-/// is its cost. Null when it is no image the package reads (AVIF).
+/// is its cost. Null when it is no image the package reads (AVIF) or one of more than [_maxImagePixels] pixels.
 @visibleForTesting
 PdfImageData? pdfImageBytes(Uint8List data) {
   if (img.JpegDecoder().isValidFile(data)) {
@@ -190,6 +194,11 @@ PdfImageData? pdfImageBytes(Uint8List data) {
   }
   final decoder = img.findDecoderForData(data);
   if (decoder == null) {
+    return null;
+  }
+  // Only the header: an image of too many pixels is not decoded at all.
+  final info = decoder.startDecode(data);
+  if (info == null || info.width * info.height > _maxImagePixels) {
     return null;
   }
   final image = decoder.decode(data, frame: 0);

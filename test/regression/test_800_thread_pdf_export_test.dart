@@ -249,6 +249,9 @@ void main() {
       final tall = pdfImageBytes(Uint8List.fromList(img.encodePng(img.Image(width: 100, height: 4800))))!;
       expect([img.decodePng(tall.bytes)!.width, img.decodePng(tall.bytes)!.height], [50, 2400]);
       expect(pdfImageBytes(Uint8List.fromList(utf8.encode('<html>not an image</html>'))), isNull);
+      // Too many pixels: not decoded, a placeholder.
+      final huge = Uint8List.fromList(img.encodeBmp(img.Image(width: 8000, height: 5001, numChannels: 1)));
+      expect(pdfImageBytes(huge), isNull);
     });
 
     test('bold text is cut in words and CJK characters, a line break kept apart', () {
