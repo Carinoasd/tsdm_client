@@ -1758,7 +1758,9 @@
     "links": "連結",
     "subForums": "子版塊",
     "privateForum": "私密版塊",
-    "redirectForum": "連結到外部地址"
+    "redirectForum": "連結到外部地址",
+    "pin": "釘選",
+    "unpin": "取消釘選"
   },
   "networkList": {
     "actionRefresh": "刷新",

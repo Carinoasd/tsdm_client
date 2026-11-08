@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -375,10 +378,18 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
       );
     }
 
+    // A link forum has no page of its own to pin.
+    final pinForum = isLink
+        ? null
+        : () => unawaited(
+            showFrequentForumMenu(context, FrequentForum(fid: widget.forum.forumID, name: widget.forum.name)),
+          );
+
     if (large) {
       return AppSurface(
         padding: forumCardLargePadding,
         onTap: openForum,
+        onLongPress: pinForum,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -427,6 +438,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
     return AppSurface(
       padding: edgeInsetsL12T12R12B12,
       onTap: openForum,
+      onLongPress: pinForum,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
