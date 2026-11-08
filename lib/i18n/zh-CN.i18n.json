@@ -249,6 +249,7 @@
       "myThreads": "我的帖子",
       "favorites": "收藏",
       "history": "浏览记录",
+      "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
       "messages": "私信",
@@ -2128,6 +2129,15 @@
   "musicCard": {
     "title": "音乐",
     "openLink": "打开链接"
+  },
+  "readLater": {
+    "title": "稍后阅读",
+    "add": "稍后阅读",
+    "remove": "移出稍后阅读",
+    "clear": "清空",
+    "clearConfirm": "清空稍后阅读列表？",
+    "empty": "没有待读的帖子",
+    "needLogin": "请先登录"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",

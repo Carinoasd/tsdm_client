@@ -249,6 +249,7 @@
       "myThreads": "My threads",
       "favorites": "Favorites",
       "history": "History",
+      "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
       "messages": "Messages",
@@ -2128,6 +2129,15 @@
   "musicCard": {
     "title": "Music",
     "openLink": "Open link"
+  },
+  "readLater": {
+    "title": "Read later",
+    "add": "Read later",
+    "remove": "Remove from read later",
+    "clear": "Clear all",
+    "clearConfirm": "Clear the read later list?",
+    "empty": "No threads to read later",
+    "needLogin": "Log in first"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",

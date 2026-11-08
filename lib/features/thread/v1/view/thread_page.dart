@@ -33,6 +33,8 @@ import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
+import 'package:tsdm_client/features/read_later/utils/read_to_end.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
@@ -764,6 +766,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// thread whose visit is kept ([_mayKeepVisit]).
   void _onTopFloorChanged(Post post, {required bool atThreadTop}) {
     _topPid = post.postID;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkReadToEnd();
+      }
+    });
     final offer = _resumeOffer;
     if (offer != null && (!atThreadTop || (post.shownFloor ?? 0) >= (offer.floor ?? 0))) {
       // Read on from the start, or got there: nothing to offer any more.
@@ -813,6 +820,37 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _pendingProgress = pending;
     _progressTimer?.cancel();
     _progressTimer = Timer(const Duration(seconds: 1), _keepProgress);
+  }
+
+  /// Take the thread off the read later list once its last floor is on screen: the last page is loaded, the floors
+  /// are in order from the first one and the list is scrolled to its end (or is short enough not to scroll).
+  ///
+  /// Only floors from the forum count (not an offline copy, not one author's floors).
+  void _checkReadToEnd() {
+    final cubit = context.readOrNull<ReadLaterCubit>();
+    final bloc = _threadBloc;
+    if (cubit == null || bloc == null || bloc.isClosed || !_listScrollController.hasClients) {
+      return;
+    }
+    final state = bloc.state;
+    final tid = int.tryParse(state.tid ?? '');
+    if (tid == null || !cubit.state.contains(tid)) {
+      return;
+    }
+    final position = _listScrollController.position;
+    if (!position.hasContentDimensions ||
+        !hasReadToEnd(
+          loaded: state.status == ThreadStatus.success,
+          offline: state.isOffline,
+          onlyOneAuthor: state.onlyVisibleUid != null,
+          newestFirst: state.shownNewestFirst,
+          canLoadMore: state.canLoadMore,
+          hasFloors: state.postList.isNotEmpty,
+          extentAfter: position.extentAfter,
+        )) {
+      return;
+    }
+    unawaited(cubit.remove(tid));
   }
 
   /// Keep the reading progress told last ([_onTopFloorChanged]).
@@ -1769,6 +1807,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchEdited);
+    _listScrollController.addListener(_checkReadToEnd);
     _progressCubit = context.readOrNull<ReadingProgressCubit>();
     if (_savedProgress() case final progress?) {
       _takeSavedProgress(progress, atOpen: true);
@@ -2133,6 +2172,26 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             description: context.t.threadPage.shareToFriend.title,
                             onSelected: () async =>
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                          ),
+                        // Put aside on this device for the account in use: offline floors can be too.
+                        if (context.readOrNull<ReadLaterCubit>()?.state.uid != null)
+                          MenuCustomItem(
+                            icon: isReadLater(context, state.tid) ? Icons.watch_later : Icons.watch_later_outlined,
+                            description: isReadLater(context, state.tid)
+                                ? context.t.readLater.remove
+                                : context.t.readLater.add,
+                            onSelected: () async {
+                              await toggleReadLater(
+                                context,
+                                tid: state.tid!,
+                                title: state.title ?? widget.title ?? '',
+                                author: state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name,
+                                forumName: state.forumName,
+                              );
+                              if (mounted) {
+                                setState(() {});
+                              }
+                            },
                           ),
                         // Floor numbers are where the floors are only when every author's floors are listed.
                         if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
