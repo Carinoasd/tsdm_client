@@ -48,9 +48,11 @@ ChangelogRangeFetcher _fetcher(
   if (failing.contains(start.month)) {
     return Left(LoadFailure(LoadFailureKind.timeout));
   }
+  final days = months[start.month] ?? <int>[];
   return Right((
-    changes: [for (final day in months[start.month] ?? <int>[]) _record(DateTime(start.year, start.month, day, 9))],
+    changes: [for (final day in days) _record(DateTime(start.year, start.month, day, 9))],
     complete: !incomplete.contains(start.month),
+    oldest: days.isEmpty ? null : DateTime(start.year, start.month, days.reduce((a, b) => a < b ? a : b), 9),
   ));
 };
 
@@ -232,6 +234,7 @@ void main() {
           return Right((
             changes: [for (var d = 1; d <= end.day; d++) _record(DateTime(start.year, start.month, d, 9))],
             complete: true,
+            oldest: null,
           ));
         },
         totalDays: () async => null,
@@ -275,6 +278,53 @@ void main() {
       await cubit.load();
       expect(cubit.state.streak, 20);
       expect(cubit.state.streakAtLeast, isTrue);
+      await cubit.close();
+    });
+
+    test('a break inside the records that were read is a break, the month cut or not', () async {
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher(
+          {
+            11: [1, 2, 3, 4, 5, 6, 7, 8],
+            10: [10, 11, 12, 13, 14, 15, 16, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+          },
+          [],
+          incomplete: {10},
+        ),
+        totalDays: () async => null,
+        now: now,
+      );
+      await cubit.load();
+      expect(cubit.state.streak, 20, reason: 'Oct 19 is inside what was read, nothing was cut there');
+      expect(cubit.state.streakAtLeast, isFalse);
+      await cubit.close();
+    });
+
+    test('a reload while a month is read does not read it twice', () async {
+      final asked = <DateTime>[];
+      final gate = Completer<void>();
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher(
+          {
+            11: [for (var d = 1; d <= 8; d++) d],
+            10: [31],
+          },
+          asked,
+          gates: {10: gate},
+        ),
+        totalDays: () async => null,
+        now: now,
+      );
+      final first = cubit.load();
+      await pumpEventQueue();
+      final second = cubit.load();
+      await pumpEventQueue();
+      gate.complete();
+      await Future.wait([first, second]);
+      expect(cubit.state.streak, 9);
+      expect(asked.where((e) => e.month == 10).length, 2, reason: 'once per load, the first load is dropped');
+      await cubit.moveMonth(-1);
+      expect(asked.where((e) => e.month == 10).length, 2, reason: 'October is in, asking it again reads nothing');
       await cubit.close();
     });
 

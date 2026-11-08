@@ -73,9 +73,18 @@ final class PointsRepository with LoggerMixin {
       }
       page += 1;
     }
-    return Right((changes: changes, complete: page > totalPages));
+    DateTime? oldest;
+    for (final change in changes) {
+      if (oldest == null || change.time.isBefore(oldest)) {
+        oldest = change.time;
+      }
+    }
+    return Right((changes: changes, complete: page > totalPages, oldest: oldest));
   }
 }
 
 /// The records of a range of the points changelog, newest first.
-typedef RangedChangelog = ({List<PointsChange> changes, bool complete});
+///
+/// `oldest` is the time of the oldest record read (null without any): when the range was cut at the page limit,
+/// whatever is older than it is missing.
+typedef RangedChangelog = ({List<PointsChange> changes, bool complete, DateTime? oldest});

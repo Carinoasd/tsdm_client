@@ -51,7 +51,7 @@ class MonthCalendar extends StatelessWidget {
       final isToday = isThisMonth && today.day == day;
       return Center(
         child: Semantics(
-          label: '$day',
+          label: isToday ? '$day, ${localizations.currentDateLabel}' : '$day',
           selected: isMarked,
           container: true,
           excludeSemantics: true,
