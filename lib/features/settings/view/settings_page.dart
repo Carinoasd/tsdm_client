@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -49,6 +50,8 @@ import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.da
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_app_icon_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_chinese_display_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_data_saver_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
@@ -70,6 +73,8 @@ import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/app_icon.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
@@ -219,6 +224,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               Icons.drafts_outlined,
               tr.crossDeviceSync.drafts,
               state.settingsMap.crossDeviceSyncDrafts,
+            ),
+            (
+              SettingsKeys.crossDeviceSyncBookmarks,
+              Icons.turned_in_not_outlined,
+              tr.crossDeviceSync.bookmarks,
+              state.settingsMap.crossDeviceSyncBookmarks,
             ),
           ])
             SectionSwitchListTile(
@@ -393,6 +404,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final fontFamily = state.settingsMap.fontFamily;
     final textScaleFactor = state.settingsMap.textScaleFactor;
     final threadContentScale = state.settingsMap.threadContentScale;
+    final chineseDisplayMode = ChineseDisplayMode.fromIndex(state.settingsMap.chineseDisplayMode);
     final postTypography = state.settingsMap.postTypography.withMaxWidth(state.settingsMap.readingMaxWidth);
     final immersiveForums = ImmersiveForums.parse(
       state.settingsMap.immersiveForums,
@@ -486,6 +498,19 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             if (selectedFont == null || !context.mounted) return;
             context.read<ThemeCubit>().setFontFamily(selectedFont);
             context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.fontFamily, selectedFont));
+          },
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-chinese-display'),
+          leading: const Icon(Icons.translate_outlined),
+          title: Text(tr.chineseDisplay.title),
+          trailing: _trailingValue(context, chineseDisplayModeName(context, chineseDisplayMode)),
+          onTap: () async {
+            final picked = await showSelectChineseDisplayDialog(context, chineseDisplayMode);
+            if (picked == null || !context.mounted) {
+              return;
+            }
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.chineseDisplayMode, picked.index));
           },
         ),
         SectionListTile(
@@ -595,6 +620,24 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) async =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.postMediaPreview, v)),
         ),
+        if (isAndroid || isIOS)
+          SectionListTile(
+            key: const ValueKey('settings-app-icon'),
+            leading: const Icon(Icons.apps_outlined),
+            title: Text(tr.appIcon.title),
+            trailing: Image.asset(
+              AppIcon.fromStoredName(state.settingsMap.appIcon).previewAsset,
+              width: 32,
+              height: 32,
+              errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 32),
+            ),
+            onTap: () async {
+              final bloc = context.read<SettingsBloc>();
+              final picked = await showSelectAppIconDialog(context, AppIcon.fromStoredName(state.settingsMap.appIcon));
+              if (picked == null) return;
+              bloc.add(SettingsValueChanged(SettingsKeys.appIcon, picked.storedName));
+            },
+          ),
         if (isAndroid)
           SectionSwitchListTile(
             secondary: const Icon(Icons.speed_outlined),
@@ -1595,6 +1638,24 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.enableUpdateCheckOnStartup, v)),
         ),
+        if (inAppBrowserSupported) ...[
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.travel_explore_outlined),
+            title: Text(tr.inAppBrowserForForum),
+            // All links in the in-app browser covers the forum pages too.
+            value: state.settingsMap.inAppBrowserForForum || state.settingsMap.inAppBrowserForAll,
+            onChanged: state.settingsMap.inAppBrowserForAll
+                ? null
+                : (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForForum, v)),
+          ),
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.public_outlined),
+            title: Text(tr.inAppBrowserForAll),
+            value: state.settingsMap.inAppBrowserForAll,
+            onChanged: (v) =>
+                context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForAll, v)),
+          ),
+        ],
         SectionListTile(
           leading: const Icon(Icons.new_releases_outlined),
           title: Text(tr.update),

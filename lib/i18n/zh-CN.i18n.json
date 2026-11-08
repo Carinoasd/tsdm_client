@@ -264,6 +264,7 @@
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
       "points": "积分",
@@ -350,7 +351,8 @@
         "title": "跨设备同步",
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
-        "drafts": "本机草稿"
+        "drafts": "本机草稿",
+        "bookmarks": "楼层书签"
       },
       "loginDevices": "登录设备"
     },
@@ -380,6 +382,13 @@
         "title": "语言",
         "followSystem": "跟随系统",
         "selectLanguage": "选择语言"
+      },
+      "appIcon": {
+        "title": "App 图标",
+        "defaultIcon": "默认",
+        "dark": "深色",
+        "mono": "单色",
+        "pink": "粉色"
       },
       "highRefreshRate": {
         "title": "高刷新率",
@@ -498,6 +507,12 @@
       "fontFamily": {
         "title": "字体",
         "dialogTitle": "选择字体"
+      },
+      "chineseDisplay": {
+        "title": "简繁显示",
+        "off": "关闭",
+        "traditional": "繁体",
+        "simplified": "简体"
       },
       "textScaleFactor": {
         "title": "文字缩放",
@@ -800,7 +815,9 @@
         "off": "关",
         "meteredOnly": "使用移动网络时",
         "always": "一律"
-      }
+      },
+      "inAppBrowserForForum": "论坛网页用内置浏览器打开",
+      "inAppBrowserForAll": "所有链接用内置浏览器打开"
     }
   },
   "aboutPage": {
@@ -1741,7 +1758,9 @@
     "links": "链接",
     "subForums": "子版块",
     "privateForum": "私密版块",
-    "redirectForum": "链接到外部地址"
+    "redirectForum": "链接到外部地址",
+    "pin": "钉选",
+    "unpin": "取消钉选"
   },
   "networkList": {
     "actionRefresh": "刷新",
@@ -2292,6 +2311,13 @@
     "browserHint": "应用内无法打开的链接，仍可在浏览器中打开",
     "invalidBrowserLink": "请输入以 http:// 或 https:// 开头的网页链接",
     "browserLaunchFailed": "无法在浏览器中打开此链接"
+  },
+  "inAppBrowserPage": {
+    "back": "后退",
+    "forward": "前进",
+    "refresh": "刷新",
+    "openExternal": "用外部浏览器打开",
+    "copyUrl": "复制网址"
   },
   "shareReceive": {
     "pickForum": "发到哪个版块",
@@ -3566,6 +3592,16 @@
     "hoursMinutes": "$hours 小时 $minutes 分",
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
+  },
+  "floorBookmark": {
+    "title": "书签",
+    "add": "加书签",
+    "edit": "编辑书签",
+    "note": "备注",
+    "remove": "删除",
+    "removeConfirm": "删除这个书签？",
+    "empty": "没有书签",
+    "needLogin": "登录后可以查看书签。"
   },
   "localDraft": {
     "title": "本机草稿",

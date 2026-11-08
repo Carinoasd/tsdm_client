@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,12 +6,15 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
@@ -374,10 +378,18 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
       );
     }
 
+    // A link forum has no page of its own to pin.
+    final pinForum = isLink
+        ? null
+        : () => unawaited(
+            showFrequentForumMenu(context, FrequentForum(fid: widget.forum.forumID, name: widget.forum.name)),
+          );
+
     if (large) {
       return AppSurface(
         padding: forumCardLargePadding,
         onTap: openForum,
+        onLongPress: pinForum,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -426,6 +438,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
     return AppSurface(
       padding: edgeInsetsL12T12R12B12,
       onTap: openForum,
+      onLongPress: pinForum,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -444,7 +457,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.forum.name,
+                      context.displayText(widget.forum.name),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -505,7 +518,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
     final textScale = MediaQuery.textScalerOf(context).scale(24) / 24;
 
     final name = Text(
-      widget.forum.name,
+      context.displayText(widget.forum.name),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: textTheme.headlineSmall?.copyWith(fontSize: 24, fontWeight: FontWeight.w600, height: 1.3),
