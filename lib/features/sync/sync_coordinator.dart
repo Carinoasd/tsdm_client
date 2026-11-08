@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -19,8 +20,9 @@ import 'package:tsdm_client/utils/logger.dart';
 
 /// When the cross-device sync runs: a pull when the app starts with an account and at every login, again when the app
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
-/// phrases, the block list, the fast rate templates, the synced settings or the local drafts of the account change on
-/// this device. Nothing while the setting is off; a pull when it (or one of its categories) is switched on.
+/// phrases, the block list, the fast rate templates, the synced settings, the local drafts or the floor bookmarks of the
+/// account change on this device. Nothing while the setting is off; a pull when it (or one of its categories) is
+/// switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
   SyncCoordinator({
@@ -30,12 +32,14 @@ final class SyncCoordinator with LoggerMixin {
     required UserBlockRepository blocks,
     required StorageProvider storage,
     Stream<int>? draftChanges,
+    Stream<int>? bookmarkChanges,
   }) : _repository = repository,
        _authentication = authentication,
        _settings = settings,
        _blocks = blocks,
        _storage = storage,
-       _draftChanges = draftChanges;
+       _draftChanges = draftChanges,
+       _bookmarkChanges = bookmarkChanges;
 
   /// The coordinator on the app's repositories.
   factory SyncCoordinator.build({
@@ -63,6 +67,7 @@ final class SyncCoordinator with LoggerMixin {
       blocks: blocks,
       storage: storage,
       draftChanges: LocalDraftStore.app?.changes,
+      bookmarkChanges: FloorBookmarkStore.app?.changes,
     );
   }
 
@@ -71,6 +76,7 @@ final class SyncCoordinator with LoggerMixin {
     SyncCategory.rateTemplates => settings.crossDeviceSyncRateTemplates,
     SyncCategory.settings => settings.crossDeviceSyncSettings,
     SyncCategory.drafts => settings.crossDeviceSyncDrafts,
+    SyncCategory.bookmarks => settings.crossDeviceSyncBookmarks,
   };
 
   static String _settingsSnapshotOf(SettingsMap settings) =>
@@ -93,10 +99,12 @@ final class SyncCoordinator with LoggerMixin {
   final UserBlockRepository _blocks;
   final StorageProvider _storage;
   final Stream<int>? _draftChanges;
+  final Stream<int>? _bookmarkChanges;
 
   StreamSubscription<AuthStatus>? _authSub;
   StreamSubscription<List<FastRateTemplateModel>>? _templatesSub;
   StreamSubscription<int>? _draftsSub;
+  StreamSubscription<int>? _bookmarksSub;
   String? _settingsSnapshot;
   String? _templates;
   Set<SyncCategory> _categories = const {};
@@ -167,6 +175,11 @@ final class SyncCoordinator with LoggerMixin {
         _repository.schedulePush(uid);
       }
     });
+    _bookmarksSub = _bookmarkChanges?.listen((uid) {
+      if (uid == _uid) {
+        _repository.schedulePush(uid);
+      }
+    });
   }
 
   void _follow(int? uid, {required bool pull}) {
@@ -215,6 +228,7 @@ final class SyncCoordinator with LoggerMixin {
     await _visitsSub?.cancel();
     await _templatesSub?.cancel();
     await _draftsSub?.cancel();
+    await _bookmarksSub?.cancel();
     await _repository.dispose();
   }
 }

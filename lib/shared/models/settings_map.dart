@@ -60,6 +60,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
+    this.chineseDisplayMode = 0,
     this.threadCardExternalThumbnails = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
@@ -89,6 +90,7 @@ class SettingsMap with SettingsMapMappable {
     this.editImageBeforeUpload = false,
     this.uploadImageMaxSide = 0,
     this.uploadImageQuality = 90,
+    this.frequentForums = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -97,6 +99,8 @@ class SettingsMap with SettingsMapMappable {
     this.twoPaneLayout = true,
     this.twoPaneListWidth = 0,
     this.postMediaPreview = true,
+    this.inAppBrowserForForum = true,
+    this.inAppBrowserForAll = false,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -104,6 +108,7 @@ class SettingsMap with SettingsMapMappable {
     this.crossDeviceSyncRateTemplates = true,
     this.crossDeviceSyncSettings = true,
     this.crossDeviceSyncDrafts = true,
+    this.crossDeviceSyncBookmarks = true,
   });
 
   final String netClientAccept;
@@ -144,6 +149,10 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
   /// versions lack it.
   final bool threadCardExternalThumbnails;
+
+  /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
+  /// lack it.
+  final int chineseDisplayMode;
 
   /// When the thread lists show a thumbnail.
   ThreadThumbnailMode get threadThumbnailMode => ThreadThumbnailMode.fromIndex(threadCardThumbnailMode);
@@ -233,6 +242,13 @@ class SettingsMap with SettingsMapMappable {
   /// Cards of videos in posts show cover, title and length. Not required: backups from older versions lack it.
   final bool postMediaPreview;
 
+  /// Forum pages the app has no screen for open in the in-app browser. Not required: backups from older versions lack
+  /// it.
+  final bool inAppBrowserForForum;
+
+  /// Every web link opens in the in-app browser. Not required: backups from older versions lack it.
+  final bool inAppBrowserForAll;
+
   /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
   /// settings and the drafts each on their own switch too). Not required: backups from older
   /// versions lack it.
@@ -246,6 +262,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// With [crossDeviceSync], sync the local drafts. Not required: backups from older versions lack it.
   final bool crossDeviceSyncDrafts;
+
+  /// With [crossDeviceSync], sync the floor bookmarks. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncBookmarks;
 
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
@@ -332,6 +351,9 @@ class SettingsMap with SettingsMapMappable {
   /// See `SettingsKeys.uploadImageQuality`. Not required: backups from older versions lack it.
   final int uploadImageQuality;
 
+  /// The pinned and recent forums of every account, see `SettingsKeys.frequentForums`.
+  final String frequentForums;
+
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
       T == key.type || T.toString() == '${key.type}?',
@@ -368,6 +390,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadCardHighlightAuthorName => copyWith(threadCardHighlightAuthorName: value as bool?),
       SettingsKeys.threadCardHighlightInfoRow => copyWith(threadCardHighlightInfoRow: value as bool?),
       SettingsKeys.threadCardShowExcerpt => copyWith(threadCardShowExcerpt: value as bool?),
+      SettingsKeys.chineseDisplayMode => copyWith(chineseDisplayMode: value as int?),
       SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
       SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
@@ -408,10 +431,13 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),
+      SettingsKeys.inAppBrowserForForum => copyWith(inAppBrowserForForum: value as bool?),
+      SettingsKeys.inAppBrowserForAll => copyWith(inAppBrowserForAll: value as bool?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
       SettingsKeys.crossDeviceSyncDrafts => copyWith(crossDeviceSyncDrafts: value as bool?),
+      SettingsKeys.crossDeviceSyncBookmarks => copyWith(crossDeviceSyncBookmarks: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),
@@ -438,6 +464,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.editImageBeforeUpload => copyWith(editImageBeforeUpload: value as bool?),
       SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
       SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
+      SettingsKeys.frequentForums => copyWith(frequentForums: value as String?),
     };
   }
 }

@@ -74,6 +74,9 @@ class ScreenPaths {
   /// Page to switch current user's user group.
   static const String switchUserGroup = '/switchUserGroup';
 
+  /// Credits table of the user groups and the progress of the current account towards the next one.
+  static const String userGroupProgress = '/userGroupProgress';
+
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 
@@ -256,6 +259,9 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&do=favorite&type=thread
   static const String favorite = '/favorite';
 
+  /// Page listing the floor bookmarks of the current account, by thread.
+  static const String floorBookmarks = '/floorBookmarks';
+
   /// Page listing the threads kept for reading without network ("離線副本"), with the update of all of them.
   static const String offlineThreads = '/offlineThreads';
 
@@ -263,7 +269,8 @@ class ScreenPaths {
   ///
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
   ///
-  /// Query parameters: `uid` or `username` of the user; none for the current user.
+  /// Query parameters: `uid` or `username` of the user; none for the current user. `view=visitor` lists the recent
+  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
   static const String friend = '/friend';
 
   /// Page to show "Latest thread" on web side.
@@ -383,6 +390,13 @@ class ScreenPaths {
 
   /// Page to open any supported forum resources in app.
   static const String openInApp = '/openInApp';
+
+  /// Web page in the in-app browser.
+  ///
+  /// Query parameters:
+  ///
+  /// * url: The absolute url of the page, required.
+  static const String inAppBrowser = '/inAppBrowser';
 }
 
 /// Route paths for all temporary dialogs and bottom sheets in app.
@@ -512,11 +526,17 @@ class DialogPaths {
   /// Dialog showing the progress of saving the favorites offline or updating the offline copies.
   static const String offlineBatch = '/dialog/offlineBatch';
 
+  /// Box to jump to a thread, forum, user or search by typing (Ctrl+K).
+  static const String quickOpen = '/dialog/quickOpen';
+
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
 
   /// Dialog to select the app icon.
   static const String selectAppIcon = '/dialog/selectAppIcon';
+
+  /// Dialog to select the script Chinese text is shown in.
+  static const String selectChineseDisplay = '/dialog/selectChineseDisplay';
 
   /// Dialog to select when the thread lists show the thumbnails of the threads.
   static const String selectThreadThumbnailMode = '/dialog/selectThreadThumbnailMode';
@@ -532,6 +552,9 @@ class DialogPaths {
 
   /// Dialog asking the optional note of a new favorite.
   static const String favoriteNote = '/dialog/favoriteNote';
+
+  /// Dialog asking the note of a floor bookmark, or removing it.
+  static const String floorBookmark = '/dialog/floorBookmark';
 
   /// Dialog showing a red packet in a thread.
   static const String redPacket = '/dialog/redPacket';

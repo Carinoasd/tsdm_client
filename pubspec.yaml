@@ -49,6 +49,7 @@ dependencies:
   flutter_bbcode_editor:
     path: ./packages/flutter_bbcode_editor
   flutter_bloc: ^9.1.1
+  flutter_inappwebview: ^6.1.5
   flutter_local_notifications: ^20.1.0
   flutter_localizations:
     sdk: flutter
@@ -136,6 +137,7 @@ flutter:
     - assets/images/emoji/
     - assets/images/app_icons/
     - assets/text/
+    - assets/text/opencc/
 
 flutter_launcher_icons:
   image_path: "assets/images/tsdm_client.png"

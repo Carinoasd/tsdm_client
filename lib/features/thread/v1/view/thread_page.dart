@@ -24,6 +24,10 @@ import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
+import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
+import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
+import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dart';
+import 'package:tsdm_client/features/floor_bookmark/widgets/floor_bookmark_widgets.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
@@ -1066,7 +1070,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     final state = bloc.state;
     if (state.status == ThreadStatus.success && state.postList.isNotEmpty) {
-      _readOn.floorsShown(generation: state.generation, firstPage: state.firstPage, openedResumed: _resumeAt != null);
+      _readOn.floorsShown(
+        generation: state.generation,
+        firstPage: state.firstPage,
+        openedResumed: _resumeAt != null,
+        openedAtFloor: widget.findPostID != null,
+      );
     }
     final tid = int.tryParse(state.tid ?? '');
     if (tid == null || tid == _readLaterAddedHere || !cubit.state.contains(tid)) {
@@ -1735,6 +1744,35 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     _heldPosition = null;
     context.read<ThreadBloc>().add(ThreadJumpToFloorRequested(floor));
+  }
+
+  /// The floor bookmarks of the thread of [state] of the account in use, by floor; rebuilds the caller when they change.
+  List<FloorBookmark> _threadBookmarks(BuildContext context, ThreadState state) {
+    final tid = int.tryParse(state.tid ?? '');
+    if (tid == null || context.readOrNull<FloorBookmarkCubit>() == null) {
+      return const [];
+    }
+    return context.select<FloorBookmarkCubit, List<FloorBookmark>>((cubit) => cubit.state.ofThread(tid));
+  }
+
+  /// List the floor [bookmarks] of the thread, and go to the one picked: in the thread on screen, its page loaded when
+  /// it is not; by the forum's `findpost` while one author's floors are listed (their pages are not the thread's) or
+  /// when its floor is not known.
+  Future<void> _showBookmarks(BuildContext context, List<FloorBookmark> bookmarks) async {
+    final picked = await showThreadBookmarksSheet(context, bookmarks);
+    if (picked == null || !context.mounted) {
+      return;
+    }
+    final bloc = _threadBloc;
+    final floor = picked.floor;
+    if (bloc == null || bloc.isClosed || bloc.state.onlyVisibleUid != null || floor == null) {
+      await openFloorBookmark(context, picked);
+      return;
+    }
+    _heldPosition = null;
+    // A jump to a bookmarked floor does not read the thread on from its start (read later).
+    _readOn.jumpedFrom(bloc.state.generation);
+    bloc.add(ThreadJumpToFloorRequested(floor, pid: '${picked.pid}', page: picked.page));
   }
 
   /// Go on reading where it stopped last time ([_resumeOffer]).
@@ -2691,6 +2729,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             icon: Icons.record_voice_over_outlined,
                             description: context.t.threadTts.menu,
                             onSelected: () async => _startTts(state),
+                          ),
+                        // The floors of this thread the account bookmarked.
+                        if (_threadBookmarks(context, state) case final bookmarks when bookmarks.isNotEmpty)
+                          MenuCustomItem(
+                            icon: Icons.turned_in_not_outlined,
+                            description: context.t.floorBookmark.title,
+                            onSelected: () async => _showBookmarks(context, bookmarks),
                           ),
                         MenuCustomItem(
                           icon: Icons.numbers_outlined,
