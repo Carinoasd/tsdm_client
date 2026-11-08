@@ -280,7 +280,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     } finally {
       _authenticating = false;
       // Back on the screen before the prompt answered: the return check skipped while it was up.
-      if (_lifecycle == AppLifecycleState.resumed && _timer.leftAt != null) {
+      if (!isClosed && _lifecycle == AppLifecycleState.resumed && _timer.leftAt != null) {
         onLifecycleChanged(AppLifecycleState.resumed);
       }
     }
