@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/features/reading_time/models/reading_time_summary.dart';
 import 'package:tsdm_client/features/reading_time/repository/reading_time_repository.dart';
 import 'package:tsdm_client/features/reading_time/view/reading_stats_page.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 
@@ -59,7 +61,7 @@ void main() {
     test('a forum keeps the name last given and an empty summary says so', () {
       expect(ReadingTimeSummary.of(const [], now: now).isEmpty, isTrue);
       final summary = ReadingTimeSummary.of([_row(20261107, 1, 5, 'Old'), _row(20261108, 1, 5, 'New')], now: now);
-      expect(summary.forums.single.forumName, isNotEmpty);
+      expect(summary.forums.single.forumName, 'New');
       expect(summary.forums.single.seconds, 10);
     });
 
@@ -102,6 +104,29 @@ void main() {
       await store.add(uid: 1, day: DateTime(2026, 10), fid: 7, forumName: 'A', seconds: 40);
       final rows = await store.fetch(uid: 1, from: DateTime(2026, 11), to: DateTime(2026, 11, 30));
       expect(rows.single.seconds, 10);
+    });
+
+    test('removing an account from the device forgets its time and keeps the others', () async {
+      final storage = StorageProvider(db, {}, {});
+      await store.add(uid: 1, day: DateTime(2026, 11, 8), fid: 7, forumName: 'A', seconds: 10);
+      await store.add(uid: 2, day: DateTime(2026, 11, 8), fid: 7, forumName: 'A', seconds: 20);
+      await storage.deleteUserLoginInfo(1);
+      expect(await store.fetch(uid: 1, from: DateTime(2026), to: DateTime(2027)), isEmpty);
+      expect((await store.fetch(uid: 2, from: DateTime(2026), to: DateTime(2027))).single.seconds, 20);
+    });
+
+    test('the setting is on at first and stays off after a restart', () async {
+      final storage = StorageProvider(db, {}, {});
+      final first = SettingsRepository(storage);
+      await first.init();
+      expect(first.currentSettings.readingTimeStats, isTrue);
+      await first.setValue(SettingsKeys.readingTimeStats, false);
+      await first.dispose();
+
+      final second = SettingsRepository(storage);
+      await second.init();
+      addTearDown(second.dispose);
+      expect(second.currentSettings.readingTimeStats, isFalse);
     });
 
     test('nothing is added for no time and clear forgets every account', () async {

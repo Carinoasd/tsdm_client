@@ -243,8 +243,8 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
-  /// the drafts its editors kept ([LocalDraftStore]).
+  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]), the
+  /// drafts its editors kept ([LocalDraftStore]) and the time it spent reading.
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
     // The pages saved to show at the next start (the homepage, the guide) were served to the account.
@@ -252,6 +252,7 @@ class StorageProvider with LoggerMixin {
     LocalDraftStore.app?.forget(uid);
     await RepliedThreadDao(_db).deleteByUid(uid);
     await OfflineThreadDao(_db).deleteByUid(uid);
+    await ReadingTimeDao(_db).deleteByUid(uid);
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));

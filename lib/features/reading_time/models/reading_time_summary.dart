@@ -61,7 +61,7 @@ final class ReadingTimeSummary {
     int forumCount = 5,
   }) {
     final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: today.weekday - DateTime.monday));
+    final weekStart = DateTime(today.year, today.month, today.day - (today.weekday - DateTime.monday));
     final monthStart = DateTime(today.year, today.month);
     final todayKey = readingDayKey(today);
     final weekKey = readingDayKey(weekStart);

@@ -58,9 +58,8 @@ class _ReadingStatsPageState extends State<ReadingStatsPage> {
     final store = widget.store ?? StorageReadingTimeStore(getIt.get<StorageProvider>());
     // The month may start before the last 14 days: read whichever reaches further back.
     final today = DateTime(now.year, now.month, now.day);
-    final from = DateTime(now.year, now.month).isBefore(today.subtract(const Duration(days: 13)))
-        ? DateTime(now.year, now.month)
-        : today.subtract(const Duration(days: 13));
+    final fourteenDays = DateTime(now.year, now.month, now.day - 13);
+    final from = DateTime(now.year, now.month).isBefore(fourteenDays) ? DateTime(now.year, now.month) : fourteenDays;
     final rows = uid == null ? const <ReadingTimeRow>[] : await store.fetch(uid: uid, from: from, to: today);
     if (!mounted) {
       return;
@@ -225,7 +224,9 @@ class _ForumShareRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fraction = total == 0 ? 0.0 : share.seconds / total;
-    final name = share.fid == null || share.forumName.isEmpty ? context.t.readingStats.otherForums : share.forumName;
+    final name = share.fid == null
+        ? context.t.readingStats.otherForums
+        : (share.forumName.isEmpty ? '#${share.fid}' : share.forumName);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(

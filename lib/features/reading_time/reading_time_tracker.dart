@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:tsdm_client/utils/logger.dart';
 
 /// Receives the time read: [seconds] on the local [day] in forum [fid].
 typedef ReadingTimeSink = Future<void> Function(DateTime day, int fid, String forumName, int seconds);
@@ -11,7 +12,7 @@ typedef ReadingTimeSink = Future<void> Function(DateTime day, int fid, String fo
 /// [enabled] allows it. Time without an [touch] (a tap, a scroll) counts up to [maxIdle] only: someone who left the
 /// phone on the page is not reading. The time is handed to the [sink] every [flushEvery], whenever it stops and split
 /// at midnight.
-final class ReadingTimeTracker with WidgetsBindingObserver {
+final class ReadingTimeTracker with WidgetsBindingObserver, LoggerMixin {
   /// Constructor.
   ReadingTimeTracker({
     required this.sink,
@@ -63,6 +64,7 @@ final class ReadingTimeTracker with WidgetsBindingObserver {
       return;
     }
     flush();
+    _carryMillis = 0;
     _fid = fid;
     _forumName = forumName ?? '';
     _update();
@@ -82,7 +84,8 @@ final class ReadingTimeTracker with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    setForeground(foreground: state == AppLifecycleState.resumed || state == AppLifecycleState.inactive);
+    // Only a resumed app is read: on desktop a window that lost the focus is `inactive`.
+    setForeground(foreground: state == AppLifecycleState.resumed);
   }
 
   /// The user did something on the page.
@@ -127,7 +130,12 @@ final class ReadingTimeTracker with WidgetsBindingObserver {
     _carryMillis = millis % 1000;
     if (seconds > 0) {
       unawaited(
-        sink(DateTime(at.year, at.month, at.day), fid, _forumName, seconds).catchError((Object _) {}),
+        sink(
+          DateTime(at.year, at.month, at.day),
+          fid,
+          _forumName,
+          seconds,
+        ).catchError((Object e, StackTrace st) => error('failed to keep the reading time', e, st)),
       );
     }
   }

@@ -1419,11 +1419,21 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     if (!(confirmed ?? false) || !context.mounted) {
       return;
     }
-    await StorageReadingTimeStore(getIt.get<StorageProvider>()).clear();
+    String message;
+    try {
+      await StorageReadingTimeStore(getIt.get<StorageProvider>()).clear();
+      message = tr.readingTimeCleared;
+    } on Object catch (e, st) {
+      talker.error('failed to clear the reading time', e, st);
+      if (!context.mounted) {
+        return;
+      }
+      message = context.t.general.failedToLoad;
+    }
     if (!context.mounted) {
       return;
     }
-    showSnackBar(context: context, message: tr.readingTimeCleared);
+    showSnackBar(context: context, message: message);
   }
 
   Widget _buildOtherSection(BuildContext context, SettingsState state) {

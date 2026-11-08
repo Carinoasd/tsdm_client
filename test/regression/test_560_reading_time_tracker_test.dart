@@ -1,11 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/reading_time/reading_time_tracker.dart';
+import 'package:tsdm_client/instance.dart';
 
 typedef _Credit = ({DateTime day, int fid, String name, int seconds});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() => talker = TalkerFlutter.init());
 
   late DateTime now;
   late List<_Credit> credits;
@@ -74,6 +78,11 @@ void main() {
     expect(tracker.isRunning, isTrue);
     tracker.didChangeAppLifecycleState(AppLifecycleState.hidden);
     expect(tracker.isRunning, isFalse);
+    tracker
+      ..didChangeAppLifecycleState(AppLifecycleState.resumed)
+      // A desktop window that lost the focus.
+      ..didChangeAppLifecycleState(AppLifecycleState.inactive);
+    expect(tracker.isRunning, isFalse);
     expect(total(DateTime(2026, 11, 8)), 10);
   });
 
@@ -123,8 +132,9 @@ void main() {
     now = DateTime(2026, 11, 8, 23, 59, 30);
     tracker.setForum(7, 'Forum');
     advance(const Duration(seconds: 90));
-    tracker.touch();
-    tracker.flush();
+    tracker
+      ..touch()
+      ..flush();
     expect(total(DateTime(2026, 11, 8)), 30);
     expect(total(DateTime(2026, 11, 9)), 60);
   });
