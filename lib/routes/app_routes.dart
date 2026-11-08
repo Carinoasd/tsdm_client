@@ -371,6 +371,9 @@ final List<RouteBase> _appRoutes = [
       assert(editType != null, 'PostEditType enum value is not a integer: $editType');
       assert(PostEditType.values.length > editType!, 'invalid PostEditType enum value: $editType');
       return PostEditPage(
+        // Switching the thread kind replaces this route with the same path and another `kind` query: the pages carry
+        // no key, so the navigator would keep the old page state and never fetch the form for the new kind.
+        key: ValueKey('post-edit-${state.uri}'),
         editType: PostEditType.values[editType!],
         fid: fid,
         tid: tid,

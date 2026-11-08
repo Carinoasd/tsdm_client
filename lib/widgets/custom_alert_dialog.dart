@@ -112,14 +112,9 @@ class _CustomAlertDialogState<F> extends State<CustomAlertDialog<F>> {
               constraints: BoxConstraints(maxHeight: titleMaxHeight),
               child: SingleChildScrollView(child: widget.title),
             ),
-      // This value copied from the default value in AlterDialog and removed horizontal padding.
-      contentPadding: const EdgeInsets.only(
-        // left: 24.0,
-        top: 16,
-        // right: 24.0,
-        bottom: 24,
-      ),
-      // contentPadding: const EdgeInsets.only(top: 16, bottom: 24),
+      // AlertDialog's default without the horizontal padding. The top is 8 less than the default's 16: the other 8 are
+      // inside the clipped body (see _DividedDialogBody), where a floating label can use them.
+      contentPadding: const EdgeInsets.only(top: 8, bottom: 24),
       content: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: math.min(size.width * 0.7, 400), maxHeight: size.height * 0.6),
         child: future != null
@@ -252,7 +247,13 @@ class _DividedDialogBodyState extends State<_DividedDialogBody> {
               clipBehavior: Clip.hardEdge,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: SingleChildScrollView(controller: scrollController, child: widget.content),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  // The floating label of an outlined text field rises above the field's box; without this it is cut
+                  // off by the clip above when the field is the first thing in the content.
+                  padding: const EdgeInsets.only(top: 8),
+                  child: widget.content,
+                ),
               ),
             ),
           ),
