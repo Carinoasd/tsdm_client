@@ -31,27 +31,19 @@ final class ReadLaterDao extends DatabaseAccessor<AppDatabase> with _$ReadLaterD
   Future<int> remove(int uid, int tid) async =>
       (delete(readLater)..where((e) => e.uid.equals(uid) & e.tid.equals(tid))).go();
 
+  SimpleSelectStatement<$ReadLaterTable, ReadLaterEntity> _orderedOf(int uid) => select(readLater)
+    ..where((e) => e.uid.equals(uid))
+    ..orderBy([
+      (e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc),
+      // The time is kept in seconds: threads put aside within one second keep the later thread id first.
+      (e) => OrderingTerm(expression: e.tid, mode: OrderingMode.desc),
+    ]);
+
   /// Watch the entries of user [uid], the latest put aside first.
-  Stream<List<ReadLaterEntity>> watchByUid(int uid) =>
-      (select(readLater)
-            ..where((e) => e.uid.equals(uid))
-            ..orderBy([
-              (e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc),
-              // The time is kept in seconds: threads put aside within one second keep the later thread id first.
-              (e) => OrderingTerm(expression: e.tid, mode: OrderingMode.desc),
-            ]))
-          .watch();
+  Stream<List<ReadLaterEntity>> watchByUid(int uid) => _orderedOf(uid).watch();
 
   /// The entries of user [uid], the latest put aside first.
-  Future<List<ReadLaterEntity>> selectByUid(int uid) async =>
-      (select(readLater)
-            ..where((e) => e.uid.equals(uid))
-            ..orderBy([
-              (e) => OrderingTerm(expression: e.addedAt, mode: OrderingMode.desc),
-              // The time is kept in seconds: threads put aside within one second keep the later thread id first.
-              (e) => OrderingTerm(expression: e.tid, mode: OrderingMode.desc),
-            ]))
-          .get();
+  Future<List<ReadLaterEntity>> selectByUid(int uid) async => _orderedOf(uid).get();
 
   /// Delete every entry of user [uid].
   Future<int> deleteByUid(int uid) async => (delete(readLater)..where((e) => e.uid.equals(uid))).go();

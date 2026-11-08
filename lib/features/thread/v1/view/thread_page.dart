@@ -367,7 +367,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     } else if (page > 1 && bloc.state.tid != null) {
       bloc.add(ThreadJumpPageRequested(page));
     } else {
-      bloc.add(ThreadRefreshRequested());
+      bloc.add(_refreshEvent());
     }
   }
 
@@ -543,7 +543,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         if (tid == null) {
           return (
             title: neutral,
-            body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(ThreadRefreshRequested())),
+            body: _AuthorLookupFailure(onRetry: () => context.read<ThreadBloc>().add(_refreshEvent())),
           );
         }
         _resolveThreadAuthor(context, tid);
@@ -596,7 +596,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     switch (done) {
       case ModerateDone.changed:
-        context.read<ThreadBloc>().add(ThreadRefreshRequested());
+        context.read<ThreadBloc>().add(_refreshEvent());
       case ModerateDone.deleted:
         final pane = TwoPaneScope.detailOf(context);
         if (pane != null && pane.pop()) {
@@ -604,7 +604,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         }
         // Nothing to go back to: the thread shows the forum's word that it is gone.
         if (!await Navigator.of(context).maybePop() && context.mounted) {
-          context.read<ThreadBloc>().add(ThreadRefreshRequested());
+          context.read<ThreadBloc>().add(_refreshEvent());
         }
     }
   }
@@ -739,6 +739,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         if (atOpen) {
           _resumeAt = progress;
         } else {
+          _continueNext = true;
           _threadBloc?.add(
             ThreadJumpToFloorRequested(progress.floor ?? 1, pid: progress.pid?.toString(), page: progress.page),
           );
@@ -829,6 +830,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// where the reading stopped): a jump to the last page does not read the thread.
   bool _readOnFromStart = false;
 
+  /// The next generation of floors goes on from where the reading was: a refresh keeps what the reading was, a jump to
+  /// where the reading stopped is reading on.
+  bool _continueNext = false;
+
+  /// The event of a refresh: the floors loaded again are read on from the start when the ones on screen were.
+  ThreadRefreshRequested _refreshEvent() {
+    _continueNext = _readOnFromStart;
+    return ThreadRefreshRequested();
+  }
+
   /// The thread put aside from this page: it stays on the list until the page is opened again.
   int? _readLaterAddedHere;
 
@@ -845,7 +856,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     final state = bloc.state;
     if (state.status == ThreadStatus.success && state.postList.isNotEmpty && state.generation != _readGeneration) {
       // The first floors on screen of this generation: the page opened where the reading stopped counts as reading on.
-      _readOnFromStart = state.firstPage == 1 || (_readGeneration == null && _resumeAt != null);
+      _readOnFromStart = state.firstPage == 1 || _continueNext || (_readGeneration == null && _resumeAt != null);
+      _continueNext = false;
       _readGeneration = state.generation;
     }
     final tid = int.tryParse(state.tid ?? '');
@@ -1381,6 +1393,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (offer == null) {
       return;
     }
+    _continueNext = true;
     _threadBloc?.add(ThreadJumpToFloorRequested(offer.floor ?? 1, pid: offer.pid?.toString(), page: offer.page));
   }
 
@@ -1755,7 +1768,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         threadState.exactOrder == 1 ||
         (threadState.exactOrder == null && (threadState.reverseOrder ?? false));
     if (newestFirst) {
-      threadBloc.add(ThreadRefreshRequested());
+      threadBloc.add(_refreshEvent());
     } else {
       _landOnLastPost = true;
       threadBloc.add(const ThreadJumpPageRequested(lastPageAsked, pageFallback: 1));
@@ -1780,7 +1793,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Reloads by itself after its login: the reload kept for when this page shows again would be a second.
             _reloadWhenShown = false;
             // Still opening on the last floor: its page again, not the first one.
-            context.read<ThreadBloc>().add(_landOnLastPost ? _retryLoad(state) : ThreadRefreshRequested());
+            context.read<ThreadBloc>().add(_landOnLastPost ? _retryLoad(state) : _refreshEvent());
           },
         ),
       );
@@ -2045,7 +2058,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                 if (!newestFirst && page > 1) {
                   threadBloc.add(ThreadJumpPageRequested(page));
                 } else {
-                  threadBloc.add(ThreadRefreshRequested());
+                  threadBloc.add(_refreshEvent());
                 }
               } else if (state.status == ReplyStatus.failure) {
                 final tr = context.t.threadPage;
@@ -2152,7 +2165,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                       context.read<JumpPageCubit>().markLoading();
                       context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
                     },
-                    onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+                    onRefresh: () => context.read<ThreadBloc>().add(_refreshEvent()),
                     onCopyUrl: () async => copyToClipboard(context, threadUrl!),
                     onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
                     onBackToTop: () async => _backToTop(context),
@@ -2198,6 +2211,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 ? context.t.readLater.remove
                                 : context.t.readLater.add,
                             onSelected: () async {
+                              // Before the list changes: nothing may take it off in between.
+                              final tid = int.tryParse(state.tid!);
+                              if (tid != null &&
+                                  !(context.readOrNull<ReadLaterCubit>()?.state.contains(tid) ?? false)) {
+                                _readLaterAddedHere = tid;
+                              }
                               final added = await toggleReadLater(
                                 context,
                                 tid: state.tid!,
@@ -2205,7 +2224,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 author: state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name,
                                 forumName: state.forumName,
                               );
-                              _readLaterAddedHere = added ? int.tryParse(state.tid!) : null;
+                              _readLaterAddedHere = added ? tid : null;
                               if (mounted) {
                                 setState(() {});
                               }
@@ -2256,7 +2275,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Back closes the search first. Not a `PopScope`: the page stays one that may be closed on its own
             // (`canCloseQuietly`), and the back swipe still closes it.
             return KeyboardPageActions(
-              onRefresh: () => context.read<ThreadBloc>().add(ThreadRefreshRequested()),
+              onRefresh: () => context.read<ThreadBloc>().add(_refreshEvent()),
               onNextItem: () => _postListKey.currentState?.scrollByFloor(1),
               onPreviousItem: () => _postListKey.currentState?.scrollByFloor(-1),
               onNextPage: () => _swipePage(ThreadSwipe.next),

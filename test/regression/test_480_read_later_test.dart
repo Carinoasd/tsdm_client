@@ -14,6 +14,17 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 
+/// Storage whose removals fail.
+final class _FailingStorage extends StorageProvider {
+  _FailingStorage(AppDatabase db) : super(db, {}, {});
+
+  @override
+  Future<void> removeReadLater(int uid, int tid) async => throw StateError('disk full');
+
+  @override
+  Future<void> clearReadLater(int uid) async => throw StateError('disk full');
+}
+
 void main() {
   late AppDatabase db;
   late StorageProvider storage;
@@ -118,8 +129,25 @@ void main() {
       final removal = cubit.remove(1);
       expect(cubit.state.contains(1), isFalse);
       await removal;
-      await cubit.clear();
+
+      await storage.addReadLater(uid: 31, tid: 2, title: 'two');
+      await settle();
+      final clearing = cubit.clear();
       expect(cubit.state.items, isEmpty);
+      await clearing;
+    });
+
+    test('a write that fails puts the list back', () async {
+      await storage.addReadLater(uid: 31, tid: 1, title: 'one');
+      final failing = _FailingStorage(db);
+      final cubit = ReadLaterCubit(storageProvider: failing, uid: 31);
+      addTearDown(cubit.close);
+      await settle();
+      expect(cubit.state.contains(1), isTrue);
+      await cubit.remove(1);
+      expect(cubit.state.contains(1), isTrue);
+      await cubit.clear();
+      expect(cubit.state.items.map((e) => e.tid), [1]);
     });
 
     test('without an account nothing is kept', () async {
