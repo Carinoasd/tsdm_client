@@ -38,7 +38,7 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
   final _channel = const AppShortcutsChannel();
 
   /// Whether the platform hands shortcuts over: the launcher shortcuts and the widget on Android, the widget on iOS.
-  static final _supported = isAndroid || isIOS;
+  static final bool _supported = isAndroid || isIOS;
 
   /// Whether a check-in shortcut is waiting for the login check: another one meanwhile is the same wish.
   var _checkinWaiting = false;
