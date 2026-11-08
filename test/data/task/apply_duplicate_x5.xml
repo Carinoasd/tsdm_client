@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>提示信息</em><span><a href="javascript:;" class="flbc" onclick="hideWindow('');" title="关闭">关闭</a></span></h3>
+<div class="c altw">
+<div class="alert_info"><script type="text/javascript" reload="1">if(typeof succeedhandle_=='function') {succeedhandle_('home.php?mod=task&item=new', '抱歉，您已申请过此任务，请不要重复申请', {});}</script></div>
+</div>
+<p class="o pns">
+<button type="button" class="pn pnc" id="closebtn" onclick="hideWindow('');"><strong>确定</strong></button>
+<script type="text/javascript" reload="1">if($('closebtn')) {$('closebtn').focus();}</script>
+</p>
+]]></root>

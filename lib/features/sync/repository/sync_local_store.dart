@@ -5,6 +5,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/editor/utils/quick_phrases.dart';
+import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
+import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -317,6 +319,13 @@ abstract interface class SyncLocalStore {
   /// Keep [keys] as the [draftsSeen] of account [uid].
   Future<void> saveDraftsSeen(int uid, Set<String> keys);
 
+  /// The floor bookmarks of account [uid], the records of removed ones included; null when they can not be kept on
+  /// this device (left alone then).
+  Future<List<FloorBookmark>?> bookmarks(int uid);
+
+  /// Keep [save] (bookmarks and records of removed ones) for account [uid], each where it is later than this device's.
+  Future<void> applyBookmarks(int uid, List<FloorBookmark> save);
+
   /// The document the forum held for account [uid] when it was last read or written, null before the first sync.
   Future<SyncLastSynced?> lastSynced(int uid);
 
@@ -517,6 +526,13 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       _storage.saveStringList(draftsSeenKeyOf(uid), keys.toList());
 
   @override
+  Future<List<FloorBookmark>?> bookmarks(int uid) async => FloorBookmarkStore.app?.items(uid);
+
+  @override
+  Future<void> applyBookmarks(int uid, List<FloorBookmark> save) async =>
+      FloorBookmarkStore.app?.applySynced(uid, save);
+
+  @override
   Future<SyncLastSynced?> lastSynced(int uid) async {
     final document = await _storage.getString(lastDocumentKeyOf(uid));
     if (document == null) {
@@ -578,6 +594,9 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// The [draftsSeen] by account.
   final draftsSeenByUid = <int, Set<String>>{};
+
+  /// The floor bookmarks by account and key, the records of removed ones included.
+  final bookmarksByUid = <int, Map<String, FloorBookmark>>{};
 
   /// Every write, in order (`saveVisit 3`, `deleteVisit 3`, `savePhrases`, `saveBlocks`), for the tests.
   final writes = <String>[];
@@ -743,6 +762,20 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   @override
   Future<void> saveDraftsSeen(int uid, Set<String> keys) async => draftsSeenByUid[uid] = Set.of(keys);
+
+  @override
+  Future<List<FloorBookmark>?> bookmarks(int uid) async => (bookmarksByUid[uid] ?? const {}).values.toList();
+
+  @override
+  Future<void> applyBookmarks(int uid, List<FloorBookmark> save) async {
+    final items = bookmarksByUid[uid] ??= {};
+    for (final bookmark in save) {
+      if ((items[bookmark.key]?.updated ?? -1) < bookmark.updated) {
+        items[bookmark.key] = bookmark;
+        writes.add('saveBookmark ${bookmark.key}');
+      }
+    }
+  }
 
   @override
   Future<SyncLastSynced?> lastSynced(int uid) async => lastByUid[uid];

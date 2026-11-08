@@ -19,7 +19,14 @@ final class FriendRepository {
     return '$baseUrl/home.php?mod=space&$who&do=friend';
   }
 
-  /// Fetch and parse one page of a friends list.
+  /// First page of the visitors list of the current user (`view=visitor`; the forum shows another member's list of
+  /// friends there instead, so only the own list is asked).
+  static const String visitorListUrl = '$baseUrl/home.php?mod=space&do=friend&view=visitor';
+
+  /// Whether [url] is a page of the visitors list.
+  static bool isVisitorUrl(String url) => Uri.tryParse(url)?.queryParameters['view'] == 'visitor';
+
+  /// Fetch and parse one page of a friends list (or of the visitors list, [isVisitorUrl]).
   ///
   /// Asked in the JSON mode of the forum's app API, which answers the friends pages (`do=friend`) since plugin 1.6.0
   /// (roadmap item 3). Plugin 2.5.0 answers them as structured fields (`schema: 10`, [friendApiAnswerOf]), built by
@@ -33,7 +40,7 @@ final class FriendRepository {
       .map(
         (answer) => switch (answer) {
           TsdmAppStructuredPage(:final json) => friendListPageFromApi(json, url),
-          TsdmAppWebPage(:final document) => parseFriendListPage(document),
+          TsdmAppWebPage(:final document) => parseFriendListPage(document, visitor: isVisitorUrl(url)),
         },
       );
 

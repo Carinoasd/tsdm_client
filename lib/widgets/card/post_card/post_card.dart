@@ -11,6 +11,9 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
+import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
+import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
+import 'package:tsdm_client/features/floor_bookmark/widgets/floor_bookmark_widgets.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
@@ -30,8 +33,8 @@ import 'package:tsdm_client/features/thread/v1/bbcode/post_bbcode_view.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
-import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat;
-import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText;
+import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show PostExportFormat, postHtmlToText;
+import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText, exportLabelsOf;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -87,6 +90,9 @@ enum _PostCardActions {
   ///
   /// Only available when the current user is the author of post.
   edit,
+
+  /// Bookmark the floor, or change or remove its bookmark (on this device, carried by the cross-device sync).
+  bookmark,
 
   /// Share the post.
   ///
@@ -375,6 +381,21 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             ),
             sizedBoxW4H4,
           ],
+          if (_bookmarkOf(context) case final bookmark?) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Tooltip(
+                message: bookmark.note.isEmpty ? context.t.floorBookmark.title : bookmark.note,
+                child: Icon(
+                  Icons.turned_in,
+                  key: ValueKey('floor-bookmarked-${widget.post.postID}'),
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+            sizedBoxW4H4,
+          ],
           _FloorBadge(widget.post),
         ],
       ),
@@ -541,6 +562,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
       ],
       [
+        if (_bookmarkTarget(context) != null)
+          if (_bookmarkOf(context, listen: false) == null)
+            item(_PostCardActions.bookmark, Icons.turned_in_not_outlined, context.t.floorBookmark.add)
+          else
+            item(_PostCardActions.bookmark, Icons.turned_in_outlined, context.t.floorBookmark.edit),
+      ],
+      [
         // Viewing all authors, can switch to only view current author mode.
         if (threadBloc != null && onlyVisibleUid == null && widget.post.author.uid != null)
           item(_PostCardActions.viewTheAuthor, Icons.person_outlined, context.t.postCard.onlyViewAuthor),
@@ -674,6 +702,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         onEdited?.call();
         // A list may contain several loaded pages. Reload the edited post's page, not the last loaded page or 1.
         threadBloc.add(ThreadJumpPageRequested(page));
+      case _PostCardActions.bookmark:
+        await _editBookmark(context);
       case _PostCardActions.share:
         await copyToClipboard(context, widget.post.shareLink!);
       case _PostCardActions.shareAsImage:
@@ -741,6 +771,67 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         widget.onModerate?.call(FloorModerateAction.delete);
       case _PostCardActions.banAuthor:
         widget.onBanAuthor?.call();
+    }
+  }
+
+  /// The thread and floor ids a bookmark of this floor has, null where none can be kept: no thread page above (the
+  /// post of a notice), a hot reply (a copy of a floor shown on the first page: its floor is bookmarked where it is),
+  /// or no account in use.
+  ({int tid, int pid})? _bookmarkTarget(BuildContext context) {
+    final tid = int.tryParse(context.readOrNull<ThreadBloc>()?.state.tid ?? '');
+    final pid = int.tryParse(widget.post.postID);
+    final cubit = context.readOrNull<FloorBookmarkCubit>();
+    if (tid == null || pid == null || widget.post.hot || cubit == null || cubit.state.uid == null) {
+      return null;
+    }
+    return (tid: tid, pid: pid);
+  }
+
+  /// The bookmark of this floor, null when it has none.
+  FloorBookmark? _bookmarkOf(BuildContext context, {bool listen = true}) {
+    final tid = context.readOrNull<ThreadBloc>()?.state.tid;
+    if (listen) {
+      return floorBookmarkOf(context, tid: tid, pid: widget.post.postID);
+    }
+    final t = int.tryParse(tid ?? '');
+    final p = int.tryParse(widget.post.postID);
+    return t == null || p == null ? null : context.readOrNull<FloorBookmarkCubit>()?.state.of(tid: t, pid: p);
+  }
+
+  /// Bookmark this floor with an optional note, or change or remove its bookmark.
+  Future<void> _editBookmark(BuildContext context) async {
+    final target = _bookmarkTarget(context);
+    final cubit = context.readOrNull<FloorBookmarkCubit>();
+    final thread = context.readOrNull<ThreadBloc>()?.state;
+    if (target == null || cubit == null || thread == null) {
+      return;
+    }
+    final current = _bookmarkOf(context, listen: false);
+    // Nothing of a floor of a blocked user goes into the bookmark (nor to the other devices with it).
+    final excerpt = currentBlockList(context, listen: false).hidesString(widget.post.author.uid)
+        ? ''
+        : floorBookmarkExcerpt(
+            postHtmlToText(widget.post.data, format: PostExportFormat.plainText, labels: exportLabelsOf(context)),
+          );
+    final edit = await showFloorBookmarkDialog(context, current: current);
+    switch (edit) {
+      case null:
+        return;
+      case FloorBookmarkRemove():
+        if (current != null) {
+          await cubit.remove(current.key);
+        }
+      case FloorBookmarkSave(:final note):
+        await cubit.put(
+          tid: target.tid,
+          pid: target.pid,
+          floor: widget.post.shownFloor,
+          // The page as the thread reads oldest floor first: the one on screen is another while shown newest first.
+          page: thread.shownNewestFirst ? null : widget.post.page,
+          note: note,
+          excerpt: excerpt,
+          threadTitle: thread.title ?? current?.threadTitle ?? '',
+        );
     }
   }
 
