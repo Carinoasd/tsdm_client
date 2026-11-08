@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
+import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
@@ -26,6 +27,7 @@ import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/view/homepage_page.dart';
 import 'package:tsdm_client/features/image/view/image_gallery_page.dart';
+import 'package:tsdm_client/features/in_app_browser/view/in_app_browser_page.dart';
 import 'package:tsdm_client/features/keyboard/view/keyboard_shortcuts_page.dart';
 import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart';
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
@@ -266,6 +268,7 @@ final List<RouteBase> _appRoutes = [
     ),
   ),
   AppRoute(path: ScreenPaths.offlineThreads, builder: (state) => const OfflineThreadsPage()),
+  AppRoute(path: ScreenPaths.floorBookmarks, builder: (_) => const FloorBookmarkPage()),
   AppRoute(
     path: ScreenPaths.friend,
     builder: (state) =>
@@ -524,6 +527,10 @@ final List<RouteBase> _appRoutes = [
       final autoOpen = state.uri.queryParameters['autoOpen'] == 'true';
       return OpenInAppPage(initialUrl: url, autoOpen: autoOpen);
     },
+  ),
+  AppRoute(
+    path: ScreenPaths.inAppBrowser,
+    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
   ),
 ];
 

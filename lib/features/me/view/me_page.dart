@@ -110,6 +110,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.followedThreads),
       ),
       (
+        key: const ValueKey('me-floor-bookmarks'),
+        icon: Icons.turned_in_not_outlined,
+        label: tr.bookmarks,
+        onTap: () => _open(ScreenPaths.floorBookmarks),
+      ),
+      (
         key: const ValueKey('me-history'),
         icon: Icons.history_outlined,
         label: tr.history,

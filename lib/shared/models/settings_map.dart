@@ -60,6 +60,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
+    this.chineseDisplayMode = 0,
     this.threadCardExternalThumbnails = false,
     this.windowMaximized = false,
     this.enableBackgroundMessageService = false,
@@ -79,6 +80,7 @@ class SettingsMap with SettingsMapMappable {
     this.notifyQuietEnd = 480,
     this.autoDailyRedPacket = false,
     this.highRefreshRate = true,
+    this.appIcon = 'default',
     this.offlineThreads = false,
     this.offlineThreadsLimit = 50,
     this.enableAppPostRenderer = false,
@@ -96,6 +98,8 @@ class SettingsMap with SettingsMapMappable {
     this.twoPaneLayout = true,
     this.twoPaneListWidth = 0,
     this.postMediaPreview = true,
+    this.inAppBrowserForForum = true,
+    this.inAppBrowserForAll = false,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -103,6 +107,7 @@ class SettingsMap with SettingsMapMappable {
     this.crossDeviceSyncRateTemplates = true,
     this.crossDeviceSyncSettings = true,
     this.crossDeviceSyncDrafts = true,
+    this.crossDeviceSyncBookmarks = true,
   });
 
   final String netClientAccept;
@@ -143,6 +148,10 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
   /// versions lack it.
   final bool threadCardExternalThumbnails;
+
+  /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
+  /// lack it.
+  final int chineseDisplayMode;
 
   /// When the thread lists show a thumbnail.
   ThreadThumbnailMode get threadThumbnailMode => ThreadThumbnailMode.fromIndex(threadCardThumbnailMode);
@@ -232,6 +241,13 @@ class SettingsMap with SettingsMapMappable {
   /// Cards of videos in posts show cover, title and length. Not required: backups from older versions lack it.
   final bool postMediaPreview;
 
+  /// Forum pages the app has no screen for open in the in-app browser. Not required: backups from older versions lack
+  /// it.
+  final bool inAppBrowserForForum;
+
+  /// Every web link opens in the in-app browser. Not required: backups from older versions lack it.
+  final bool inAppBrowserForAll;
+
   /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
   /// settings and the drafts each on their own switch too). Not required: backups from older
   /// versions lack it.
@@ -245,6 +261,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// With [crossDeviceSync], sync the local drafts. Not required: backups from older versions lack it.
   final bool crossDeviceSyncDrafts;
+
+  /// With [crossDeviceSync], sync the floor bookmarks. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncBookmarks;
 
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
@@ -291,6 +310,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// Whether Android runs at the highest refresh rate of the screen. Not required: backups from older versions lack it.
   final bool highRefreshRate;
+
+  /// Name of the app icon in use, see `AppIcon`. Not required: backups from older versions lack it.
+  final String appIcon;
 
   /// Whether the thread pages loaded are saved for reading without network. Not required: backups from older versions
   /// lack it.
@@ -364,6 +386,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadCardHighlightAuthorName => copyWith(threadCardHighlightAuthorName: value as bool?),
       SettingsKeys.threadCardHighlightInfoRow => copyWith(threadCardHighlightInfoRow: value as bool?),
       SettingsKeys.threadCardShowExcerpt => copyWith(threadCardShowExcerpt: value as bool?),
+      SettingsKeys.chineseDisplayMode => copyWith(chineseDisplayMode: value as int?),
       SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
       SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
@@ -404,10 +427,13 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),
+      SettingsKeys.inAppBrowserForForum => copyWith(inAppBrowserForForum: value as bool?),
+      SettingsKeys.inAppBrowserForAll => copyWith(inAppBrowserForAll: value as bool?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
       SettingsKeys.crossDeviceSyncDrafts => copyWith(crossDeviceSyncDrafts: value as bool?),
+      SettingsKeys.crossDeviceSyncBookmarks => copyWith(crossDeviceSyncBookmarks: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),
@@ -422,6 +448,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadLinkCard => copyWith(threadLinkCard: value as bool?),
       SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
+      SettingsKeys.appIcon => copyWith(appIcon: value as String?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
       SettingsKeys.offlineThreadsLimit => copyWith(offlineThreadsLimit: value as int?),
       SettingsKeys.enableAppPostRenderer => copyWith(enableAppPostRenderer: value as bool?),

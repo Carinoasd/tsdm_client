@@ -5,16 +5,16 @@ import android.content.Intent
 import android.os.Bundle
 
 /**
- * The target of the system share sheet (`ACTION_SEND`, `ACTION_SEND_MULTIPLE`), handing the share to [MainActivity] in
+ * The target of the system share sheet (`ACTION_SEND`, `ACTION_SEND_MULTIPLE`), handing the share to [MainActivityImpl] in
  * this app's own task.
  *
- * Another app's share sheet starts its target inside the sender's task: a `singleTop` [MainActivity] running in its
+ * Another app's share sheet starts its target inside the sender's task: a `singleTop` [MainActivityImpl] running in its
  * own task would not be reused, and a second instance of the whole app (a second Flutter engine) would start in the
  * sender's task. This activity shows nothing, forwards the intent to the app's task (`NEW_TASK`, `CLEAR_TOP`,
- * `SINGLE_TOP`: the running [MainActivity] gets it in `onNewIntent`, else one starts with it) and finishes at once.
+ * `SINGLE_TOP`: the running [MainActivityImpl] gets it in `onNewIntent`, else one starts with it) and finishes at once.
  * The uri grants of the shared images travel with the clip data and the grant flag.
  *
- * `CLEAR_TOP` also finishes whatever is stacked over [MainActivity] in the app's task (an [InteractiveHtmlActivity]
+ * `CLEAR_TOP` also finishes whatever is stacked over [MainActivityImpl] in the app's task (an [InteractiveHtmlActivity]
  * showing interactive content): a share is handled on the app's own pages, so the app comes back to them.
  */
 class ShareActivity : Activity() {
@@ -29,7 +29,7 @@ class ShareActivity : Activity() {
             // grant flag). The sender's flags are replaced, not added to: NEW_DOCUMENT or MULTIPLE_TASK from a sender
             // would open another task, the very thing this activity is for.
             val forward = Intent(received).apply {
-                setClass(this@ShareActivity, MainActivity::class.java)
+                setClass(this@ShareActivity, MainActivityImpl::class.java)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
