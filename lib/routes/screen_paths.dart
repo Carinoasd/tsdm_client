@@ -89,6 +89,9 @@ class ScreenPaths {
   /// Read-only medal catalogue.
   static const String medalCenter = '/medalCenter';
 
+  /// The forum's rankings.
+  static const String ranklist = '/ranklist';
+
   /// Common entry of the medal centre, the current account's titles and the title shop.
   static const String medalTitleHub = '/medalTitleHub';
 

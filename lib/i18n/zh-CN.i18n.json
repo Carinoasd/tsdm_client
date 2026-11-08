@@ -3443,5 +3443,22 @@
       "italic": "斜体",
       "underline": "下划线"
     }
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "积分",
+      "post": "发帖",
+      "online": "在线",
+      "thread": "热帖"
+    },
+    "threadViews": {
+      "replies": "回复",
+      "views": "查看",
+      "favtimes": "收藏",
+      "heats": "热度"
+    },
+    "empty": "暂无排行",
+    "updated": "更新于 $last · 下次 $next"
   }
 }

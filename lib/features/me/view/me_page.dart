@@ -220,6 +220,13 @@ class _MePageState extends State<MePage> {
       ),
       _row(
         context,
+        key: const ValueKey('me-ranklist'),
+        icon: Icons.leaderboard_outlined,
+        title: context.t.ranklistPage.title,
+        path: ScreenPaths.ranklist,
+      ),
+      _row(
+        context,
         key: const ValueKey('me-achievements'),
         icon: Icons.emoji_events_outlined,
         title: context.t.achievementsPage.title,

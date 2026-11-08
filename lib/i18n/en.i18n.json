@@ -3443,5 +3443,22 @@
       "italic": "Italic",
       "underline": "Underline"
     }
+  },
+  "ranklistPage": {
+    "title": "Rankings",
+    "tabs": {
+      "credit": "Credits",
+      "post": "Posts",
+      "online": "Online",
+      "thread": "Hot threads"
+    },
+    "threadViews": {
+      "replies": "Replies",
+      "views": "Views",
+      "favtimes": "Favorites",
+      "heats": "Heat"
+    },
+    "empty": "No rankings yet",
+    "updated": "Updated $last · next $next"
   }
 }

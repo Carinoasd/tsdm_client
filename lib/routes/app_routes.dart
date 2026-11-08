@@ -68,6 +68,7 @@ import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
 import 'package:tsdm_client/features/profile/view/switch_user_group_page.dart';
+import 'package:tsdm_client/features/ranklist/view/ranklist_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
@@ -298,6 +299,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
+  AppRoute(path: ScreenPaths.ranklist, builder: (_) => const RanklistPage()),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
