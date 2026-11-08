@@ -404,6 +404,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// on a network that is not metered, or never (each loads when tapped).
   postImageAutoLoad<int>(name: 'postImageAutoLoad', type: int, defaultValue: 0),
 
+  /// When the data saver holds the large pictures back, the index of a `DataSaverMode`: never (the default), on a
+  /// metered network, or always. Tied to the device, not synced.
+  dataSaverMode<int>(name: 'dataSaverMode', type: int, defaultValue: 0),
+
   /// The quick phrases of the editors' toolbar button (a JSON list of strings, the order the user arranged), see
   /// `decodeQuickPhrases`.
   ///

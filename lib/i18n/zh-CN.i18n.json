@@ -794,7 +794,13 @@
       "recordReadingTime": "记录阅读时间",
       "clearReadingTime": "清除阅读时间数据",
       "clearReadingTimeConfirm": "清除这台设备上所有账号的阅读时间数据？清除后无法恢复。",
-      "readingTimeCleared": "阅读时间数据已清除"
+      "readingTimeCleared": "阅读时间数据已清除",
+      "dataSaver": {
+        "title": "省流",
+        "off": "关",
+        "meteredOnly": "使用移动网络时",
+        "always": "一律"
+      }
     }
   },
   "aboutPage": {
@@ -1728,7 +1734,8 @@
     "counter": "${index: int} / ${total: int}",
     "percent": "${value: int}%",
     "failedTapToRetry": "加载失败，点击重试",
-    "tapToLoad": "点击加载图片"
+    "tapToLoad": "点击加载图片",
+    "loadFloorImages": "加载本楼全部"
   },
   "forumCard": {
     "links": "链接",

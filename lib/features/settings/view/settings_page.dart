@@ -47,6 +47,7 @@ import 'package:tsdm_client/features/settings/widgets/immersive_forums_dialog.da
 import 'package:tsdm_client/features/settings/widgets/language_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/offline_threads_limit_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/proxy_settings_dialog.dart';
+import 'package:tsdm_client/features/settings/widgets/select_data_saver_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_post_image_auto_load_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_floor_interaction_mode_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/select_thread_open_position_dialog.dart';
@@ -61,6 +62,7 @@ import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
@@ -1549,6 +1551,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   Widget _buildOtherSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.othersSection;
     final enableUpdateCheckOnStartup = state.settingsMap.enableUpdateCheckOnStartup;
+    final dataSaverMode = DataSaverMode.fromIndex(state.settingsMap.dataSaverMode);
     return AppTileGroup(
       title: tr.title,
       icon: Icons.more_horiz_outlined,
@@ -1564,6 +1567,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           leading: const Icon(Icons.delete_sweep_outlined),
           title: Text(tr.clearReadingTime),
           onTap: () async => _clearReadingTime(context),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-data-saver-mode'),
+          leading: const Icon(Icons.data_saver_on_outlined),
+          title: Text(tr.dataSaver.title),
+          subtitle: Text(dataSaverModeLabel(context, dataSaverMode)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final result = await showSelectDataSaverMode(context, dataSaverMode);
+            if (result == null || !context.mounted) return;
+            context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.dataSaverMode, result.index));
+          },
         ),
         SectionListTile(
           leading: const Icon(Icons.info_outline),
