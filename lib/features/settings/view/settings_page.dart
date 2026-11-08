@@ -53,6 +53,7 @@ import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialo
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_check.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -927,6 +928,43 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         category(NoticeCategory.rate, Icons.star_outline, tr.rate, value: map.notifyRate),
         category(NoticeCategory.pm, Icons.mail_outline, tr.pm, value: map.notifyPersonalMessage),
         category(NoticeCategory.system, Icons.campaign_outlined, tr.system, value: map.notifySystem),
+        category(
+          NoticeCategory.followedThread,
+          Icons.notifications_active_outlined,
+          tr.followedThread,
+          value: map.notifyFollowedThread,
+        ),
+        SectionListTile(
+          key: const ValueKey('notice-followed-thread-interval'),
+          leading: const Icon(Icons.update_outlined),
+          title: Text(tr.followedThreadInterval),
+          trailing: _trailingValue(context, tr.followedThreadMinutes(n: map.followedThreadCheckMinutes)),
+          onTap: () async {
+            final picked = await showDialog<int>(
+              context: context,
+              builder: (context) => SimpleDialog(
+                title: Text(tr.followedThreadInterval),
+                children: [
+                  for (final minutes in followedThreadCheckChoices)
+                    SimpleDialogOption(
+                      key: ValueKey('notice-followed-thread-interval-$minutes'),
+                      onPressed: () => Navigator.of(context).pop(minutes),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(tr.followedThreadMinutes(n: minutes))),
+                          if (minutes == map.followedThreadCheckMinutes)
+                            Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+            if (picked != null) {
+              await repo.setValue(SettingsKeys.followedThreadCheckMinutes, picked);
+            }
+          },
+        ),
         SectionSwitchListTile(
           key: const ValueKey('notice-quiet-hours'),
           secondary: const Icon(Icons.bedtime_outlined),

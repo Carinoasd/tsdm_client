@@ -71,6 +71,8 @@ class SettingsMap with SettingsMapMappable {
     this.notifyRate = true,
     this.notifyPersonalMessage = true,
     this.notifySystem = true,
+    this.notifyFollowedThread = true,
+    this.followedThreadCheckMinutes = 30,
     this.notifyQuietHours = false,
     this.notifyQuietStart = 1380,
     this.notifyQuietEnd = 480,
@@ -171,6 +173,12 @@ class SettingsMap with SettingsMapMappable {
 
   /// See `SettingsKeys.notifySystem`. Not required: backups from older versions lack it.
   final bool notifySystem;
+
+  /// See `SettingsKeys.notifyFollowedThread`. Not required: backups from older versions lack it.
+  final bool notifyFollowedThread;
+
+  /// See `SettingsKeys.followedThreadCheckMinutes`. Not required: backups from older versions lack it.
+  final int followedThreadCheckMinutes;
 
   /// See `SettingsKeys.notifyQuietHours`. Not required: backups from older versions lack it.
   final bool notifyQuietHours;
@@ -349,6 +357,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notifyRate => copyWith(notifyRate: value as bool?),
       SettingsKeys.notifyPersonalMessage => copyWith(notifyPersonalMessage: value as bool?),
       SettingsKeys.notifySystem => copyWith(notifySystem: value as bool?),
+      SettingsKeys.notifyFollowedThread => copyWith(notifyFollowedThread: value as bool?),
+      SettingsKeys.followedThreadCheckMinutes => copyWith(followedThreadCheckMinutes: value as int?),
       SettingsKeys.notifyQuietHours => copyWith(notifyQuietHours: value as bool?),
       SettingsKeys.notifyQuietStart => copyWith(notifyQuietStart: value as int?),
       SettingsKeys.notifyQuietEnd => copyWith(notifyQuietEnd: value as int?),

@@ -104,6 +104,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-followed-threads'),
+        icon: Icons.notifications_active_outlined,
+        label: tr.followedThreads,
+        onTap: () => _open(ScreenPaths.followedThreads),
+      ),
+      (
         key: const ValueKey('me-history'),
         icon: Icons.history_outlined,
         label: tr.history,

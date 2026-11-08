@@ -58,6 +58,10 @@ import 'package:tsdm_client/features/sync/sync_coordinator.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/bbcode/smilies.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_fetch.dart';
+import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
@@ -572,6 +576,38 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               store: StorageReadingProgressStore(getIt()),
               authenticationRepository: context.repo(),
             ),
+            lazy: false,
+          ),
+          // The threads the account in use follows, checked for new replies while the app runs (the background
+          // message service checks them too on Android). Not lazy: the check runs from the start.
+          BlocProvider(
+            create: (context) => FollowedThreadsCubit(
+              store: FollowedThreadStore(getIt()),
+              storage: getIt(),
+              authenticationRepository: context.repo(),
+              fetchFor: followedThreadFetcherOf,
+              announce: (uid, thread) async {
+                if (!autoSyncPostsNotifications) {
+                  // Nothing is posted here: the list shows the new replies.
+                  return true;
+                }
+                await showFollowedThreadNotification(
+                  plugin: flnp,
+                  translations: t,
+                  thread: thread,
+                  uid: uid,
+                  hideContent: getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
+                );
+                return true;
+              },
+              onRead: autoSyncPostsNotifications
+                  ? (tid) => unawaited(
+                      flnp
+                          .cancel(id: followedThreadNoticeId(tid))
+                          .catchError((Object e) => talker.warning('taking back notification failed: $e')),
+                    )
+                  : null,
+            )..start(),
             lazy: false,
           ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use

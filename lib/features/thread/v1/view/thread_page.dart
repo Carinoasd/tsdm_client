@@ -50,6 +50,7 @@ import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/reading_gestures.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -630,6 +631,45 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       _scrollToPidOnReload = post.postID;
     }
     threadBloc.add(ThreadJumpPageRequested(post.page));
+  }
+
+  /// The replies of the thread in [state] as a check of a followed thread counts them (`followedThreadStateOf`).
+  int? _followedReplies(ThreadState state) => state.paginationReplies ?? state.replyCount;
+
+  /// A followed thread was loaded from the forum: its new replies are read, the next ones are announced again.
+  void _markFollowedThreadRead(BuildContext context, ThreadState state) {
+    final tid = int.tryParse(state.tid ?? '');
+    final uid = context.read<AuthenticationRepository>().currentUser?.uid;
+    final cubit = context.readOrNull<FollowedThreadsCubit>();
+    if (tid == null || uid == null || cubit == null || state.isOffline || state.onlyVisibleUid != null) {
+      return;
+    }
+    unawaited(cubit.markRead(uid: uid, tid: tid, replies: _followedReplies(state), title: state.title));
+  }
+
+  /// Follow the thread in [state] for the account in use, or stop following it.
+  Future<void> _toggleFollow(BuildContext context, ThreadState state) async {
+    final tid = int.tryParse(state.tid ?? '');
+    final cubit = context.readOrNull<FollowedThreadsCubit>();
+    if (tid == null || cubit == null) {
+      return;
+    }
+    final tr = context.t.threadPage.follow;
+    if (cubit.state.of(tid) != null) {
+      await cubit.unfollow(tid);
+      if (context.mounted) {
+        showSnackBar(context: context, message: context.t.followedThreads.unfollowed);
+      }
+      return;
+    }
+    final followed = await cubit.follow(
+      tid: tid,
+      title: state.title ?? '',
+      replies: _followedReplies(state) ?? 0,
+    );
+    if (followed && context.mounted) {
+      showSnackBar(context: context, message: tr.added);
+    }
   }
 
   /// Record the visit of the thread in [state] and mark it replied when the user has a floor on the page.
@@ -1976,6 +2016,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
               if (state.status == ThreadStatus.success) {
                 _recordVisitHistory(context, state);
+                _markFollowedThreadRead(context, state);
                 _askModerator(context, state);
                 // Not on a page without floors (a message, no permission): a later load (after logging in) still
                 // lands on the last floor.
@@ -2195,6 +2236,20 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 setState(() {});
                               }
                             },
+                          ),
+                        // Not on one author's floors: their count is not the thread's.
+                        if (!state.isOffline &&
+                            state.onlyVisibleUid == null &&
+                            context.read<AuthenticationRepository>().effectiveCurrentUid != null &&
+                            context.readOrNull<FollowedThreadsCubit>() != null)
+                          MenuCustomItem(
+                            icon: followedThreadOf(context, state.tid) != null
+                                ? Icons.notifications_off_outlined
+                                : Icons.notifications_active_outlined,
+                            description: followedThreadOf(context, state.tid) != null
+                                ? context.t.threadPage.follow.remove
+                                : context.t.threadPage.follow.add,
+                            onSelected: () async => _toggleFollow(context, state),
                           ),
                         if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
                           MenuCustomItem(

@@ -234,6 +234,13 @@ class StorageProvider with LoggerMixin {
   /// (`NotificationPollSlot.takeForManualSync`).
   static String notificationPolledManuallyAtKey(int uid) => 'notificationPolledManuallyAt.$uid';
 
+  /// Settings name of the threads account [uid] follows (`FollowedThreadStore`), a JSON list.
+  static String followedThreadsKey(int uid) => 'followedThreads.$uid';
+
+  /// Settings name of the time the followed threads of account [uid] were last checked (`FollowedThreadCheckSlot`), in
+  /// milliseconds since epoch.
+  static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
+
   /// How many times the cookie of each uid was saved or removed through this provider: a read of its row that one of
   /// them overtook does not put what it read into the cache ([fetchCookieOfUid]).
   final _cookieWrites = <int, int>{};
@@ -243,7 +250,7 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the pages saved for the next start ([SavedAnswerStore]) and
+  /// pages, the times it was polled for notifications, the threads it follows, the pages saved for the next start ([SavedAnswerStore]) and
   /// the drafts its editors kept ([LocalDraftStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
@@ -255,6 +262,8 @@ class StorageProvider with LoggerMixin {
     final settings = SettingsDao(_db);
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
+    await settings.deleteByName(followedThreadsKey(uid));
+    await settings.deleteByName(followedThreadsCheckedAtKey(uid));
   }
 
   /*             cookie             */
