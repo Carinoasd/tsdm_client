@@ -1,0 +1,74 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0 mdcp">
+<h1 class="mt">禁止用户</h1>
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=member&op=ban">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<div class="exfm">
+<table cellspacing="0" cellpadding="0">
+<caption>
+</caption>
+<tr>
+<th width="15%">用户名:</th>
+<td width="85%"><input type="text" name="username" class="px" value="" size="20" /></td>
+</tr>
+<tr>
+<th>UID:</th>
+<td><input type="text" name="uid" class="px" value="" size="20" /> [可选]</td>
+</tr>
+<tr>
+<td>&nbsp;</td>
+<td><button type="submit" name="submit" id="searchsubmit" class="pn" value="true"><strong>查找</strong></button></td>
+</tr>
+</table>
+</div>
+</form>
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=member&op=ban" class="schresult">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<input type="hidden" name="username" value="">
+<input type="hidden" name="uid" value="42">
+<table cellspacing="0" cellpadding="0" class="tfm">
+<tr>
+<th>&nbsp;</th>
+<td>
+<table width="100%">
+<tr>
+<td width="10%" rowspan="2" class="avt"></td>
+<td>
+<p><a href="home.php?mod=space&amp;uid=42" target="_blank" class="xi2">测试会员</a></p>
+<p>UID: 42</p>
+<p>正常状态 </p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<th>变更为:</th>
+<td>
+<label for="bannew_4" class="lb"><input type="radio" name="bannew" id="bannew_4" class="pr" value="4" checked="checked" />禁止发言</label></td>
+</tr>
+<tr>
+<th>期限:</th>
+<td>
+<p class="hasd cl">
+<input type="text" id="banexpirynew" name="banexpirynew" autocomplete="off" value="" class="px" style="margin-right: 0; width: 100px;" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'banexpirynew', 1, 1)">^</a>
+</p>
+<p class="d">期限设置仅对禁止发言和禁止访问的操作有效</p>
+</td>
+</tr>
+<tr>
+<th valign="top">理由:</th>
+<td><textarea name="reason" class="pt" rows="4" cols="80"></textarea></td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td><button type="submit" name="bansubmit" id="submit" class="pn" value="true"><strong>提交</strong></button></td>
+</tr>
+</table>
+</form>
+</div></div>
+</div>	</div>
+</body></html>

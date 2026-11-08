@@ -3,10 +3,13 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_drop
   dynamic_color
   file_selector_windows
   flutter_avif_windows
   flutter_inappwebview_windows
+  flutter_tts
+  pasteboard
   permission_handler_windows
   screen_retriever_windows
   share_plus
