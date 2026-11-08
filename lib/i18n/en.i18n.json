@@ -1445,6 +1445,9 @@
       "recentChangelog": "Recent Changelog",
       "emptyRecent": "No recent changes"
     },
+    "trendTab": {
+      "title": "Trend"
+    },
     "changelogTab": {
       "title": "Points Changelog",
       "extType": "Points Type",

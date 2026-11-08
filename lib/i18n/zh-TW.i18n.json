@@ -1445,6 +1445,9 @@
       "recentChangelog": "近期積分記錄",
       "emptyRecent": "近期沒有積分變動"
     },
+    "trendTab": {
+      "title": "走勢"
+    },
     "changelogTab": {
       "title": "積分記錄",
       "extType": "積分",
