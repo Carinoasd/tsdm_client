@@ -3448,7 +3448,6 @@
     "blogs": "日志",
     "albums": "相册",
     "comments": "评论",
-    "photos": "${count: int} 张",
     "emptyBlogs": "还没有日志",
     "emptyAlbums": "还没有相册",
     "emptyPhotos": "相册里还没有图片",
@@ -3488,6 +3487,7 @@
       "noneTaken": "没有图片上传成功"
     },
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
+    "sendFailed": "发送失败",
     "identityChanged": "账号已切换，这个页面不会再发送任何内容"
   }
 }

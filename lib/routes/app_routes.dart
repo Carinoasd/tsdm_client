@@ -268,7 +268,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(
     path: ScreenPaths.space,
     builder: (state) => SpacePage(
-      uid: int.parse(state.uri.queryParameters['uid']!),
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
       username: state.uri.queryParameters['username'],
       initialTab: SpaceTab.of(state.uri.queryParameters['tab']),
     ),
@@ -276,16 +276,16 @@ final List<RouteBase> _appRoutes = [
   AppRoute(
     path: ScreenPaths.spaceBlog,
     builder: (state) => SpaceBlogPage(
-      uid: int.parse(state.uri.queryParameters['uid']!),
-      blogId: int.parse(state.uri.queryParameters['blogId']!),
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
+      blogId: int.tryParse(state.uri.queryParameters['blogId'] ?? '') ?? 0,
       title: state.uri.queryParameters['title'],
     ),
   ),
   AppRoute(
     path: ScreenPaths.spaceAlbum,
     builder: (state) => SpaceAlbumPage(
-      uid: int.parse(state.uri.queryParameters['uid']!),
-      albumId: int.parse(state.uri.queryParameters['albumId']!),
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
+      albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '') ?? 0,
       name: state.uri.queryParameters['name'],
     ),
   ),

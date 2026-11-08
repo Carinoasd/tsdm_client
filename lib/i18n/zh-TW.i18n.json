@@ -3448,7 +3448,6 @@
     "blogs": "日誌",
     "albums": "相冊",
     "comments": "評論",
-    "photos": "${count: int} 張",
     "emptyBlogs": "還沒有日誌",
     "emptyAlbums": "還沒有相冊",
     "emptyPhotos": "相冊裡還沒有圖片",
@@ -3488,6 +3487,7 @@
       "noneTaken": "沒有圖片上傳成功"
     },
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
+    "sendFailed": "送出失敗",
     "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
   }
 }

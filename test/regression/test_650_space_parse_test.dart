@@ -90,6 +90,13 @@ void main() {
       expect(blog.nextCommentsUrl, isNull);
     });
 
+    test('more comments than a page: the next page of them', () {
+      final blog = parseSpaceBlogDetail(_page('blog_detail_comments'));
+      expect(blog.commentCount, 22);
+      expect(blog.comments, hasLength(20));
+      expect(blog.nextCommentsUrl, '$baseUrl/home.php?mod=space&uid=31&do=blog&id=5&page=2#comment');
+    });
+
     test('a blog the author keeps from the viewer: the privacy notice', () {
       final blog = parseSpaceBlogDetail(_page('blog_privacy'));
       expect(blog.content, isNull);

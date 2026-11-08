@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/space/cubit/space_list_cubit.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/repository/space_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
@@ -190,14 +191,9 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
               title: Text(title),
               actions: [
                 if (count != null)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Text(
-                        context.t.spacePage.photos(count: count),
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: SpaceCount(Icons.photo_outlined, count),
                   ),
               ],
             ),

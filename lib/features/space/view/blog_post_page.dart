@@ -102,7 +102,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
         showSnackBar(context: context, message: tr.blogEdit.done);
         context.pop(true);
       case SpaceWriteStatus.rejected:
-        showSnackBar(context: context, message: state.message ?? context.t.general.failedToLoad);
+        showSnackBar(context: context, message: state.message ?? tr.sendFailed);
       case SpaceWriteStatus.unconfirmed:
         showSnackBar(context: context, message: state.message ?? tr.unconfirmed);
       case _:

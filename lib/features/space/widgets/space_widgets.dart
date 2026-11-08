@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
-import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
 
-/// A small icon with a number beside it: the reads, the comments.
-class _Count extends StatelessWidget {
-  const _Count(this.icon, this.count);
+/// A small icon with a number beside it: the reads, the comments, the pictures.
+class SpaceCount extends StatelessWidget {
+  /// Constructor.
+  const SpaceCount(this.icon, this.count, {super.key});
 
+  /// What is counted.
   final IconData icon;
+
+  /// How many.
   final int count;
 
   @override
@@ -83,8 +86,8 @@ class SpaceBlogCard extends StatelessWidget {
             children: [
               if (blog.time != null) Text(blog.time!, style: outline),
               if (blog.category != null) Text(blog.category!, style: outline),
-              if (blog.views != null) _Count(Icons.visibility_outlined, blog.views!),
-              if (blog.replies != null) _Count(Icons.chat_bubble_outline, blog.replies!),
+              if (blog.views != null) SpaceCount(Icons.visibility_outlined, blog.views!),
+              if (blog.replies != null) SpaceCount(Icons.chat_bubble_outline, blog.replies!),
             ],
           ),
         ],
@@ -133,11 +136,7 @@ class SpaceAlbumTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (album.count != null)
-                  Text(
-                    context.t.spacePage.photos(count: album.count!),
-                    style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
-                  ),
+                if (album.count != null) SpaceCount(Icons.photo_outlined, album.count!),
               ],
             ),
           ),

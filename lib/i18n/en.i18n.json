@@ -3448,7 +3448,6 @@
     "blogs": "Blogs",
     "albums": "Albums",
     "comments": "Comments",
-    "photos": "${count: int} photos",
     "emptyBlogs": "No blogs yet",
     "emptyAlbums": "No albums yet",
     "emptyPhotos": "No photos in this album yet",
@@ -3480,7 +3479,7 @@
       "send": "Upload",
       "sending": "Uploading ${sent: int} / ${total: int}",
       "filing": "Adding to the album…",
-      "done": "${count: int} photos uploaded",
+      "done": "Uploaded: ${count: int}",
       "refusedType": "Unsupported format",
       "refusedSize": "File too large",
       "refusedRejected": "Not taken by the forum",
@@ -3488,6 +3487,7 @@
       "noneTaken": "No photo was uploaded"
     },
     "unconfirmed": "The result is unknown: check the list before sending again",
+    "sendFailed": "Failed to send",
     "identityChanged": "The account changed: this page sends nothing more"
   }
 }
