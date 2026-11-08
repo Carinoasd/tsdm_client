@@ -57,6 +57,9 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   List<QuickOpenCandidate> _candidates = const [];
   int _selected = 0;
 
+  /// Whether the arrows moved the selection since the text last changed.
+  bool _userMoved = false;
+
   @override
   void initState() {
     super.initState();
@@ -91,10 +94,12 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   void _refresh() => _rebuildCandidates(keepSelection: false);
 
   void _rebuildCandidates({required bool keepSelection}) {
+    // Only a selection the user moved is kept: else the first line stays the one Enter opens.
+    final keep = keepSelection && _userMoved;
     final previous = _candidates.isEmpty ? null : _candidates[_selected];
     final candidates = buildQuickOpenCandidates(_controller.text, _sources);
     var selected = 0;
-    if (keepSelection && previous != null) {
+    if (keep && previous != null) {
       final index = candidates.indexWhere(
         (e) => e.kind == previous.kind && e.title == previous.title && _sameRoute(e.route, previous.route),
       );
@@ -103,9 +108,15 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
     setState(() {
       _candidates = candidates;
       _selected = selected;
+      if (!keepSelection) {
+        _userMoved = false;
+      }
     });
-    if (!keepSelection && _scrollController.hasClients) {
+    if (!keep && _scrollController.hasClients) {
       _scrollController.jumpTo(0);
+    }
+    if (keep) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSelectedVisible());
     }
   }
 
@@ -118,8 +129,15 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
     if (_candidates.isEmpty) {
       return;
     }
-    setState(() => _selected = (_selected + delta) % _candidates.length);
-    if (!_scrollController.hasClients) {
+    setState(() {
+      _selected = (_selected + delta) % _candidates.length;
+      _userMoved = true;
+    });
+    _ensureSelectedVisible();
+  }
+
+  void _ensureSelectedVisible() {
+    if (!mounted || !_scrollController.hasClients) {
       return;
     }
     final top = _selected * _itemExtent;

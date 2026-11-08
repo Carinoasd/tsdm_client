@@ -224,6 +224,58 @@ void main() {
     expect((selected.title! as Text).data, 'Weekly anime chat');
   });
 
+  testWidgets('a source arriving late leaves the first line selected when the arrows were not used', (tester) async {
+    late QuickOpenSourcesArrived arrived;
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) => Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => QuickOpenDialog(
+                          sources: const QuickOpenSources(),
+                          loader: (context, {onLoaded = _noop, isActive = _yes}) async => arrived = onLoaded,
+                        ),
+                      ),
+                      child: const Text('open'),
+                    ),
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: ScreenPaths.profile,
+                name: ScreenPaths.profile,
+                builder: (_, state) {
+                  log.add('profile ${state.uri.queryParameters}');
+                  return const Scaffold(body: Text('page'));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await openBox(tester);
+    await tester.enterText(find.byKey(const Key('quickOpenField')), 'foo');
+    await tester.pump();
+    expect(find.byType(ListTile), findsOneWidget);
+
+    arrived(users: [(uid: '77', name: 'foo')]);
+    await tester.pump();
+    expect(find.byType(ListTile), findsNWidgets(2));
+    expect(tester.widget<ListTile>(find.byKey(const ValueKey('quickOpenItem0'))).selected, isTrue);
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await tester.pumpAndSettle();
+    expect(log.single, 'profile {uid: 77}');
+  });
+
   testWidgets('Esc closes the box without opening anything', (tester) async {
     await pumpApp(tester);
     await openBox(tester);
