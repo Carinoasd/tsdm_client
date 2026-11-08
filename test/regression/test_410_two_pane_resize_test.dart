@@ -10,6 +10,7 @@
 library;
 
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,13 +57,13 @@ final class _Settings {
   }
 }
 
-Future<void> _pump(WidgetTester tester, {required double width, SettingsBloc? bloc}) async {
+Future<void> _pump(WidgetTester tester, {required double width, SettingsBloc? bloc, Widget? body}) async {
   tester.view
     ..physicalSize = Size(width, 800)
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  const layout = TwoPaneLayout(
-    list: Scaffold(key: _listKey, body: SizedBox.expand()),
+  final layout = TwoPaneLayout(
+    list: Scaffold(key: _listKey, body: body ?? const SizedBox.expand()),
   );
   // The layout listens to the system back through the router.
   final router = GoRouter(
@@ -133,6 +134,55 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await _pump(tester, width: 1900, bloc: settings.bloc);
       expect(_listWidth(tester), 780);
+    });
+
+    testWidgets('follows the pointer back from beyond a limit', (tester) async {
+      await _pump(tester, width: 1200, bloc: settings.bloc);
+      final gesture = await tester.startGesture(tester.getCenter(_divider));
+      await gesture.moveBy(const Offset(-50, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-300, 0));
+      await tester.pump();
+      expect(_listWidth(tester), 360, reason: 'the pointer at 130');
+      // Back 150: the pointer is at 280, still left of 360.
+      await gesture.moveBy(const Offset(150, 0));
+      await tester.pump();
+      expect(_listWidth(tester), 360, reason: 'the divider waits for the pointer');
+      await gesture.moveBy(const Offset(140, 0));
+      await tester.pump();
+      expect(_listWidth(tester), 420);
+      await gesture.up();
+      await _settle(tester);
+      expect(settings.repository.currentSettings.twoPaneListWidth, 420);
+    });
+
+    testWidgets('a scroll started on the strip reaches the pane below', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await _pump(
+        tester,
+        width: 1200,
+        bloc: settings.bloc,
+        body: ListView.builder(controller: controller, itemExtent: 50, itemBuilder: (_, i) => Text('row $i')),
+      );
+      final strip = tester.getRect(_divider);
+      expect(strip.top, greaterThanOrEqualTo(kToolbarHeight), reason: 'the app bars are not covered');
+      // On the strip, over the list's right edge.
+      final start = Offset(_listWidth(tester) - 1, 400);
+      expect(strip.contains(start), isTrue);
+      await tester.dragFrom(start, const Offset(0, -300));
+      await tester.pump();
+      expect(controller.offset, greaterThan(0), reason: 'a vertical drag scrolls the list');
+      final scrolled = controller.offset;
+
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(start));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
+      await tester.pump();
+      expect(controller.offset, greaterThan(scrolled), reason: 'the wheel scrolls the list');
+      expect(settings.repository.currentSettings.twoPaneListWidth, 0);
+      // The fling and the double tap wait.
+      await tester.pump(const Duration(seconds: 2));
     });
 
     testWidgets('the divider shows a resize cursor', (tester) async {

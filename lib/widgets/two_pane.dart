@@ -31,7 +31,8 @@ const twoPaneDetailMinWidth = 480.0;
 /// The list pane of a two-pane layout [width] wide: [dragged] wide when the divider was dragged there (above 0),
 /// else its share of the window ([twoPaneListFraction], within [twoPaneListMinWidth]–[twoPaneListMaxWidth]); always
 /// at least [twoPaneListMinWidth], with [twoPaneDetailMinWidth] left on the right. A layout too narrow to hold both
-/// gives each pane its share of the two least widths.
+/// gives each pane its share of the two least widths: a guard only while the two least widths add up to
+/// [twoPaneMinWidth], the layout is never laid out narrower.
 double twoPaneListWidthFor(double width, double dragged) {
   const least = twoPaneListMinWidth + twoPaneDetailMinWidth;
   if (width < least) {
@@ -226,6 +227,11 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   /// The divider is being dragged.
   bool _dragging = false;
 
+  /// The width of the list pane when the drag started, and how far the pointer went since: the divider follows the
+  /// pointer, also back from beyond a limit.
+  double _dragStartWidth = 0;
+  double _dragDistance = 0;
+
   /// The width of the list pane dragged to, saved: 0 while never dragged, or with no settings provided.
   double _savedWidth(BuildContext context) {
     if (context.readOrNull<SettingsBloc>() == null) {
@@ -321,7 +327,9 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
     children: [
       Positioned.fill(child: _row(colorScheme, listWidth, list)),
       Positioned(
-        top: 0,
+        // Below the app bars: their buttons at the edges of the panes (the back button of a thread opened above
+        // another) are not covered.
+        top: MediaQuery.paddingOf(context).top + kToolbarHeight,
         bottom: 0,
         left: listWidth - _TwoPaneDivider.reachIntoList,
         width: _TwoPaneDivider.reach,
@@ -329,10 +337,13 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
           onDragStart: () => setState(() {
             _dragging = true;
             _draggedWidth = listWidth;
+            _dragStartWidth = listWidth;
+            _dragDistance = 0;
           }),
           onDragUpdate: (dx) => setState(() {
             final width = math.max(MediaQuery.sizeOf(context).width, twoPaneMinWidth);
-            _draggedWidth = twoPaneListWidthFor(width, (_draggedWidth ?? listWidth) + dx);
+            _dragDistance += dx;
+            _draggedWidth = twoPaneListWidthFor(width, _dragStartWidth + _dragDistance);
           }),
           onDragEnd: () {
             // A tap ends a drag that never started (cancelled): nothing moved, nothing to keep.
@@ -383,9 +394,11 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   );
 }
 
-/// Where the divider between the panes is grabbed: a strip over the 1px line, reaching a little into the list (its
-/// scroll bar is at its right edge) and further into the detail pane (the side room of the floors). Dragged sideways
-/// it moves the line, tapped twice it puts the line back at the list's share of the window.
+/// Where the divider between the panes is grabbed: a strip over the 1px line below the app bars, reaching a little
+/// into the list (its scroll bar is at its right edge) and further into the detail pane (the side room of the floors).
+/// Dragged sideways it moves the line, tapped twice it puts the line back at the list's share of the window. The
+/// pointer goes on to the panes below too: a scroll (the wheel, a vertical drag) or a tap started on the strip reaches
+/// them.
 class _TwoPaneDivider extends StatelessWidget {
   const _TwoPaneDivider({
     required this.onDragStart,
@@ -408,9 +421,10 @@ class _TwoPaneDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MouseRegion(
     cursor: SystemMouseCursors.resizeColumn,
+    opaque: false,
     child: GestureDetector(
       key: const ValueKey('two-pane-divider'),
-      behavior: HitTestBehavior.opaque,
+      behavior: HitTestBehavior.translucent,
       dragStartBehavior: DragStartBehavior.down,
       onHorizontalDragStart: (_) => onDragStart(),
       onHorizontalDragUpdate: (details) => onDragUpdate(details.delta.dx),
