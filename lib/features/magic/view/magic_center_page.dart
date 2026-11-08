@@ -270,6 +270,19 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               if (state.result case final result?) _result(result, tr),
+              // A refresh that failed keeps the lists it had, under the failure.
+              if (state.failed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: appSurfaceGap),
+                  child: AppNoticeBanner(
+                    key: const ValueKey('magic-load-failed'),
+                    tone: AppNoticeTone.error,
+                    message: context.t.general.failedToLoad,
+                    actions: [
+                      TextButton(onPressed: () => unawaited(_cubit.load()), child: Text(context.t.general.retry)),
+                    ],
+                  ),
+                ),
               if (page.balance.isNotEmpty || page.capacity.isNotEmpty) _header(page),
               if (items.isEmpty) AppStateView(icon: Icons.auto_fix_high_outlined, message: tr.empty, scrollable: false),
               for (var row = 0; row < appRowCount(items.length, columns); row++)
@@ -325,7 +338,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
           );
         }
         if (page == null && state.loading) return const CenteredCircularIndicator();
-        if (state.failed || page == null) {
+        if (page == null) {
           return AppCenteredList(
             maxWidth: appFormMaxWidth,
             builder: (context, padding, _) => ListView(

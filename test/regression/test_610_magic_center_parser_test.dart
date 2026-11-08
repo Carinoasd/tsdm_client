@@ -184,6 +184,41 @@ void main() {
       expect(form.fields.single.options.map((o) => (o.value, o.label)), [('1', '是'), ('0', '否')]);
     });
 
+    test('an unchecked radio group is no choice; disabled controls and ones outside the settings are not posted', () {
+      final sofa = magicUnwrapAjax(_fixture('use_sofa_x5.xml'));
+      final unchecked = parseMagicForm(
+        sofa.replaceFirst(
+          '<input type="text" name="tid" class="px p_fre" value="" size="12" autocomplete="off" />',
+          '<input type="radio" name="opt" value="1" /> 是 <input type="radio" name="opt" value="0" /> 否',
+        ),
+      );
+      expect(unchecked.fields.single.value, isEmpty, reason: 'the browser posts nothing for an unchecked group');
+      final disabled = parseMagicForm(
+        sofa.replaceFirst(
+          '<input type="hidden" name="usesubmit"',
+          '<input type="hidden" name="extra" value="1" disabled="disabled" /><input type="hidden" name="usesubmit"',
+        ),
+      );
+      expect(disabled.hidden.containsKey('extra'), isFalse);
+      final outside = sofa.replaceFirst(
+        '<input type="hidden" name="usesubmit"',
+        '<input type="text" name="note" value="" /><input type="hidden" name="usesubmit"',
+      );
+      expect(() => parseMagicForm(outside), throwsA(isA<MagicFormUnsupported>()));
+    });
+
+    test('the discount note is not taken for a balance', () {
+      final html = _fixture('shop_x5.html').replaceFirst(
+        '<span class="pipe">|</span>\n目前有',
+        '<span class="pipe">|</span>您可以享受 8 折优惠<span class="pipe">|</span>\n目前有',
+      );
+      expect(html, contains('8 折'));
+      final page = parseMagicList(parseHtmlDocument(html), MagicList.shop);
+      expect(page.balance, startsWith('目前有 天使币'));
+      expect(page.balance, isNot(contains('8 折')));
+      expect(page.capacity, matches(RegExp(r'^\d+/100$')));
+    });
+
     test('a form posted anywhere else is refused', () {
       final html = magicUnwrapAjax(
         _fixture('use_sofa_x5.xml'),

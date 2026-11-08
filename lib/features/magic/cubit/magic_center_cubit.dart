@@ -202,6 +202,10 @@ class MagicCenterCubit extends Cubit<MagicCenterState> {
     try {
       final form = buy ? await repo.buyWindow(item.identifier) : await repo.useWindow(item.magicId!);
       return _current(generation, uid) ? form : null;
+    } on Object {
+      // The forum's words for another account are not shown.
+      if (!_current(generation, uid)) return null;
+      rethrow;
     } finally {
       if (_current(generation, uid)) emit(state.copyWith(busy: false));
     }

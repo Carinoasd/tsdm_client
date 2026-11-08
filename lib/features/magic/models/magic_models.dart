@@ -267,19 +267,34 @@ MagicListPage parseMagicList(uh.Document document, MagicList list) {
     }
   }
   final tbmu = main.querySelector('.tbmu');
-  final spans = tbmu?.querySelectorAll('span.xi1').toList() ?? const <uh.Element>[];
   var capacity = '';
   var balance = '';
   if (tbmu != null) {
-    final text = magicText(tbmu);
-    final slash = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(text);
-    if (slash != null) capacity = '${slash.group(1)}/${slash.group(2)}';
-    if (list == MagicList.shop) {
-      final pipe = text.split('|');
-      // The balances follow the capacity (and the discount line); the links to buy or exchange credits come last.
-      final balances = pipe.where((s) => spans.isNotEmpty && RegExp(r'\d').hasMatch(s) && !s.contains('/')).toList();
-      balance = balances.map((s) => s.trim()).join(' ').trim();
+    // The line is cut by `span.pipe`: the capacity (`N/M`), the discount note (no number of its own), the balances
+    // (each number in a `span.xi1`), then the links to buy or exchange credits.
+    final segments = <List<uh.Node>>[[]];
+    for (final node in tbmu.nodes) {
+      if (node is uh.Element && node.classes.contains('pipe')) {
+        segments.add([]);
+      } else {
+        segments.last.add(node);
+      }
     }
+    final balances = <String>[];
+    for (final nodes in segments) {
+      final holder = uh.DivElement();
+      for (final n in nodes) {
+        holder.append(n.clone(true));
+      }
+      final text = magicText(holder).replaceAll('\n', ' ');
+      final slash = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(text);
+      if (slash != null && capacity.isEmpty) {
+        capacity = '${slash.group(1)}/${slash.group(2)}';
+      } else if (list == MagicList.shop && holder.querySelector('span.xi1') != null) {
+        balances.add(text);
+      }
+    }
+    balance = balances.join(' ').trim();
   }
   String? link(String selector) => magicListPageUrl(main.querySelector(selector)?.getAttribute('href'), list);
   final current = int.tryParse(magicText(main.querySelector('div.pg strong'))) ?? 1;
@@ -476,7 +491,7 @@ MagicForm parseMagicForm(String html) {
   if (action == null) throw const FormatException('Unexpected magic form target');
 
   final hidden = <String, String>{};
-  for (final input in form.querySelectorAll('input[type="hidden"]')) {
+  for (final input in form.querySelectorAll('input[type="hidden"]:not([disabled])')) {
     final name = input.getAttribute('name') ?? '';
     if (name.isNotEmpty) hidden[name] = input.getAttribute('value') ?? '';
   }
@@ -497,8 +512,7 @@ MagicForm _parseBuy(uh.Element form, String action, Map<String, String> hidden) 
     for (final p in paragraphs.skip(2))
       if (p.querySelector('input') == null && magicText(p).isNotEmpty) magicText(p).replaceAll('\n', ' '),
   ];
-  final scripts = form.parent?.querySelectorAll('script').map((s) => s.text ?? '').join('\n') ?? '';
-  final docScripts = form.ownerDocument?.querySelectorAll('script').map((s) => s.text ?? '').join('\n') ?? scripts;
+  final docScripts = form.ownerDocument?.querySelectorAll('script').map((s) => s.text ?? '').join('\n') ?? '';
   int? scriptVar(String name) => _firstInt(RegExp('var $name = (-?\\d+);').firstMatch(docScripts)?.group(1));
   final price = _firstInt(magicText(form.querySelector('#discountprice') ?? form.querySelector('#magicprice')));
   final stockRow = dt
@@ -531,11 +545,24 @@ MagicFieldRole _roleOf(String name, String type) => switch ((name, type)) {
   _ => MagicFieldRole.text,
 };
 
+bool _within(uh.Element node, uh.Element ancestor) {
+  for (uh.Element? e = node; e != null; e = e.parent) {
+    if (identical(e, ancestor)) return true;
+  }
+  return false;
+}
+
 MagicForm _parseUse(uh.Element form, String action, Map<String, String> hidden) {
   if (!_digits.hasMatch(hidden['magicid'] ?? '')) throw const FormatException('Use form without its magic');
   final dt = form.querySelector('dl.xld dt');
   final box = dt?.querySelector('div.pns');
   if (dt == null || box == null) throw const FormatException('Use form without its settings');
+  // A control the user would fill outside the settings would be left out of the post: the website has to do it.
+  for (final control in form.querySelectorAll('input, select, textarea')) {
+    final type = (control.getAttribute('type') ?? '').toLowerCase();
+    if (type == 'hidden' || type == 'submit' || control.attributes.containsKey('disabled')) continue;
+    if (!_within(control, box)) throw const MagicFormUnsupported();
+  }
   // A picker driven by script (the colour of the highlight card) cannot be filled in without running it.
   if (box.querySelector('script, [onclick], [onchange], [onfocus], input[type="checkbox"], select[multiple]') != null) {
     throw const MagicFormUnsupported();
@@ -550,6 +577,8 @@ MagicForm _parseUse(uh.Element form, String action, Map<String, String> hidden) 
 
   void walk(uh.Element node) {
     for (final child in node.children) {
+      // The browser never posts a disabled control.
+      if (child.attributes.containsKey('disabled')) continue;
       switch (child.localName) {
         case 'p':
           final classes = child.classes;
@@ -624,7 +653,7 @@ MagicForm _parseUse(uh.Element form, String action, Map<String, String> hidden) 
           name: f.name,
           label: f.label,
           role: MagicFieldRole.choice,
-          value: radioChecked[f.name] ?? options.first.value,
+          value: radioChecked[f.name] ?? '',
           options: List.unmodifiable(options),
         )
       else

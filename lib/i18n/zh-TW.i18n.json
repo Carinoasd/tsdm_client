@@ -2772,6 +2772,7 @@
     "owned": "× ${count}",
     "unsupported": "這個道具只能在網頁上使用。",
     "fieldThread": "主題 ID 或連結",
+    "threadInvalid": "請輸入主題 ID 或主題連結",
     "fieldUser": "使用者名稱",
     "fieldNewName": "新使用者名稱",
     "fieldCount": "數量",

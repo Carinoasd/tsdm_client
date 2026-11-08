@@ -2772,6 +2772,7 @@
     "owned": "× ${count}",
     "unsupported": "This item can only be used on the website.",
     "fieldThread": "Thread ID or link",
+    "threadInvalid": "Enter a thread ID or a thread link",
     "fieldUser": "Username",
     "fieldNewName": "New username",
     "fieldCount": "Quantity",

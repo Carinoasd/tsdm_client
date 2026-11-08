@@ -73,9 +73,10 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
     for (final f in widget.form.fields)
       if (f.role != MagicFieldRole.choice) f.name: TextEditingController(text: f.value),
   };
+  // A value the options do not hold (a radio group the forum left unchecked) is no choice: the user picks one.
   late final Map<String, String> _choice = {
     for (final f in widget.form.fields)
-      if (f.role == MagicFieldRole.choice) f.name: f.value,
+      if (f.role == MagicFieldRole.choice) f.name: f.options.any((o) => o.value == f.value) ? f.value : '',
   };
 
   bool get _buy => widget.form.hidden['operation'] == 'buy';
@@ -101,7 +102,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
     Navigator.of(context).pop({
       for (final f in widget.form.fields)
         f.name: switch (f.role) {
-          MagicFieldRole.choice => _choice[f.name] ?? f.value,
+          MagicFieldRole.choice => _choice[f.name] ?? '',
           MagicFieldRole.thread => magicThreadIdOf(_text[f.name]!.text),
           _ => _text[f.name]!.text.trim(),
         },
@@ -155,6 +156,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
       return DropdownButtonFormField<String>(
         key: ValueKey('magic-field-${field.name}'),
         initialValue: field.options.any((o) => o.value == _choice[field.name]) ? _choice[field.name] : null,
+        validator: (v) => v == null || !field.options.any((o) => o.value == v) ? tr.required : null,
         isExpanded: true,
         decoration: InputDecoration(
           labelText: field.label.isEmpty ? null : field.label,
@@ -167,7 +169,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
               child: Text(o.label, overflow: TextOverflow.ellipsis),
             ),
         ],
-        onChanged: (v) => setState(() => _choice[field.name] = v ?? field.value),
+        onChanged: (v) => setState(() => _choice[field.name] = v ?? ''),
       );
     }
     // The three common inputs get the app's short label and keyboard; any other keeps the forum's own label.
@@ -195,7 +197,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
         final text = (v ?? '').trim();
         if (required && text.isEmpty) return tr.required;
         if (field.role == MagicFieldRole.thread && !RegExp(r'^\d+$').hasMatch(magicThreadIdOf(text))) {
-          return tr.fieldThread;
+          return tr.threadInvalid;
         }
         return null;
       },
