@@ -3754,5 +3754,23 @@
     "revoked": "$name was logged out of this device from another device",
     "revokedUnknown": "An account was logged out of this device from another device",
     "login": "Log in"
+  },
+  "ranklistPage": {
+    "title": "Rankings",
+    "tabs": {
+      "credit": "Credits",
+      "post": "Posts",
+      "online": "Online",
+      "thread": "Hot threads"
+    },
+    "threadViews": {
+      "replies": "Replies",
+      "views": "Views",
+      "favtimes": "Favorites",
+      "heats": "Heat"
+    },
+    "empty": "No rankings yet",
+    "minutes": "$n minutes",
+    "updated": "Updated $last · next $next"
   }
 }

@@ -3754,5 +3754,23 @@
     "revoked": "$name 已在其他设备上登出本机",
     "revokedUnknown": "一个账号已在其他设备上登出本机",
     "login": "登录"
+  },
+  "ranklistPage": {
+    "title": "排行榜",
+    "tabs": {
+      "credit": "积分",
+      "post": "发帖",
+      "online": "在线",
+      "thread": "热帖"
+    },
+    "threadViews": {
+      "replies": "回复",
+      "views": "查看",
+      "favtimes": "收藏",
+      "heats": "热度"
+    },
+    "empty": "暂无排行",
+    "minutes": "$n 分钟",
+    "updated": "更新于 $last · 下次 $next"
   }
 }
