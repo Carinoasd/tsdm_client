@@ -503,6 +503,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadContentSplitLongParagraphs, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-link-card'),
+          secondary: const Icon(Icons.link_outlined),
+          title: Text(tr.threadLinkCard.title),
+          value: state.settingsMap.threadLinkCard,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadLinkCard, v)),
+        ),
         SectionListTile(
           key: const ValueKey('settings-immersive-forums'),
           leading: const Icon(Icons.chrome_reader_mode_outlined),

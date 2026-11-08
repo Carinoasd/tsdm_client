@@ -491,6 +491,9 @@
         "title": "长段落自动分段",
         "detail": "很长的段落在句末断开显示，原文和复制的文字不变"
       },
+      "threadLinkCard": {
+        "title": "帖子链接显示预览卡"
+      },
       "threadContentLayout": {
         "title": "阅读排版",
         "dialogTitle": "阅读排版",

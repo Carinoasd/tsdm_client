@@ -491,6 +491,9 @@
         "title": "Split long paragraphs",
         "detail": "Show very long paragraphs broken after the end of a sentence; the text and what is copied stay unchanged"
       },
+      "threadLinkCard": {
+        "title": "Preview cards for thread links"
+      },
       "threadContentLayout": {
         "title": "Reading layout",
         "dialogTitle": "Reading layout",

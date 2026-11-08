@@ -17,6 +17,10 @@ import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/netdisk/widgets/netdisk_row.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
+import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
@@ -528,6 +532,14 @@ final class _Muncher with LoggerMixin {
 
   /// The link being munched ([_buildA]): its own color is the link's ([_MunchState.linkColor]).
   uh.Element? _link;
+
+  /// Links of this floor drawn as cards of their thread so far ([_threadLinkCard]).
+  int _threadLinkCards = 0;
+
+  /// Links to threads in a post's content are drawn as cards of their thread: the `threadLinkCard` setting (on when no
+  /// settings are provided).
+  late final bool _threadLinkCardsOn =
+      postContent && (context.readOrNull<SettingsBloc>()?.state.settingsMap.threadLinkCard ?? true);
 
   /// How the author's colors are shown in the theme.
   late final _colors = AuthorColors(Theme.of(context));
@@ -2136,6 +2148,7 @@ final class _Muncher with LoggerMixin {
       // Do NOT show url prefix.
       return [if (breakBefore) emptySpan, ?space, ...ret];
     }
+    final card = _threadLinkCard(element, url);
     final Widget? content;
     if (url.isUserSpaceUrl) {
       if (element.innerText.contains('@')) {
@@ -2186,8 +2199,36 @@ final class _Muncher with LoggerMixin {
           ...ret,
         ],
       ),
+      ?card,
       if (!url.isUserSpaceUrl) ..._netdiskRow(url),
     ];
+  }
+
+  /// The card of the thread the link [element] to [url] leads to, put after the link ([ThreadLinkCard]): a link in a
+  /// post's content showing the url of a thread ([threadLinkOf]), one of the first [maxThreadLinkCardsPerFloor] of the
+  /// floor; not for a thread known not to be readable by the account. Null for any other link.
+  ///
+  /// The link itself stays as it is: the floor is munched once, a card loaded later only shows up below it.
+  InlineSpan? _threadLinkCard(uh.Element element, String url) {
+    if (!_threadLinkCardsOn || _threadLinkCards >= maxThreadLinkCardsPerFloor) {
+      return null;
+    }
+    final threadLink = threadLinkOf(url, element.innerText);
+    if (threadLink == null) {
+      return null;
+    }
+    final repository = ThreadLinkCardRepository.instance;
+    if (repository.isCached(threadLink.tid) && repository.cached(threadLink.tid) == null) {
+      return null;
+    }
+    _threadLinkCards += 1;
+    return textWidgetSpan(
+      ThreadLinkCard(
+        tid: threadLink.tid,
+        onOpen: () async => _openUrl(threadLink.url),
+        onShowUrl: () async => _showUrlInfo(url.prependHost()),
+      ),
+    );
   }
 
   List<InlineSpan>? _buildTr(uh.Element element) {

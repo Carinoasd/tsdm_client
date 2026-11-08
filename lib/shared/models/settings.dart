@@ -339,6 +339,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
     defaultValue: PostTypography.defaultParagraphSpacing,
   ),
 
+  /// Draw the links in the post content that show the url of a thread of the forum as cards of the thread (its title,
+  /// author, forum, replies and views, time), asked when the card comes into view.
+  threadLinkCard<bool>(name: 'threadLinkCard', type: bool, defaultValue: true),
+
   /// Widest the floors of the thread page grow, in logical pixels (600 to 1200); 0: as the app lays them out
   /// (`appReadingMaxWidth`, the content at most `htmlContentMaxWidth`). Only a window wider than it shows a difference.
   /// Tied to the screen: not synced.

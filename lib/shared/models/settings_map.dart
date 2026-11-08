@@ -56,6 +56,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentLineHeight = PostTypography.defaultLineHeight,
     this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
     this.threadContentSplitLongParagraphs = false,
+    this.threadLinkCard = true,
     this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
@@ -249,6 +250,10 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool threadContentSplitLongParagraphs;
 
+  /// Whether the links in the post content that show the url of a thread are drawn as cards of the thread. Not
+  /// required: backups from older versions lack it.
+  final bool threadLinkCard;
+
   /// Widest the floors grow, 0: as the app lays them out. Not required: backups from older versions lack it.
   final double threadContentMaxWidth;
 
@@ -377,6 +382,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadContentLineHeight => copyWith(threadContentLineHeight: value as double?),
       SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
       SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
+      SettingsKeys.threadLinkCard => copyWith(threadLinkCard: value as bool?),
       SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
       SettingsKeys.offlineThreads => copyWith(offlineThreads: value as bool?),
