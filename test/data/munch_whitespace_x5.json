@@ -1,6 +1,7 @@
 {
  "_about": "The text the html muncher renders each real sample of test/data to (rich text by rich text, images as an underlined mark, icons left out, email addresses as <email>), see test_228_munch_whitespace_test.dart: before and after the fix of the white space collapsing where they differ, the one text where they do not. Recorded by running that test with MUNCH_WHITESPACE_DUMP set, with the muncher before the fix and after it.",
  "samples": {
+  "test/data/audio_attachment_post_x5.html#postmessage_1": "«三個音訊附件\n￼\n中間文字\n￼\n\n另外網易雲 https://music.163.com/#/song?id=1974443814 以及 ￼晴天»\n«测试 歌曲.mp3»\n«36.73 KB»\n«sine_b.flac»\n«88.36 KB»\n",
   "test/data/chat_history_bare_url_x5.html#pm0": {
    "before": "«您\n\n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n",
    "after": "«您\n \n[tsdm_client X5 修復版 自動測試] 私訊 #n1，可忽略。\n5 天前»\n"
