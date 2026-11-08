@@ -384,7 +384,11 @@ void main() {
     adapter.gate = Completer<void>();
     await tester.tap(replyButton());
     await settle(tester);
-    expect(tester.widget<FilledButton>(replyButton()).onPressed, isNull, reason: 'one request at a time');
+    expect(tester.widget<FilledButton>(replyButton()).onPressed, isNull, reason: 'the reply button waits');
+    expect(adapter.windows, hasLength(1), reason: 'one request at a time');
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(count(), findsOneWidget, reason: 'back is held too');
     // Neither the close button nor a tap on a floor changes what is picked.
     await tester.tap(find.byKey(const ValueKey('multi-quote-exit')));
     await pick(tester, 5);
@@ -398,6 +402,19 @@ void main() {
     expect(code, contains('quoted 3'));
     expect(code, contains('quoted 4'));
     expect(code, isNot(contains('quoted 5')));
+  });
+
+  testWidgets('the page gone while the quotes are fetched ends quietly', (tester) async {
+    await pump(tester);
+    await startFrom(tester, 3);
+    adapter.gate = Completer<void>();
+    await tester.tap(replyButton());
+    await settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    adapter.gate!.complete();
+    await settle(tester);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a quote that can not be read puts nothing into the reply and keeps the floors picked', (tester) async {

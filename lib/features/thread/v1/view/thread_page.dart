@@ -1028,7 +1028,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             builder: (context, _) => FilledButton(
               key: const ValueKey('multi-quote-reply'),
               onPressed: _multiQuote.length == 0 || _multiQuote.busy ? null : _replyWithQuotes,
-              child: Text(tr.reply),
+              child: _multiQuote.busy
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(tr.reply),
             ),
           ),
         ),
@@ -1059,7 +1061,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         quotes.add(quote);
       }
     } finally {
-      _multiQuote.busy = false;
+      // The page may be gone by now, with its selection.
+      if (mounted) {
+        _multiQuote.busy = false;
+      }
     }
     if (!mounted) {
       return;

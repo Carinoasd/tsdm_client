@@ -56,7 +56,7 @@ final class MultiQuoteSelection extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Pick [entry], or take it back when picked. False when it can not be picked: [maxEntries] floors are.
+  /// Pick [entry], or take it back when picked. False when it can not be picked: [maxEntries] floors are. Nothing changes (and true is returned, there is nothing to tell) while [busy].
   bool toggle(MultiQuoteEntry entry) {
     if (_busy) {
       return true;
