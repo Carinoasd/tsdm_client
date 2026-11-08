@@ -252,7 +252,8 @@ final class ModerateRepository with LoggerMixin {
   /// The forum answers one verdict for the threads of a request and acts on those its window holds only (no more than
   /// the account's threads per page): the threads it held are posted once, and the window is asked again for the
   /// threads left until none is left. A thread no window takes failed in the forum's words of the last window; a
-  /// refusal fails the threads not done yet in its words, and nothing is sent after it. Nothing is sent once the
+  /// refusal fails the threads not done yet in its words, and nothing is sent after it; a request sent whose verdict
+  /// was lost (the network, an answer the app can not read) leaves its threads unknown. Nothing is sent once the
   /// account changed since a window was served.
   Future<ModerateBatchReport> runBatch(
     ModerateBatchForm first,
