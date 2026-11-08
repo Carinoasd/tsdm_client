@@ -36,6 +36,9 @@ class _FakeEngine implements TtsEngine {
   /// Whether [stop] takes a trip to the platform (a moment) before it returns.
   bool slowStop = false;
 
+  /// Whether [prepare] takes a moment.
+  bool slowPrepare = false;
+
   @override
   Stream<void> get interruptions => _interruptions.stream;
 
@@ -49,7 +52,12 @@ class _FakeEngine implements TtsEngine {
   }
 
   @override
-  Future<void> prepare({required String languageTag}) async => prepared++;
+  Future<void> prepare({required String languageTag}) async {
+    if (slowPrepare) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    prepared++;
+  }
 
   @override
   Future<void> setRate(double rate) async => rates.add(rate);
@@ -57,6 +65,8 @@ class _FakeEngine implements TtsEngine {
   @override
   Future<TtsOutcome> speak(String text) {
     said.add(text);
+    // The text before it is over, as the platform ends it.
+    finish(TtsOutcome.cancelled);
     final c = Completer<TtsOutcome>();
     _current = c;
     return c.future;
@@ -65,10 +75,14 @@ class _FakeEngine implements TtsEngine {
   @override
   Future<void> stop() async {
     stops++;
+    final pending = _current;
     if (slowStop) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    finish(TtsOutcome.cancelled);
+    // Not a text begun while stopping, as the real engine.
+    if (identical(_current, pending)) {
+      finish(TtsOutcome.cancelled);
+    }
   }
 
   @override
@@ -355,5 +369,51 @@ void main() {
     expect(engineRateOf(1.5, windows: false), 0.75);
     expect(engineRateOf(1, windows: true), 0.5);
     expect(engineRateOf(1.5, windows: true), 1.0);
+  });
+
+  test('resuming while the engine is still stopping keeps reading on', () async {
+    engine.slowStop = true;
+    final c = make()..updateFloors([_post(1), _post(2)], canLoadMore: false);
+    await c.start('1');
+    await _settle();
+    final pausing = c.pause();
+    c.resume();
+    await pausing;
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(c.status, TtsStatus.speaking);
+    expect(engine.said, ['head 1', 'head 1']);
+    engine.finish();
+    await _settle();
+    // The part after it follows: not stuck.
+    expect(engine.said.last, 'body 1');
+  });
+
+  test('a failure of the page before the reading began is not the answer: the page is asked for', () async {
+    final c = make()..updateFloors([_post(1)], canLoadMore: true, nextFailed: true);
+    await c.start('1');
+    await _settle();
+    engine.finish();
+    await _settle();
+    engine.finish();
+    await _settle();
+    expect(pageRequests, 1);
+    expect(failures, 0);
+    expect(c.status, TtsStatus.waitingPage);
+    c.updateFloors([_post(1)], canLoadMore: true, nextFailed: true);
+    await _settle();
+    expect(failures, 1);
+    expect(c.status, TtsStatus.idle);
+  });
+
+  test('closed while the audio session is being taken: the session is given back', () async {
+    engine.slowPrepare = true;
+    final c = make()..updateFloors([_post(1)], canLoadMore: false);
+    final starting = c.start('1');
+    await _settle();
+    await c.stop();
+    await starting;
+    expect(c.status, TtsStatus.idle);
+    expect(engine.said, isEmpty);
+    expect(engine.released, greaterThanOrEqualTo(1));
   });
 }

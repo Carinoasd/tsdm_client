@@ -137,12 +137,16 @@ final class FlutterTtsEngine implements TtsEngine {
 
   @override
   Future<void> stop() async {
+    final pending = _pending;
     try {
       await _tts.stop();
     } on Object {
       // Nothing to stop.
     }
-    _finish(TtsOutcome.cancelled);
+    // Not a text begun while the engine was stopping: [speak] ends the one before it by itself.
+    if (identical(_pending, pending)) {
+      _finish(TtsOutcome.cancelled);
+    }
   }
 
   @override

@@ -131,6 +131,10 @@ class ThreadTtsController extends ChangeNotifier {
     await engine.prepare(languageTag: languageTag);
     await engine.setRate(_rate);
     if (token != _token || _disposed) {
+      if (!_disposed && _status == TtsStatus.idle) {
+        // Closed while the audio session was being taken.
+        await engine.release();
+      }
       return;
     }
     _begin(first.postID);
@@ -302,10 +306,13 @@ class ThreadTtsController extends ChangeNotifier {
   }
 
   void _waitForPage() {
-    if (!_canLoadMore || _nextFailed) {
-      if (_nextFailed) {
-        onFailed?.call();
-      }
+    if (!_canLoadMore) {
+      unawaited(stop());
+      return;
+    }
+    // A failure that was there before this page was asked for is not the answer: ask once.
+    if (_nextFailed && _requestedAt == _floors.length) {
+      onFailed?.call();
       unawaited(stop());
       return;
     }
