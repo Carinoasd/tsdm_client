@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/rate_stats/utils/rate_stats.dart';
 import 'package:tsdm_client/features/rate_stats/view/rate_stats_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/widgets/charts/net_bar_chart.dart';
+import 'package:tsdm_client/widgets/indicator.dart';
 
 /// 2026-11-08 10:00 in UTC+8, the forum's clock, as unix seconds.
 final int _base = DateTime.utc(2026, 11, 8, 2).millisecondsSinceEpoch ~/ 1000;
@@ -152,7 +153,7 @@ void main() {
 
     testWidgets('the notices still on their way: loading, not no data', (tester) async {
       await pump(tester, const [], loading: true);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(CenteredCircularIndicator), findsOneWidget);
       expect(find.text(t.general.noData), findsNothing);
     });
 

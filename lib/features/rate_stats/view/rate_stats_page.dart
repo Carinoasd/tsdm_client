@@ -33,9 +33,11 @@ class _RateStatsPageState extends State<RateStatsPage> {
   @override
   void initState() {
     super.initState();
-    // The lists are empty until the first sync or a read of what is stored: read the stored ones.
+    // The lists are empty until the first sync or a read of what is stored: read the stored ones, also when the sync
+    // failed (offline), which leaves the lists as they were.
     final bloc = context.read<NotificationBloc>();
-    if (bloc.state.status == NotificationStatus.initial) {
+    if (bloc.state.status == NotificationStatus.initial ||
+        (bloc.state.status == NotificationStatus.failure && bloc.state.noticeList.isEmpty)) {
       bloc.add(NotificationReloadFromStorageRequested());
     }
   }
@@ -49,13 +51,24 @@ class _RateStatsPageState extends State<RateStatsPage> {
       _events = rateEventsOf(notices);
     }
     final blocked = currentBlockList(context);
+    // A rater is told by name: the uid of one notice stands for the notices of the same name without it.
+    final idOf = {
+      for (final event in _events)
+        if (event.raterId != null) event.rater: event.raterId,
+    };
     return RateStatsView(
       events: [
         for (final event in _events)
-          if (!blocked.hides(event.raterId)) event,
+          if (!blocked.hides(event.raterId ?? idOf[event.rater])) event,
       ],
       today: forumToday(),
-      loading: status == NotificationStatus.initial || status == NotificationStatus.loading,
+      // Nothing to show is not yet none: the notices are on their way (or being read from the storage after a failed
+      // sync), or the block list is not read yet, which hides every rater until it is.
+      loading:
+          !blocked.isKnown ||
+          status == NotificationStatus.initial ||
+          status == NotificationStatus.loading ||
+          (status == NotificationStatus.failure && notices.isEmpty),
     );
   }
 }
