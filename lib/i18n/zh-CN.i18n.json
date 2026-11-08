@@ -249,11 +249,14 @@
       "myThreads": "我的帖子",
       "favorites": "收藏",
       "history": "浏览记录",
+      "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
       "messages": "私信",
       "friends": "好友",
-      "points": "积分"
+      "points": "积分",
+      "followedThreads": "追踪的帖子",
+      "readingStats": "阅读统计"
     }
   },
   "home": {
@@ -379,6 +382,13 @@
         "title": "未读信息提示",
         "detail": "有未读消息时消息按钮上显示红点或数量"
       },
+      "immersiveReading": {
+        "title": "沉浸式阅读",
+        "allForums": "所有版块",
+        "withSubforums": "连同子版块",
+        "forumId": "版块 $fid",
+        "forumCount": "$count 个版块"
+      },
       "threadCard": {
         "title": "帖子卡片",
         "detail": "设置帖子卡片的外观",
@@ -481,22 +491,20 @@
         "detail": "在文字缩放之上，额外放大帖子页面中的楼层内容",
         "dialogTitle": "帖子内容缩放系数"
       },
-      "threadContentLineHeight": {
-        "title": "帖子行高",
-        "detail": "楼层内文每一行的高度，是字号的倍数"
-      },
-      "threadContentParagraphSpacing": {
-        "title": "帖子段落间距",
-        "detail": "楼层内文段落之间的空白"
-      },
       "threadContentSplitLongParagraphs": {
         "title": "长段落自动分段",
         "detail": "很长的段落在句末断开显示，原文和复制的文字不变"
       },
+      "threadLinkCard": {
+        "title": "帖子链接显示预览卡"
+      },
       "threadContentLayout": {
-        "dialogTitle": "帖子排版",
+        "title": "阅读排版",
+        "dialogTitle": "阅读排版",
         "lineHeight": "行高",
         "paragraphSpacing": "段落间距",
+        "maxWidth": "内文最大宽度",
+        "unlimited": "不限",
         "preview": "预览",
         "previewText": "这是一段示例文字，用来预览帖子内文的排版。行高越大，行与行之间越宽松；段落间距是两个段落之间的空白。<br />手机屏幕比网页窄得多，网页上几行的段落在手机上会变成十几行，适当加大行高和段距会更容易阅读。"
       }
@@ -544,6 +552,9 @@
         "rate": "评分／点评",
         "pm": "私信",
         "system": "系统通知",
+        "followedThread": "追踪的帖子",
+        "followedThreadInterval": "检查间隔",
+        "followedThreadMinutes": "${n} 分钟",
         "quietHours": "静音时段",
         "quietStart": "开始",
         "quietEnd": "结束"
@@ -762,7 +773,11 @@
       "about": "关于",
       "update": "获取更新",
       "updateCheckOnStartup": "应用启动时检查更新",
-      "changelog": "更新日志"
+      "changelog": "更新日志",
+      "recordReadingTime": "记录阅读时间",
+      "clearReadingTime": "清除阅读时间数据",
+      "clearReadingTimeConfirm": "清除这台设备上所有账号的阅读时间数据？清除后无法恢复。",
+      "readingTimeCleared": "阅读时间数据已清除"
     }
   },
   "aboutPage": {
@@ -1010,6 +1025,12 @@
   "threadPage": {
     "title": "帖子",
     "sendReplyHint": "回复",
+    "multiQuote": {
+      "selected": "已选 $count/$max",
+      "reply": "引用回复",
+      "limit": "最多引用 $max 楼",
+      "failed": "取得引用失败"
+    },
     "sendReply": "发送",
     "closed": "帖子已关闭",
     "needLogin": "需要登录",
@@ -1040,6 +1061,7 @@
       "threadUrlBBCode": "链接BBCode",
       "threadUrlBBCodeWithDomain": "链接BBCode（有域名）"
     },
+    "immersiveForum": "预设沉浸此版块",
     "copyTid": "复制tid（${tid: String}）",
     "favorite": {
       "add": "收藏",
@@ -1089,6 +1111,11 @@
       "message": "上次看到第 ${floor: int} 楼",
       "action": "继续",
       "close": "关闭"
+    },
+    "follow": {
+      "add": "追踪",
+      "remove": "取消追踪",
+      "added": "已追踪"
     }
   },
   "topicsPage": {
@@ -1800,6 +1827,7 @@
   },
   "postCard": {
     "fromApp": "来自天使动漫App",
+    "addQuote": "加入引用",
     "contentUnavailable": "此楼内容无法显示",
     "bbcode": {
       "attachmentLocked": "无法查看：需要购买、权限不足或要先登录"
@@ -1883,6 +1911,12 @@
     "avatarBlocked": "头像被屏蔽",
     "hotReply": "推荐",
     "jumpToHotFloor": "跳到该楼"
+  },
+  "netdisk": {
+    "extractCode": "提取码",
+    "unzipPassword": "解压密码",
+    "open": "打开",
+    "copyAll": "复制全部网盘信息"
   },
   "threadExport": {
     "copyPlain": "复制为纯文本",
@@ -1978,7 +2012,18 @@
     "panelLogin": "管理面板",
     "password": "密码",
     "wrongPassword": "密码错误",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "bump": "提升",
+    "down": "下沉",
+    "batch": {
+      "selected": "已选 $count 个",
+      "selectAll": "全选",
+      "select": "多选",
+      "title": "$operation（$count）",
+      "done": "已处理 $count 个主题",
+      "failed": "$count 个主题未完成",
+      "unknown": "结果未知，请刷新确认"
+    }
   },
   "packetCard": {
     "title": "红包",
@@ -2130,6 +2175,15 @@
     "title": "音乐",
     "openLink": "打开链接"
   },
+  "readLater": {
+    "title": "稍后阅读",
+    "add": "稍后阅读",
+    "remove": "移出稍后阅读",
+    "clear": "清空",
+    "clearConfirm": "清空稍后阅读列表？",
+    "empty": "没有待读的帖子",
+    "needLogin": "请先登录"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
     "allAccounts": "全部账号",
@@ -2191,6 +2245,35 @@
     "uploadRefusedSize": "图片超过 ${limit: int} KB：$name",
     "uploadFailedCount": "${count: int} 张图片上传失败"
   },
+  "imageUpload": {
+    "button": "上传图片",
+    "gallery": "相册",
+    "camera": "拍照",
+    "clipboard": "剪贴板",
+    "editFirst": "编辑后上传",
+    "noClipboardImage": "剪贴板里没有图片",
+    "edit": {
+      "title": "编辑图片",
+      "skip": "跳过",
+      "upload": "上传",
+      "crop": "裁剪",
+      "mosaic": "打码",
+      "rotate": "旋转",
+      "undo": "撤销",
+      "free": "自由",
+      "original": "原图",
+      "quality": "质量",
+      "failed": "无法读取这张图片"
+    },
+    "settings": {
+      "title": "发帖",
+      "editFirst": "每次上传图片前先编辑",
+      "output": "上传图片大小",
+      "longSide": "长边",
+      "quality": "质量",
+      "original": "原图"
+    }
+  },
   "globalStatePage": {
     "autoCheckinRunning": "正在自动签到",
     "autoCheckinFinished": "自动签到已完成",
@@ -2219,7 +2302,8 @@
       "mention": "@提到我",
       "rate": "评分／点评",
       "pm": "私信",
-      "system": "系统通知"
+      "system": "系统通知",
+      "followedThread": "追踪的帖子"
     },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
@@ -2512,6 +2596,7 @@
   "threadCard": {
     "previewImages": "${count: int} 张图片",
     "viewInfo": "查看帖子信息",
+    "openInNewTab": "在新标签页打开",
     "replied": "已回复",
     "newReplies": "上次看过之后有 ${count: int} 条新回复"
   },
@@ -3040,6 +3125,15 @@
         "ruleNotFound": "这条设置已不存在，请重新加载",
         "unknownAfterSubmit": "已发送但无法确认结果，请重新加载确认"
       }
+    },
+    "filter": {
+      "keywords": "屏蔽关键字",
+      "keyword": "关键字",
+      "add": "添加",
+      "keywordExists": "已有这个关键字",
+      "forums": "屏蔽版块",
+      "pickForums": "选择",
+      "limitReached": "已达上限"
     }
   },
   "medalTitleTools": {
@@ -3361,6 +3455,19 @@
     },
     "already": "之前已经完成。"
   },
+  "readingStats": {
+    "title": "阅读统计",
+    "today": "今天",
+    "week": "本周",
+    "month": "本月",
+    "last14Days": "近 14 天",
+    "forums": "版块占比",
+    "otherForums": "其他",
+    "empty": "还没有阅读记录",
+    "hoursMinutes": "$hours 小时 $minutes 分",
+    "minutes": "$minutes 分",
+    "seconds": "$seconds 秒"
+  },
   "localDraft": {
     "title": "本机草稿",
     "details": "还没发出的回复、私信、新帖与编辑，保存在这台设备上",
@@ -3415,13 +3522,17 @@
   "appShortcuts": {
     "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
   },
+  "twoPane": {
+    "tabsFull": "最多同时打开 ${count: int} 个标签页"
+  },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
     "groups": {
       "global": "全局",
       "thread": "帖子页",
       "list": "列表",
-      "editor": "编辑器"
+      "editor": "编辑器",
+      "tabs": "标签页"
     },
     "commands": {
       "search": "搜索",
@@ -3442,8 +3553,44 @@
       "send": "发送",
       "bold": "粗体",
       "italic": "斜体",
-      "underline": "下划线"
+      "underline": "下划线",
+      "closeTab": "关闭标签页",
+      "nextTab": "下一个标签页",
+      "previousTab": "上一个标签页",
+      "selectTab": "第 1–9 个标签页"
     }
+  },
+  "followedThreads": {
+    "title": "追踪的帖子",
+    "empty": "还没有追踪的帖子",
+    "needLogin": "登录后可以追踪帖子",
+    "newReplies": "${n} 条新回复",
+    "unfollowed": "已取消追踪",
+    "undo": "撤销",
+    "notice": {
+      "body": "《${title}》有 ${n} 条新回复",
+      "hidden": "追踪的帖子有 ${n} 条新回复"
+    }
+  },
+  "customEmoji": {
+    "title": "自定义表情包",
+    "newPack": "新建表情包",
+    "name": "名称",
+    "rename": "重命名",
+    "delete": "删除表情包",
+    "deleteConfirm": "删除「$name」和其中的图片？",
+    "addImages": "添加图片",
+    "added": "已添加 ${count: int} 张图片",
+    "noneAdded": "没有可添加的图片",
+    "removeTitle": "移除图片",
+    "remove": "移除这张图片？",
+    "export": "导出",
+    "import": "导入",
+    "imported": "已导入 ${count: int} 张图片",
+    "importInvalid": "不是表情包文件",
+    "exportFailed": "导出失败",
+    "empty": "还没有表情包",
+    "count": "${count: int} 张"
   },
   "loginDevicesPage": {
     "title": "登录设备",
