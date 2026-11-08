@@ -1,0 +1,347 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1793937600,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "credit",
+ "schema": 12,
+ "timeoffset": 8,
+ "op": "log",
+ "query": {
+  "exttype": 0,
+  "income": 0,
+  "optype": "",
+  "starttime": "2026-11-01",
+  "endtime": "2026-11-30"
+ },
+ "filters": {
+  "exttype": [
+   {
+    "value": 0,
+    "name": "全部"
+   }
+  ],
+  "income": [],
+  "optype": []
+ },
+ "count": 12,
+ "page": 1,
+ "pages": 1,
+ "has_next": 0,
+ "logs": [
+  {
+   "logid": 899,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1399
+    }
+   ],
+   "type": "income",
+   "detail": "签到额外奖励",
+   "url": "",
+   "dateline": 1793928601
+  },
+  {
+   "logid": 898,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 8,
+     "text": "天使币 +8"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1398
+    }
+   ],
+   "type": "income",
+   "detail": "恭喜你签到成功！随机奖励",
+   "url": "",
+   "dateline": 1793928600
+  },
+  {
+   "logid": 895,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1,
+     "text": "天使币 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1395
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1793858400
+  },
+  {
+   "logid": 897,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1397
+    }
+   ],
+   "type": "income",
+   "detail": "签到额外奖励",
+   "url": "",
+   "dateline": 1793842201
+  },
+  {
+   "logid": 896,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 8,
+     "text": "天使币 +8"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1396
+    }
+   ],
+   "type": "income",
+   "detail": "恭喜你签到成功！随机奖励",
+   "url": "",
+   "dateline": 1793842200
+  },
+  {
+   "logid": 894,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1394
+    }
+   ],
+   "type": "income",
+   "detail": "签到额外奖励",
+   "url": "",
+   "dateline": 1793669401
+  },
+  {
+   "logid": 893,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 8,
+     "text": "天使币 +8"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1393
+    }
+   ],
+   "type": "income",
+   "detail": "恭喜你签到成功！随机奖励",
+   "url": "",
+   "dateline": 1793669400
+  },
+  {
+   "logid": 890,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1,
+     "text": "天使币 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1390
+    }
+   ],
+   "type": "income",
+   "detail": "发表回复(fid:6)",
+   "url": "",
+   "dateline": 1793599200
+  },
+  {
+   "logid": 892,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1392
+    }
+   ],
+   "type": "income",
+   "detail": "签到额外奖励",
+   "url": "",
+   "dateline": 1793583001
+  },
+  {
+   "logid": 891,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 8,
+     "text": "天使币 +8"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1391
+    }
+   ],
+   "type": "income",
+   "detail": "恭喜你签到成功！随机奖励",
+   "url": "",
+   "dateline": 1793583000
+  },
+  {
+   "logid": 889,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 10,
+     "text": "天使币 +10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1389
+    }
+   ],
+   "type": "income",
+   "detail": "签到额外奖励",
+   "url": "",
+   "dateline": 1793496601
+  },
+  {
+   "logid": 888,
+   "operation": "每日签到",
+   "optype": "",
+   "filter_url": "",
+   "relatedid": 0,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 8,
+     "text": "天使币 +8"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1388
+    }
+   ],
+   "type": "income",
+   "detail": "恭喜你签到成功！随机奖励",
+   "url": "",
+   "dateline": 1793496600
+  }
+ ]
+}
