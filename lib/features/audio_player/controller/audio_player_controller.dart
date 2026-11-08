@@ -97,10 +97,9 @@ final class AudioPlayerController extends Cubit<AudioPlayerState> with LoggerMix
   CancelToken? _cancelToken;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
-  /// Where the player is in the current track: the same stream each time, a widget built again does not listen anew.
-  Stream<Duration> get positionStream =>
-      _subscriptions.isEmpty ? const Stream.empty() : _positionStream ??= _backend.positionStream.asBroadcastStream();
-  Stream<Duration>? _positionStream;
+  /// Where the player is in the current track. just_audio's stream gives a new listener the position at once (a card
+  /// built again while paused shows where it is).
+  Stream<Duration> get positionStream => _subscriptions.isEmpty ? const Stream.empty() : _backend.positionStream;
 
   void _listen() {
     if (_subscriptions.isNotEmpty) {

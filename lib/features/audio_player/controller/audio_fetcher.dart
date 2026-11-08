@@ -182,20 +182,21 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   Future<void> _trim(Directory dir, {required String keep}) async {
     try {
       final files = <(File, FileStat)>[];
+      // A part file left by a request the app did not live to finish is deleted.
+      final stale = DateTime.now().subtract(const Duration(hours: 1));
       await for (final e in dir.list()) {
-        if (e is File && !e.path.endsWith('.part')) {
-          files.add((e, e.statSync()));
+        if (e is! File) {
+          continue;
+        }
+        final stat = e.statSync();
+        if (!e.path.endsWith('.part')) {
+          files.add((e, stat));
+        } else if (stat.modified.isBefore(stale)) {
+          await e.delete();
         }
       }
       files.sort((a, b) => b.$2.modified.compareTo(a.$2.modified));
       var total = 0;
-      // Left by a request the app did not live to finish.
-      final stale = DateTime.now().subtract(const Duration(hours: 1));
-      await for (final e in dir.list()) {
-        if (e is File && e.path.endsWith('.part') && e.statSync().modified.isBefore(stale)) {
-          await e.delete();
-        }
-      }
       for (final (f, stat) in files) {
         total += stat.size;
         if (total > maxCacheBytes && f.path != keep) {
