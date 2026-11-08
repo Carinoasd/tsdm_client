@@ -25,6 +25,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/utils/push_rules.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_follow/models/followed_thread.dart';
 import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
 import 'package:tsdm_client/features/thread_follow/utils/followed_thread_check.dart';
@@ -290,6 +291,34 @@ void main() {
       final announced = <FollowedThread>[];
       await round((_) async => _replies(3), announced: announced);
       expect(announced.single.newReplies, 2);
+    });
+
+    test('deleted floors leaving nothing new clear the announcement', () async {
+      await seed([_thread(1, seen: 10, known: 12, notified: true)]);
+      await round((_) async => _replies(9));
+      final e = (await store.of(_uid, 1))!;
+      expect((e.newReplies, e.notified), (0, false));
+      final announced = <FollowedThread>[];
+      await round((_) async => _replies(10), announced: announced);
+      expect(announced.single.newReplies, 1);
+    });
+
+    test('the cubit: a read without news writes nothing, a read of news takes the notification back', () async {
+      await seed([_thread(1, seen: 3, known: 3), _thread(2, seen: 1, known: 4, notified: true)]);
+      final taken = <int>[];
+      final cubit = FollowedThreadsCubit(store: store, storage: storage, uid: _uid, onRead: taken.add);
+      await cubit.stream.firstWhere((s) => s.loaded);
+      var writes = 0;
+      final sub = store.changes.listen((_) => writes++);
+      await cubit.markRead(uid: _uid, tid: 1, replies: 3, title: 'thread 1');
+      await cubit.markRead(uid: _uid, tid: 9, replies: 3);
+      expect(writes, 0);
+      await cubit.markRead(uid: _uid, tid: 2, replies: 4);
+      await Future<void>.delayed(Duration.zero);
+      expect(taken, [2]);
+      expect((await store.of(_uid, 2))!.notified, isFalse);
+      await sub.cancel();
+      await cubit.close();
     });
 
     test('put back where it was', () async {

@@ -173,7 +173,11 @@ Future<FollowedThreadRound> checkFollowedThreads({
             lastReplyAt: lastReplyAt,
             checkedAt: now,
           );
-          toAnnounce = allowed && next.newReplies > 0 && !next.notified;
+          if (next.newReplies == 0) {
+            // Nothing new any more (floors deleted): the next replies are announced again.
+            return next.notified ? next.copyWith(notified: false) : next;
+          }
+          toAnnounce = allowed && !next.notified;
           return toAnnounce ? next.copyWith(notified: true) : next;
         });
         if (toAnnounce && stored != null) {
