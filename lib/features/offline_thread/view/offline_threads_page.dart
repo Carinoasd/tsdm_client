@@ -148,8 +148,10 @@ class _OfflineThreadCard extends StatelessWidget {
   final String size;
   final VoidCallback onRemove;
 
+  Map<String, String> get _query => {'tid': '${item.tid}', 'appBarTitle': item.title};
+
   Future<void> _open(BuildContext context) async {
-    final query = {'tid': '${item.tid}', 'appBarTitle': item.title};
+    final query = _query;
     if (openThreadInPane(context, query)) {
       return;
     }
@@ -160,38 +162,41 @@ class _OfflineThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.offlineBatch;
     final theme = Theme.of(context);
-    return AppSurface(
-      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-      onTap: () async => _open(context),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppIconTile(Icons.offline_pin_outlined, size: 36),
-          sizedBoxW12H12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                sizedBoxW8H8,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    AppInfoPill(icon: Icons.access_time_outlined, label: item.savedAt.yyyyMMDDHHMM()),
-                    AppInfoPill(
-                      icon: Icons.layers_outlined,
-                      label: tr.pages(count: item.pageCount),
-                    ),
-                    AppInfoPill(icon: Icons.sd_storage_outlined, label: size),
-                  ],
-                ),
-              ],
+    return TwoPaneMiddleClickOpener(
+      query: _query,
+      child: AppSurface(
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        onTap: () async => _open(context),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppIconTile(Icons.offline_pin_outlined, size: 36),
+            sizedBoxW12H12,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  sizedBoxW8H8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      AppInfoPill(icon: Icons.access_time_outlined, label: item.savedAt.yyyyMMDDHHMM()),
+                      AppInfoPill(
+                        icon: Icons.layers_outlined,
+                        label: tr.pages(count: item.pageCount),
+                      ),
+                      AppInfoPill(icon: Icons.sd_storage_outlined, label: size),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          sizedBoxW4H4,
-          IconButton(icon: const Icon(Icons.delete_outline), tooltip: tr.remove, onPressed: onRemove),
-        ],
+            sizedBoxW4H4,
+            IconButton(icon: const Icon(Icons.delete_outline), tooltip: tr.remove, onPressed: onRemove),
+          ],
+        ),
       ),
     );
   }

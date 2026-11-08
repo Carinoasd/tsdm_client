@@ -10,10 +10,20 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
+import 'package:tsdm_client/features/audio_player/widgets/netease_play.dart';
+import 'package:tsdm_client/features/audio_player/widgets/post_audio_card.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
+import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
+import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
+import 'package:tsdm_client/features/netdisk/widgets/netdisk_row.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
+import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
@@ -149,6 +159,9 @@ Widget munchElement(
 
   // Undo Cloudflare's email obfuscation first, so addresses read and tap like the author wrote them.
   rewriteCloudflareEmails(rootElement);
+  if (muncher.postContent && muncher.options.renderUrl) {
+    muncher._netdisk = parseNetdiskLinks(netdiskTextOf(rootElement));
+  }
   final munched = muncher._munch(rootElement);
   if (munched == null) {
     return const SizedBox.shrink();
@@ -160,10 +173,9 @@ Widget munchElement(
   final ret = muncher._layOut(munched);
 
   // Alignment in this page requires a fixed max width that equals to website
-  // page width.
-  // Currently is 712.
+  // page width (712), unless the reader set the floors wider or narrower (PostTypography.maxWidth).
   return ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: htmlContentMaxWidth),
+    constraints: BoxConstraints(maxWidth: muncher.typography?.contentMaxWidth ?? htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(
         // Set line height to none to fix gaps between rows only holding images. May cause unexpected overlap or narrow
@@ -482,6 +494,13 @@ final class _Muncher with LoggerMixin {
   /// Additional options control injected by caller.
   final MunchOptions options;
 
+  /// Online storage links of the post, in the order they are written, each with the chips put under it once
+  /// ([_netdiskRow]).
+  List<NetdiskLink> _netdisk = const [];
+
+  /// Index in [_netdisk] of the link to put chips under next.
+  int _netdiskCursor = 0;
+
   /// The element munched by [munchElement], where the folds a post made itself are looked for ([_hiddenContent]).
   uh.Element? _root;
 
@@ -516,6 +535,14 @@ final class _Muncher with LoggerMixin {
 
   /// The link being munched ([_buildA]): its own color is the link's ([_MunchState.linkColor]).
   uh.Element? _link;
+
+  /// Links of this floor drawn as cards of their thread so far ([_threadLinkCard]).
+  int _threadLinkCards = 0;
+
+  /// Links to threads in a post's content are drawn as cards of their thread: the `threadLinkCard` setting (on when no
+  /// settings are provided).
+  late final bool _threadLinkCardsOn =
+      postContent && (context.readOrNull<SettingsBloc>()?.state.settingsMap.threadLinkCard ?? true);
 
   /// How the author's colors are shown in the theme.
   late final _colors = AuthorColors(Theme.of(context));
@@ -1325,6 +1352,7 @@ final class _Muncher with LoggerMixin {
       () => _endingLine(_munchStyledBlock(node, _munch)),
     ),
     String() when _invisibleElements.contains(localName) => null,
+    'ignore_js_op' => _buildIgnoreJsOp(node),
     // Anything else (`<em>`, `<cite>`, `<label>`, `<abbr>`, `<o:p>` of a pasted Word document, `<marquee>`,
     // the forum's `<ignore_js_op>`, an element the muncher does not know yet) shows its content as the web
     // page does. Before, an element the muncher did not know was dropped with all its text.
@@ -2002,6 +2030,7 @@ final class _Muncher with LoggerMixin {
         ),
       );
       last = end;
+      spans.addAll(_netdiskRow(url));
     }
     if (last == 0) {
       return [TextSpan(text: text, style: style)];
@@ -2012,8 +2041,24 @@ final class _Muncher with LoggerMixin {
     return spans;
   }
 
-  static final _bareUrlRe = RegExp(r'https?://[^\s<>"\u3000-\u303f\uff00-\uffef]+');
+  static final _bareUrlRe = RegExp(r'https?://[^\s<>"\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]+');
   static const _urlTrailingPunctuation = '.,;:!?)]}\'"';
+
+  /// The chips under the online storage link [url] of a post (a line of their own), empty for any other link.
+  List<InlineSpan> _netdiskRow(String url) {
+    if (_netdisk.isEmpty) {
+      return const [];
+    }
+    final wanted = netdiskUrlOf(url);
+    for (var i = _netdiskCursor; i < _netdisk.length; i++) {
+      if (_netdisk[i].url == wanted) {
+        _netdiskCursor = i + 1;
+        _startLine();
+        return [textWidgetSpan(FullWidthBlock(child: NetdiskRow(link: _netdisk[i])))];
+      }
+    }
+    return const [];
+  }
 
   /// Open a tapped [url].
   ///
@@ -2107,6 +2152,7 @@ final class _Muncher with LoggerMixin {
       // Do NOT show url prefix.
       return [if (breakBefore) emptySpan, ?space, ...ret];
     }
+    final card = _threadLinkCard(element, url);
     final Widget? content;
     if (url.isUserSpaceUrl) {
       if (element.innerText.contains('@')) {
@@ -2120,6 +2166,21 @@ final class _Muncher with LoggerMixin {
           textScaler: .noScaling,
         );
       }
+    } else if (neteaseSongIdOf(url.prependHost()) case final songId?) {
+      // A song of NetEase Cloud Music: its mark plays it, the link still opens it.
+      return [
+        if (breakBefore) emptySpan,
+        ?space,
+        TextSpan(
+          children: [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: NeteasePlayMark(songId: songId, title: element.innerText, size: _fontSize),
+            ),
+            ...ret,
+          ],
+        ),
+      ];
     } else if (_marksLink(url)) {
       final IconData prefixIcon;
       if (url.startsWith('mailto:')) {
@@ -2157,7 +2218,36 @@ final class _Muncher with LoggerMixin {
           ...ret,
         ],
       ),
+      ?card,
+      if (!url.isUserSpaceUrl) ..._netdiskRow(url),
     ];
+  }
+
+  /// The card of the thread the link [element] to [url] leads to, put after the link ([ThreadLinkCard]): a link in a
+  /// post's content showing the url of a thread ([threadLinkOf]), one of the first [maxThreadLinkCardsPerFloor] of the
+  /// floor; not for a thread known not to be readable by the account. Null for any other link.
+  ///
+  /// The link itself stays as it is: the floor is munched once, a card loaded later only shows up below it.
+  InlineSpan? _threadLinkCard(uh.Element element, String url) {
+    if (!_threadLinkCardsOn || _threadLinkCards >= maxThreadLinkCardsPerFloor) {
+      return null;
+    }
+    final threadLink = threadLinkOf(url, element.innerText);
+    if (threadLink == null) {
+      return null;
+    }
+    final repository = ThreadLinkCardRepository.instance;
+    if (repository.isCached(threadLink.tid) && repository.cached(threadLink.tid) == null) {
+      return null;
+    }
+    _threadLinkCards += 1;
+    return textWidgetSpan(
+      ThreadLinkCard(
+        tid: threadLink.tid,
+        onOpen: () async => _openUrl(threadLink.url),
+        onShowUrl: () async => _showUrlInfo(url.prependHost()),
+      ),
+    );
   }
 
   List<InlineSpan>? _buildTr(uh.Element element) {
@@ -2498,6 +2588,24 @@ final class _Muncher with LoggerMixin {
       return [textWidgetSpan(NeteaseCard(neteasePlayerId))];
     }
     return _buildMedia(element);
+  }
+
+  /// The forum's `<ignore_js_op>`, a block around what its scripts work on: an audio attachment ([PostAudioAttachment])
+  /// is a card that plays it ([PostAudioCard]), its download link a button of the card; anything else shows its
+  /// content.
+  List<InlineSpan>? _buildIgnoreJsOp(uh.Element element) {
+    final attachment = PostAudioAttachment.of(element, apple: isIOS || isMacOS);
+    if (attachment == null) {
+      return _munch(element);
+    }
+    return _munchBlock(
+      element,
+      deferBreak: false,
+      () => [
+        textWidgetSpan(PostAudioCard(attachment, onDownload: () async => _openUrl(attachment.url))),
+        emptySpan,
+      ],
+    );
   }
 
   /// An embedded player (`<iframe>` other than netease music's, `<embed>`, `<object>`, `<video>`, `<audio>`): a card

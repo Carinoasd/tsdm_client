@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -198,6 +199,10 @@ final class BackupRepository with LoggerMixin {
     SettingsKeys.loginEmail.name,
   ];
 
+  /// Settings of this installation alone, never in an export (with or without the credentials): the id the forum
+  /// knows this device by ([LoginDeviceIdentity]). Another device restoring it would be logged out with this one.
+  static final List<String> deviceSettings = [LoginDeviceIdentity.storageKey];
+
   /// Make a copy of [databaseFile] for export, without credentials.
   ///
   /// The copy is a consistent snapshot taken through a separate connection even while the app keeps using the
@@ -340,9 +345,22 @@ final class BackupRepository with LoggerMixin {
       }
     }
     if (hasTable(db, 'settings')) {
-      final marks = List.filled(loginSettings.length, '?').join(', ');
-      db.execute('DELETE FROM settings WHERE name IN ($marks)', loginSettings);
+      final names = [...loginSettings, ...deviceSettings];
+      final marks = List.filled(names.length, '?').join(', ');
+      db.execute('DELETE FROM settings WHERE name IN ($marks)', names);
     }
+  }
+
+  /// Put the id the forum knows this device by ([deviceId], [deviceSettings]) into the database [db] being imported:
+  /// the device stays the one the accounts logged in on, the import carries none of its own ([stripCredentials]).
+  static void keepDeviceSettings(Database db, {required String? deviceId}) {
+    if (deviceId == null || !hasTable(db, 'settings')) {
+      return;
+    }
+    db.execute('INSERT OR REPLACE INTO settings (name, string_value) VALUES (?, ?)', [
+      LoginDeviceIdentity.storageKey,
+      deviceId,
+    ]);
   }
 
   /// Collect what [stripCredentials] would remove from [db]: every account row that has a session cookie or a
@@ -648,6 +666,7 @@ final class BackupRepository with LoggerMixin {
         stripCredentials(db);
         stripCachePaths(db);
         stripOfflineCopies(db);
+        keepDeviceSettings(db, deviceId: LoginDeviceIdentity.id);
         if (secrets != null) {
           final restored = applyCredentials(db, secrets);
           info('restored the logins of $restored accounts into the import copy');
