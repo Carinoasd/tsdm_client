@@ -601,7 +601,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 return true;
               },
               onRead: autoSyncPostsNotifications
-                  ? (tid) => unawaited(flnp.cancel(id: followedThreadNoticeId(tid)))
+                  ? (tid) => unawaited(
+                      flnp
+                          .cancel(id: followedThreadNoticeId(tid))
+                          .catchError((Object e) => talker.warning('taking back notification failed: $e')),
+                    )
                   : null,
             )..start(),
             lazy: false,

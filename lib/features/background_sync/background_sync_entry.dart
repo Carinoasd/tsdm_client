@@ -292,7 +292,11 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
         fetch: runtime.followedFetcherOf(uid),
         prepare: runtime.refreshNetwork,
         keepGoing: () => !stopping,
-        onCleared: (tid) => unawaited(runtime.plugin.cancel(id: followedThreadNoticeId(tid))),
+        onCleared: (tid) => unawaited(
+          runtime.plugin
+              .cancel(id: followedThreadNoticeId(tid))
+              .catchError((Object e) => talker.warning('background sync: taking back notification failed: $e')),
+        ),
         announce: (thread) async {
           if (stopping) {
             return false;
