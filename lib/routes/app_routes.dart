@@ -475,7 +475,7 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(
     path: ScreenPaths.inAppBrowser,
-    builder: (state) => InAppBrowserPage(Uri.parse(state.uri.queryParameters['url'] ?? '')),
+    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
   ),
 ];
 

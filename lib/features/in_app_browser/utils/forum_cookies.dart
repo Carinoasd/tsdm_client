@@ -20,6 +20,8 @@ const List<String> forumHosts = [baseHost, baseHostAlt];
 
 /// The `Domain` attributes a forum cookie of an earlier session may carry in the web view's store, null for a
 /// host-only one: the cookies of all of them are removed before the account in use is signed in.
+///
+/// Removed on the path `/`, the only one the forum sets cookies on (Discuz `cookiepath`).
 const List<String?> forumCookieDomains = [null, '.$baseHostAlt', baseHostAlt, baseHost];
 
 /// Reads the cookie jar storage of the app (the cookie provider) and drops every write: loading the cookies for the

@@ -11,6 +11,7 @@ import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dar
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum _MenuAction { openExternal, copyUrl }
 
@@ -23,8 +24,8 @@ class InAppBrowserPage extends StatefulWidget {
   /// Constructor.
   const InAppBrowserPage(this.url, {super.key});
 
-  /// The page to open, absolute `http` or `https`.
-  final Uri url;
+  /// The page to open, absolute `http` or `https` ([isInAppBrowserUrl]); anything else is not loaded.
+  final Uri? url;
 
   @override
   State<InAppBrowserPage> createState() => _InAppBrowserPageState();
@@ -34,7 +35,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
   InAppWebViewController? _controller;
 
   /// The page in view.
-  late Uri _url = widget.url;
+  late Uri _url = widget.url ?? Uri();
 
   String? _title;
 
@@ -83,7 +84,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     if (!mounted) {
       return;
     }
-    await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(widget.url)));
+    await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(_url)));
   }
 
   Future<NavigationActionPolicy> _onNavigation(InAppWebViewController controller, NavigationAction action) async {
@@ -107,8 +108,12 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         return NavigationActionPolicy.CANCEL;
       case BrowserNavigationExternal():
         // Only when the user followed the link: a page must not start other apps on its own.
-        if (action.hasGesture ?? true) {
-          unawaited(_openExternal(uri));
+        final byUser = userStartedNavigation(
+          hasGesture: action.hasGesture,
+          linkActivated: action.navigationType == NavigationType.LINK_ACTIVATED,
+        );
+        if (byUser) {
+          unawaited(_launchOtherApp(controller, uri));
         }
         return NavigationActionPolicy.CANCEL;
     }
@@ -135,6 +140,23 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     });
   }
 
+  /// Open [uri], a link of another app ([externalLaunchOf]).
+  Future<void> _launchOtherApp(InAppWebViewController controller, Uri uri) async {
+    switch (externalLaunchOf(uri)) {
+      case ExternalLaunchApp(:final uri):
+        try {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } on Object catch (e, st) {
+          talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
+        }
+      case ExternalLaunchFallback(:final uri):
+        await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(uri)));
+      case ExternalLaunchNone():
+        break;
+    }
+  }
+
+  /// Open [uri], a web page, in the external browser.
   Future<void> _openExternal(Uri uri) async {
     var launched = false;
     try {
@@ -159,7 +181,8 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: CloseButton(onPressed: () => Navigator.of(context).maybePop()),
+          // Closes the page at once; the back key and gesture go back in the web view first.
+          leading: CloseButton(onPressed: () => Navigator.of(context).pop()),
           title: Text(_title?.isNotEmpty ?? false ? _title! : _url.host, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
             IconButton(
@@ -194,7 +217,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
               },
             ),
           ],
-          bottom: _progress < 100
+          bottom: isInAppBrowserUrl(widget.url) && _progress < 100
               ? PreferredSize(
                   preferredSize: const Size.fromHeight(2),
                   child: LinearProgressIndicator(value: _progress == 0 ? null : _progress / 100, minHeight: 2),
@@ -203,20 +226,33 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         ),
         body: SafeArea(
           top: false,
-          child: InAppWebView(
-            initialSettings: InAppWebViewSettings(useShouldOverrideUrlLoading: true, useOnDownloadStart: true),
-            onWebViewCreated: _onCreated,
-            shouldOverrideUrlLoading: _onNavigation,
-            onTitleChanged: (_, title) => _update(() => _title = title),
-            onProgressChanged: (_, progress) => _update(() => _progress = progress),
-            onLoadStop: (controller, url) async {
-              _initialPending = false;
-              await _updateHistory(controller, url);
-            },
-            onUpdateVisitedHistory: (controller, url, _) async => _updateHistory(controller, url),
-            // The web view does not save files: downloads (attachments) go to the external browser.
-            onDownloadStartRequest: (_, request) async => _openExternal(request.url.uriValue),
-          ),
+          child: !isInAppBrowserUrl(widget.url)
+              ? Center(child: Text(context.t.openInAppPage.invalidBrowserLink))
+              : InAppWebView(
+                  initialSettings: InAppWebViewSettings(useShouldOverrideUrlLoading: true),
+                  onWebViewCreated: _onCreated,
+                  shouldOverrideUrlLoading: _onNavigation,
+                  onTitleChanged: (_, title) => _update(() => _title = title),
+                  onProgressChanged: (_, progress) => _update(() => _progress = progress),
+                  onLoadStop: (controller, url) async {
+                    _initialPending = false;
+                    await _updateHistory(controller, url);
+                  },
+                  // A page that failed to load may never stop loading on some platforms.
+                  onReceivedError: (_, request, _) {
+                    if (request.isForMainFrame ?? true) {
+                      _initialPending = false;
+                    }
+                  },
+                  onReceivedHttpError: (_, request, _) {
+                    if (request.isForMainFrame ?? true) {
+                      _initialPending = false;
+                    }
+                  },
+                  onUpdateVisitedHistory: (controller, url, _) async => _updateHistory(controller, url),
+                  // The web view does not save files: downloads (attachments) go to the external browser.
+                  onDownloadStartRequest: (_, request) async => _openExternal(request.url.uriValue),
+                ),
         ),
       ),
     );

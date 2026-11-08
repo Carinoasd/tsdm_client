@@ -1432,9 +1432,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           SectionSwitchListTile(
             secondary: const Icon(Icons.travel_explore_outlined),
             title: Text(tr.inAppBrowserForForum),
-            value: state.settingsMap.inAppBrowserForForum,
-            onChanged: (v) =>
-                context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForForum, v)),
+            // All links in the in-app browser covers the forum pages too.
+            value: state.settingsMap.inAppBrowserForForum || state.settingsMap.inAppBrowserForAll,
+            onChanged: state.settingsMap.inAppBrowserForAll
+                ? null
+                : (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForForum, v)),
           ),
           SectionSwitchListTile(
             secondary: const Icon(Icons.public_outlined),

@@ -168,6 +168,53 @@ void main() {
     });
   });
 
+  group('links of other apps followed in the in-app browser', () {
+    test('mail, phone and app schemes go to their app', () {
+      for (final url in ['mailto:a@b.c', 'tel:123', 'weixin://dl/x', 'market://details?id=x']) {
+        final launch = externalLaunchOf(Uri.parse(url));
+        expect(launch, isA<ExternalLaunchApp>(), reason: url);
+        expect((launch as ExternalLaunchApp).uri, Uri.parse(url));
+      }
+    });
+
+    test('an intent link loads its web fallback, or nothing', () {
+      final launch = externalLaunchOf(
+        Uri.parse(
+          'intent://dl/x#Intent;scheme=weixin;package=com.x;'
+          'S.browser_fallback_url=https%3A%2F%2Fexample.com%2Fdl%3Fa%3D1;end',
+        ),
+      );
+      expect(launch, isA<ExternalLaunchFallback>());
+      expect((launch as ExternalLaunchFallback).uri, Uri.parse('https://example.com/dl?a=1'));
+      expect(externalLaunchOf(Uri.parse('intent://dl/x#Intent;scheme=weixin;end')), isA<ExternalLaunchNone>());
+      expect(
+        externalLaunchOf(Uri.parse('intent://x#Intent;S.browser_fallback_url=javascript%3Aalert(1);end')),
+        isA<ExternalLaunchNone>(),
+      );
+    });
+
+    test('local files are never opened', () {
+      expect(externalLaunchOf(Uri.parse('file:///etc/hosts')), isA<ExternalLaunchNone>());
+      expect(externalLaunchOf(Uri.parse('content://x/y')), isA<ExternalLaunchNone>());
+    });
+
+    test('only navigations by the user start other apps', () {
+      expect(userStartedNavigation(hasGesture: true, linkActivated: false), isTrue);
+      expect(userStartedNavigation(hasGesture: false, linkActivated: true), isFalse, reason: 'Android tells');
+      expect(userStartedNavigation(hasGesture: null, linkActivated: true), isTrue, reason: 'iOS: a tapped link');
+      expect(userStartedNavigation(hasGesture: null, linkActivated: false), isFalse, reason: 'unknown: not the user');
+    });
+
+    test('the browser page loads absolute web urls only', () {
+      expect(isInAppBrowserUrl(Uri.parse('https://www.tsdm39.com/forum.php')), isTrue);
+      expect(isInAppBrowserUrl(Uri.parse('http://example.com')), isTrue);
+      for (final url in ['', 'forum.php?mod=x', 'javascript:alert(1)', 'file:///etc/hosts', 'https:']) {
+        expect(isInAppBrowserUrl(Uri.parse(url)), isFalse, reason: url);
+      }
+      expect(isInAppBrowserUrl(null), isFalse);
+    });
+  });
+
   group('forumWebViewCookies', () {
     Future<_MemoryStorage> jarWith(Map<String, List<io.Cookie>> cookies) async {
       final storage = _MemoryStorage();

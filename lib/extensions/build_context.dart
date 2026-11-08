@@ -49,8 +49,8 @@ extension DispatchUrl<T> on BuildContext {
     }
     if (external) {
       // "Open in browser": a forum page goes to the in-app browser when the settings say so, signed in.
-      if (currentLinkTargetOf(u, explicitBrowser: true) == LinkTarget.inAppBrowser) {
-        return _pushInAppBrowser(u);
+      if (await resolveLinkTarget(u, explicitBrowser: true) == LinkTarget.inAppBrowser) {
+        return mounted ? _pushInAppBrowser(u) : null;
       }
       await launchUrl(u, mode: LaunchMode.externalApplication);
       return null;
@@ -74,7 +74,10 @@ extension DispatchUrl<T> on BuildContext {
         queryParameters: route.queryParameters.copyWith(extraPathParameters ?? {}),
       );
     }
-    final target = currentLinkTargetOf(u);
+    final target = await resolveLinkTarget(u);
+    if (!mounted) {
+      return null;
+    }
     if (target == LinkTarget.inAppBrowser) {
       return _pushInAppBrowser(u);
     }

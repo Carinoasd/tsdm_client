@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
@@ -25,6 +26,31 @@ bool get inAppBrowserSupported =>
       TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.macOS || TargetPlatform.windows => true,
       _ => false,
     };
+
+/// Whether the web view can be created here: [inAppBrowserSupported] and, on Windows, the WebView2 runtime installed.
+///
+/// Checked once; false when the check fails.
+Future<bool> inAppBrowserAvailable() async {
+  if (!inAppBrowserSupported) {
+    return false;
+  }
+  if (defaultTargetPlatform != TargetPlatform.windows) {
+    return true;
+  }
+  return _webView2Available ??= await () async {
+    try {
+      return await WebViewEnvironment.getAvailableVersion() != null;
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'failed to check the WebView2 runtime');
+      return false;
+    }
+  }();
+}
+
+bool? _webView2Available;
+
+/// Whether [url] can be opened in the in-app browser: absolute `http` or `https`.
+bool isInAppBrowserUrl(Uri? url) => url != null && url.hasAuthority && (url.scheme == 'http' || url.scheme == 'https');
 
 /// Whether [uri] is a web page (`http` or `https`), or a relative forum link; anything else (`mailto:`, `intent:`,
 /// app schemes) belongs to another app.
@@ -66,6 +92,16 @@ LinkTarget currentLinkTargetOf(Uri uri, {bool explicitBrowser = false}) {
     supported: inAppBrowserSupported,
     explicitBrowser: explicitBrowser,
   );
+}
+
+/// [currentLinkTargetOf], checking the in-app browser can run ([inAppBrowserAvailable]); where it cannot, links go
+/// where they went before it.
+Future<LinkTarget> resolveLinkTarget(Uri uri, {bool explicitBrowser = false}) async {
+  final target = currentLinkTargetOf(uri, explicitBrowser: explicitBrowser);
+  if (target != LinkTarget.inAppBrowser || await inAppBrowserAvailable()) {
+    return target;
+  }
+  return linkTargetOf(uri, forumPages: false, allLinks: false, supported: false, explicitBrowser: explicitBrowser);
 }
 
 /// [uri] made absolute: a relative link is resolved on the forum host, keeping query and fragment.
@@ -118,3 +154,61 @@ BrowserNavigation browserNavigationOf(Uri uri, {required bool mainFrame, bool in
   }
   return const BrowserNavigationAllow();
 }
+
+/// What the in-app browser does with a link of another app ([BrowserNavigationExternal]).
+sealed class ExternalLaunch {
+  const ExternalLaunch();
+}
+
+/// Hand [uri] to the app that handles its scheme (`mailto:`, `tel:`, app schemes).
+final class ExternalLaunchApp extends ExternalLaunch {
+  /// Constructor.
+  const ExternalLaunchApp(this.uri);
+
+  /// The link.
+  final Uri uri;
+}
+
+/// Load [uri], the web page an Android `intent:` link falls back to, in the web view.
+final class ExternalLaunchFallback extends ExternalLaunch {
+  /// Constructor.
+  const ExternalLaunchFallback(this.uri);
+
+  /// The web page.
+  final Uri uri;
+}
+
+/// Do nothing: an `intent:` link without a web fallback, local files.
+final class ExternalLaunchNone extends ExternalLaunch {
+  /// Constructor.
+  const ExternalLaunchNone();
+}
+
+/// Schemes never handed to another app from a web page.
+const _blockedSchemes = {'file', 'content', 'intent'};
+
+/// What the in-app browser does with [uri], a link of another app followed by the user.
+///
+/// An `intent:` link is not started (the platform launch can not parse it): its `S.browser_fallback_url` web page, if
+/// any, loads in the web view instead.
+ExternalLaunch externalLaunchOf(Uri uri) {
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme == 'intent') {
+    final raw = uri.fragment
+        .split(';')
+        .where((e) => e.startsWith('S.browser_fallback_url='))
+        .map((e) => e.substring('S.browser_fallback_url='.length))
+        .firstOrNull;
+    final fallback = raw == null ? null : Uri.tryParse(Uri.decodeComponent(raw));
+    return isInAppBrowserUrl(fallback) ? ExternalLaunchFallback(fallback!) : const ExternalLaunchNone();
+  }
+  if (_blockedSchemes.contains(scheme)) {
+    return const ExternalLaunchNone();
+  }
+  return ExternalLaunchApp(uri);
+}
+
+/// Whether a navigation was started by the user: [hasGesture] where the platform tells it (Android), else whether a
+/// link was activated ([linkActivated], iOS and macOS). Neither known: not the user, a page must not start other apps
+/// on its own.
+bool userStartedNavigation({required bool? hasGesture, required bool linkActivated}) => hasGesture ?? linkActivated;
