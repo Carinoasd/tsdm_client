@@ -36,7 +36,7 @@ Set<DateTime> checkinDaysOf(Iterable<PointsChange> changes) => {
 }
 
 /// Today as the forum counts it: the calendar day of UTC+8, whatever the zone of the device. The records of the
-/// changelog are the forum's wall clock.
+/// changelog are the forum's wall clock of the offset the member set (+8 unless changed), which this assumes.
 DateTime forumToday([DateTime? now]) {
   final t = (now ?? DateTime.now()).toUtc().add(const Duration(hours: 8));
   return DateTime(t.year, t.month, t.day);

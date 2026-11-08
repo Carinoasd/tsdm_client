@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/checkin/utils/checkin_calendar.dart';
@@ -34,6 +36,8 @@ final class CheckinCalendarState {
     this.status = CheckinCalendarStatus.loading,
     this.daysByMonth = const {},
     this.streak = 0,
+    this.streakAtLeast = false,
+    this.incompleteMonths = const {},
     this.totalDays,
     this.loadingMonth = false,
     this.failure,
@@ -53,6 +57,12 @@ final class CheckinCalendarState {
 
   /// Days in a row up to today, as far as the months read tell.
   final int streak;
+
+  /// Whether [streak] is only the least: the row reached back into a month whose records were not all read.
+  final bool streakAtLeast;
+
+  /// The months ([monthKey]) whose records were cut at the page limit: their first days may be missing.
+  final Set<int> incompleteMonths;
 
   /// All the days the account ever checked in, told by the forum; null when it does not tell.
   final int? totalDays;
@@ -75,6 +85,8 @@ final class CheckinCalendarState {
     CheckinCalendarStatus? status,
     Map<int, Set<int>>? daysByMonth,
     int? streak,
+    bool? streakAtLeast,
+    Set<int>? incompleteMonths,
     int? totalDays,
     bool? loadingMonth,
     LoadFailure? failure,
@@ -84,6 +96,8 @@ final class CheckinCalendarState {
     status: status ?? this.status,
     daysByMonth: daysByMonth ?? this.daysByMonth,
     streak: streak ?? this.streak,
+    streakAtLeast: streakAtLeast ?? this.streakAtLeast,
+    incompleteMonths: incompleteMonths ?? this.incompleteMonths,
     totalDays: totalDays ?? this.totalDays,
     loadingMonth: loadingMonth ?? this.loadingMonth,
     failure: failure,
@@ -110,30 +124,42 @@ typedef ChangelogRangeFetcher =
 /// Cubit of the check-in calendar: reads the check-in records of the points changelog month by month.
 final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
   /// Constructor.
+  ///
+  /// [now] stands for the clock (tests).
   CheckinCalendarCubit({
     required ChangelogRangeFetcher fetchRange,
     Future<int?> Function() totalDays = fetchCheckinTotalDays,
     DateTime? now,
   }) : _fetchRange = fetchRange,
        _totalDays = totalDays,
+       _now = now,
        super(CheckinCalendarState(today: forumToday(now), month: _firstOf(forumToday(now))));
 
   final ChangelogRangeFetcher _fetchRange;
   final Future<int?> Function() _totalDays;
+  final DateTime? _now;
 
   /// Bumped by every [load]: an answer of an earlier one is dropped.
   int _generation = 0;
 
+  /// The months on their way by [monthKey]: a month asked while it is read waits for that read instead of reading it
+  /// again (a page of the changelog is one request, a month is up to 30 of them).
+  final Map<int, Future<LoadFailure?>> _reading = {};
+
+  /// The streak count in progress: one at a time, the next one runs after it and so sees what the first one read.
+  Future<void> _streakRun = Future.value();
+
   static DateTime _firstOf(DateTime day) => DateTime(day.year, day.month);
 
-  /// Read the month of today, then the days in a row and the total.
+  /// Read the month of today, then the days in a row and the total; the page shows as soon as the month is there.
   Future<void> load() async {
     final generation = ++_generation;
-    emit(
-      CheckinCalendarState(today: state.today, month: _firstOf(state.today)),
-    );
+    _reading.clear();
+    // The day is taken again: a page kept open past midnight starts the new day here.
+    final today = forumToday(_now);
+    emit(CheckinCalendarState(today: today, month: _firstOf(today)));
     final total = _totalDays();
-    final failure = await _readMonth(_firstOf(state.today), generation);
+    final failure = await _readMonth(_firstOf(today), generation);
     if (generation != _generation) {
       return;
     }
@@ -141,8 +167,17 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
       emit(state.copyWith(status: CheckinCalendarStatus.failed, failure: failure));
       return;
     }
-    emit(state.copyWith(status: CheckinCalendarStatus.success, totalDays: await total));
-    await _followStreak(generation);
+    emit(state.copyWith(status: CheckinCalendarStatus.success));
+    await Future.wait([_followStreak(generation), _applyTotal(total, generation)]);
+  }
+
+  /// Put the total days [total] told by the forum into the state; the total is an extra number, the page does not
+  /// wait for it.
+  Future<void> _applyTotal(Future<int?> total, int generation) async {
+    final days = await total;
+    if (generation == _generation && days != null) {
+      emit(state.copyWith(totalDays: days, failure: state.failure));
+    }
   }
 
   /// Show the month [months] away from the one shown (negative: earlier), reading it when it is not read yet.
@@ -174,8 +209,17 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
     }
   }
 
-  /// Read the month starting at [first] into the state; the failure when it failed.
+  /// Read the month starting at [first] into the state, once however many ask; the failure when it failed.
   Future<LoadFailure?> _readMonth(DateTime first, int generation) async {
+    final key = monthKey(first);
+    final reading = _reading[key] ??= _fetchMonth(first, generation).whenComplete(() {
+      // Not an arrow: the removed future returned from here would be waited for by itself.
+      unawaited(_reading.remove(key));
+    });
+    return reading;
+  }
+
+  Future<LoadFailure?> _fetchMonth(DateTime first, int generation) async {
     final last = DateTime(first.year, first.month + 1, 0);
     final result = await _fetchRange(start: first, end: last);
     if (generation != _generation) {
@@ -186,13 +230,22 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
         return value;
       case Right(:final value):
         final days = {for (final day in checkinDaysOf(value.changes)) day.day};
-        emit(state.copyWith(daysByMonth: {...state.daysByMonth, monthKey(first): days}, failure: state.failure));
+        emit(
+          state.copyWith(
+            daysByMonth: {...state.daysByMonth, monthKey(first): days},
+            incompleteMonths: value.complete ? null : {...state.incompleteMonths, monthKey(first)},
+            failure: state.failure,
+          ),
+        );
         return null;
     }
   }
 
+  /// Count the days in a row up to today, after the count in progress.
+  Future<void> _followStreak(int generation) => _streakRun = _streakRun.then((_) => _countStreak(generation));
+
   /// Count the days in a row up to today, reading earlier months while the row reaches back into one not read.
-  Future<void> _followStreak(int generation) async {
+  Future<void> _countStreak(int generation) async {
     while (generation == _generation) {
       final days = <DateTime>{};
       for (final MapEntry(:key, :value) in state.daysByMonth.entries) {
@@ -203,14 +256,20 @@ final class CheckinCalendarCubit extends Cubit<CheckinCalendarState> {
       final row = checkinStreakOf(days, state.today);
       final today = _firstOf(state.today);
       final monthsBack = (today.year - row.before.year) * 12 + today.month - row.before.month;
-      if (state.streak != row.length) {
-        emit(state.copyWith(streak: row.length, failure: state.failure));
+      // The row ends where the records of an incomplete month end: there may be more days before them.
+      final atLeast = state.incompleteMonths.contains(monthKey(row.before));
+      if (state.streak != row.length || state.streakAtLeast != atLeast) {
+        emit(state.copyWith(streak: row.length, streakAtLeast: atLeast, failure: state.failure));
       }
       if (state.daysByMonth.containsKey(monthKey(row.before)) || monthsBack >= _streakMonthsLimit) {
         return;
       }
       final failure = await _readMonth(_firstOf(row.before), generation);
       if (failure != null) {
+        // Told like a month that failed: the row stays as far as it was counted.
+        if (generation == _generation) {
+          emit(state.copyWith(failure: failure));
+        }
         return;
       }
     }

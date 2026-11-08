@@ -238,6 +238,7 @@
   "checkinCalendar": {
     "title": "Check-in calendar",
     "thisMonth": "This month",
+    "thatMonth": "That month",
     "streak": "Streak",
     "total": "Total"
   },

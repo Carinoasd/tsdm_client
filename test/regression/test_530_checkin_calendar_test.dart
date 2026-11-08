@@ -6,6 +6,7 @@
 /// and follows the days in a row back into the earlier months.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -35,17 +36,23 @@ PointsChange _record(DateTime time, {String operation = '每日签到', String d
 );
 
 /// A fetcher answering from [months]: the days checked in by month number, recording the asked ranges in [asked].
-ChangelogRangeFetcher _fetcher(Map<int, List<int>> months, List<DateTime> asked, {Set<int> failing = const {}}) =>
-    ({required start, required end}) async {
-      asked.add(start);
-      if (failing.contains(start.month)) {
-        return Left(LoadFailure(LoadFailureKind.timeout));
-      }
-      return Right((
-        changes: [for (final day in months[start.month] ?? <int>[]) _record(DateTime(start.year, start.month, day, 9))],
-        complete: true,
-      ));
-    };
+ChangelogRangeFetcher _fetcher(
+  Map<int, List<int>> months,
+  List<DateTime> asked, {
+  Set<int> failing = const {},
+  Set<int> incomplete = const {},
+  Map<int, Completer<void>> gates = const {},
+}) => ({required start, required end}) async {
+  asked.add(start);
+  await gates[start.month]?.future;
+  if (failing.contains(start.month)) {
+    return Left(LoadFailure(LoadFailureKind.timeout));
+  }
+  return Right((
+    changes: [for (final day in months[start.month] ?? <int>[]) _record(DateTime(start.year, start.month, day, 9))],
+    complete: !incomplete.contains(start.month),
+  ));
+};
 
 void main() {
   group('reading the days', () {
@@ -156,6 +163,137 @@ void main() {
       expect(cubit.state.month, DateTime(2026, 11));
       expect(cubit.state.failure?.kind, LoadFailureKind.timeout);
       expect(cubit.state.loadingMonth, isFalse);
+      await cubit.close();
+    });
+
+    test('a month asked while the streak reads it is read once', () async {
+      final asked = <DateTime>[];
+      final gate = Completer<void>();
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher(
+          {
+            11: [for (var d = 1; d <= 8; d++) d],
+            10: [31],
+          },
+          asked,
+          gates: {10: gate},
+        ),
+        totalDays: () async => null,
+        now: now,
+      );
+      final loading = cubit.load();
+      await pumpEventQueue();
+      expect(cubit.state.status, CheckinCalendarStatus.success, reason: 'the page does not wait for the streak');
+      final moving = cubit.moveMonth(-1);
+      await pumpEventQueue();
+      gate.complete();
+      await Future.wait([loading, moving]);
+      expect(asked.where((e) => e.month == 10).length, 1);
+      expect(cubit.state.month, DateTime(2026, 10));
+      expect(cubit.state.markedDays, {31});
+      expect(cubit.state.streak, 9);
+      await cubit.close();
+    });
+
+    test('the page does not wait for the total', () async {
+      final total = Completer<int?>();
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher({
+          11: [8],
+        }, []),
+        totalDays: () => total.future,
+        now: now,
+      );
+      final loading = cubit.load();
+      await pumpEventQueue();
+      expect(cubit.state.status, CheckinCalendarStatus.success);
+      expect(cubit.state.totalDays, isNull);
+      total.complete(42);
+      await loading;
+      expect(cubit.state.totalDays, 42);
+      await cubit.close();
+    });
+
+    test('the calendar goes back 36 months and no further', () async {
+      final cubit = CheckinCalendarCubit(fetchRange: _fetcher({}, []), totalDays: () async => null, now: now);
+      await cubit.load();
+      for (var i = 0; i < 40; i++) {
+        await cubit.moveMonth(-1);
+      }
+      expect(cubit.state.month, DateTime(2023, 11));
+      await cubit.close();
+    });
+
+    test('the row is followed back 14 months at most', () async {
+      final asked = <DateTime>[];
+      final cubit = CheckinCalendarCubit(
+        fetchRange: ({required start, required end}) async {
+          asked.add(start);
+          return Right((
+            changes: [for (var d = 1; d <= end.day; d++) _record(DateTime(start.year, start.month, d, 9))],
+            complete: true,
+          ));
+        },
+        totalDays: () async => null,
+        now: now,
+      );
+      await cubit.load();
+      expect(asked.length, 14);
+      expect(cubit.state.streak, greaterThan(300));
+      await cubit.close();
+    });
+
+    test('on the 1st, not checked yet, the row of yesterday is read from the month before', () async {
+      final asked = <DateTime>[];
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher({
+          11: [28, 29, 30],
+        }, asked),
+        totalDays: () async => null,
+        now: DateTime.utc(2026, 12, 1, 4),
+      );
+      await cubit.load();
+      expect(cubit.state.markedDays, isEmpty);
+      expect(cubit.state.streak, 3);
+      expect(asked, [DateTime(2026, 12), DateTime(2026, 11)]);
+      await cubit.close();
+    });
+
+    test('a row that ends in a month cut at the page limit is only the least', () async {
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher(
+          {
+            11: [1, 2, 3, 4, 5, 6, 7, 8],
+            10: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+          },
+          [],
+          incomplete: {10},
+        ),
+        totalDays: () async => null,
+        now: now,
+      );
+      await cubit.load();
+      expect(cubit.state.streak, 20);
+      expect(cubit.state.streakAtLeast, isTrue);
+      await cubit.close();
+    });
+
+    test('an earlier month that fails while the row is followed is told, the row stays as counted', () async {
+      final cubit = CheckinCalendarCubit(
+        fetchRange: _fetcher(
+          {
+            11: [1, 2, 3, 4, 5, 6, 7, 8],
+          },
+          [],
+          failing: {10},
+        ),
+        totalDays: () async => null,
+        now: now,
+      );
+      await cubit.load();
+      expect(cubit.state.status, CheckinCalendarStatus.success);
+      expect(cubit.state.streak, 8);
+      expect(cubit.state.failure?.kind, LoadFailureKind.timeout);
       await cubit.close();
     });
 

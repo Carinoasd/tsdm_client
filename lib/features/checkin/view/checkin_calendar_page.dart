@@ -72,14 +72,22 @@ class _CalendarBody extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: _Stat(key: const ValueKey('stat-month'), label: tr.thisMonth, value: state.markedDays.length),
+                  child: _Stat(
+                    key: const ValueKey('stat-month'),
+                    label: state.isCurrentMonth ? tr.thisMonth : tr.thatMonth,
+                    value: '${state.markedDays.length}',
+                  ),
                 ),
                 Expanded(
-                  child: _Stat(key: const ValueKey('stat-streak'), label: tr.streak, value: state.streak),
+                  child: _Stat(
+                    key: const ValueKey('stat-streak'),
+                    label: tr.streak,
+                    value: '${state.streak}${state.streakAtLeast ? '+' : ''}',
+                  ),
                 ),
                 if (state.totalDays case final total?)
                   Expanded(
-                    child: _Stat(key: const ValueKey('stat-total'), label: tr.total, value: total),
+                    child: _Stat(key: const ValueKey('stat-total'), label: tr.total, value: '$total'),
                   ),
               ],
             ),
@@ -114,7 +122,7 @@ class _Stat extends StatelessWidget {
   const _Stat({required this.label, required this.value, super.key});
 
   final String label;
-  final int value;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +131,7 @@ class _Stat extends StatelessWidget {
     return Column(
       children: [
         Text(
-          '$value',
+          value,
           style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
         ),
         Text(label, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
