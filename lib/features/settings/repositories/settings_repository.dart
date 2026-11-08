@@ -178,6 +178,7 @@ final class SettingsRepository with LoggerMixin {
       immersiveAllForums: s.extract(_SK.immersiveAllForums),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
       twoPaneListWidth: s.extract(_SK.twoPaneListWidth),
+      postMediaPreview: s.extract(_SK.postMediaPreview),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),
       crossDeviceSyncRateTemplates: s.extract(_SK.crossDeviceSyncRateTemplates),
       crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),

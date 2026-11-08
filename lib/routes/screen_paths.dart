@@ -301,6 +301,16 @@ class ScreenPaths {
   /// Need to login before see the content.
   static const String points = '/points';
 
+  /// The page to show the days the current logged user checked in on a calendar.
+  ///
+  /// Need to login before see the content.
+  static const String checkinCalendar = '/checkinCalendar';
+
+  /// The page to show who rated the current logged user's posts the most, from the rate notices.
+  ///
+  /// Need to login before see the content.
+  static const String ratingStats = '/ratingStats';
+
   /// Page to edit a post or thread.
   ///
   /// Contains:
@@ -358,6 +368,9 @@ class ScreenPaths {
 
   /// Page to manage user account for multi-user target.
   static const String manageAccount = '/manageAccount';
+
+  /// Page of the devices the account in use logged in on (plugin 3.6.0).
+  static const String loginDevices = '/loginDevices';
 
   /// Page to get app updates.
   static const String update = '/update';

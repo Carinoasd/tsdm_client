@@ -235,6 +235,18 @@
     "me": "我的",
     "settings": "设置"
   },
+  "checkinCalendar": {
+    "title": "签到日历",
+    "thisMonth": "本月",
+    "thatMonth": "当月",
+    "streak": "连续",
+    "total": "累计"
+  },
+  "ratingStats": {
+    "title": "评分统计",
+    "count": "次数",
+    "topRaters": "评分最多的人"
+  },
   "mePage": {
     "title": "我的",
     "mine": "我的账号",
@@ -256,7 +268,9 @@
       "friends": "好友",
       "points": "积分",
       "followedThreads": "追踪的帖子",
-      "readingStats": "阅读统计"
+      "readingStats": "阅读统计",
+      "checkinCalendar": "签到日历",
+      "ratingStats": "评分统计"
     }
   },
   "home": {
@@ -337,7 +351,8 @@
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
         "drafts": "本机草稿"
-      }
+      },
+      "loginDevices": "登录设备"
     },
     "appearanceSection": {
       "title": "外观",
@@ -376,6 +391,9 @@
       },
       "twoPaneLayout": {
         "title": "宽屏双栏"
+      },
+      "postMediaPreview": {
+        "title": "视频卡片显示封面"
       },
       "showUnreadInfoHint": {
         "title": "未读信息提示",
@@ -1465,6 +1483,9 @@
       "recentChangelog": "近期积分记录",
       "emptyRecent": "近期没有积分变动"
     },
+    "trendTab": {
+      "title": "走势"
+    },
     "changelogTab": {
       "title": "积分记录",
       "extType": "积分",
@@ -2381,7 +2402,9 @@
   "pollCard": {
     "title": "投票",
     "detail": "此楼层包含投票，在浏览器中打开以参加投票",
-    "openInBrowser": "在浏览器中打开"
+    "openInBrowser": "在浏览器中打开",
+    "resultLabel": "$votes 票，$percent%",
+    "myChoice": "我的选择"
   },
   "manageAccountPage": {
     "title": "管理账户",
@@ -3610,5 +3633,18 @@
     "exportFailed": "导出失败",
     "empty": "还没有表情包",
     "count": "${count: int} 张"
+  },
+  "loginDevicesPage": {
+    "title": "登录设备",
+    "current": "本机",
+    "loggedOut": "已登出",
+    "logOut": "登出",
+    "logOutTitle": "登出这台设备？",
+    "remove": "移除",
+    "unsupported": "论坛没有开启登录设备管理",
+    "writeFailed": "操作失败，请稍后再试",
+    "revoked": "$name 已在其他设备上登出本机",
+    "revokedUnknown": "一个账号已在其他设备上登出本机",
+    "login": "登录"
   }
 }

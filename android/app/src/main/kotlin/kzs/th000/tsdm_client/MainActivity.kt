@@ -36,6 +36,7 @@ class MainActivity: FlutterActivity() {
         const val OPEN_IN_BROWSER = "openInBrowser"
         const val SET_HIGH_REFRESH_RATE = "setHighRefreshRate"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
+        const val DEVICE_NAME = "deviceName"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
@@ -415,6 +416,13 @@ class MainActivity: FlutterActivity() {
             IS_ACTIVE_NETWORK_METERED -> {
                 val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 result.success(manager?.isActiveNetworkMetered ?: true)
+            }
+            // The name the forum's list of login devices shows: "Google Pixel 7", or the model alone when it names the
+            // maker already ("SM-S9180" is not, "Xiaomi 14" is).
+            DEVICE_NAME -> {
+                val maker = Build.MANUFACTURER.orEmpty().trim()
+                val model = Build.MODEL.orEmpty().trim()
+                result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
             else -> result.notImplemented()
         }

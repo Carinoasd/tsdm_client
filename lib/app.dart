@@ -29,6 +29,8 @@ import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dar
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/login_device/login_device_coordinator.dart';
+import 'package:tsdm_client/features/login_device/widgets/login_device_revoked_watcher.dart';
 import 'package:tsdm_client/features/multi_user/cubit/current_account_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
@@ -337,6 +339,17 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
         // devices (plugin 3.4.0); not lazy, so the start pulls them.
         RepositoryProvider<SyncCoordinator>(
           create: (context) => SyncCoordinator.build(authentication: context.repo(), blocks: context.repo())..start(),
+          dispose: (coordinator) async => coordinator.dispose(),
+          lazy: false,
+        ),
+        // The devices the accounts logged in on (plugin 3.6.0): this one registered at every login, its login dropped
+        // when another device logged it out. Not lazy, so the start registers it.
+        RepositoryProvider<LoginDeviceCoordinator>(
+          create: (context) {
+            final coordinator = LoginDeviceCoordinator(authentication: context.repo(), storage: getIt());
+            unawaited(coordinator.start());
+            return coordinator;
+          },
           dispose: (coordinator) async => coordinator.dispose(),
           lazy: false,
         ),
@@ -832,6 +845,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
             const SyncResumeWatcher(),
+            const LoginDeviceRevokedWatcher(),
             const AppShortcutsWatcher(),
           ],
         ),

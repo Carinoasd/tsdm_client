@@ -1,7 +1,11 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/html/media_preview.dart';
+import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -383,6 +387,10 @@ final class PostMedia {
 /// An embedded player of a post ([PostMedia]), which the app does not play: a small inline card naming the site,
 /// opening the player's address in the browser on tap. On the web page the player takes the place of the
 /// `<iframe>`; before, the app showed nothing there and the reader did not know anything was there.
+///
+/// A video of bilibili or YouTube ([MediaPreviewTarget]) turns into a card with its cover, title, author and length
+/// once the site has told ([MediaPreviewRepository]); until then, and when it does not, it stays this small card. The
+/// `postMediaPreview` setting turns that off.
 class PostMediaCard extends StatelessWidget {
   /// Constructor.
   const PostMediaCard(this.media, {super.key});
@@ -390,8 +398,29 @@ class PostMediaCard extends StatelessWidget {
   /// The player.
   final PostMedia media;
 
+  /// The video the card asks the site about; null when it does not (turned off, or not a video of a known site).
+  ///
+  /// Read when the card is built: switching the setting shows in the cards built after it, as the other settings of
+  /// the post's rendering.
+  MediaPreviewTarget? get _target {
+    if (!getIt.isRegistered<SettingsRepository>() ||
+        !getIt.get<SettingsRepository>().currentSettings.postMediaPreview) {
+      return null;
+    }
+    return MediaPreviewTarget.tryParse(media.url);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final target = _target;
+    final plain = _buildPlain(context);
+    if (target == null) {
+      return plain;
+    }
+    return _MediaPreviewCard(media: media, target: target, plain: plain);
+  }
+
+  Widget _buildPlain(BuildContext context) {
     final tr = context.t.mediaCard;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -446,6 +475,151 @@ class PostMediaCard extends StatelessWidget {
                 customBorder: shape,
                 onTap: () async => launchUrl(url, mode: LaunchMode.externalApplication),
                 child: box,
+              ),
+            ),
+    );
+  }
+}
+
+/// The card of a video the site told about: shows [plain] until then and when it tells nothing.
+class _MediaPreviewCard extends StatefulWidget {
+  const _MediaPreviewCard({required this.media, required this.target, required this.plain});
+
+  final PostMedia media;
+  final MediaPreviewTarget target;
+  final Widget plain;
+
+  @override
+  State<_MediaPreviewCard> createState() => _MediaPreviewCardState();
+}
+
+class _MediaPreviewCardState extends State<_MediaPreviewCard> {
+  /// Widest the card goes.
+  static const _maxWidth = 360.0;
+
+  late Future<MediaPreview?> _preview;
+
+  @override
+  void initState() {
+    super.initState();
+    _preview = MediaPreviewRepository.instance.preview(widget.target);
+  }
+
+  @override
+  void didUpdateWidget(_MediaPreviewCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.target.key != widget.target.key) {
+      _preview = MediaPreviewRepository.instance.preview(widget.target);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<MediaPreview?>(
+      future: _preview,
+      builder: (context, snapshot) {
+        final preview = snapshot.data;
+        if (preview == null) {
+          return widget.plain;
+        }
+        return _buildCard(context, preview);
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context, MediaPreview preview) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final url = widget.media.url;
+    final site = widget.media.site;
+    final thumbnail = preview.thumbnail;
+    final duration = preview.durationText;
+    final author = preview.author;
+    final shape = RoundedRectangleBorder(
+      side: BorderSide(color: colorScheme.outlineVariant),
+      borderRadius: BorderRadius.circular(8),
+    );
+    final cover = ColoredBox(
+      color: colorScheme.surfaceContainerHighest,
+      child: Center(child: Icon(Icons.play_circle_outline, size: 40, color: colorScheme.outline)),
+    );
+    final card = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxWidth),
+      child: DecoratedBox(
+        decoration: ShapeDecoration(shape: shape),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (thumbnail == null)
+                      cover
+                    else
+                      CachedImage(
+                        thumbnail.toString(),
+                        fit: BoxFit.cover,
+                        enableAnimation: false,
+                        placeholderBuilder: (_, _) => cover,
+                        errorBuilder: (_, _, _) => cover,
+                      ),
+                    if (duration != null)
+                      Positioned(
+                        right: 6,
+                        bottom: 6,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              duration,
+                              style: textTheme.labelSmall?.copyWith(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(preview.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: textTheme.bodyMedium),
+                    if (author != null)
+                      Text(
+                        author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Semantics(
+      link: url != null,
+      label: [?site, preview.title, ?author].join(' '),
+      excludeSemantics: true,
+      child: url == null
+          ? card
+          : Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                customBorder: shape,
+                onTap: () async => launchUrl(url, mode: LaunchMode.externalApplication),
+                child: card,
               ),
             ),
     );

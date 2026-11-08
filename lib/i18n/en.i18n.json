@@ -235,6 +235,18 @@
     "me": "Me",
     "settings": "Settings"
   },
+  "checkinCalendar": {
+    "title": "Check-in calendar",
+    "thisMonth": "This month",
+    "thatMonth": "That month",
+    "streak": "Streak",
+    "total": "Total"
+  },
+  "ratingStats": {
+    "title": "Rating statistics",
+    "count": "Ratings",
+    "topRaters": "Top raters"
+  },
   "mePage": {
     "title": "Me",
     "mine": "My account",
@@ -256,7 +268,9 @@
       "friends": "Friends",
       "points": "Points",
       "followedThreads": "Followed threads",
-      "readingStats": "Reading stats"
+      "readingStats": "Reading stats",
+      "checkinCalendar": "Check-in calendar",
+      "ratingStats": "Rating statistics"
     }
   },
   "home": {
@@ -337,7 +351,8 @@
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
         "drafts": "Local drafts"
-      }
+      },
+      "loginDevices": "Login devices"
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -376,6 +391,9 @@
       },
       "twoPaneLayout": {
         "title": "Two panes on wide windows"
+      },
+      "postMediaPreview": {
+        "title": "Show video covers on cards"
       },
       "showUnreadInfoHint": {
         "title": "Unread Info Hint",
@@ -1465,6 +1483,9 @@
       "recentChangelog": "Recent Changelog",
       "emptyRecent": "No recent changes"
     },
+    "trendTab": {
+      "title": "Trend"
+    },
     "changelogTab": {
       "title": "Points Changelog",
       "extType": "Points Type",
@@ -2381,7 +2402,9 @@
   "pollCard": {
     "title": "Poll",
     "detail": "This floor contains poll, open in browser to participate in",
-    "openInBrowser": "Open in browser"
+    "openInBrowser": "Open in browser",
+    "resultLabel": "$votes votes, $percent%",
+    "myChoice": "Your choice"
   },
   "manageAccountPage": {
     "title": "Manage account",
@@ -3610,5 +3633,18 @@
     "exportFailed": "Export failed",
     "empty": "No emoji packs yet",
     "count": "${count: int}"
+  },
+  "loginDevicesPage": {
+    "title": "Login devices",
+    "current": "This device",
+    "loggedOut": "Logged out",
+    "logOut": "Log out",
+    "logOutTitle": "Log out this device?",
+    "remove": "Remove",
+    "unsupported": "The forum does not keep login devices",
+    "writeFailed": "Failed, please try again later",
+    "revoked": "$name was logged out of this device from another device",
+    "revokedUnknown": "An account was logged out of this device from another device",
+    "login": "Log in"
   }
 }
