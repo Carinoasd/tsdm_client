@@ -2129,6 +2129,15 @@
     "title": "Music",
     "openLink": "Open link"
   },
+  "audioPlayer": {
+    "play": "Play",
+    "pause": "Pause",
+    "close": "Close",
+    "download": "Download",
+    "cannotPlay": "Can't play",
+    "loadFailed": "Failed to load",
+    "notificationChannel": "Music playback"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
     "allAccounts": "All accounts",

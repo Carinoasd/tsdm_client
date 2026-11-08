@@ -10,6 +10,9 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
+import 'package:tsdm_client/features/audio_player/widgets/netease_play.dart';
+import 'package:tsdm_client/features/audio_player/widgets/post_audio_card.dart';
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
@@ -1325,6 +1328,7 @@ final class _Muncher with LoggerMixin {
       () => _endingLine(_munchStyledBlock(node, _munch)),
     ),
     String() when _invisibleElements.contains(localName) => null,
+    'ignore_js_op' => _buildIgnoreJsOp(node),
     // Anything else (`<em>`, `<cite>`, `<label>`, `<abbr>`, `<o:p>` of a pasted Word document, `<marquee>`,
     // the forum's `<ignore_js_op>`, an element the muncher does not know yet) shows its content as the web
     // page does. Before, an element the muncher did not know was dropped with all its text.
@@ -2120,6 +2124,21 @@ final class _Muncher with LoggerMixin {
           textScaler: .noScaling,
         );
       }
+    } else if (neteaseSongIdOf(url.prependHost()) case final songId?) {
+      // A song of NetEase Cloud Music: its mark plays it, the link still opens it.
+      return [
+        if (breakBefore) emptySpan,
+        ?space,
+        TextSpan(
+          children: [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: NeteasePlayMark(songId: songId, title: element.innerText, size: _fontSize),
+            ),
+            ...ret,
+          ],
+        ),
+      ];
     } else if (_marksLink(url)) {
       final IconData prefixIcon;
       if (url.startsWith('mailto:')) {
@@ -2498,6 +2517,24 @@ final class _Muncher with LoggerMixin {
       return [textWidgetSpan(NeteaseCard(neteasePlayerId))];
     }
     return _buildMedia(element);
+  }
+
+  /// The forum's `<ignore_js_op>`, a block around what its scripts work on: an audio attachment ([PostAudioAttachment])
+  /// is a card that plays it ([PostAudioCard]), its download link a button of the card; anything else shows its
+  /// content.
+  List<InlineSpan>? _buildIgnoreJsOp(uh.Element element) {
+    final attachment = PostAudioAttachment.of(element, apple: isIOS || isMacOS);
+    if (attachment == null) {
+      return _munch(element);
+    }
+    return _munchBlock(
+      element,
+      deferBreak: false,
+      () => [
+        textWidgetSpan(PostAudioCard(attachment, onDownload: () async => _openUrl(attachment.url))),
+        emptySpan,
+      ],
+    );
   }
 
   /// An embedded player (`<iframe>` other than netease music's, `<embed>`, `<object>`, `<video>`, `<audio>`): a card

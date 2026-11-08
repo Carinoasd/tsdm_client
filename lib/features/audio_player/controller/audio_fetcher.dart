@@ -1,0 +1,183 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
+import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/providers.dart';
+import 'package:tsdm_client/utils/logger.dart';
+
+/// Why a track could not be fetched.
+enum AudioFetchFailure {
+  /// The request failed.
+  network,
+
+  /// The forum answered with a page, not the file: no permission, credits asked for, the file gone; NetEase Cloud
+  /// Music's page for a song it does not let everyone play.
+  notAudio,
+}
+
+/// A track could not be fetched ([failure]).
+final class AudioFetchException implements Exception {
+  /// Constructor.
+  const AudioFetchException(this.failure);
+
+  /// Why.
+  final AudioFetchFailure failure;
+
+  @override
+  String toString() => 'AudioFetchException(${failure.name})';
+}
+
+/// Fetches the file of a track to play. Tests give a fake one.
+// ignore: one_member_abstracts
+abstract interface class AudioFetcher {
+  /// The local file of [track], fetched when not kept yet, telling [onProgress] the part fetched (null when the size
+  /// is unknown). Throws [AudioFetchException]; a cancel through [cancelToken] throws a cancelled [DioException].
+  Future<String> fetch(
+    AudioTrack track, {
+    required CancelToken cancelToken,
+    void Function(double? progress)? onProgress,
+  });
+}
+
+/// Whether the first bytes [head] of a file are those of a sound file: MP3 (an ID3 tag or a frame), AAC (ADTS), FLAC,
+/// Ogg, WAV, MP4 (`ftyp`). A page of the forum (an error, the confirmation that credits are taken) is none of them.
+bool looksLikeAudio(Uint8List head) {
+  bool at(int offset, String magic) {
+    if (head.length < offset + magic.length) {
+      return false;
+    }
+    for (var i = 0; i < magic.length; i++) {
+      if (head[offset + i] != magic.codeUnitAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (at(0, 'ID3') || at(0, 'fLaC') || at(0, 'OggS') || (at(0, 'RIFF') && at(8, 'WAVE')) || at(4, 'ftyp')) {
+    return true;
+  }
+  // An MPEG audio frame or an ADTS header: 11 bits of sync.
+  return head.length >= 2 && head[0] == 0xFF && (head[1] & 0xE0) == 0xE0;
+}
+
+/// [AudioFetcher] through the app's net client: the attachments with the account's cookie, as a download is (the
+/// forum takes the credits and counts the download of an attachment for each request, and does not serve a range of
+/// one: streaming would ask again at each seek), the songs of NetEase Cloud Music without a cookie. The files are kept
+/// in the temporary directory (the last [maxCacheBytes]) and played from there.
+final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
+  /// Constructor.
+  NetAudioFetcher({this.maxCacheBytes = 300 * 1024 * 1024});
+
+  /// The most kept, in bytes.
+  final int maxCacheBytes;
+
+  /// Fetches of the same track at once share one request.
+  final _running = <String, Future<String>>{};
+
+  Future<Directory> _dir() async {
+    final dir = Directory(path.join((await getTemporaryDirectory()).path, 'audio_cache'));
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  String _fileName(AudioTrack track) {
+    final uid = track.source == AudioTrackSource.attachment ? getIt.get<CookieProvider>().userLoginInfo.uid ?? 0 : 0;
+    final key = '${track.id}_$uid'.replaceAll(RegExp('[^A-Za-z0-9_]'), '_');
+    final ext = path.extension(track.title).toLowerCase();
+    return '$key${RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(ext) ? ext : '.mp3'}';
+  }
+
+  @override
+  Future<String> fetch(
+    AudioTrack track, {
+    required CancelToken cancelToken,
+    void Function(double? progress)? onProgress,
+  }) async {
+    final file = File(path.join((await _dir()).path, _fileName(track)));
+    if (file.existsSync() && file.lengthSync() > 0) {
+      // Kept the longest when played last.
+      await file.setLastModified(DateTime.now());
+      return file.path;
+    }
+    return _running[file.path] ??= _download(track, file, cancelToken, onProgress).whenComplete(
+      () => _running.remove(file.path),
+    );
+  }
+
+  Future<String> _download(
+    AudioTrack track,
+    File file,
+    CancelToken cancelToken,
+    void Function(double? progress)? onProgress,
+  ) async {
+    final part = File('${file.path}.part');
+    final client = switch (track.source) {
+      AudioTrackSource.attachment => getIt.get<NetClientProvider>(),
+      AudioTrackSource.netease => getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie),
+    };
+    final result = await client
+        .download(
+          track.url,
+          part.path,
+          cancelToken: cancelToken,
+          onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
+        )
+        .run();
+    if (result.isLeft()) {
+      if (part.existsSync()) {
+        await part.delete();
+      }
+      if (cancelToken.isCancelled) {
+        throw DioException.requestCancelled(
+          requestOptions: RequestOptions(path: track.url),
+          reason: 'cancelled',
+        );
+      }
+      result.mapLeft((e) => error('failed to fetch ${track.id}: $e'));
+      throw const AudioFetchException(AudioFetchFailure.network);
+    }
+    final head = await _head(part);
+    if (!looksLikeAudio(head)) {
+      warning('fetched ${track.id} is not audio');
+      await part.delete();
+      throw const AudioFetchException(AudioFetchFailure.notAudio);
+    }
+    await part.rename(file.path);
+    unawaited(_trim(file.parent, keep: file.path));
+    return file.path;
+  }
+
+  static Future<Uint8List> _head(File file) async {
+    final raf = await file.open();
+    try {
+      return await raf.read(16);
+    } finally {
+      await raf.close();
+    }
+  }
+
+  /// Delete the files played the longest ago until the rest fit in [maxCacheBytes].
+  Future<void> _trim(Directory dir, {required String keep}) async {
+    try {
+      final files = dir.listSync().whereType<File>().where((e) => !e.path.endsWith('.part')).toList()
+        ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      var total = 0;
+      for (final f in files) {
+        total += f.lengthSync();
+        if (total > maxCacheBytes && f.path != keep) {
+          await f.delete();
+        }
+      }
+    } on FileSystemException catch (e) {
+      warning('failed to trim the audio cache: $e');
+    }
+  }
+}

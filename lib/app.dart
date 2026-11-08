@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:rxdart/rxdart.dart' show Rx;
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/audio_player/widgets/audio_mini_player.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_bridge_cubit.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
@@ -779,7 +780,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                         child: KeyboardShortcutsHost(
                           onSearch: () => _openFromKeyboard(ScreenPaths.search),
                           onSettings: () => _openFromKeyboard(ScreenPaths.settings.path),
-                          child: DesktopBackHandler(child: child ?? sizedBoxEmpty),
+                          // The mini player below every page while something is played.
+                          child: DesktopBackHandler(child: AudioMiniPlayerHost(child: child ?? sizedBoxEmpty)),
                         ),
                       );
                     },

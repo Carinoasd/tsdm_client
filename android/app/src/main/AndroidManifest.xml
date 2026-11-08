@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -125,5 +126,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keep user logged in to the forum and poll new messages in background" />
         </service>
+        <!-- The audio attachments played in the app (just_audio_background): the media notification and playing on
+             with the app in the background. MainActivity runs on the engine this service plays in. -->
+        <service
+              android:name="com.ryanheise.audioservice.AudioService"
+              android:foregroundServiceType="mediaPlayback"
+              android:exported="true"
+              tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+              android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+              android:exported="true"
+              tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
