@@ -170,7 +170,8 @@ class _FontFamilyDialogState extends State<FontFamilyDialog> {
             Text(switch (_importError) {
               FontImportError.reservedName => tr.importReservedName,
               FontImportError.nameInUse => tr.importNameInUse,
-              FontImportError.unusable || null => tr.importFailed,
+              FontImportError.unusable => tr.importFailed,
+              null => tr.importIoFailed,
             }, style: textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error)),
           for (final family in _imported)
             ListTile(
