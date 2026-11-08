@@ -582,6 +582,39 @@ void main() {
       await _finish(tester);
     });
 
+    testWidgets('a tab dragged along the strip moves, the tab shown stays shown', (tester) async {
+      await app.pump(tester);
+      final first = tidOfCard(tester, 0);
+      final titles = [for (var i = 0; i < 3; i++) titleOfCard(tester, i)];
+      await tester.tap(cards().at(0));
+      await _settle(tester);
+      for (final index in [1, 2]) {
+        await withControl(tester, () => tester.tap(cards().at(index)));
+        await _settle(tester);
+      }
+      List<String> order() {
+        final texts = tester.widgetList<Text>(find.descendant(of: strip(), matching: find.byType(Text))).toList()
+          ..sort(
+            (a, b) => tester.getTopLeft(find.byWidget(a)).dx.compareTo(tester.getTopLeft(find.byWidget(b)).dx),
+          );
+        return [for (final text in texts) text.data!];
+      }
+
+      expect(order(), titles);
+      final from = find.descendant(of: strip(), matching: find.text(titles[0]));
+      final gesture = await tester.startGesture(tester.getCenter(from));
+      // Past the middle of the next tab, short of the one after it (the tabs are 200 wide).
+      for (var i = 0; i < 11; i++) {
+        await gesture.moveBy(const Offset(20, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(order(), [titles[1], titles[0], titles[2]]);
+      expect(shownTid(tester), first);
+      await _finish(tester);
+    });
+
     testWidgets('a link opened with Ctrl inside the thread goes to a new tab', (tester) async {
       await app.pump(tester);
       final first = tidOfCard(tester, 0);

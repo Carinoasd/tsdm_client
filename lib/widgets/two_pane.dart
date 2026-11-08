@@ -709,3 +709,26 @@ class TwoPaneEmptyDetail extends StatelessWidget {
     );
   }
 }
+
+/// A middle click on [child] opens the thread of [query] (as [openThreadInPane] has it) in a new tab of the detail
+/// pane; outside a two-pane layout, or with [query] null, it does nothing.
+class TwoPaneMiddleClickOpener extends StatelessWidget {
+  /// Constructor.
+  const TwoPaneMiddleClickOpener({required this.query, required this.child, super.key});
+
+  /// The thread to open, null when [child] has none to open now.
+  final Map<String, String?>? query;
+
+  /// The card.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (event) {
+      if (event.buttons == kMiddleMouseButton && query != null) {
+        openThreadInPane(context, query!, newTab: true);
+      }
+    },
+    child: child,
+  );
+}

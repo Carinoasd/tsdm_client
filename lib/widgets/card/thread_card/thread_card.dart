@@ -1,5 +1,4 @@
 import 'package:collection/collection.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -95,12 +94,8 @@ class _CardLayout extends StatelessWidget {
   final ReadingProgress? progress;
 
   /// A middle click opens the thread in a new tab of the wide list page's detail pane.
-  Widget _wrapWithCard(BuildContext context, Widget child) => Listener(
-    onPointerDown: (event) async {
-      if (!disableTap && event.buttons == kMiddleMouseButton && TwoPaneScope.readOf(context) != null) {
-        await openThread(context, threadID: threadID, title: title, threadType: threadType, newTab: true);
-      }
-    },
+  Widget _wrapWithCard(BuildContext context, Widget child) => TwoPaneMiddleClickOpener(
+    query: disableTap ? null : threadQuery(threadID: threadID, title: title, threadType: threadType),
     child: _card(context, child),
   );
 
@@ -530,6 +525,15 @@ class _CardLayout extends StatelessWidget {
   }
 }
 
+/// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
+Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {
+  // FIXME: Query parameters are not recognized by v2 yet.
+  'tid': threadID,
+  'appBarTitle': title,
+  'threadTypeName': threadType?.name,
+  'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
+};
+
 /// Opens a thread as its card does: on the right of a wide list page, else as a page of its own. [newTab] as
 /// [openThreadInPane] has it.
 Future<void> openThread(
@@ -539,13 +543,7 @@ Future<void> openThread(
   ThreadType? threadType,
   bool? newTab,
 }) async {
-  // FIXME: Query parameters are not recognized by v2 yet.
-  final query = {
-    'tid': threadID,
-    'appBarTitle': title,
-    'threadTypeName': threadType?.name,
-    'threadTypeID': threadType?.url.tryParseAsUri().tryGetQueryParameters()?['typeid'],
-  };
+  final query = threadQuery(threadID: threadID, title: title, threadType: threadType);
   if (openThreadInPane(context, query, newTab: newTab)) {
     return;
   }
