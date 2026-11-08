@@ -71,7 +71,13 @@ void main() {
       expect(info.author, 'ag_admin');
       expect(info.replyCount, 8);
       expect(info.viewCount, 100);
-      expect(info.publishTime, DateTime.fromMillisecondsSinceEpoch(1790763526 * 1000));
+      // The forum's time (`dateline` 1790763526 in its `timeoffset` 8), as the thread page shows it, whatever the time
+      // zone of the device.
+      final time = info.publishTime!;
+      expect(
+        DateTime(time.year, time.month, time.day, time.hour, time.minute, time.second),
+        DateTime(2026, 9, 30, 18, 18, 46),
+      );
     });
 
     test('an anonymous first floor names nobody', () {
