@@ -54,6 +54,10 @@ final class LoginDeviceCoordinator with LoggerMixin {
   /// Of [_revoked], those whose login was dropped already: a login of one of them after that is a new one.
   final _dropped = <int>{};
 
+  /// The check of the other stored accounts with an id replaced ([_checkOthers]) while it runs: no account is
+  /// registered with the new id before it is done.
+  Future<void>? _checking;
+
   /// `uid/id` of every answer `device_revoked` followed in this run: a late answer of a request sent before is not
   /// followed again, after a new login of the account neither.
   final _followed = <String>{};
@@ -97,6 +101,11 @@ final class LoginDeviceCoordinator with LoggerMixin {
 
   /// Register this device for [uid], once per run and id. Does nothing on a platform the plugin does not know.
   Future<void> register(int uid) async {
+    // A register asked while the other accounts are checked with an id replaced waits for the check.
+    for (var checking = _checking; checking != null;) {
+      await checking;
+      checking = identical(_checking, checking) ? null : _checking;
+    }
     final id = LoginDeviceIdentity.id;
     final platform = loginDevicePlatform;
     if (id == null || platform == null || _revoked.contains(uid) || !_registered.add('$uid/$id')) {
@@ -171,7 +180,11 @@ final class LoginDeviceCoordinator with LoggerMixin {
       // on, which the forum does not refuse, so each is asked once with the old one (an answer `device_revoked` drops
       // it as this one), before the account in use is registered with the new id.
       if (renew && old != null) {
-        await _checkOthers(uid, old);
+        final checking = _checking = _checkOthers(uid, old);
+        await checking;
+        if (identical(_checking, checking)) {
+          _checking = null;
+        }
       }
       // The account in use goes on with the new id, which the forum only keeps once registered.
       final current = _authentication.effectiveCurrentUid;
@@ -183,15 +196,23 @@ final class LoginDeviceCoordinator with LoggerMixin {
     }
   }
 
+  /// Ask every stored account but [uid] (the account in use too: it may be logged out with [old] as well) with [old].
   Future<void> _checkOthers(int uid, String old) async {
-    final accounts = await _storage.allAccountsStream().first;
+    final List<StoredAccount> accounts;
+    try {
+      accounts = await _storage.allAccountsStream().first;
+    } on Object catch (e, st) {
+      error('device: failed to read the stored accounts: $e', e, st);
+      return;
+    }
     for (final account in accounts) {
       final other = account.user.uid;
       if (other == null || other == uid || _revoked.contains(other) || _followed.contains('$other/$old')) {
         continue;
       }
       if (!await _repository.probe(account.user, old)) {
-        debug('device: a stored account was not answered with the id replaced');
+        // Logged out with it too (dropped by now), or the request failed.
+        debug('device: a stored account not confirmed with the id replaced');
       }
     }
   }

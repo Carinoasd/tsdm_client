@@ -590,6 +590,44 @@ void main() {
       },
     );
 
+    test('a login while the other accounts are checked waits for the check', () async {
+      await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
+      await storage.saveCookie(username: 'bob', uid: 35, cookie: {'${cookiePrefix}_auth': 'b1'});
+      final answer = Completer<void>();
+      final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
+      final auth = AuthenticationRepository(user: const UserLoginInfo(username: 'bob', uid: 35));
+      final coordinator = LoginDeviceCoordinator(
+        authentication: auth,
+        storage: storage,
+        repository: LoginDeviceRepository(
+          buildClient: (_) => _client(forum),
+          // Bob's check answers late: logged out with the old id too.
+          buildStoredClient: (user) async {
+            await answer.future;
+            return _client(
+              _Forum((o) => _ok({..._json('device_v20_revoked.json'), 'uid': user.uid, 'device': _header(o)})),
+            );
+          },
+        ),
+        deviceName: () async => '',
+      );
+      addTearDown(coordinator.dispose);
+      await coordinator.start();
+      final old = LoginDeviceIdentity.id!;
+
+      LoginDeviceIdentity.onRevoked!(31, old);
+      await pumpEventQueue();
+      // The homepage tells Bob authenticated meanwhile.
+      final waiting = coordinator.register(35);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(forum.requests, isEmpty, reason: 'nothing before the check is done');
+      answer.complete();
+      await waiting;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(forum.deviceCalls, isEmpty, reason: 'Bob was logged out with the old id: never registered');
+      expect(await storage.hasCookieOfUid(35), isFalse);
+    });
+
     test('another stored account logged out: the account in use registered with the new id, that one not', () async {
       await storage.saveCookie(username: 'alice', uid: 31, cookie: {'${cookiePrefix}_auth': 'a1'});
       final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : _json('device_v20_register.json')));
