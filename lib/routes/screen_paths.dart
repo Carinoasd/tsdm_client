@@ -74,6 +74,9 @@ class ScreenPaths {
   /// Page to switch current user's user group.
   static const String switchUserGroup = '/switchUserGroup';
 
+  /// Credits table of the user groups and the progress of the current account towards the next one.
+  static const String userGroupProgress = '/userGroupProgress';
+
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 

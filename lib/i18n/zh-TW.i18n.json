@@ -2338,6 +2338,11 @@
     "switchFailed": "切換失敗",
     "switchSucceeded": "已切換至 ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "用戶組升級進度",
+    "creditsLeft": "還需 ${n: int} 積分",
+    "extraGroups": "擴展用戶組"
+  },
   "editAvatarPage": {
     "title": "編輯頭像",
     "currentAvatar": "目前頭像",
