@@ -488,6 +488,7 @@ const _stubPaths = [
   ScreenPaths.friend,
   ScreenPaths.points,
   ScreenPaths.checkinCalendar,
+  ScreenPaths.ratingStats,
   ScreenPaths.medalTitleHub,
   ScreenPaths.activities,
   ScreenPaths.medalCenter,
@@ -889,6 +890,7 @@ void main() {
           'me-friends',
           'me-points',
           'me-checkin-calendar',
+          'me-rating-stats',
           'me-switch-account',
         ]) {
           expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
@@ -924,6 +926,7 @@ void main() {
         ('me-friends', ScreenPaths.friend, ''),
         ('me-points', ScreenPaths.points, ''),
         ('me-checkin-calendar', ScreenPaths.checkinCalendar, ''),
+        ('me-rating-stats', ScreenPaths.ratingStats, ''),
         ('me-account-profile', ScreenPaths.loggedUserProfile, ''),
         ('me-settings', ScreenPaths.settings.path, ''),
         ('me-about', ScreenPaths.about, ''),

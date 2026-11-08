@@ -242,6 +242,11 @@
     "streak": "Streak",
     "total": "Total"
   },
+  "ratingStats": {
+    "title": "Rating statistics",
+    "count": "Ratings",
+    "topRaters": "Top raters"
+  },
   "mePage": {
     "title": "Me",
     "mine": "My account",
@@ -264,7 +269,8 @@
       "points": "Points",
       "followedThreads": "Followed threads",
       "readingStats": "Reading stats",
-      "checkinCalendar": "Check-in calendar"
+      "checkinCalendar": "Check-in calendar",
+      "ratingStats": "Rating statistics"
     }
   },
   "home": {
