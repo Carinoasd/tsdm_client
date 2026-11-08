@@ -46,6 +46,8 @@
    "before": "«热门回复的内文\n第二行»\n",
    "after": "«热门回复的内文\n  第二行»\n"
   },
+  "test/data/thread_pdf/viewthread_v18_rich.json#11248": "«PDF 匯出夾具：粗體文字 與一般文字，￼連結文字。\n第二行 斜體\n￼\n[/quote]\n[img]\n\n•  項目一\n•  項目二\n￼\n[spoiler=摺疊標題]摺疊內容[/spoiler]\n￼\n\n最後一段 :)»\n«引用的內容 引用內粗體\n[quote]第二層引用»\n«Code Block»\n«int main() {\n  return 0;\n}»\n",
+  "test/data/thread_pdf/viewthread_v18_rich.json#4159": "«￼\n网盘链接 Link：https://mega.nz/up422478»\n«封面： [img] 附件： [img] ￼acc_note.zip (153 Bytes, 下载次数: 0)\n￼\n\n网盘 Cloud：MEGA\n是否自购 Self-purchased：否»\n",
   "test/data/tsdmapp/followed_v18_after.json#11201": "«这是用来测试追踪帖子功能的主题，欢迎回复。»\n",
   "test/data/tsdmapp/followed_v18_after.json#11202": "«追踪测试回复第 1 楼，内容足够长一点»\n",
   "test/data/tsdmapp/followed_v18_after.json#11203": "«追踪测试回复第 2 楼，内容足够长一点»\n",
