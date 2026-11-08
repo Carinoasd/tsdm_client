@@ -108,15 +108,24 @@ class MainActivity: FlutterActivity() {
         val replayed = savedInstanceState != null ||
             launch == null ||
             (launch.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-        if (replayed) return
-        // 冷启动时捕获深度链接
-        if (launch.action == Intent.ACTION_VIEW) {
-            initialDeepLink = launch.dataString
+        if (!replayed) {
+            // 冷启动时捕获深度链接
+            if (launch.action == Intent.ACTION_VIEW) {
+                initialDeepLink = launch.dataString
+            }
+            if (ShareIntents.isShare(launch)) {
+                initialShareIntent = launch
+            }
         }
-        if (ShareIntents.isShare(launch)) {
-            initialShareIntent = launch
+        // configureFlutterEngine ran in super.onCreate, before the launch was read: push it now.
+        val engine = flutterEngine
+        if (attachedToRunningDart && engine != null) {
+            pushLaunchToRunningDart(engine)
         }
     }
+
+    /** Whether this activity runs on a Dart started by an activity before (see [lastEngine]). */
+    private var attachedToRunningDart = false
 
     /** The audio service's engine (just_audio_background): the player plays in it with the app in the background. */
     override fun provideFlutterEngine(context: Context): FlutterEngine = AudioServicePlugin.getFlutterEngine(context)
@@ -192,17 +201,16 @@ class MainActivity: FlutterActivity() {
                 }
             }
         }
-        if (dartRunning) {
-            pushLaunchToRunningDart(flutterEngine)
-        }
+        attachedToRunningDart = dartRunning
     }
 
     /**
      * The link and the share this activity was launched with, pushed to a Dart that runs since an activity before (see
-     * [lastEngine]) as when they come to a running activity ([onNewIntent]); the shortcut is pushed by [shortcuts].
+     * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut.
      */
     private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine) {
         dartTakesShares = true
+        shortcuts.pushPending()
         initialDeepLink?.let {
             initialDeepLink = null
             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL).invokeMethod("onDeepLink", it)

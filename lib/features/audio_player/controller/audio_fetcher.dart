@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
+import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -79,8 +80,8 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   /// The most kept, in bytes.
   final int maxCacheBytes;
 
-  /// Fetches of the same track at once share one request.
-  final _running = <String, Future<String>>{};
+  /// Fetches of the same track at once share one request, until it is cancelled.
+  final _running = <String, (CancelToken, Future<String>)>{};
 
   Future<Directory> _dir() async {
     final dir = Directory(path.join((await getTemporaryDirectory()).path, 'audio_cache'));
@@ -91,8 +92,12 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   String _fileName(AudioTrack track) {
     final uid = track.source == AudioTrackSource.attachment ? getIt.get<CookieProvider>().userLoginInfo.uid ?? 0 : 0;
     final key = '${track.id}_$uid'.replaceAll(RegExp('[^A-Za-z0-9_]'), '_');
+    // The players of Apple go by the extension; a song of NetEase Cloud Music is named by its title, not a file.
     final ext = path.extension(track.title).toLowerCase();
-    return '$key${RegExp(r'^\.[a-z0-9]{1,5}$').hasMatch(ext) ? ext : '.mp3'}';
+    final known =
+        track.source == AudioTrackSource.attachment &&
+        playableAudioExtensions().contains(ext.substring(ext.isEmpty ? 0 : 1));
+    return '$key${known ? ext : '.mp3'}';
   }
 
   @override
@@ -107,9 +112,17 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
       await file.setLastModified(DateTime.now());
       return file.path;
     }
-    return _running[file.path] ??= _download(track, file, cancelToken, onProgress).whenComplete(
-      () => _running.remove(file.path),
-    );
+    if (_running[file.path] case (final token, final running) when !token.isCancelled) {
+      return running;
+    }
+    late final Future<String> running;
+    running = _download(track, file, cancelToken, onProgress).whenComplete(() {
+      if (identical(_running[file.path]?.$2, running)) {
+        _running.remove(file.path);
+      }
+    });
+    _running[file.path] = (cancelToken, running);
+    return running;
   }
 
   Future<String> _download(
@@ -118,7 +131,8 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
     CancelToken cancelToken,
     void Function(double? progress)? onProgress,
   ) async {
-    final part = File('${file.path}.part');
+    // One part file per request: a cancelled one still finishing does not write into the next.
+    final part = File('${file.path}.${cancelToken.hashCode}.part');
     final client = switch (track.source) {
       AudioTrackSource.attachment => getIt.get<NetClientProvider>(),
       AudioTrackSource.netease => getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie),
@@ -167,11 +181,23 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   /// Delete the files played the longest ago until the rest fit in [maxCacheBytes].
   Future<void> _trim(Directory dir, {required String keep}) async {
     try {
-      final files = dir.listSync().whereType<File>().where((e) => !e.path.endsWith('.part')).toList()
-        ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      final files = <(File, FileStat)>[];
+      await for (final e in dir.list()) {
+        if (e is File && !e.path.endsWith('.part')) {
+          files.add((e, e.statSync()));
+        }
+      }
+      files.sort((a, b) => b.$2.modified.compareTo(a.$2.modified));
       var total = 0;
-      for (final f in files) {
-        total += f.lengthSync();
+      // Left by a request the app did not live to finish.
+      final stale = DateTime.now().subtract(const Duration(hours: 1));
+      await for (final e in dir.list()) {
+        if (e is File && e.path.endsWith('.part') && e.statSync().modified.isBefore(stale)) {
+          await e.delete();
+        }
+      }
+      for (final (f, stat) in files) {
+        total += stat.size;
         if (total > maxCacheBytes && f.path != keep) {
           await f.delete();
         }

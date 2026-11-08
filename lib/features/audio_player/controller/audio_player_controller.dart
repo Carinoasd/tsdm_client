@@ -97,8 +97,10 @@ final class AudioPlayerController extends Cubit<AudioPlayerState> with LoggerMix
   CancelToken? _cancelToken;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
-  /// Where the player is in the current track.
-  Stream<Duration> get positionStream => _subscriptions.isEmpty ? const Stream.empty() : _backend.positionStream;
+  /// Where the player is in the current track: the same stream each time, a widget built again does not listen anew.
+  Stream<Duration> get positionStream =>
+      _subscriptions.isEmpty ? const Stream.empty() : _positionStream ??= _backend.positionStream.asBroadcastStream();
+  Stream<Duration>? _positionStream;
 
   void _listen() {
     if (_subscriptions.isNotEmpty) {
@@ -155,6 +157,10 @@ final class AudioPlayerController extends Cubit<AudioPlayerState> with LoggerMix
     emit(AudioPlayerState(queue: queue, status: AudioPlayerStatus.loading));
     final track = queue.current;
     try {
+      // The track played before is silent while this one loads, and stays so when this one fails.
+      if (_subscriptions.isNotEmpty) {
+        await _backend.pause();
+      }
       final file = await _fetcher.fetch(
         track,
         cancelToken: cancelToken,
@@ -178,9 +184,10 @@ final class AudioPlayerController extends Cubit<AudioPlayerState> with LoggerMix
       if (generation == _generation) {
         emit(AudioPlayerState(queue: queue, status: AudioPlayerStatus.failed, failure: e.failure));
       }
-    } on DioException catch (e) {
-      // Cancelled: another track was started, or closed.
-      if (generation == _generation && !CancelToken.isCancel(e)) {
+    } on DioException {
+      // Cancelled for a former generation (another track started, or closed): dropped. Anything else, cancelled or
+      // not, is this track failing.
+      if (generation == _generation) {
         emit(AudioPlayerState(queue: queue, status: AudioPlayerStatus.failed, failure: AudioFetchFailure.network));
       }
     } on Object catch (e, st) {
@@ -216,7 +223,9 @@ final class AudioPlayerController extends Cubit<AudioPlayerState> with LoggerMix
   /// Go to [position] of the current track.
   Future<void> seek(Duration position) async {
     if (state.status == AudioPlayerStatus.completed) {
+      // At the end the player still says it plays: it would play on from where it is sought to.
       emit(_copy(status: AudioPlayerStatus.paused));
+      await _backend.pause();
     }
     if (const {AudioPlayerStatus.playing, AudioPlayerStatus.paused}.contains(state.status)) {
       await _backend.seek(position);

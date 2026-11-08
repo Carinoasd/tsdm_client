@@ -66,6 +66,10 @@ final class PostAudioAttachment {
   }
 
   static PostAudioAttachment? _of(uh.Element element, {required bool apple}) {
+    // A block holding blocks: each of them is looked at on its own.
+    if (element.querySelector('ignore_js_op') != null) {
+      return null;
+    }
     final links = element.querySelectorAll('a[href]').where((e) => _isAttachmentUrl(e.attributes['href']!)).toList();
     if (links.length != 1) {
       return null;
@@ -109,8 +113,6 @@ final class PostAudioAttachment {
       final seen = <int>{};
       return doc
           .querySelectorAll('ignore_js_op')
-          // The outermost blocks only: one holding another is not an attachment's.
-          .where((e) => e.querySelector('ignore_js_op') == null)
           .map((e) => of(e, apple: apple))
           .whereType<PostAudioAttachment>()
           .where((e) => seen.add(e.aid))

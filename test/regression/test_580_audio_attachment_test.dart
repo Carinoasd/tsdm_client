@@ -41,6 +41,15 @@ void main() {
       expect(PostAudioAttachment.allOf(picture), isEmpty);
     });
 
+    test('a block holding a block: the inner one alone, the text around it kept out of the card', () {
+      const nested =
+          '<ignore_js_op>曲目 <ignore_js_op><a href="forum.php?mod=attachment&amp;aid=3" id="aid3">a.mp3</a>'
+          '</ignore_js_op> 说明</ignore_js_op>';
+      final outer = parseHtmlDocument(nested).querySelector('ignore_js_op')!;
+      expect(PostAudioAttachment.of(outer), isNull);
+      expect(PostAudioAttachment.allOf(nested).map((e) => e.aid), [3]);
+    });
+
     test('a block of two attachments is none of them', () {
       const two =
           '<ignore_js_op><a href="forum.php?mod=attachment&amp;aid=1">a.mp3</a>'

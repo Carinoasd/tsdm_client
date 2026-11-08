@@ -132,7 +132,7 @@ void main() {
     await _settle();
     expect(controller.state.current, _c);
     expect(controller.state.status, AudioPlayerStatus.playing);
-    expect(backend.calls.skip(2), ['load /cache/attach:3', 'play']);
+    expect(backend.calls.skip(2), ['pause', 'load /cache/attach:3', 'play']);
 
     backend.complete();
     await _settle();
@@ -141,8 +141,15 @@ void main() {
 
     // Played again from the start.
     await controller.toggle();
-    expect(backend.calls.skip(4), ['seek 0', 'play']);
+    expect(backend.calls.skip(5), ['seek 0', 'play']);
     expect(controller.state.status, AudioPlayerStatus.playing);
+
+    // Sought at the end: paused there, as the player still says it plays.
+    backend.complete();
+    await _settle();
+    await controller.seek(const Duration(seconds: 10));
+    expect(controller.state.status, AudioPlayerStatus.paused);
+    expect(backend.calls.skip(7), ['pause', 'seek 10']);
   });
 
   test('the track played now pauses and resumes; seek goes where asked', () async {
@@ -212,6 +219,28 @@ void main() {
     backend.stopFromSystem();
     await _settle();
     expect(controller.state.queue, isNull);
+  });
+
+  test('another track started pauses the one played; it stays silent when the new one fails', () async {
+    fetcher.ready.remove(_b.id);
+    await controller.playTrack(_a, queue: [_a, _b]);
+    unawaited(controller.playTrack(_b, queue: [_a, _b]));
+    await _settle();
+    expect(backend.calls, ['load /cache/attach:1', 'play', 'pause']);
+    fetcher.pending[_b.id]!.completeError(const AudioFetchException(AudioFetchFailure.network));
+    await _settle();
+    expect(controller.state.status, AudioPlayerStatus.failed);
+    expect(backend.calls.last, 'pause');
+  });
+
+  test('a fetch cancelled for the track played now fails it, it is not left loading', () async {
+    fetcher.ready.clear();
+    unawaited(controller.playTrack(_a));
+    await _settle();
+    fetcher.pending[_a.id]!.completeError(DioException.requestCancelled(requestOptions: RequestOptions(), reason: 'x'));
+    await _settle();
+    expect(controller.state.status, AudioPlayerStatus.failed);
+    expect(controller.state.failure, AudioFetchFailure.network);
   });
 
   test('a fetch finished after close is dropped', () async {
