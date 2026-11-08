@@ -273,6 +273,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),
 
+  /// Width of the list pane of [twoPaneLayout] the divider was dragged to, in logical pixels; 0 while never dragged
+  /// (the list then takes its share of the window, see `twoPaneListWidthFor`). Tied to the screen: not synced.
+  twoPaneListWidth<double>(name: 'twoPaneListWidth', type: double, defaultValue: 0),
+
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
   /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
   /// local drafts too, each on its own switch below. Off: nothing is read or written there.

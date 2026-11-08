@@ -193,6 +193,7 @@ void main() {
         SettingsKeys.accentColorFollowSystem,
         SettingsKeys.highRefreshRate,
         SettingsKeys.twoPaneLayout,
+        SettingsKeys.twoPaneListWidth,
         SettingsKeys.enableBackgroundMessageService,
         SettingsKeys.autoSyncNoticeSeconds,
         SettingsKeys.offlineThreads,

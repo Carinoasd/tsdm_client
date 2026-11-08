@@ -83,6 +83,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
     this.twoPaneLayout = true,
+    this.twoPaneListWidth = 0,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -196,6 +197,9 @@ class SettingsMap with SettingsMapMappable {
   /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
   /// versions lack it.
   final bool twoPaneLayout;
+
+  /// Width of the list pane dragged to, 0 while never dragged. Not required: backups from older versions lack it.
+  final double twoPaneListWidth;
 
   /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
   /// settings and the drafts each on their own switch too). Not required: backups from older
@@ -338,6 +342,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadOpenPosition => copyWith(threadOpenPosition: value as int?),
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
+      SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
