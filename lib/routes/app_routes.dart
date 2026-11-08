@@ -73,6 +73,7 @@ import 'package:tsdm_client/features/profile/view/edit_user_profile_page.dart';
 import 'package:tsdm_client/features/profile/view/my_titles_page.dart';
 import 'package:tsdm_client/features/profile/view/profile_page.dart';
 import 'package:tsdm_client/features/profile/view/switch_user_group_page.dart';
+import 'package:tsdm_client/features/profile/view/user_group_progress_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_edit_template_page.dart';
 import 'package:tsdm_client/features/rate/view/fast_rate_template_page.dart';
 import 'package:tsdm_client/features/rate/view/rate_log_page.dart';
@@ -303,6 +304,7 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.editAvatar, builder: (_) => const EditAvatarPage()),
   AppRoute(path: ScreenPaths.switchUserGroup, builder: (_) => const SwitchUserGroupPage()),
+  AppRoute(path: ScreenPaths.userGroupProgress, builder: (_) => const UserGroupProgressPage()),
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),

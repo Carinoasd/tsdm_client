@@ -2507,6 +2507,12 @@
     "switchFailed": "切换失败",
     "switchSucceeded": "已切换至 ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "用户组升级进度",
+    "creditsLeft": "还需 ${n: int} 积分",
+    "noNext": "当前用户组没有下一级",
+    "extraGroups": "扩展用户组"
+  },
   "editAvatarPage": {
     "title": "编辑头像",
     "currentAvatar": "当前头像",

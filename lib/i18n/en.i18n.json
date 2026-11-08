@@ -2507,6 +2507,12 @@
     "switchFailed": "Switch failed",
     "switchSucceeded": "Switched to ${to: String}"
   },
+  "userGroupProgress": {
+    "title": "User group progress",
+    "creditsLeft": "Credits needed: ${n: int}",
+    "noNext": "No higher user group",
+    "extraGroups": "Extra user groups"
+  },
   "editAvatarPage": {
     "title": "Edit avatar",
     "currentAvatar": "Current avatar",
