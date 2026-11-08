@@ -141,6 +141,7 @@ final class SettingsRepository with LoggerMixin {
       threadCardThumbnailMode: s.extract(_SK.threadCardThumbnailMode),
       chineseDisplayMode: s.extract(_SK.chineseDisplayMode),
       threadCardExternalThumbnails: s.extract(_SK.threadCardExternalThumbnails),
+      homeLayout: s.extract(_SK.homeLayout),
       netClientUseProxy: s.extract(_SK.netClientUseProxy),
       netClientProxy: s.extract(_SK.netClientProxy),
       autoCheckin: s.extract(_SK.autoCheckin),
@@ -210,6 +211,7 @@ final class SettingsRepository with LoggerMixin {
       editImageBeforeUpload: s.extract(_SK.editImageBeforeUpload),
       uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
       uploadImageQuality: s.extract(_SK.uploadImageQuality),
+      frequentForums: s.extract(_SK.frequentForums),
     );
   }
 

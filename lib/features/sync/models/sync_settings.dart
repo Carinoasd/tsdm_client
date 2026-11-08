@@ -121,6 +121,8 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: ThreadThumbnailMode.values.length - 1,
   ),
   SyncedSetting._(SettingsKeys.threadCardExternalThumbnails, (s) => s.threadCardExternalThumbnails),
+  // Homepage.
+  SyncedSetting._(SettingsKeys.homeLayout, (s) => s.homeLayout),
   // Threads.
   SyncedSetting._(SettingsKeys.threadReverseOrder, (s) => s.threadReverseOrder),
   SyncedSetting._(SettingsKeys.collapseAppBarWhenScroll, (s) => s.collapseAppBarWhenScroll),

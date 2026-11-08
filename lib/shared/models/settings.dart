@@ -149,6 +149,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// while the web page only loads it once the thread is opened.
   threadCardExternalThumbnails<bool>(name: 'threadCardExternalThumbnails', type: bool, defaultValue: false),
 
+  /// Order and visibility of the homepage blocks, see `HomeBlockLayout`. Empty is the default arrangement.
+  homeLayout<String>(name: 'homeLayout', type: String, defaultValue: ''),
+
   /// Use network proxy config below or not.
   netClientUseProxy<bool>(name: 'netClientUseProxy', type: bool, defaultValue: false),
 
@@ -438,6 +441,11 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// The JPEG quality an edited or scaled image is uploaded with.
   uploadImageQuality<int>(name: 'uploadImageQuality', type: int, defaultValue: 90),
+
+  /// The pinned and recently visited forums of every account (a JSON object keyed by uid), see `decodeFrequentForums`.
+  ///
+  /// It lives in the settings table, so a backup carries it; not part of the cross-device sync.
+  frequentForums<String>(name: 'frequentForums', type: String, defaultValue: ''),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

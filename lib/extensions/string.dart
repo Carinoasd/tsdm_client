@@ -182,6 +182,11 @@ extension ParseUrl on String {
         queryParameters: {
           if (queryParameters['uid'] != null) 'uid': queryParameters['uid']!,
           if (queryParameters['username'] != null) 'username': queryParameters['username']!,
+          // Only the own visitors list exists: the forum answers another member's list of friends for a uid.
+          if (queryParameters['view'] == 'visitor' &&
+              queryParameters['uid'] == null &&
+              queryParameters['username'] == null)
+            'view': 'visitor',
         },
       );
     }

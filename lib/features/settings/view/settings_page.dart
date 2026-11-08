@@ -35,6 +35,7 @@ import 'package:tsdm_client/features/settings/bloc/android_permission_cubit.dart
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/features/settings/view/debug_showcase_page.dart';
 import 'package:tsdm_client/features/settings/widgets/android_permission_tiles.dart';
 import 'package:tsdm_client/features/settings/widgets/auto_clear_image_cache_duration_dialog.dart';
@@ -59,6 +60,7 @@ import 'package:tsdm_client/features/settings/widgets/select_thread_open_positio
 import 'package:tsdm_client/features/settings/widgets/thread_content_layout_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/upload_image_settings.dart';
+import 'package:tsdm_client/features/settings/widgets/webdav_backup_group.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/theme/dark_schedule.dart';
 import 'package:tsdm_client/features/thread/v1/utils/immersive_forums.dart';
@@ -596,6 +598,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           subtitle: Text(tr.threadCard.detail),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.pushNamed(ScreenPaths.settingsThreadAppearance.path),
+        ),
+        SectionListTile(
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: Text(tr.homeLayout.title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.pushNamed(ScreenPaths.settingsHomeLayout.path),
         ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.shortcut_outlined),
@@ -1420,6 +1428,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     BackupValidation? invalid;
     BackupReplaceException? replaceFailure;
     try {
+      // No automatic WebDAV backup may copy the database while it is replaced.
+      if (getIt.isRegistered<WebdavBackupRepository>()) {
+        await getIt.get<WebdavBackupRepository>().suspend();
+      }
       await getIt.get<StorageProvider>().dispose();
       await repository.replaceDatabase(
         target: await databaseFile,
@@ -1729,6 +1741,11 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           _buildStorageSection(context, state),
           _buildAdvanceSection(context, state),
           _buildBackupSection(context, state),
+          if (getIt.isRegistered<WebdavBackupRepository>())
+            WebdavBackupGroup(
+              repository: getIt.get<WebdavBackupRepository>(),
+              importBackup: (file) => _importBackup(context, file),
+            ),
           _buildDebugSection(context, state),
           _buildOtherSection(context, state),
         ];

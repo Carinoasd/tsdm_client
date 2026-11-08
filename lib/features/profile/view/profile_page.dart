@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/profile/bloc/profile_bloc.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
+import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -642,6 +643,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// The profile shown is the logged in account's.
+  bool _isOwnProfile(BuildContext context, String? profileUid) {
+    final uid = int.tryParse(profileUid ?? '');
+    return uid != null && uid == context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+  }
+
   /// The two group images with their colored names, side by side, each wrapping under the other when narrow.
   Widget? _buildUserGroupSection(BuildContext context, ProfileState state) {
     final tr = context.t.profilePage;
@@ -780,6 +787,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
 
       ?userGroup,
+      if (_isOwnProfile(context, userProfile.uid)) UserGroupProgressSection(key: ValueKey(userProfile.uid)),
 
       // Secondary title of the profile owner.
       _ProfileSecondaryTitle(parsedUrl: state.secondaryTitleUrl, profileUid: int.tryParse(userProfile.uid ?? '')),

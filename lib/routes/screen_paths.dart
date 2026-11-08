@@ -74,11 +74,17 @@ class ScreenPaths {
   /// Page to switch current user's user group.
   static const String switchUserGroup = '/switchUserGroup';
 
+  /// Credits table of the user groups and the progress of the current account towards the next one.
+  static const String userGroupProgress = '/userGroupProgress';
+
   /// Page to switch current user's title.
   static const String switchTitle = '/switchTitle';
 
   /// Native secondary title shop.
   static const String titleShop = '/titleShop';
+
+  /// The forum's magic shop and the account's magic items.
+  static const String magicCenter = '/magicCenter';
 
   /// Local block list and server notice ignore rules of the current account.
   static const String userBlock = '/userBlock';
@@ -88,6 +94,9 @@ class ScreenPaths {
 
   /// Read-only medal catalogue.
   static const String medalCenter = '/medalCenter';
+
+  /// The forum's rankings.
+  static const String ranklist = '/ranklist';
 
   /// Common entry of the medal centre, the current account's titles and the title shop.
   static const String medalTitleHub = '/medalTitleHub';
@@ -106,6 +115,9 @@ class ScreenPaths {
 
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
+
+  /// The forum's task center: tasks to apply for, in progress and completed.
+  static const String taskCenter = '/taskCenter';
 
   /// The pokemon center (宠物中心): my pokemon, healing, inventory and shop.
   static const String pokemon = '/pokemon';
@@ -145,6 +157,9 @@ class ScreenPaths {
 
   /// Settings page for thread card appearance.
   static const settingsThreadAppearance = NestedPath._('threadAppearance', settings);
+
+  /// Settings page for the order and visibility of the homepage blocks.
+  static const settingsHomeLayout = NestedPath._('homeLayout', settings);
 
   /// Thread page.
   ///
@@ -263,7 +278,8 @@ class ScreenPaths {
   ///
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
   ///
-  /// Query parameters: `uid` or `username` of the user; none for the current user.
+  /// Query parameters: `uid` or `username` of the user; none for the current user. `view=visitor` lists the recent
+  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
   static const String friend = '/friend';
 
   /// The blogs and the albums of a member, a tab each.
@@ -543,6 +559,9 @@ class DialogPaths {
 
   /// Dialog showing the progress of saving the favorites offline or updating the offline copies.
   static const String offlineBatch = '/dialog/offlineBatch';
+
+  /// Box to jump to a thread, forum, user or search by typing (Ctrl+K).
+  static const String quickOpen = '/dialog/quickOpen';
 
   /// Dialog to show help message of thread card.
   static const String threadCardHelp = '/dialog/threadCardHelp';
