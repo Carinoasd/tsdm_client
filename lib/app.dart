@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/checkin/repository/auto_checkin_repository.
 import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
+import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
@@ -642,6 +643,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                     )
                   : null,
             )..start(),
+            lazy: false,
+          ),
+          // The floor bookmarks of the current account: the floors mark theirs, the thread page and "my" list them.
+          BlocProvider(
+            create: (context) => FloorBookmarkCubit(store: getIt(), authenticationRepository: context.repo()),
             lazy: false,
           ),
           // Tells once per run which stored accounts have an expired login, and again when the account in use

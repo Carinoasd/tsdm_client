@@ -319,6 +319,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Open every web link in the in-app browser, the links to other sites too (platforms with a web view only).
   inAppBrowserForAll<bool>(name: 'inAppBrowserForAll', type: bool, defaultValue: false),
 
+  /// With [crossDeviceSync], keep the floor bookmarks of the account on every device too.
+  crossDeviceSyncBookmarks<bool>(name: 'crossDeviceSyncBookmarks', type: bool, defaultValue: true),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',

@@ -264,6 +264,7 @@
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
       "points": "积分",
@@ -350,7 +351,8 @@
         "title": "跨设备同步",
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
-        "drafts": "本机草稿"
+        "drafts": "本机草稿",
+        "bookmarks": "楼层书签"
       },
       "loginDevices": "登录设备"
     },
@@ -3588,6 +3590,16 @@
     "hoursMinutes": "$hours 小时 $minutes 分",
     "minutes": "$minutes 分",
     "seconds": "$seconds 秒"
+  },
+  "floorBookmark": {
+    "title": "书签",
+    "add": "加书签",
+    "edit": "编辑书签",
+    "note": "备注",
+    "remove": "删除",
+    "removeConfirm": "删除这个书签？",
+    "empty": "没有书签",
+    "needLogin": "登录后可以查看书签。"
   },
   "localDraft": {
     "title": "本机草稿",

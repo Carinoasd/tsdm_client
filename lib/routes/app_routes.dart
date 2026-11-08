@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
+import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
@@ -262,6 +263,7 @@ final List<RouteBase> _appRoutes = [
     ),
   ),
   AppRoute(path: ScreenPaths.offlineThreads, builder: (state) => const OfflineThreadsPage()),
+  AppRoute(path: ScreenPaths.floorBookmarks, builder: (_) => const FloorBookmarkPage()),
   AppRoute(
     path: ScreenPaths.friend,
     builder: (state) =>

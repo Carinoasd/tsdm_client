@@ -264,6 +264,7 @@
       "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
+      "bookmarks": "Bookmarks",
       "messages": "Messages",
       "friends": "Friends",
       "points": "Points",
@@ -350,7 +351,8 @@
         "title": "Sync across devices",
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
-        "drafts": "Local drafts"
+        "drafts": "Local drafts",
+        "bookmarks": "Floor bookmarks"
       },
       "loginDevices": "Login devices"
     },
@@ -3588,6 +3590,16 @@
     "hoursMinutes": "$hours h $minutes min",
     "minutes": "$minutes min",
     "seconds": "$seconds s"
+  },
+  "floorBookmark": {
+    "title": "Bookmarks",
+    "add": "Add bookmark",
+    "edit": "Edit bookmark",
+    "note": "Note",
+    "remove": "Delete",
+    "removeConfirm": "Delete this bookmark?",
+    "empty": "No bookmarks",
+    "needLogin": "Log in to see your bookmarks."
   },
   "localDraft": {
     "title": "Local drafts",

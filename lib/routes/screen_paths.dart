@@ -253,6 +253,9 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&do=favorite&type=thread
   static const String favorite = '/favorite';
 
+  /// Page listing the floor bookmarks of the current account, by thread.
+  static const String floorBookmarks = '/floorBookmarks';
+
   /// Page listing the threads kept for reading without network ("離線副本"), with the update of all of them.
   static const String offlineThreads = '/offlineThreads';
 
@@ -539,6 +542,9 @@ class DialogPaths {
 
   /// Dialog asking the optional note of a new favorite.
   static const String favoriteNote = '/dialog/favoriteNote';
+
+  /// Dialog asking the note of a floor bookmark, or removing it.
+  static const String floorBookmark = '/dialog/floorBookmark';
 
   /// Dialog showing a red packet in a thread.
   static const String redPacket = '/dialog/redPacket';
