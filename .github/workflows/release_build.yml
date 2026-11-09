@@ -133,6 +133,15 @@ jobs:
         run: |
           flutter pub get
           dart ./Makefile.dart
+      - name: Gradle distribution fallback
+        # GitHub's release downloads (services.gradle.org redirects there) time out now and then: take a mirror then.
+        run: |
+          url=$(grep -oP '^distributionUrl=\K.*' android/gradle/wrapper/gradle-wrapper.properties | sed 's#\\##g')
+          if ! curl -fsSL --max-time 60 -r 0-0 -o /dev/null "$url"; then
+            echo "gradle distribution unreachable at $url, using a mirror"
+            sed -i 's#https\\://services.gradle.org/distributions/#https\\://mirrors.cloud.tencent.com/gradle/#' android/gradle/wrapper/gradle-wrapper.properties
+            grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
+          fi
       - name: Setup Android sign key
         run: |
           echo '${{ secrets.KEYSTORE }}' | base64 --decode > android/app/key.jks
