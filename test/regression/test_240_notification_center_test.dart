@@ -886,6 +886,33 @@ void main() {
       expect(router.state.uri.queryParameters['noticeType'], '${NoticeType.reply.index}');
     });
 
+    testWidgets('a touch on a link in the content opens its page once, read once (GitHub #339)', (tester) async {
+      final (router, notifications) = await open(tester);
+      // On a phone the link opens when the touch ends (its long press recognizer is cancelled), then the card's ink
+      // well wins the touch as a tap. The host runs the desktop recognizer, which takes the touch itself, so the
+      // card tap of the same touch is fired by hand right after, as the gesture arena does on a phone.
+      await tester.tapOnText(find.textRange.ofSubstring('合成主题 甲'));
+      tester.widget<InkWell>(find.descendant(of: card(1), matching: find.byType(InkWell)).first).onTap!();
+      await _settle(tester);
+      expect(router.state.uri.path, ScreenPaths.threadV1);
+      expect(router.state.uri.queryParameters['pid'], '7001');
+      expect(
+        notifications.events.whereType<NotificationMarkReadRequested>().map((e) => e.recordMark),
+        [const RecordMarkNotice(uid: 1000, nid: 1, alreadyRead: true)],
+      );
+      // One back leaves the thread.
+      router.pop();
+      await _settle(tester);
+      expect(router.state.uri.path, '/');
+      expect(find.byKey(const ValueKey('notice-card-1')), findsOneWidget);
+      // A later tap on the card is a new touch: it opens the floor again (once the pop transition is over, else the
+      // tap lands on the leaving page).
+      await _settle(tester, rounds: 12);
+      await tester.tap(find.text('回复 · 3 分钟前'));
+      await _settle(tester);
+      expect(router.state.uri.path, ScreenPaths.threadV1);
+    });
+
     testWidgets('an older plugin: the generic card still opens its link', (tester) async {
       final (router, _) = await open(
         tester,

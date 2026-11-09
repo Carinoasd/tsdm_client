@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -72,6 +73,10 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   /// What the card shows of the notice, read once per notice.
   late NoticeInfo _info;
 
+  /// Whether a link in the content of the notice opened its page in the touch being handled, see [_onTap]; cleared
+  /// after the frame that follows.
+  bool _contentLinkOpened = false;
+
   @override
   void initState() {
     super.initState();
@@ -118,12 +123,32 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
 
   /// A tap on the card: the floor (or thread) the notice links, else the profile of the user of a friend, poke or wall
   /// notice; the notice is read either way.
+  ///
+  /// A touch on a link in the content opens that link and reaches here too, on mobile: the link is a long press
+  /// recognizer that opens its page when the touch ends before the long press (`onLongPressCancel`), which is not a
+  /// claim on the gesture, so the card's ink well wins the touch as a tap right after, in the same pointer event.
+  /// The link's page is already pushed and the notice read by then (GitHub #339: the thread page twice, two backs
+  /// to leave it): nothing is done again.
   Future<void> _onTap() async {
+    if (_contentLinkOpened) {
+      return;
+    }
     final url = _tapUrlOf(_info);
     _onUrlLaunched(markAsRead: true);
     if (url != null) {
       await context.dispatchAsUrl(url);
     }
+  }
+
+  /// A link in the content opens its page: the notice is read, and the card tap of the same touch does nothing.
+  ///
+  /// The card tap comes in the same pointer event, before any frame; the flag is cleared after the next one.
+  void _onContentUrlLaunched() {
+    _contentLinkOpened = true;
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _contentLinkOpened = false)
+      ..scheduleFrame();
+    _onUrlLaunched(markAsRead: true);
   }
 
   Future<void> _openAuthor() async {
@@ -341,10 +366,7 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
           }
         },
       ),
-      body: MunchedHtml(
-        widget.data.data,
-        options: MunchOptions(onUrlLaunched: () => _onUrlLaunched(markAsRead: true)),
-      ),
+      body: MunchedHtml(widget.data.data, options: MunchOptions(onUrlLaunched: _onContentUrlLaunched)),
     );
   }
 }

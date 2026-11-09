@@ -2076,7 +2076,8 @@ final class _Muncher with LoggerMixin {
   ///
   /// An email address is shown first (copy, or hand to the mail app) instead of being launched, see
   /// [showEmailBottomSheet]. Everything else is reported through [MunchOptions.onUrlLaunched] before navigating: the
-  /// pushed page pops much later, if ever.
+  /// pushed page pops much later, if ever. The report is synchronous, before the first `await`: a card around the
+  /// content tells the tap of the same touch apart by it (`NoticeCardV2`, GitHub #339).
   Future<void> _openUrl(String url) async {
     options.onUrlLaunched?.call();
     if (url.startsWith('mailto:')) {
