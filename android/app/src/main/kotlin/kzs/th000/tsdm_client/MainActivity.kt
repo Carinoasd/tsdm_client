@@ -134,11 +134,9 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 initialShareIntent = launch
             }
         }
-        // configureFlutterEngine ran in super.onCreate, before the launch was read: push it now.
-        val engine = flutterEngine
-        if (attachedToRunningDart && engine != null) {
-            pushLaunchToRunningDart(engine)
-        }
+        // A FlutterFragmentActivity configures its engine when its fragment attaches, after onCreate: the launch read
+        // above is pushed at the end of configureFlutterEngine. Reading `flutterEngine` here would throw: the
+        // fragment's delegate does not exist yet.
     }
 
     /** Whether this activity runs on a Dart started by an activity before (see [lastEngine]). */
@@ -219,6 +217,10 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
             }
         }
         attachedToRunningDart = dartRunning
+        // The launch intent was read in onCreate, before this ran (see there): give it to the Dart already running.
+        if (dartRunning) {
+            pushLaunchToRunningDart(flutterEngine)
+        }
     }
 
     /**
