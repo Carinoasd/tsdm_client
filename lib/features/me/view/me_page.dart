@@ -637,6 +637,8 @@ class _EntryTile extends StatelessWidget {
     // The full label on hover or a long press: one row of many tiles may cut a long one.
     return Tooltip(
       message: entry.label,
+      // The label of the tile already says it to screen readers.
+      excludeFromSemantics: true,
       child: Material(
         key: entry.key,
         color: colorScheme.surfaceContainerHigh,
