@@ -609,7 +609,8 @@ class _EntryGrid extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               const spacing = 8.0;
-              final width = (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              // A hair narrower: the rounding of the division must not push the last tile of a row to the next one.
+              final width = (constraints.maxWidth - spacing * (columns - 1)) / columns - 0.01;
               return Wrap(
                 spacing: spacing,
                 runSpacing: spacing,
