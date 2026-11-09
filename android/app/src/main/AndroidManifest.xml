@@ -51,6 +51,8 @@
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize">
             <!-- 添加这行：禁用 Flutter 引擎的自动 Deep Link 处理，改为由 MainActivityImpl 主动获取 -->
+            <!-- The four launcher aliases below carry the same meta-data: Flutter reads it from the component launched.
+                 Change it here and there together. -->
             <meta-data
                     android:name="flutter_deeplinking_enabled"
                     android:value="false" />
