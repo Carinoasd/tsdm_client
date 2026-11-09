@@ -83,6 +83,9 @@
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher">
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <!-- Read from the component launched: an alias must carry what MainActivityImpl carries. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -95,6 +98,9 @@
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_dark">
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <!-- Read from the component launched: an alias must carry what MainActivityImpl carries. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -107,6 +113,9 @@
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_mono">
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <!-- Read from the component launched: an alias must carry what MainActivityImpl carries. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -119,6 +128,9 @@
                 android:exported="true"
                 android:icon="@mipmap/ic_launcher_pink">
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <!-- Read from the component launched: an alias must carry what MainActivityImpl carries. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
