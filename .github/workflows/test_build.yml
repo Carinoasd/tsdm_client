@@ -160,6 +160,31 @@ jobs:
         run: |
           flutter pub get
           dart ./Makefile.dart
+      - name: Kotlin artifacts from a Maven mirror
+        # Maven Central hands the big Kotlin jars over to GitHub Releases, which times out now and then (504): resolve
+        # org.jetbrains.kotlin from a mirror of Central instead, in every build of the invocation (Flutter's gradle
+        # plugin included).
+        shell: bash
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/kotlin-mirror.gradle <<'GRADLE'
+          def mirror = 'https://maven.aliyun.com/repository/central'
+          def route = { RepositoryHandler handler ->
+            handler.exclusiveContent {
+              forRepository { handler.maven { url = mirror } }
+              filter { includeGroup 'org.jetbrains.kotlin' }
+            }
+          }
+          settingsEvaluated { settings ->
+            route(settings.pluginManagement.repositories)
+            route(settings.dependencyResolutionManagement.repositories)
+          }
+          allprojects {
+            route(buildscript.repositories)
+            route(repositories)
+          }
+          GRADLE
+          cat ~/.gradle/init.d/kotlin-mirror.gradle
       - name: Gradle distribution fallback
         # GitHub's release downloads (services.gradle.org redirects there) time out now and then: take a mirror then.
         run: |
