@@ -249,7 +249,9 @@
   },
   "mePage": {
     "title": "我的",
-    "mine": "我的帳號",
+    "content": "內容",
+    "social": "社交",
+    "stats": "統計",
     "services": "論壇服務",
     "app": "應用程式",
     "switchAccount": "切換帳號",
