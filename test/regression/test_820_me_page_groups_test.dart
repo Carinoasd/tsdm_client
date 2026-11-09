@@ -254,6 +254,7 @@ void main() {
         // Loading the translations is real async work: out of the fake clock of the test.
         await tester.runAsync(() => LocaleSettings.setLocale(locale));
         await pump(tester, guest: false, size: size);
+        double? tileWidth;
         for (final (group, keys) in [
           ('me-group-content', _content),
           ('me-group-social', _social),
@@ -261,23 +262,23 @@ void main() {
           ('me-group-services', [for (final (key, _, _) in _services) key]),
         ]) {
           await expectGroup(tester, group, keys);
+          // Four on a row on phones, five in wider windows: the tile after the last of a row starts the next one.
+          final columns = name == 'narrow' ? 4 : 5;
           final rows = {for (final key in keys) tester.getTopLeft(find.byKey(ValueKey(key))).dy};
-          if (name == 'narrow') {
-            // Four on a row: the fifth starts the next one.
-            expect(rows, hasLength((keys.length + 3) ~/ 4), reason: group);
-            if (keys.length > 4) {
-              expect(
-                tester.getTopLeft(find.byKey(ValueKey(keys[4]))).dx,
-                tester.getTopLeft(find.byKey(ValueKey(keys[0]))).dx,
-                reason: group,
-              );
-            }
-          } else {
-            // All the tiles of a group on one row.
-            expect(rows, hasLength(1), reason: group);
+          expect(rows, hasLength((keys.length + columns - 1) ~/ columns), reason: group);
+          if (keys.length > columns) {
+            expect(
+              tester.getTopLeft(find.byKey(ValueKey(keys[columns]))).dx,
+              tester.getTopLeft(find.byKey(ValueKey(keys[0]))).dx,
+              reason: group,
+            );
           }
-          // Every label of the Chinese translations shown whole: at most two lines, nothing cut.
-          if (locale != AppLocale.en) {
+          // Every tile as wide as those of the first group, a short group included.
+          tileWidth ??= tester.getSize(find.byKey(ValueKey(keys.first))).width;
+          expect(tester.getSize(find.byKey(ValueKey(keys.last))).width, moreOrLessEquals(tileWidth), reason: group);
+          // Every label shown whole, at most two lines. English only at full width: every glyph of the test font is as
+          // wide as it is high, a long word such as "statistics" takes twice its real width.
+          if (locale != AppLocale.en || name == 'wide') {
             for (final key in keys) {
               final labels = find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text));
               final paragraph = tester.renderObject<RenderParagraph>(

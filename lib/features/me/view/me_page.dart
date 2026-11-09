@@ -26,7 +26,7 @@ import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:universal_html/parsing.dart';
 
-/// Width of the page (before its paddings) from which each group of entries fits on one row.
+/// Width of the page (before its paddings) from which the entries go five on a row instead of four.
 const _wideEntriesWidth = 600.0;
 
 /// An entry of the "me" tab: icon, label and what a tap does.
@@ -588,7 +588,7 @@ class _GuestCard extends StatelessWidget {
   }
 }
 
-/// A group of entries as a grid of tiles: four on a row on phones, all of them on one row in wider windows.
+/// A group of entries as a grid of tiles: four on a row on phones, five in wider windows, every tile the same width.
 class _EntryGrid extends StatelessWidget {
   const _EntryGrid({required this.title, required this.icon, required this.entries, required this.wide, super.key});
 
@@ -599,7 +599,7 @@ class _EntryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final columns = wide ? entries.length : 4;
+    final columns = wide ? 5 : 4;
     return AppSurface(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       child: Column(
@@ -634,7 +634,7 @@ class _EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // The full label on hover or a long press: one row of many tiles may cut a long one.
+    // The full label on hover or a long press: a narrow tile may cut a long one.
     return Tooltip(
       message: entry.label,
       // The label of the tile already says it to screen readers.
