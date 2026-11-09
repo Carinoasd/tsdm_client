@@ -139,8 +139,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         // fragment's delegate does not exist yet.
     }
 
-    /** Whether this activity runs on a Dart started by an activity before (see [lastEngine]). */
-    private var attachedToRunningDart = false
+    /** The deep link channel of the engine, set in [configureFlutterEngine]; null until the fragment attached. */
+    private var deepLinkChannel: MethodChannel? = null
 
     /** The audio service's engine (just_audio_background): the player plays in it with the app in the background. */
     override fun provideFlutterEngine(context: Context): FlutterEngine = AudioServicePlugin.getFlutterEngine(context)
@@ -185,8 +185,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         homeWidget.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         // 处理 Flutter 端对深度链接的查询
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
-            .setMethodCallHandler { call, result ->
+        deepLinkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL).also {
+            it.setMethodCallHandler { call, result ->
                 if (call.method == GET_INITIAL_LINK) {
                     result.success(initialDeepLink)
                     initialDeepLink = null // 取过一次就清空，避免重复跳转
@@ -194,6 +194,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                     result.notImplemented()
                 }
             }
+        }
 
         // Content other apps shared to this one: asked once at a cold start, pushed on a warm one (onNewIntent).
         shareChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ShareIntents.CHANNEL).also {
@@ -216,10 +217,11 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 }
             }
         }
-        attachedToRunningDart = dartRunning
         // The launch intent was read in onCreate, before this ran (see there): give it to the Dart already running.
+        // (A recreated activity, with a saved state, attaches its fragment inside super.onCreate, so this runs before
+        // onCreate read the intent: that launch is a replayed one, nothing of it is pushed.)
         if (dartRunning) {
-            pushLaunchToRunningDart(flutterEngine)
+            pushLaunchToRunningDart()
         }
     }
 
@@ -227,12 +229,15 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
      * The link and the share this activity was launched with, pushed to a Dart that runs since an activity before (see
      * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut.
      */
-    private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine) {
+    private fun pushLaunchToRunningDart() {
         dartTakesShares = true
         shortcuts.pushPending()
-        initialDeepLink?.let {
-            initialDeepLink = null
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL).invokeMethod("onDeepLink", it)
+        val links = deepLinkChannel
+        if (links != null) {
+            initialDeepLink?.let {
+                initialDeepLink = null
+                links.invokeMethod("onDeepLink", it)
+            }
         }
         initialShareIntent?.let { pending ->
             initialShareIntent = null
@@ -259,9 +264,11 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         shortcuts.onNewIntent(intent)
         if (intent.action == Intent.ACTION_VIEW) {
             val link = intent.dataString
-            if (link != null && flutterEngine != null) {
-                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
-                    .invokeMethod("onDeepLink", link)
+            // Before the fragment attached there is no channel (and reading `flutterEngine` would throw): kept for
+            // Dart's getInitialLink, like a cold start's.
+            val channel = deepLinkChannel
+            if (link != null) {
+                if (channel == null) initialDeepLink = link else channel.invokeMethod("onDeepLink", link)
             }
         }
         if (ShareIntents.isShare(intent)) {
