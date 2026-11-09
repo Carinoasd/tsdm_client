@@ -905,6 +905,11 @@ void main() {
       await _settle(tester);
       expect(router.state.uri.path, '/');
       expect(find.byKey(const ValueKey('notice-card-1')), findsOneWidget);
+      // A later tap on the card is a new touch: it opens the floor again.
+      await _settle(tester, rounds: 12);
+      await tester.tap(find.text('回复 · 3 分钟前'));
+      await _settle(tester);
+      expect(router.state.uri.path, ScreenPaths.threadV1);
     });
 
     testWidgets('an older plugin: the generic card still opens its link', (tester) async {

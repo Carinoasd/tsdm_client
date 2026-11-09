@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -72,11 +73,9 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   /// What the card shows of the notice, read once per notice.
   late NoticeInfo _info;
 
-  /// When a link in the content of the notice last opened its page, see [_onTap].
-  DateTime? _contentLinkOpenedAt;
-
-  /// How long after a link in the content opened its page a tap on the card is that same touch.
-  static const _contentLinkTapWindow = Duration(milliseconds: 500);
+  /// Whether a link in the content of the notice opened its page in the touch being handled, see [_onTap]; cleared
+  /// after the frame that follows.
+  bool _contentLinkOpened = false;
 
   @override
   void initState() {
@@ -127,11 +126,11 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   ///
   /// A touch on a link in the content opens that link and reaches here too, on mobile: the link is a long press
   /// recognizer that opens its page when the touch ends before the long press (`onLongPressCancel`), which is not a
-  /// claim on the gesture, so the card's ink well wins the touch as a tap right after. The link's page is already
-  /// pushed and the notice read by then (GitHub #339: the thread page twice, two backs to leave it): nothing is
-  /// done again.
+  /// claim on the gesture, so the card's ink well wins the touch as a tap right after, in the same pointer event.
+  /// The link's page is already pushed and the notice read by then (GitHub #339: the thread page twice, two backs
+  /// to leave it): nothing is done again.
   Future<void> _onTap() async {
-    if (_contentLinkJustOpened()) {
+    if (_contentLinkOpened) {
       return;
     }
     final url = _tapUrlOf(_info);
@@ -141,15 +140,14 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     }
   }
 
-  /// Whether a link in the content opened its page within [_contentLinkTapWindow]: the same touch, see [_onTap].
-  bool _contentLinkJustOpened() {
-    final at = _contentLinkOpenedAt;
-    return at != null && DateTime.now().difference(at) < _contentLinkTapWindow;
-  }
-
   /// A link in the content opens its page: the notice is read, and the card tap of the same touch does nothing.
+  ///
+  /// The card tap comes in the same pointer event, before any frame; the flag is cleared after the next one.
   void _onContentUrlLaunched() {
-    _contentLinkOpenedAt = DateTime.now();
+    _contentLinkOpened = true;
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _contentLinkOpened = false)
+      ..scheduleFrame();
     _onUrlLaunched(markAsRead: true);
   }
 
