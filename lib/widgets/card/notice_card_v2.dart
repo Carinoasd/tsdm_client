@@ -72,6 +72,12 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   /// What the card shows of the notice, read once per notice.
   late NoticeInfo _info;
 
+  /// When a link in the content of the notice last opened its page, see [_onTap].
+  DateTime? _contentLinkOpenedAt;
+
+  /// How long after a link in the content opened its page a tap on the card is that same touch.
+  static const _contentLinkTapWindow = Duration(milliseconds: 500);
+
   @override
   void initState() {
     super.initState();
@@ -118,12 +124,33 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
 
   /// A tap on the card: the floor (or thread) the notice links, else the profile of the user of a friend, poke or wall
   /// notice; the notice is read either way.
+  ///
+  /// A touch on a link in the content opens that link and reaches here too, on mobile: the link is a long press
+  /// recognizer that opens its page when the touch ends before the long press (`onLongPressCancel`), which is not a
+  /// claim on the gesture, so the card's ink well wins the touch as a tap right after. The link's page is already
+  /// pushed and the notice read by then (GitHub #339: the thread page twice, two backs to leave it): nothing is
+  /// done again.
   Future<void> _onTap() async {
+    if (_contentLinkJustOpened()) {
+      return;
+    }
     final url = _tapUrlOf(_info);
     _onUrlLaunched(markAsRead: true);
     if (url != null) {
       await context.dispatchAsUrl(url);
     }
+  }
+
+  /// Whether a link in the content opened its page within [_contentLinkTapWindow]: the same touch, see [_onTap].
+  bool _contentLinkJustOpened() {
+    final at = _contentLinkOpenedAt;
+    return at != null && DateTime.now().difference(at) < _contentLinkTapWindow;
+  }
+
+  /// A link in the content opens its page: the notice is read, and the card tap of the same touch does nothing.
+  void _onContentUrlLaunched() {
+    _contentLinkOpenedAt = DateTime.now();
+    _onUrlLaunched(markAsRead: true);
   }
 
   Future<void> _openAuthor() async {
@@ -341,10 +368,7 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
           }
         },
       ),
-      body: MunchedHtml(
-        widget.data.data,
-        options: MunchOptions(onUrlLaunched: () => _onUrlLaunched(markAsRead: true)),
-      ),
+      body: MunchedHtml(widget.data.data, options: MunchOptions(onUrlLaunched: _onContentUrlLaunched)),
     );
   }
 }
