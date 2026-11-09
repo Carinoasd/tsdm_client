@@ -26,7 +26,7 @@ import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:universal_html/parsing.dart';
 
-/// Content width from which the entries of the account fit on one row.
+/// Width of the page (before its paddings) from which each group of entries fits on one row.
 const _wideEntriesWidth = 600.0;
 
 /// An entry of the "me" tab: icon, label and what a tap does.
@@ -634,30 +634,34 @@ class _EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      key: entry.key,
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(appInnerRadius),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: entry.onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 76),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(entry.icon, color: colorScheme.primary),
-                sizedBoxW4H4,
-                Text(
-                  entry.label,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ],
+    // The full label on hover or a long press: one row of many tiles may cut a long one.
+    return Tooltip(
+      message: entry.label,
+      child: Material(
+        key: entry.key,
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(appInnerRadius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: entry.onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 76),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(entry.icon, color: colorScheme.primary),
+                  sizedBoxW4H4,
+                  Text(
+                    entry.label,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

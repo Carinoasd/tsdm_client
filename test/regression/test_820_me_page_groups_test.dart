@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -230,6 +231,7 @@ void main() {
     for (final group in ['me-group-content', 'me-group-social', 'me-group-stats']) {
       expect(find.byKey(ValueKey(group)), findsNothing, reason: group);
     }
+    expect(find.byKey(const ValueKey('me-manage-accounts')), findsNothing);
     await expectGroup(tester, 'me-group-services', [for (final (key, _, _) in _services) key]);
     for (final (key, path, needLogin) in _services) {
       await reveal(tester, find.byKey(ValueKey(key)));
@@ -243,7 +245,11 @@ void main() {
   });
 
   for (final locale in [AppLocale.zhCn, AppLocale.zhTw, AppLocale.en]) {
-    for (final (name, size) in [('narrow', const Size(320, 640)), ('wide', const Size(1280, 800))]) {
+    for (final (name, size) in [
+      ('narrow', const Size(320, 640)),
+      ('narrowest wide', const Size(640, 800)),
+      ('wide', const Size(1280, 800)),
+    ]) {
       testWidgets('${locale.languageTag} $name: every group renders without overflow', (tester) async {
         // Loading the translations is real async work: out of the fake clock of the test.
         await tester.runAsync(() => LocaleSettings.setLocale(locale));
@@ -255,12 +261,30 @@ void main() {
           ('me-group-services', [for (final (key, _, _) in _services) key]),
         ]) {
           await expectGroup(tester, group, keys);
-          if (name == 'wide') {
-            // All the tiles of a group on one row.
-            final rows = {for (final key in keys) tester.getTopLeft(find.byKey(ValueKey(key))).dy};
-            expect(rows, hasLength(1), reason: group);
+          final rows = {for (final key in keys) tester.getTopLeft(find.byKey(ValueKey(key))).dy};
+          if (name == 'narrow') {
+            // Four on a row: the fifth starts the next one.
+            expect(rows, hasLength((keys.length + 3) ~/ 4), reason: group);
+            if (keys.length > 4) {
+              expect(
+                tester.getTopLeft(find.byKey(ValueKey(keys[4]))).dx,
+                tester.getTopLeft(find.byKey(ValueKey(keys[0]))).dx,
+                reason: group,
+              );
+            }
           } else {
-            expect(tester.getSize(find.byKey(ValueKey(keys.first))).width, lessThan(size.width / 4));
+            // All the tiles of a group on one row.
+            expect(rows, hasLength(1), reason: group);
+          }
+          // Every label of the Chinese translations shown whole: at most two lines, nothing cut.
+          if (locale != AppLocale.en) {
+            for (final key in keys) {
+              final labels = find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text));
+              final paragraph = tester.renderObject<RenderParagraph>(
+                find.descendant(of: labels.last, matching: find.byType(RichText)),
+              );
+              expect(paragraph.didExceedMaxLines, isFalse, reason: '$key $name');
+            }
           }
         }
         await reveal(tester, find.byKey(const ValueKey('me-about')));
