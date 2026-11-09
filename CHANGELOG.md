@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.53.2] - 2026-11-09
+
+### Fixed
+
+- Android：从桌面图标打开时顶端多出一条原生标题栏；App 开着时从外部打开论坛链接显示 Page Not Found。1.53.0 起桌面图标改由可切换图标的别名启动，Flutter 的主题与链接设置没有跟到别名上。
+- 网盘链接：蓝奏云补上 lanzoue.com 等子域。
+
 ## [1.53.1] - 2026-11-09
 
 ### Fixed

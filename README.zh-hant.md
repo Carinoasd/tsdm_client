@@ -16,7 +16,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.53.1（2026-11-09）
+## 最新更新：1.53.2（2026-11-09）
 
 - 閱讀：網盤連結一鍵複製提取碼、論壇帖子連結預覽卡、影片封面、投票長條圖、帖內音訊與網易雲播放、朗讀帖子、指定版塊自動沉浸式、閱讀排版、簡繁顯示、省流模式、多樓引用、樓層書籤、稍後閱讀、追蹤帖子、匯出 PDF。
 - 發帖：貼上或拖放圖片直接上傳，上傳前可裁切、打碼、旋轉；自訂表情包。
@@ -25,9 +25,9 @@
 - 版主：批次置頂、加精、關閉、提升、下沉、移動、刪除；禁言；警告標記。
 - 桌面：雙欄右側多分頁、分隔線可拖動、Ctrl+K 快速跳轉、論壇網頁在內建瀏覽器開啟並帶登入。
 - App：登入裝置管理（論壇接口插件 3.6.0 起）、App 鎖、WebDAV 備份、匯入字型檔、可換圖示、iOS 桌面小工具。
-- Android 建置編號為 166，可直接覆蓋之前的正式版與測試版。
+- Android 建置編號為 167，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.53.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.1) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.53.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.2) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 
