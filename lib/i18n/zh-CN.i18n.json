@@ -249,7 +249,9 @@
   },
   "mePage": {
     "title": "我的",
-    "mine": "我的账号",
+    "content": "内容",
+    "social": "社交",
+    "stats": "统计",
     "services": "论坛服务",
     "app": "应用",
     "switchAccount": "切换账号",

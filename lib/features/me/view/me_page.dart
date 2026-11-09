@@ -35,10 +35,11 @@ typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
 /// The "me" tab of the home shell: the account in use and every page of it, in one place.
 ///
 /// Up top the account card: avatar, name, user group (a tap opens the profile), the check-in of the day and the
-/// switch to another saved account. Under it the pages of the account (threads, favorites, history, the drafts kept on
-/// this device and the forum's drafts box, private messages, friends, points), then the services of the forum (medals
-/// and titles, activities, medal center, title shop, bank, pokemon center, achievements) and the app itself (accounts,
-/// settings, about).
+/// switch to another saved account. Under it the pages of the account in three grids: content (threads, favorites,
+/// bookmarks, history, the drafts kept on this device and the forum's drafts box), social (private messages, friends,
+/// visitors) and stats (points, check-ins, reading, ratings); then the services of the forum in the same grid (tasks,
+/// magic, bank, ranklist, activities, medal center, title shop, medals and titles, achievements, pokemon center) and
+/// the list of the app itself (accounts, settings, about).
 ///
 /// The settings were a tab of their own before; the whole settings page is one tap away here, nothing in it moved. The
 /// pages the side navigation of wide windows listed besides its tabs are entries here as well.
@@ -87,8 +88,8 @@ class _MePageState extends State<MePage> {
   void _open(String path, {Map<String, String> query = const {}}) =>
       unawaited(context.pushNamed(path, queryParameters: query));
 
-  /// The pages of the account in use.
-  List<_MeEntry> _accountEntries(BuildContext context) {
+  /// The pages of the account with what it wrote, kept and read.
+  List<_MeEntry> _contentEntries(BuildContext context) {
     final tr = context.t.mePage.entries;
     return [
       (
@@ -116,22 +117,16 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.floorBookmarks),
       ),
       (
-        key: const ValueKey('me-history'),
-        icon: Icons.history_outlined,
-        label: tr.history,
-        onTap: () => _open(ScreenPaths.threadVisitHistory),
-      ),
-      (
         key: const ValueKey('me-read-later'),
         icon: Icons.watch_later_outlined,
         label: tr.readLater,
         onTap: () => _open(ScreenPaths.readLater),
       ),
       (
-        key: const ValueKey('me-reading-stats'),
-        icon: Icons.bar_chart_outlined,
-        label: tr.readingStats,
-        onTap: () => _open(ScreenPaths.readingStats),
+        key: const ValueKey('me-history'),
+        icon: Icons.history_outlined,
+        label: tr.history,
+        onTap: () => _open(ScreenPaths.threadVisitHistory),
       ),
       // The drafts kept on this device while writing, and the drafts box of the forum (the third tab of "my threads"):
       // named apart so the one is not taken for the other.
@@ -147,6 +142,13 @@ class _MePageState extends State<MePage> {
         label: tr.drafts,
         onTap: () => _open(ScreenPaths.myThread, query: {'tab': 'drafts'}),
       ),
+    ];
+  }
+
+  /// The other users: messages, friends and visitors.
+  List<_MeEntry> _socialEntries(BuildContext context) {
+    final tr = context.t.mePage.entries;
+    return [
       // The private messages are a tab of the notifications.
       (
         key: const ValueKey('me-messages'),
@@ -169,6 +171,13 @@ class _MePageState extends State<MePage> {
         label: tr.visitors,
         onTap: () => _open(ScreenPaths.friend, query: {'view': 'visitor'}),
       ),
+    ];
+  }
+
+  /// The numbers of the account: points, check-ins, reading and ratings.
+  List<_MeEntry> _statsEntries(BuildContext context) {
+    final tr = context.t.mePage.entries;
+    return [
       (
         key: const ValueKey('me-points'),
         icon: Icons.show_chart_outlined,
@@ -182,6 +191,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.checkinCalendar),
       ),
       (
+        key: const ValueKey('me-reading-stats'),
+        icon: Icons.bar_chart_outlined,
+        label: tr.readingStats,
+        onTap: () => _open(ScreenPaths.readingStats),
+      ),
+      (
         key: const ValueKey('me-rating-stats'),
         icon: Icons.thumb_up_alt_outlined,
         label: tr.ratingStats,
@@ -190,108 +205,64 @@ class _MePageState extends State<MePage> {
     ];
   }
 
-  /// A row of the lists under the entries; with [needLogin] a guest gets the login page instead.
+  /// The services of the forum: the pages the side navigation listed besides its tabs, and the others of the account.
+  /// Listed for a guest too, a tap on one that needs an account asks for a login then.
+  List<_MeEntry> _serviceEntries(BuildContext context, {required bool loggedIn}) {
+    _MeEntry service(Key key, IconData icon, String label, String path, {bool needLogin = true}) => (
+      key: key,
+      icon: icon,
+      label: label,
+      onTap: () => _open(needLogin && !loggedIn ? ScreenPaths.login : path),
+    );
+    final t = context.t;
+    return [
+      service(const ValueKey('me-tasks'), Icons.task_alt, t.taskCenter.title, ScreenPaths.taskCenter),
+      service(const ValueKey('me-magic'), Icons.auto_fix_high_outlined, t.magicCenter.title, ScreenPaths.magicCenter),
+      service(const ValueKey('me-bank'), Icons.account_balance_outlined, t.bank.title, ScreenPaths.bank),
+      service(
+        const ValueKey('me-ranklist'),
+        Icons.leaderboard_outlined,
+        t.ranklistPage.title,
+        ScreenPaths.ranklist,
+        needLogin: false,
+      ),
+      service(const ValueKey('me-activities'), Icons.event_outlined, t.navigation.activities, ScreenPaths.activities),
+      service(
+        const ValueKey('me-medal-center'),
+        Icons.military_tech_outlined,
+        t.medalCenter.title,
+        ScreenPaths.medalCenter,
+      ),
+      service(const ValueKey('me-title-shop'), Icons.sell_outlined, t.titleShop.title, ScreenPaths.titleShop),
+      service(
+        const ValueKey('me-medals'),
+        Icons.workspace_premium_outlined,
+        t.medalTitleHub.title,
+        ScreenPaths.medalTitleHub,
+      ),
+      service(
+        const ValueKey('me-achievements'),
+        Icons.emoji_events_outlined,
+        t.achievementsPage.title,
+        ScreenPaths.achievements,
+      ),
+      service(const ValueKey('me-pokemon'), Icons.catching_pokemon, t.pokemon.title, ScreenPaths.pokemon),
+    ];
+  }
+
+  /// A row of the app's list.
   Widget _row(
     BuildContext context, {
     required Key key,
     required IconData icon,
     required String title,
-    String? path,
-    bool needLogin = false,
+    required String path,
   }) => SectionListTile(
     key: key,
     leading: Icon(icon),
     title: Text(title),
     trailing: const Icon(Icons.chevron_right),
-    onTap: path == null ? null : () => _open(needLogin ? ScreenPaths.login : path),
-  );
-
-  /// The services of the forum: the pages the side navigation listed besides its tabs, and the others of the account.
-  /// Listed for a guest too, a tap asks for a login then.
-  Widget _buildServices(BuildContext context, {required bool loggedIn}) => AppTileGroup(
-    title: context.t.mePage.services,
-    icon: Icons.apps_outlined,
-    children: [
-      _row(
-        context,
-        key: const ValueKey('me-medals'),
-        icon: Icons.workspace_premium_outlined,
-        title: context.t.medalTitleHub.title,
-        path: ScreenPaths.medalTitleHub,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-activities'),
-        icon: Icons.event_outlined,
-        title: context.t.navigation.activities,
-        path: ScreenPaths.activities,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-tasks'),
-        icon: Icons.task_alt,
-        title: context.t.taskCenter.title,
-        path: ScreenPaths.taskCenter,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-medal-center'),
-        icon: Icons.military_tech_outlined,
-        title: context.t.medalCenter.title,
-        path: ScreenPaths.medalCenter,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-title-shop'),
-        icon: Icons.sell_outlined,
-        title: context.t.titleShop.title,
-        path: ScreenPaths.titleShop,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-magic'),
-        icon: Icons.auto_fix_high_outlined,
-        title: context.t.magicCenter.title,
-        path: ScreenPaths.magicCenter,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-bank'),
-        icon: Icons.account_balance_outlined,
-        title: context.t.bank.title,
-        path: ScreenPaths.bank,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-pokemon'),
-        icon: Icons.catching_pokemon,
-        title: context.t.pokemon.title,
-        path: ScreenPaths.pokemon,
-        needLogin: !loggedIn,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-ranklist'),
-        icon: Icons.leaderboard_outlined,
-        title: context.t.ranklistPage.title,
-        path: ScreenPaths.ranklist,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-achievements'),
-        icon: Icons.emoji_events_outlined,
-        title: context.t.achievementsPage.title,
-        path: ScreenPaths.achievements,
-        needLogin: !loggedIn,
-      ),
-    ],
+    onTap: () => _open(path),
   );
 
   /// The app: the accounts saved on this device (with an account), the settings and about.
@@ -337,7 +308,9 @@ class _MePageState extends State<MePage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final padding = appCenteredPadding(constraints.maxWidth, maxWidth: appFormMaxWidth);
-            final gap = constraints.maxWidth < _wideEntriesWidth ? appSurfaceGapCompact + 4 : appSurfaceGap + 4;
+            final wide = constraints.maxWidth >= _wideEntriesWidth;
+            final gap = wide ? appSurfaceGap + 4 : appSurfaceGapCompact + 4;
+            final tr = context.t.mePage;
             return ListView(
               key: const ValueKey('me-page-list'),
               controller: _scrollController,
@@ -346,15 +319,25 @@ class _MePageState extends State<MePage> {
                 if (account case final UserLoginInfo user) ...[
                   _AccountCard(user: user),
                   SizedBox(height: gap),
-                  _EntryGrid(
-                    title: context.t.mePage.mine,
-                    entries: _accountEntries(context),
-                    wide: constraints.maxWidth >= _wideEntriesWidth,
-                  ),
-                ] else
+                  for (final (key, title, icon, entries) in [
+                    ('me-group-content', tr.content, Icons.article_outlined, _contentEntries(context)),
+                    ('me-group-social', tr.social, Icons.people_outline, _socialEntries(context)),
+                    ('me-group-stats', tr.stats, Icons.insights_outlined, _statsEntries(context)),
+                  ]) ...[
+                    _EntryGrid(key: ValueKey(key), title: title, icon: icon, entries: entries, wide: wide),
+                    SizedBox(height: gap),
+                  ],
+                ] else ...[
                   const _GuestCard(),
-                SizedBox(height: gap),
-                _buildServices(context, loggedIn: loggedIn),
+                  SizedBox(height: gap),
+                ],
+                _EntryGrid(
+                  key: const ValueKey('me-group-services'),
+                  title: tr.services,
+                  icon: Icons.apps_outlined,
+                  entries: _serviceEntries(context, loggedIn: loggedIn),
+                  wide: wide,
+                ),
                 SizedBox(height: gap),
                 _buildApp(context, loggedIn: loggedIn),
               ],
@@ -605,11 +588,12 @@ class _GuestCard extends StatelessWidget {
   }
 }
 
-/// The pages of the account as a grid of tiles: four on a row on phones, all of them on one row in wider windows.
+/// A group of entries as a grid of tiles: four on a row on phones, all of them on one row in wider windows.
 class _EntryGrid extends StatelessWidget {
-  const _EntryGrid({required this.title, required this.entries, required this.wide});
+  const _EntryGrid({required this.title, required this.icon, required this.entries, required this.wide, super.key});
 
   final String title;
+  final IconData icon;
   final List<_MeEntry> entries;
   final bool wide;
 
@@ -621,7 +605,7 @@ class _EntryGrid extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppSectionHeader(title, icon: Icons.person_outline, padding: const EdgeInsets.fromLTRB(4, 8, 4, 8)),
+          AppSectionHeader(title, icon: icon, padding: const EdgeInsets.fromLTRB(4, 8, 4, 8)),
           LayoutBuilder(
             builder: (context, constraints) {
               const spacing = 8.0;

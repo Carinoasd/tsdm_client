@@ -249,7 +249,9 @@
   },
   "mePage": {
     "title": "Me",
-    "mine": "My account",
+    "content": "Content",
+    "social": "Social",
+    "stats": "Stats",
     "services": "Forum services",
     "app": "App",
     "switchAccount": "Switch account",
