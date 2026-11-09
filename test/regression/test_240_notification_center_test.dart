@@ -905,7 +905,8 @@ void main() {
       await _settle(tester);
       expect(router.state.uri.path, '/');
       expect(find.byKey(const ValueKey('notice-card-1')), findsOneWidget);
-      // A later tap on the card is a new touch: it opens the floor again.
+      // A later tap on the card is a new touch: it opens the floor again (once the pop transition is over, else the
+      // tap lands on the leaving page).
       await _settle(tester, rounds: 12);
       await tester.tap(find.text('回复 · 3 分钟前'));
       await _settle(tester);
