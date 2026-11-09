@@ -133,28 +133,31 @@ jobs:
         run: |
           flutter pub get
           dart ./Makefile.dart
-      - name: Kotlin artifacts from a Maven mirror
-        # Maven Central hands the big Kotlin jars over to GitHub Releases, which times out now and then (504): resolve
-        # org.jetbrains.kotlin from a mirror of Central instead, in every build of the invocation (Flutter's gradle
-        # plugin included).
+      - name: Maven Central through a mirror
+        # Maven Central hands the big Kotlin jars over to GitHub Releases, which times out now and then (504): every
+        # Central repository of the invocation (Flutter's gradle plugin included) is pointed at a mirror of Central.
         shell: bash
         run: |
           mkdir -p ~/.gradle/init.d
           cat > ~/.gradle/init.d/kotlin-mirror.gradle <<'GRADLE'
-          def mirror = 'https://maven.aliyun.com/repository/central'
-          def route = { RepositoryHandler handler ->
-            handler.exclusiveContent {
-              forRepository { handler.maven { url = mirror } }
-              filter { includeGroup 'org.jetbrains.kotlin' }
+          // Every Maven Central repository of every build in this invocation points at a mirror of Central instead:
+          // rewriting a URL adds no repository, so FAIL_ON_PROJECT_REPOS and exclusive-content rules are untouched.
+          def mirror = 'https://maven.aliyun.com/repository/central/'
+          def central = { String u -> u.contains('repo.maven.apache.org') || u.contains('repo1.maven.org') }
+          def reroute = { RepositoryHandler handler ->
+            handler.all { repo ->
+              if (repo instanceof MavenArtifactRepository && central(repo.url.toString())) {
+                repo.url = mirror
+              }
             }
           }
           settingsEvaluated { settings ->
-            route(settings.pluginManagement.repositories)
-            route(settings.dependencyResolutionManagement.repositories)
+            reroute(settings.pluginManagement.repositories)
+            reroute(settings.dependencyResolutionManagement.repositories)
           }
-          // Project repositories are not touched: settings.gradle forbids them (FAIL_ON_PROJECT_REPOS).
           allprojects {
-            route(buildscript.repositories)
+            reroute(buildscript.repositories)
+            reroute(repositories)
           }
           GRADLE
           cat ~/.gradle/init.d/kotlin-mirror.gradle
