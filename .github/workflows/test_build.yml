@@ -247,6 +247,16 @@ jobs:
           git submodule update --init --recursive --force
           flutter pub get
           dart ./Makefile.dart
+      - name: libmpv archive fallback
+        # media_kit downloads libmpv from GitHub Releases, which times out now and then: our copy is placed first
+        # (CMake keeps a file whose MD5 matches and skips the download).
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p build/windows/x64
+          gh release download assets-ci-1 --repo "$GITHUB_REPOSITORY" -p 'mpv-dev-x86_64-20230924-git-652a1dd.7z' -D build/windows/x64 --clobber \
+            || echo "fallback copy unavailable, CMake will download"
       - name: Build Windows
         run: flutter build windows --release
       - name: Pre Packing
