@@ -16,7 +16,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.53.0（2026-11-09）
+## 最新更新：1.53.1（2026-11-09）
 
 - 阅读：网盘链接一键复制提取码、论坛帖子链接预览卡、视频封面、投票长条图、帖内音频与网易云播放、朗读帖子、指定版块自动沉浸式、阅读排版、简繁显示、省流模式、多楼引用、楼层书签、稍后阅读、追踪帖子、导出 PDF。
 - 发帖：粘贴或拖放图片直接上传，上传前可裁切、打码、旋转；自定义表情包。
@@ -25,9 +25,9 @@
 - 版主：批量置顶、加精、关闭、提升、下沉、移动、删除；禁言；警告标记。
 - 桌面：双栏右侧多标签页、分隔线可拖动、Ctrl+K 快速跳转、论坛网页在内置浏览器打开并带登录。
 - App：登录设备管理（论坛接口插件 3.6.0 起）、App 锁、WebDAV 备份、导入字体文件、可换图标、iOS 桌面小组件。
-- Android 构建编号为 165，可直接覆盖之前的正式版与测试版。
+- Android 构建编号为 166，可直接覆盖之前的正式版与测试版。
 
-[下载 1.53.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.0) · [完整更新日志](./CHANGELOG.md)
+[下载 1.53.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.1) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.53.1] - 2026-11-09
+
+### Fixed
+
+- Android：1.53.0 一打开就退出（全新安装与覆盖升级都一样）。原因是 1.53.0 把入口换成了 FlutterFragmentActivity，启动时读 Flutter 引擎的时机早于引擎建立；现在启动链接与分享改在引擎接上之后再交给 App。
+
 ## [1.53.0] - 2026-11-09
 
 ### Added

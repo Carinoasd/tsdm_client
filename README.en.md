@@ -16,7 +16,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.53.0 (2026-11-09)
+## Latest update: 1.53.1 (2026-11-09)
 
 - Reading: cloud-drive links with one-tap codes, preview cards of forum thread links, video covers, poll bars, inline audio and NetEase Music playback, read-aloud, immersive reading per forum, reading typography, Traditional/Simplified display, data saver, multi-floor quoting, floor bookmarks, read later, followed threads, PDF export.
 - Posting: paste or drop images to upload, crop/blur/rotate before upload; custom emoji packs.
@@ -25,9 +25,9 @@
 - Moderators: batch stick, digest, close, bump, sink, move, delete; member ban; warned floors marked.
 - Desktop: tabs in the right pane, draggable divider, Ctrl+K quick open, forum web pages in the in-app browser with login.
 - App: login device management (forum API plugin 3.6.0+), app lock, WebDAV backup, font file import, alternate icons, iOS home widget.
-- Android build number 165, installs over earlier releases and test builds.
+- Android build number 166, installs over earlier releases and test builds.
 
-[Download 1.53.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.53.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.53.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
