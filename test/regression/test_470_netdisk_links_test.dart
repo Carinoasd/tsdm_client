@@ -23,6 +23,7 @@ void main() {
       'https://pan.baidu.com/s/1AbCdEfG?pwd=ab12': '百度网盘',
       'https://www.lanzou.com/iAbc': '蓝奏云',
       'https://tsdm.lanzoux.com/iAbc': '蓝奏云',
+      'https://tsdm.lanzoue.com/iAbc': '蓝奏云',
       'https://wwx.lanzn.com/iAbc': '蓝奏云',
       'https://pan.quark.cn/s/abcdef': '夸克网盘',
       'https://www.aliyundrive.com/s/abc': '阿里云盘',

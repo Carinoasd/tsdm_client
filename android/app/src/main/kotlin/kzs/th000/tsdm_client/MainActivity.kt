@@ -145,6 +145,13 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     /** The audio service's engine (just_audio_background): the player plays in it with the app in the background. */
     override fun provideFlutterEngine(context: Context): FlutterEngine = AudioServicePlugin.getFlutterEngine(context)
 
+    /**
+     * The app routes links itself ([onNewIntent], the deep link channel): the engine must never push them to go_router,
+     * whatever component was launched. The manifest says the same (`flutter_deeplinking_enabled`), but that meta-data is
+     * read from the launched component, and a launcher alias missing it once made the engine take the links.
+     */
+    override fun shouldHandleDeeplinking(): Boolean = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // See [lastEngine].
