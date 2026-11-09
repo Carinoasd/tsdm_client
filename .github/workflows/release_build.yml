@@ -152,9 +152,9 @@ jobs:
             route(settings.pluginManagement.repositories)
             route(settings.dependencyResolutionManagement.repositories)
           }
+          // Project repositories are not touched: settings.gradle forbids them (FAIL_ON_PROJECT_REPOS).
           allprojects {
             route(buildscript.repositories)
-            route(repositories)
           }
           GRADLE
           cat ~/.gradle/init.d/kotlin-mirror.gradle
