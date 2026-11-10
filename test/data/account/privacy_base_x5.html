@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>隐私筛选 -  测试论坛 -  Powered by Discuz!</title>
+<script type="text/javascript">var STYLEID = '2', discuz_uid = '31', cookiepre = 'xxxx_2132_';</script>
+</head>
+<body id="nv_home" class="pg_spacecp">
+<div id="wp" class="wp">
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0">
+<h1 class="mt">隐私筛选
+</h1>
+<!--don't close the div here--><ul class="tb cl">
+<li class="a"><a href="home.php?mod=spacecp&amp;ac=privacy&amp;op=base">个人隐私设置</a></li>
+<li><a href="home.php?mod=spacecp&amp;ac=privacy&amp;op=feed">个人动态发布设置</a></li>
+<li><a href="home.php?mod=spacecp&amp;ac=privacy&amp;op=filter">动态筛选</a></li>
+<li><a href="home.php?mod=spacecp&amp;ac=privacy&amp;op=other">平台用户间互动设置</a></li>
+</ul>
+<form method="post" autocomplete="off" action="home.php?mod=spacecp&amp;ac=privacy&amp;op=base">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+
+<p class="tbmu mbm">您可以完全控制哪些人可以看到您的主页上面的内容</p>
+<table cellspacing="0" cellpadding="0" class="tfm">
+<tr>
+<th>好友列表</th>
+<td>
+<select name="privacy[view][friend]">
+<option value="0">公开</option>
+<option value="1" selected>好友可见</option>
+<option value="2">保密</option>
+<option value="3">仅注册用户可见</option>
+</select>
+</td>
+</tr>
+<tr>
+<th>留言板</th>
+<td>
+<select name="privacy[view][wall]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="2">保密</option>
+<option value="3">仅注册用户可见</option>
+</select>
+</td>
+</tr>
+<tr>
+<th>动态</th>
+<td>
+<select name="privacy[view][home]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3">仅注册用户可见</option>
+</select>
+</td>
+</tr>
+<tr>
+<th>日志</th>
+<td>
+<select name="privacy[view][blog]">
+<option value="0">公开</option>
+<option value="1">好友可见</option>
+<option value="3" selected>仅注册用户可见</option>
+</select>
+<p class="d">本隐私设置仅在其他用户查看您主页时有效<br />相关浏览权限需要在发表时单独设置方可完全生效</p>
+</td>
+</tr>
+<tr>
+<th>相册</th>
+<td>
+<select name="privacy[view][album]">
+<option value="0" selected>公开</option>
+<option value="1">好友可见</option>
+<option value="3">仅注册用户可见</option>
+</select>
+<p class="d">本隐私设置仅在其他用户查看您主页时有效<br />相关浏览权限需要在发表时单独设置方可完全生效</p>
+</td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td><button type="submit" name="privacysubmit" value="true" class="pn pnc" /><strong>保存</strong></button></td>
+</tr>
+</table>
+
+</form>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

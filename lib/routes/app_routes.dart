@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/account_security/view/account_security_page.dart';
+import 'package:tsdm_client/features/account_security/view/privacy_settings_page.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -540,6 +542,8 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.manageAccount, builder: (_) => const ManageAccountPage()),
   AppRoute(path: ScreenPaths.loginDevices, builder: (_) => const LoginDevicesPage()),
+  AppRoute(path: ScreenPaths.accountSecurity, builder: (_) => const AccountSecurityPage()),
+  AppRoute(path: ScreenPaths.privacySettings, builder: (_) => const PrivacySettingsPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
   AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
   // 接收路由参数
@@ -553,7 +557,10 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(
     path: ScreenPaths.inAppBrowser,
-    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
+    builder: (state) => InAppBrowserPage(
+      Uri.tryParse(state.uri.queryParameters['url'] ?? ''),
+      guest: state.uri.queryParameters['guest'] == '1',
+    ),
   ),
 ];
 

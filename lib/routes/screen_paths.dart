@@ -430,6 +430,12 @@ class ScreenPaths {
   /// Page of the devices the account in use logged in on (plugin 3.6.0).
   static const String loginDevices = '/loginDevices';
 
+  /// Page of the password, the security question and the email of the account in use.
+  static const String accountSecurity = '/accountSecurity';
+
+  /// Page of the privacy settings of the account in use.
+  static const String privacySettings = '/privacySettings';
+
   /// Page to get app updates.
   static const String update = '/update';
 
@@ -444,6 +450,7 @@ class ScreenPaths {
   /// Query parameters:
   ///
   /// * url: The absolute url of the page, required.
+  /// * guest: `1` to open the page signed out (the sign up and the lost password pages, from the login page).
   static const String inAppBrowser = '/inAppBrowser';
 }
 

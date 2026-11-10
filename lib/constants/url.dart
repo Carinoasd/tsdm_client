@@ -15,8 +15,11 @@ const baseUrl = 'https://$baseHost';
 /// Homepage of tsdm.
 const homePage = '$baseUrl/forum.php';
 
-/// Page to register new account
-const signUpPage = '$baseUrl/member.php?mod=register.php';
+/// Page to register new account (`member.php?mod=<regname>`, the forum's own link on its login form).
+const signUpPage = '$baseUrl/member.php?mod=register';
+
+/// Page to get a lost password back: the login page with its lost password form shown.
+const lostPasswordPage = '$baseUrl/member.php?mod=logging&action=login&viewlostpw=1';
 
 /// User profile page for user with given uid.
 const uidProfilePage = '$baseUrl/home.php?mod=space&uid=';

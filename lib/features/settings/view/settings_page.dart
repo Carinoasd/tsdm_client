@@ -171,14 +171,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   Widget _buildAccountSection(BuildContext context, SettingsState state) => ValueListenableBuilder(
     valueListenable: TsdmAppApi.pluginInfo,
-    builder: (context, _, _) => _buildAccountGroup(
-      context,
-      state,
-      devices: TsdmAppApi.knowsDevice && context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null,
-    ),
+    builder: (context, _, _) {
+      final signedIn = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null;
+      return _buildAccountGroup(context, state, devices: TsdmAppApi.knowsDevice && signedIn, signedIn: signedIn);
+    },
   );
 
-  Widget _buildAccountGroup(BuildContext context, SettingsState state, {required bool devices}) {
+  Widget _buildAccountGroup(
+    BuildContext context,
+    SettingsState state, {
+    required bool devices,
+    required bool signedIn,
+  }) {
     final tr = context.t.settingsPage.accountSection;
     return AppTileGroup(
       title: tr.title,
@@ -190,6 +194,22 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        if (signedIn) ...[
+          SectionListTile(
+            key: const ValueKey('settings-account-security'),
+            leading: const Icon(Icons.password_outlined),
+            title: Text(tr.security),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.accountSecurity),
+          ),
+          SectionListTile(
+            key: const ValueKey('settings-privacy'),
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: Text(tr.privacy),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.privacySettings),
+          ),
+        ],
         // Only once the forum's plugin said it keeps the devices (`status`, plugin 3.6.0), for an account in use.
         if (devices)
           SectionListTile(
