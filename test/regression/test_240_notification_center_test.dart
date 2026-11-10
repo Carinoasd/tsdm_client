@@ -889,8 +889,9 @@ void main() {
     testWidgets('a touch on a link in the content opens its page once, read once (GitHub #339)', (tester) async {
       final (router, notifications) = await open(tester);
       // The card's own guard. On a phone the link's recognizer was a long press one, cancelled when the touch ended,
-      // and the card's ink well won the same touch as a tap; it now wins the touch itself (test_840). The card tap of
-      // the same touch is fired by hand right after, as the gesture arena did then.
+      // and the card's ink well won the same touch as a tap; the link's recognizer now wins the touch itself
+      // (test_840). The host runs the desktop recognizer, so the card tap of the same touch is fired by hand right
+      // after, as the gesture arena did on a phone then.
       await tester.tapOnText(find.textRange.ofSubstring('合成主题 甲'));
       tester.widget<InkWell>(find.descendant(of: card(1), matching: find.byType(InkWell)).first).onTap!();
       await _settle(tester);
