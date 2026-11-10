@@ -31,6 +31,9 @@ class RecycleBinPage extends StatefulWidget {
 class _RecycleBinPageState extends State<RecycleBinPage> {
   ModcpForum? _forum;
 
+  /// The forum chosen was not one the panel lists a bin of: ask, even when only one is offered.
+  bool _askForum = false;
+
   /// The forums the panel offered, last read.
   List<ModcpForum> _forums = const [];
 
@@ -75,6 +78,18 @@ class _RecycleBinPageState extends State<RecycleBinPage> {
     }
   }
 
+  /// Back to the forums to choose from, none chosen without asking this time.
+  void _onForumGone(List<ModcpForum> forums) {
+    if (!mounted || _forum == null) {
+      return;
+    }
+    setState(() {
+      _forums = forums;
+      _forum = null;
+      _askForum = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.modcp;
@@ -85,6 +100,7 @@ class _RecycleBinPageState extends State<RecycleBinPage> {
         body: ModcpForumChooser(
           repository: widget.repository,
           load: _loadForums,
+          pickSingle: !_askForum,
           onPick: (forum) => setState(() => _forum = forum),
         ),
       );
@@ -119,6 +135,7 @@ class _RecycleBinPageState extends State<RecycleBinPage> {
                 fid: forum.fid,
                 repository: widget.repository,
                 onForums: _onForums,
+                onForumGone: _onForumGone,
               ),
           ],
         ),
@@ -133,6 +150,7 @@ class _BinList extends StatefulWidget {
     required this.fid,
     required this.repository,
     required this.onForums,
+    required this.onForumGone,
     super.key,
   });
 
@@ -140,6 +158,9 @@ class _BinList extends StatefulWidget {
   final int fid;
   final ModcpRepository repository;
   final void Function(List<ModcpForum> forums) onForums;
+
+  /// The panel lists no bin of the forum: the forums it offers.
+  final void Function(List<ModcpForum> forums) onForumGone;
 
   @override
   State<_BinList> createState() => _BinListState();
@@ -190,16 +211,19 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
         case Right(value: ModcpReady(:final value)) when value.fid == widget.fid:
           _pages.add(value);
           widget.onForums(value.forums);
-        case Right(value: ModcpReady(:final value)):
-          // The forum keeps no bin (any more), or is not the account's: the panel's note.
-          widget.onForums(value.forums);
-          _failure = right(ModcpRefused(value.note));
+        case Right(value: ModcpReady()):
+          // Handed back below.
+          break;
         case Right(value: ModcpNeedsLogin(:final formHash)):
           _loginFormHash = formHash;
         default:
           _failure = answer;
       }
     });
+    if (answer case Right(value: ModcpReady(:final value)) when value.fid != widget.fid) {
+      // The forum keeps no bin (any more), or is not the account's: the forums the panel offers instead.
+      widget.onForumGone(value.forums);
+    }
   }
 
   Future<void> _loadMore() async {

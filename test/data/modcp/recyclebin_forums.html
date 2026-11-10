@@ -1,0 +1,91 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0 mdcp">
+<h1 class="mt">主题管理</h1>
+<ul class="tb cl">
+<li><a href="forum.php?mod=modcp&action=thread&op=thread" hidefocus="true">版块主题</a></li>
+<li><a href="forum.php?mod=modcp&action=thread&op=post" hidefocus="true">帖子管理</a></li>
+<li class="a"><a href="forum.php?mod=modcp&action=recyclebin" hidefocus="true">主题回收站</a></li>
+<li><a href="forum.php?mod=modcp&action=recyclebinpost" hidefocus="true">回帖回收站</a></li>
+</ul>
+<div class="datalist">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=recyclebin&op=search">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<div class="exfm">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="15%">版块选择:</th>
+<td width="35%">
+<span class="ftid">
+<select name="fid" id="fid" class="ps" width="168" change="getthreadclass();">
+<option value="">请选择版块</option><option value="2" >公告</option>
+<option value="15" >测试子版块</option>
+</select>
+</span>
+</td>
+<th width="15%">帖子类型:</th>
+<td width="35%">
+<span class="ftid">
+<select name="threadoption" id="threadoption" class="ps" width="168">
+<option value="0" >全部</option>
+<option value="1" >投票</option>
+<option value="2" >商品</option>
+<option value="3" >悬赏</option>
+<option value="4" >活动</option>
+<option value="5" >辩论</option>
+<option value="999" >精华</option>
+<option value="888" >置顶</option>
+</select>
+</span>
+</td>
+</tr>
+<tr>
+<th>帖子作者:</th>
+<td><input type="text" name="users" class="px" size="20" value="" style="width: 180px"/></td>
+<th>发表时间范围:</th>
+<td><input type="text" name="starttime" class="px" size="10" value="" onclick="showcalendar(event, this);" /> 至 <input type="text" name="endtime" class="px" size="10" value="" onclick="showcalendar(event, this);" /></td>
+</tr>
+<tr>
+<th>标题关键字:</th>
+<td><input type="text" name="keywords" class="px" size="20" value="" style="width: 180px"/></td>
+<th>点击次数范围:</th>
+<td><input type="text" name="viewsmore" class="px" size="10" value="" /> 至 <input type="text" name="viewsless" class="px" size="10" value="" /></td>
+</tr>
+<tr>
+<th>多少天内无回复:</th>
+<td><input type="text" name="noreplydays" class="px" size="20" value="" style="width: 180px"/></td>
+<th>回复次数范围:</th>
+<td><input type="text" name="repliesmore" class="px" size="10" value="" /> 至 <input type="text" name="repliesless" class="px" size="10" value="" /></td>
+</tr>
+<tr>
+<th width="15%">主题分类:</th>
+<td width="35%">
+<span class="ftid" id="threadclass">
+<select name="typeid" id="typeid" width="168" class="ps">
+<option value="">无</option>
+</select>
+</span>
+</td>
+<th></th><td></td>
+</tr>
+<tr>
+<td>&nbsp;</td>
+<td colspan="3">
+<button type="submit" name="searchsubmit" id="searchsubmit" class="pn" value="true"><strong>提交</strong></button>
+</td>
+</tr>
+</table>
+</div>
+</form>
+</div>
+
+<p class="xi1">请选择版块进行管理</p>
+</div>
+<script type="text/javascript" reload="1">
+simulateSelect('fid');
+simulateSelect('typeid');
+simulateSelect('threadoption');
+</script></div>
+</div>
+</body></html>
