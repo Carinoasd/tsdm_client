@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[验证通过<script type="text/javascript" reload="1">if(typeof errorhandle_=='function') {errorhandle_('验证通过', {});}</script><script type="text/javascript">hideWindow("security_verify");showWindow("chgpassword", "home.php?mod=spacecp&ac=account&op=verify&method=chgpassword&formhash=f1f2f3f4&idstring=AbCd12&sign=0123456789abcdef", "get", 0);</script>]]></root>

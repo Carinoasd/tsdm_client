@@ -357,7 +357,9 @@
         "drafts": "Local drafts",
         "bookmarks": "Floor bookmarks"
       },
-      "loginDevices": "Login devices"
+      "loginDevices": "Login devices",
+      "security": "Password and security",
+      "privacy": "Privacy"
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -971,7 +973,8 @@
       "uid": "UID",
       "email": "Email"
     },
-    "signUpHint": "Do not have an account? Sign up here",
+    "signUp": "Sign up",
+    "lostPassword": "Forgot password",
     "perhapsExpired": "Login failed, perhaps identity expired, please login again"
   },
   "rootPage": {
@@ -3889,6 +3892,20 @@
     "exportFailed": "Export failed",
     "empty": "No emoji packs yet",
     "count": "${count: int}"
+  },
+  "accountSecurityPage": {
+    "title": "Password and security",
+    "currentPassword": "Current password",
+    "otherCheck": "The forum asks for an email or phone check, finish it on the web page",
+    "changed": "Changed",
+    "passwordChanged": "Password changed, log in again with the new one",
+    "resultUnknown": "Could not tell whether it changed, refresh to check"
+  },
+  "privacySettingsPage": {
+    "title": "Privacy",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Failed to save, try again later"
   },
   "loginDevicesPage": {
     "title": "Login devices",

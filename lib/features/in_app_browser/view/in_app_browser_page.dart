@@ -22,10 +22,14 @@ enum _MenuAction { openExternal, copyUrl }
 /// is never shown as an earlier account. A forum page the app has a screen for, followed from here, opens in the app.
 class InAppBrowserPage extends StatefulWidget {
   /// Constructor.
-  const InAppBrowserPage(this.url, {super.key});
+  const InAppBrowserPage(this.url, {this.guest = false, super.key});
 
   /// The page to open, absolute `http` or `https` ([isInAppBrowserUrl]); anything else is not loaded.
   final Uri? url;
+
+  /// Open the page signed out: the forum cookies are removed and none is put back (the sign up and the lost password
+  /// pages, which the forum does not show to an account).
+  final bool guest;
 
   @override
   State<InAppBrowserPage> createState() => _InAppBrowserPageState();
@@ -48,7 +52,8 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
   /// The page the browser was opened with has not loaded yet: its navigation (and redirects) is not taken to the app.
   bool _initialPending = true;
 
-  /// Replace the forum cookies of the web view with the session of the account in use.
+  /// Replace the forum cookies of the web view with the session of the account in use, none for a [InAppBrowserPage.guest]
+  /// page.
   Future<void> _prepareCookies() async {
     final manager = CookieManager.instance();
     try {
@@ -58,7 +63,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         }
       }
       final provider = getIt.get<CookieProvider>();
-      if (provider.userLoginInfo.uid == null) {
+      if (widget.guest || provider.userLoginInfo.uid == null) {
         return;
       }
       for (final c in await forumWebViewCookies(provider)) {

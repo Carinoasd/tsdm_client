@@ -357,7 +357,9 @@
         "drafts": "本機草稿",
         "bookmarks": "樓層書籤"
       },
-      "loginDevices": "登入裝置"
+      "loginDevices": "登入裝置",
+      "security": "密碼與安全",
+      "privacy": "隱私設定"
     },
     "appearanceSection": {
       "title": "外觀",
@@ -971,7 +973,8 @@
       "uid": "UID",
       "email": "信箱"
     },
-    "signUpHint": "沒有帳號？點此註冊",
+    "signUp": "註冊",
+    "lostPassword": "找回密碼",
     "perhapsExpired": "登入失敗，可能身分已過期，請重新登入"
   },
   "rootPage": {
@@ -3889,6 +3892,20 @@
     "exportFailed": "匯出失敗",
     "empty": "還沒有表情包",
     "count": "${count: int} 張"
+  },
+  "accountSecurityPage": {
+    "title": "密碼與安全",
+    "currentPassword": "目前密碼",
+    "otherCheck": "論壇要求透過信箱或手機驗證，請在網頁中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密碼已修改，請用新密碼重新登入",
+    "resultUnknown": "無法確認是否修改成功，請重新整理後查看"
+  },
+  "privacySettingsPage": {
+    "title": "隱私設定",
+    "save": "儲存",
+    "saved": "已儲存",
+    "saveFailed": "儲存失敗，請稍後再試"
   },
   "loginDevicesPage": {
     "title": "登入裝置",

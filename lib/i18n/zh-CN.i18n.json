@@ -357,7 +357,9 @@
         "drafts": "本机草稿",
         "bookmarks": "楼层书签"
       },
-      "loginDevices": "登录设备"
+      "loginDevices": "登录设备",
+      "security": "密码与安全",
+      "privacy": "隐私设置"
     },
     "appearanceSection": {
       "title": "外观",
@@ -971,7 +973,8 @@
       "uid": "UID",
       "email": "邮箱"
     },
-    "signUpHint": "没有账号？点此注册",
+    "signUp": "注册",
+    "lostPassword": "找回密码",
     "perhapsExpired": "登录失败，可能身份已过期，请重新登录"
   },
   "rootPage": {
@@ -3889,6 +3892,20 @@
     "exportFailed": "导出失败",
     "empty": "还没有表情包",
     "count": "${count: int} 张"
+  },
+  "accountSecurityPage": {
+    "title": "密码与安全",
+    "currentPassword": "当前密码",
+    "otherCheck": "论坛要求通过邮箱或手机验证，请在网页中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密码已修改，请用新密码重新登录",
+    "resultUnknown": "无法确认是否修改成功，请刷新后查看"
+  },
+  "privacySettingsPage": {
+    "title": "隐私设置",
+    "save": "保存",
+    "saved": "已保存",
+    "saveFailed": "保存失败，请稍后再试"
   },
   "loginDevicesPage": {
     "title": "登录设备",
