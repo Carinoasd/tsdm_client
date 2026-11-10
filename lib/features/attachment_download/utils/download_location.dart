@@ -49,9 +49,22 @@ Future<Directory> attachmentDownloadDirectory({String? chosen}) async {
   return await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
 }
 
-/// Where the part files of the downloads are written: the app's temporary folder, apart from the downloads folder.
-Future<Directory> attachmentPartDirectory() async =>
-    Directory(p.join((await getTemporaryDirectory()).path, 'attachment_parts'));
+/// Where the part files of the downloads are written: on the volume of [attachmentDownloadDirectory] so they are
+/// renamed into place, never in a folder that is shared or shown as it is.
+///
+/// * Android, iOS: `attachment_parts` beside the `attachments` folder (outside of what the file provider serves).
+/// * Windows: the app's temporary folder (a leading dot hides nothing in the downloads folder there).
+/// * macOS, Linux: `.attachment_parts` in the downloads folder.
+Future<Directory> attachmentPartDirectory() async {
+  if (Platform.isWindows) {
+    return Directory(p.join((await getTemporaryDirectory()).path, 'attachment_parts'));
+  }
+  final downloads = await attachmentDownloadDirectory();
+  if (Platform.isAndroid || Platform.isIOS) {
+    return Directory(p.join(downloads.parent.path, 'attachment_parts'));
+  }
+  return Directory(p.join(downloads.path, '.attachment_parts'));
+}
 
 /// The file called [name] in [dir], or `name (1).ext`, `name (2).ext`… when one of that name is there already or its
 /// path is [taken].

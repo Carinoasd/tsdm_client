@@ -75,6 +75,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
   /// How many times each account was forgotten ([forget]): a read started before is not kept.
   final _generations = <int, int>{};
 
+  /// When each download was queued last (an increasing number): the queue goes in this order, a retried one last.
+  final _queuedAt = <String, int>{};
+  var _queueSeq = 0;
+
   /// Paths of files being moved into place: two downloads of the same name finishing at once get two names.
   final _reserved = <String>{};
 
@@ -130,7 +134,8 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     String? threadTitle,
   }) async {
     await load(uid);
-    final items = _items[uid]!;
+    // Forgotten while read: a list of its own again.
+    final items = _items[uid] ??= [];
     final aid = aidOfAttachmentUrl(url);
     bool same(AttachmentDownload e) => e.url == url || (aid != null && aidOfAttachmentUrl(e.url) == aid);
     bool kept(AttachmentDownload e) =>
@@ -153,9 +158,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       items
         ..removeWhere((e) => e.id == stopped.id)
         ..insert(0, again);
+      _queuedAt.remove(again.id);
       await _save(uid);
       notifyListeners();
-      _pump();
+      _queue();
       return again;
     }
     final now = _now();
@@ -173,7 +179,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     _trim(uid);
     await _save(uid);
     notifyListeners();
-    _pump();
+    _queue();
     return item;
   }
 
@@ -189,6 +195,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       token.cancel('cancelled');
       return;
     }
+    _queuedAt.remove(id);
     _replace(item.copyWith(status: AttachmentDownloadStatus.cancelled, finishedAt: _now(), received: 0));
     await _save(uid);
     notifyListeners();
@@ -211,7 +218,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     );
     await _save(uid);
     notifyListeners();
-    _pump();
+    _queue();
   }
 
   /// Remove the download [id] of account [uid] from the list; its file too with [deleteFile].
@@ -221,6 +228,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       return;
     }
     _tokens.remove(id)?.cancel('removed');
+    _queuedAt.remove(id);
     _items[uid]!.removeWhere((e) => e.id == id);
     await _save(uid);
     notifyListeners();
@@ -276,13 +284,26 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     }
   }
 
+  /// Put the downloads just queued at the end of the queue and start what can run.
+  void _queue() {
+    for (final items in _items.values) {
+      // The list is the newest first.
+      for (final e in items.reversed) {
+        if (e.status == AttachmentDownloadStatus.queued && !_queuedAt.containsKey(e.id)) {
+          _queuedAt[e.id] = _queueSeq++;
+        }
+      }
+    }
+    _pump();
+  }
+
   /// Start the queued downloads of every account while fewer than [maxRunning] run, the oldest asked first.
   void _pump() {
     var running = _tokens.length;
     final queued = [
       for (final items in _items.values)
         ...items.where((e) => e.status == AttachmentDownloadStatus.queued && !_tokens.containsKey(e.id)),
-    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    ]..sort((a, b) => (_queuedAt[a.id] ?? -1).compareTo(_queuedAt[b.id] ?? -1));
     for (final item in queued) {
       if (running >= maxRunning) {
         break;
@@ -354,6 +375,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       item = item.copyWith(status: AttachmentDownloadStatus.failed, received: 0);
     } finally {
       _tokens.remove(item.id);
+      _queuedAt.remove(item.id);
     }
     if (item.status != AttachmentDownloadStatus.completed) {
       try {
@@ -370,15 +392,22 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       await _save(uid);
       notifyListeners();
     }
-    _pump();
+    _queue();
   }
 
-  /// Move [part] to [target]: a rename, a copy when they are on different volumes.
+  /// Move [part] to [target]: a rename, a copy when they are on different volumes (a copy cut short leaves nothing).
   static Future<void> _move(File part, File target) async {
     try {
       await part.rename(target.path);
     } on FileSystemException {
-      await part.copy(target.path);
+      try {
+        await part.copy(target.path);
+      } on Object {
+        if (target.existsSync()) {
+          await target.delete();
+        }
+        rethrow;
+      }
       await part.delete();
     }
   }

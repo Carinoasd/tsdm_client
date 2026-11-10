@@ -479,6 +479,28 @@ void main() {
       },
     );
 
+    test('a retried download waits behind those asked before its retry', () async {
+      final urls = [
+        for (final aid in [1, 2, 3, 4]) _urlOf(aid),
+      ];
+      final fetcher = _FakeFetcher({
+        urls[0]: [_page(_fixture('refused_no_permission.html')), _file('again', name: 'f0.zip')],
+        for (final (i, url) in urls.indexed.skip(1)) url: [_file('file $i', name: 'f$i.zip')],
+      });
+      final manager = managerOf(fetcher);
+      final failed = await manager.start(uid: 31, url: urls[0], filename: 'f0.zip');
+      await _until(manager, () => manager.find(31, failed.id)?.status == AttachmentDownloadStatus.failed);
+      fetcher.gate = Completer<void>();
+      for (final url in urls.skip(1)) {
+        await manager.start(uid: 31, url: url, filename: url);
+      }
+      await manager.retry(31, failed.id);
+      await _until(manager, () => fetcher.requests.length == 3);
+      fetcher.gate!.complete();
+      await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
+      expect(fetcher.requests, [urls[0], urls[1], urls[2], urls[3], urls[0]]);
+    });
+
     test('two downloads of the same name finishing at once get two files', () async {
       final a = _urlOf(1);
       final b = _urlOf(2);
