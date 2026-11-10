@@ -162,16 +162,22 @@ Future<String?> editFollowRemark(
   return answer.remark;
 }
 
-/// Follow [uid], or no longer follow them ([unfollow]), with the [session] of a page; sent once.
+/// Follow [uid], or no longer follow them ([unfollow], once the user confirmed: following again does not bring back
+/// what was lost, the name noted and being followed back at once), with the [session] of a page; sent once.
 ///
 /// True when the forum did it.
 Future<bool> sendFollow(
   BuildContext context, {
   required SpaceSession session,
   required int uid,
+  required String username,
   required bool unfollow,
 }) async {
   final tr = context.t.spacePage.follow;
+  if (unfollow) {
+    final confirmed = await showQuestionDialog(context: context, title: tr.unfollow, message: username);
+    if (!(confirmed ?? false) || !context.mounted) return false;
+  }
   final repository = followWriteRepositoryOf(context);
   final result = await (unfollow ? repository.unfollow(session, uid) : repository.follow(session, uid));
   if (!context.mounted) return false;
@@ -227,7 +233,13 @@ class _FollowDialogState extends State<_FollowDialog> {
   Future<void> _toggle() async {
     final unfollow = _relation.following;
     setState(() => _sending = true);
-    final done = await sendFollow(context, session: _relation.session, uid: _relation.uid, unfollow: unfollow);
+    final done = await sendFollow(
+      context,
+      session: _relation.session,
+      uid: _relation.uid,
+      username: widget.username,
+      unfollow: unfollow,
+    );
     if (!mounted) return;
     setState(() {
       _sending = false;
@@ -271,7 +283,13 @@ class _FollowDialogState extends State<_FollowDialog> {
       scrollable: true,
       title: Row(
         children: [
-          FollowAvatar(uid: _relation.uid, username: widget.username),
+          // Their profile is where the dialog was opened from: the avatar is no link here.
+          HeroUserAvatar(
+            username: widget.username,
+            avatarUrl: avatarUrlOfUid('${_relation.uid}'),
+            maxRadius: 18,
+            disableHero: true,
+          ),
           sizedBoxW12H12,
           Expanded(
             child: Column(

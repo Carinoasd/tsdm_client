@@ -224,7 +224,7 @@ class DoingCard extends StatelessWidget {
 Future<void> showDoingReplies(
   BuildContext context, {
   required Doing doing,
-  required SpaceSession? session,
+  required SpaceSession session,
   required VoidCallback onChanged,
 }) => showModalBottomSheet<void>(
   context: context,
@@ -248,8 +248,8 @@ class DoingRepliesSheet extends StatefulWidget {
   /// The record.
   final Doing doing;
 
-  /// The account the list was served to and its form hash; null for a guest, who only reads.
-  final SpaceSession? session;
+  /// The account the list was served to and its form hash.
+  final SpaceSession session;
 
   /// A reply was posted or deleted.
   final VoidCallback onChanged;
@@ -281,10 +281,13 @@ class _DoingRepliesSheetState extends State<DoingRepliesSheet> {
   Future<void> _load({required bool reset}) async {
     final generation = reset ? ++_generation : _generation;
     final page = reset ? 1 : _page + 1;
-    setState(() {
-      _loading = true;
-      _failure = null;
-    });
+    // Nothing to tell on the first load: the sheet is built loading.
+    if (!_loading || _failure != null) {
+      setState(() {
+        _loading = true;
+        _failure = null;
+      });
+    }
     final result = await widget.repository.fetchComments(widget.doing.doid, page: page).run();
     if (!mounted || generation != _generation) return;
     setState(() {
@@ -376,14 +379,14 @@ class _DoingRepliesSheetState extends State<DoingRepliesSheet> {
               ],
             ),
           ),
-          if (session != null && comment.canReply)
+          if (comment.canReply)
             IconButton(
               icon: const Icon(Icons.reply_outlined, size: 18),
               tooltip: tr.reply,
               visualDensity: VisualDensity.compact,
               onPressed: () async => _reply(session, to: comment),
             ),
-          if (session != null && comment.canDelete)
+          if (comment.canDelete)
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 18),
               tooltip: tr.deleteReply,
@@ -443,12 +446,11 @@ class _DoingRepliesSheetState extends State<DoingRepliesSheet> {
             child: Row(
               children: [
                 Expanded(child: Text(tr.replies, style: Theme.of(context).textTheme.titleMedium)),
-                if (session != null)
-                  FilledButton.tonalIcon(
-                    onPressed: () async => _reply(session),
-                    icon: const Icon(Icons.reply_outlined),
-                    label: Text(tr.reply),
-                  ),
+                FilledButton.tonalIcon(
+                  onPressed: () async => _reply(session),
+                  icon: const Icon(Icons.reply_outlined),
+                  label: Text(tr.reply),
+                ),
               ],
             ),
           ),

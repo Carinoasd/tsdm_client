@@ -14,6 +14,9 @@ import 'package:tsdm_client/utils/logger.dart';
 final _succeedRe = RegExp(r"succeedhandle_\w*\('[^']*',\s*'([^']*)'");
 final _errorRe = RegExp(r"errorhandle_\w*\('([^']*)'");
 
+/// The redirects a form is answered with: 301 for a record posted, 302 for a delete (as measured).
+const _redirects = {301, 302};
+
 /// What the repositories that post the forms of the space for one account share: the account they were built for,
 /// and how the answer of a post is read.
 ///
@@ -37,7 +40,7 @@ abstract base class SpaceAccountRepository with LoggerMixin {
               url,
               data: body,
               singleAttempt: true,
-              acceptStatus: const {HttpStatus.movedPermanently, HttpStatus.found},
+              acceptStatus: _redirects,
             )
             .run(),
       );
@@ -96,8 +99,7 @@ abstract base class SpaceAccountRepository with LoggerMixin {
       case Right(:final value):
         response = value;
     }
-    if (redirectIsDone &&
-        (response.statusCode == HttpStatus.movedPermanently || response.statusCode == HttpStatus.found)) {
+    if (redirectIsDone && _redirects.contains(response.statusCode)) {
       return const SpaceWriteResult(SpaceWriteOutcome.done);
     }
     if (response.statusCode != HttpStatus.ok) {

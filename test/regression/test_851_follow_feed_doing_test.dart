@@ -190,6 +190,12 @@ void main() {
       final fan = parseFollowRelation(_doc('follow_relation_fan'), 61)!;
       expect((fan.following, fan.followsViewer), (false, true));
 
+      // No longer followed: the name noted goes with it; followed again, none comes back.
+      final left = mutual.copyWith(following: false, followerCount: 0);
+      expect((left.following, left.followsViewer, left.remark, left.followerCount), (false, true, null, 0));
+      expect(left.copyWith(following: true).remark, isNull);
+      expect(mutual.copyWith(remark: '新备注').remark, '新备注');
+
       // The account's own pages have no relation, nor has a guest's.
       expect(parseFollowRelation(_doc('follow_following'), 31), isNull);
       expect(parseFollowRelation(_doc('follow_guest'), 35), isNull);
@@ -373,6 +379,17 @@ void main() {
       );
     });
 
+    test('a page without a broadcast to show is the empty list, whatever it would load', () {
+      final html = _text(
+        'feed_follow.html',
+      ).replaceAll(RegExp(r'<li class="cl[^"]*" id="feed_li_\d+"[\s\S]*?\n</li>'), '');
+      expect(html, contains('feedInfo'));
+      final page = parseFollowFeedPage(parseHtmlDocument(html), followFeedUrl());
+      expect(page.items, isEmpty);
+      expect(page.nextPageUrl, isNull);
+      expect(page.session?.uid, 31);
+    });
+
     test("switched off and a guest: the forum's words", () {
       final off = parseFollowFeedPage(_doc('feed_off'), followFeedUrl());
       expect(off.message, '抱歉，广播功能尚未开启');
@@ -511,6 +528,15 @@ void main() {
       expect(guest.items.every((e) => !e.canDelete), isTrue);
     });
 
+    test('one record is read by anyone: no view is asked, the forum lists everyone then', () {
+      // Read by a member who neither follows its author nor is their friend.
+      final page = parseDoingListPage(_doc('doing_one'));
+      expect(page.items.single.doid, 1);
+      expect((page.items.single.uid, page.items.single.username), (60, '测试会员24'));
+      expect(page.session?.uid, 61);
+      expect(page.nextPageUrl, isNull);
+    });
+
     test("switched off, and the lists of an account asked by a guest: the forum's words", () {
       final off = parseDoingListPage(_doc('doing_off'));
       expect(off.message, '抱歉，记录功能尚未开启');
@@ -571,7 +597,11 @@ void main() {
       expect(second.comments.map((e) => e.id), [10, 9]);
       expect((second.hasMore, second.page), (false, 2));
 
-      // A guest is answered nothing: a failed request. The forum's message is its words.
+      // A guest is shown the way to the login page: told so. Nothing at all is a failed request.
+      final guest = DoingRepository(get: (url) async => right(_answer(_json('result_doing_replies_guest'), url)));
+      final login = (await guest.fetchComments(3).run()).getOrElse((e) => fail('$e'));
+      expect(login.comments, isEmpty);
+      expect(login.message, t.general.needLogin);
       final nothing = DoingRepository(get: (url) async => right(_answer('', url)));
       expect((await nothing.fetchComments(3).run()).isLeft(), isTrue);
       final off = DoingRepository(
@@ -890,7 +920,7 @@ void main() {
     expect(await typed, '今天也是元气满满');
   });
 
-  testWidgets('the replies of a record: a page, then more; a guest only reads', (tester) async {
+  testWidgets('the replies of a record: a page, then more; reply and delete as the forum printed them', (tester) async {
     offlineImages();
     final doing = parseDoingListPage(_doc('doing_all')).items.firstWhere((e) => e.doid == 3);
     final asked = <String>[];
@@ -904,7 +934,7 @@ void main() {
       TranslationProvider(
         child: MaterialApp(
           home: Scaffold(
-            body: DoingRepliesSheet(doing: doing, session: null, onChanged: () {}, repository: repository),
+            body: DoingRepliesSheet(doing: doing, session: _session, onChanged: () {}, repository: repository),
           ),
         ),
       ),
@@ -913,9 +943,10 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(asked, hasLength(1));
     expect(find.text('剧场版好看吗？<i>x</i>'), findsOneWidget);
-    // No session: nothing to reply with, nothing to delete.
-    expect(find.byIcon(Icons.reply_outlined), findsNothing);
-    expect(find.byIcon(Icons.delete_outline), findsNothing);
+    // The record itself is replied to from the head of the sheet; each reply as the forum printed its links.
+    expect(find.text(t.spacePage.doing.reply), findsOneWidget);
+    expect(find.byIcon(Icons.reply_outlined), findsWidgets);
+    expect(find.byIcon(Icons.delete_outline), findsWidgets);
     await tester.scrollUntilVisible(find.text(t.spacePage.doing.moreReplies), 300);
     await tester.tap(find.text(t.spacePage.doing.moreReplies));
     await tester.pumpAndSettle();

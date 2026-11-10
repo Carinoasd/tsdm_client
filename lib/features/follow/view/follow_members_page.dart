@@ -65,7 +65,13 @@ class _FollowMembersPageState extends State<FollowMembersPage> {
   }
 
   Future<void> _toggle(SpaceSession session, FollowUser user) async {
-    final done = await sendFollow(context, session: session, uid: user.uid, unfollow: user.following ?? false);
+    final done = await sendFollow(
+      context,
+      session: session,
+      uid: user.uid,
+      username: user.username,
+      unfollow: user.following ?? false,
+    );
     if (done && mounted) _refreshAll();
   }
 
@@ -110,7 +116,7 @@ class _FollowMembersPageState extends State<FollowMembersPage> {
       initialIndex: widget.followers ? 1 : 0,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.username ?? tr.following),
+          title: Text(widget.username ?? tr.members),
           bottom: TabBar(
             tabs: [
               Tab(text: tr.following),

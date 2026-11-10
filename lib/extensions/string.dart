@@ -253,8 +253,9 @@ extension ParseUrl on String {
     }
 
     // Following: home.php?mod=follow&do=following|follower[&uid=N] are the members a member follows and their
-    // followers; home.php?mod=follow[&view=…] the broadcasts of the account in use, with `uid` those of a member.
-    if (mod == 'follow') {
+    // followers; home.php?mod=follow[&view=…] the broadcasts of the account in use, with `uid` those of a member. Of
+    // `home.php` only: a plugin's page may name a `mod` of its own so.
+    if (mod == 'follow' && uri.path.endsWith('home.php')) {
       final uid = int.tryParse(queryParameters['uid'] ?? '');
       final member = {if (uid != null && uid > 0) 'uid': '$uid'};
       return switch (queryParameters['do']) {

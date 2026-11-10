@@ -189,7 +189,8 @@ SpaceListPage<FollowFeed> parseFollowFeedPage(uh.Document document, String url) 
   if (next == null && feeds.isNotEmpty) {
     next = followMoreFeedUrl(url, archive: true, page: 1);
   }
-  return SpaceListPage(items: feeds, nextPageUrl: next, session: session);
+  // A list without a broadcast to show has no end to load more from: it is the empty list.
+  return SpaceListPage(items: feeds, nextPageUrl: feeds.isEmpty ? null : next, session: session);
 }
 
 /// A further page of broadcasts ([followMoreFeedUrl]) out of its fragment [html]: the `<li>` of the list, or the word

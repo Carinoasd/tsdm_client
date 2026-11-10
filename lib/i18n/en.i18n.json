@@ -4176,6 +4176,7 @@
       "broadcasts": "Broadcasts",
       "following": "Following",
       "followers": "Followers",
+      "members": "Following & followers",
       "hall": "Everyone",
       "emptyFeed": "No broadcasts yet",
       "emptyFollowing": "Not following anyone yet",

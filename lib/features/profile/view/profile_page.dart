@@ -937,7 +937,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 (
                   SpaceModule.follow,
                   Icons.people_outline,
-                  context.t.spacePage.follow.following,
+                  context.t.spacePage.follow.members,
                   ScreenPaths.followMembers,
                 ),
               ])

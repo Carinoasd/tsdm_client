@@ -123,7 +123,7 @@ class _FollowFeedPageState extends State<FollowFeedPage> {
                   ? const SizedBox.shrink()
                   : IconButton(
                       icon: const Icon(Icons.people_outline),
-                      tooltip: tr.following,
+                      tooltip: tr.members,
                       onPressed: () async => context.pushNamed(ScreenPaths.followMembers),
                     ),
             ),

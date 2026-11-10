@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/space/utils/parse_space.dart';
 import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 
 /// The records (`home.php?mod=space&do=doing`): everyone's, of the members followed, of the friends and the
 /// account's own, a tab each; or those of the member [uid] alone; or the one record [doid] (the link of a notice).
@@ -102,7 +103,10 @@ class _DoingPageState extends State<DoingPage> with SingleTickerProviderStateMix
             final session = context.read<SpaceListCubit<Doing>>().state.session;
             return DoingCard(
               doing,
-              onReplies: () async => showDoingReplies(context, doing: doing, session: session, onChanged: _refreshAll),
+              // The forum shows the replies to members only.
+              onReplies: () async => session == null
+                  ? showSnackBar(context: context, message: context.t.general.needLogin)
+                  : showDoingReplies(context, doing: doing, session: session, onChanged: _refreshAll),
               onDelete: session != null && doing.canDelete ? () async => _delete(session, doing) : null,
             );
           },

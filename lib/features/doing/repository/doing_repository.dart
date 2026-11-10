@@ -30,7 +30,8 @@ final class DoingRepository {
   /// A page of records ([doingListUrl], or the next page of one).
   AsyncEither<SpaceListPage<Doing>> fetchList(String url) => _run(withTsdmAppJson(url)).mapHttpPage(parseDoingListPage);
 
-  /// The page [page] of the replies of the record [doid]. The forum answers a guest nothing: a failed request.
+  /// The page [page] of the replies of the record [doid]. The forum shows them to members only: a guest is answered
+  /// the way to the login page (the app API: a `redirect` result with `login`), told as the page's message.
   AsyncEither<DoingCommentPage> fetchComments(int doid, {int page = 1}) => AsyncEither(() async {
     final Response<dynamic> response;
     switch (await _run(withTsdmAppJsonWrite(doingCommentsUrl(doid, page: page))).run()) {
@@ -41,8 +42,8 @@ final class DoingRepository {
     }
     final fragment = response.statusCode == HttpStatus.ok ? spaceAjaxFragmentOf(response.data) : null;
     if (fragment == null) {
-      // The forum's message instead (the module switched off): its words.
-      final message = tsdmAppWriteResultOf(response.data)?.message ?? '';
+      // The forum's message instead (the module switched off, the login asked for): its words.
+      final message = tsdmAppWriteResultOf(response.data)?.reason ?? '';
       return message.isEmpty
           ? left(HttpRequestFailedException(response.statusCode))
           : right(DoingCommentPage(comments: const [], page: page, hasMore: false, message: message));
