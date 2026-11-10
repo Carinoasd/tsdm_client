@@ -16,6 +16,8 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
@@ -53,6 +55,7 @@ import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:tsdm_client/widgets/medal_group_view.dart';
 import 'package:tsdm_client/widgets/notice_button.dart';
 import 'package:tsdm_client/widgets/obscure_list_tile.dart';
+import 'package:tsdm_client/widgets/overflow_actions.dart';
 import 'package:tsdm_client/widgets/post_layout_html.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -107,15 +110,6 @@ enum _ProfileActions {
   editAvatar,
   blockedUsers,
   shareQr,
-}
-
-/// The actions of another member's profile kept in the menu of its app bar, in the order shown.
-enum _MemberActions {
-  /// Greet them (`home.php?mod=spacecp&ac=poke&op=send&uid=N`).
-  poke,
-
-  /// Follow them, no longer follow them, note a name for them (`home.php?mod=spacecp&ac=follow&op=add|del|bkname`).
-  follow,
 }
 
 /// Page of user profile.
@@ -370,92 +364,107 @@ class _ProfilePageState extends State<ProfilePage> {
       ];
     } else {
       // Other user's profile page.
+      final otherUid = widget.uid ?? userProfile.uid;
+      final otherName = userProfile.username ?? widget.username;
       actions = [
-        // Their threads and replies in the app ("TA的主题"); the search by their name stays next to it.
-        if ((widget.uid ?? userProfile.uid) != null || (userProfile.username ?? widget.username) != null)
-          IconButton(
-            icon: const Icon(Icons.article_outlined),
-            tooltip: tr.memberThreads,
-            onPressed: () async => context.pushNamed(
-              ScreenPaths.memberThread,
-              queryParameters: {
-                'uid': ?(widget.uid ?? userProfile.uid),
-                if ((widget.uid ?? userProfile.uid) == null) 'username': ?(userProfile.username ?? widget.username),
-              },
-            ),
-          ),
-        IconButton(
-          icon: const Icon(Icons.person_search_outlined),
-          tooltip: tr.searchAsThreadAuthor,
-          onPressed: () async => context.pushNamed(
-            ScreenPaths.search,
-            queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
-          ),
-        ),
-        if ((widget.uid ?? userProfile.uid) != null)
-          IconButton(
-            icon: const Icon(Icons.qr_code_2_outlined),
-            tooltip: context.t.shareQr.title,
-            onPressed: () async => _showShareQr(context, userProfile),
-          ),
-        if ((widget.uid ?? userProfile.uid) != null)
-          IconButton(
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-            tooltip: context.t.friendPage.addFriend.tooltip,
-            onPressed: () async =>
-                showAddFriendDialog(context, uid: widget.uid ?? userProfile.uid!, username: userProfile.username),
-          ),
-        IconButton(
-          icon: const Icon(Icons.email_outlined),
-          tooltip: context.t.postCard.profileDialog.pmTooltip,
-          onPressed: () async => context.pushNamed(
-            ScreenPaths.chat,
-            pathParameters: {'uid': widget.uid ?? userProfile.uid!},
-            extra: <String, dynamic>{'username': userProfile.username},
-          ),
-        ),
-        // Local and silent: nothing is sent to the forum.
-        if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int blockUid)
-          UserBlockButton(uid: blockUid, username: userProfile.username ?? widget.username ?? '$blockUid'),
-        // The rest, in a menu: one item per action of [_MemberActions], each offered when the forum may take it.
-        if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int memberUid)
-          ValueListenableBuilder(
-            valueListenable: spaceModulesOff,
-            builder: (context, off, _) {
-              final memberActions = [
-                // The forum greets no one oneself (`not_to_their_own_greeted`).
-                if (!off.contains(SpaceModule.poke) && !_isOwnProfile(context, '$memberUid')) _MemberActions.poke,
-                // Nor follows oneself (`follow_not_follow_self`).
-                if (!off.contains(SpaceModule.follow) && !_isOwnProfile(context, '$memberUid')) _MemberActions.follow,
-              ];
-              if (memberActions.isEmpty) return sizedBoxEmpty;
-              return PopupMenuButton<_MemberActions>(
-                onSelected: (action) async => switch (action) {
-                  _MemberActions.poke => showPokeDialog(context, uid: memberUid, username: userProfile.username),
-                  _MemberActions.follow => showFollowDialog(context, uid: memberUid, username: userProfile.username),
-                },
-                itemBuilder: (context) => [
-                  for (final action in memberActions)
-                    PopupMenuItem(
-                      value: action,
-                      child: Row(
-                        children: [
-                          Icon(switch (action) {
-                            _MemberActions.poke => Icons.waving_hand_outlined,
-                            _MemberActions.follow => Icons.person_add_alt_outlined,
-                          }),
-                          sizedBoxPopupMenuItemIconSpacing,
-                          Text(switch (action) {
-                            _MemberActions.poke => context.t.spacePage.poke.send,
-                            _MemberActions.follow => context.t.spacePage.follow.action,
-                          }),
-                        ],
+        ValueListenableBuilder(
+          valueListenable: spaceModulesOff,
+          builder: (context, off, _) {
+            final memberUid = int.tryParse(otherUid ?? '');
+            // The forum greets no one oneself (`not_to_their_own_greeted`) and follows no one oneself
+            // (`follow_not_follow_self`).
+            final others = memberUid != null && !_isOwnProfile(context, '$memberUid');
+            final (owner, known, blocked) = context.select<UserBlockCubit, (int?, bool, bool)>(
+              (c) => (
+                c.state.ownerUid,
+                c.state.status == UserBlockListStatus.ready,
+                memberUid != null && c.state.isBlocked(memberUid),
+              ),
+            );
+            final canBlock = memberUid != null && owner != null && owner != memberUid && memberUid > 0 && known;
+            return OverflowActions(
+              actions: [
+                // Their threads and replies in the app ("TA的主题"); the search by their name stays next to it.
+                if (otherUid != null || otherName != null)
+                  OverflowAction(
+                    icon: Icons.article_outlined,
+                    label: tr.memberThreads,
+                    placement: OverflowPlacement.pinned,
+                    onPressed: () => unawaited(
+                      context.pushNamed(
+                        ScreenPaths.memberThread,
+                        queryParameters: {'uid': ?otherUid, if (otherUid == null) 'username': ?otherName},
                       ),
                     ),
-                ],
-              );
-            },
-          ),
+                  ),
+                OverflowAction(
+                  icon: Icons.person_search_outlined,
+                  label: tr.searchAsThreadAuthor,
+                  onPressed: () => unawaited(
+                    context.pushNamed(
+                      ScreenPaths.search,
+                      queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
+                    ),
+                  ),
+                ),
+                if (otherUid != null)
+                  OverflowAction(
+                    icon: Icons.qr_code_2_outlined,
+                    label: context.t.shareQr.title,
+                    onPressed: () => unawaited(_showShareQr(context, userProfile)),
+                  ),
+                if (otherUid != null)
+                  OverflowAction(
+                    icon: Icons.person_add_alt_1_outlined,
+                    label: context.t.friendPage.addFriend.tooltip,
+                    onPressed: () =>
+                        unawaited(showAddFriendDialog(context, uid: otherUid, username: userProfile.username)),
+                  ),
+                OverflowAction(
+                  icon: Icons.email_outlined,
+                  label: context.t.postCard.profileDialog.pmTooltip,
+                  placement: OverflowPlacement.pinned,
+                  onPressed: () => unawaited(
+                    context.pushNamed(
+                      ScreenPaths.chat,
+                      pathParameters: {'uid': otherUid!},
+                      extra: <String, dynamic>{'username': userProfile.username},
+                    ),
+                  ),
+                ),
+                // Local and silent: nothing is sent to the forum.
+                if (canBlock)
+                  OverflowAction(
+                    icon: blocked ? Icons.remove_moderator_outlined : Icons.block_outlined,
+                    label: blocked ? context.t.userBlock.unblock : context.t.userBlock.block,
+                    onPressed: () => unawaited(
+                      toggleUserBlock(
+                        context,
+                        uid: memberUid,
+                        username: userProfile.username ?? widget.username ?? '$memberUid',
+                        blocked: blocked,
+                      ),
+                    ),
+                  ),
+                if (others && !off.contains(SpaceModule.poke))
+                  OverflowAction(
+                    icon: Icons.waving_hand_outlined,
+                    label: context.t.spacePage.poke.send,
+                    placement: OverflowPlacement.menuOnly,
+                    onPressed: () => unawaited(showPokeDialog(context, uid: memberUid, username: userProfile.username)),
+                  ),
+                if (others && !off.contains(SpaceModule.follow))
+                  OverflowAction(
+                    icon: Icons.person_add_alt_outlined,
+                    label: context.t.spacePage.follow.action,
+                    placement: OverflowPlacement.menuOnly,
+                    onPressed: () =>
+                        unawaited(showFollowDialog(context, uid: memberUid, username: userProfile.username)),
+                  ),
+              ],
+            );
+          },
+        ),
       ];
     }
 
