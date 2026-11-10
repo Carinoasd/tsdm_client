@@ -95,6 +95,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/site_stats/view/site_stats_page.dart';
 import 'package:tsdm_client/features/space/view/album_upload_page.dart';
 import 'package:tsdm_client/features/space/view/blog_post_page.dart';
 import 'package:tsdm_client/features/space/view/space_album_page.dart';
@@ -283,6 +284,7 @@ final List<RouteBase> _appRoutes = [
       uid: state.uri.queryParameters['uid'],
       username: state.uri.queryParameters['username'],
       visitor: state.uri.queryParameters['view'] == 'visitor',
+      online: state.uri.queryParameters['view'] == 'online',
     ),
   ),
   // A member's blogs and albums: home.php?mod=space&uid=N&do=blog|album[&id=M].
@@ -357,6 +359,10 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.ranklist, builder: (_) => const RanklistPage()),
+  AppRoute(
+    path: ScreenPaths.siteStats,
+    builder: (state) => SiteStatsPage(url: state.uri.queryParameters['url']),
+  ),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),

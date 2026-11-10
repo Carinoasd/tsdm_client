@@ -55,6 +55,7 @@ final class HomepageState with HomepageStateMappable {
     this.failure,
     this.savedAt,
     this.refreshFailed = false,
+    this.onlineSummary = const [],
   });
 
   /// Why the homepage failed to load ([HomepageStatus.failure]).
@@ -107,4 +108,8 @@ final class HomepageState with HomepageStateMappable {
 
   /// Asking the page again failed while the saved page ([savedAt]) shows: it stays, with a retry.
   final bool refreshFailed;
+
+  /// The "在线会员" line of the web page ([parseOnlineSummary]), empty when the page has none: the structured answer
+  /// of the forum's app API carries no such field, and the homepage asks nothing more for it.
+  final List<String> onlineSummary;
 }

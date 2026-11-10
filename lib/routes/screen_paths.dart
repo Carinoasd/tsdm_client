@@ -98,6 +98,11 @@ class ScreenPaths {
   /// The forum's rankings.
   static const String ranklist = '/ranklist';
 
+  /// The forum's statistics (`misc.php?mod=stat`).
+  ///
+  /// Query parameters: `url`, the absolute url of the page to show; the first one (基本概况) without it.
+  static const String siteStats = '/siteStats';
+
   /// Common entry of the medal centre, the current account's titles and the title shop.
   static const String medalTitleHub = '/medalTitleHub';
 
@@ -279,7 +284,8 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
   ///
   /// Query parameters: `uid` or `username` of the user; none for the current user. `view=visitor` lists the recent
-  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
+  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead, `view=online` the members
+  /// online now (`home.php?mod=space&do=friend&view=online&type=member`).
   static const String friend = '/friend';
 
   /// The blogs and the albums of a member, a tab each.

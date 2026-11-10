@@ -19,13 +19,16 @@ import 'package:tsdm_client/widgets/list_skeleton.dart';
 /// Page listing the friends of a user.
 ///
 /// The user is located by [uid] (preferred) or [username]; when both are null the current user's list is shown.
-/// With [visitor] it lists the recent visitors of the current user instead.
+/// With [visitor] it lists the recent visitors of the current user instead, with [online] the members online now.
 class FriendPage extends StatefulWidget {
   /// Constructor.
-  const FriendPage({this.uid, this.username, this.visitor = false, super.key});
+  const FriendPage({this.uid, this.username, this.visitor = false, this.online = false, super.key});
 
   /// Show the recent visitors of the current user.
   final bool visitor;
+
+  /// Show the members online now (`view=online&type=member`).
+  final bool online;
 
   /// Uid of the user whose friends are listed.
   final String? uid;
@@ -68,6 +71,7 @@ class _FriendPageState extends State<FriendPage> {
           final padding = side.copyWith(top: 12, bottom: 12).add(context.safePadding());
           if (state.items.isEmpty) {
             // The own list says how friends get in it; another member's is just empty.
+            final online = widget.online;
             return ListView(
               physics: physics,
               controller: _scrollController,
@@ -76,8 +80,8 @@ class _FriendPageState extends State<FriendPage> {
                 sizedBoxW32H32,
                 AppStateView(
                   icon: visitor ? Icons.visibility_outlined : Icons.people_outline,
-                  message: visitor ? tr.visitor.empty : (own ? tr.empty : tr.emptyOther),
-                  detail: !visitor && own ? tr.emptyHint : null,
+                  message: online ? tr.online.empty : (visitor ? tr.visitor.empty : (own ? tr.empty : tr.emptyOther)),
+                  detail: !visitor && !online && own ? tr.emptyHint : null,
                   scrollable: false,
                 ),
               ],
@@ -144,6 +148,20 @@ class _FriendPageState extends State<FriendPage> {
     if (widget.visitor) {
       return Text(tr.visitor.title);
     }
+    if (widget.online) {
+      // The members the forum counts online (`count`, the invisible ones too), as its homepage prints "N 会员".
+      final count = state.totalCount;
+      return count == null
+          ? Text(tr.online.title)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tr.online.title),
+                Text(tr.online.subtitle(count: count), style: Theme.of(context).textTheme.bodySmall, maxLines: 1),
+              ],
+            );
+    }
     final name = state.ownerName ?? widget.username;
     final count = state.totalCount;
     final String? subtitle;
@@ -173,7 +191,15 @@ class _FriendPageState extends State<FriendPage> {
     final uid = widget.uid ?? (widget.username == null ? selfUid?.toString() : null);
     if (uid == null && widget.username == null) {
       return Scaffold(
-        appBar: AppBar(title: Text(widget.visitor ? tr.visitor.title : tr.title)),
+        appBar: AppBar(
+          title: Text(
+            widget.online
+                ? tr.online.title
+                : widget.visitor
+                ? tr.visitor.title
+                : tr.title,
+          ),
+        ),
         body: NeedLoginPage(backUri: GoRouterState.of(context).uri, needPop: true),
       );
     }
@@ -182,7 +208,9 @@ class _FriendPageState extends State<FriendPage> {
       child: BlocProvider(
         create: (context) => FriendBloc(
           friendRepository: context.repo(),
-          firstPageUrl: widget.visitor
+          firstPageUrl: widget.online
+              ? FriendRepository.onlineListUrl
+              : widget.visitor
               ? FriendRepository.visitorListUrl
               : FriendRepository.listUrl(uid: uid, username: widget.username),
         )..add(const FriendLoadRequested()),

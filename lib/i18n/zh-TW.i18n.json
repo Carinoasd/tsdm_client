@@ -274,7 +274,8 @@
       "readingStats": "閱讀統計",
       "checkinCalendar": "簽到日曆",
       "ratingStats": "評分統計",
-      "visitors": "最近訪客"
+      "visitors": "最近訪客",
+      "siteStats": "站點統計"
     }
   },
   "home": {
@@ -405,7 +406,8 @@
         "pinned": "置頂帖",
         "guide": "論壇導讀",
         "stats": "論壇動態",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "線上會員"
       },
       "showShortcutInForumCard": {
         "title": "版塊卡片顯示捷徑",
@@ -1501,6 +1503,11 @@
         "unknownForm": "論壇回傳的不是可識別的批准表單，未送出任何內容",
         "unknownAfterSubmit": "已送出批准，但無法識別論壇的回應，請到好友列表確認"
       }
+    },
+    "online": {
+      "title": "線上會員",
+      "empty": "沒有線上會員",
+      "subtitle": "${count: int} 位會員"
     }
   },
   "redPacket": {
@@ -3996,6 +4003,10 @@
     "empty": "暫無排行",
     "minutes": "$n 分鐘",
     "updated": "更新於 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站點統計",
+    "empty": "沒有統計資料"
   },
   "spacePage": {
     "blogs": "日誌",
