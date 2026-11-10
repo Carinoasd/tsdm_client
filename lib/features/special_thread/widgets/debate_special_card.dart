@@ -37,8 +37,9 @@ class _DebateCardState extends State<_DebateCard> with _SpecialActions {
   }
 
   /// A point of the debate: its [html] with the app's html renderer ([MunchedHtml]), else its plain [text].
-  Widget _point(String html, String text) =>
-      html.trim().isNotEmpty ? MunchedHtml(html) : Text(text, style: Theme.of(context).textTheme.bodyMedium);
+  Widget _point(String html, String text) => html.trim().isNotEmpty
+      ? MunchedHtml(html)
+      : Text(context.displayText(text), style: Theme.of(context).textTheme.bodyMedium);
 
   Widget _side(int stand) {
     final tr = context.t.specialThread.debate;

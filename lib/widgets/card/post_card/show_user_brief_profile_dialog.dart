@@ -21,6 +21,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -301,7 +302,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
             _UserProfilePair(
               Icons.group_outlined,
               tr.group,
-              widget.profile.userGroup,
+              context.displayText(widget.profile.userGroup),
               inDarkTheme ? widget.profile.userGroupColor?.adaptiveDark() : widget.profile.userGroupColor,
             ),
             if (widget.profile.title != null)

@@ -25,7 +25,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
 import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
-import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_reuse.dart';
+import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_send.dart';
 import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/utils/paste_aware_controller.dart';
@@ -312,7 +312,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// Custom emojis going up as attachments.
   int _uploadingCustomEmoji = 0;
 
-  /// The custom emojis already attachments of this post, by SHA-256 of the image ([decideCustomEmojiAttachment]).
+  /// The custom emojis already attachments of this post, by SHA-256 of the image ([sendCustomEmojiAttachment]).
   final _customEmojiAids = <String, int>{};
 
   /// An image (shared or a custom emoji) is on its way to the forum.
@@ -889,67 +889,21 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
   /// it is published), else of a new upload, remembered for the account ([CustomEmojiStore.rememberUpload]). Null
   /// when it cannot go up (told why). [below] is a context under the page's providers.
   Future<String?> _sendCustomEmoji(BuildContext below, CustomEmoji emoji) async {
-    final store = CustomEmojiStore.app;
     final form = below.read<PostEditBloc>().state.content?.form;
-    final upload = form?.attachmentUpload;
-    final repo = below.read<PostEditRepository>();
-    final uid = repo.ownerUid;
-    final tr = context.t.shareReceive;
-    final file = store?.fileOf(emoji);
-    if (store == null || form == null || upload == null || !upload.image || uid == null || file == null) {
-      showSnackBar(context: context, message: tr.uploadUnavailable);
-      return null;
-    }
-    final decision = decideCustomEmojiAttachment(
-      sha256: emoji.sha256,
-      inPost: _customEmojiAids,
-      remembered: store.uploadedAid(uid, emoji.sha256),
-      unused: form.unusedAttachmentImages,
-      used: form.usedAttachments,
-    );
-    switch (decision) {
-      case CustomEmojiInPost(:final aid):
-        _customEmojiAids[emoji.sha256] = aid;
-        return attachmentImageBBCode(aid);
-      case CustomEmojiUnused(:final aid):
-        _customEmojiAids[emoji.sha256] = aid;
-        if (!_attachNew.contains(aid)) _attachNew.add(aid);
-        return attachmentImageBBCode(aid);
-      case CustomEmojiUpload(:final forget):
-        if (forget) store.forgetUpload(uid, emoji.sha256);
-    }
     setState(() => _uploadingCustomEmoji++);
     try {
-      final result = await repo.uploadImage(upload, file.path).run();
-      return result.match(
-        (e) {
-          handle(e);
-          if (mounted) {
-            showSnackBar(
-              context: context,
-              message: switch (e) {
-                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.type) => tr.uploadRefusedType(
-                  name: emoji.fileName,
-                ),
-                AttachmentUploadFailedException(reason: AttachmentUploadRefusal.size) => tr.uploadRefusedSize(
-                  name: emoji.fileName,
-                  limit: upload.maxKb ?? 0,
-                ),
-                AttachmentUploadFailedException(:final code?) => tr.uploadFailed(code: '$code'),
-                _ => tr.uploadFailed(code: ''),
-              },
-            );
-          }
-          return null;
+      return await sendCustomEmojiAttachment(
+        context,
+        emoji: emoji,
+        repo: below.read<PostEditRepository>(),
+        upload: form?.attachmentUpload,
+        unused: form?.unusedAttachmentImages ?? const {},
+        used: form?.usedAttachments ?? const {},
+        inPost: _customEmojiAids,
+        bind: (aid) {
+          if (!_attachNew.contains(aid)) _attachNew.add(aid);
         },
-        (aid) {
-          store.rememberUpload(uid, emoji.sha256, aid);
-          // Uploaded for an account no longer in use, or a page gone: not bound to anything here.
-          if (!mounted || !repo.isCurrent) return null;
-          _customEmojiAids[emoji.sha256] = aid;
-          _attachNew.add(aid);
-          return attachmentImageBBCode(aid);
-        },
+        stillHere: () => mounted,
       );
     } finally {
       if (mounted) setState(() => _uploadingCustomEmoji--);

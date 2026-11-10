@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -45,6 +46,7 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -80,6 +82,9 @@ enum _PostCardActions {
   /// Start picking floors to quote in one reply.
   addQuote,
   rate,
+
+  /// Comment on the floor (点评), where the forum lets this account ([Post.commentAction]).
+  comment,
 
   /// Only view posts published by current author.
   viewTheAuthor,
@@ -331,7 +336,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                 sizedBoxW2H2,
                 Text(
                   [
-                    if (userGroup != null && userGroup.isNotEmpty) userGroup,
+                    if (userGroup != null && userGroup.isNotEmpty) context.displayText(userGroup),
                     if (publishTime != null) publishTime.yyyyMMDDHHMMSS(),
                     // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
                     if (widget.post.fromApp) context.t.postCard.fromApp,
@@ -561,6 +566,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
           item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
+        if (online && widget.post.commentAction != null)
+          item(_PostCardActions.comment, Icons.add_comment_outlined, context.t.postComment.menu),
       ],
       [
         if (_bookmarkTarget(context) != null)
@@ -658,6 +665,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       case _PostCardActions.rate:
         if (widget.post.rateAction != null) {
           await _rateCallback.call();
+        }
+      case _PostCardActions.comment:
+        if (widget.post.commentAction case final action?) {
+          await showPostCommentDialog(context, action, onDone: _specialReload(context));
         }
       case _PostCardActions.viewTheAuthor:
         // Here is guaranteed a not-null `ThreadBloc`.
@@ -985,6 +996,19 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         if (widget.post.packetUrl != null) ...[
           sizedBoxW12H12,
           PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
+        ],
+        // The floor's comments, before the rates as on the web page; nothing without any.
+        if (widget.post.comments.isNotEmpty) ...[
+          sizedBoxW12H12,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 712),
+            child: PostCommentSection(
+              widget.post,
+              // Read back from an offline copy: the comments it holds, nothing asked from the forum.
+              tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
+              onReload: _specialReload(context),
+            ),
+          ),
         ],
         // Rate status if any.
         if (widget.post.rate != null) ...[

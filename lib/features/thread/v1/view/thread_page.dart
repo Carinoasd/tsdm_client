@@ -48,6 +48,7 @@ import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.d
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
@@ -2683,6 +2684,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             onSelected: () async =>
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
                           ),
+                        MenuCustomItem(
+                          icon: Icons.qr_code_2_outlined,
+                          description: context.t.shareQr.title,
+                          onSelected: () async => showShareQrDialog(
+                            context,
+                            url: shareQrThreadUrl(state.tid!),
+                            title: state.title ?? widget.title ?? '',
+                            fileName: 'tsdm-thread-${state.tid}',
+                          ),
+                        ),
                         // Put aside on this device for the account in use: offline floors can be too.
                         if (context.readOrNull<ReadLaterCubit>() != null &&
                             context.select<ReadLaterCubit, int?>((cubit) => cubit.state.uid) != null)

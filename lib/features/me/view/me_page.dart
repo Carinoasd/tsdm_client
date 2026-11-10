@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/multi_user/widgets/account_switch_dialog.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
+import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
@@ -83,6 +84,24 @@ class _MePageState extends State<MePage> {
     }
     return context.readOrNull<AuthenticationRepository>()?.currentUser;
   }
+
+  /// The profile of each account seen: the homepage loaded it, so it is usually cached; otherwise it is asked once.
+  final _profiles = <int, Future<UserProfile?>>{};
+
+  Future<UserProfile?> _profileOf(int uid) => _profiles[uid] ??= () async {
+    final repository = context.readOrNull<ProfileRepository>();
+    if (repository == null) {
+      return null;
+    }
+    // The profile of this very account, by its uid: the account in use may change while the page is on its way.
+    final page = (await repository.fetchProfile(uid: '$uid').run()).toNullable();
+    final profile = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+    if (profile == null) {
+      // Asked again next time the page is built, not kept as missing.
+      _profiles.removeWhere((key, _) => key == uid);
+    }
+    return profile;
+  }();
 
   /// Open [path] above the shell.
   void _open(String path, {Map<String, String> query = const {}}) =>
@@ -317,7 +336,7 @@ class _MePageState extends State<MePage> {
               padding: padding.copyWith(top: 12, bottom: 24).add(context.safePadding()),
               children: [
                 if (account case final UserLoginInfo user) ...[
-                  _AccountCard(user: user),
+                  _AccountCard(user: user, profileOf: _profileOf),
                   SizedBox(height: gap),
                   for (final (key, title, icon, entries) in [
                     ('me-group-content', tr.content, Icons.article_outlined, _contentEntries(context)),
@@ -331,12 +350,27 @@ class _MePageState extends State<MePage> {
                   const _GuestCard(),
                   SizedBox(height: gap),
                 ],
-                _EntryGrid(
-                  key: const ValueKey('me-group-services'),
-                  title: tr.services,
-                  icon: Icons.apps_outlined,
-                  entries: _serviceEntries(context, loggedIn: loggedIn),
-                  wide: wide,
+                FutureBuilder<UserProfile?>(
+                  future: account?.uid == null ? null : _profileOf(account!.uid!),
+                  builder: (context, snapshot) => _EntryGrid(
+                    key: const ValueKey('me-group-services'),
+                    title: tr.services,
+                    icon: Icons.apps_outlined,
+                    entries: [
+                      ..._serviceEntries(context, loggedIn: loggedIn),
+                      // An account of a management group (管理组): the forum's moderation panel.
+                      if (account?.uid != null &&
+                          snapshot.data?.uid == '${account?.uid}' &&
+                          (snapshot.data?.moderatorGroup ?? '').trim().isNotEmpty)
+                        (
+                          key: const ValueKey('me-moderator-panel'),
+                          icon: Icons.admin_panel_settings_outlined,
+                          label: context.t.modcp.panel,
+                          onTap: () => _open(ScreenPaths.moderatorPanel),
+                        ),
+                    ],
+                    wide: wide,
+                  ),
                 ),
                 SizedBox(height: gap),
                 _buildApp(context, loggedIn: loggedIn),
@@ -352,27 +386,23 @@ class _MePageState extends State<MePage> {
 /// The account in use: avatar, name, user group and uid (a tap opens the profile), the check-in of the day and the
 /// switch to another saved account.
 class _AccountCard extends StatefulWidget {
-  const _AccountCard({required this.user});
+  const _AccountCard({required this.user, required this.profileOf});
 
   final UserLoginInfo user;
+
+  /// The profile of an account, shared with the page.
+  final Future<UserProfile?> Function(int uid) profileOf;
 
   @override
   State<_AccountCard> createState() => _AccountCardState();
 }
 
 class _AccountCardState extends State<_AccountCard> {
-  /// The name of the user group of each account seen, from its profile: the homepage loaded it, so it is usually
-  /// cached; otherwise it is asked once.
+  /// The name of the user group of each account seen, from its profile.
   final _groups = <int, Future<String?>>{};
 
   Future<String?> _groupOf(int uid) => _groups[uid] ??= () async {
-    final repository = context.readOrNull<ProfileRepository>();
-    if (repository == null) {
-      return null;
-    }
-    // The profile of this very account, by its uid: the account in use may change while the page is on its way.
-    final page = (await repository.fetchProfile(uid: '$uid').run()).toNullable();
-    final profile = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+    final profile = await widget.profileOf(uid);
     final group = profile?.userGroup;
     final name = group == null || group.isEmpty
         // Html, the group's name with the forum's color and icon; the name is enough here.

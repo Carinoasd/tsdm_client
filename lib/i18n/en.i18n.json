@@ -2071,6 +2071,11 @@
     "share": "Share",
     "siteName": "天使动漫"
   },
+  "shareQr": {
+    "title": "Share as QR code",
+    "save": "Save",
+    "share": "Share"
+  },
   "postReport": {
     "menu": "Report",
     "title": "Report floor ${floor: String}",
@@ -2106,6 +2111,23 @@
       "forumMessage": "The forum answered instead of showing the report form. Nothing was sent:",
       "unsupported": "The app does not support this report form. Nothing was sent; continue in the browser."
     }
+  },
+  "modcp": {
+    "panel": "Moderator panel",
+    "recycleBin": "Recycle bin",
+    "log": "Moderator log",
+    "threads": "Threads",
+    "posts": "Replies",
+    "restore": "Restore",
+    "deleteForever": "Delete forever",
+    "selected": "$count selected",
+    "done": "$count done",
+    "notDone": "$count not done",
+    "binEmpty": "The recycle bin is empty",
+    "logEmpty": "No log entries",
+    "noForums": "No forum to manage",
+    "switchForum": "Switch forum",
+    "keyword": "Keyword"
   },
   "moderate": {
     "menu": "Moderate",
@@ -2158,6 +2180,14 @@
     "italic": "Italic",
     "underline": "Underline",
     "unavailable": "Not available here",
+    "stamp": "Stamp",
+    "stamplist": "Icon",
+    "type": "Category",
+    "copy": "Copy",
+    "repair": "Repair thread",
+    "copyTo": "Copy to",
+    "threadType": "Target category",
+    "noType": "No category",
     "batch": {
       "selected": "$count selected",
       "selectAll": "Select all",
@@ -3937,6 +3967,21 @@
     "unconfirmed": "The result is unknown: check the list before sending again",
     "sendFailed": "Failed to send",
     "identityChanged": "The account changed: this page sends nothing more"
+  },
+  "postComment": {
+    "title": "Comments",
+    "menu": "Comment",
+    "send": "Post",
+    "more": "More comments",
+    "delete": "Delete",
+    "deleteTitle": "Delete comment",
+    "reason": "Reason",
+    "done": "Comment posted",
+    "deleted": "Deleted",
+    "refused": "The forum refused this",
+    "unknown": "Result unknown, reloaded",
+    "loadFailed": "Failed to load",
+    "accountChanged": "The account changed: nothing was sent"
   },
   "threadRecommend": {
     "unknown": "Could not confirm the result: refresh the thread to see it."

@@ -149,7 +149,8 @@ final class ReplyRepository with LoggerMixin {
   /// Reply to a post.
   ///
   /// [stand] is the side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative), sent as the reply
-  /// window's `stand` select; none for any other thread.
+  /// window's `stand` select; none for any other thread. [attachNew] are the attachments uploaded for the reply (the
+  /// custom emojis in it), posted as `attachnew[aid][description]`: the forum binds them to the reply it stores.
   ///
   /// When the forum's plugin is known to answer the post forms (plugin 2.9.0, [TsdmAppApi.knowsPostForm]) the reply
   /// window is asked as its post form first ([_replyToPostWithForm]); a window that does not come back as one, and
@@ -163,6 +164,7 @@ final class ReplyRepository with LoggerMixin {
     required String replyAction,
     required String replyMessage,
     int? stand,
+    List<int> attachNew = const [],
     SecCheckAnswer? verification,
   }) => AsyncEither(() async {
     final netClient = getIt.get<NetClientProvider>();
@@ -173,6 +175,7 @@ final class ReplyRepository with LoggerMixin {
         replyAction: replyAction,
         replyMessage: replyMessage,
         stand: stand,
+        attachNew: attachNew,
         verification: verification,
       );
       if (structured != null) {
@@ -265,6 +268,7 @@ final class ReplyRepository with LoggerMixin {
       // TODO: Support reply with rich text.
       'message': toOfficialMentions(replyMessage),
       'stand': ?stand?.toString(),
+      for (final aid in attachNew) 'attachnew[$aid][description]': '',
       ...?verification?.fields,
     };
 
@@ -370,6 +374,7 @@ final class ReplyRepository with LoggerMixin {
     required String replyAction,
     required String replyMessage,
     int? stand,
+    List<int> attachNew = const [],
     SecCheckAnswer? verification,
   }) async {
     final respEither = await netClient
@@ -422,7 +427,7 @@ final class ReplyRepository with LoggerMixin {
       info('reply window asks for a captcha or a security question');
       return left(ReplyNeedsVerificationException(check: verification?.check.merge(asked) ?? asked, url: browserUrl));
     }
-    final body = form.bodyWith(PostFormEdits(message: toOfficialMentions(replyMessage)));
+    final body = form.bodyWith(PostFormEdits(message: toOfficialMentions(replyMessage), attachNew: attachNew));
     if (stand != null) {
       body.set('stand', '$stand');
     }
@@ -518,11 +523,13 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// [stand] is the side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative), sent as the fast reply
   /// form's `stand` select (the page's "加入正方／反方" opens the reply with it); none for any other thread. The forum
-  /// keeps the side of the account's first reply for every later one.
+  /// keeps the side of the account's first reply for every later one. [attachNew] are bound to the reply as in
+  /// [replyToPost].
   AsyncEither<PostedReply> replyToThread({
     required ReplyParameters replyParameters,
     required String replyMessage,
     int? stand,
+    List<int> attachNew = const [],
     SecCheckAnswer? verification,
   }) => AsyncEither(() async {
     final browserUrl = '$homePage?mod=post&action=reply&fid=${replyParameters.fid}&tid=${replyParameters.tid}';
@@ -544,6 +551,7 @@ final class ReplyRepository with LoggerMixin {
       'formhash': replyParameters.formHash,
       'subject': replyParameters.subject,
       'stand': ?stand?.toString(),
+      for (final aid in attachNew) 'attachnew[$aid][description]': '',
       ...?verification?.fields,
     };
     // Only apply post time when not null.

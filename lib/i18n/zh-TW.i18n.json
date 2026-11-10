@@ -2071,6 +2071,11 @@
     "share": "分享",
     "siteName": "天使动漫"
   },
+  "shareQr": {
+    "title": "分享為 QR Code",
+    "save": "儲存",
+    "share": "分享"
+  },
   "postReport": {
     "menu": "檢舉",
     "title": "檢舉樓層 ${floor: String}",
@@ -2106,6 +2111,23 @@
       "forumMessage": "論壇回傳了提示而不是檢舉表單，未送出：",
       "unsupported": "App 不支援此檢舉表單，未送出；請改用瀏覽器。"
     }
+  },
+  "modcp": {
+    "panel": "版主面板",
+    "recycleBin": "回收站",
+    "log": "版主日誌",
+    "threads": "主題",
+    "posts": "回覆",
+    "restore": "恢復",
+    "deleteForever": "徹底刪除",
+    "selected": "已選 $count 項",
+    "done": "已處理 $count 項",
+    "notDone": "$count 項未完成",
+    "binEmpty": "回收站是空的",
+    "logEmpty": "沒有日誌",
+    "noForums": "沒有可管理的版塊",
+    "switchForum": "切換版塊",
+    "keyword": "關鍵字"
   },
   "moderate": {
     "menu": "管理",
@@ -2158,6 +2180,14 @@
     "italic": "斜體",
     "underline": "底線",
     "unavailable": "無法在本版使用這項操作",
+    "stamp": "圖章",
+    "stamplist": "圖示",
+    "type": "分類",
+    "copy": "複製",
+    "repair": "修復主題",
+    "copyTo": "目標版塊",
+    "threadType": "目標分類",
+    "noType": "無分類",
     "batch": {
       "selected": "已選 $count 個",
       "selectAll": "全選",
@@ -3937,6 +3967,21 @@
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
     "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+  },
+  "postComment": {
+    "title": "點評",
+    "menu": "點評",
+    "send": "發表",
+    "more": "更多點評",
+    "delete": "刪除",
+    "deleteTitle": "刪除點評",
+    "reason": "操作說明",
+    "done": "點評成功",
+    "deleted": "已刪除",
+    "refused": "論壇拒絕了這個操作",
+    "unknown": "結果不明，已重新載入",
+    "loadFailed": "載入失敗",
+    "accountChanged": "帳號已切換，沒有送出"
   },
   "threadRecommend": {
     "unknown": "未能確認結果，請重新整理帖子查看。"

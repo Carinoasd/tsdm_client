@@ -274,6 +274,9 @@ final class CustomEmojiStore with LoggerMixin {
   /// By uid alone: the app talks to one forum.
   int? uploadedAid(int uid, String sha256) => _uploads['$uid']?[sha256];
 
+  /// Every attachment remembered as an upload of the account [uid] ([uploadedAid]).
+  Set<int> uploadedAids(int uid) => {...?_uploads['$uid']?.values};
+
   /// Remember the upload [aid] of the image [sha256] by the account [uid].
   void rememberUpload(int uid, String sha256, int aid) {
     (_uploads['$uid'] ??= {})[sha256] = aid;

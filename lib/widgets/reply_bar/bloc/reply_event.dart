@@ -53,6 +53,7 @@ final class ReplyToPostRequested extends ReplyEvent with ReplyToPostRequestedMap
     required this.replyAction,
     required this.replyMessage,
     this.stand,
+    this.attachNew = const [],
     this.verification,
     this.draftUid,
     this.draftKey,
@@ -69,6 +70,10 @@ final class ReplyToPostRequested extends ReplyEvent with ReplyToPostRequestedMap
 
   /// The side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative); null for any other thread.
   final int? stand;
+
+  /// The attachments uploaded for the reply, by `aid`, bound to it when it is stored (`attachnew`): the
+  /// custom emojis put into it.
+  final List<int> attachNew;
 
   /// The answers to the captcha or the security question the forum asks, null when none was asked yet.
   final SecCheckAnswer? verification;
@@ -88,6 +93,7 @@ final class ReplyToThreadRequested extends ReplyEvent with ReplyToThreadRequeste
     required this.replyParameters,
     required this.replyMessage,
     this.stand,
+    this.attachNew = const [],
     this.verification,
     this.draftUid,
     this.draftKey,
@@ -101,6 +107,10 @@ final class ReplyToThreadRequested extends ReplyEvent with ReplyToThreadRequeste
 
   /// The side the reply takes in a debate (0 neutral, 1 affirmative, 2 negative); null for any other thread.
   final int? stand;
+
+  /// The attachments uploaded for the reply, by `aid`, bound to it when it is stored (`attachnew`): the
+  /// custom emojis put into it.
+  final List<int> attachNew;
 
   /// The answers to the captcha or the security question the forum asks, null when none was asked yet.
   final SecCheckAnswer? verification;

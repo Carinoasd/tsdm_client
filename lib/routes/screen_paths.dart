@@ -355,6 +355,11 @@ class ScreenPaths {
   /// Need to login before see the content.
   static const String ratingStats = '/ratingStats';
 
+  /// The moderator's panel: the moderation queue, the recycle bins and the log of the forum's moderation panel.
+  ///
+  /// Offered to an account of a management group.
+  static const String moderatorPanel = '/moderatorPanel';
+
   /// Page to edit a post or thread.
   ///
   /// Contains:
@@ -610,6 +615,12 @@ class DialogPaths {
 
   /// Dialog to choose the size and the quality images are uploaded with.
   static const String uploadImageOutput = '/dialog/uploadImageOutput';
+
+  /// Dialog to comment on a floor (点评).
+  static const String postComment = '/dialog/postComment';
+
+  /// Dialog to delete a comment of a floor.
+  static const String postCommentDelete = '/dialog/postCommentDelete';
 }
 
 /// Route path for a screen.

@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -329,6 +330,16 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         _ => null,
       }?.animateTo(0, curve: _backToTopCurve, duration: _backToTopAnimationDuration),
       customMenuItems: [
+        MenuCustomItem(
+          icon: Icons.qr_code_2_outlined,
+          description: context.t.shareQr.title,
+          onSelected: () async => showShareQrDialog(
+            context,
+            url: shareQrForumUrl(widget.fid),
+            title: widget.title ?? state.title ?? '',
+            fileName: 'tsdm-forum-${widget.fid}',
+          ),
+        ),
         MenuCustomItem(
           icon: isForumFavorited(context, fid: widget.fid)
               ? Icons.bookmark_remove_outlined

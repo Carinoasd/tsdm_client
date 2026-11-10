@@ -42,6 +42,7 @@ import 'package:tsdm_client/features/medal_title_tools/view/title_exchange_page.
 import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
 import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
 import 'package:tsdm_client/features/member_thread/view/member_thread_page.dart';
+import 'package:tsdm_client/features/moderate/view/moderator_panel_page.dart';
 import 'package:tsdm_client/features/multi_user/view/manage_account_page.dart';
 import 'package:tsdm_client/features/my_thread/view/my_thread_page.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -420,6 +421,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.points, builder: (_) => const PointsPage()),
   AppRoute(path: ScreenPaths.checkinCalendar, builder: (_) => const CheckinCalendarPage()),
   AppRoute(path: ScreenPaths.ratingStats, builder: (_) => const RateStatsPage()),
+  AppRoute(path: ScreenPaths.moderatorPanel, builder: (_) => const ModeratorPanelPage()),
   AppRoute(path: ScreenPaths.achievements, builder: (_) => const AchievementsPage()),
   AppRoute(
     path: ScreenPaths.editPost,

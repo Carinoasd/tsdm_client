@@ -97,7 +97,7 @@ class _RewardCard extends StatelessWidget {
               child: AppInsetBlock(
                 color: colorScheme.surfaceContainerHigh,
                 child: switch (best.excerpt) {
-                  final String excerpt => Text(excerpt, style: textTheme.bodyMedium),
+                  final String excerpt => Text(context.displayText(excerpt), style: textTheme.bodyMedium),
                   null => Row(
                     children: [
                       Icon(Icons.lock_outline, size: 18, color: colorScheme.outline),
