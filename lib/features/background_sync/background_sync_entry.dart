@@ -1,23 +1,21 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/background_sync/background_isolate.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_tick.dart';
 import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
 import 'package:tsdm_client/features/forum_watch/utils/forum_watch_check.dart';
 import 'package:tsdm_client/features/forum_watch/utils/forum_watch_fetch.dart';
 import 'package:tsdm_client/features/forum_watch/utils/forum_watch_notice.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
-import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
 import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
 import 'package:tsdm_client/features/thread_follow/utils/followed_thread_check.dart';
@@ -26,19 +24,8 @@ import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
-import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
-import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
-import 'package:tsdm_client/shared/providers/providers.dart';
-import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
-import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/connection.dart' as conn;
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart' show databaseFile;
-import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
-import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
-import 'package:tsdm_client/utils/log_redaction.dart';
-import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/redacting_talker.dart';
 
 /// The isolate side of the Android background message service (#80): [backgroundSyncEntryPoint] and what it needs.
 ///
@@ -47,16 +34,16 @@ import 'package:tsdm_client/utils/redacting_talker.dart';
 /// entry point.
 /// Everything the service isolate needs, built once when it starts.
 final class _BackgroundSyncRuntime {
-  _BackgroundSyncRuntime._(this.db, this.storage, this.settings, this.proxy, this.repository, this.plugin)
-    : followed = FollowedThreadStore(storage),
-      watch = ForumWatchStore(storage);
+  _BackgroundSyncRuntime._(this.base, this.repository, this.plugin)
+    : followed = FollowedThreadStore(base.storage),
+      watch = ForumWatchStore(base.storage);
 
-  final AppDatabase db;
-  final StorageProvider storage;
-  final SettingsRepository settings;
-  final ProxyProvider proxy;
+  /// The database, the settings and the clients, shared with the isolate of the direct reply.
+  final BackgroundIsolateBase base;
   final NotificationSyncAllRepository repository;
   final FlutterLocalNotificationsPlugin plugin;
+
+  StorageProvider get storage => base.storage;
 
   /// The threads each account follows, checked by the service too (`followedThreadsTick`).
   final FollowedThreadStore followed;
@@ -65,50 +52,20 @@ final class _BackgroundSyncRuntime {
   final ForumWatchStore watch;
 
   /// The reading of the watched sources of account [uid], with a client built as the sync's clients are.
-  Future<ForumWatchFetch> Function(String source) watchFetcherOf(int uid) => forumWatchFetcherOf(
-    uid,
-    clientFactory: (cookie) => NetClientProvider.buildNoCookie(
-      dio: settings.buildDefaultDio(nativeHttp: false),
-      cookie: cookie,
-    ),
-  );
+  Future<ForumWatchFetch> Function(String source) watchFetcherOf(int uid) =>
+      forumWatchFetcherOf(uid, clientFactory: base.clientOf);
 
   /// The check of one followed thread of account [uid], with a client built as the sync's clients are.
-  Future<FollowedThreadFetch> Function(int tid) followedFetcherOf(int uid) => followedThreadFetcherOf(
-    uid,
-    clientFactory: (cookie) => NetClientProvider.buildNoCookie(
-      dio: settings.buildDefaultDio(nativeHttp: false),
-      cookie: cookie,
-    ),
-  );
+  Future<FollowedThreadFetch> Function(int tid) followedFetcherOf(int uid) =>
+      followedThreadFetcherOf(uid, clientFactory: base.clientOf);
 
   /// Open the shared database and register what the shared repositories look up in `getIt` of this isolate.
   static Future<_BackgroundSyncRuntime> create() async {
-    // Dart analyzer does not work on conditional export.
-    // ignore: undefined_function
-    final db = AppDatabase(conn.connect());
-    final storage = StorageProvider(db, await preloadCookie(db), {});
-    final settingsRepo = SettingsRepository(storage);
-    await settingsRepo.init();
-    // Filled before every fetch by `refreshNetwork`: the system proxy is only known after asking the platform.
-    final proxy = ProxyProvider();
-    getIt
-      ..registerSingleton(proxy)
-      ..registerSingleton(db)
-      ..registerSingleton(storage)
-      ..registerSingleton(settingsRepo)
-      ..registerFactory(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
-      ..registerSingleton(NetErrorSaver())
-      // An account removed here takes the pages saved for it along, as in the app.
-      ..registerSingleton(SavedAnswerStore());
+    final base = await BackgroundIsolateBase.open();
     final repository = NotificationSyncAllRepository(
-      storageProvider: storage,
-      notificationRepository: NotificationRepository(storageProvider: storage),
-      // The Kotlin http client lives in the activity's method channel: this isolate has no activity.
-      clientFactory: (cookie) => NetClientProvider.buildNoCookie(
-        dio: settingsRepo.buildDefaultDio(nativeHttp: false),
-        cookie: cookie,
-      ),
+      storageProvider: base.storage,
+      notificationRepository: NotificationRepository(storageProvider: base.storage),
+      clientFactory: base.clientOf,
       // One account per call: the tick spaces the accounts itself (`backgroundSyncAccountGap`).
       gap: Duration.zero,
     );
@@ -117,63 +74,25 @@ final class _BackgroundSyncRuntime {
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/ic_launcher_foreground'),
       ),
+      // The notifications this service posts offer the direct reply: the plugin keeps the handle of the callback of
+      // the current build, also when the service started at boot and the app was not opened since an update.
+      onDidReceiveBackgroundNotificationResponse: onNotificationActionInBackground,
     );
-    return _BackgroundSyncRuntime._(db, storage, settingsRepo, proxy, repository, plugin);
+    return _BackgroundSyncRuntime._(base, repository, plugin);
   }
 
-  /// Settings the client is built from, read again for this fetch: the snapshot from the service start is stale as
-  /// soon as the app changed the proxy (or was started again), and the system proxy has to be asked for here.
-  Future<void> refreshNetwork() => refreshBackgroundNetworkSettings(settings: settings, updateProxy: proxy.updateProxy);
+  /// Settings the client is built from, read again for this fetch.
+  Future<void> refreshNetwork() => base.refreshNetwork();
 
   /// Load the app's language so the notification texts match the app.
-  Future<void> applyLocale(String locale) async {
-    if (locale.isEmpty) {
-      await LocaleSettings.useDeviceLocale();
-    } else {
-      await LocaleSettings.setLocaleRaw(locale);
-    }
-  }
+  Future<void> applyLocale(String locale) => base.applyLocale(locale);
 
   Future<void> dispose() async {
     await followed.dispose();
     await watch.dispose();
     await repository.dispose();
-    await db.close();
+    await base.dispose();
   }
-}
-
-/// Log lines of the service isolate go to their own file in the log directory, exported with the app's logs.
-final class _BackgroundLogObserver implements TalkerObserver {
-  _BackgroundLogObserver(this._sink);
-
-  final IOSink _sink;
-
-  void _write(TalkerData data) => _sink.write('${redactSensitive(data.generateTextMessage())}\n');
-
-  @override
-  void onError(TalkerError err) => _write(err);
-
-  @override
-  void onException(TalkerException err) => _write(err);
-
-  @override
-  void onLog(TalkerData log) => _write(log);
-}
-
-Future<IOSink> _initBackgroundLogger() async {
-  final logDir = await getLogDir();
-  if (!logDir.existsSync()) {
-    await logDir.create(recursive: true);
-  }
-  final now = DateTime.now();
-  final day = '${now.year}${"${now.month}".padLeft(2, "0")}${"${now.day}".padLeft(2, "0")}';
-  final sink = File('${logDir.path}${Platform.pathSeparator}tsdm_client_bg_$day.log').openWrite(mode: FileMode.append);
-  talker = RedactingTalker(
-    logger: TalkerLogger(output: debugPrint),
-    settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
-    observer: _BackgroundLogObserver(sink),
-  );
-  return sink;
 }
 
 /// ` for uid 12**` in a log line about one account, nothing for the whole tick.
@@ -183,7 +102,7 @@ String _ofUid(int? uid) => uid == null ? '' : ' for uid ${"$uid".obscured(4)}';
 @pragma('vm:entry-point')
 Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
-  final logSink = await _initBackgroundLogger();
+  final logSink = await initBackgroundLogger();
   talker.info('background sync: service started');
 
   final _BackgroundSyncRuntime runtime;

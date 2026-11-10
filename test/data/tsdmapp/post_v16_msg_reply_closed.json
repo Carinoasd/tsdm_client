@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，本主题已关闭，不再接受新内容",
+ "login": 0,
+ "uid": 35,
+ "message_key": "post_thread_closed"
+}

@@ -1,0 +1,19 @@
+{
+ "ok": 0,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 35,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "抱歉，您两次发表间隔少于 15 秒，请稍候再发表",
+ "message_key": "post_flood_ctrl",
+ "url": "",
+ "handlekey": "reply",
+ "values": {
+  "floodctrl": "15"
+ },
+ "login": 0,
+ "alert": "error"
+}

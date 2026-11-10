@@ -617,6 +617,9 @@
         "title": "通知不显示内容",
         "detail": "系统通知只显示账号与新消息数量，不显示是谁、做了什么和消息内容"
       },
+      "notificationDirectReply": {
+        "title": "通知栏直接回复"
+      },
       "notificationPermission": {
         "title": "通知权限",
         "detail": "自动同步需要此权限才能把新提醒、消息和公共消息显示为系统通知",
@@ -2547,6 +2550,15 @@
     "channelDesc": "自动同步消息时收到新提醒",
     "ticker": "新提醒",
     "accountGone": "这条通知的账号已不在此设备上",
+    "directReply": {
+      "action": "回复",
+      "sent": "已回复",
+      "failed": "回复未发送",
+      "openApp": "需要在 App 中发送",
+      "locked": "App 已锁定，请解锁后发送",
+      "loggedOut": "账号登录已失效",
+      "error": "发送失败，请稍后重试"
+    },
     "notice": {
       "title": "新消息",
       "titleOf": "[${username}] 新消息",

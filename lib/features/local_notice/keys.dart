@@ -56,6 +56,10 @@ class LocalNoticeKeys {
       lastPost: query['last'] == '1',
       fid: id('fid'),
       watchAlerts: query['wa'] == '1',
+      draft: switch (query['draft']) {
+        final String draft when draft.trim().isNotEmpty => draft,
+        _ => null,
+      },
     );
     return target.isEmpty ? null : target;
   }
@@ -79,12 +83,23 @@ class LocalNoticeKeys {
     }
     return (uid: uid);
   }
+
+  /// [payload] for a log line: the text of a reply that was not sent ([LocalNoticeTarget.draft]) left out.
+  static String? loggable(String? payload) {
+    if (payload == null) {
+      return null;
+    }
+    return payload.replaceAll(RegExp('((?:^|[#&])draft=)[^&]*'), r'$1…');
+  }
 }
 
 /// What a tap on a notification announcing a single new item opens, see [LocalNoticeKeys.withTarget]: the floor
 /// [pid] (or the thread [tid]) of the notice [nid], or the conversation with [peerUid]; the last floor of the thread
 /// [tid] with [lastPost] (new replies of a followed thread); the forum [fid] (new threads of a watched forum) or the
 /// page of the alerts of the watched forums and keywords with [watchAlerts].
+///
+/// A notification telling that a reply typed in a notification was not sent (`direct_reply.dart`) also carries its
+/// text, [draft]: a tap keeps it as the local draft of the floor or the conversation before opening it.
 @immutable
 final class LocalNoticeTarget {
   /// Constructor.
@@ -96,6 +111,7 @@ final class LocalNoticeTarget {
     this.lastPost = false,
     this.fid,
     this.watchAlerts = false,
+    this.draft,
   });
 
   /// Notice to mark as read.
@@ -119,6 +135,9 @@ final class LocalNoticeTarget {
   /// Open the page of the alerts of the watched forums and keywords, when nothing else is named.
   final bool watchAlerts;
 
+  /// The text of a reply typed in a notification that was not sent, null for every other notification.
+  final String? draft;
+
   /// Nothing to open.
   bool get isEmpty => tid == null && pid == null && peerUid == null && fid == null && !watchAlerts;
 
@@ -131,6 +150,7 @@ final class LocalNoticeTarget {
     if (lastPost) 'last=1',
     if (fid != null) 'fid=$fid',
     if (watchAlerts) 'wa=1',
+    if (draft case final draft?) 'draft=${Uri.encodeQueryComponent(draft)}',
   ].join('&');
 
   @override
@@ -142,11 +162,12 @@ final class LocalNoticeTarget {
       other.peerUid == peerUid &&
       other.lastPost == lastPost &&
       other.fid == fid &&
-      other.watchAlerts == watchAlerts;
+      other.watchAlerts == watchAlerts &&
+      other.draft == draft;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts);
+  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft);
 
   @override
-  String toString() => 'LocalNoticeTarget(${toQuery()})';
+  String toString() => 'LocalNoticeTarget(${LocalNoticeKeys.loggable(toQuery())})';
 }

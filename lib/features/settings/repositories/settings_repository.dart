@@ -153,6 +153,7 @@ final class SettingsRepository with LoggerMixin {
       enableBackgroundMessageService: s.extract(_SK.enableBackgroundMessageService),
       backgroundSyncAllAccounts: s.extract(_SK.backgroundSyncAllAccounts),
       notificationHideContent: s.extract(_SK.notificationHideContent),
+      notificationDirectReply: s.extract(_SK.notificationDirectReply),
       readingTimeStats: s.extract(_SK.readingTimeStats),
       notifyReply: s.extract(_SK.notifyReply),
       notifyMention: s.extract(_SK.notifyMention),

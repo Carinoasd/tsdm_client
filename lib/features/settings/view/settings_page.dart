@@ -985,6 +985,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             value: state.settingsMap.notificationHideContent,
             onChanged: (v) async => getIt.get<SettingsRepository>().setValue(SettingsKeys.notificationHideContent, v),
           ),
+        // Android only: the reply typed in a notification (`direct_reply.dart`).
+        if (isAndroid)
+          SectionSwitchListTile(
+            key: const ValueKey('notification-direct-reply'),
+            secondary: const Icon(Icons.quickreply_outlined),
+            title: Text(tr.notificationDirectReply.title),
+            value: state.settingsMap.notificationDirectReply,
+            onChanged: (v) async => getIt.get<SettingsRepository>().setValue(SettingsKeys.notificationDirectReply, v),
+          ),
         // Every platform: where notifications are not posted, the page lists what was found.
         SectionListTile(
           key: const ValueKey('notice-forum-watch'),

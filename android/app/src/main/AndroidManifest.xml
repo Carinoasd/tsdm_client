@@ -151,6 +151,12 @@
                     android:name="android.appwidget.provider"
                     android:resource="@xml/home_widget_info" />
         </receiver>
+        <!-- The actions of the local notifications handled without opening the app (the reply typed in a notification,
+             direct_reply_entry.dart): flutter_local_notifications runs them in an engine of its own, started by this
+             receiver. Its own manifest does not declare it. -->
+        <receiver
+                android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+                android:exported="false" />
         <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivityImpl
              in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
         <activity

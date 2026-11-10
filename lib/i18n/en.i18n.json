@@ -617,6 +617,9 @@
         "title": "Hide notification content",
         "detail": "System notifications only show the account and how many new items there are, not who did what nor the message text"
       },
+      "notificationDirectReply": {
+        "title": "Reply from notifications"
+      },
       "notificationPermission": {
         "title": "Notification permission",
         "detail": "Required by auto sync to show new notices, messages and broadcasts as system notifications",
@@ -2547,6 +2550,15 @@
     "channelDesc": "Received new notice when auto sync",
     "ticker": "New notice",
     "accountGone": "The account of this notice is no longer on this device",
+    "directReply": {
+      "action": "Reply",
+      "sent": "Replied",
+      "failed": "Reply not sent",
+      "openApp": "Send it in the app",
+      "locked": "The app is locked, unlock it to send",
+      "loggedOut": "The login of the account has expired",
+      "error": "Sending failed, try again later"
+    },
     "notice": {
       "title": "New notice",
       "titleOf": "[${username}] New notice",

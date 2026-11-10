@@ -14,7 +14,12 @@ import 'package:universal_html/parsing.dart';
 /// Repository to fetch chat related source.
 final class ChatRepository {
   /// Constructor.
-  const ChatRepository();
+  ///
+  /// [client] asks the chat dialog ([fetchChat]) as another account than the one of the global cookie (`getIt`): the
+  /// reply typed in a notification, sent in the background as the account of the notification.
+  const ChatRepository({NetClientProvider? client}) : _client = client;
+
+  final NetClientProvider? _client;
 
   /// Fetch the chat history with user [uid], page [page] (the forum serves the last page without one).
   ///
@@ -30,7 +35,7 @@ final class ChatRepository {
 
   /// Fetch the chat dialog with user [uid]: an AJAX answer (the html inside the xml), not a page of the JSON mode.
   AsyncEither<uh.Document> fetchChat(String uid) => AsyncEither(() async {
-    final respEither = await getIt.get<NetClientProvider>().get(formatChatUrl(uid)).run();
+    final respEither = await (_client ?? getIt.get<NetClientProvider>()).get(formatChatUrl(uid)).run();
 
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());

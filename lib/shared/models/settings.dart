@@ -199,6 +199,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// center showed who did what, and no expanded list of items.
   notificationHideContent<bool>(name: 'notificationHideContent', type: bool, defaultValue: false),
 
+  /// Android: the notifications of a reply, a quote, a mention or a private message offer a reply typed in the
+  /// notification itself, sent in the background as the account of the notification (`direct_reply.dart`).
+  notificationDirectReply<bool>(name: 'notificationDirectReply', type: bool, defaultValue: true),
+
   /// Count the time spent reading threads (the reading statistics of the "me" page), kept on this device only.
   readingTimeStats<bool>(name: 'readingTimeStats', type: bool, defaultValue: true),
 

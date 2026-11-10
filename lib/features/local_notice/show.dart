@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
@@ -297,6 +298,8 @@ String localNotificationBodyOf(Translations translations, NotificationAutoSyncIn
 /// With a [category] the notification is posted in the channel of that category (named [channelName]), so the system
 /// settings can switch each category off on its own; without one (the test notification of the settings page) in
 /// [localNoticeChannelId].
+///
+/// [actions] are the Android actions of the notification (the direct reply, `direct_reply.dart`).
 NotificationDetails buildLocalNotificationDetails({
   required String channelName,
   required String channelDescription,
@@ -306,6 +309,7 @@ NotificationDetails buildLocalNotificationDetails({
   List<String> lines = const [],
   String? summary,
   NoticeCategory? category,
+  List<AndroidNotificationAction>? actions,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     category?.channelId ?? localNoticeChannelId,
@@ -321,6 +325,7 @@ NotificationDetails buildLocalNotificationDetails({
     styleInformation: lines.isNotEmpty
         ? InboxStyleInformation(lines, contentTitle: title, summaryText: summary)
         : (body != null ? BigTextStyleInformation(body, contentTitle: title) : null),
+    actions: actions,
   ),
   windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
@@ -395,16 +400,22 @@ Future<void> showLocalNotification(
 /// message service with its own plugin instance and the locale it loaded from the settings (#80). Same channel and
 /// payload, so a tap is handled by the existing route logic in both cases. What is posted for [account] is
 /// [localNotificationContentOf].
+///
+/// The notification of a single reply, quote, mention or private message about a known [account] offers the reply
+/// typed in the notification ([directReplyFits], `direct_reply.dart`) when [directReply] says so (null: as the setting
+/// and the app lock say now, [directReplyOffered]); never with [hideContent], which shows nothing to reply to.
 Future<void> showLocalNotificationWith({
   required FlutterLocalNotificationsPlugin plugin,
   required Translations translations,
   required NotificationAutoSyncInfo info,
   LocalNoticeAccount? account,
   bool hideContent = false,
+  bool? directReply,
 }) async {
   final tr = translations.localNotification;
   final content = localNotificationContentOf(translations, info, account: account, hideContent: hideContent);
   final category = noticeCategoryOfInfo(info);
+  final reply = account != null && !hideContent && directReplyFits(info) && (directReply ?? await directReplyOffered());
   final nd = buildLocalNotificationDetails(
     channelName: noticeChannelName(translations, category),
     category: category,
@@ -414,6 +425,7 @@ Future<void> showLocalNotificationWith({
     body: content.body,
     lines: content.lines,
     summary: content.summary,
+    actions: reply ? [directReplyActionOf(translations)] : null,
   );
   await plugin.show(
     id: content.id,
