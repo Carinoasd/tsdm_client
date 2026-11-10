@@ -406,8 +406,9 @@ final class PostMedia {
   static final _schemeRe = RegExp('^[a-zA-Z][a-zA-Z0-9+.-]*:');
 }
 
-/// An embedded player of a post ([PostMedia]), which the app does not play: a small inline card naming the site,
-/// opening the player's address in the browser on tap. On the web page the player takes the place of the
+/// An embedded player of a post ([PostMedia]): a video file or a stream the app plays itself is a player in the floor
+/// ([PostVideo], [PostVideoPlayer]); anything else is a small inline card naming the site, opening the player's address
+/// in the browser on tap. On the web page the player takes the place of the
 /// `<iframe>`; before, the app showed nothing there and the reader did not know anything was there.
 ///
 /// A video of bilibili or YouTube ([MediaPreviewTarget]) turns into a card with its cover, title, author and length

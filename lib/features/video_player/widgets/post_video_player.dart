@@ -284,14 +284,16 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
   /// Free the player, keep the box as it is.
   Future<void> _release() async {
     VideoPlayback._release(this);
-    await _audioSubscription?.cancel();
-    _audioSubscription = null;
-    for (final s in _subscriptions) {
-      await s.cancel();
-    }
-    _subscriptions.clear();
+    // Taken at once: a start right after makes its own.
     final backend = _backend;
     _backend = null;
+    // Not waited for: the player is freed at once.
+    unawaited(_audioSubscription?.cancel());
+    _audioSubscription = null;
+    for (final s in _subscriptions) {
+      unawaited(s.cancel());
+    }
+    _subscriptions.clear();
     try {
       await backend?.dispose();
     } on Object catch (e, st) {
