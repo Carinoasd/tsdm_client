@@ -28,13 +28,16 @@ class _AttachmentDownloadDirectoryTileState extends State<AttachmentDownloadDire
       return;
     }
     _shownFor = chosen;
-    unawaited(
-      attachmentDownloadDirectory(chosen: chosen).then((dir) {
+    unawaited(() async {
+      try {
+        final dir = await attachmentDownloadDirectory(chosen: chosen);
         if (mounted && _shownFor == chosen) {
           setState(() => _shown = dir.path);
         }
-      }),
-    );
+      } on Object {
+        // No folder to show: the path stays out of the row.
+      }
+    }());
   }
 
   Future<void> _pick(BuildContext context) async {

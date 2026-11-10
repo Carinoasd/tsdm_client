@@ -46,7 +46,15 @@ Future<Directory> attachmentDownloadDirectory({String? chosen}) async {
       return Directory(folder);
     }
   }
-  return await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+  try {
+    if (await getDownloadsDirectory() case final downloads?) {
+      return downloads;
+    }
+  } on Object catch (e) {
+    // A platform without one (the downloads folder is asked of macOS only through the plugin's channel).
+    talker.warning('no downloads folder: $e');
+  }
+  return getApplicationDocumentsDirectory();
 }
 
 /// Where the part files of the downloads are written: on the volume of [attachmentDownloadDirectory] so they are
