@@ -136,14 +136,24 @@ final class _CustomEmojiReply {
   /// The attachments to bind to the reply.
   final attachNew = <int>[];
 
-  /// The reply page was read again: what this reply holds that the forum no longer keeps unused (bound elsewhere
-  /// meanwhile) is forgotten, never bound again. A new upload not bound yet is always among the unused ones.
-  void reread(AttachmentUpload? upload, Set<int> unused) {
+  /// The attachments this reply holds now, to tell [reread] what it may forget.
+  Set<int> get held => {...attachNew, ...inPost.values};
+
+  /// The reply page was read again: of [asked] (what this reply held when the page was asked, [held]), what the forum
+  /// no longer keeps unused (bound elsewhere meanwhile) is forgotten, never bound again. An upload made while the page
+  /// was on its way is kept: the page may not list it yet.
+  void reread(AttachmentUpload? upload, Set<int> unused, {required Set<int> asked}) {
     this.upload = upload;
     this.unused = {...unused};
-    attachNew.removeWhere((aid) => !unused.contains(aid));
-    inPost.removeWhere((_, aid) => !unused.contains(aid));
+    bool stale(int aid) => asked.contains(aid) && !unused.contains(aid);
+    attachNew.removeWhere(stale);
+    inPost.removeWhere((_, aid) => stale(aid));
   }
+
+  /// The reply with [sent] may have reached the forum ([ReplyState.maybeSent]): they are no longer bound as they
+  /// are. Sent again, they go as any code of the account's own uploads ([_ReplyBarState._attachNewOf]): bound only
+  /// while the forum still keeps them unused.
+  void maybeStored(Iterable<int> sent) => attachNew.removeWhere(sent.contains);
 
   /// The reply with [sent] was stored: they are bound to it and are no one's to reuse.
   void stored(Iterable<int> sent) {
@@ -506,6 +516,8 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
             .._replyAction = null
             .._quotedAction = null;
           _scheduleTarget();
+        } else if (state.status == ReplyStatus.failure && state.maybeSent) {
+          widget.controller._customEmojiMaybeStored();
         } else if (state.status == ReplyStatus.verification) {
           unawaited(_askVerification(context, state));
         }
@@ -1224,6 +1236,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     reply
       ..asked = true
       ..tries += 1;
+    final held = reply.held;
     unawaited(
       _replyPage().then((answer) {
         switch (answer) {
@@ -1235,12 +1248,14 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
           case PostEditFormApi(:final form):
             reply
               ..failedAt = null
-              ..reread(form.attachmentUpload, form.unusedAttachmentImages);
+              ..reread(form.attachmentUpload, form.unusedAttachmentImages, asked: held);
           default:
-            // An answer without the form (the forum's message, no app API): no upload here, not asked again.
+            // An answer without the form (the forum's message, no app API): no upload here, not asked again. What the
+            // reply holds is forgotten; its codes still bind as the account's own uploads when it is sent while the
+            // forum keeps them unused (_attachNewOf).
             reply
               ..failedAt = null
-              ..reread(null, const {});
+              ..reread(null, const {}, asked: held);
         }
         if (mounted) {
           setState(() {});
@@ -2086,6 +2101,12 @@ final class ReplyBarController with LoggerMixin {
   /// The reply sent was stored: its attachments are bound to it ([_CustomEmojiReply.stored]).
   void _customEmojiStored() {
     _customEmoji?.stored(_sentAttachNew);
+    _sentAttachNew = const [];
+  }
+
+  /// The reply sent may have been stored ([_CustomEmojiReply.maybeStored]).
+  void _customEmojiMaybeStored() {
+    _customEmoji?.maybeStored(_sentAttachNew);
     _sentAttachNew = const [];
   }
 

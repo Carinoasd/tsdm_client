@@ -64,6 +64,9 @@ final class _Forum implements HttpClientAdapter {
 
   final Map<String, dynamic> page;
   int aid = 1700;
+
+  /// The next reply gets a server error (the forum may have stored it).
+  bool failNextReply = false;
   final requests = <({String method, Uri uri, Map<String, String> form})>[];
 
   List<Uri> get uploads => [
@@ -91,6 +94,10 @@ final class _Forum implements HttpClientAdapter {
     if (uri.path.endsWith('/misc.php')) {
       answer = 'DISCUZUPLOAD|1|0|${aid++}|1|202611/10/emoji.png|emoji.png|0';
     } else if (options.method == 'POST') {
+      if (failNextReply) {
+        failNextReply = false;
+        return ResponseBody.fromString('Bad Gateway', 502);
+      }
       answer = File('$_dir/write_v13_reply_ok.json').readAsStringSync();
     } else if (q['action'] == 'reply' && q['infloat'] == 'yes') {
       answer = File('$_dir/post_v16_reply_float.json').readAsStringSync();
@@ -423,6 +430,39 @@ void main() {
       expect(forum.replies.last.keys.where((e) => e.startsWith('attachnew')), ['attachnew[1701][description]']);
       expect(forum.replies.last['message'], isNot(contains('[attachimg]1700[/attachimg]')));
     });
+
+    for (final stored in [true, false]) {
+      testWidgets('a reply that may have been stored binds its emojis again only while unused: stored $stored', (
+        tester,
+      ) async {
+        final store = (await tester.runAsync(registerStore))!;
+        final page = _json('post_v16_reply.json');
+        registerForum(_Forum(page: page)..failNextReply = true);
+        final (controller, bloc) = await pumpBar(tester);
+        controller.setHintText('');
+        await settle(tester);
+        await openPanelAndTap(tester, store);
+        await tester.tap(find.byKey(const ValueKey('reply-bar-send')));
+        await settle(tester);
+        expect(bloc.state.status, ReplyStatus.failure);
+        expect(bloc.state.maybeSent, isTrue);
+        expect(forum.replies.single.keys.where((e) => e.startsWith('attachnew')), ['attachnew[1700][description]']);
+
+        // What the forum keeps unused now tells whether the first one was stored.
+        (page['attach'] as Map<String, dynamic>)['unused'] = [
+          if (!stored) {'aid': 1700, 'isimage': 1, 'filename': 'emoji.png'},
+        ];
+        await tester.tap(find.byKey(const ValueKey('reply-bar-send')));
+        await settle(tester);
+        expect(bloc.state.status, ReplyStatus.success);
+        expect(forum.replies, hasLength(2));
+        expect(
+          forum.replies.last.keys.where((e) => e.startsWith('attachnew')),
+          stored ? isEmpty : ['attachnew[1700][description]'],
+          reason: 'an attachment the forum bound to the reply it stored never moves to the next one',
+        );
+      });
+    }
 
     for (final keptUnused in [true, false]) {
       testWidgets('the code of an own upload in a restored draft is bound only while unused: $keptUnused', (
