@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
@@ -76,7 +77,12 @@ class SpaceBlogCard extends StatelessWidget {
           ),
           if (blog.summary != null) ...[
             sizedBoxW4H4,
-            Text(blog.summary!, style: theme.textTheme.bodyMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+            Text(
+              context.displayText(blog.summary!),
+              style: theme.textTheme.bodyMedium,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
           sizedBoxW8H8,
           Wrap(
@@ -146,13 +152,16 @@ class SpaceAlbumTile extends StatelessWidget {
   }
 }
 
-/// A comment under a blog: who, when, and the comment as the forum rendered it.
+/// A comment under a blog or a message on a wall: who, when, and the comment as the forum rendered it.
 class SpaceBlogCommentTile extends StatelessWidget {
   /// Constructor.
-  const SpaceBlogCommentTile(this.comment, {super.key});
+  const SpaceBlogCommentTile(this.comment, {this.trailing, super.key});
 
   /// The comment.
   final SpaceBlogComment comment;
+
+  /// At the end of the line of the author: the actions on the comment.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -181,16 +190,27 @@ class SpaceBlogCommentTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Flexible(
-                    child: Text(comment.author, style: theme.textTheme.titleSmall, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (comment.time != null) ...[
-                    sizedBoxW8H8,
-                    Text(
-                      comment.time!,
-                      style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            comment.author,
+                            style: theme.textTheme.titleSmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (comment.time != null) ...[
+                          sizedBoxW8H8,
+                          Text(
+                            comment.time!,
+                            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
+                  ),
+                  ?trailing,
                 ],
               ),
               sizedBoxW4H4,

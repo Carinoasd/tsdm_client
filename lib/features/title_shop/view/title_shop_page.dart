@@ -15,6 +15,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -117,18 +118,22 @@ class _TitleShopPageState extends State<TitleShopPage> {
                   Center(child: _image(item.imageUrl, 138)),
                   sizedBoxW12H12,
                   Text(
-                    item.name,
+                    context.displayText(item.name),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   sizedBoxW4H4,
                   _PriceLine(
-                    text: tr.idAndPrice(id: item.id, price: item.price),
+                    text: tr.idAndPrice(id: item.id, price: context.displayText(item.price)),
                   ),
                   sizedBoxW12H12,
                   // Prefer the server's own sentence: it carries the exact price and currency.
                   AppInsetBlock(
                     outlined: true,
-                    child: Text(item.form?.confirmText ?? tr.purchaseConfirm(price: item.price)),
+                    child: Text(
+                      item.form?.confirmText != null
+                          ? context.displayText(item.form!.confirmText!)
+                          : tr.purchaseConfirm(price: context.displayText(item.price)),
+                    ),
                   ),
                   sizedBoxW12H12,
                   AppNoticeBanner(message: tr.notEquipped),
@@ -151,23 +156,27 @@ class _TitleShopPageState extends State<TitleShopPage> {
   Widget _result(TitlePurchaseResult result, TranslationsTitleShopEn tr) {
     final (text, tone, icon) = switch (result.outcome) {
       TitlePurchaseOutcome.purchased => (
-        tr.purchased(name: result.name),
+        tr.purchased(name: context.displayText(result.name)),
         AppNoticeTone.info,
         Icons.check_circle_outline,
       ),
-      TitlePurchaseOutcome.rejected => (tr.rejected(name: result.name), AppNoticeTone.error, Icons.error_outline),
+      TitlePurchaseOutcome.rejected => (
+        tr.rejected(name: context.displayText(result.name)),
+        AppNoticeTone.error,
+        Icons.error_outline,
+      ),
       TitlePurchaseOutcome.unconfirmed => (
-        tr.unconfirmed(name: result.name),
+        tr.unconfirmed(name: context.displayText(result.name)),
         AppNoticeTone.warning,
         Icons.help_outline,
       ),
       TitlePurchaseOutcome.termsChanged => (
-        tr.termsChanged(name: result.name),
+        tr.termsChanged(name: context.displayText(result.name)),
         AppNoticeTone.warning,
         Icons.price_change_outlined,
       ),
       TitlePurchaseOutcome.unavailable => (
-        tr.unavailableNow(name: result.name),
+        tr.unavailableNow(name: context.displayText(result.name)),
         AppNoticeTone.warning,
         Icons.remove_shopping_cart_outlined,
       ),
@@ -218,10 +227,10 @@ class _TitleShopPageState extends State<TitleShopPage> {
     final textTheme = Theme.of(context).textTheme;
     final status = _status(state, page, item, tr);
     final details = <Widget>[
-      Text(item.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      Text(context.displayText(item.name), style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
       sizedBoxW4H4,
       _PriceLine(
-        text: tr.idAndPrice(id: item.id, price: item.price),
+        text: tr.idAndPrice(id: item.id, price: context.displayText(item.price)),
       ),
     ];
     return AppSurface(
@@ -276,7 +285,10 @@ class _TitleShopPageState extends State<TitleShopPage> {
                   const AppIconTile(Icons.account_balance_wallet_outlined, size: 36),
                   sizedBoxW12H12,
                   Expanded(
-                    child: Text(balance, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      context.displayText(balance),
+                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -284,7 +296,10 @@ class _TitleShopPageState extends State<TitleShopPage> {
             for (final (index, line) in page.intro.indexed)
               Padding(
                 padding: EdgeInsets.only(top: index == 0 ? 0 : 4),
-                child: Text(line, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                child: Text(
+                  context.displayText(line),
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
               ),
           ],
         ),

@@ -6,6 +6,8 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -20,9 +22,9 @@ import 'package:tsdm_client/utils/logger.dart';
 
 /// When the cross-device sync runs: a pull when the app starts with an account and at every login, again when the app
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
-/// phrases, the block list, the fast rate templates, the synced settings, the local drafts or the floor bookmarks of the
-/// account change on this device. Nothing while the setting is off; a pull when it (or one of its categories) is
-/// switched on.
+/// phrases, the block list, the fast rate templates, the synced settings, the local drafts, the floor bookmarks, the
+/// pinned forums or what is watched for new threads of the account change on this device. Nothing while the setting
+/// is off; a pull when it (or one of its categories) is switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
   SyncCoordinator({
@@ -33,13 +35,15 @@ final class SyncCoordinator with LoggerMixin {
     required StorageProvider storage,
     Stream<int>? draftChanges,
     Stream<int>? bookmarkChanges,
+    Stream<int>? watchChanges,
   }) : _repository = repository,
        _authentication = authentication,
        _settings = settings,
        _blocks = blocks,
        _storage = storage,
        _draftChanges = draftChanges,
-       _bookmarkChanges = bookmarkChanges;
+       _bookmarkChanges = bookmarkChanges,
+       _watchChanges = watchChanges;
 
   /// The coordinator on the app's repositories.
   factory SyncCoordinator.build({
@@ -68,6 +72,7 @@ final class SyncCoordinator with LoggerMixin {
       storage: storage,
       draftChanges: LocalDraftStore.app?.changes,
       bookmarkChanges: FloorBookmarkStore.app?.changes,
+      watchChanges: ForumWatchStore.app?.configChanges,
     );
   }
 
@@ -77,6 +82,8 @@ final class SyncCoordinator with LoggerMixin {
     SyncCategory.settings => settings.crossDeviceSyncSettings,
     SyncCategory.drafts => settings.crossDeviceSyncDrafts,
     SyncCategory.bookmarks => settings.crossDeviceSyncBookmarks,
+    SyncCategory.pinnedForums => settings.crossDeviceSyncPinnedForums,
+    SyncCategory.forumWatch => settings.crossDeviceSyncForumWatch,
   };
 
   static String _settingsSnapshotOf(SettingsMap settings) =>
@@ -100,11 +107,14 @@ final class SyncCoordinator with LoggerMixin {
   final StorageProvider _storage;
   final Stream<int>? _draftChanges;
   final Stream<int>? _bookmarkChanges;
+  final Stream<int>? _watchChanges;
 
   StreamSubscription<AuthStatus>? _authSub;
   StreamSubscription<List<FastRateTemplateModel>>? _templatesSub;
   StreamSubscription<int>? _draftsSub;
   StreamSubscription<int>? _bookmarksSub;
+  StreamSubscription<int>? _watchSub;
+  String? _pinned;
   String? _settingsSnapshot;
   String? _templates;
   Set<SyncCategory> _categories = const {};
@@ -152,6 +162,14 @@ final class SyncCoordinator with LoggerMixin {
         _phrases = phrases;
         unawaited(_repository.onPhrasesChanged(_uid, phrases));
       }
+      // The pinned forums of the account in use (a forum visited lately is no change of them).
+      final pinned = _pinnedOf(settings, _uid);
+      if (pinned != _pinned) {
+        _pinned = pinned;
+        if (_uid case final uid?) {
+          _repository.schedulePush(uid);
+        }
+      }
     });
     _blocksSub = _blocks.changes.listen((list) {
       if (list.ownerUid == _uid && _uid != null) {
@@ -180,11 +198,21 @@ final class SyncCoordinator with LoggerMixin {
         _repository.schedulePush(uid);
       }
     });
+    _watchSub = _watchChanges?.listen((uid) {
+      if (uid == _uid) {
+        _repository.schedulePush(uid);
+      }
+    });
   }
+
+  static String? _pinnedOf(SettingsMap settings, int? uid) =>
+      uid == null ? null : FrequentForumsStore.syncSnapshot(settings, uid);
 
   void _follow(int? uid, {required bool pull}) {
     if (uid != _uid) {
       _uid = uid;
+      // The pinned forums of this account as they are now: no change of them yet.
+      _pinned = _pinnedOf(_settings.currentSettings, uid);
       // A write scheduled for the account before must not run for this one.
       _repository.cancelScheduled();
       unawaited(_visitsSub?.cancel());
@@ -229,6 +257,7 @@ final class SyncCoordinator with LoggerMixin {
     await _templatesSub?.cancel();
     await _draftsSub?.cancel();
     await _bookmarksSub?.cancel();
+    await _watchSub?.cancel();
     await _repository.dispose();
   }
 }

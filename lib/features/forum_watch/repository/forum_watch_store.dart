@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_state.dart';
+import 'package:tsdm_client/features/forum_watch/models/forum_watch_sync.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -20,11 +22,20 @@ final class ForumWatchStore with LoggerMixin {
 
   final StorageProvider _storage;
 
+  /// The app's store, null when none is registered (the service isolate, tests of other features): the cross-device
+  /// sync leaves what is watched alone then.
+  static ForumWatchStore? get app => getIt.isRegistered<ForumWatchStore>() ? getIt.get<ForumWatchStore>() : null;
+
   final _changes = StreamController<int>.broadcast();
+  final _configChanges = StreamController<int>.broadcast();
 
   /// Accounts whose config or state changed through this store, by uid; what another isolate wrote is only seen by
   /// [loadConfig] and [loadState].
   Stream<int> get changes => _changes.stream;
+
+  /// Accounts whose config changed through this store (never for a change of the check's state alone): what the
+  /// cross-device sync writes after.
+  Stream<int> get configChanges => _configChanges.stream;
 
   /// What account [uid] watches.
   Future<ForumWatchConfig> loadConfig(int uid) async =>
@@ -50,10 +61,7 @@ final class ForumWatchStore with LoggerMixin {
       if (next == null || next == current) {
         return (changed: false, config: current);
       }
-      await _write(
-        StorageProvider.forumWatchKey(uid),
-        next.isEmpty && next.scope == const KeywordScope() ? null : next,
-      );
+      await _write(StorageProvider.forumWatchKey(uid), next.isBlank ? null : next);
       final state = await loadState(uid);
       var nextState = state.onlyMarks(next.sources);
       for (final MapEntry(:key, :value) in marks.entries) {
@@ -68,8 +76,31 @@ final class ForumWatchStore with LoggerMixin {
     });
     if (result.changed && !_changes.isClosed) {
       _changes.add(uid);
+      _configChanges.add(uid);
     }
     return result.config;
+  }
+
+  /// Take the sections of the sync document in for account [uid] ([forumWatchWithSynced]): the items of
+  /// `watch_forums` ([forums]) and `watch_keywords` ([keywords]) and the item of `watch_scope` ([scope]). A forum or
+  /// a source that comes with them starts without a mark: its first reading announces nothing.
+  Future<void> applySynced(
+    int uid, {
+    required Map<String, Map<String, dynamic>> forums,
+    required Map<String, Map<String, dynamic>> keywords,
+    required Map<String, dynamic>? scope,
+    DateTime? now,
+  }) async {
+    await updateConfig(
+      uid,
+      (current) => forumWatchWithSynced(
+        current,
+        forums: forums,
+        keywords: keywords,
+        scope: scope,
+        now: (now ?? DateTime.now()).millisecondsSinceEpoch,
+      ),
+    );
   }
 
   /// Change what the check of account [uid] knows to what [change] makes of it, given what the account watches now
@@ -93,8 +124,11 @@ final class ForumWatchStore with LoggerMixin {
     return result.state;
   }
 
-  /// Close the change stream.
-  Future<void> dispose() => _changes.close();
+  /// Close the change streams.
+  Future<void> dispose() async {
+    await _changes.close();
+    await _configChanges.close();
+  }
 
   Future<void> _writeState(int uid, ForumWatchState state) => _write(
     StorageProvider.forumWatchStateKey(uid),

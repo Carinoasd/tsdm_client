@@ -94,6 +94,10 @@ class Post with PostMappable {
     this.moreComments = false,
     this.commentAction,
     this.recommend,
+    this.stuck = false,
+    this.canWarn,
+    this.commentScores = const [],
+    this.timeOffset,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -144,6 +148,12 @@ class Post with PostMappable {
   /// floor of a debate ([stand], with its supporters [standVotes]; only when [threadSpecial], the thread's `special`,
   /// is 5 and the floor is not the first) and the accepted answer of a bounty ([best]). The special block of the first
   /// floor and the accepting of an answer are added by `threadPageFromApi`, which reads the answer's `special`.
+  ///
+  /// Plugin 3.7.0 (`schema: 21`) adds `warned` ([warned]), the floor's comments as fields (`comments`,
+  /// `comment_more`, `comment_scores`: [comments], [moreComments], [commentScores], in place of the ones parsed from
+  /// the block of `body_html`, which is cut out either way), `can.comment` with `urls.comment` ([commentAction]) and
+  /// `can.warn` ([canWarn]); plugin 3.8.0 (`schema: 23`) `stick` ([stuck]). An answer without one of them leaves
+  /// what it feeds as it was before: read from the floor's html, or not known.
   factory Post.fromApi(
     Map<String, dynamic> p, {
     required String tid,
@@ -223,6 +233,7 @@ class Post with PostMappable {
     final pollHtml = _apiText(p['poll_html']);
     // The comments are shown under the content as their own list: their block is cut out of it.
     final (data: bodyHtml, comments: commentPage) = splitPostComments(_apiText(p['body_html']), postID);
+    final apiComments = postCommentsFromApi(p['comments'], timeOffset: timeOffset);
     // The red packet block sits beside the content on the web page (`div.pct > div#ts_packet`, not in `body_html`):
     // the answer cuts it out as `packet_html`, read with the selectors of the web page.
     final packetHtml = _apiText(p['packet_html']);
@@ -282,8 +293,14 @@ class Post with PostMappable {
       hot: hot,
       hotFloor: hot && _apiInt(p['hot_position']) > 0 ? _apiInt(p['hot_position']) : null,
       fromApp: _apiInt(p['from_app']) == 1,
-      comments: commentPage?.comments ?? const [],
-      moreComments: commentPage?.hasMore ?? false,
+      warned: _apiInt(p['warned']) == 1,
+      stuck: _apiInt(p['stick']) == 1,
+      canWarn: can['warn'] is num ? _apiInt(can['warn']) == 1 : null,
+      // Plugin 3.7.0 gives the comments as fields: every one with its id, the forum's own "more" and delete flags.
+      comments: apiComments ?? commentPage?.comments ?? const [],
+      moreComments: apiComments != null ? _apiInt(p['comment_more']) == 1 : commentPage?.hasMore ?? false,
+      commentScores: apiComments != null ? postCommentScoresFromApi(p['comment_scores']) : const [],
+      timeOffset: timeOffset,
       commentAction: _apiCommentAction(
         can: can,
         urls: urls,
@@ -336,6 +353,15 @@ class Post with PostMappable {
 
   /// The forum's comment window of this floor (`a.cmmnt`), where this account may comment on it.
   final String? commentAction;
+
+  /// The averages of the items the floor's comments scored (the stars the page prints above them), as the forum's
+  /// app API gives them (plugin 3.7.0, `comment_scores`); empty when there are none and for a page that does not tell
+  /// (a web page, an older plugin).
+  final List<PostCommentScore> commentScores;
+
+  /// The offset (hours) the answer of the forum's app API printed this floor's times with (`timeoffset`), for what is
+  /// asked of the floor later without one (the pages of its comments); null for a floor of a web page.
+  final num? timeOffset;
 
   /// Post floor number.
   /// Make it nullable to be compatible with all web page styles.
@@ -523,8 +549,19 @@ class Post with PostMappable {
   final bool fromApp;
 
   /// The forum marks the floor warned (the post status bit 2; the web page's 受到警告 icon in the floor's header,
-  /// `forum.php?mod=misc&action=viewwarning`). The app API does not tell it: false for a page of its answer.
+  /// `forum.php?mod=misc&action=viewwarning`). The app API tells it since plugin 3.7.0 (`warned`): false for a page
+  /// of an older answer.
   final bool warned;
+
+  /// Whether the account may warn this floor's author, as the forum's app API tells it (plugin 3.7.0, `can.warn`: a
+  /// group that may warn, and an author of a rank it may warn); null when the page does not tell.
+  final bool? canWarn;
+
+  /// The floor is a reply stuck under the first floor (`forum.php?mod=topicadmin&action=stickreply`): the web page
+  /// prints it there with 置顶回复 (`em.replystick`) in its header, on the thread's first page. The app API tells it
+  /// since plugin 3.8.0 (`stick`); for an older answer `threadPageFromApi` tells it by the order of the first page
+  /// where it can.
+  final bool stuck;
 
   /// The member the forum offers the account to ban from posting from this floor (the 禁止 link of the author column,
   /// printed to a user group that may ban members, see [memberBanUidIn]); null when it offers none.
@@ -670,7 +707,14 @@ class Post with PostMappable {
 
     final pollNode = postDataNode?.querySelector('form#poll');
 
-    final printedFloor = postDataNode?.querySelector('div.pi > strong > a > em')?.firstEndDeepText()?.parseToInt();
+    // A stuck reply: 置顶回复 in place of the number (`<em class="replystick">顶</em> 来自 4#`), its floor after it.
+    // In the floor number of the header, not in the content.
+    final stuck = postDataNode?.querySelector('div.pi > strong > a#postnum$postID > em.replystick') != null;
+    final printedFloor = stuck
+        ? RegExp(
+            r'(\d+)\s*#',
+          ).firstMatch(postDataNode?.querySelector('div.pi > strong > a')?.innerText ?? '')?.group(1)?.parseToInt()
+        : postDataNode?.querySelector('div.pi > strong > a > em')?.firstEndDeepText()?.parseToInt();
     // A hot reply: the forum numbers it -1, which the site's theme prints as it is ("-1#"), the default template as
     // "推荐". It has no floor number of its own.
     final hot =
@@ -792,6 +836,7 @@ class Post with PostMappable {
       // holds (a forum allowing HTML) is not it.
       fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
       warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
+      stuck: stuck,
       comments: commentPage?.comments ?? const [],
       moreComments: commentPage?.hasMore ?? false,
       // The forum prints the link only where this account may comment on the floor.

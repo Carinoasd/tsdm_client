@@ -262,10 +262,12 @@
     "entries": {
       "myThreads": "我的帖子",
       "favorites": "收藏",
+      "collections": "淘帖",
       "history": "浏览记录",
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "downloads": "下载管理",
       "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
@@ -274,7 +276,10 @@
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
       "ratingStats": "评分统计",
-      "visitors": "最近访客"
+      "visitors": "最近访客",
+      "siteStats": "站点统计",
+      "followFeed": "动态",
+      "doings": "记录"
     }
   },
   "home": {
@@ -282,6 +287,12 @@
   },
   "homepage": {
     "title": "主页",
+    "online": {
+      "total": "$count 人在线",
+      "members": "$members 会员（$invisible 隐身），$guests 位游客",
+      "record": "最高记录 $count",
+      "recordAt": "最高记录 $count（$date）"
+    },
     "failedToBuildPinSection": "无法处理主页的制定帖子: 数量不一致: $length1!=$length2",
     "welcome": {
       "history": "历史",
@@ -355,9 +366,13 @@
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
         "drafts": "本机草稿",
-        "bookmarks": "楼层书签"
+        "bookmarks": "楼层书签",
+        "pinnedForums": "钉选的版块",
+        "forumWatch": "新帖与关键字提醒"
       },
-      "loginDevices": "登录设备"
+      "loginDevices": "登录设备",
+      "security": "密码与安全",
+      "privacy": "隐私设置"
     },
     "appearanceSection": {
       "title": "外观",
@@ -405,7 +420,8 @@
         "pinned": "置顶帖",
         "guide": "论坛导读",
         "stats": "论坛动态",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "在线会员"
       },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
@@ -722,7 +738,8 @@
           "detail": "所有账号共用这个上限，超过时先删除最久没看的帖子；每个帖子最多保存 20 页",
           "value": "${count: int} 个帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下载文件夹"
     },
     "advancedSection": {
       "title": "高级",
@@ -977,7 +994,8 @@
       "uid": "UID",
       "email": "邮箱"
     },
-    "signUpHint": "没有账号？点此注册",
+    "signUp": "注册",
+    "lostPassword": "找回密码",
     "perhapsExpired": "登录失败，可能身份已过期，请重新登录"
   },
   "rootPage": {
@@ -1504,6 +1522,11 @@
         "unknownForm": "论坛返回的不是可识别的批准表单，未发送任何内容",
         "unknownAfterSubmit": "已发送批准，但无法识别论坛的回应，请到好友列表确认"
       }
+    },
+    "online": {
+      "title": "在线会员",
+      "empty": "没有在线会员",
+      "subtitle": "${count: int} 位会员"
     }
   },
   "redPacket": {
@@ -1550,6 +1573,54 @@
     "title": "标签：$name",
     "cloudTitle": "标签",
     "empty": "暂无标签"
+  },
+  "collection": {
+    "title": "淘帖",
+    "tabs": {
+      "recommended": "推荐",
+      "all": "全部",
+      "mine": "我的",
+      "subscribed": "订阅"
+    },
+    "order": {
+      "dateline": "最新创建",
+      "threadnum": "主题最多",
+      "commentnum": "评论最多",
+      "follownum": "订阅最多"
+    },
+    "empty": "暂无淘专辑",
+    "noThreads": "还没有主题",
+    "noComments": "还没有评论",
+    "create": "创建淘专辑",
+    "edit": "编辑淘专辑",
+    "delete": "删除淘专辑",
+    "deleteConfirm": "确定删除「$name」？",
+    "name": "名称",
+    "description": "简介",
+    "keywords": "标签",
+    "save": "保存",
+    "follow": "订阅",
+    "unfollow": "取消订阅",
+    "threads": "主题 $count",
+    "follows": "订阅 $count",
+    "comments": "评论 $count",
+    "rating": "$rate 分（$count 人）",
+    "creator": "创建人 $name",
+    "teamworkers": "共同维护 $names",
+    "commentsTitle": "评论",
+    "comment": "发表评论",
+    "rated": "已评 $rate 星",
+    "removeThread": "移出淘专辑",
+    "removeConfirm": "将「$subject」移出淘专辑？",
+    "reason": "淘帖理由：$reason",
+    "collect": "淘帖",
+    "collectTitle": "收录到淘专辑",
+    "collectedIn": "已收录于",
+    "reasonField": "淘帖理由",
+    "newCollection": "新建淘专辑",
+    "collectSubmit": "收录",
+    "unknown": "未能确认结果，已重新载入",
+    "accountChanged": "账号已切换，未送出"
   },
   "ratePostPage": {
     "title": "评分",
@@ -2245,7 +2316,8 @@
       "title": "$operation（$count）",
       "done": "已处理 $count 个主题",
       "failed": "$count 个主题未完成",
-      "unknown": "结果未知，请刷新确认"
+      "unknown": "结果未知，请刷新确认",
+      "noOperation": "没有可用的管理操作"
     }
   },
   "packetCard": {
@@ -2264,6 +2336,14 @@
   },
   "bountyAnswerCard": {
     "title": "最佳答案"
+  },
+  "moderateFloorOps": {
+    "stick": "置顶回复",
+    "unstick": "解除置顶",
+    "stuck": "置顶回复",
+    "removeRate": "撤销评分",
+    "attachments": "附件",
+    "deleteAttachment": "删除附件"
   },
   "bbcodeEditor": {
     "experimentalInfo": "实验性bbcode编辑器",
@@ -2415,6 +2495,16 @@
     "cannotPlay": "无法播放",
     "loadFailed": "加载失败",
     "notificationChannel": "音乐播放"
+  },
+  "videoPlayer": {
+    "play": "播放",
+    "speed": "倍速",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "cannotPlay": "无法播放",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "open": "打开"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
@@ -3977,6 +4067,22 @@
     "empty": "还没有表情包",
     "count": "${count: int} 张"
   },
+  "accountSecurityPage": {
+    "title": "密码与安全",
+    "currentPassword": "当前密码",
+    "otherCheck": "论坛要求通过邮箱或手机验证，请在网页中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密码已修改，论坛同时清除了安全提问，请用新密码重新登录",
+    "resultUnknown": "无法确认是否修改成功，请刷新后查看",
+    "required": "不能为空"
+  },
+  "privacySettingsPage": {
+    "title": "隐私设置",
+    "discardTitle": "放弃未保存的修改？",
+    "save": "保存",
+    "saved": "已保存",
+    "saveFailed": "保存失败，请稍后再试"
+  },
   "loginDevicesPage": {
     "title": "登录设备",
     "current": "本机",
@@ -4007,6 +4113,10 @@
     "empty": "暂无排行",
     "minutes": "$n 分钟",
     "updated": "更新于 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站点统计",
+    "empty": "没有统计数据"
   },
   "spacePage": {
     "blogs": "日志",
@@ -4053,7 +4163,81 @@
     },
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
-    "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+    "identityChanged": "账号已切换，这个页面不会再发送任何内容",
+    "wall": {
+      "title": "留言板",
+      "empty": "还没有留言",
+      "post": "留言",
+      "reply": "回复",
+      "replyTo": "回复 $name",
+      "message": "内容",
+      "delete": "删除留言",
+      "sent": "已留言",
+      "deleted": "已删除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "说一句",
+      "received": "收到的招呼",
+      "empty": "还没有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已发送",
+      "loadFailed": "无法打开招呼"
+    },
+    "follow": {
+      "action": "关注",
+      "feed": "动态",
+      "broadcasts": "广播",
+      "following": "关注",
+      "followers": "粉丝",
+      "members": "关注与粉丝",
+      "hall": "广场",
+      "emptyFeed": "还没有动态",
+      "emptyFollowing": "还没有关注任何人",
+      "emptyFollowers": "还没有粉丝",
+      "follow": "关注",
+      "unfollow": "取消关注",
+      "followed": "已关注",
+      "unfollowed": "已取消关注",
+      "mutual": "互相关注",
+      "followsYou": "关注了你",
+      "remark": "备注",
+      "remarkSaved": "备注已保存",
+      "loadFailed": "无法读取关注状态",
+      "counts": "粉丝 ${followers: int} · 关注 ${following: int}",
+      "relay": "转播",
+      "relayNote": "转播理由",
+      "relayReply": "同时回复主题",
+      "relayed": "已转播",
+      "deleteFeed": "删除广播",
+      "deleted": "已删除"
+    },
+    "doing": {
+      "title": "记录",
+      "all": "全站",
+      "follow": "关注",
+      "friends": "好友",
+      "mine": "我的",
+      "empty": "还没有记录",
+      "post": "发布记录",
+      "message": "内容",
+      "posted": "已发布",
+      "reply": "回复",
+      "replyTo": "回复 $name",
+      "replies": "回复",
+      "noReplies": "还没有回复",
+      "replied": "已回复",
+      "moreReplies": "更多回复",
+      "deleteDoing": "删除记录",
+      "deleteReply": "删除回复",
+      "deleted": "已删除"
+    }
   },
   "postComment": {
     "title": "点评",
@@ -4072,5 +4256,31 @@
   },
   "threadRecommend": {
     "unknown": "未能确认结果，请重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下载管理",
+    "active": "进行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "没有下载",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下载失败",
+    "open": "打开",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "打开文件夹",
+    "delete": "删除",
+    "retry": "重试",
+    "cancel": "取消",
+    "thread": "来源帖子",
+    "purchase": "购买",
+    "deleteTitle": "删除下载",
+    "deleteMessage": "同时删除文件「$name」",
+    "largeTitle": "正在使用移动网络",
+    "largeMessage": "「$name」大小 $size，确定下载？",
+    "saved": "已保存到 $path",
+    "openFailed": "没有可以打开此文件的应用",
+    "threadFallback": "帖子 $tid"
   }
 }

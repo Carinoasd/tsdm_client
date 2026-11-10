@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -159,7 +160,7 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(item.subject, style: theme.textTheme.titleSmall),
+                              Text(context.displayText(item.subject), style: theme.textTheme.titleSmall),
                               const SizedBox(height: 4),
                               modcpMutedLine(context, [item.author, item.type, '${item.start} – ${item.end}']),
                             ],

@@ -26,12 +26,22 @@ final class FriendRepository {
   /// Whether [url] is a page of the visitors list.
   static bool isVisitorUrl(String url) => Uri.tryParse(url)?.queryParameters['view'] == 'visitor';
 
-  /// Fetch and parse one page of a friends list (or of the visitors list, [isVisitorUrl]).
+  /// First page of the members online now (`view=online&type=member`), the list the "在线会员" link of the forum's
+  /// homepage opens: 24 a page, the latest active first, invisible members left out; a member's page asks it for the
+  /// own space.
+  static const String onlineListUrl = '$baseUrl/home.php?mod=space&do=friend&view=online&type=member';
+
+  /// Whether [url] is a page of the members online now ([onlineListUrl]).
+  static bool isOnlineUrl(String url) => Uri.tryParse(url)?.queryParameters['view'] == 'online';
+
+  /// Fetch and parse one page of a friends list (or of the visitors list, [isVisitorUrl], or of the members online,
+  /// [isOnlineUrl]).
   ///
   /// Asked in the JSON mode of the forum's app API, which answers the friends pages (`do=friend`) since plugin 1.6.0
   /// (roadmap item 3). Plugin 2.5.0 answers them as structured fields (`schema: 10`, [friendApiAnswerOf]), built by
   /// [friendListPageFromApi]; an older plugin answers the web page (as does the privacy page of another member's
-  /// list, which the plugin never answers as fields), which parses the same. The `@` candidates read the own list
+  /// list, which the plugin never answers as fields), which parses the same: the members online print the shape of
+  /// the visitors list (every `friend_UID_li` row, the time of the last activity in the `h4`). The `@` candidates read the own list
   /// through here too when the `atplus` plugin is not there.
   AsyncEither<FriendListPage> fetchPage(String url) => getIt
       .get<NetClientProvider>()
@@ -40,7 +50,10 @@ final class FriendRepository {
       .map(
         (answer) => switch (answer) {
           TsdmAppStructuredPage(:final json) => friendListPageFromApi(json, url),
-          TsdmAppWebPage(:final document) => parseFriendListPage(document, visitor: isVisitorUrl(url)),
+          TsdmAppWebPage(:final document) => parseFriendListPage(
+            document,
+            visitor: isVisitorUrl(url) || isOnlineUrl(url),
+          ),
         },
       );
 

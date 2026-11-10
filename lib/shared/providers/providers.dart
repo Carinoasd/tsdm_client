@@ -1,7 +1,9 @@
 import 'package:system_network_proxy/system_network_proxy.dart';
+import 'package:tsdm_client/features/attachment_download/repository/attachment_download_manager.dart';
 import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
 import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
+import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
@@ -73,8 +75,12 @@ Future<void> initProviders() async {
     ..registerSingleton(OfflineThreadRepository())
     // The drafts the editors did not send, a file per account; the emojis used lately.
     ..registerSingleton(LocalDraftStore())
+    // The attachment downloads of every account.
+    ..registerSingleton(AttachmentDownloadManager())
     // The floor bookmarks of every account.
     ..registerSingleton(FloorBookmarkStore())
+    // What every account watches for new threads: one store for the page, the check and the cross-device sync.
+    ..registerSingleton(ForumWatchStore(storageProvider), dispose: (s) async => s.dispose())
     ..registerSingleton(RecentEmojiStore())
     // The custom emoji packs and the uploads made of their images.
     ..registerSingleton(CustomEmojiStore());

@@ -16,6 +16,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -137,7 +138,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
         tone: tone,
         icon: icon,
         title: message.isNotEmpty ? text : null,
-        message: message.isNotEmpty ? message : text,
+        message: message.isNotEmpty ? context.displayText(message) : text,
         selectable: message.isNotEmpty,
       ),
     );
@@ -150,7 +151,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
     final Widget action;
     final String figure;
     if (list == MagicList.shop) {
-      figure = item.priceText;
+      figure = context.displayText(item.priceText);
       action = item.buyable
           ? FilledButton.tonalIcon(
               key: ValueKey('magic-buy-${item.identifier}'),
@@ -179,10 +180,16 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  context.displayText(item.name),
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
                 if (item.description.isNotEmpty) ...[
                   sizedBoxW4H4,
-                  Text(item.description, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                  Text(
+                    context.displayText(item.description),
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
                 ],
                 sizedBoxW8H8,
                 Wrap(
@@ -222,9 +229,9 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (page.balance.isNotEmpty) line(Icons.account_balance_wallet_outlined, page.balance),
+            if (page.balance.isNotEmpty) line(Icons.account_balance_wallet_outlined, context.displayText(page.balance)),
             if (page.balance.isNotEmpty && page.capacity.isNotEmpty) sizedBoxW8H8,
-            if (page.capacity.isNotEmpty) line(Icons.backpack_outlined, page.capacity),
+            if (page.capacity.isNotEmpty) line(Icons.backpack_outlined, context.displayText(page.capacity)),
           ],
         ),
       ),

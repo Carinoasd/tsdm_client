@@ -18,7 +18,10 @@ enum HomeBlock {
   stats,
 
   /// The tools of the account.
-  tools
+  tools,
+
+  /// The members online now ("在线会员" of the forum's homepage).
+  online
   ;
 
   /// The name stored in the setting.

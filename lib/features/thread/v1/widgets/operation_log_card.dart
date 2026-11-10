@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -77,7 +78,7 @@ class OperationLogCard extends StatelessWidget {
                             ),
                             sizedBoxW4H4,
                             Text(
-                              '${e.action}${e.duration != null ? "（${e.duration}）" : ""}',
+                              context.displayText('${e.action}${e.duration != null ? "（${e.duration}）" : ""}'),
                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary),
                             ),
                           ],
@@ -118,7 +119,7 @@ class OperationLogCard extends StatelessWidget {
               sizedBoxW8H8,
               Expanded(
                 child: Text(
-                  latestAction,
+                  context.displayText(latestAction),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ),

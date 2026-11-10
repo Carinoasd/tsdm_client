@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dar
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
+import 'package:tsdm_client/features/homepage/utils/online_summary.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/red_packet/models/models.dart';
@@ -611,6 +612,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       // The forum embeds today's daily red packet in the footer until it is claimed.
       dailyRedPacket: loggedUsername.isEmpty ? null : parseDailyRedPacketConfig(document),
       formHash: parseFormHash(document),
+      onlineSummary: parseOnlineSummary(document),
     );
   }
 

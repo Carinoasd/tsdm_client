@@ -170,6 +170,16 @@ jobs:
             sed -i 's#https\\://services.gradle.org/distributions/#https\\://mirrors.cloud.tencent.com/gradle/#' android/gradle/wrapper/gradle-wrapper.properties
             grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
           fi
+      - name: libmpv jars fallback
+        # media_kit_libs_android_video downloads its libmpv jars from GitHub Releases at build time: our copies are
+        # placed where its Gradle script looks first (it keeps a file whose MD5 matches and skips the download).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p build/media_kit_libs_android_video/v1.1.7
+          gh release download assets-ci-2 --repo "$GITHUB_REPOSITORY" -p 'default-*.jar' \
+            -D build/media_kit_libs_android_video/v1.1.7 --clobber \
+            || echo "fallback copies unavailable, Gradle will download"
       - name: Setup Android sign key
         run: |
           echo '${{ secrets.KEYSTORE }}' | base64 --decode > android/app/key.jks
@@ -212,16 +222,17 @@ jobs:
           git submodule update --init --recursive --force
           flutter pub get
           dart ./Makefile.dart
-      - name: libmpv archive fallback
-        # media_kit downloads libmpv from GitHub Releases, which times out now and then: our copy is placed first
-        # (CMake keeps a file whose MD5 matches and skips the download).
+      - name: libmpv and ANGLE archive fallback
+        # media_kit downloads libmpv and ANGLE from GitHub Releases, which times out now and then: our copies are
+        # placed first (CMake keeps a file whose MD5 matches and skips the download). The video build of libmpv has
+        # the same file name as the audio one in assets-ci-1 and another MD5: it is in assets-ci-2.
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p build/windows/x64
-          gh release download assets-ci-1 --repo "$GITHUB_REPOSITORY" -p 'mpv-dev-x86_64-20230924-git-652a1dd.7z' -D build/windows/x64 --clobber \
-            || echo "fallback copy unavailable, CMake will download"
+          gh release download assets-ci-2 --repo "$GITHUB_REPOSITORY" -p 'mpv-dev-x86_64-20230924-git-652a1dd.7z' -p 'ANGLE.7z' -D build/windows/x64 --clobber \
+            || echo "fallback copies unavailable, CMake will download"
       - name: Build Windows
         run: flutter build windows --release
       - name: Pre Packing

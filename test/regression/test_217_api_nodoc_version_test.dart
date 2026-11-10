@@ -315,8 +315,7 @@ void main() {
         expect(page.tid, '9199345');
         expect(forum.requests, hasLength(1), reason: 'no web page asked for the challenge');
         expect(_asksJson(forum.requests.single), isTrue);
-        // The first page asks its document: the evaluation of the thread is only there (test_843).
-        expect(_asksLean(forum.requests.single), isFalse);
+        expect(_asksLean(forum.requests.single), isTrue);
         await getIt.unregister<NetClientProvider>();
 
         // The forum's message with `login`, no schema, no document: a page too.
@@ -433,7 +432,7 @@ void main() {
 
   group('I. the plugin version', () {
     test('expected version, and the order of versions', () {
-      expect(expectedTsdmAppVersion, '3.6.0');
+      expect(expectedTsdmAppVersion, '3.8.0');
       expect(compareTsdmAppVersions('2.2.0', '2.3.0'), lessThan(0));
       expect(compareTsdmAppVersions('2.3.0', '2.3.0'), 0);
       expect(compareTsdmAppVersions('2.3', '2.3.0'), 0);
@@ -456,7 +455,17 @@ void main() {
         isTrue,
         reason: 'no devices',
       );
-      expect(TsdmAppPluginInfo.fromAnswer(_status('3.6.0', nodoc: true))!.olderThanExpected, isFalse);
+      expect(
+        TsdmAppPluginInfo.fromAnswer(_status('3.6.0', nodoc: true))!.olderThanExpected,
+        isTrue,
+        reason: 'no permissions, comments as fields, evaluation of the thread',
+      );
+      expect(
+        TsdmAppPluginInfo.fromAnswer(_status('3.7.0', nodoc: true))!.olderThanExpected,
+        isTrue,
+        reason: 'no evaluation of the thread, no log of the moderation panel',
+      );
+      expect(TsdmAppPluginInfo.fromAnswer(_status('3.8.0', nodoc: true))!.olderThanExpected, isFalse);
       final older = TsdmAppPluginInfo.fromAnswer(_status('2.2.0'))!;
       expect(older.nodoc, isFalse);
       expect(older.olderThanExpected, isTrue);
@@ -673,12 +682,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isTrue);
 
       // The expected plugin: no note.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.6.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '3.6.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '3.8.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );

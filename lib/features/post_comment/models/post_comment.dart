@@ -1,6 +1,8 @@
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -9,8 +11,8 @@ part 'post_comment.mapper.dart';
 /// One comment (点评) under a floor.
 ///
 /// The forum prints the comments of a floor in its `div#comment_PID.cm` ([splitPostComments]) and the pages after the
-/// first through `forum.php?mod=misc&action=commentmore` ([parsePostCommentMore]). A later answer of the forum's app
-/// API can build the same fields directly.
+/// first through `forum.php?mod=misc&action=commentmore` ([parsePostCommentMore]). The forum's app API gives the same
+/// as fields since plugin 3.7.0 ([PostComment.fromApi], [postCommentsFromApi]).
 @MappableClass()
 final class PostComment with PostCommentMappable {
   /// Constructor.
@@ -23,6 +25,31 @@ final class PostComment with PostCommentMappable {
     this.time,
     this.canDelete = false,
   });
+
+  /// The comment [c] of a floor of the forum's app API (plugin 3.7.0: `posts[].comments[]` of a thread page answer of
+  /// `schema` 21 or later, `comments[]` of a page of comments, `schema` 22), the same [PostComment] the page's row
+  /// gives: `id` (every comment has it, whoever reads), the author (`authorid` 0 a guest, named as the page names
+  /// one), `avatar`, `dateline` as the forum's wall clock with [timeOffset] (the answer's `timeoffset`) printed as
+  /// the page keeps it ("2026-11-10 10:34"), the plain text `comment` with its line breaks, and `can_delete`.
+  factory PostComment.fromApi(Map<String, dynamic> c, {num timeOffset = 8}) {
+    final uid = tsdmAppInt(c['authorid']);
+    final name = tsdmAppText(c['author']).trim();
+    final avatar = tsdmAppText(c['avatar']).trim();
+    final id = tsdmAppInt(c['id']);
+    final at = tsdmAppWallClockTime(c['dateline'], timeOffset);
+    return PostComment(
+      id: id > 0 ? id : null,
+      authorUid: uid > 0 ? uid : null,
+      authorName: name.isEmpty ? _guestName : name,
+      avatarUrl: avatar.isEmpty ? null : avatar,
+      time: at == null
+          ? null
+          : '${at.year}-${at.month}-${at.day} '
+                '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}',
+      content: tsdmAppText(c['comment']).replaceAll('\r\n', '\n').trim(),
+      canDelete: tsdmAppInt(c['can_delete']) == 1 && id > 0,
+    );
+  }
 
   /// The comment's id (`pre_forum_postcomment.id`), known when the forum offers to delete it.
   final int? id;
@@ -49,6 +76,65 @@ final class PostComment with PostCommentMappable {
 
 /// A page of the comments of a floor.
 typedef PostCommentPage = ({List<PostComment> comments, bool hasMore});
+
+/// What the forum's page prints for the author of a guest's comment.
+const _guestName = '游客';
+
+/// The average of one item the comments of a floor scored (点评 with 评分项: the stars the page prints above the
+/// comments), as the forum's app API gives it (plugin 3.7.0, `comment_scores`).
+@immutable
+final class PostCommentScore {
+  /// Constructor.
+  const PostCommentScore({required this.name, required this.score});
+
+  /// The item's name, as the forum set it.
+  final String name;
+
+  /// The average, 0 to 5 (the page prints one decimal).
+  final double score;
+
+  /// [score] as the page prints it: one decimal, none for a whole number ("4", "4.5").
+  String get text => score == score.roundToDouble() ? '${score.round()}' : score.toStringAsFixed(1);
+
+  @override
+  bool operator ==(Object other) => other is PostCommentScore && other.name == name && other.score == score;
+
+  @override
+  int get hashCode => Object.hash(name, score);
+}
+
+/// The comments in `comments` of a floor or of a page of comments of the forum's app API (plugin 3.7.0), newest
+/// first as the forum gives them; null when [comments] is not a list (an older plugin: the floor has no such field).
+List<PostComment>? postCommentsFromApi(Object? comments, {num timeOffset = 8}) => comments is List
+    ? [for (final c in comments.whereType<Map<String, dynamic>>()) PostComment.fromApi(c, timeOffset: timeOffset)]
+    : null;
+
+/// The averages in `comment_scores` of a floor or of a page of comments (plugin 3.7.0), items without a name left
+/// out; empty when there are none.
+List<PostCommentScore> postCommentScoresFromApi(Object? scores) => scores is List
+    ? [
+        for (final s in scores.whereType<Map<String, dynamic>>())
+          if (tsdmAppText(s['name']).trim().isNotEmpty && s['score'] is num)
+            PostCommentScore(name: tsdmAppText(s['name']).trim(), score: (s['score'] as num).toDouble()),
+      ]
+    : const [];
+
+/// A page of the comments of a floor answered by the forum's app API as fields (plugin 3.7.0, `type: comments`,
+/// `schema` 22) in [data], with [timeOffset] the offset the floor's page printed its times with (the answer names
+/// none); null for anything else (an older plugin's write result, the forum's fragment, its message).
+///
+/// There is a next page while this one is before the last (`page` below `pages`) and has comments.
+PostCommentPage? postCommentPageFromApi(Object? data, {num timeOffset = 8}) {
+  final json = tsdmAppAnswerJson(data);
+  if (json == null || json['ok'] != 1 || json['type'] != 'comments') {
+    return null;
+  }
+  final comments = postCommentsFromApi(json['comments'], timeOffset: timeOffset);
+  if (comments == null) {
+    return null;
+  }
+  return (comments: comments, hasMore: comments.isNotEmpty && tsdmAppInt(json['page']) < tsdmAppInt(json['pages']));
+}
 
 /// `onclick="modaction('delcomment', 18)"`.
 final _deleteRe = RegExp(r"""modaction\(\s*['"]delcomment['"]\s*,\s*(\d+)""");

@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "modcp_noperm",
+ "uid": 34,
+ "formhash": "f1f2f3f4",
+ "head": "<script type=\"text/javascript\">var discuz_uid = '34';</script>",
+ "document": "<div class=\"mn\">\r\n<div class=\"bm bw0\">\r\n<h1 class=\"mt\">系统错误</h1>\r\n<p>抱歉，您无此权限</p>\r\n<p class=\"notice\">论坛管理员在“管理面板”中权限和超级版主基本相同，如果需要更多功能，请进入 <a href=\"admin.php?mod=forum\" target=\"_blank\"><u>管理中心</u></a> </p>\r\n</div>\r\n</div>"
+}

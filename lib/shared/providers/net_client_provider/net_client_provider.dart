@@ -439,8 +439,8 @@ final class NetClientProvider with LoggerMixin {
     mapException,
   );
 
-  /// Download the file from url [path] and save to [savePath].
-  AsyncVoidEither download(
+  /// Download the file from url [path] and save to [savePath]; the answer (its status and headers) is returned.
+  AsyncEither<Response<dynamic>> download(
     String path,
     dynamic savePath, {
     ProgressCallback? onReceiveProgress,
@@ -450,7 +450,7 @@ final class NetClientProvider with LoggerMixin {
     String lengthHeader = Headers.contentLengthHeader,
     Object? data,
     Options? options,
-  }) => AsyncVoidEither.tryCatch(
+  }) => AsyncEither.tryCatch(
     () async => _dio.download(
       path,
       savePath,

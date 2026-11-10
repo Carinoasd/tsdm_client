@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -371,3 +372,47 @@ String noticePlainTextOfHtml(String html) {
 }
 
 String _collapse(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Where a tap on a notice with [info] and the html [body] goes: the floor or thread it links; the message of a wall
+/// notice (the link of its body, `home.php?mod=space&uid=N&do=wall&cid=C`); the greetings received for a poke
+/// notice; the profile of the user of a friend notice (or of a wall notice without its link), of who followed for a
+/// follow notice; the broadcasts for the news of the members followed; the record of a notice about one. Null when
+/// there is nowhere to go.
+String? noticeTapUrlOf(NoticeInfo info, String body) {
+  if (info.target case final target?) {
+    return target.url;
+  }
+  if (info.kind == NoticeKind.wall) {
+    final href = parseHtmlDocument(
+      '<html><body>$body</body></html>',
+    ).querySelector('a[href*="do=wall"]')?.attributes['href'];
+    if (href != null && href.isNotEmpty) {
+      return href.prependHost();
+    }
+  }
+  if (info.kind == NoticeKind.poke) {
+    return '$baseUrl/home.php?mod=spacecp&ac=poke';
+  }
+  final authorId = info.authorId;
+  if (authorId != null &&
+      (info.kind == NoticeKind.friend || info.kind == NoticeKind.friendRequest || info.kind == NoticeKind.wall)) {
+    return '$baseUrl/home.php?mod=space&uid=$authorId';
+  }
+  // A record (a reply to one of the user's, a mention in one: `home.php?mod=space…&do=doing&doid=N`) opens that
+  // record. The notices of the follow module carry no author: a new follower (`follower`: "NAME 关注了您。点击查看",
+  // linking the list of the followers) opens the profile of who followed, the first link of its body; the news of the
+  // members followed (`follow`: "您关注的人已有N条新动态。点击查看") the broadcasts it links.
+  final record = body.contains('do=doing');
+  if (record || (info.kind == NoticeKind.generic && body.contains('mod=follow'))) {
+    final links = parseHtmlDocument('<html><body>$body</body></html>').querySelectorAll('a[href]');
+    final hrefs = [for (final a in links) a.attributes['href']!];
+    final target = record
+        ? hrefs.where((e) => e.contains('do=doing') && e.contains('doid=')).firstOrNull
+        : hrefs.where((e) => e.contains('mod=space') && e.contains('uid=') && !e.contains('do=')).firstOrNull ??
+              hrefs.where((e) => e.contains('mod=follow')).firstOrNull;
+    if (target != null) {
+      return target.prependHost();
+    }
+  }
+  return null;
+}

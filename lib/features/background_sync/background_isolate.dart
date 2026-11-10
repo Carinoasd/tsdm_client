@@ -15,6 +15,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/co
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/redacting_talker.dart';
@@ -80,12 +81,14 @@ final class BackgroundIsolateBase {
   /// soon as the app changed the proxy (or was started again), and the system proxy has to be asked for here.
   Future<void> refreshNetwork() => refreshBackgroundNetworkSettings(settings: settings, updateProxy: proxy.updateProxy);
 
-  /// Load the app's language so the notification texts match the app.
+  /// Load the app's language so the notification texts match the app: the stored tag means here what it means to the
+  /// app ([appLocaleOfSetting]), an unknown one follows the device in both.
   Future<void> applyLocale(String locale) async {
-    if (locale.isEmpty) {
+    final appLocale = appLocaleOfSetting(locale);
+    if (appLocale == null) {
       await LocaleSettings.useDeviceLocale();
     } else {
-      await LocaleSettings.setLocaleRaw(locale);
+      await LocaleSettings.setLocale(appLocale);
     }
   }
 

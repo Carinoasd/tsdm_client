@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 
@@ -52,7 +53,7 @@ final class PrivateMessageCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(children: [Expanded(child: Text(message.message))]),
+                  Row(children: [Expanded(child: Text(context.displayText(message.message)))]),
                 ],
               ),
             ),
@@ -93,7 +94,7 @@ final class BroadcastMessageCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(children: [Expanded(child: Text(message.message))]),
+                  Row(children: [Expanded(child: Text(context.displayText(message.message)))]),
                 ],
               ),
             ),

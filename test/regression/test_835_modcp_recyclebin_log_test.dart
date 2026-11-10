@@ -80,6 +80,10 @@ String _withNextPage(String html) => html.replaceFirst(
 
 Translations get t => LocaleSettings.instance.currentTranslations;
 
+/// What the log's url ends with: asked in the JSON mode of the forum's app API (plugin 3.8.0 answers it as fields,
+/// test_854).
+const _jsonMode = '&tsdmapp=json&nodoc=1';
+
 /// A transport answering each url with the page the test gives, and keeping what was asked and posted.
 final class _Forum {
   _Forum(this.pages, {this.postAnswer});
@@ -97,7 +101,9 @@ final class _Forum {
     get: (url) async {
       gets.add(url);
       for (final MapEntry(:key, :value) in pages.entries) {
-        if (url.endsWith(key)) {
+        // The log is asked in the JSON mode of the forum's app API; these are the web pages an older plugin (or none)
+        // answers it with all the same.
+        if (url.replaceFirst(_jsonMode, '').endsWith(key)) {
           return right(_ok(_text(value)));
         }
       }
@@ -520,7 +526,7 @@ void main() {
       expect(find.text(t.modcp.logEmpty), findsOneWidget);
       await tester.fling(find.text(t.modcp.logEmpty), const Offset(0, 400), 1000);
       await tester.pumpAndSettle();
-      expect(forum.gets.where((e) => e.endsWith('action=log')), hasLength(2));
+      expect(forum.gets.where((e) => e.endsWith('action=log$_jsonMode')), hasLength(2));
     });
 
     testWidgets('a forum keeping no bin: back to the forums, none chosen without asking', (tester) async {
@@ -572,10 +578,10 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('modcp-log-keyword')), 'restore');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
-      expect(forum.gets.last, endsWith('action=log&keyword=restore'));
+      expect(forum.gets.last, endsWith('action=log&keyword=restore$_jsonMode'));
       await tester.tap(find.text(t.moderate.nextPage));
       await tester.pumpAndSettle();
-      expect(forum.gets.last, endsWith('action=log&keyword=restore&page=2'));
+      expect(forum.gets.last, endsWith('action=log&keyword=restore&page=2$_jsonMode'));
       expect(tester.takeException(), isNull);
     });
   });

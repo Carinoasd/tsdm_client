@@ -7,6 +7,10 @@ import 'package:tsdm_client/features/blocking/repository/user_block_repository.d
 import 'package:tsdm_client/features/editor/utils/quick_phrases.dart';
 import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
+import 'package:tsdm_client/features/forum_watch/models/forum_watch_sync.dart';
+import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -326,6 +330,27 @@ abstract interface class SyncLocalStore {
   /// Keep [save] (bookmarks and records of removed ones) for account [uid], each where it is later than this device's.
   Future<void> applyBookmarks(int uid, List<FloorBookmark> save);
 
+  /// The items of `pinned_forums` this device holds for account [uid] ([frequentForumsSyncItems]): the forums pinned
+  /// and the records of the ones unpinned here.
+  Future<Map<String, Map<String, dynamic>>> pinnedForums(int uid);
+
+  /// Take the [items] of `pinned_forums` in for account [uid] ([frequentForumsWithSynced]); nothing is written when
+  /// nothing changes.
+  Future<void> applyPinnedForums(int uid, Map<String, Map<String, dynamic>> items);
+
+  /// What account [uid] watches for new threads, the records of what it stopped watching included; null when it can
+  /// not be kept on this device (left alone then).
+  Future<ForumWatchConfig?> forumWatch(int uid);
+
+  /// Take the items of `watch_forums` ([forums]) and `watch_keywords` ([keywords]) and the item of `watch_scope`
+  /// ([scope]) in for account [uid] ([forumWatchWithSynced]); nothing is written when nothing changes.
+  Future<void> applyForumWatch(
+    int uid, {
+    required Map<String, Map<String, dynamic>> forums,
+    required Map<String, Map<String, dynamic>> keywords,
+    required Map<String, dynamic>? scope,
+  });
+
   /// The document the forum held for account [uid] when it was last read or written, null before the first sync.
   Future<SyncLastSynced?> lastSynced(int uid);
 
@@ -533,6 +558,25 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       FloorBookmarkStore.app?.applySynced(uid, save);
 
   @override
+  Future<Map<String, Map<String, dynamic>>> pinnedForums(int uid) async =>
+      frequentForumsSyncItems(FrequentForumsStore.of(_settings.currentSettings, uid));
+
+  @override
+  Future<void> applyPinnedForums(int uid, Map<String, Map<String, dynamic>> items) =>
+      FrequentForumsStore(_settings).applySynced(uid, items);
+
+  @override
+  Future<ForumWatchConfig?> forumWatch(int uid) async => ForumWatchStore.app?.loadConfig(uid);
+
+  @override
+  Future<void> applyForumWatch(
+    int uid, {
+    required Map<String, Map<String, dynamic>> forums,
+    required Map<String, Map<String, dynamic>> keywords,
+    required Map<String, dynamic>? scope,
+  }) async => ForumWatchStore.app?.applySynced(uid, forums: forums, keywords: keywords, scope: scope);
+
+  @override
   Future<SyncLastSynced?> lastSynced(int uid) async {
     final document = await _storage.getString(lastDocumentKeyOf(uid));
     if (document == null) {
@@ -597,6 +641,18 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// The floor bookmarks by account and key, the records of removed ones included.
   final bookmarksByUid = <int, Map<String, FloorBookmark>>{};
+
+  /// The pinned forums by account (the forums visited lately are no part of the sync).
+  final pinnedByUid = <int, FrequentForumsOfAccount>{};
+
+  /// What each account watches for new threads.
+  final watchByUid = <int, ForumWatchConfig>{};
+
+  /// Accounts whose watch can not be kept ([forumWatch] reads null).
+  final watchUnavailable = <int>{};
+
+  /// The device clock (milliseconds) the pinned forums and the watch are taken in at.
+  int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
 
   /// Every write, in order (`saveVisit 3`, `deleteVisit 3`, `savePhrases`, `saveBlocks`), for the tests.
   final writes = <String>[];
@@ -774,6 +830,43 @@ final class MemorySyncLocalStore implements SyncLocalStore {
         items[bookmark.key] = bookmark;
         writes.add('saveBookmark ${bookmark.key}');
       }
+    }
+  }
+
+  @override
+  Future<Map<String, Map<String, dynamic>>> pinnedForums(int uid) async =>
+      frequentForumsSyncItems(pinnedByUid[uid] ?? const FrequentForumsOfAccount());
+
+  @override
+  Future<void> applyPinnedForums(int uid, Map<String, Map<String, dynamic>> items) async {
+    final next = frequentForumsWithSynced(pinnedByUid[uid] ?? const FrequentForumsOfAccount(), items, now: clock());
+    if (next != null) {
+      pinnedByUid[uid] = next;
+      writes.add('applyPinnedForums');
+    }
+  }
+
+  @override
+  Future<ForumWatchConfig?> forumWatch(int uid) async =>
+      watchUnavailable.contains(uid) ? null : watchByUid[uid] ?? const ForumWatchConfig();
+
+  @override
+  Future<void> applyForumWatch(
+    int uid, {
+    required Map<String, Map<String, dynamic>> forums,
+    required Map<String, Map<String, dynamic>> keywords,
+    required Map<String, dynamic>? scope,
+  }) async {
+    final next = forumWatchWithSynced(
+      watchByUid[uid] ?? const ForumWatchConfig(),
+      forums: forums,
+      keywords: keywords,
+      scope: scope,
+      now: clock(),
+    );
+    if (next != null) {
+      watchByUid[uid] = next;
+      writes.add('applyForumWatch');
     }
   }
 

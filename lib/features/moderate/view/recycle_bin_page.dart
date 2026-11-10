@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_panel_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -58,7 +59,7 @@ class _RecycleBinPageState extends State<RecycleBinPage> {
             for (final forum in _forums)
               ListTile(
                 key: ValueKey('modcp-switch-forum-${forum.fid}'),
-                title: Text(forum.name),
+                title: Text(context.displayText(forum.name)),
                 selected: forum.fid == _forum?.fid,
                 trailing: forum.fid == _forum?.fid ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(context).pop(forum),
@@ -474,13 +475,18 @@ class _BinItemCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.title, style: theme.textTheme.titleSmall, maxLines: 4, overflow: TextOverflow.ellipsis),
+                      Text(
+                        context.displayText(item.title),
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 4),
                       Text([item.author, item.time, counts].where((e) => e.isNotEmpty).join(' · '), style: muted),
                       if (item.reason.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(item.reason, style: theme.textTheme.bodySmall),
+                          child: Text(context.displayText(item.reason), style: theme.textTheme.bodySmall),
                         ),
                     ],
                   ),

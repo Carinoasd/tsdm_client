@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/space/repository/space_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -64,7 +65,7 @@ class _SpaceBlogPageState extends State<SpaceBlogPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (blog.title != null) Text(blog.title!, style: theme.textTheme.titleLarge),
+          if (blog.title != null) Text(context.displayText(blog.title!), style: theme.textTheme.titleLarge),
           if (blog.time != null || blog.category != null) ...[
             sizedBoxW4H4,
             Wrap(

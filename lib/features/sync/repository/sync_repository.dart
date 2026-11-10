@@ -5,6 +5,9 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/blocking/models/thread_filter.dart';
 import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
+import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
+import 'package:tsdm_client/features/forum_watch/models/forum_watch_sync.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
@@ -55,11 +58,19 @@ enum SyncCategory {
 
   /// The floor bookmarks of the account (`bookmarks`).
   bookmarks,
+
+  /// The forums the account pinned to the frequent forums bar, in their order (`pinned_forums`).
+  pinnedForums,
+
+  /// The forums the account watches for new threads, its alert keywords and where they are looked for
+  /// (`watch_forums`, `watch_keywords`, `watch_scope`).
+  forumWatch,
 }
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
-/// local drafts and the floor bookmarks of an account the same on every device it logs in on, through the forum's
-/// `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
+/// local drafts, the floor bookmarks, the pinned forums and the forums and keywords watched for new threads of an
+/// account the same on every device it logs in on, through the forum's `sync` action (plugin 3.4.0, one document per
+/// account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
 /// wins), applies the result here and writes it back when this device had something newer. [schedulePush] waits a
@@ -531,6 +542,22 @@ final class SyncRepository with LoggerMixin {
 
   static int _bytesOf(Object? json) => utf8.encode(jsonEncode(json)).length;
 
+  /// The items of a section this device holds ([mine], the records of its removals included) over the ones the forum
+  /// held last ([base]): an item of the forum this device does not hold was never taken here (its category was off, a
+  /// cap left it out, or it came after the last sync), so it stays as the forum has it, never a deletion. A field of
+  /// the forum's item this version does not write is kept on the item that replaces it.
+  static Map<String, Map<String, dynamic>> _heldOver(
+    Map<String, Map<String, dynamic>> base,
+    Map<String, Map<String, dynamic>> mine,
+  ) => {
+    ...base,
+    for (final MapEntry(:key, value: item) in mine.entries)
+      key: switch (base[key]) {
+        final was? when !SyncDocument.isDeleted(was) && !SyncDocument.isDeleted(item) => {...was, ...item},
+        _ => item,
+      },
+  };
+
   /// The document item of [draft] ([draftToItem]), with the fields of the forum's item [base] this version does not
   /// read; without its editor document when over [syncDraftMaxBytes], null when still over.
   static Map<String, dynamic>? _draftItem(LocalDraft draft, Map<String, dynamic>? base) {
@@ -674,6 +701,31 @@ final class SyncRepository with LoggerMixin {
         doc = doc.withItems('bookmarks', {...base.items('bookmarks'), for (final b in bookmarks) b.key: b.raw});
       }
     }
+
+    // Pinned forums: the ones pinned here and the records of the ones unpinned here, over the forum's.
+    if (_on(SyncCategory.pinnedForums)) {
+      doc = doc.withItems('pinned_forums', _heldOver(base.items('pinned_forums'), await _store.pinnedForums(uid)));
+    }
+
+    // The watch for new threads: the forums and the keywords with the records of the ones removed here, over the
+    // forum's; the scope once it was changed on a device. Never what the check of this device knows.
+    if (_on(SyncCategory.forumWatch)) {
+      final watch = await _store.forumWatch(uid);
+      if (watch != null) {
+        doc = doc
+            .withItems(
+              forumWatchForumsSection,
+              _heldOver(base.items(forumWatchForumsSection), forumWatchForumItems(watch)),
+            )
+            .withItems(
+              forumWatchKeywordsSection,
+              _heldOver(base.items(forumWatchKeywordsSection), forumWatchKeywordItems(watch)),
+            );
+        if (forumWatchScopeItem(watch) case final scope?) {
+          doc = doc.withSingle(forumWatchScopeSection, {...?base.single(forumWatchScopeSection), ...scope});
+        }
+      }
+    }
     return _fit(doc);
   }
 
@@ -763,13 +815,78 @@ final class SyncRepository with LoggerMixin {
         goneBookmarks.removeLast();
       }
     }
+    // The pinned forums and the watch: the latest in use and the latest recent removals, each within the cap of a
+    // device (in the order of the devices' own caps: the later first, ties by key) and together within the budget of
+    // the section: over it the oldest item goes first, one in use (it stays on its device) or the record of a removal
+    // alike, as for the bookmarks.
+    Map<String, Map<String, dynamic>> listed(
+      String section, {
+      required int liveMax,
+      required int goneMax,
+      required int maxBytes,
+    }) {
+      int byTimeThenKey(MapEntry<String, Map<String, dynamic>> a, MapEntry<String, Map<String, dynamic>> b) {
+        final byTime = SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value));
+        return byTime != 0 ? byTime : a.key.compareTo(b.key);
+      }
+
+      final kept = withoutOldDeletions(section).entries;
+      final live = (kept.where((e) => !SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
+          .take(liveMax)
+          .toList();
+      final gone = (kept.where((e) => SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
+          .take(goneMax)
+          .toList();
+      Map<String, Map<String, dynamic>> items() => {
+        for (final e in live) e.key: e.value,
+        for (final e in gone) e.key: e.value,
+      };
+      final budget = math.min(maxBytes, _documentMaxBytes ~/ 4);
+      while ((live.isNotEmpty || gone.isNotEmpty) && _bytesOf(items()) > budget) {
+        if (gone.isEmpty ||
+            (live.isNotEmpty && SyncDocument.updatedOf(live.last.value) <= SyncDocument.updatedOf(gone.last.value))) {
+          live.removeLast();
+        } else {
+          gone.removeLast();
+        }
+      }
+      return items();
+    }
+
     var fitted = doc
         .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
         .withItems('blocks', blocks)
         .withItems('block_keywords', filters('block_keywords'))
         .withItems('block_forums', filters('block_forums'))
         .withItems('drafts', drafts())
-        .withItems('bookmarks', bookmarks());
+        .withItems('bookmarks', bookmarks())
+        .withItems(
+          'pinned_forums',
+          listed(
+            'pinned_forums',
+            liveMax: frequentForumsPinnedMax,
+            goneMax: frequentForumsUnpinnedMax,
+            maxBytes: syncPinnedForumsMaxBytes,
+          ),
+        )
+        .withItems(
+          forumWatchForumsSection,
+          listed(
+            forumWatchForumsSection,
+            liveMax: forumWatchForumMax,
+            goneMax: forumWatchForumRemovalMax,
+            maxBytes: syncWatchForumsMaxBytes,
+          ),
+        )
+        .withItems(
+          forumWatchKeywordsSection,
+          listed(
+            forumWatchKeywordsSection,
+            liveMax: forumWatchKeywordMax,
+            goneMax: forumWatchKeywordRemovalMax,
+            maxBytes: syncWatchKeywordsMaxBytes,
+          ),
+        );
     // Size: the oldest visits go first, then the oldest deletion records, then the drafts, then the bookmarks.
     while (fitted.encodedLength > _documentMaxBytes) {
       if (live.isNotEmpty) {
@@ -968,6 +1085,27 @@ final class SyncRepository with LoggerMixin {
         if (save.isNotEmpty) {
           await _store.applyBookmarks(uid, save);
         }
+      }
+    }
+
+    // Pinned forums forum by forum: pinned, renamed, moved or unpinned here where the merge is not older than this
+    // device's; a forum not in the document stays.
+    if (_on(SyncCategory.pinnedForums)) {
+      final items = merged.items('pinned_forums');
+      if (items.isNotEmpty) {
+        await _store.applyPinnedForums(uid, items);
+      }
+    }
+
+    // The watch forum by forum and keyword by keyword, each where the merge is not older than this device's, and the
+    // scope whole likewise. A forum that comes with it has no mark on this device: the first check of it
+    // only sets the mark, nothing posted before is announced.
+    if (_on(SyncCategory.forumWatch)) {
+      final forums = merged.items(forumWatchForumsSection);
+      final keywords = merged.items(forumWatchKeywordsSection);
+      final scope = merged.single(forumWatchScopeSection);
+      if (forums.isNotEmpty || keywords.isNotEmpty || scope != null) {
+        await _store.applyForumWatch(uid, forums: forums, keywords: keywords, scope: scope);
       }
     }
   }

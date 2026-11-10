@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/post/models/post_form.dart';
 import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/repository/sec_check_repository.dart';
+import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -39,6 +40,7 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     on<ThreadPubFetchInfoRequested>((event, emit) => _onFetchNewThreadInfo(event.fid, emit, kind: event.kind));
     on<ThreadPubPostThread>(_sending(_onPostNewThread));
     on<PostEditIdentityChanged>((event, emit) => emit(const PostEditState(status: PostEditStatus.identityChanged)));
+    on<PostEditAttachmentDeleted>(_onAttachmentDeleted);
     _authenticationSubscription = authenticationChanges?.listen((status) {
       if (status is AuthStatusAuthed && _repo.belongsTo(status.userInfo.uid)) return;
       if ((status is AuthStatusLoading || status is AuthStatusUnknown) && _repo.isCurrent) return;
@@ -71,6 +73,23 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
     if (_repo.isCurrent) return true;
     emit(const PostEditState(status: PostEditStatus.identityChanged));
     return false;
+  }
+
+  /// The forum deleted an attachment of the edited post: the form left as the website's edit page leaves it
+  /// ([editFormWithoutAttachment]), so saving the edit updates the post's attachment mark. Taken while the edit is
+  /// being sent as well: the form sent already is not changed, the one kept for another try is.
+  void _onAttachmentDeleted(PostEditAttachmentDeleted event, _Emit emit) {
+    final content = state.content;
+    if (content == null || !_active(emit)) return;
+    final json = content.postForm;
+    emit(
+      state.copyWith(
+        content: content.copyWith(
+          delattachop: '1',
+          postForm: json == null ? null : editFormWithoutAttachment(json, event.aid),
+        ),
+      ),
+    );
   }
 
   Future<void> _onPostEditLoadDataRequested(PostEditLoadDataRequested event, _Emit emit) async {

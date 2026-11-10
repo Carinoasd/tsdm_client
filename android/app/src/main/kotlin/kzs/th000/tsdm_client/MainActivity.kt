@@ -49,6 +49,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         const val SET_APP_ICON = "setAppIcon"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
         const val DEVICE_NAME = "deviceName"
+        const val OPEN_ATTACHMENT = "openAttachment"
         /**
          * Whether the system draws the biometric prompt (Android 9+). Before that androidx.biometric shows its own
          * fingerprint dialog, which needs an AppCompat theme this activity does not have: the app lock offers the PIN
@@ -512,6 +513,9 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
             HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            OPEN_ATTACHMENT -> result.success(
+                AttachmentFiles.open(this, call.argument<Any>("path") as? String) { startActivity(it) },
+            )
             else -> result.notImplemented()
         }
     }

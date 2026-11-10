@@ -96,6 +96,7 @@ class SettingsMap with SettingsMapMappable {
     this.uploadImageMaxSide = 0,
     this.uploadImageQuality = 90,
     this.frequentForums = '',
+    this.attachmentDownloadDirectory = '',
     this.homepagePinnedGroup = '',
     this.threadOpenPosition = 1,
     this.threadSwipePaging = false,
@@ -114,6 +115,8 @@ class SettingsMap with SettingsMapMappable {
     this.crossDeviceSyncSettings = true,
     this.crossDeviceSyncDrafts = true,
     this.crossDeviceSyncBookmarks = true,
+    this.crossDeviceSyncPinnedForums = true,
+    this.crossDeviceSyncForumWatch = true,
   });
 
   final String netClientAccept;
@@ -287,6 +290,13 @@ class SettingsMap with SettingsMapMappable {
   /// With [crossDeviceSync], sync the floor bookmarks. Not required: backups from older versions lack it.
   final bool crossDeviceSyncBookmarks;
 
+  /// With [crossDeviceSync], sync the pinned forums. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncPinnedForums;
+
+  /// With [crossDeviceSync], sync the forums and keywords watched for new threads. Not required: backups from older
+  /// versions lack it.
+  final bool crossDeviceSyncForumWatch;
+
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
 
@@ -374,6 +384,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// The pinned and recent forums of every account, see `SettingsKeys.frequentForums`.
   final String frequentForums;
+
+  /// See `SettingsKeys.attachmentDownloadDirectory`.
+  final String attachmentDownloadDirectory;
 
   SettingsMap copyWithKey<T>(SettingsKeys<T> key, T? value) {
     assert(
@@ -464,6 +477,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
       SettingsKeys.crossDeviceSyncDrafts => copyWith(crossDeviceSyncDrafts: value as bool?),
       SettingsKeys.crossDeviceSyncBookmarks => copyWith(crossDeviceSyncBookmarks: value as bool?),
+      SettingsKeys.crossDeviceSyncPinnedForums => copyWith(crossDeviceSyncPinnedForums: value as bool?),
+      SettingsKeys.crossDeviceSyncForumWatch => copyWith(crossDeviceSyncForumWatch: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),
@@ -491,6 +506,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.uploadImageMaxSide => copyWith(uploadImageMaxSide: value as int?),
       SettingsKeys.uploadImageQuality => copyWith(uploadImageQuality: value as int?),
       SettingsKeys.frequentForums => copyWith(frequentForums: value as String?),
+      SettingsKeys.attachmentDownloadDirectory => copyWith(attachmentDownloadDirectory: value as String?),
     };
   }
 }

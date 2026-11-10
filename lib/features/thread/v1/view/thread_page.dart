@@ -21,6 +21,7 @@ import 'package:tsdm_client/features/blocking/repository/user_block_repository.d
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
+import 'package:tsdm_client/features/collection/widgets/collect_thread_sheet.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
@@ -31,7 +32,9 @@ import 'package:tsdm_client/features/floor_bookmark/widgets/floor_bookmark_widge
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
@@ -239,8 +242,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The account logged in moderates the forum the thread is in, as the forum says: the management is offered.
   bool _moderates = false;
 
-  /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: the
-  /// forum's app API does not tell a floor is warned, the page shows what was done all the same.
+  /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: before
+  /// plugin 3.7.0 the forum's app API does not tell a floor is warned, the page shows what was done all the same.
   final _warnedByMe = <String, bool>{};
 
   /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
@@ -613,9 +616,23 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Ask the forum whether the account logged in moderates the forum of the thread in [state], once per account and
   /// forum (a move puts the thread in another one): the management is offered only then.
+  ///
+  /// A page that tells what the account may manage itself ([ThreadState.perms], plugin 3.7.0 of the forum's app API)
+  /// asks nothing: the management offered is what it says ([_threadOperations], [_floorActions]). What it says is
+  /// kept for the forum page's management of several threads ([ForumPermsMemory]).
   void _askModerator(BuildContext context, ThreadState state) {
     final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
     final fid = state.fid;
+    if (state.perms case final perms? when !state.isOffline) {
+      _moderatorAsked = null;
+      if (_moderates) {
+        setState(() => _moderates = false);
+      }
+      if (uid != null && fid != null && state.floorsUid == uid) {
+        ForumPermsMemory.note(uid: uid, fid: fid, perms: perms, draft: state.isDraft);
+      }
+      return;
+    }
     final key = uid == null || fid == null || state.isOffline ? null : '$uid:$fid';
     if (key == _moderatorAsked) {
       return;
@@ -640,6 +657,38 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }).ignore();
   }
 
+  /// The management operations offered on the thread in [state]: the ones the page says the web page's management
+  /// menu has ([ThreadState.perms]); every one for a moderator of the forum when the page does not tell (an older
+  /// plugin, the web page: [_moderates]). None offline, or before the page told the forum.
+  List<ModerateOperation> _threadOperations(ThreadState state) {
+    if (state.isOffline || state.fid == null) {
+      return const [];
+    }
+    final all = moderateOperationsFor(closed: state.threadSoftClosed);
+    return switch (state.perms) {
+      final perms? => perms.threadOperations(all),
+      null => _moderates ? all : const [],
+    };
+  }
+
+  /// The management operations offered on floor [post] of the thread in [state], null to offer every one the floor
+  /// takes (`floorModerateActionsFor`), and whether taking rates of it back is offered: null and yes for a moderator
+  /// of the forum when the page does not tell ([_moderates]); else what the page's permissions say
+  /// ([ThreadState.perms]: the floor's own `can.warn` for the warning; a reply is stuck by the thread's author too,
+  /// moderator or not), rates taken back by a moderator of the forum. No management at all (`offered` false) when
+  /// neither applies.
+  ({bool offered, List<FloorModerateAction>? actions, bool removeRate}) _floorActions(ThreadState state, Post post) {
+    if (state.isOffline || state.tid == null || state.fid == null) {
+      return (offered: false, actions: const [], removeRate: false);
+    }
+    final perms = state.perms;
+    if (perms == null) {
+      return (offered: _moderates, actions: null, removeRate: _moderates);
+    }
+    final actions = perms.floorOperations(canWarn: post.canWarn);
+    return (offered: actions.isNotEmpty || perms.isModerator, actions: actions, removeRate: perms.isModerator);
+  }
+
   /// Offer the management of the thread in [state]; reload the thread it changed, leave the thread it deleted.
   Future<void> _moderate(BuildContext context, ThreadState state) async {
     final done = await showThreadModerateSheet(
@@ -647,6 +696,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       tid: state.tid!,
       fid: state.fid!,
       closed: state.threadSoftClosed,
+      perms: state.perms,
     );
     if (!context.mounted || done == null) {
       return;
@@ -666,7 +716,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
   }
 
-  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done.
+  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done (the first
+  /// page for a reply stuck or unstuck, where the forum shows the stuck ones).
   Future<void> _moderateFloor(BuildContext context, ThreadState state, Post post, FloorModerateAction action) async {
     final threadBloc = context.read<ThreadBloc>();
     final done = await showFloorModerateDialog(
@@ -675,6 +726,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       tid: state.tid!,
       fid: state.fid!,
       pid: post.postID,
+      undo: action == FloorModerateAction.stick && post.stuck,
       onDone: action == FloorModerateAction.warn ? (form) => _warnedByMe[post.postID] = !form.undo : null,
     );
     if (!done || threadBloc.isClosed) {
@@ -684,7 +736,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (action != FloorModerateAction.delete) {
       _scrollToPidOnReload = post.postID;
     }
-    threadBloc.add(ThreadJumpPageRequested(post.page));
+    // The forum shows stuck replies on the first page.
+    threadBloc.add(ThreadJumpPageRequested(action == FloorModerateAction.stick ? 1 : post.page));
   }
 
   /// Ban the author of floor [post] of the thread in [state] from posting, or lift the ban; reload the floor's page
@@ -2027,37 +2080,45 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             widgetBuilder: (context, post) => BlockAwarePost(
                               post: post,
                               postList: state.postList,
-                              builder: (context, post) => _markSearchHit(
-                                context,
-                                post,
-                                searchHits,
-                                _markSpeaking(
+                              builder: (context, post) {
+                                final management = _floorActions(state, post);
+                                return _markSearchHit(
                                   context,
                                   post,
-                                  PostCard(
-                                    _asWarnedByMe(post),
-                                    replyCallback: replyPostCallback,
-                                    multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
-                                        ? null
-                                        : _multiQuote,
-                                    onEdited: () => _scrollToPidOnReload = post.postID,
-                                    onJoinDebate: state.replyParameters == null || state.threadClosed
-                                        ? null
-                                        : _joinDebate,
-                                    onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
-                                        ? (action) => _moderateFloor(context, state, post, action)
-                                        : null,
-                                    // Not the account's own floors: the forum never lets staff ban themselves.
-                                    onBanAuthor:
-                                        post.banAuthorUid != null &&
-                                            post.banAuthorUid != state.floorsUid &&
-                                            !state.isOffline &&
-                                            state.fid != null
-                                        ? () => _banAuthor(context, state, post)
-                                        : null,
+                                  searchHits,
+                                  _markSpeaking(
+                                    context,
+                                    post,
+                                    PostCard(
+                                      // A page that tells the warned floors itself needs no memory of them.
+                                      state.perms == null ? _asWarnedByMe(post) : post,
+                                      replyCallback: replyPostCallback,
+                                      multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
+                                          ? null
+                                          : _multiQuote,
+                                      onEdited: () => _scrollToPidOnReload = post.postID,
+                                      onJoinDebate: state.replyParameters == null || state.threadClosed
+                                          ? null
+                                          : _joinDebate,
+                                      onModerate: management.offered
+                                          ? (action) => _moderateFloor(context, state, post, action)
+                                          : null,
+                                      moderateActions: management.actions,
+                                      canRemoveRate: management.removeRate,
+                                      // Not the account's own floors: the forum never lets staff ban themselves.
+                                      // Where the page tells the account's permissions, only with the one to ban.
+                                      onBanAuthor:
+                                          post.banAuthorUid != null &&
+                                              post.banAuthorUid != state.floorsUid &&
+                                              (state.perms?.allowBanUser ?? true) &&
+                                              !state.isOffline &&
+                                              state.fid != null
+                                          ? () => _banAuthor(context, state, post)
+                                          : null,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             ),
                             useDivider: true,
                             postList: state.postList,
@@ -2684,6 +2745,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             onSelected: () async =>
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
                           ),
+                        // The forum's 淘帖: put the thread in collections of the account.
+                        if (int.tryParse(state.tid!) case final tid?
+                            when tid > 0 &&
+                                !state.isOffline &&
+                                context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                          MenuCustomItem(
+                            icon: Icons.collections_bookmark_outlined,
+                            description: context.t.collection.collect,
+                            onSelected: () async => showCollectThreadSheet(context, tid: tid),
+                          ),
                         MenuCustomItem(
                           icon: Icons.qr_code_2_outlined,
                           description: context.t.shareQr.title,
@@ -2753,7 +2824,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           description: context.t.threadPage.copyTid(tid: state.tid!),
                           onSelected: () async => copyToClipboard(context, state.tid!),
                         ),
-                        if (_moderates && !state.isOffline && state.fid != null)
+                        if (_threadOperations(state).isNotEmpty)
                           MenuCustomItem(
                             icon: Icons.admin_panel_settings_outlined,
                             description: context.t.moderate.menu,

@@ -1,0 +1,20 @@
+{
+ "ok": 0,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 35,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "评价指数 0 +1",
+ "message_key": "recommend_succeed",
+ "url": "",
+ "handlekey": "",
+ "values": {
+  "recommendv": "+1",
+  "recommendc": "0"
+ },
+ "login": 0,
+ "alert": "error"
+}

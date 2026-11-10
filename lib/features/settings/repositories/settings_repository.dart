@@ -192,6 +192,8 @@ final class SettingsRepository with LoggerMixin {
       crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),
       crossDeviceSyncDrafts: s.extract(_SK.crossDeviceSyncDrafts),
       crossDeviceSyncBookmarks: s.extract(_SK.crossDeviceSyncBookmarks),
+      crossDeviceSyncPinnedForums: s.extract(_SK.crossDeviceSyncPinnedForums),
+      crossDeviceSyncForumWatch: s.extract(_SK.crossDeviceSyncForumWatch),
       themeModeScheduled: s.extract(_SK.themeModeScheduled),
       darkScheduleStart: s.extract(_SK.darkScheduleStart),
       darkScheduleEnd: s.extract(_SK.darkScheduleEnd),
@@ -216,6 +218,7 @@ final class SettingsRepository with LoggerMixin {
       uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
       uploadImageQuality: s.extract(_SK.uploadImageQuality),
       frequentForums: s.extract(_SK.frequentForums),
+      attachmentDownloadDirectory: s.extract(_SK.attachmentDownloadDirectory),
     );
   }
 

@@ -18,6 +18,7 @@ String homeBlockLabel(BuildContext context, HomeBlock block) {
     HomeBlock.guide => tr.guide,
     HomeBlock.stats => tr.stats,
     HomeBlock.tools => tr.tools,
+    HomeBlock.online => tr.online,
   };
 }
 

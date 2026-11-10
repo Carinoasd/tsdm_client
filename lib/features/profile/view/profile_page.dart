@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
+import 'package:tsdm_client/features/follow/widgets/follow_widgets.dart';
 import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -30,10 +31,13 @@ import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
+import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
@@ -93,6 +97,7 @@ const List<int> _checkinNextLevelExp = [
 
 enum _ProfileActions {
   viewNotification,
+  pokes,
   checkin,
   viewPoints,
   switchUserGroup,
@@ -102,6 +107,15 @@ enum _ProfileActions {
   editAvatar,
   blockedUsers,
   shareQr,
+}
+
+/// The actions of another member's profile kept in the menu of its app bar, in the order shown.
+enum _MemberActions {
+  /// Greet them (`home.php?mod=spacecp&ac=poke&op=send&uid=N`).
+  poke,
+
+  /// Follow them, no longer follow them, note a name for them (`home.php?mod=spacecp&ac=follow&op=add|del|bkname`).
+  follow,
 }
 
 /// Page of user profile.
@@ -191,6 +205,8 @@ class _ProfilePageState extends State<ProfilePage> {
             switch (action) {
               case _ProfileActions.viewNotification:
                 openNoticePageInApp(context);
+              case _ProfileActions.pokes:
+                await context.pushNamed(ScreenPaths.spacePokes);
               case _ProfileActions.checkin:
                 context.read<CheckinBloc>().add(const CheckinRequested());
               case _ProfileActions.viewPoints:
@@ -240,6 +256,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [const NoticeIcon(), sizedBoxPopupMenuItemIconSpacing, Text(context.t.noticePage.title)],
               ),
             ),
+            if (!spaceModulesOff.value.contains(SpaceModule.poke))
+              PopupMenuItem(
+                value: _ProfileActions.pokes,
+                child: Row(
+                  children: [
+                    const Icon(Icons.waving_hand_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.spacePage.poke.received),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               enabled: !inCheckin,
               value: _ProfileActions.checkin,
@@ -390,6 +417,45 @@ class _ProfilePageState extends State<ProfilePage> {
         // Local and silent: nothing is sent to the forum.
         if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int blockUid)
           UserBlockButton(uid: blockUid, username: userProfile.username ?? widget.username ?? '$blockUid'),
+        // The rest, in a menu: one item per action of [_MemberActions], each offered when the forum may take it.
+        if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int memberUid)
+          ValueListenableBuilder(
+            valueListenable: spaceModulesOff,
+            builder: (context, off, _) {
+              final memberActions = [
+                // The forum greets no one oneself (`not_to_their_own_greeted`).
+                if (!off.contains(SpaceModule.poke) && !_isOwnProfile(context, '$memberUid')) _MemberActions.poke,
+                // Nor follows oneself (`follow_not_follow_self`).
+                if (!off.contains(SpaceModule.follow) && !_isOwnProfile(context, '$memberUid')) _MemberActions.follow,
+              ];
+              if (memberActions.isEmpty) return sizedBoxEmpty;
+              return PopupMenuButton<_MemberActions>(
+                onSelected: (action) async => switch (action) {
+                  _MemberActions.poke => showPokeDialog(context, uid: memberUid, username: userProfile.username),
+                  _MemberActions.follow => showFollowDialog(context, uid: memberUid, username: userProfile.username),
+                },
+                itemBuilder: (context) => [
+                  for (final action in memberActions)
+                    PopupMenuItem(
+                      value: action,
+                      child: Row(
+                        children: [
+                          Icon(switch (action) {
+                            _MemberActions.poke => Icons.waving_hand_outlined,
+                            _MemberActions.follow => Icons.person_add_alt_outlined,
+                          }),
+                          sizedBoxPopupMenuItemIconSpacing,
+                          Text(switch (action) {
+                            _MemberActions.poke => context.t.spacePage.poke.send,
+                            _MemberActions.follow => context.t.spacePage.follow.action,
+                          }),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
       ];
     }
 
@@ -727,7 +793,7 @@ class _ProfilePageState extends State<ProfilePage> {
         CachedImage(image, maxWidth: 200, height: profileBadgeHeight, fit: BoxFit.contain),
         sizedBoxW8H8,
         Text(
-          name,
+          context.displayText(name),
           textAlign: TextAlign.start,
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),
@@ -841,29 +907,59 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
 
-      // The member's blogs and albums, own or another's.
+      // The member's space, own or another's: one row per page, each offered while the forum has its module on.
       if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int spaceUid)
-        AppSurface(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (i, (tab, icon, title)) in [
+        ValueListenableBuilder(
+          valueListenable: spaceModulesOff,
+          builder: (context, off, _) {
+            final entries = <(IconData, String, String, Map<String, String>)>[
+              for (final (tab, icon, title) in [
                 (SpaceTab.blog, Icons.article_outlined, context.t.spacePage.blogs),
                 (SpaceTab.album, Icons.photo_library_outlined, context.t.spacePage.albums),
-              ].indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: Icon(icon),
-                  title: Text(title),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async => context.pushNamed(
-                    ScreenPaths.space,
-                    queryParameters: {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
-                  ),
+                if (!off.contains(SpaceModule.wall))
+                  (SpaceTab.wall, Icons.forum_outlined, context.t.spacePage.wall.title),
+              ])
+                (
+                  icon,
+                  title,
+                  ScreenPaths.space,
+                  {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
                 ),
-              ],
-            ],
-          ),
+              // The broadcasts, the records, and the members followed with the followers.
+              for (final (module, icon, title, path) in [
+                (
+                  SpaceModule.broadcast,
+                  Icons.dynamic_feed_outlined,
+                  context.t.spacePage.follow.broadcasts,
+                  ScreenPaths.followFeed,
+                ),
+                (SpaceModule.doing, Icons.edit_note_outlined, context.t.spacePage.doing.title, ScreenPaths.doing),
+                (
+                  SpaceModule.follow,
+                  Icons.people_outline,
+                  context.t.spacePage.follow.members,
+                  ScreenPaths.followMembers,
+                ),
+              ])
+                if (!off.contains(module)) (icon, title, path, {'uid': '$spaceUid', 'username': ?userProfile.username}),
+            ];
+            return AppSurface(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (final (i, (icon, title, path, query)) in entries.indexed) ...[
+                    if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Icon(icon),
+                      title: Text(title),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async => context.pushNamed(path, queryParameters: query),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
 
       // Medal centre, own titles and title shop: all meant for the logged user (buy/apply/switch for themselves), so
@@ -910,7 +1006,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   .map(
                     (e) => ActionChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(e.name),
+                      label: Text(context.displayText(e.name)),
                       onPressed: () async => context.pushNamed(ScreenPaths.forum, pathParameters: {'fid': '${e.fid}'}),
                     ),
                   )

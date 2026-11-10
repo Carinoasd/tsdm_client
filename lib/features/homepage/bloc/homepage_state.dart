@@ -55,6 +55,8 @@ final class HomepageState with HomepageStateMappable {
     this.failure,
     this.savedAt,
     this.refreshFailed = false,
+    this.onlineSummary = const [],
+    this.online,
   });
 
   /// Why the homepage failed to load ([HomepageStatus.failure]).
@@ -107,4 +109,13 @@ final class HomepageState with HomepageStateMappable {
 
   /// Asking the page again failed while the saved page ([savedAt]) shows: it stays, with a retry.
   final bool refreshFailed;
+
+  /// The "在线会员" line of the web page ([parseOnlineSummary]), empty when the page has none and for the structured
+  /// answer of the forum's app API, which gives the numbers instead ([online]).
+  final List<String> onlineSummary;
+
+  /// The numbers of the "在线会员" line as the structured answer of the forum's app API gives them (plugin 3.8.0,
+  /// `online`); null for an older answer, a forum that prints no such line, and the web page ([onlineSummary]). The
+  /// homepage asks nothing more for it.
+  final HomeOnline? online;
 }

@@ -187,6 +187,12 @@ extension ParseUrl on String {
               queryParameters['uid'] == null &&
               queryParameters['username'] == null)
             'view': 'visitor',
+          // The members online now, the "在线会员" link of the forum's homepage.
+          if (queryParameters['view'] == 'online' &&
+              queryParameters['type'] == 'member' &&
+              queryParameters['uid'] == null &&
+              queryParameters['username'] == null)
+            'view': 'online',
         },
       );
     }
@@ -206,6 +212,58 @@ extension ParseUrl on String {
       if (queryParameters['id'] == null && queryParameters['picid'] == null) {
         return RecognizedRoute(ScreenPaths.space, queryParameters: {'uid': uid, 'tab': blog ? 'blog' : 'album'});
       }
+    }
+
+    // A wall: home.php?mod=space[&uid=N]&do=wall[&cid=C] (the account in use without uid), one message with `cid` (the
+    // link of a wall notice).
+    if (mod == 'space' && queryParameters['do'] == 'wall') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final cid = int.tryParse(queryParameters['cid'] ?? '');
+      return RecognizedRoute(
+        ScreenPaths.space,
+        queryParameters: {
+          if (uid != null && uid > 0) 'uid': '$uid',
+          'tab': 'wall',
+          if (cid != null && cid > 0) 'cid': '$cid',
+        },
+      );
+    }
+
+    // Greetings: home.php?mod=spacecp&ac=poke[&op=reply|ignore&uid=N] are the ones received (the links of a poke
+    // notice); a greeting to a member (`op=send&uid=N`) is sent from their profile.
+    if (mod == 'spacecp' && queryParameters['ac'] == 'poke') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      if (queryParameters['op'] == 'send' && uid != null && uid > 0) {
+        return RecognizedRoute(ScreenPaths.profile, queryParameters: {'uid': '$uid'});
+      }
+      return const RecognizedRoute(ScreenPaths.spacePokes);
+    }
+
+    // The records: home.php?mod=space[&uid=N]&do=doing[&view=…][&doid=M]. A record alone with `doid` (the link of a
+    // reply notice; its `uid` is the member notified, not the author of the record, so it is dropped: the forum finds
+    // the record of anyone when no member is named); a member's own with `uid`; else the lists of the account in use.
+    if (mod == 'space' && queryParameters['do'] == 'doing') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final doid = int.tryParse(queryParameters['doid'] ?? '');
+      return RecognizedRoute(
+        ScreenPaths.doing,
+        queryParameters: {
+          if (doid != null && doid > 0) 'doid': '$doid' else if (uid != null && uid > 0) 'uid': '$uid',
+        },
+      );
+    }
+
+    // Following: home.php?mod=follow&do=following|follower[&uid=N] are the members a member follows and their
+    // followers; home.php?mod=follow[&view=…] the broadcasts of the account in use, with `uid` those of a member. Of
+    // `home.php` only: a plugin's page may name a `mod` of its own so.
+    if (mod == 'follow' && uri.path.endsWith('home.php')) {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final member = {if (uid != null && uid > 0) 'uid': '$uid'};
+      return switch (queryParameters['do']) {
+        'following' => RecognizedRoute(ScreenPaths.followMembers, queryParameters: member),
+        'follower' => RecognizedRoute(ScreenPaths.followMembers, queryParameters: {...member, 'tab': 'follower'}),
+        _ => RecognizedRoute(ScreenPaths.followFeed, queryParameters: member),
+      };
     }
 
     // FIXME: Do NOT glob access user profile page by uid.
@@ -269,6 +327,14 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': queryParameters['touid']!});
     }
 
+    // The forum's statistics: misc.php?mod=stat[&op=...], shown in the app's read only page of them.
+    if (mod == 'stat' && uri.path.endsWith('misc.php')) {
+      return RecognizedRoute(
+        ScreenPaths.siteStats,
+        queryParameters: {'url': Uri.parse('$baseUrl/misc.php').replace(queryParameters: queryParameters).toString()},
+      );
+    }
+
     // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the
     // cloud of all (`misc.php?mod=tag`). The other kinds of the tag page (articles, blogs, doings) and the tag
     // tools (`op=add|manage|set|search`) stay with the web page.
@@ -293,6 +359,27 @@ extension ParseUrl on String {
       }
       if (queryParameters['type'] == null) {
         return const RecognizedRoute(ScreenPaths.tagCloud);
+      }
+    }
+
+    // Collections (淘专辑): one (`mod=collection&action=view&ctid=N`) and its comments (`op=comment`), the lists (no
+    // `action`; `op=all`, `op=my`). The other pages of the collections (edit, invite, the subscribers, the collections
+    // of a thread) stay with the web page.
+    if (mod == 'collection') {
+      final action = queryParameters['action'] ?? '';
+      final op = queryParameters['op'] ?? '';
+      final ctid = forumIntval(queryParameters['ctid']);
+      if (action == 'view' && ctid > 0 && (op.isEmpty || op == 'comment')) {
+        return RecognizedRoute(
+          op.isEmpty ? ScreenPaths.collectionDetail : ScreenPaths.collectionComments,
+          pathParameters: {'ctid': '$ctid'},
+        );
+      }
+      if (action.isEmpty && queryParameters['tid'] == null && const {'', 'all', 'my'}.contains(op)) {
+        return RecognizedRoute(
+          ScreenPaths.collections,
+          queryParameters: {if (op == 'all') 'tab': 'all' else if (op == 'my') 'tab': 'mine'},
+        );
       }
     }
 

@@ -70,7 +70,8 @@ final class ThreadRecommendMemory {
 ///
 /// A guest's button opens the login. A member's sends the evaluation once ([ThreadRecommendRepository]): counted, its
 /// count goes up and both buttons stay off (the forum takes one evaluation per member and thread); refused, the
-/// forum's message is shown; without a verdict both stay off until the page is read again.
+/// forum's message is shown; without a verdict both stay off until the page is read again. Where the forum says
+/// beforehand it would refuse ([ThreadRecommend.canEvaluate] false) both are off from the start.
 class ThreadRecommendButtons extends StatelessWidget {
   /// Constructor.
   const ThreadRecommendButtons(this.recommend, {super.key});
@@ -136,6 +137,8 @@ class ThreadRecommendButtons extends StatelessWidget {
     final counted = entry?.status == ThreadRecommendStatus.counted && entry?.side == side;
     final sending = entry?.status == ThreadRecommendStatus.sending && entry?.side == side;
     final off = switch (entry) {
+      // The forum would refuse whatever is sent: the counts only.
+      _ when !recommend.canEvaluate => true,
       null => false,
       // The same page built again stays off; a page read again (another object, even with the same counts: a request
       // that never reached the forum changed nothing) may be evaluated.

@@ -4,6 +4,8 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -15,9 +17,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -25,9 +29,11 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 
 Translations get tr => LocaleSettings.instance.currentTranslations;
 
@@ -36,15 +42,17 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 const _content = [
   'me-my-threads',
   'me-favorites',
+  'me-collections',
   'me-followed-threads',
   'me-floor-bookmarks',
   'me-read-later',
   'me-history',
   'me-local-drafts',
   'me-drafts',
+  'me-downloads',
 ];
-const _social = ['me-messages', 'me-friends', 'me-visitors'];
-const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats'];
+const _social = ['me-messages', 'me-friends', 'me-visitors', 'me-follow-feed', 'me-doings'];
+const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats', 'me-site-stats'];
 
 /// The services in order, their page and whether a guest is asked for a login.
 const _services = <(String, String, bool)>[
@@ -64,6 +72,29 @@ final class _OfflineAdapter implements HttpClientAdapter {
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) =>
       throw DioException.connectionError(requestOptions: options, reason: 'offline');
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// A forum answering every request with [answer] (JSON).
+final class _JsonAdapter implements HttpClientAdapter {
+  _JsonAdapter(this.answer);
+
+  final Object answer;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async => ResponseBody.fromString(
+    jsonEncode(answer),
+    200,
+    headers: {
+      Headers.contentTypeHeader: ['application/json; charset=utf-8'],
+    },
+  );
 
   @override
   void close({bool force = false}) {}
@@ -124,7 +155,12 @@ void main() {
     await db.close();
   });
 
-  Future<void> pump(WidgetTester tester, {required bool guest, Size size = const Size(411, 868)}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    required bool guest,
+    Size size = const Size(411, 868),
+    ForumHomeRepository? home,
+  }) async {
     tester.view
       ..physicalSize = size
       ..devicePixelRatio = 1;
@@ -146,8 +182,11 @@ void main() {
     );
     await tester.pumpWidget(
       TranslationProvider(
-        child: RepositoryProvider<AuthenticationRepository>.value(
-          value: _Auth(guest ? null : _alice),
+        child: MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<AuthenticationRepository>.value(value: _Auth(guest ? null : _alice)),
+            if (home != null) RepositoryProvider<ForumHomeRepository>.value(value: home),
+          ],
           child: Builder(
             builder: (context) => MaterialApp.router(
               routerConfig: router,
@@ -186,6 +225,43 @@ void main() {
     }
   }
 
+  /// The homepage the forum's app API (plugin 3.8.0) answers [_alice], who may see the forum's statistics or not
+  /// ([allowStat], `user.allow_stat`), loaded: the answer the test forum gave a member, for this account.
+  Future<ForumHomeRepository> homeOf(WidgetTester tester, {required int allowStat}) async {
+    final json =
+        (jsonDecode(File('test/data/tsdmapp_380/index_online_member.json').readAsStringSync()) as Map<String, dynamic>)
+          ..['uid'] = _alice.uid
+          ..['red_packet'] = null;
+    (json['user'] as Map<String, dynamic>)
+      ..['uid'] = _alice.uid
+      ..['allow_stat'] = allowStat;
+    getIt
+      ..registerSingleton<NetErrorSaver>(NetErrorSaver())
+      ..registerFactory<NetClientProvider>(
+        () => NetClientProvider.buildNoCookie(
+          dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = _JsonAdapter(json),
+        ),
+      );
+    final home = ForumHomeRepository();
+    addTearDown(home.dispose);
+    final page = await tester.runAsync(() => home.fetchHomePage().run());
+    expect(page!.isRight(), isTrue);
+    return home;
+  }
+
+  testWidgets("the forum's statistics: left out when the homepage says the account may not see them", (tester) async {
+    await pump(tester, guest: false, home: await homeOf(tester, allowStat: 0));
+    await expectGroup(tester, 'me-group-stats', _stats.where((e) => e != 'me-site-stats').toList());
+    expect(find.byKey(const ValueKey('me-site-stats')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets("the forum's statistics: offered when the homepage says the account may see them", (tester) async {
+    await pump(tester, guest: false, home: await homeOf(tester, allowStat: 1));
+    await expectGroup(tester, 'me-group-stats', _stats);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('with an account: content, social, stats, services and the app, in this order', (tester) async {
     await pump(tester, guest: false);
     for (final (group, title, keys) in [
@@ -210,6 +286,21 @@ void main() {
       top = at;
     }
     expect(find.byKey(const ValueKey('me-manage-accounts')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the broadcasts and the records go once the forum says their module is switched off', (tester) async {
+    addTearDown(() => spaceModulesOff.value = const {});
+    await pump(tester, guest: false);
+    await expectGroup(tester, 'me-group-social', _social);
+    markSpaceModuleOff(SpaceModule.doing);
+    await _settle(tester, rounds: 2);
+    expect(find.byKey(const ValueKey('me-doings')), findsNothing);
+    await expectGroup(tester, 'me-group-social', [..._social]..remove('me-doings'));
+    markSpaceModuleOff(SpaceModule.broadcast);
+    await _settle(tester, rounds: 2);
+    await expectGroup(tester, 'me-group-social', ['me-messages', 'me-friends', 'me-visitors']);
+    expect(find.byKey(const ValueKey('me-follow-feed')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

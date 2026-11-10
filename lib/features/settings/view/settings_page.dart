@@ -18,6 +18,8 @@ import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/features/app_lock/widgets/app_lock_settings_section.dart';
+import 'package:tsdm_client/features/attachment_download/utils/download_location.dart';
+import 'package:tsdm_client/features/attachment_download/widgets/attachment_download_directory_tile.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
@@ -76,6 +78,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/co
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/app_icon.dart';
+import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
@@ -171,14 +174,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
 
   Widget _buildAccountSection(BuildContext context, SettingsState state) => ValueListenableBuilder(
     valueListenable: TsdmAppApi.pluginInfo,
-    builder: (context, _, _) => _buildAccountGroup(
-      context,
-      state,
-      devices: TsdmAppApi.knowsDevice && context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null,
-    ),
+    builder: (context, _, _) {
+      final signedIn = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null;
+      return _buildAccountGroup(context, state, devices: TsdmAppApi.knowsDevice && signedIn, signedIn: signedIn);
+    },
   );
 
-  Widget _buildAccountGroup(BuildContext context, SettingsState state, {required bool devices}) {
+  Widget _buildAccountGroup(
+    BuildContext context,
+    SettingsState state, {
+    required bool devices,
+    required bool signedIn,
+  }) {
     final tr = context.t.settingsPage.accountSection;
     return AppTileGroup(
       title: tr.title,
@@ -190,6 +197,22 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.manageAccount),
         ),
+        if (signedIn) ...[
+          SectionListTile(
+            key: const ValueKey('settings-account-security'),
+            leading: const Icon(Icons.password_outlined),
+            title: Text(tr.security),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.accountSecurity),
+          ),
+          SectionListTile(
+            key: const ValueKey('settings-privacy'),
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: Text(tr.privacy),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async => context.pushNamed(ScreenPaths.privacySettings),
+          ),
+        ],
         // Only once the forum's plugin said it keeps the devices (`status`, plugin 3.6.0), for an account in use.
         if (devices)
           SectionListTile(
@@ -232,6 +255,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               Icons.turned_in_not_outlined,
               tr.crossDeviceSync.bookmarks,
               state.settingsMap.crossDeviceSyncBookmarks,
+            ),
+            (
+              SettingsKeys.crossDeviceSyncPinnedForums,
+              Icons.push_pin_outlined,
+              tr.crossDeviceSync.pinnedForums,
+              state.settingsMap.crossDeviceSyncPinnedForums,
+            ),
+            (
+              SettingsKeys.crossDeviceSyncForumWatch,
+              Icons.notifications_active_outlined,
+              tr.crossDeviceSync.forumWatch,
+              state.settingsMap.crossDeviceSyncForumWatch,
             ),
           ])
             SectionSwitchListTile(
@@ -395,7 +430,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   Widget _buildAppearanceSection(BuildContext context, SettingsState state) {
     final tr = context.t.settingsPage.appearanceSection;
     final settingsLocale = state.settingsMap.locale;
-    final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
+    final locale = appLocaleOfSetting(settingsLocale);
     final localeName = locale == null ? tr.languages.followSystem : context.t.locale;
     final themeModeIndex = state.settingsMap.themeMode;
     final themeModeScheduled = state.settingsMap.themeModeScheduled;
@@ -431,18 +466,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           onTap: () async {
             final localeGroup = await selectLanguageDialog(context, locale?.languageTag ?? '');
             if (localeGroup == null) return;
-            if (localeGroup.$2) {
-              await LocaleSettings.useDeviceLocale();
-              await desktopUpdateWindowTitle();
-              if (!context.mounted) return;
-              await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, '');
-            } else {
-              await LocaleSettings.setLocale(localeGroup.$1!);
-              await desktopUpdateWindowTitle();
-              if (!context.mounted) return;
-              await getIt.get<SettingsRepository>().setValue(SettingsKeys.locale, localeGroup.$1!.languageTag);
-            }
-            if (isAndroid && context.mounted) {
+            // Nothing below needs the page: a choice is kept and applied even when the page was left meanwhile.
+            await chooseAppLanguage(getIt.get<SettingsRepository>(), localeGroup.$2 ? null : localeGroup.$1);
+            await desktopUpdateWindowTitle();
+            if (isAndroid) {
               unawaited(getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>()));
             }
           },
@@ -1258,6 +1285,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             await appOfflineThreads.trim(limit);
           },
         ),
+        if (canChooseDownloadDirectory) const AttachmentDownloadDirectoryTile(),
       ],
     );
   }

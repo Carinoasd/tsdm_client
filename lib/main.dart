@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:responsive_framework/responsive_framework.dart';
@@ -26,6 +25,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
+import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -75,13 +75,7 @@ Future<void> _boot(List<String> args) async {
   getIt.registerSingleton(webdavBackup);
   WebdavAutoBackupScheduler(webdavBackup).start();
 
-  final settingsLocale = settings.locale;
-  final locale = AppLocale.values.firstWhereOrNull((v) => v.languageTag == settingsLocale);
-  if (locale == null) {
-    await LocaleSettings.useDeviceLocale();
-  } else {
-    await LocaleSettings.setLocale(locale);
-  }
+  await applyLanguageSetting(settings.locale);
 
   if (isWindows) {
     // A report of an in-app update that did not apply then carries what the update script did (GitHub #172).

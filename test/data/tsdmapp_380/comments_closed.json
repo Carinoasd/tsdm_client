@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "点评功能已关闭",
+ "message_key": "postcomment_closed",
+ "login": 0,
+ "uid": 31,
+ "form": "commentmore"
+}

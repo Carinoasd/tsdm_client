@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "抱歉，第二次转播必须同时进行回帖操作",
+  "message_key": "follow_only_allow_the_relay_time",
+  "url": "",
+  "handlekey": "qrelay_709",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

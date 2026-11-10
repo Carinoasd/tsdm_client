@@ -16,6 +16,8 @@ final class SpaceListPage<T> {
     this.message,
     this.needLogin = false,
     this.passwordRequired = false,
+    this.session,
+    this.canPost = false,
   });
 
   /// The items of this page.
@@ -42,6 +44,13 @@ final class SpaceListPage<T> {
 
   /// The album asks for its password ([message] is the forum's words).
   final bool passwordRequired;
+
+  /// The account the page was served to and its form hash, for the wall and the greetings received; null for a guest
+  /// and for the other lists.
+  final SpaceSession? session;
+
+  /// A wall page printed its message box to the viewer (a guest gets the login words instead).
+  final bool canPost;
 }
 
 /// A blog in a member's blog list (`home.php?mod=space&uid=N&do=blog&view=me`).
@@ -101,6 +110,8 @@ final class SpaceBlogComment {
     this.uid,
     this.avatarUrl,
     this.time,
+    this.canDelete = false,
+    this.canReply = false,
   });
 
   /// Comment id.
@@ -120,6 +131,13 @@ final class SpaceBlogComment {
 
   /// The comment as the forum rendered it.
   final uh.Element message;
+
+  /// The forum printed its delete link to the viewer (`c_CID_delete`): the author, the owner of the wall or blog, a
+  /// moderator of comments.
+  final bool canDelete;
+
+  /// The forum printed its reply link to the viewer (`c_CID_reply`): on a wall, the owner's own wall only.
+  final bool canReply;
 }
 
 /// A blog with its content and a page of its comments (`home.php?mod=space&uid=N&do=blog&id=M`).
@@ -288,4 +306,94 @@ final class AlbumUploadForm {
     final dot = filename.lastIndexOf('.');
     return dot >= 0 && extensions.contains(filename.substring(dot + 1).toLowerCase());
   }
+}
+
+/// The account a page was served to ([uid], from the page) and the form hash of its session: what a form of the
+/// page is posted with.
+final class SpaceSession {
+  /// Constructor.
+  const SpaceSession({required this.uid, required this.formHash});
+
+  /// The account.
+  final int uid;
+
+  /// The form hash.
+  final String formHash;
+}
+
+/// A greeting of the poke form (`iconid`): 0 is the plain greeting, without a picture.
+final class PokeIcon {
+  /// Constructor.
+  const PokeIcon({required this.id, required this.label, this.imageUrl});
+
+  /// The `iconid` posted.
+  final String id;
+
+  /// Its name ("握个手").
+  final String label;
+
+  /// Absolute url of its picture, null for none.
+  final String? imageUrl;
+}
+
+/// The poke form (`home.php?mod=spacecp&ac=poke&op=send|reply&uid=N`), as the forum served it to [uid].
+final class PokeForm {
+  /// Constructor.
+  const PokeForm({
+    required this.uid,
+    required this.targetUid,
+    required this.formHash,
+    required this.icons,
+    required this.selected,
+    required this.reply,
+    this.targetName,
+  });
+
+  /// The account the form was served to.
+  final int uid;
+
+  /// Who is greeted.
+  final int targetUid;
+
+  /// Their name, as the form prints it.
+  final String? targetName;
+
+  /// The form hash.
+  final String formHash;
+
+  /// The greetings the forum offers, in its order.
+  final List<PokeIcon> icons;
+
+  /// The greeting checked by the forum.
+  final String selected;
+
+  /// Greeting back (`op=reply`): the greeting received from [targetUid] is removed once sent.
+  final bool reply;
+}
+
+/// A greeting received (`home.php?mod=spacecp&ac=poke`): the latest one of each member.
+final class ReceivedPoke {
+  /// Constructor.
+  const ReceivedPoke({
+    required this.uid,
+    required this.username,
+    required this.content,
+    this.avatarUrl,
+    this.time,
+  });
+
+  /// Who greeted.
+  final int uid;
+
+  /// Their name.
+  final String username;
+
+  /// Their avatar.
+  final String? avatarUrl;
+
+  /// The greeting as the forum rendered it: its picture, its name, what they said.
+  final uh.Element content;
+
+  /// When, as the forum wrote it.
+  final String? time;
 }

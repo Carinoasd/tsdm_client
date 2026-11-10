@@ -262,10 +262,12 @@
     "entries": {
       "myThreads": "我的貼文",
       "favorites": "收藏",
+      "collections": "淘帖",
       "history": "瀏覽紀錄",
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "downloads": "下載管理",
       "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
@@ -274,7 +276,10 @@
       "readingStats": "閱讀統計",
       "checkinCalendar": "簽到日曆",
       "ratingStats": "評分統計",
-      "visitors": "最近訪客"
+      "visitors": "最近訪客",
+      "siteStats": "站點統計",
+      "followFeed": "動態",
+      "doings": "記錄"
     }
   },
   "home": {
@@ -282,6 +287,12 @@
   },
   "homepage": {
     "title": "首頁",
+    "online": {
+      "total": "$count 人在線",
+      "members": "$members 會員（$invisible 隱身），$guests 位遊客",
+      "record": "最高紀錄 $count",
+      "recordAt": "最高紀錄 $count（$date）"
+    },
     "failedToBuildPinSection": "無法處理首頁的製定貼文: 數量不一致: $length1!=$length2",
     "welcome": {
       "history": "歷史",
@@ -355,9 +366,13 @@
         "rateTemplates": "評分範本",
         "settings": "閱讀與顯示設定",
         "drafts": "本機草稿",
-        "bookmarks": "樓層書籤"
+        "bookmarks": "樓層書籤",
+        "pinnedForums": "釘選的版塊",
+        "forumWatch": "新帖與關鍵字提醒"
       },
-      "loginDevices": "登入裝置"
+      "loginDevices": "登入裝置",
+      "security": "密碼與安全",
+      "privacy": "隱私設定"
     },
     "appearanceSection": {
       "title": "外觀",
@@ -405,7 +420,8 @@
         "pinned": "置頂帖",
         "guide": "論壇導讀",
         "stats": "論壇動態",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "線上會員"
       },
       "showShortcutInForumCard": {
         "title": "版塊卡片顯示捷徑",
@@ -722,7 +738,8 @@
           "detail": "所有帳號共用這個上限，超過時先刪除最久沒看的帖子；每個帖子最多保存 20 頁",
           "value": "${count: int} 個帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下載資料夾"
     },
     "advancedSection": {
       "title": "高級",
@@ -977,7 +994,8 @@
       "uid": "UID",
       "email": "信箱"
     },
-    "signUpHint": "沒有帳號？點此註冊",
+    "signUp": "註冊",
+    "lostPassword": "找回密碼",
     "perhapsExpired": "登入失敗，可能身分已過期，請重新登入"
   },
   "rootPage": {
@@ -1504,6 +1522,11 @@
         "unknownForm": "論壇回傳的不是可識別的批准表單，未送出任何內容",
         "unknownAfterSubmit": "已送出批准，但無法識別論壇的回應，請到好友列表確認"
       }
+    },
+    "online": {
+      "title": "線上會員",
+      "empty": "沒有線上會員",
+      "subtitle": "${count: int} 位會員"
     }
   },
   "redPacket": {
@@ -1550,6 +1573,54 @@
     "title": "標籤：$name",
     "cloudTitle": "標籤",
     "empty": "暫無標籤"
+  },
+  "collection": {
+    "title": "淘帖",
+    "tabs": {
+      "recommended": "推薦",
+      "all": "全部",
+      "mine": "我的",
+      "subscribed": "訂閱"
+    },
+    "order": {
+      "dateline": "最新建立",
+      "threadnum": "主題最多",
+      "commentnum": "評論最多",
+      "follownum": "訂閱最多"
+    },
+    "empty": "暫無淘專輯",
+    "noThreads": "還沒有主題",
+    "noComments": "還沒有評論",
+    "create": "建立淘專輯",
+    "edit": "編輯淘專輯",
+    "delete": "刪除淘專輯",
+    "deleteConfirm": "確定刪除「$name」？",
+    "name": "名稱",
+    "description": "簡介",
+    "keywords": "標籤",
+    "save": "儲存",
+    "follow": "訂閱",
+    "unfollow": "取消訂閱",
+    "threads": "主題 $count",
+    "follows": "訂閱 $count",
+    "comments": "評論 $count",
+    "rating": "$rate 分（$count 人）",
+    "creator": "建立者 $name",
+    "teamworkers": "共同維護 $names",
+    "commentsTitle": "評論",
+    "comment": "發表評論",
+    "rated": "已評 $rate 星",
+    "removeThread": "移出淘專輯",
+    "removeConfirm": "將「$subject」移出淘專輯？",
+    "reason": "淘帖理由：$reason",
+    "collect": "淘帖",
+    "collectTitle": "收錄到淘專輯",
+    "collectedIn": "已收錄於",
+    "reasonField": "淘帖理由",
+    "newCollection": "新建淘專輯",
+    "collectSubmit": "收錄",
+    "unknown": "未能確認結果，已重新載入",
+    "accountChanged": "帳號已切換，未送出"
   },
   "ratePostPage": {
     "title": "評分",
@@ -2245,7 +2316,8 @@
       "title": "$operation（$count）",
       "done": "已處理 $count 個主題",
       "failed": "$count 個主題未完成",
-      "unknown": "結果未知，請重新整理確認"
+      "unknown": "結果未知，請重新整理確認",
+      "noOperation": "沒有可用的管理操作"
     }
   },
   "packetCard": {
@@ -2264,6 +2336,14 @@
   },
   "bountyAnswerCard": {
     "title": "最佳答案"
+  },
+  "moderateFloorOps": {
+    "stick": "置頂回覆",
+    "unstick": "解除置頂",
+    "stuck": "置頂回覆",
+    "removeRate": "撤銷評分",
+    "attachments": "附件",
+    "deleteAttachment": "刪除附件"
   },
   "bbcodeEditor": {
     "experimentalInfo": "實驗性bbcode編輯器",
@@ -2415,6 +2495,16 @@
     "cannotPlay": "無法播放",
     "loadFailed": "載入失敗",
     "notificationChannel": "音樂播放"
+  },
+  "videoPlayer": {
+    "play": "播放",
+    "speed": "倍速",
+    "mute": "靜音",
+    "unmute": "取消靜音",
+    "cannotPlay": "無法播放",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "open": "開啟"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",
@@ -3977,6 +4067,22 @@
     "empty": "還沒有表情包",
     "count": "${count: int} 張"
   },
+  "accountSecurityPage": {
+    "title": "密碼與安全",
+    "currentPassword": "目前密碼",
+    "otherCheck": "論壇要求透過信箱或手機驗證，請在網頁中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密碼已修改，論壇同時清除了安全提問，請用新密碼重新登入",
+    "resultUnknown": "無法確認是否修改成功，請重新整理後查看",
+    "required": "不能為空"
+  },
+  "privacySettingsPage": {
+    "title": "隱私設定",
+    "discardTitle": "放棄未儲存的修改？",
+    "save": "儲存",
+    "saved": "已儲存",
+    "saveFailed": "儲存失敗，請稍後再試"
+  },
   "loginDevicesPage": {
     "title": "登入裝置",
     "current": "本機",
@@ -4007,6 +4113,10 @@
     "empty": "暫無排行",
     "minutes": "$n 分鐘",
     "updated": "更新於 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站點統計",
+    "empty": "沒有統計資料"
   },
   "spacePage": {
     "blogs": "日誌",
@@ -4053,7 +4163,81 @@
     },
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
-    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容",
+    "wall": {
+      "title": "留言板",
+      "empty": "還沒有留言",
+      "post": "留言",
+      "reply": "回覆",
+      "replyTo": "回覆 $name",
+      "message": "內容",
+      "delete": "刪除留言",
+      "sent": "已留言",
+      "deleted": "已刪除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "說一句",
+      "received": "收到的招呼",
+      "empty": "還沒有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已送出",
+      "loadFailed": "無法開啟招呼"
+    },
+    "follow": {
+      "action": "關注",
+      "feed": "動態",
+      "broadcasts": "廣播",
+      "following": "關注",
+      "followers": "粉絲",
+      "members": "關注與粉絲",
+      "hall": "廣場",
+      "emptyFeed": "還沒有動態",
+      "emptyFollowing": "還沒有關注任何人",
+      "emptyFollowers": "還沒有粉絲",
+      "follow": "關注",
+      "unfollow": "取消關注",
+      "followed": "已關注",
+      "unfollowed": "已取消關注",
+      "mutual": "互相關注",
+      "followsYou": "關注了你",
+      "remark": "備註",
+      "remarkSaved": "備註已儲存",
+      "loadFailed": "無法讀取關注狀態",
+      "counts": "粉絲 ${followers: int} · 關注 ${following: int}",
+      "relay": "轉播",
+      "relayNote": "轉播理由",
+      "relayReply": "同時回覆主題",
+      "relayed": "已轉播",
+      "deleteFeed": "刪除廣播",
+      "deleted": "已刪除"
+    },
+    "doing": {
+      "title": "記錄",
+      "all": "全站",
+      "follow": "關注",
+      "friends": "好友",
+      "mine": "我的",
+      "empty": "還沒有記錄",
+      "post": "發布記錄",
+      "message": "內容",
+      "posted": "已發布",
+      "reply": "回覆",
+      "replyTo": "回覆 $name",
+      "replies": "回覆",
+      "noReplies": "還沒有回覆",
+      "replied": "已回覆",
+      "moreReplies": "更多回覆",
+      "deleteDoing": "刪除記錄",
+      "deleteReply": "刪除回覆",
+      "deleted": "已刪除"
+    }
   },
   "postComment": {
     "title": "點評",
@@ -4072,5 +4256,31 @@
   },
   "threadRecommend": {
     "unknown": "未能確認結果，請重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下載管理",
+    "active": "進行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "沒有下載",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下載失敗",
+    "open": "開啟",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "開啟資料夾",
+    "delete": "刪除",
+    "retry": "重試",
+    "cancel": "取消",
+    "thread": "來源帖子",
+    "purchase": "購買",
+    "deleteTitle": "刪除下載",
+    "deleteMessage": "同時刪除檔案「$name」",
+    "largeTitle": "正在使用行動網路",
+    "largeMessage": "「$name」大小 $size，確定下載？",
+    "saved": "已存到 $path",
+    "openFailed": "沒有可以開啟此檔案的程式",
+    "threadFallback": "帖子 $tid"
   }
 }

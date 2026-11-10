@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/remove_rate_dialog.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -145,6 +146,12 @@ enum _PostCardActions {
   /// Delete the reply (moderators, not the first floor).
   moderateDelete,
 
+  /// Stick the reply under the first floor, or unstick it (moderators, not the first floor).
+  moderateStick,
+
+  /// Take rates of the floor back (moderators, a floor rated: the forum's 撤销评分 beside 评分).
+  moderateRemoveRate,
+
   /// Ban the floor's author from posting, or lift the ban ([PostCard.onBanAuthor]).
   banAuthor,
 }
@@ -160,6 +167,8 @@ class PostCard extends StatefulWidget {
     this.onEdited,
     this.onJoinDebate,
     this.onModerate,
+    this.moderateActions,
+    this.canRemoveRate = true,
     this.onBanAuthor,
     this.multiQuote,
     super.key,
@@ -181,6 +190,13 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
+
+  /// The operations [onModerate] is offered with, of the ones the floor takes (`floorModerateActionsFor`); null for
+  /// every one of them (the page does not tell what the account may do: the forum's window decides).
+  final List<FloorModerateAction>? moderateActions;
+
+  /// Whether taking rates of the floor back is offered with [onModerate] (moderators of the forum).
+  final bool canRemoveRate;
 
   /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
   final VoidCallback? onBanAuthor;
@@ -380,6 +396,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             ),
           ),
           sizedBoxW8H8,
+          if (widget.post.stuck) ...[
+            Tooltip(
+              message: context.t.moderateFloorOps.stuck,
+              child: Icon(Icons.vertical_align_top_outlined, size: 20, color: colorScheme.primary),
+            ),
+            sizedBoxW4H4,
+          ],
           if (widget.post.warned) ...[
             Tooltip(
               message: context.t.moderate.warned,
@@ -611,18 +634,29 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.onModerate != null)
-          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
-            item(
-              switch (action) {
-                FloorModerateAction.warn => _PostCardActions.moderateWarn,
-                FloorModerateAction.ban => _PostCardActions.moderateBan,
-                FloorModerateAction.delete => _PostCardActions.moderateDelete,
-              },
-              // A floor known warned is offered taking it back (the forum's window decides all the same).
-              floorModerateIcon(action, undo: action == FloorModerateAction.warn && widget.post.warned),
-              floorModerateName(context, action, undo: action == FloorModerateAction.warn && widget.post.warned),
-              color: action == FloorModerateAction.delete ? colorScheme.error : null,
-            ),
+          // The first floor: numbered 1, or linked as the thread (the web page's default template prints 楼主).
+          for (final action in floorModerateActionsFor(
+            first: widget.post.postFloor == 1 || (widget.post.shareLink?.contains('mod=viewthread&') ?? false),
+          ))
+            if (widget.moderateActions?.contains(action) ?? true)
+              item(
+                switch (action) {
+                  FloorModerateAction.warn => _PostCardActions.moderateWarn,
+                  FloorModerateAction.ban => _PostCardActions.moderateBan,
+                  FloorModerateAction.delete => _PostCardActions.moderateDelete,
+                  FloorModerateAction.stick => _PostCardActions.moderateStick,
+                },
+                // A floor known warned or stuck is offered taking it back (the forum's window decides all the same).
+                floorModerateIcon(action, undo: _knownDone(action)),
+                floorModerateName(context, action, undo: _knownDone(action)),
+                color: action == FloorModerateAction.delete ? colorScheme.error : null,
+              ),
+        if (online &&
+            widget.onModerate != null &&
+            widget.canRemoveRate &&
+            widget.post.rate != null &&
+            _removeRateTid(context) != null)
+          item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
         if (online && widget.onBanAuthor != null)
           item(
             _PostCardActions.banAuthor,
@@ -781,6 +815,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         widget.onModerate?.call(FloorModerateAction.ban);
       case _PostCardActions.moderateDelete:
         widget.onModerate?.call(FloorModerateAction.delete);
+      case _PostCardActions.moderateStick:
+        widget.onModerate?.call(FloorModerateAction.stick);
+      case _PostCardActions.moderateRemoveRate:
+        if (_removeRateTid(context) case final tid?) {
+          await showRemoveRateDialog(context, tid: tid, pid: widget.post.postID, onDone: _specialReload(context));
+        }
       case _PostCardActions.banAuthor:
         widget.onBanAuthor?.call();
     }
@@ -846,6 +886,17 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         );
     }
   }
+
+  /// Whether this floor is known to have had [action] done (warned, stuck): its menu then offers undoing it.
+  bool _knownDone(FloorModerateAction action) => switch (action) {
+    FloorModerateAction.warn => widget.post.warned,
+    FloorModerateAction.stick => widget.post.stuck,
+    _ => false,
+  };
+
+  /// The thread whose floor's rates a moderator may take back: the thread on screen, not an offline copy.
+  String? _removeRateTid(BuildContext context) =>
+      isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid;
 
   /// Reload the page of this floor after an action of the thread's special block (a vote, an application, accepting
   /// an answer…), keeping this floor as the scroll target as after an edit; null without a thread page above (the

@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/magic/models/magic_models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Show the buy or use window [form] of [item]; the values to post when the user confirms, null when cancelled.
@@ -51,7 +52,7 @@ class _DialogTitle extends StatelessWidget {
     children: [
       AppInsetBlock(padding: const EdgeInsets.all(6), child: image),
       sizedBoxW12H12,
-      Expanded(child: Text(name)),
+      Expanded(child: Text(context.displayText(name))),
     ],
   );
 }
@@ -159,14 +160,14 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
         validator: (v) => v == null || !field.options.any((o) => o.value == v) ? tr.required : null,
         isExpanded: true,
         decoration: InputDecoration(
-          labelText: field.label.isEmpty ? null : field.label,
+          labelText: field.label.isEmpty ? null : context.displayText(field.label),
           border: const OutlineInputBorder(),
         ),
         items: [
           for (final o in field.options)
             DropdownMenuItem(
               value: o.value,
-              child: Text(o.label, overflow: TextOverflow.ellipsis),
+              child: Text(context.displayText(o.label), overflow: TextOverflow.ellipsis),
             ),
         ],
         onChanged: (v) => setState(() => _choice[field.name] = v ?? ''),
@@ -220,7 +221,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final note in form.notes) ...[Text(note, style: muted), sizedBoxW8H8],
+            for (final note in form.notes) ...[Text(context.displayText(note), style: muted), sizedBoxW8H8],
             if (form.facts.isNotEmpty) ...[
               AppInsetBlock(
                 outlined: true,
@@ -230,7 +231,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
                     for (final (i, fact) in form.facts.indexed)
                       Padding(
                         padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
-                        child: Text(fact, style: textTheme.bodyMedium),
+                        child: Text(context.displayText(fact), style: textTheme.bodyMedium),
                       ),
                   ],
                 ),

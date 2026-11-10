@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -228,7 +229,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
       content: [
         Text(tr.grantSummary(users: users.length, medals: _chosen.length, give: give, skip: skip)),
         sizedBoxW8H8,
-        Text(_chosen.map((m) => '「${names[m] ?? '#$m'}」').join()),
+        Text(_chosen.map((m) => '「${context.displayText(names[m] ?? '#$m')}」').join()),
         sizedBoxW8H8,
         Text(users.map((u) => '${u.name}（${u.uid}）').join('、'), style: Theme.of(context).textTheme.bodySmall),
         if (found.missing.isNotEmpty) ...[
@@ -282,7 +283,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
           row != null
               ? tr.grantRevokeConfirm(
                   user: row.username.isEmpty ? 'UID ${row.uid}' : row.username,
-                  medal: row.medalName,
+                  medal: context.displayText(row.medalName),
                 )
               : tr.grantRevokeBatchConfirm(n: batch!.canRevoke),
         ),
@@ -319,7 +320,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
               for (final id in _chosen)
                 InputChip(
                   avatar: ToolsImage(byId[id]?.imageUrl, width: 16, height: 26),
-                  label: Text('${byId[id]?.name ?? '#$id'} #$id'),
+                  label: Text('${context.displayText(byId[id]?.name ?? '#$id')} #$id'),
                   onDeleted: _busy ? null : () => setState(() => _chosen.remove(id)),
                 ),
             ],
@@ -344,7 +345,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
                   dense: true,
                   value: _chosen.contains(m.id),
                   secondary: ToolsImage(m.imageUrl, width: 22, height: 36),
-                  title: Text(m.name),
+                  title: Text(context.displayText(m.name)),
                   subtitle: Text('#${m.id} · ${m.days > 0 ? tr.days(n: m.days) : tr.permanent}'),
                   onChanged: _busy
                       ? null
@@ -394,7 +395,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
               if (state != null) Text(state, style: textTheme.labelMedium?.copyWith(color: colorScheme.error)),
             ],
           ),
-          if (b.reason.isNotEmpty) ...[sizedBoxW4H4, Text(tr.grantReasonLine(reason: b.reason))],
+          if (b.reason.isNotEmpty) ...[sizedBoxW4H4, Text(tr.grantReasonLine(reason: context.displayText(b.reason)))],
           if (b.canRevoke > 1)
             Align(
               alignment: AlignmentDirectional.centerEnd,
@@ -414,7 +415,9 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading: ToolsImage(r.imageUrl, width: 22, height: 36),
-                  title: Text('${r.username.isEmpty ? 'UID ${r.uid}' : r.username} · ${r.medalName}'),
+                  title: Text(
+                    '${r.username.isEmpty ? 'UID ${r.uid}' : r.username} · ${context.displayText(r.medalName)}',
+                  ),
                   subtitle: Text(
                     r.revoked
                         ? '${tr.grantRevoked} ${r.revokeName} ${r.revokeTime > 0 ? toolsDateTime(r.revokeTime) : ''}'

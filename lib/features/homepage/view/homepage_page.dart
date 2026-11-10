@@ -228,6 +228,7 @@ class _HomepagePageState extends State<HomepagePage> {
       HomeBlock.guide: guide,
       HomeBlock.stats: hasStatus ? HomeForumStatsCard(state.forumStatus) : null,
       HomeBlock.tools: tools,
+      HomeBlock.online: HomeOnlineCard(summary: state.onlineSummary, online: state.online),
     };
     final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
 
@@ -273,6 +274,7 @@ class _HomepagePageState extends State<HomepagePage> {
                     HomeBlock.stats,
                     HomeBlock.tools,
                     HomeBlock.support,
+                    HomeBlock.online,
                   ],
                   HomeLayout.medium => const [
                     HomeBlock.greeting,
@@ -281,6 +283,7 @@ class _HomepagePageState extends State<HomepagePage> {
                     HomeBlock.pinned,
                     HomeBlock.guide,
                     HomeBlock.tools,
+                    HomeBlock.online,
                   ],
                   HomeLayout.compact => HomeBlock.values,
                 }

@@ -1,0 +1,14 @@
+[
+  {
+    "type": "wall",
+    "from_idtype": "uid",
+    "authorid": 33,
+    "note": "<a href=\"home.php?mod=space&uid=33\">测试会员丙</a> 在留言板上给您 <a href=\"home.php?mod=space&uid=35&do=wall&cid=57&goto=new#comment_57_li\" target=\"_blank\">留言</a>"
+  },
+  {
+    "type": "poke",
+    "from_idtype": "pokequery",
+    "authorid": 31,
+    "note": "<a href=\"home.php?mod=space&uid=31\" class=\"xi2\">测试会员甲</a>: <span class=\"xw0\">打个招呼&nbsp;</span><a href=\"home.php?mod=spacecp&ac=poke&op=reply&uid=31&from=notice\" id=\"a_p_r_31\" class=\"xw1\" onclick=\"showWindow(this.id, this.href, 'get', 0);\">回打招呼</a><span class=\"pipe\">|</span><a href=\"home.php?mod=spacecp&ac=poke&op=ignore&uid=31&from=notice\" id=\"a_p_i_31\" onclick=\"showWindow('pokeignore', this.href, 'get', 0);\">忽略</a>"
+  }
+]

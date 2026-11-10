@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<div class="tm_c">
+        <h3 class="flb">
+        <em id="return_chgemail">修改邮箱</em>
+        <span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('chgemail')" title="关闭">关闭</a>
+</span>
+    </h3>
+    <form method="post" autocomplete="off" name="security_verify" id="layerform_L831726" class="cl" onsubmit="ajaxpost('layerform_L831726', 'returnmessage_L831726', 'returnmessage_L831726', 'onerror');return false;" action="home.php?mod=spacecp&amp;ac=account&amp;op=verify&amp;method=chgemail&amp;idstring=AbCd12&amp;sign=0123456789abcdef&amp;submit=yes&amp;infloat=yes&amp;formhash=f1f2f3f4&amp;layerhash=L831726">
+        <div class="c cl">
+            <input type="hidden" name="formhash" value="f1f2f3f4" />
+            <input type="hidden" name="referer" value="https://forum.test/./" />
+
+            <div class="rfm">
+                <table>
+                    <tr>
+                        <th><span class="rq">*</span><label for="email">新邮箱:</label></th>
+                        <td>
+                            <input type="text" name="email" id="email" value="" class="px" />
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="rfm mbw bw0">
+                <table width="100%">
+                    <tr>
+                        <th>&nbsp;</th>
+                        <td>
+                            <button class="pn pnc" type="submit" name="submit" value="true"><strong>提交</strong></button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+
+    </form>
+</div>]]></root>

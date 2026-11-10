@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -430,7 +431,42 @@ final class ModcpLogEntry {
     required this.op,
     required this.forum,
     required this.other,
+    this.reason = '',
+    this.targets = const [],
   });
+
+  /// The line [e] of the log of the forum's app API (plugin 3.8.0, `entries[]` of a `modcp_log` answer), the same
+  /// fields the page's row gives: `dateline` as the forum's wall clock with [timeOffset], printed as the page prints
+  /// it (`y-n-j H:i`), the operator (`username`, `group`, `ip`: empty unless the account may see addresses), the page
+  /// of the panel in the forum's words (`action_text`, `action` without them), `op`, `forum` and `other`; and what
+  /// the page does not tell apart: the `reason` given and the threads, posts and members acted on ([targets]).
+  factory ModcpLogEntry.fromApi(Map<String, dynamic> e, {num timeOffset = 8}) {
+    final at = tsdmAppWallClockTime(e['dateline'], timeOffset);
+    final actionText = tsdmAppText(e['action_text']).trim();
+    List<int> ids(Object? value) => value is List ? value.whereType<num>().map((e) => e.toInt()).toList() : const [];
+    return ModcpLogEntry(
+      time: at == null
+          ? ''
+          : '${(at.year % 100).toString().padLeft(2, '0')}-${at.month}-${at.day} '
+                '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}',
+      operator: tsdmAppText(e['username']).trim(),
+      group: tsdmAppText(e['group']).trim(),
+      ip: tsdmAppText(e['ip']).trim(),
+      action: actionText.isNotEmpty ? actionText : tsdmAppText(e['action']).trim(),
+      op: tsdmAppText(e['op']).trim(),
+      forum: tsdmAppText(e['forum']).trim(),
+      other: tsdmAppText(e['other']).trim(),
+      reason: tsdmAppText(e['reason']).trim(),
+      targets: [
+        for (final tid in ids(e['tids'])) 'tid $tid',
+        for (final pid in ids(e['pids'])) 'pid $pid',
+        if (e['usernames'] case final List<dynamic> names) ...names.whereType<String>().where((e) => e.isNotEmpty),
+        // A member named is not listed again by uid.
+        if (e['usernames'] is! List || (e['usernames'] as List).isEmpty)
+          for (final uid in ids(e['uids'])) 'uid $uid',
+      ],
+    );
+  }
 
   /// When, as printed (`y-n-j H:i`).
   final String time;
@@ -455,6 +491,15 @@ final class ModcpLogEntry {
 
   /// The rest (其他): the request's fields as the forum cut them.
   final String other;
+
+  /// The reason the moderator gave with the operation, as the forum's app API tells it (plugin 3.8.0); empty when
+  /// none was given and for a line read from the page, which keeps it in [other] at best.
+  final String reason;
+
+  /// What the operation acted on, as the forum's app API tells it (plugin 3.8.0): `tid N` for a thread, `pid N` for
+  /// a post, a member's name (`uid N` when the line names none). Empty for a line that only opened a page of the
+  /// panel and for a line read from the page.
+  final List<String> targets;
 }
 
 /// One page of the panel's log, served to [uid].
@@ -488,6 +533,28 @@ final class ModcpLogPage {
       '$baseUrl/forum.php?mod=modcp&action=log'
       '${keyword.isNotEmpty ? '&keyword=${Uri.encodeQueryComponent(keyword)}' : ''}'
       '${page > 1 ? '&page=$page' : ''}';
+}
+
+/// The log in the answer [json] of the forum's app API (plugin 3.8.0: `type: modcp_log`, `schema` 24) asked for
+/// [keyword], served to the account the answer names; null when [json] is not that answer (an older plugin leaves the
+/// panel's pages as they are: the web page is parsed, [parseModcpLog]).
+///
+/// X5 writes the panel's operations to its database while its page still reads the log files of older versions and
+/// lists nothing: this answer is where the lines are. The times are the forum's wall clock with the answer's
+/// `timeoffset` (the forum's own when it names none); there is a next page while `page` is below `pages`.
+ModcpLogPage? modcpLogFromApi(Map<String, dynamic> json, {String keyword = ''}) {
+  if (json['ok'] != 1 || json['type'] != 'modcp_log' || json['entries'] is! List) {
+    return null;
+  }
+  final page = tsdmAppInt(json['page']);
+  final timeOffset = tsdmAppTimeOffset(json);
+  return ModcpLogPage(
+    entries: [for (final e in tsdmAppList(json['entries'])) ModcpLogEntry.fromApi(e, timeOffset: timeOffset)],
+    uid: tsdmAppInt(json['uid']),
+    keyword: json['keyword'] is String ? json['keyword'] as String : keyword,
+    page: page > 0 ? page : 1,
+    hasNext: page > 0 && page < tsdmAppInt(json['pages']),
+  );
 }
 
 /// The log on page [doc], served to [uid]; null when [doc] is not the log (no search form of the log).

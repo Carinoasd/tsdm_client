@@ -15,7 +15,12 @@ enum FloorModerateAction {
   warn('warn'),
 
   /// Hide the floor from readers, or show it again (`banpost`, `banned` 1 or 0).
-  ban('banpost')
+  ban('banpost'),
+
+  /// Stick the reply under the first floor of the thread's first page, or unstick it (`stickreply`, `stickreply` 1 or
+  /// 0). Never the first floor. The window does not tell whether the floor is stuck: it checks unsticking only when
+  /// asked with `undo` ([FloorModerateForm.windowUrl]), and the moderator chooses ([FloorModerateForm.choosing]).
+  stick('stickreply')
   ;
 
   const FloorModerateAction(this.action);
@@ -28,7 +33,12 @@ enum FloorModerateAction {
     FloorModerateAction.delete => null,
     FloorModerateAction.warn => 'warned',
     FloorModerateAction.ban => 'banned',
+    FloorModerateAction.stick => 'stickreply',
   };
+
+  /// The moderator chooses between doing and undoing it in the window: the forum's window of it checks one by what it
+  /// was asked ([FloorModerateForm.windowUrl]), not by the floor.
+  bool get choosable => this == FloorModerateAction.stick;
 }
 
 /// The hidden fields of a floor's management window the app sends back as they were served; nothing else of the
@@ -74,7 +84,8 @@ final class FloorModerateForm {
   final int uid;
 
   /// The window checks taking the warning or the hiding back (`warned` or `banned` 0): the floor is warned or hidden
-  /// now, so undoing it is what changes it. Always false for [FloorModerateAction.delete].
+  /// now, so undoing it is what changes it; for [FloorModerateAction.stick] the unsticking, as it was asked. Always
+  /// false for [FloorModerateAction.delete].
   final bool undo;
 
   /// The reasons the site set for management (`ul#reasonselect`), separators left out.
@@ -91,10 +102,17 @@ final class FloorModerateForm {
       '$baseUrl/forum.php?mod=topicadmin&action=${action.action}&modsubmit=yes&infloat=yes&modclick=yes&inajax=1';
 
   /// The url the window of [action] on floor [pid] of thread [tid] in forum [fid] is asked at, as the website asks it
-  /// from the floor's management link (`modaction`).
-  static String windowUrl(FloorModerateAction action, {required String tid, required int fid, required String pid}) =>
+  /// from the floor's management link (`modaction`); [undo] asks the window of a choosable action
+  /// ([FloorModerateAction.choosable]) with the undoing checked (`undo=1`).
+  static String windowUrl(
+    FloorModerateAction action, {
+    required String tid,
+    required int fid,
+    required String pid,
+    bool undo = false,
+  }) =>
       '$baseUrl/forum.php?mod=topicadmin&action=${action.action}&fid=$fid&tid=$tid&topiclist%5B%5D=$pid'
-      '&handlekey=mods&infloat=yes&nopost=yes&inajax=1';
+      '&handlekey=mods&infloat=yes&nopost=yes${undo && action.choosable ? '&undo=1' : ''}&inajax=1';
 
   /// The window of [action] on floor [pid] of thread [tid] in forum [fid] read from [doc], served to [uid]; null when
   /// [doc] has no such window: no `form#topicadminform` posting to the action, a form hash missing, another floor,
@@ -164,8 +182,25 @@ final class FloorModerateForm {
         query['modsubmit'] == 'yes';
   }
 
+  /// This window with the undoing chosen by the moderator ([undo]) when its action is choosable
+  /// ([FloorModerateAction.choosable]); itself otherwise, the forum's choice standing.
+  FloorModerateForm choosing({required bool undo}) => !action.choosable || undo == this.undo
+      ? this
+      : FloorModerateForm(
+          action: action,
+          tid: tid,
+          fid: fid,
+          pid: pid,
+          fields: fields,
+          uid: uid,
+          undo: undo,
+          reasons: reasons,
+          canNotify: canNotify,
+          notifyForced: notifyForced,
+        );
+
   /// The form body of the moderator's choice: the served hidden fields, the choice of the window (doing or undoing, as
-  /// it is checked), the [reason] and the notice. Nothing else.
+  /// it is checked, or as chosen: [choosing]), the [reason] and the notice. Nothing else.
   Map<String, String> body({String reason = '', bool notify = false}) => {
     ...fields,
     ?action.choiceField: undo ? '0' : '1',
