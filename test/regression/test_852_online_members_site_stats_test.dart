@@ -1,7 +1,8 @@
 /// The members online and the forum's statistics.
 ///
 /// * The homepage's "在线会员" line is read from the web page the homepage already loaded (no request more); the
-///   structured answer of the app API carries none, the block is then only the way to the list. The list is the
+///   structured answer of the app API carries none before plugin 3.8.0 (the block is then only the way to the list;
+///   the numbers of a later answer are in test_854). The list is the
 ///   forum's own "在线会员" page (`home.php?mod=space&do=friend&view=online&type=member`): the structured friends
 ///   answer (plugin 2.5.0, schema 10) or its web page, every row a member online.
 /// * The statistics (`misc.php?mod=stat`) are the web page (no answer of the app API): the tabs the forum offers, the
@@ -79,6 +80,8 @@ void main() {
       final json =
           jsonDecode(File('test/data/tsdmapp/index_v5_member.json').readAsStringSync()) as Map<String, dynamic>;
       expect(homepageStateFromApi(json, 'ag_low').onlineSummary, isEmpty);
+      // An answer before plugin 3.8.0 has no numbers either (test_854 has the later one): the title alone.
+      expect(homepageStateFromApi(json, 'ag_low').online, isNull);
     });
   });
 

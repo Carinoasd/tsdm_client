@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "首頁",
+    "online": {
+      "total": "$count 人在線",
+      "members": "$members 會員（$invisible 隱身），$guests 位遊客",
+      "record": "最高紀錄 $count",
+      "recordAt": "最高紀錄 $count（$date）"
+    },
     "failedToBuildPinSection": "無法處理首頁的製定貼文: 數量不一致: $length1!=$length2",
     "welcome": {
       "history": "歷史",

@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
+import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/multi_user/widgets/account_switch_dialog.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
@@ -21,6 +22,7 @@ import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/section_list_tile.dart';
@@ -70,11 +72,35 @@ class _MePageState extends State<MePage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The homepage the app loaded tells whether the account may see the forum's statistics.
+    final repository = context.readOrNull<ForumHomeRepository>();
+    if (!identical(repository, _homeRepository)) {
+      _homeRepository = repository;
+      unawaited(_homePageSub?.cancel());
+      _homePage = repository?.getCache();
+      _homePageSub = repository?.pageStream.listen((page) {
+        if (mounted && !identical(page, _homePage)) {
+          setState(() => _homePage = page);
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
     unawaited(_scrollToTopSub.cancel());
+    unawaited(_homePageSub?.cancel());
     _scrollController.dispose();
     super.dispose();
   }
+
+  ForumHomeRepository? _homeRepository;
+  StreamSubscription<ForumHomePage>? _homePageSub;
+
+  /// The homepage loaded last, null before any.
+  ForumHomePage? _homePage;
 
   /// The account in use, the stored one before the homepage verified it; null without one.
   UserLoginInfo? _account(BuildContext context) {
@@ -205,8 +231,10 @@ class _MePageState extends State<MePage> {
     ];
   }
 
-  /// The numbers of the account: points, check-ins, reading and ratings; and the forum's own statistics.
-  List<_MeEntry> _statsEntries(BuildContext context) {
+  /// The numbers of the account: points, check-ins, reading and ratings; and the forum's own statistics, unless the
+  /// homepage says the account [uid] may not see them (plugin 3.8.0 of the forum's app API; shown as before while
+  /// nothing tells).
+  List<_MeEntry> _statsEntries(BuildContext context, {required int? uid}) {
     final tr = context.t.mePage.entries;
     return [
       (
@@ -233,12 +261,13 @@ class _MePageState extends State<MePage> {
         label: tr.ratingStats,
         onTap: () => _open(ScreenPaths.ratingStats),
       ),
-      (
-        key: const ValueKey('me-site-stats'),
-        icon: Icons.query_stats_outlined,
-        label: tr.siteStats,
-        onTap: () => _open(ScreenPaths.siteStats),
-      ),
+      if (siteStatsAllowedBy(_homePage, uid: uid) ?? true)
+        (
+          key: const ValueKey('me-site-stats'),
+          icon: Icons.query_stats_outlined,
+          label: tr.siteStats,
+          onTap: () => _open(ScreenPaths.siteStats),
+        ),
     ];
   }
 
@@ -359,7 +388,7 @@ class _MePageState extends State<MePage> {
                   for (final (key, title, icon, entries) in [
                     ('me-group-content', tr.content, Icons.article_outlined, _contentEntries(context)),
                     ('me-group-social', tr.social, Icons.people_outline, _socialEntries(context)),
-                    ('me-group-stats', tr.stats, Icons.insights_outlined, _statsEntries(context)),
+                    ('me-group-stats', tr.stats, Icons.insights_outlined, _statsEntries(context, uid: user.uid)),
                   ]) ...[
                     _EntryGrid(key: ValueKey(key), title: title, icon: icon, entries: entries, wide: wide),
                     SizedBox(height: gap),

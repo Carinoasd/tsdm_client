@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "主页",
+    "online": {
+      "total": "$count 人在线",
+      "members": "$members 会员（$invisible 隐身），$guests 位游客",
+      "record": "最高记录 $count",
+      "recordAt": "最高记录 $count（$date）"
+    },
     "failedToBuildPinSection": "无法处理主页的制定帖子: 数量不一致: $length1!=$length2",
     "welcome": {
       "history": "历史",

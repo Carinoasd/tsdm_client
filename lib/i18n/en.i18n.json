@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "Home",
+    "online": {
+      "total": "$count online",
+      "members": "$members members ($invisible invisible), $guests guests",
+      "record": "Record $count",
+      "recordAt": "Record $count on $date"
+    },
     "failedToBuildPinSection": "Failed to build homepage pin section: list length not equal: $length1, $length2",
     "welcome": {
       "history": "History",

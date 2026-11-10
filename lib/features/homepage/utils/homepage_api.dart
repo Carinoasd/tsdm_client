@@ -96,7 +96,22 @@ final class ForumHomeApiPage extends ForumHomePage {
 
   @override
   Uri? get dailyVisitUri => rewards.dailyVisitUriOfSource(_text(json['checknewpm']));
+
+  /// Whether the account the page was served to may see the forum's statistics (`misc.php?mod=stat`), as the answer
+  /// tells it (plugin 3.8.0, `user.allow_stat`: the user group's permission); null when it does not tell (an older
+  /// plugin, a message answer).
+  bool? get allowsSiteStats {
+    final user = json['ok'] == 1 ? json['user'] : null;
+    final allowed = user is Map<String, dynamic> ? user['allow_stat'] : null;
+    return allowed is num ? allowed == 1 : null;
+  }
 }
+
+/// Whether account [uid] may see the forum's statistics, as the homepage [page] served to it tells
+/// ([ForumHomeApiPage.allowsSiteStats]); null when no page tells: none loaded yet, the web page, an older plugin, a
+/// page served to another account or to a guest.
+bool? siteStatsAllowedBy(ForumHomePage? page, {required int? uid}) =>
+    page is ForumHomeApiPage && uid != null && page.servedUid == uid ? page.allowsSiteStats : null;
 
 /// The structured homepage answer in [data]: a JSON answer of the forum's app API that carries every field the app
 /// reads (plugin 2.3.0, `type: index` with `schema` 5 or later: the statistics, the viewer, the links of the status
