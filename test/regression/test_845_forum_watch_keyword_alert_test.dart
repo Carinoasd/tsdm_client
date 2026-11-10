@@ -25,7 +25,10 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/forum_watch/cubit/forum_watch_cubit.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
@@ -43,6 +46,8 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/app_routes.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -692,6 +697,20 @@ void main() {
         );
         expect(target.isEmpty, isFalse);
       }
+      // A tap opens the forum or the page of the alerts (`openLocalNoticeTarget`).
+      final forum = '$baseUrl/forum.php?mod=forumdisplay&fid=8'.parseUrlToRoute();
+      expect(forum?.screenPath, ScreenPaths.forum);
+      expect(forum?.pathParameters, containsPair('fid', '8'));
+      Iterable<String> paths(List<RouteBase> routes) sync* {
+        for (final r in routes) {
+          if (r is GoRoute) {
+            yield r.path;
+          }
+          yield* paths(r.routes);
+        }
+      }
+
+      expect(paths(router.configuration.routes), contains(ScreenPaths.forumWatch));
       expect(NoticeCategory.forumNewThread.settingsKey, SettingsKeys.notifyForumNewThread);
       expect(NoticeCategory.keywordAlert.settingsKey, SettingsKeys.notifyKeywordAlert);
       for (final tr in [await AppLocale.zhCn.build(), await AppLocale.zhTw.build(), await AppLocale.en.build()]) {

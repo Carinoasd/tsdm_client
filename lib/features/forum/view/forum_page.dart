@@ -315,7 +315,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     if (cubit.state.config.watches(fid)) {
       final result = await cubit.unwatchForum(fid);
       if (context.mounted) {
-        result == ForumWatchChange.ok
+        result == ForumWatchChange.ok || result == ForumWatchChange.exists
             ? showSnackBar(context: context, message: tr.unwatched)
             : showForumWatchChange(context, result);
       }
@@ -331,7 +331,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       newestTid: newest > 0 ? newest : null,
     );
     if (context.mounted) {
-      result == ForumWatchChange.ok
+      // Watched already (on another page meanwhile): what was asked for is the case.
+      result == ForumWatchChange.ok || result == ForumWatchChange.exists
           ? showSnackBar(context: context, message: tr.watched)
           : showForumWatchChange(context, result);
     }
