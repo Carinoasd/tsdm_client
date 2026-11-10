@@ -262,6 +262,7 @@
     "entries": {
       "myThreads": "我的貼文",
       "favorites": "收藏",
+      "collections": "淘帖",
       "history": "瀏覽紀錄",
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
@@ -274,7 +275,8 @@
       "readingStats": "閱讀統計",
       "checkinCalendar": "簽到日曆",
       "ratingStats": "評分統計",
-      "visitors": "最近訪客"
+      "visitors": "最近訪客",
+      "siteStats": "站點統計"
     }
   },
   "home": {
@@ -357,7 +359,9 @@
         "drafts": "本機草稿",
         "bookmarks": "樓層書籤"
       },
-      "loginDevices": "登入裝置"
+      "loginDevices": "登入裝置",
+      "security": "密碼與安全",
+      "privacy": "隱私設定"
     },
     "appearanceSection": {
       "title": "外觀",
@@ -405,7 +409,8 @@
         "pinned": "置頂帖",
         "guide": "論壇導讀",
         "stats": "論壇動態",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "線上會員"
       },
       "showShortcutInForumCard": {
         "title": "版塊卡片顯示捷徑",
@@ -608,7 +613,10 @@
         "followedThreadMinutes": "${n} 分鐘",
         "quietHours": "靜音時段",
         "quietStart": "開始",
-        "quietEnd": "結束"
+        "quietEnd": "結束",
+        "forumNewThread": "版塊新帖",
+        "keywordAlert": "關鍵字提醒",
+        "forumWatch": "新帖與關鍵字提醒"
       },
       "notificationHideContent": {
         "title": "通知不顯示內容",
@@ -971,7 +979,8 @@
       "uid": "UID",
       "email": "信箱"
     },
-    "signUpHint": "沒有帳號？點此註冊",
+    "signUp": "註冊",
+    "lostPassword": "找回密碼",
     "perhapsExpired": "登入失敗，可能身分已過期，請重新登入"
   },
   "rootPage": {
@@ -1114,6 +1123,12 @@
       "removed": "已取消收藏",
       "failed": "操作失敗：$err",
       "needLogin": "請先登入再收藏"
+    },
+    "watch": {
+      "on": "新帖提醒",
+      "off": "關閉新帖提醒",
+      "watched": "已開啟新帖提醒",
+      "unwatched": "已關閉新帖提醒"
     }
   },
   "threadPage": {
@@ -1492,6 +1507,11 @@
         "unknownForm": "論壇回傳的不是可識別的批准表單，未送出任何內容",
         "unknownAfterSubmit": "已送出批准，但無法識別論壇的回應，請到好友列表確認"
       }
+    },
+    "online": {
+      "title": "線上會員",
+      "empty": "沒有線上會員",
+      "subtitle": "${count: int} 位會員"
     }
   },
   "redPacket": {
@@ -1538,6 +1558,54 @@
     "title": "標籤：$name",
     "cloudTitle": "標籤",
     "empty": "暫無標籤"
+  },
+  "collection": {
+    "title": "淘帖",
+    "tabs": {
+      "recommended": "推薦",
+      "all": "全部",
+      "mine": "我的",
+      "subscribed": "訂閱"
+    },
+    "order": {
+      "dateline": "最新建立",
+      "threadnum": "主題最多",
+      "commentnum": "評論最多",
+      "follownum": "訂閱最多"
+    },
+    "empty": "暫無淘專輯",
+    "noThreads": "還沒有主題",
+    "noComments": "還沒有評論",
+    "create": "建立淘專輯",
+    "edit": "編輯淘專輯",
+    "delete": "刪除淘專輯",
+    "deleteConfirm": "確定刪除「$name」？",
+    "name": "名稱",
+    "description": "簡介",
+    "keywords": "標籤",
+    "save": "儲存",
+    "follow": "訂閱",
+    "unfollow": "取消訂閱",
+    "threads": "主題 $count",
+    "follows": "訂閱 $count",
+    "comments": "評論 $count",
+    "rating": "$rate 分（$count 人）",
+    "creator": "建立者 $name",
+    "teamworkers": "共同維護 $names",
+    "commentsTitle": "評論",
+    "comment": "發表評論",
+    "rated": "已評 $rate 星",
+    "removeThread": "移出淘專輯",
+    "removeConfirm": "將「$subject」移出淘專輯？",
+    "reason": "淘帖理由：$reason",
+    "collect": "淘帖",
+    "collectTitle": "收錄到淘專輯",
+    "collectedIn": "已收錄於",
+    "reasonField": "淘帖理由",
+    "newCollection": "新建淘專輯",
+    "collectSubmit": "收錄",
+    "unknown": "未能確認結果，已重新載入",
+    "accountChanged": "帳號已切換，未送出"
   },
   "ratePostPage": {
     "title": "評分",
@@ -2127,7 +2195,39 @@
     "logEmpty": "沒有日誌",
     "noForums": "沒有可管理的版塊",
     "switchForum": "切換版塊",
-    "keyword": "關鍵字"
+    "keyword": "關鍵字",
+    "members": "用戶管理",
+    "memberReview": "新會員審核",
+    "rules": "版規",
+    "announcements": "公告",
+    "byName": "用戶名",
+    "byUid": "UID",
+    "search": "查找",
+    "lift": "解除禁止",
+    "editMember": "編輯資料",
+    "bio": "自我介紹",
+    "signature": "個人簽名",
+    "clearAvatar": "刪除頭像",
+    "crimes": "違規記錄",
+    "ipBan": "禁止 IP",
+    "ip": "IP 位址",
+    "ipBanEmpty": "沒有被禁止的 IP",
+    "add": "新增",
+    "delete": "刪除",
+    "reject": "否決",
+    "reviewEmpty": "沒有待審核的用戶",
+    "save": "儲存",
+    "subject": "標題",
+    "typeText": "文字",
+    "typeLink": "連結",
+    "startDate": "起始日期",
+    "endDate": "結束日期",
+    "content": "內容",
+    "announcementsEmpty": "沒有公告",
+    "newAnnouncement": "新增公告",
+    "editAnnouncement": "編輯公告",
+    "required": "必填",
+    "invalidUid": "UID 須為數字"
   },
   "moderate": {
     "menu": "管理",
@@ -2185,6 +2285,12 @@
     "type": "分類",
     "copy": "複製",
     "repair": "修復主題",
+    "merge": "合併主題",
+    "split": "分割主題",
+    "mergeThread": "主題 ID 或連結",
+    "mergeSelf": "請選擇其他主題進行合併",
+    "splitSubject": "新主題標題",
+    "openNewThread": "開啟新主題",
     "copyTo": "目標版塊",
     "threadType": "目標分類",
     "noType": "無分類",
@@ -2214,6 +2320,14 @@
   },
   "bountyAnswerCard": {
     "title": "最佳答案"
+  },
+  "moderateFloorOps": {
+    "stick": "置頂回覆",
+    "unstick": "解除置頂",
+    "stuck": "置頂回覆",
+    "removeRate": "撤銷評分",
+    "attachments": "附件",
+    "deleteAttachment": "刪除附件"
   },
   "bbcodeEditor": {
     "experimentalInfo": "實驗性bbcode編輯器",
@@ -2492,7 +2606,9 @@
       "rate": "評分／點評",
       "pm": "私訊",
       "system": "系統通知",
-      "followedThread": "追蹤的帖子"
+      "followedThread": "追蹤的帖子",
+      "forumNewThread": "版塊新帖",
+      "keywordAlert": "關鍵字提醒"
     },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
@@ -3870,6 +3986,33 @@
       "hidden": "追蹤的帖子有 ${n} 條新回覆"
     }
   },
+  "forumWatch": {
+    "title": "新帖與關鍵字提醒",
+    "alerts": "提醒",
+    "settings": "設定",
+    "noAlerts": "還沒有提醒",
+    "needLogin": "登入後可以使用新帖提醒",
+    "forums": "新帖提醒的版塊",
+    "keywords": "關鍵字",
+    "keyword": "關鍵字",
+    "add": "新增",
+    "keywordExists": "關鍵字已存在",
+    "limitReached": "最多 ${forums} 個版塊、${keywords} 個關鍵字",
+    "scope": "關鍵字範圍",
+    "scopeDefault": "新帖提醒的版塊和最新主題",
+    "scopeCustom": "自選",
+    "latest": "最新主題",
+    "pickForums": "選擇版塊",
+    "interval": "檢查間隔",
+    "minutes": "${n} 分鐘",
+    "notice": {
+      "thread": "${author}：${title}",
+      "forumMany": "${n} 個新主題",
+      "keywordOne": "關鍵字「${keyword}」",
+      "keywordMany": "${n} 個主題含關鍵字",
+      "keywordLine": "「${keyword}」${title}"
+    }
+  },
   "customEmoji": {
     "title": "自訂表情包",
     "newPack": "新增表情包",
@@ -3889,6 +4032,22 @@
     "exportFailed": "匯出失敗",
     "empty": "還沒有表情包",
     "count": "${count: int} 張"
+  },
+  "accountSecurityPage": {
+    "title": "密碼與安全",
+    "currentPassword": "目前密碼",
+    "otherCheck": "論壇要求透過信箱或手機驗證，請在網頁中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密碼已修改，論壇同時清除了安全提問，請用新密碼重新登入",
+    "resultUnknown": "無法確認是否修改成功，請重新整理後查看",
+    "required": "不能為空"
+  },
+  "privacySettingsPage": {
+    "title": "隱私設定",
+    "discardTitle": "放棄未儲存的修改？",
+    "save": "儲存",
+    "saved": "已儲存",
+    "saveFailed": "儲存失敗，請稍後再試"
   },
   "loginDevicesPage": {
     "title": "登入裝置",
@@ -3920,6 +4079,10 @@
     "empty": "暫無排行",
     "minutes": "$n 分鐘",
     "updated": "更新於 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站點統計",
+    "empty": "沒有統計資料"
   },
   "spacePage": {
     "blogs": "日誌",
@@ -3993,5 +4156,23 @@
       "sent": "已送出",
       "loadFailed": "無法開啟招呼"
     }
+  },
+  "postComment": {
+    "title": "點評",
+    "menu": "點評",
+    "send": "發表",
+    "more": "更多點評",
+    "delete": "刪除",
+    "deleteTitle": "刪除點評",
+    "reason": "操作說明",
+    "done": "點評成功",
+    "deleted": "已刪除",
+    "refused": "論壇拒絕了這個操作",
+    "unknown": "結果不明，已重新載入",
+    "loadFailed": "載入失敗",
+    "accountChanged": "帳號已切換，沒有送出"
+  },
+  "threadRecommend": {
+    "unknown": "未能確認結果，請重新整理帖子查看。"
   }
 }

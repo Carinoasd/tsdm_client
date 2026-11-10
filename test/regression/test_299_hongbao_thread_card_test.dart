@@ -29,6 +29,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
+import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/special_thread/repository/hongbao_repository.dart';
@@ -180,7 +181,7 @@ void main() {
         expect(first.data, isNot(contains(gone)), reason: gone);
       }
       expect(first.data, contains('<td class="t_f" id="postmessage_11166">APP回帖57875（tsdmapp 3.5.0 驗收用的紅包帖）</td>'));
-      expect(first.data, contains('id="comment_11166"'), reason: 'the rest of the floor stays');
+      expect(first.data, contains('id="post_rate_div_11166"'), reason: 'the rest of the floor stays');
       expect(SpecialThreadCard.aboveContent(p), isTrue);
     });
 
@@ -316,7 +317,7 @@ void main() {
       );
       final page = threadPageFromApi(json, 1);
       expect(page.postList.first.special, isNull);
-      expect(page.postList.first.data, first['body_html']);
+      expect(page.postList.first.data, splitPostComments(first['body_html'] as String, '${first['pid']}').data);
       expect(page.postList.first.data, contains('hb-entry'));
 
       // A cut that leaves the envelope behind (its id renamed): no card either.
@@ -327,7 +328,10 @@ void main() {
         'class="mask2" id="hb_mask"',
       );
       expect(threadPageFromApi(renamed, 1).postList.first.special, isNull);
-      expect(threadPageFromApi(renamed, 1).postList.first.data, renamedFirst['body_html']);
+      expect(
+        threadPageFromApi(renamed, 1).postList.first.data,
+        splitPostComments(renamedFirst['body_html'] as String, '${renamedFirst['pid']}').data,
+      );
 
       // The packet of another thread is none of this page.
       final other = _thread('sender_active');

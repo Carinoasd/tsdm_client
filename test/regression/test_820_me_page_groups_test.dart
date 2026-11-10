@@ -36,6 +36,7 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 const _content = [
   'me-my-threads',
   'me-favorites',
+  'me-collections',
   'me-followed-threads',
   'me-floor-bookmarks',
   'me-read-later',
@@ -44,7 +45,7 @@ const _content = [
   'me-drafts',
 ];
 const _social = ['me-messages', 'me-friends', 'me-visitors'];
-const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats'];
+const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats', 'me-site-stats'];
 
 /// The services in order, their page and whether a guest is asked for a login.
 const _services = <(String, String, bool)>[

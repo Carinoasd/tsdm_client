@@ -40,6 +40,8 @@ String noticeChannelName(Translations translations, NoticeCategory category) {
     NoticeCategory.pm => tr.pm,
     NoticeCategory.system => tr.system,
     NoticeCategory.followedThread => tr.followedThread,
+    NoticeCategory.forumNewThread => tr.forumNewThread,
+    NoticeCategory.keywordAlert => tr.keywordAlert,
   };
 }
 

@@ -24,6 +24,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
@@ -419,7 +420,8 @@ void main() {
       expect(post.author.avatarUrl, '$baseUrl/data/avatar/noavatar.svg');
       // The forum's wall clock (+8, the answer's `timeoffset`), as the page prints it, whatever the device's zone.
       expect(post.publishTime, tsdmAppWallClockTime(1790763526, 8));
-      expect(post.data, floor['body_html'], reason: 'the content html as it is');
+      // As it is but the comments, shown on their own (test 831).
+      expect(post.data, splitPostComments(floor['body_html'] as String, post.postID).data, reason: 'the content html');
       expect(post.data, contains('id="postmessage_3938"'));
       expect(post.shareLink, '$baseUrl/forum.php?mod=viewthread&tid=9199345');
       expect(post.page, 1);

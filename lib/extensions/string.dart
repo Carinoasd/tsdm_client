@@ -187,6 +187,12 @@ extension ParseUrl on String {
               queryParameters['uid'] == null &&
               queryParameters['username'] == null)
             'view': 'visitor',
+          // The members online now, the "在线会员" link of the forum's homepage.
+          if (queryParameters['view'] == 'online' &&
+              queryParameters['type'] == 'member' &&
+              queryParameters['uid'] == null &&
+              queryParameters['username'] == null)
+            'view': 'online',
         },
       );
     }
@@ -294,6 +300,14 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': queryParameters['touid']!});
     }
 
+    // The forum's statistics: misc.php?mod=stat[&op=...], shown in the app's read only page of them.
+    if (mod == 'stat' && uri.path.endsWith('misc.php')) {
+      return RecognizedRoute(
+        ScreenPaths.siteStats,
+        queryParameters: {'url': Uri.parse('$baseUrl/misc.php').replace(queryParameters: queryParameters).toString()},
+      );
+    }
+
     // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the
     // cloud of all (`misc.php?mod=tag`). The other kinds of the tag page (articles, blogs, doings) and the tag
     // tools (`op=add|manage|set|search`) stay with the web page.
@@ -318,6 +332,27 @@ extension ParseUrl on String {
       }
       if (queryParameters['type'] == null) {
         return const RecognizedRoute(ScreenPaths.tagCloud);
+      }
+    }
+
+    // Collections (淘专辑): one (`mod=collection&action=view&ctid=N`) and its comments (`op=comment`), the lists (no
+    // `action`; `op=all`, `op=my`). The other pages of the collections (edit, invite, the subscribers, the collections
+    // of a thread) stay with the web page.
+    if (mod == 'collection') {
+      final action = queryParameters['action'] ?? '';
+      final op = queryParameters['op'] ?? '';
+      final ctid = forumIntval(queryParameters['ctid']);
+      if (action == 'view' && ctid > 0 && (op.isEmpty || op == 'comment')) {
+        return RecognizedRoute(
+          op.isEmpty ? ScreenPaths.collectionDetail : ScreenPaths.collectionComments,
+          pathParameters: {'ctid': '$ctid'},
+        );
+      }
+      if (action.isEmpty && queryParameters['tid'] == null && const {'', 'all', 'my'}.contains(op)) {
+        return RecognizedRoute(
+          ScreenPaths.collections,
+          queryParameters: {if (op == 'all') 'tab': 'all' else if (op == 'my') 'tab': 'mine'},
+        );
       }
     }
 

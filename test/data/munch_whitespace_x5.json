@@ -21,6 +21,13 @@
   "test/data/followed_thread_after_x5.html#pcb3": "«追踪测试回复第 1 楼，内容足够长一点»\n",
   "test/data/locked_purchase_x5.html#pcb0": "«[img]\n￼https://mora.jp/package/43000100/SEXX03272B00Z_48/\n\n■ tuki.、新曲「バブル」をリリース\n\nバブル - Bubble\ntuki.\nレーベル\n配信開始日\n収録曲数\n収録時間\n販売データ\nThe Lunar Landing Plan\n2026.08.23\n全1曲\n03:18\nハイレゾ｜FLAC｜48.0kHz/24bit»\n",
   "test/data/moderate/thread_floor_warned.html#pcb0": "«警告禁言測試回覆，請忽略。»\n",
+  "test/data/moderate/thread_moderator_edit_api.json#7654320": "«樓層操作測試主題首樓內容。»\n",
+  "test/data/moderate/thread_moderator_edit_api.json#7654321": "«四樓：低權會員的回覆，供置頂與編輯測試。（版主 测试版主 編輯）»\n",
+  "test/data/moderate/thread_stuck.html#pcb0": "«樓層操作測試主題首樓內容。»\n",
+  "test/data/moderate/thread_stuck.html#pcb1": "«四樓：低權會員的回覆，供置頂與編輯測試。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654321": "«四樓：低權會員的回覆，供置頂與編輯測試。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654322": "«二樓：超版的回覆。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654323": "«三樓：管理員的回覆。»\n",
   "test/data/notice_friend_request_x5.html#notice0": {
    "before": "«￼Alice请求加您为好友，附言：附言样例  ￼批准申请»\n«@»\n",
    "after": "«￼Alice 请求加您为好友，附言：附言样例  ￼批准申请»\n«@»\n"
@@ -460,6 +467,13 @@
   "test/data/tsdmapp/thread_v3_rush_deleted.json#3206": "«這是搶樓主題的 1 樓，每人限回 3 樓，長度足夠通過檢查。»\n",
   "test/data/tsdmapp/thread_v3_rush_deleted.json#3207": "«搶樓測試 RS-off 第一則。»\n",
   "test/data/tsdmapp/thread_v3_rush_deleted.json#3209": "«搶樓上限測試 third：這一則會是第 3 樓。»\n",
-  "test/data/tsdmapp/thread_v3_typed.json#4084": "«ag_admin 的 2026 年度回顾\n\n发表主题 106　回帖 45　收到评分 4 次　新获得勋章 0 枚\n最活跃的月份：9 月（84 帖）\n最常发帖的版块：新番追蹤（64 帖）、繪圖・插畫（56 帖）、PS 每日签到验收版（10 帖）\n收到的评分：威望 +6　精灵 +3\n\n【年度感言】\n这一年在论坛过得很开心，认识了很多朋友，也学到了很多东西，明年继续加油！\n\n查看我的完整年度回顾：https://www.tsdm39.com/plugin.php?id=yearreview&uid=32&year=2026»\n"
+  "test/data/tsdmapp/thread_v3_typed.json#4084": "«ag_admin 的 2026 年度回顾\n\n发表主题 106　回帖 45　收到评分 4 次　新获得勋章 0 枚\n最活跃的月份：9 月（84 帖）\n最常发帖的版块：新番追蹤（64 帖）、繪圖・插畫（56 帖）、PS 每日签到验收版（10 帖）\n收到的评分：威望 +6　精灵 +3\n\n【年度感言】\n这一年在论坛过得很开心，认识了很多朋友，也学到了很多东西，明年继续加油！\n\n查看我的完整年度回顾：https://www.tsdm39.com/plugin.php?id=yearreview&uid=32&year=2026»\n",
+  "test/data/post_comment/thread_api_member.json#11262": "«CM測試 主樓內容»\n",
+  "test/data/post_comment/thread_api_member.json#11263": "«CM測試 ag_low2 回覆 1»\n",
+  "test/data/post_comment/thread_api_member.json#11263/sig": "«测试签名 第二行\n红字 ￼链接»\n",
+  "test/data/post_comment/thread_api_member.json#11264": "«CM測試 ag_low2 回覆 2»\n",
+  "test/data/post_comment/thread_member.html#pcb0": "«CM測試 主樓內容»\n",
+  "test/data/post_comment/thread_member.html#pcb1": "«CM測試 ag_low2 回覆 1»\n",
+  "test/data/post_comment/thread_member.html#pcb2": "«CM測試 ag_low2 回覆 2»\n"
  }
 }

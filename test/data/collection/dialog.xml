@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb">
+<em>淘帖</em>
+<span><a href="javascript:;" onclick="hideWindow('');" class="flbc" title="关闭">关闭</a></span>
+</h3>
+<script>
+var remaincreateable = 3;
+var titlelimit = '30';
+var requirecreate = false;
+var createnow = false;
+var reasonlimit = '250';
+function succeedhandle_createcollection(url, msg, collectiondata) {
+$("createbutton").disabled = false;
+if(collectiondata['ctid']) {
+$("selectCollection").options[$("selectCollection").length] = new Option($("newcollection").value, collectiondata['ctid'], true, true);
+$("collectionlist").style.display='';
+remaincreateable--;
+if(remaincreateable <= 0) {
+$("allowcreate").style.display='none';
+} else {
+$("reamincreatenum").innerHTML = remaincreateable;
+}
+display('createcollection');
+$("submitnewtitle").value = $("newcollection").value = '';
+}
+$("nocreate").innerHTML = '';
+if(requirecreate == true) {
+$("createRemainTips").style.display='';
+$("createbutton").style.display='';
+$("newcollection").style.width='';
+requirecreate = false;
+if(createnow == true) {
+setTimeout('$("btn_submitaddthread").click();', 101);
+}
+createnow = false;
+}
+}
+function ajaxcreatecollection() {
+if(!$("newcollection").value) {
+showError('请将标题填写完整');
+return false;
+}
+if(mb_strlen($("newcollection").value) > titlelimit) {
+showError("标题不能超过 "+titlelimit+" 字节");
+return false;
+}
+$("createbutton").disabled = true;
+$("submitnewtitle").value = $("newcollection").value;
+ajaxpost('fastcreateform', 'fastcreatereturn', 'fastcreatereturn', 'onerror');
+}
+function checkreasonlen() {
+if(mb_strlen($("formreason").value) > reasonlimit) {
+showError("淘帖理由不能超过 "+reasonlimit+" 字节");
+return false;
+}
+if(requirecreate == true) {
+createnow = true;
+ajaxcreatecollection();
+return false;
+} else {
+$("createRemainTips").style.display='';
+$("createbutton").style.display='';
+$("newcollection").style.width='';
+}
+return true;
+}
+</script>
+<form action="forum.php?mod=collection&amp;action=edit&amp;op=addthread" method="post" onsubmit="update_collection();ajaxpost(this.id, 'form_addcollectionthread');" id="form_addcollectionthread" name="form_addcollectionthread">
+<div class="c">
+<div id="collectionlist" >
+<p>选择淘专辑：</p>
+<select name="ctid" id="selectCollection" style="width: 280px;"><option value="4">CL測試 乙專輯（改）</option>
+</select>
+</div>
+<div id="allowcreate" >
+<span id="nocreate"></span>
+<div class="mtm ntc_l">现在还可以创建 <span id="reamincreatenum">3</span> 个淘专辑。 <a href="javascript:;" onclick="display('createcollection');if($('createcollection').style.display!='none') {$('newcollection').focus();}" class="xi2" id="createRemainTips">创建淘专辑</a></div>
+</div>
+<div id="createcollection" class="ptm vm" style="display:none">
+淘专辑名： <input type="text" value="" id="newcollection" class="px" /> <button type="button" id="createbutton" name="createbutton" onclick="javascript:ajaxcreatecollection();" class="pn pnc"><span>创建淘专辑</span></button>
+</div>
+<div class="ptm">
+<p class="pbn">淘帖理由：</p>
+<textarea name="reason" id="formreason" cols="50" rows="2" class="pt"></textarea>
+</div>
+</div>
+<div class="o pns">
+<a href="forum.php?mod=collection&amp;op=my" target="_blank" class="z xi2">查看我的专辑</a>
+<input type="hidden" name="tids[]" value="9199035">
+<input type="hidden" name="inajax" value="1">
+<input type="hidden" name="handlekey" value="">
+<input type="hidden" name="formhash" id="formhash" value="f1f2f3f4" />
+<input type="hidden" name="addthread" id="addthread" value="1" />
+<button type="submit" name="submitaddthread" id="btn_submitaddthread" onclick="return checkreasonlen();" class="pn pnc"><span>添加到淘专辑</span></button>
+</div>
+</form>
+<div style="display:none;">
+<form action="forum.php?mod=collection&amp;action=edit&amp;op=add" method="post" id="fastcreateform">
+<input type="hidden" name="formhash" id="formhash" value="f1f2f3f4" />
+<input type="hidden" name="collectionsubmit" value="1" />
+<input type="hidden" name="submitcollection" value="1" />
+<input type="hidden" name="title" id="submitnewtitle" value="" />
+</form>
+</div>
+<span id="fastcreatereturn"></span>
+]]></root>

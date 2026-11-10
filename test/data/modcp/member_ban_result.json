@@ -1,0 +1,17 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "message",
+  "message": "用户资料成功更新",
+  "message_key": "",
+  "url": "forum.php?mod=modcp&action=member&op=ban",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "info"
+}

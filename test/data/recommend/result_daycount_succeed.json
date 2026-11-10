@@ -1,0 +1,21 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "评价指数 0 -1您今天还能评价 1 次",
+  "message_key": "recommend_daycount_succeed",
+  "url": "",
+  "handlekey": "",
+  "values": {
+    "recommendv": "-1",
+    "recommendc": "0",
+    "daycount": "1"
+  },
+  "login": 0,
+  "alert": "error"
+}

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/account_security/view/account_security_page.dart';
+import 'package:tsdm_client/features/account_security/view/privacy_settings_page.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -13,6 +15,10 @@ import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
 import 'package:tsdm_client/features/checkin/view/checkin_calendar_page.dart';
+import 'package:tsdm_client/features/collection/models/collection.dart';
+import 'package:tsdm_client/features/collection/view/collection_comments_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
@@ -22,6 +28,7 @@ import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dar
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
+import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
 import 'package:tsdm_client/features/friend/view/friend_page.dart';
 import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
@@ -94,6 +101,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/settings/view/thread_card_appearance.dart';
 import 'package:tsdm_client/features/settings/widgets/app_license_page.dart';
 import 'package:tsdm_client/features/share_receive/models/shared_thread_draft.dart';
+import 'package:tsdm_client/features/site_stats/view/site_stats_page.dart';
 import 'package:tsdm_client/features/space/view/album_upload_page.dart';
 import 'package:tsdm_client/features/space/view/blog_post_page.dart';
 import 'package:tsdm_client/features/space/view/space_album_page.dart';
@@ -283,6 +291,7 @@ final List<RouteBase> _appRoutes = [
       uid: state.uri.queryParameters['uid'],
       username: state.uri.queryParameters['username'],
       visitor: state.uri.queryParameters['view'] == 'visitor',
+      online: state.uri.queryParameters['view'] == 'online',
     ),
   ),
   // A member's blogs, albums and wall: home.php?mod=space&uid=N&do=blog|album|wall[&id=M][&cid=C].
@@ -318,6 +327,20 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => AlbumUploadPage(albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '')),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
+  AppRoute(
+    path: ScreenPaths.collections,
+    builder: (state) => CollectionListPage(
+      initialTab: CollectionListTab.values.asNameMap()[state.uri.queryParameters['tab']],
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionDetail,
+    builder: (state) => CollectionDetailPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionComments,
+    builder: (state) => CollectionCommentsPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {
@@ -359,6 +382,10 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
   AppRoute(path: ScreenPaths.ranklist, builder: (_) => const RanklistPage()),
+  AppRoute(
+    path: ScreenPaths.siteStats,
+    builder: (state) => SiteStatsPage(url: state.uri.queryParameters['url']),
+  ),
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
@@ -511,6 +538,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
+  AppRoute(path: ScreenPaths.forumWatch, builder: (_) => const ForumWatchPage()),
   AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),
   AppRoute(
     path: ScreenPaths.customEmojiPack,
@@ -535,6 +563,8 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.manageAccount, builder: (_) => const ManageAccountPage()),
   AppRoute(path: ScreenPaths.loginDevices, builder: (_) => const LoginDevicesPage()),
+  AppRoute(path: ScreenPaths.accountSecurity, builder: (_) => const AccountSecurityPage()),
+  AppRoute(path: ScreenPaths.privacySettings, builder: (_) => const PrivacySettingsPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
   AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
   // 接收路由参数
@@ -548,7 +578,10 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(
     path: ScreenPaths.inAppBrowser,
-    builder: (state) => InAppBrowserPage(Uri.tryParse(state.uri.queryParameters['url'] ?? '')),
+    builder: (state) => InAppBrowserPage(
+      Uri.tryParse(state.uri.queryParameters['url'] ?? ''),
+      guest: state.uri.queryParameters['guest'] == '1',
+    ),
   ),
 ];
 

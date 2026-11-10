@@ -1,0 +1,91 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0 mdcp">
+<h1 class="mt">禁止 IP</h1>
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=member&op=ipban">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<div class="exfm">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="15%">新增:</th>
+<td width="85%">
+<input type="text" name="ipnew" class="px" value="" size="30" maxlength="45"/>
+&nbsp;&nbsp;用CIDR格式表示封禁一段的IP
+</td>
+</tr>
+<tr>
+<th width="15%">期限:</th>
+<td width="85%" class="hasd cl">
+<input type="text" id="validitynew" name="validitynew" autocomplete="off" value="" class="px" style="width: 100px;" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'validitynew', 1, 1)">^</a>
+</td>
+</tr>
+<tr>
+<td>&nbsp;</td>
+<td>
+<button type="submit" name="ipbansubmit" id="submit" class="pn" value="true"><strong>提交</strong></button>
+</td>
+</tr>
+</table>
+</div>
+<h2 class="mtm mbm">已禁止的 IP 列表</h2>
+<table cellspacing="0" cellpadding="0" class="dt">
+<thead>
+<tr>
+<th class="c">删除</th>
+<th>IP 地址</th>
+<th>地理位置</th>
+<th>操作者</th>
+<th>起始时间</th>
+<th>结束时间</th>
+</tr>
+</thead>
+<tr>
+<td><input type="checkbox" name="delete[]" class="pc" value="3" disabled></td>
+<td>192.0.2.200</td>
+<td>内网</td>
+<td>测试管理员</td>
+<td>2026-11-10</td>
+<td class="hasd cl">
+<input type="text" id="expirationnew[3]" name="expirationnew[3]" autocomplete="off" value="2026-11-13" class="px"/>
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'expirationnew[3]', 1, 1)">^</a>
+</td>
+</tr>
+<tr>
+<td><input type="checkbox" name="delete[]" class="pc" value="1" ></td>
+<td>192.0.2.55</td>
+<td>内网</td>
+<td>测试超版</td>
+<td>2026-11-10</td>
+<td class="hasd cl">
+<input type="text" id="expirationnew[1]" name="expirationnew[1]" autocomplete="off" value="2026-11-17" class="px"/>
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'expirationnew[1]', 1, 1)">^</a>
+</td>
+</tr>
+<tr class="bw0_all">
+<td><label for="chkall" onclick="checkall(this.form)"><input type="checkbox" name="chkall" id="chkall" class="pc" />全选</label></td>
+<td colspan="5"><button type="submit" name="ipbansubmit" id="submit" class="pn" value="true"><strong>提交</strong></button></td>
+</tr>
+</table>
+</form>
+</div></div>
+<div class="appl">
+<div class="tbn">
+<h2 class="mt bbda">论坛管理</h2>
+<ul>
+<li class="cl"><span class="y mtn">0</span><a href="forum.php?mod=modcp&action=home">内部留言</a></li>
+<li class="cl"><span class="y mtn"></span><a href="forum.php?mod=modcp&action=moderate&op=threads">审核</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=base&id=selfrate:modcp_base">自助評分</a></li>
+<li><a href="forum.php?mod=modcp&action=member&op=ban">禁止用户</a></li><li class="a"><a href="forum.php?mod=modcp&action=member&op=ipban">禁止 IP</a></li><li><a href="forum.php?mod=modcp&action=forumaccess">用户权限</a></li><li><a href="forum.php?mod=modcp&action=member&op=edit">编辑用户</a></li><li><a href="forum.php?mod=modcp&action=thread&op=thread">主题管理</a></li>
+<li><a href="forum.php?mod=modcp&action=forum&op=recommend&show=all">推荐主题</a></li><li><a href="forum.php?mod=modcp&action=forum&op=editforum">版块编辑</a></li><li><a href="forum.php?mod=modcp&action=announcement">公告</a></li><li><a href="forum.php?mod=modcp&action=log">管理日志</a></li><li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=cobuyer:entry">售卖帖共同买家</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=creditlist:entry">积分名单统计</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=ratetrack:entry">评分追踪</a></li>
+<li><a href="forum.php?mod=modcp&action=report">管理举报</a></li>
+<li><a href="forum.php">返回论坛</a></li>
+<li><a href="forum.php?mod=modcp&action=logout">退出</a></li>
+</ul>
+</div>
+</div>
+</div>
+</body></html>

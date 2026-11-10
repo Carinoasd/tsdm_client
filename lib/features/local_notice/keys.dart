@@ -54,6 +54,8 @@ class LocalNoticeKeys {
       pid: id('pid'),
       peerUid: id('peer'),
       lastPost: query['last'] == '1',
+      fid: id('fid'),
+      watchAlerts: query['wa'] == '1',
     );
     return target.isEmpty ? null : target;
   }
@@ -81,11 +83,20 @@ class LocalNoticeKeys {
 
 /// What a tap on a notification announcing a single new item opens, see [LocalNoticeKeys.withTarget]: the floor
 /// [pid] (or the thread [tid]) of the notice [nid], or the conversation with [peerUid]; the last floor of the thread
-/// [tid] with [lastPost] (new replies of a followed thread).
+/// [tid] with [lastPost] (new replies of a followed thread); the forum [fid] (new threads of a watched forum) or the
+/// page of the alerts of the watched forums and keywords with [watchAlerts].
 @immutable
 final class LocalNoticeTarget {
   /// Constructor.
-  const LocalNoticeTarget({this.nid, this.tid, this.pid, this.peerUid, this.lastPost = false});
+  const LocalNoticeTarget({
+    this.nid,
+    this.tid,
+    this.pid,
+    this.peerUid,
+    this.lastPost = false,
+    this.fid,
+    this.watchAlerts = false,
+  });
 
   /// Notice to mark as read.
   final int? nid;
@@ -102,8 +113,14 @@ final class LocalNoticeTarget {
   /// Open the last floor of [tid] (`goto=lastpost`) instead of its first page.
   final bool lastPost;
 
+  /// Forum to open, when nothing else is named.
+  final int? fid;
+
+  /// Open the page of the alerts of the watched forums and keywords, when nothing else is named.
+  final bool watchAlerts;
+
   /// Nothing to open.
-  bool get isEmpty => tid == null && pid == null && peerUid == null;
+  bool get isEmpty => tid == null && pid == null && peerUid == null && fid == null && !watchAlerts;
 
   /// The query written in a payload.
   String toQuery() => [
@@ -112,6 +129,8 @@ final class LocalNoticeTarget {
     if (pid != null) 'pid=$pid',
     if (peerUid != null) 'peer=$peerUid',
     if (lastPost) 'last=1',
+    if (fid != null) 'fid=$fid',
+    if (watchAlerts) 'wa=1',
   ].join('&');
 
   @override
@@ -121,10 +140,12 @@ final class LocalNoticeTarget {
       other.tid == tid &&
       other.pid == pid &&
       other.peerUid == peerUid &&
-      other.lastPost == lastPost;
+      other.lastPost == lastPost &&
+      other.fid == fid &&
+      other.watchAlerts == watchAlerts;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost);
+  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts);
 
   @override
   String toString() => 'LocalNoticeTarget(${toQuery()})';

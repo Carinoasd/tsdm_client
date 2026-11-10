@@ -22,9 +22,11 @@ import 'package:tsdm_client/features/image/widgets/post_image.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/remove_rate_dialog.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
@@ -37,6 +39,7 @@ import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show Post
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText, exportLabelsOf;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
+import 'package:tsdm_client/features/thread_recommend/widgets/thread_recommend_buttons.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
@@ -80,6 +83,9 @@ enum _PostCardActions {
   /// Start picking floors to quote in one reply.
   addQuote,
   rate,
+
+  /// Comment on the floor (点评), where the forum lets this account ([Post.commentAction]).
+  comment,
 
   /// Only view posts published by current author.
   viewTheAuthor,
@@ -139,6 +145,12 @@ enum _PostCardActions {
 
   /// Delete the reply (moderators, not the first floor).
   moderateDelete,
+
+  /// Stick the reply under the first floor, or unstick it (moderators, not the first floor).
+  moderateStick,
+
+  /// Take rates of the floor back (moderators, a floor rated: the forum's 撤销评分 beside 评分).
+  moderateRemoveRate,
 
   /// Ban the floor's author from posting, or lift the ban ([PostCard.onBanAuthor]).
   banAuthor,
@@ -375,6 +387,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             ),
           ),
           sizedBoxW8H8,
+          if (widget.post.stuck) ...[
+            Tooltip(
+              message: context.t.moderateFloorOps.stuck,
+              child: Icon(Icons.vertical_align_top_outlined, size: 20, color: colorScheme.primary),
+            ),
+            sizedBoxW4H4,
+          ],
           if (widget.post.warned) ...[
             Tooltip(
               message: context.t.moderate.warned,
@@ -561,6 +580,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
           item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
+        if (online && widget.post.commentAction != null)
+          item(_PostCardActions.comment, Icons.add_comment_outlined, context.t.postComment.menu),
       ],
       [
         if (_bookmarkTarget(context) != null)
@@ -604,18 +625,24 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.onModerate != null)
-          for (final action in floorModerateActionsFor(first: widget.post.postFloor == 1))
+          // The first floor: numbered 1, or linked as the thread (the web page's default template prints 楼主).
+          for (final action in floorModerateActionsFor(
+            first: widget.post.postFloor == 1 || (widget.post.shareLink?.contains('mod=viewthread&') ?? false),
+          ))
             item(
               switch (action) {
                 FloorModerateAction.warn => _PostCardActions.moderateWarn,
                 FloorModerateAction.ban => _PostCardActions.moderateBan,
                 FloorModerateAction.delete => _PostCardActions.moderateDelete,
+                FloorModerateAction.stick => _PostCardActions.moderateStick,
               },
-              // A floor known warned is offered taking it back (the forum's window decides all the same).
-              floorModerateIcon(action, undo: action == FloorModerateAction.warn && widget.post.warned),
-              floorModerateName(context, action, undo: action == FloorModerateAction.warn && widget.post.warned),
+              // A floor known warned or stuck is offered taking it back (the forum's window decides all the same).
+              floorModerateIcon(action, undo: _knownDone(action)),
+              floorModerateName(context, action, undo: _knownDone(action)),
               color: action == FloorModerateAction.delete ? colorScheme.error : null,
             ),
+        if (online && widget.onModerate != null && widget.post.rate != null && _removeRateTid(context) != null)
+          item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
         if (online && widget.onBanAuthor != null)
           item(
             _PostCardActions.banAuthor,
@@ -658,6 +685,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       case _PostCardActions.rate:
         if (widget.post.rateAction != null) {
           await _rateCallback.call();
+        }
+      case _PostCardActions.comment:
+        if (widget.post.commentAction case final action?) {
+          await showPostCommentDialog(context, action, onDone: _specialReload(context));
         }
       case _PostCardActions.viewTheAuthor:
         // Here is guaranteed a not-null `ThreadBloc`.
@@ -770,6 +801,12 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         widget.onModerate?.call(FloorModerateAction.ban);
       case _PostCardActions.moderateDelete:
         widget.onModerate?.call(FloorModerateAction.delete);
+      case _PostCardActions.moderateStick:
+        widget.onModerate?.call(FloorModerateAction.stick);
+      case _PostCardActions.moderateRemoveRate:
+        if (_removeRateTid(context) case final tid?) {
+          await showRemoveRateDialog(context, tid: tid, pid: widget.post.postID, onDone: _specialReload(context));
+        }
       case _PostCardActions.banAuthor:
         widget.onBanAuthor?.call();
     }
@@ -836,6 +873,17 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     }
   }
 
+  /// Whether this floor is known to have had [action] done (warned, stuck): its menu then offers undoing it.
+  bool _knownDone(FloorModerateAction action) => switch (action) {
+    FloorModerateAction.warn => widget.post.warned,
+    FloorModerateAction.stick => widget.post.stuck,
+    _ => false,
+  };
+
+  /// The thread whose floor's rates a moderator may take back: the thread on screen, not an offline copy.
+  String? _removeRateTid(BuildContext context) =>
+      isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid;
+
   /// Reload the page of this floor after an action of the thread's special block (a vote, an application, accepting
   /// an answer…), keeping this floor as the scroll target as after an edit; null without a thread page above (the
   /// post of a notice) and on a floor read back from an offline copy ([isOfflineFloor]), where the special cards offer
@@ -864,7 +912,16 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           padding: const EdgeInsets.only(left: 8),
           child: SpecialBestAnswerButton(request, onReload: reload),
         ),
-      const Spacer(),
+      // The forum's 支持 and 踩 of the thread, under the first floor as the web page prints them.
+      if (widget.post.recommend case final recommend? when !isOfflineFloor(context))
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Align(alignment: AlignmentDirectional.centerStart, child: ThreadRecommendButtons(recommend)),
+          ),
+        )
+      else
+        const Spacer(),
       // The floor's action menu, at the end of the floor: muted rounded button, the icon stays the usual "more" so it
       // reads like the other menus of the app.
       PopupMenuButton(
@@ -976,6 +1033,19 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         if (widget.post.packetUrl != null) ...[
           sizedBoxW12H12,
           PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
+        ],
+        // The floor's comments, before the rates as on the web page; nothing without any.
+        if (widget.post.comments.isNotEmpty) ...[
+          sizedBoxW12H12,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 712),
+            child: PostCommentSection(
+              widget.post,
+              // Read back from an offline copy: the comments it holds, nothing asked from the forum.
+              tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
+              onReload: _specialReload(context),
+            ),
+          ),
         ],
         // Rate status if any.
         if (widget.post.rate != null) ...[

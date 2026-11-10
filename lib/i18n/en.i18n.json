@@ -262,6 +262,7 @@
     "entries": {
       "myThreads": "My threads",
       "favorites": "Favorites",
+      "collections": "Collections",
       "history": "History",
       "readLater": "Read later",
       "drafts": "Forum drafts",
@@ -274,7 +275,8 @@
       "readingStats": "Reading stats",
       "checkinCalendar": "Check-in calendar",
       "ratingStats": "Rating statistics",
-      "visitors": "Recent visitors"
+      "visitors": "Recent visitors",
+      "siteStats": "Site statistics"
     }
   },
   "home": {
@@ -357,7 +359,9 @@
         "drafts": "Local drafts",
         "bookmarks": "Floor bookmarks"
       },
-      "loginDevices": "Login devices"
+      "loginDevices": "Login devices",
+      "security": "Password and security",
+      "privacy": "Privacy"
     },
     "appearanceSection": {
       "title": "Appearance",
@@ -405,7 +409,8 @@
         "pinned": "Pinned threads",
         "guide": "Forum guide",
         "stats": "Forum activity",
-        "tools": "My tools"
+        "tools": "My tools",
+        "online": "Online members"
       },
       "showShortcutInForumCard": {
         "title": "Forum Card Shortcut Entries",
@@ -608,7 +613,10 @@
         "followedThreadMinutes": "${n} min",
         "quietHours": "Quiet hours",
         "quietStart": "From",
-        "quietEnd": "Until"
+        "quietEnd": "Until",
+        "forumNewThread": "New threads in forums",
+        "keywordAlert": "Keyword alerts",
+        "forumWatch": "New thread and keyword alerts"
       },
       "notificationHideContent": {
         "title": "Hide notification content",
@@ -971,7 +979,8 @@
       "uid": "UID",
       "email": "Email"
     },
-    "signUpHint": "Do not have an account? Sign up here",
+    "signUp": "Sign up",
+    "lostPassword": "Forgot password",
     "perhapsExpired": "Login failed, perhaps identity expired, please login again"
   },
   "rootPage": {
@@ -1114,6 +1123,12 @@
       "removed": "Forum removed from favorites",
       "failed": "Failed: $err",
       "needLogin": "Login to add favorites"
+    },
+    "watch": {
+      "on": "Alert new threads",
+      "off": "Stop new thread alerts",
+      "watched": "New thread alerts on",
+      "unwatched": "New thread alerts off"
     }
   },
   "threadPage": {
@@ -1492,6 +1507,11 @@
         "unknownForm": "The forum did not answer with a known approval form, nothing was sent",
         "unknownAfterSubmit": "The approval was sent but the answer was not understood, check your friends list"
       }
+    },
+    "online": {
+      "title": "Online members",
+      "empty": "No members online",
+      "subtitle": "Members: ${count: int}"
     }
   },
   "redPacket": {
@@ -1538,6 +1558,54 @@
     "title": "Tag: $name",
     "cloudTitle": "Tags",
     "empty": "No tags"
+  },
+  "collection": {
+    "title": "Collections",
+    "tabs": {
+      "recommended": "Recommended",
+      "all": "All",
+      "mine": "Mine",
+      "subscribed": "Subscribed"
+    },
+    "order": {
+      "dateline": "Newest",
+      "threadnum": "Most threads",
+      "commentnum": "Most comments",
+      "follownum": "Most subscribers"
+    },
+    "empty": "No collections",
+    "noThreads": "No threads yet",
+    "noComments": "No comments yet",
+    "create": "Create collection",
+    "edit": "Edit collection",
+    "delete": "Delete collection",
+    "deleteConfirm": "Delete \"$name\"?",
+    "name": "Name",
+    "description": "Description",
+    "keywords": "Tags",
+    "save": "Save",
+    "follow": "Subscribe",
+    "unfollow": "Unsubscribe",
+    "threads": "$count threads",
+    "follows": "$count subscribers",
+    "comments": "$count comments",
+    "rating": "$rate ($count ratings)",
+    "creator": "By $name",
+    "teamworkers": "With $names",
+    "commentsTitle": "Comments",
+    "comment": "Comment",
+    "rated": "Rated $rate stars",
+    "removeThread": "Remove from collection",
+    "removeConfirm": "Remove \"$subject\" from the collection?",
+    "reason": "Reason: $reason",
+    "collect": "Collect",
+    "collectTitle": "Add to collections",
+    "collectedIn": "In collections",
+    "reasonField": "Reason",
+    "newCollection": "New collection",
+    "collectSubmit": "Add",
+    "unknown": "Could not confirm the result, reloaded",
+    "accountChanged": "The account changed: nothing was sent"
   },
   "ratePostPage": {
     "title": "Rate",
@@ -2127,7 +2195,39 @@
     "logEmpty": "No log entries",
     "noForums": "No forum to manage",
     "switchForum": "Switch forum",
-    "keyword": "Keyword"
+    "keyword": "Keyword",
+    "members": "Members",
+    "memberReview": "New members",
+    "rules": "Forum rules",
+    "announcements": "Announcements",
+    "byName": "Name",
+    "byUid": "UID",
+    "search": "Search",
+    "lift": "Lift ban",
+    "editMember": "Edit profile",
+    "bio": "Bio",
+    "signature": "Signature",
+    "clearAvatar": "Remove avatar",
+    "crimes": "Record",
+    "ipBan": "Banned IPs",
+    "ip": "IP address",
+    "ipBanEmpty": "No banned IPs",
+    "add": "Add",
+    "delete": "Delete",
+    "reject": "Reject",
+    "reviewEmpty": "No members waiting",
+    "save": "Save",
+    "subject": "Subject",
+    "typeText": "Text",
+    "typeLink": "Link",
+    "startDate": "Start",
+    "endDate": "End",
+    "content": "Content",
+    "announcementsEmpty": "No announcements",
+    "newAnnouncement": "New announcement",
+    "editAnnouncement": "Edit announcement",
+    "required": "Required",
+    "invalidUid": "UID must be a number"
   },
   "moderate": {
     "menu": "Moderate",
@@ -2185,6 +2285,12 @@
     "type": "Category",
     "copy": "Copy",
     "repair": "Repair thread",
+    "merge": "Merge thread",
+    "split": "Split thread",
+    "mergeThread": "Thread ID or link",
+    "mergeSelf": "Pick another thread",
+    "splitSubject": "New thread title",
+    "openNewThread": "Open new thread",
     "copyTo": "Copy to",
     "threadType": "Target category",
     "noType": "No category",
@@ -2214,6 +2320,14 @@
   },
   "bountyAnswerCard": {
     "title": "Best Answer"
+  },
+  "moderateFloorOps": {
+    "stick": "Stick reply",
+    "unstick": "Unstick reply",
+    "stuck": "Stuck reply",
+    "removeRate": "Remove rates",
+    "attachments": "Attachments",
+    "deleteAttachment": "Delete attachment"
   },
   "bbcodeEditor": {
     "experimentalInfo": "Experimental BBCode Editor",
@@ -2492,7 +2606,9 @@
       "rate": "Ratings and comments",
       "pm": "Private messages",
       "system": "System notices",
-      "followedThread": "Followed threads"
+      "followedThread": "Followed threads",
+      "forumNewThread": "New threads in forums",
+      "keywordAlert": "Keyword alerts"
     },
     "channelName": "New auto sync notice",
     "channelDesc": "Received new notice when auto sync",
@@ -3870,6 +3986,33 @@
       "hidden": "A followed thread has ${n} new replies"
     }
   },
+  "forumWatch": {
+    "title": "New thread and keyword alerts",
+    "alerts": "Alerts",
+    "settings": "Settings",
+    "noAlerts": "No alerts yet",
+    "needLogin": "Log in to get new thread alerts",
+    "forums": "Watched forums",
+    "keywords": "Keywords",
+    "keyword": "Keyword",
+    "add": "Add",
+    "keywordExists": "Keyword already added",
+    "limitReached": "At most ${forums} forums and ${keywords} keywords",
+    "scope": "Look for keywords in",
+    "scopeDefault": "Watched forums and latest threads",
+    "scopeCustom": "Pick",
+    "latest": "Latest threads",
+    "pickForums": "Pick forums",
+    "interval": "Check interval",
+    "minutes": "${n} min",
+    "notice": {
+      "thread": "${author}: ${title}",
+      "forumMany": "${n} new threads",
+      "keywordOne": "Keyword \"${keyword}\"",
+      "keywordMany": "${n} threads with keywords",
+      "keywordLine": "\"${keyword}\" ${title}"
+    }
+  },
   "customEmoji": {
     "title": "Custom emoji packs",
     "newPack": "New pack",
@@ -3889,6 +4032,22 @@
     "exportFailed": "Export failed",
     "empty": "No emoji packs yet",
     "count": "${count: int}"
+  },
+  "accountSecurityPage": {
+    "title": "Password and security",
+    "currentPassword": "Current password",
+    "otherCheck": "The forum asks for an email or phone check, finish it on the web page",
+    "changed": "Changed",
+    "passwordChanged": "Password changed and the forum cleared the security question, log in again with the new password",
+    "resultUnknown": "Could not tell whether it changed, refresh to check",
+    "required": "Required"
+  },
+  "privacySettingsPage": {
+    "title": "Privacy",
+    "discardTitle": "Discard the changes not saved?",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Failed to save, try again later"
   },
   "loginDevicesPage": {
     "title": "Login devices",
@@ -3920,6 +4079,10 @@
     "empty": "No rankings yet",
     "minutes": "$n minutes",
     "updated": "Updated $last · next $next"
+  },
+  "siteStatsPage": {
+    "title": "Site statistics",
+    "empty": "No statistics"
   },
   "spacePage": {
     "blogs": "Blogs",
@@ -3993,5 +4156,23 @@
       "sent": "Sent",
       "loadFailed": "Could not open the poke form"
     }
+  },
+  "postComment": {
+    "title": "Comments",
+    "menu": "Comment",
+    "send": "Post",
+    "more": "More comments",
+    "delete": "Delete",
+    "deleteTitle": "Delete comment",
+    "reason": "Reason",
+    "done": "Comment posted",
+    "deleted": "Deleted",
+    "refused": "The forum refused this",
+    "unknown": "Result unknown, reloaded",
+    "loadFailed": "Failed to load",
+    "accountChanged": "The account changed: nothing was sent"
+  },
+  "threadRecommend": {
+    "unknown": "Could not confirm the result: refresh the thread to see it."
   }
 }

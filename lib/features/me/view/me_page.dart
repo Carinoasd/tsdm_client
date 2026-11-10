@@ -124,6 +124,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-collections'),
+        icon: Icons.collections_bookmark_outlined,
+        label: tr.collections,
+        onTap: () => _open(ScreenPaths.collections, query: {'tab': 'mine'}),
+      ),
+      (
         key: const ValueKey('me-followed-threads'),
         icon: Icons.notifications_active_outlined,
         label: tr.followedThreads,
@@ -193,7 +199,7 @@ class _MePageState extends State<MePage> {
     ];
   }
 
-  /// The numbers of the account: points, check-ins, reading and ratings.
+  /// The numbers of the account: points, check-ins, reading and ratings; and the forum's own statistics.
   List<_MeEntry> _statsEntries(BuildContext context) {
     final tr = context.t.mePage.entries;
     return [
@@ -220,6 +226,12 @@ class _MePageState extends State<MePage> {
         icon: Icons.thumb_up_alt_outlined,
         label: tr.ratingStats,
         onTap: () => _open(ScreenPaths.ratingStats),
+      ),
+      (
+        key: const ValueKey('me-site-stats'),
+        icon: Icons.query_stats_outlined,
+        label: tr.siteStats,
+        onTap: () => _open(ScreenPaths.siteStats),
       ),
     ];
   }

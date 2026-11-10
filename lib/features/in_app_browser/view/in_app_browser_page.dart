@@ -22,10 +22,14 @@ enum _MenuAction { openExternal, copyUrl }
 /// is never shown as an earlier account. A forum page the app has a screen for, followed from here, opens in the app.
 class InAppBrowserPage extends StatefulWidget {
   /// Constructor.
-  const InAppBrowserPage(this.url, {super.key});
+  const InAppBrowserPage(this.url, {this.guest = false, super.key});
 
   /// The page to open, absolute `http` or `https` ([isInAppBrowserUrl]); anything else is not loaded.
   final Uri? url;
+
+  /// Open the page signed out: the forum cookies are removed and none is put back (the sign up and the lost password
+  /// pages, which the forum does not show to an account).
+  final bool guest;
 
   @override
   State<InAppBrowserPage> createState() => _InAppBrowserPageState();
@@ -48,7 +52,8 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
   /// The page the browser was opened with has not loaded yet: its navigation (and redirects) is not taken to the app.
   bool _initialPending = true;
 
-  /// Replace the forum cookies of the web view with the session of the account in use.
+  /// Replace the forum cookies of the web view with the session of the account in use, none for a [InAppBrowserPage.guest]
+  /// page.
   Future<void> _prepareCookies() async {
     final manager = CookieManager.instance();
     try {
@@ -58,7 +63,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         }
       }
       final provider = getIt.get<CookieProvider>();
-      if (provider.userLoginInfo.uid == null) {
+      if (widget.guest || provider.userLoginInfo.uid == null) {
         return;
       }
       for (final c in await forumWebViewCookies(provider)) {
@@ -100,6 +105,10 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     // The page asked for and its redirects stay here, also when the app has a screen for them.
     switch (browserNavigationOf(uri, mainFrame: mainFrame, initial: _initialPending)) {
       case BrowserNavigationAllow():
+        return NavigationActionPolicy.ALLOW;
+      // Signed out, the pages a guest goes on to (the new account the forum logged in after signing up) are not the
+      // app's account: they stay here.
+      case BrowserNavigationOpenInApp() when widget.guest:
         return NavigationActionPolicy.ALLOW;
       case BrowserNavigationOpenInApp():
         if (mounted) {
@@ -150,8 +159,9 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }
       case ExternalLaunchFallback(:final uri):
-        // A program load is not seen by the navigation check (Android): a page the app has opens in the app here.
-        if (browserNavigationOf(uri, mainFrame: true) is BrowserNavigationOpenInApp) {
+        // A program load is not seen by the navigation check (Android): a page the app has opens in the app here,
+        // but for a signed out page, which keeps every forum page in the web view.
+        if (!widget.guest && browserNavigationOf(uri, mainFrame: true) is BrowserNavigationOpenInApp) {
           if (mounted) {
             await context.dispatchAsUrl('$uri');
           }
