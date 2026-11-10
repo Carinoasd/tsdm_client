@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -38,6 +40,147 @@ const directReplyActionId = 'directReply';
 const _resultIdBase = 0x50000000;
 const _resultIdMask = 0x07FFFFFF;
 const _resultConversationBit = 0x08000000;
+
+const _pinnedIdBase = 0x60000000;
+const _pinnedIdMask = 0x0FFFFFFF;
+
+/// The target a notification offering the direct reply answers: account [uid] and the floor (`<uid>:p:<tid>:<pid>`) or
+/// the conversation (`<uid>:m:<peer>`) of [target]; null when it names neither.
+String? directReplyTargetKey(int uid, LocalNoticeTarget target) {
+  final tid = target.tid;
+  final pid = target.pid;
+  final peer = target.peerUid;
+  if (tid != null && pid != null) {
+    return '$uid:p:$tid:$pid';
+  }
+  if (peer != null) {
+    return '$uid:m:$peer';
+  }
+  return null;
+}
+
+/// Id of the notification offering the direct reply to the target [key] ([directReplyTargetKey]): its own, derived
+/// from the target alone (FNV-1a), so a newer item of the same target updates it and an item of any other target never
+/// does.
+///
+/// Why its own: the plugin makes the request code of an action's PendingIntent from the notification id
+/// (`id * 16`, `FLAG_UPDATE_CURRENT`), so a notification posted under the id of another one rewrites the extras of the
+/// other's action: a reply typed in the older one would go to the newer one's target. A notification carrying the
+/// action is therefore never posted under an id that holds another target ([DirectReplyPins]).
+int directReplyNoticeIdOf(String key) {
+  var hash = 0x811c9dc5;
+  for (final unit in key.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0xFFFFFFFF;
+  }
+  return _pinnedIdBase | (hash & _pinnedIdMask);
+}
+
+/// Whether [id] is the id of a notification offering the direct reply ([directReplyNoticeIdOf]).
+bool isDirectReplyNoticeId(int? id) => id != null && (id & ~_pinnedIdMask) == _pinnedIdBase;
+
+/// Tag of the notification offering the direct reply to the target [key], announced in the auto sync [slot] (the
+/// account of a notification naming its account, 0 for the one of the account in use): the auto sync takes back the
+/// notifications of its slot it replaces by tag ([replaceDirectReplySlot]).
+String directReplyTag(int slot, String key) => '$_tagPrefix$slot:$key';
+
+const _tagPrefix = 'dr:';
+
+/// Which target each id of the notifications offering the direct reply was given to, kept in the settings table so the
+/// app and the background message service (which both post them) and the isolate of the reply (which checks them)
+/// read the same: an id holds one target as long as its notification may still be in the shade ([keepFor]) or is shown.
+///
+/// The name of the setting is [settingsKey]; the value is `{"<id>": {"k": "<target key>", "at": <ms>}}`.
+final class DirectReplyPins {
+  /// Constructor.
+  DirectReplyPins(this._storage, {DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  final StorageProvider _storage;
+  final DateTime Function() _now;
+
+  /// Name of the setting.
+  static const settingsKey = 'directReplyPinnedNotices';
+
+  /// How long an id stays given to its target after its last notification.
+  static const keepFor = Duration(days: 7);
+
+  Future<Map<String, ({String key, int at})>> _read() async {
+    final raw = await _storage.getString(settingsKey);
+    final pins = <String, ({String key, int at})>{};
+    if (raw == null || raw.isEmpty) {
+      return pins;
+    }
+    try {
+      final json = jsonDecode(raw);
+      if (json is Map<String, dynamic>) {
+        final oldest = _now().subtract(keepFor).millisecondsSinceEpoch;
+        for (final MapEntry(:key, :value) in json.entries) {
+          if (value is Map<String, dynamic> && value['k'] is String && value['at'] is int) {
+            final at = value['at'] as int;
+            if (at >= oldest) {
+              pins[key] = (key: value['k'] as String, at: at);
+            }
+          }
+        }
+      }
+    } on Object catch (e) {
+      talker.warning('direct reply: pinned notices unreadable, started over: $e');
+    }
+    return pins;
+  }
+
+  /// Give [id] to the target [key] when it holds no other one, neither here nor as a notification still shown
+  /// ([shown]: the ids and tags in the shade, none read when null). False when it holds another target: the
+  /// notification is then posted without the action, as any other one.
+  Future<bool> claim(int id, String key, {List<({int? id, String? tag})>? shown}) async {
+    final pins = await _read();
+    final held = pins['$id'];
+    if (held != null && held.key != key) {
+      return false;
+    }
+    final other = shown?.any((e) => e.id == id && e.tag != null && !e.tag!.endsWith(':$key')) ?? false;
+    if (other) {
+      return false;
+    }
+    pins['$id'] = (key: key, at: _now().millisecondsSinceEpoch);
+    await _storage.saveString(
+      settingsKey,
+      jsonEncode({
+        for (final MapEntry(:key, :value) in pins.entries) key: {'k': value.key, 'at': value.at},
+      }),
+    );
+    return true;
+  }
+
+  /// Whether [id] was given to the target [key] ([claim]): the action of the notification under [id] answers that
+  /// target and no other.
+  Future<bool> holds(int id, String key) async => (await _read())['$id']?.key == key;
+}
+
+/// Take back the notifications of the auto sync [slot] a new one replaces, before it is posted under [id] (with [tag]
+/// when it offers the direct reply): the other notifications of the slot offering the direct reply, and, for one
+/// offering it, the notification of the slot without it ([sharedId], `localNoticeId` or `localNoticeIdOf`). What was
+/// one notification per slot stays one; a reply being typed in a notification taken back is lost, never sent to the
+/// target of the new one. [shown] are the ids and tags in the shade.
+Future<void> replaceDirectReplySlot(
+  FlutterLocalNotificationsPlugin plugin, {
+  required int slot,
+  required int sharedId,
+  required int id,
+  required String? tag,
+  required List<({int? id, String? tag})> shown,
+}) async {
+  final prefix = '$_tagPrefix$slot:';
+  for (final n in shown) {
+    final nid = n.id;
+    final ntag = n.tag;
+    if (nid != null && ntag != null && ntag.startsWith(prefix) && !(nid == id && ntag == tag)) {
+      await plugin.cancel(id: nid, tag: ntag);
+    }
+  }
+  if (tag != null && shown.any((e) => e.id == sharedId && e.tag == null)) {
+    await plugin.cancel(id: sharedId);
+  }
+}
 
 /// Whether [id] is the id of a notification telling how a direct reply went ([DirectReplyRequest.resultNoticeId]).
 bool isDirectReplyResultNoticeId(int? id) =>
@@ -115,7 +258,16 @@ String directReplyActionUrl({required int tid, required int pid}) =>
 /// [LocalNoticeTarget.pid]) or the conversation ([LocalNoticeTarget.peerUid]) of [target].
 final class DirectReplyRequest {
   /// Constructor.
-  const DirectReplyRequest({required this.uid, required this.target, required this.message});
+  const DirectReplyRequest({required this.uid, required this.target, required this.message, int? noticeId})
+    : _noticeId = noticeId;
+
+  final int? _noticeId;
+
+  /// Id of the notification the reply was typed in ([directReplyNoticeIdOf] of [targetKey]).
+  int get noticeId => _noticeId ?? directReplyNoticeIdOf(targetKey);
+
+  /// The target ([directReplyTargetKey]).
+  String get targetKey => directReplyTargetKey(uid, target)!;
 
   /// The request of the action [response], null when it is none: another action, no text, a notification that is
   /// not one of the auto sync (a watched forum's, a followed thread's) or a payload naming no account or no floor or
@@ -123,9 +275,14 @@ final class DirectReplyRequest {
   static DirectReplyRequest? of(NotificationResponse response) {
     // Only the notifications of the auto sync carry the action ([isLocalNoticeId] already leaves the others out); the
     // new threads of a watched forum and the keyword alerts never do, said once more on purpose.
+    // Only the notifications offering it carry the action, each under the id of its target
+    // ([directReplyNoticeIdOf]); the new threads of a watched forum and the keyword alerts never do, said once more on
+    // purpose.
+    final id = response.id;
     if (response.actionId != directReplyActionId ||
-        !isLocalNoticeId(response.id) ||
-        isForumWatchNoticeId(response.id)) {
+        id == null ||
+        !isDirectReplyNoticeId(id) ||
+        isForumWatchNoticeId(id)) {
       return null;
     }
     final message = response.input?.trim() ?? '';
@@ -141,7 +298,14 @@ final class DirectReplyRequest {
     if (!floor && target.peerUid == null) {
       return null;
     }
+    final key = directReplyTargetKey(uid, target)!;
+    if (directReplyNoticeIdOf(key) != id) {
+      // The payload names another target than the one the id was made for: never sent anywhere.
+      talker.warning('direct reply: the target does not match the notification, dropped');
+      return null;
+    }
     return DirectReplyRequest(
+      noticeId: id,
       uid: uid,
       target: LocalNoticeTarget(
         nid: target.nid,
@@ -186,6 +350,19 @@ final class DirectReplyRequest {
       draft: message,
     ),
   );
+
+  /// [failedPayload] of a reply that may have reached the forum: the draft kept from it says so.
+  String get unconfirmedPayload => LocalNoticeKeys.withTarget(
+    LocalNoticeKeys.openNotificationOf(uid),
+    LocalNoticeTarget(
+      nid: target.nid,
+      tid: target.tid,
+      pid: target.pid,
+      peerUid: target.peerUid,
+      draft: message,
+      maybeSent: true,
+    ),
+  );
 }
 
 /// How a direct reply went.
@@ -207,6 +384,25 @@ final class DirectReplyNotSent extends DirectReplyOutcome {
   /// What the notification says.
   final String reason;
 }
+
+/// Sent, but nothing came back to tell whether the forum took it (a timeout after the request left, a server error,
+/// a redirect): said apart from a reply that was not sent, so it is not sent twice unknowingly.
+final class DirectReplyUnconfirmed extends DirectReplyOutcome {
+  /// Constructor.
+  const DirectReplyUnconfirmed();
+}
+
+/// Whether the failure [e] of a post may hide a stored reply or message: the request left and nothing (or a server
+/// error, a redirect) came back. The same rule as the reply bar's `maybeSent`; the reply window and a forum that could
+/// not be reached at all mean nothing was posted.
+bool directReplyMayHaveSent(AppException e) => switch (e) {
+  ReplyWindowFetchFailedException() => false,
+  HttpHandshakeFailedException(statusCode: null) ||
+  HttpRequestFailedException(statusCode: null) => !isNoNetworkFailure(e),
+  HttpHandshakeFailedException(:final statusCode?) ||
+  HttpRequestFailedException(:final statusCode?) => statusCode >= 500 || (statusCode >= 300 && statusCode < 400),
+  _ => false,
+};
 
 /// Post the message of a [DirectReplyRequest] with the client of its account.
 typedef DirectReplySend =
@@ -256,9 +452,16 @@ Future<DirectReplyOutcome> runDirectReply(
   required Future<bool> Function() enabled,
   required Future<bool> Function() locked,
   required Future<NetClientProvider?> Function(int uid) clientOf,
+  required Future<bool> Function() pinned,
   DirectReplySend send = sendDirectReplyWith,
 }) async {
   final tr = translations.localNotification.directReply;
+  if (!await pinned()) {
+    // The id of the notification was not given to this target ([DirectReplyPins.holds]): whatever the action carries,
+    // it is not sent.
+    talker.warning('direct reply: the notification does not hold this target, not sent');
+    return DirectReplyNotSent(tr.openApp);
+  }
   if (!await enabled()) {
     return DirectReplyNotSent(tr.openApp);
   }
@@ -287,6 +490,9 @@ Future<DirectReplyOutcome> runDirectReply(
             value is ReplyPersonalMessageFailedException:
       final reason = value.message?.trim() ?? '';
       return DirectReplyNotSent(reason.isEmpty || reason == 'unknown error' ? tr.error : reason);
+    case Left(:final value) when directReplyMayHaveSent(value):
+      talker.warning('direct reply: result unknown, ${value.runtimeType}');
+      return const DirectReplyUnconfirmed();
     case Left(:final value):
       talker.warning('direct reply: not sent, ${value.runtimeType}');
       return DirectReplyNotSent(tr.error);
@@ -321,6 +527,14 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
       title: tr.failed,
       body: reason,
       payload: request.failedPayload,
+      sent: false,
+    ),
+    // The words of the chat page for a message whose result is unknown; the draft kept from it says it may be sent.
+    DirectReplyUnconfirmed() => (
+      id: request.resultNoticeId,
+      title: tr.unconfirmed,
+      body: translations.chatPage.maybeSent,
+      payload: request.unconfirmedPayload,
       sent: false,
     ),
   };

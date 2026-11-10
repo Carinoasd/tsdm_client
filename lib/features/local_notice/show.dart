@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
 /// Id of the notification channel carrying auto sync results.
@@ -70,8 +71,10 @@ int localNoticeIdOf(int uid) => _accountIdBase | (uid & _accountIdMask);
 const _accountIdBase = 0x10000000;
 const _accountIdMask = 0x0FFFFFFF;
 
-/// Whether [id] is the id of an auto sync notification: [localNoticeId] or one of [localNoticeIdOf].
-bool isLocalNoticeId(int? id) => id == localNoticeId || (id != null && (id & ~_accountIdMask) == _accountIdBase);
+/// Whether [id] is the id of an auto sync notification: [localNoticeId], one of [localNoticeIdOf], or one offering the
+/// direct reply ([directReplyNoticeIdOf]).
+bool isLocalNoticeId(int? id) =>
+    id == localNoticeId || (id != null && (id & ~_accountIdMask) == _accountIdBase) || isDirectReplyNoticeId(id);
 
 /// The account a notification is about, see [showLocalNotificationWith].
 final class LocalNoticeAccount {
@@ -310,6 +313,7 @@ NotificationDetails buildLocalNotificationDetails({
   String? summary,
   NoticeCategory? category,
   List<AndroidNotificationAction>? actions,
+  String? tag,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     category?.channelId ?? localNoticeChannelId,
@@ -326,6 +330,7 @@ NotificationDetails buildLocalNotificationDetails({
         ? InboxStyleInformation(lines, contentTitle: title, summaryText: summary)
         : (body != null ? BigTextStyleInformation(body, contentTitle: title) : null),
     actions: actions,
+    tag: tag,
   ),
   windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
@@ -404,6 +409,14 @@ Future<void> showLocalNotification(
 /// The notification of a single reply, quote, mention or private message about a known [account] offers the reply
 /// typed in the notification ([directReplyFits], `direct_reply.dart`) when [directReply] says so (null: as the setting
 /// and the app lock say now, [directReplyOffered]); never with [hideContent], which shows nothing to reply to.
+///
+/// Such a notification is posted under the id of its target ([directReplyNoticeIdOf]) with a tag naming its slot and
+/// target ([directReplyTag]), never under the shared id of the slot: a later sync of the account posts its result
+/// under another id (or updates this one for a newer item of the same target), so the target the action answers can
+/// not change under a reply being typed. It gets the action only when that id holds no other target
+/// ([DirectReplyPins.claim], read from [storage], the one of `getIt` by default) and the shade could be read. The
+/// slot stays one notification as before: posting a result takes back the other notifications of its slot
+/// ([replaceDirectReplySlot]). [android] (the platform by default) says whether the shade is read at all.
 Future<void> showLocalNotificationWith({
   required FlutterLocalNotificationsPlugin plugin,
   required Translations translations,
@@ -411,11 +424,41 @@ Future<void> showLocalNotificationWith({
   LocalNoticeAccount? account,
   bool hideContent = false,
   bool? directReply,
+  StorageProvider? storage,
+  @visibleForTesting bool? android,
 }) async {
   final tr = translations.localNotification;
   final content = localNotificationContentOf(translations, info, account: account, hideContent: hideContent);
   final category = noticeCategoryOfInfo(info);
-  final reply = account != null && !hideContent && directReplyFits(info) && (directReply ?? await directReplyOffered());
+  var reply = account != null && !hideContent && directReplyFits(info) && (directReply ?? await directReplyOffered());
+  List<({int? id, String? tag})>? shown;
+  if (android ?? isAndroid) {
+    try {
+      shown = [for (final n in await plugin.getActiveNotifications()) (id: n.id, tag: n.tag)];
+    } on Object catch (e) {
+      talker.warning('read active notifications failed, no direct reply offered: $e');
+    }
+  }
+  var id = content.id;
+  String? tag;
+  final slot = account != null && account.named ? account.uid : 0;
+  if (reply) {
+    final target = LocalNoticeKeys.parseTarget(content.payload);
+    final key = target == null ? null : directReplyTargetKey(account.uid, target);
+    final store = storage ?? (getIt.isRegistered<StorageProvider>() ? getIt.get<StorageProvider>() : null);
+    if (key != null &&
+        store != null &&
+        shown != null &&
+        await DirectReplyPins(store).claim(directReplyNoticeIdOf(key), key, shown: shown)) {
+      id = directReplyNoticeIdOf(key);
+      tag = directReplyTag(slot, key);
+    } else {
+      reply = false;
+    }
+  }
+  if (shown != null) {
+    await replaceDirectReplySlot(plugin, slot: slot, sharedId: content.id, id: id, tag: tag, shown: shown);
+  }
   final nd = buildLocalNotificationDetails(
     channelName: noticeChannelName(translations, category),
     category: category,
@@ -426,9 +469,10 @@ Future<void> showLocalNotificationWith({
     lines: content.lines,
     summary: content.summary,
     actions: reply ? [directReplyActionOf(translations)] : null,
+    tag: tag,
   );
   await plugin.show(
-    id: content.id,
+    id: id,
     title: content.title,
     body: content.body,
     notificationDetails: nd,
