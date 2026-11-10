@@ -91,7 +91,8 @@ const _tagPrefix = 'dr:';
 /// app and the background message service (which both post them) and the isolate of the reply (which checks them)
 /// read the same: an id holds one target as long as its notification may still be in the shade ([keepFor]) or is shown.
 ///
-/// The name of the setting is [settingsKey]; the value is `{"<id>": {"k": "<target key>", "at": <ms>}}`.
+/// The name of the setting is [settingsKey]; the value is `{"<id>": {"k": "<target key>", "at": <ms>, "s": <slot>}}`
+/// (the slot the notification was last announced in, absent when written by an older version).
 final class DirectReplyPins {
   /// Constructor.
   DirectReplyPins(this._storage, {DateTime Function()? now}) : _now = now ?? DateTime.now;
@@ -106,9 +107,9 @@ final class DirectReplyPins {
   /// that is not sent ([holds] says no): the text goes to the app.
   static const keepFor = Duration(days: 7);
 
-  Future<Map<String, ({String key, int at})>> _read() async {
+  Future<Map<String, ({String key, int at, int? slot})>> _read() async {
     final raw = await _storage.getString(settingsKey);
-    final pins = <String, ({String key, int at})>{};
+    final pins = <String, ({String key, int at, int? slot})>{};
     if (raw == null || raw.isEmpty) {
       return pins;
     }
@@ -120,7 +121,14 @@ final class DirectReplyPins {
           if (value is Map<String, dynamic> && value['k'] is String && value['at'] is int) {
             final at = value['at'] as int;
             if (at >= oldest) {
-              pins[key] = (key: value['k'] as String, at: at);
+              pins[key] = (
+                key: value['k'] as String,
+                at: at,
+                slot: switch (value['s']) {
+                  final int slot => slot,
+                  _ => null,
+                },
+              );
             }
           }
         }
@@ -133,8 +141,9 @@ final class DirectReplyPins {
 
   /// Give [id] to the target [key] when it holds no other one, neither here nor as a notification still shown
   /// ([shown]: the ids and tags in the shade, none read when null). False when it holds another target: the
-  /// notification is then posted without the action, as any other one.
-  Future<bool> claim(int id, String key, {List<({int? id, String? tag})>? shown}) async {
+  /// notification is then posted without the action, as any other one. [slot] is the auto sync slot it is announced
+  /// in, kept for [tagOf].
+  Future<bool> claim(int id, String key, {int? slot, List<({int? id, String? tag})>? shown}) async {
     final pins = await _read();
     final held = pins['$id'];
     if (held != null && held.key != key) {
@@ -144,14 +153,23 @@ final class DirectReplyPins {
     if (other) {
       return false;
     }
-    pins['$id'] = (key: key, at: _now().millisecondsSinceEpoch);
+    pins['$id'] = (key: key, at: _now().millisecondsSinceEpoch, slot: slot ?? held?.slot);
     await _storage.saveString(
       settingsKey,
       jsonEncode({
-        for (final MapEntry(:key, :value) in pins.entries) key: {'k': value.key, 'at': value.at},
+        for (final MapEntry(:key, :value) in pins.entries) key: {'k': value.key, 'at': value.at, 's': ?value.slot},
       }),
     );
     return true;
+  }
+
+  /// The tag the notification under [id] was last posted with ([directReplyTag] of the slot and the target given to
+  /// [claim]), null when the id is given to no target or its slot was not kept. The action of a notification does
+  /// not carry its tag, and a notification taken back is not in the shade to read it from.
+  Future<String?> tagOf(int id) async {
+    final pin = (await _read())['$id'];
+    final slot = pin?.slot;
+    return pin == null || slot == null ? null : directReplyTag(slot, pin.key);
   }
 
   /// Whether [id] was given to the target [key] ([claim]): the action of the notification under [id] answers that
@@ -243,9 +261,10 @@ Future<bool> appLocked({AppLockStore? store}) => (store ?? AppLockStore()).locke
 
 /// The action of the direct reply, with the texts of [translations].
 ///
-/// Handled in the plugin's own isolate (`showsUserInterface: false`); the notification is taken away when it is sent
-/// (`cancelNotification`), the outcome is a notification of its own ([showDirectReplyOutcome]): a newer notification
-/// posted under the same id meanwhile is never written over.
+/// Handled in the plugin's own isolate (`showsUserInterface: false`). The plugin does not take the notification away
+/// when the text is sent (`cancelNotification: false`): the isolate does, once the reply is dealt with
+/// ([RepliedNotice]). The outcome is a notification of its own ([showDirectReplyOutcome]): a newer notification posted
+/// under the same id meanwhile is never written over.
 AndroidNotificationAction directReplyActionOf(Translations translations) {
   final label = translations.localNotification.directReply.action;
   return AndroidNotificationAction(
@@ -253,7 +272,196 @@ AndroidNotificationAction directReplyActionOf(Translations translations) {
     label,
     inputs: [AndroidNotificationActionInput(label: label)],
     semanticAction: SemanticAction.reply,
+    cancelNotification: false,
   );
+}
+
+/// How long the notification a reply was typed in stays in the shade without its action ([RepliedNotice.seal]) before
+/// it is taken back ([RepliedNotice.remove]): the time the system needs to show the update, which is what ends the
+/// "sending" state of its text input.
+const directReplySealedFor = Duration(seconds: 1);
+
+/// A notification offering the direct reply as the shade holds it.
+typedef _HeldNotice = ({String tag, String? channelId, String? title, String? body, String? bigText});
+
+/// What the notification a reply was typed in says once it is closed, when what it said before is not known
+/// ([RepliedNotice.seal]): the outcome of the reply, in the channel of the outcome.
+typedef RepliedNoticeTold = ({String title, String body, NoticeCategory category});
+
+/// The notification a reply was typed in, from the moment the reply reaches the isolate to the moment the
+/// notification leaves the shade.
+///
+/// It can not simply be cancelled. Measured on the Android 14 emulator (`dumpsys activity service
+/// com.android.systemui`): once a text is sent from a notification, the system UI shows its input as "sending" until
+/// the app posts the notification again, and a notification cancelled by its app in that state is not removed. The
+/// system UI keeps it (`lifetimeExtenders=[RemoteInputHistory]`, `cancellationReason=8`), writes the text under it and
+/// offers the action again, until the user swipes it away. Posted again and cancelled at once, it is kept all the
+/// same; posted again and cancelled a second later, it goes. So it is posted once more under the same id and tag, as
+/// it was but without the action ([seal]), and cancelled once the system has shown that ([remove]).
+///
+/// The notification is read from the shade when the reply arrives ([of]): the action carries neither its tag nor its
+/// texts. A newer item of the same target posted under the same id and tag while the reply was sent is told by its
+/// texts and left alone.
+///
+/// A notification the app took back before the reply was sent (a newer result of its slot arrived while the user was
+/// typing, [replaceDirectReplySlot]) is kept by the system UI too, and is not in the shade to be read: its tag is
+/// then the one its id was last posted with ([DirectReplyPins.tagOf]), and it is posted again saying the outcome.
+final class RepliedNotice {
+  RepliedNotice._(this._plugin, this.id, this._held, this._lastTag);
+
+  final FlutterLocalNotificationsPlugin _plugin;
+
+  /// Id of the notification ([directReplyNoticeIdOf]).
+  final int id;
+
+  /// What the shade held under [id] when the reply arrived; null when it could not be read.
+  final List<_HeldNotice>? _held;
+
+  /// The tag [id] was last posted with, asked for when the shade holds nothing under [id].
+  final Future<String?> Function()? _lastTag;
+
+  /// What [seal] posted again without the action, with the texts it was posted with, and when.
+  final _sealed = <_HeldNotice>[];
+  DateTime? _sealedAt;
+  bool _sealing = false;
+
+  /// The notification under [id] (the id of the action's response, null for none) as the shade of [plugin] holds it
+  /// now. [lastTag] gives the tag [id] was last posted with ([DirectReplyPins.tagOf]).
+  static Future<RepliedNotice?> of(
+    FlutterLocalNotificationsPlugin plugin,
+    int? id, {
+    Future<String?> Function()? lastTag,
+  }) async {
+    if (id == null || !isDirectReplyNoticeId(id)) {
+      return null;
+    }
+    List<_HeldNotice>? held;
+    try {
+      held = await _read(plugin, id);
+    } on Object catch (e) {
+      talker.warning('direct reply: shade not read: $e');
+    }
+    return RepliedNotice._(plugin, id, held, lastTag);
+  }
+
+  static Future<List<_HeldNotice>> _read(FlutterLocalNotificationsPlugin plugin, int id) async => [
+    for (final n in await plugin.getActiveNotifications())
+      if (n.id == id)
+        if (n.tag case final tag? when tag.startsWith(_tagPrefix))
+          (tag: tag, channelId: n.channelId, title: n.title, body: n.body, bigText: n.bigText),
+  ];
+
+  static bool _sameTexts(_HeldNotice a, _HeldNotice b) => a.title == b.title && a.body == b.body;
+
+  /// Post the notification again without its action, with the texts it had and the channel names of [translations]:
+  /// the text input is closed, nothing more can be typed in it. A tap opens [payload].
+  ///
+  /// A notification taken back meanwhile (by a newer result of its slot, [replaceDirectReplySlot]) is posted too,
+  /// silently: the system UI may still be keeping it. One whose texts changed is a newer item and is left as it is.
+  /// When the shade held nothing under the id, the notification under the tag the id was last posted with is posted
+  /// saying [told], silently, if [told] is given. Done once: a second call does nothing.
+  Future<void> seal(Translations translations, {String? payload, RepliedNoticeTold? told}) async {
+    if (_sealing) {
+      return;
+    }
+    _sealing = true;
+    try {
+      final now = await _read(_plugin, id);
+      final held = _held ?? now;
+      for (final notice in held) {
+        final current = now.where((e) => e.tag == notice.tag).firstOrNull;
+        if (current != null && !_sameTexts(current, notice)) {
+          continue;
+        }
+        // Android 7 has no channels and tells none: any will do there.
+        final category = notice.channelId == null
+            ? NoticeCategory.reply
+            : NoticeCategory.values.where((e) => e.channelId == notice.channelId).firstOrNull;
+        if (category == null) {
+          // Not a channel of the auto sync: nothing to post it in, taken back as it is.
+          await _plugin.cancel(id: id, tag: notice.tag);
+          continue;
+        }
+        await _post(translations, notice, category, payload: payload, shown: current != null);
+      }
+      if (held.isEmpty && told != null) {
+        final tag = await _lastTag?.call();
+        if (tag != null && now.every((e) => e.tag != tag)) {
+          await _post(
+            translations,
+            (tag: tag, channelId: told.category.channelId, title: told.title, body: told.body, bigText: null),
+            told.category,
+            payload: payload,
+            shown: false,
+          );
+        }
+      }
+    } on Object catch (e) {
+      talker.warning('direct reply: closing the notification failed: $e');
+    } finally {
+      _sealedAt = DateTime.now();
+    }
+  }
+
+  Future<void> _post(
+    Translations translations,
+    _HeldNotice notice,
+    NoticeCategory category, {
+    required String? payload,
+    required bool shown,
+  }) async {
+    final body = notice.body;
+    await _plugin.show(
+      id: id,
+      title: notice.title,
+      body: body,
+      payload: payload,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          category.channelId,
+          noticeChannelName(translations, category),
+          channelDescription: translations.localNotification.channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          visibility: NotificationVisibility.private,
+          onlyAlertOnce: true,
+          // Posted anew when the app had taken it back: never announced a second time.
+          silent: !shown,
+          styleInformation: body == null
+              ? null
+              : BigTextStyleInformation(notice.bigText ?? body, contentTitle: notice.title),
+          tag: notice.tag,
+        ),
+      ),
+    );
+    _sealed.add(notice);
+  }
+
+  /// Take back what [seal] posted, once it was shown for [shownFor]; a newer item posted under the same id and tag
+  /// meanwhile stays.
+  Future<void> remove({Duration shownFor = directReplySealedFor}) async {
+    final sealedAt = _sealedAt;
+    if (sealedAt == null || _sealed.isEmpty) {
+      return;
+    }
+    final left = shownFor - DateTime.now().difference(sealedAt);
+    if (left > Duration.zero) {
+      await Future<void>.delayed(left);
+    }
+    try {
+      final now = await _read(_plugin, id);
+      for (final sealed in _sealed) {
+        final current = now.where((e) => e.tag == sealed.tag).firstOrNull;
+        if (current != null && _sameTexts(current, sealed)) {
+          await _plugin.cancel(id: id, tag: sealed.tag);
+        }
+      }
+    } on Object catch (e) {
+      talker.warning('direct reply: taking back the notification failed: $e');
+    } finally {
+      _sealed.clear();
+    }
+  }
 }
 
 /// The reply link of floor [pid] of thread [tid]: the reply window quoting the floor, as the floor's own reply link
@@ -540,6 +748,20 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
   };
 }
 
+/// What the notification [request] was typed in says when it is closed without its texts being known
+/// ([RepliedNotice.seal]): the title and the body of [outcome], in the channel of its notification.
+RepliedNoticeTold repliedNoticeToldOf(
+  Translations translations,
+  DirectReplyRequest request,
+  DirectReplyOutcome outcome,
+) {
+  final content = directReplyOutcomeContentOf(translations, request, outcome);
+  return (title: content.title, body: content.body, category: _outcomeCategoryOf(request));
+}
+
+NoticeCategory _outcomeCategoryOf(DirectReplyRequest request) =>
+    request.toConversation ? NoticeCategory.pm : NoticeCategory.reply;
+
 /// How long the notification telling a reply was sent stays.
 const directReplySentShownFor = Duration(seconds: 4);
 
@@ -552,7 +774,7 @@ Future<void> showDirectReplyOutcome({
   required DirectReplyOutcome outcome,
 }) async {
   final content = directReplyOutcomeContentOf(translations, request, outcome);
-  final category = request.toConversation ? NoticeCategory.pm : NoticeCategory.reply;
+  final category = _outcomeCategoryOf(request);
   await plugin.show(
     id: content.id,
     title: content.title,

@@ -448,7 +448,7 @@ Future<void> showLocalNotificationWith({
     if (key != null &&
         store != null &&
         shown != null &&
-        await DirectReplyPins(store).claim(directReplyNoticeIdOf(key), key, shown: shown)) {
+        await DirectReplyPins(store).claim(directReplyNoticeIdOf(key), key, slot: slot, shown: shown)) {
       id = directReplyNoticeIdOf(key);
       tag = directReplyTag(slot, key);
     } else {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -54,7 +53,7 @@ final class _DirectReplyRuntime {
 Future<_DirectReplyRuntime>? _runtime;
 
 /// The log of this isolate, set up once: `talker` can be given only once.
-Future<IOSink>? _logSink;
+Future<BackgroundLogSink>? _logSink;
 
 /// The end of the queue: one reply at a time.
 Future<void> _queue = Future<void>.value();
@@ -69,11 +68,11 @@ const _sameReplyWindow = Duration(seconds: 30);
 ///
 /// The text is sent as the account the notification is about, with that account's cookie
 /// ([BackgroundIsolateBase.clientOf]), whichever account the app has in use; the outcome is a notification of its own
-/// ([showDirectReplyOutcome]). Replies are sent one at a time, each once.
+/// ([showDirectReplyOutcome]). Replies are sent one at a time, each once. Whatever becomes of the text, the
+/// notification it was typed in is closed and taken out of the shade ([RepliedNotice]).
 @pragma('vm:entry-point')
 Future<void> onNotificationActionInBackground(NotificationResponse response) async {
-  final request = DirectReplyRequest.of(response);
-  if (request == null) {
+  if (response.actionId != directReplyActionId) {
     return;
   }
   final previous = _queue;
@@ -81,22 +80,25 @@ Future<void> onNotificationActionInBackground(NotificationResponse response) asy
   _queue = done.future;
   try {
     await previous;
-    await _handle(request);
+    await _handle(response);
   } finally {
     done.complete();
   }
 }
 
-Future<void> _handle(DirectReplyRequest request) async {
+Future<void> _handle(NotificationResponse response) async {
   DartPluginRegistrant.ensureInitialized();
-  final IOSink logSink;
+  // Null for a response that is no reply to send (no text, a target that does not match): only its notification is
+  // closed.
+  final request = DirectReplyRequest.of(response);
+  final BackgroundLogSink logSink;
   try {
     logSink = await (_logSink ??= initBackgroundLogger());
   } on Object catch (e) {
     // Set up as the last step: tried again with the next reply.
     _logSink = null;
     debugPrint('direct reply: no log: $e');
-    await _showUnsent(request);
+    await _showUnsent(response, request);
     return;
   }
   final _DirectReplyRuntime runtime;
@@ -105,7 +107,7 @@ Future<void> _handle(DirectReplyRequest request) async {
   } on Object catch (e, st) {
     _runtime = null;
     talker.handle(e, st, 'direct reply: failed to start');
-    await _showUnsent(request);
+    await _showUnsent(response, request);
     try {
       // What was registered before the failure, so the next reply starts over.
       await getIt.reset();
@@ -115,11 +117,25 @@ Future<void> _handle(DirectReplyRequest request) async {
     await logSink.flush();
     return;
   }
+  // As the shade holds it now, before anything is sent: what is posted under its id later is a newer item.
+  final replied = await RepliedNotice.of(
+    runtime.plugin,
+    response.id,
+    lastTag: () => DirectReplyPins(runtime.base.storage).tagOf(response.id!),
+  );
+  if (request == null) {
+    await replied?.seal(t);
+    await replied?.remove();
+    await logSink.flush();
+    return;
+  }
   final key = '${request.uid}:${request.target.toQuery()}:${request.message.hashCode}';
   final now = DateTime.now();
   _recent.removeWhere((_, at) => now.difference(at) > _sameReplyWindow);
   if (_recent.containsKey(key)) {
     talker.info('direct reply: the same text was just sent, dropped');
+    await replied?.seal(t, payload: request.payload);
+    await replied?.remove();
     await logSink.flush();
     return;
   }
@@ -166,6 +182,8 @@ Future<void> _handle(DirectReplyRequest request) async {
       _recent.remove(key);
     }
     talker.info('direct reply: ${outcome.runtimeType}');
+    // The input of the notification stops "sending" as the outcome appears.
+    await replied?.seal(t, payload: request.payload, told: repliedNoticeToldOf(t, request, outcome));
     try {
       await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
     } on Object catch (e) {
@@ -175,13 +193,17 @@ Future<void> _handle(DirectReplyRequest request) async {
   } on Object catch (e, st) {
     talker.handle(e, st, 'direct reply: failed');
   } finally {
+    // Sealed here when nothing above got to it; a no-op otherwise.
+    await replied?.seal(t, payload: request.payload);
+    await replied?.remove();
     await logSink.flush();
   }
 }
 
-/// The notification telling [request] was not sent, when nothing of the isolate could be set up: the notification it
-/// came from is gone, the text must not be. In the default language: the settings could not be read.
-Future<void> _showUnsent(DirectReplyRequest request) async {
+/// The notification telling [request] (of [response], null when it is no reply to send) was not sent, when nothing
+/// of the isolate could be set up: the notification it came from is taken out of the shade, the text must not be
+/// lost. In the default language: the settings could not be read.
+Future<void> _showUnsent(NotificationResponse response, DirectReplyRequest? request) async {
   try {
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(
@@ -190,12 +212,23 @@ Future<void> _showUnsent(DirectReplyRequest request) async {
       ),
       onDidReceiveBackgroundNotificationResponse: onNotificationActionInBackground,
     );
-    await showDirectReplyOutcome(
-      plugin: plugin,
-      translations: t,
-      request: request,
-      outcome: DirectReplyNotSent(t.localNotification.directReply.error),
-    );
+    RepliedNotice? replied;
+    try {
+      replied = await RepliedNotice.of(plugin, response.id);
+      await replied?.seal(t, payload: request?.payload);
+    } on Object catch (e) {
+      // The log of this isolate may be what failed: telling the text was not sent comes first.
+      debugPrint('direct reply: closing the notification failed: $e');
+    }
+    if (request != null) {
+      await showDirectReplyOutcome(
+        plugin: plugin,
+        translations: t,
+        request: request,
+        outcome: DirectReplyNotSent(t.localNotification.directReply.error),
+      );
+    }
+    await replied?.remove();
   } on Object catch (e) {
     debugPrint('direct reply: telling it was not sent failed: $e');
   }

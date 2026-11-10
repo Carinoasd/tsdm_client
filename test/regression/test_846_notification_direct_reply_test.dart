@@ -334,7 +334,11 @@ void main() {
         expect(action.title, tr.localNotification.directReply.action);
         expect(action.inputs, hasLength(1));
         expect(action.showsUserInterface, isFalse, reason: "handled in the plugin's isolate, the app is not opened");
-        expect(action.cancelNotification, isTrue, reason: 'the outcome is a notification of its own');
+        expect(
+          action.cancelNotification,
+          isFalse,
+          reason: 'taken out of the shade by the isolate once the reply is dealt with (test_872)',
+        );
         expect(await actionsOf(info: _pm()), hasLength(1));
 
         expect(await actionsOf(directReply: false), isNull, reason: 'the setting off or the app locked');

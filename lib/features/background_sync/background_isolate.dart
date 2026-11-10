@@ -96,11 +96,71 @@ final class BackgroundIsolateBase {
   Future<void> dispose() => db.close();
 }
 
+/// The log file of an isolate without a page: lines are written and flushed from several places at once (the ticks
+/// of the background message service overlap, a reply typed in a notification logs while another one is flushed).
+///
+/// An [IOSink] takes neither a write nor a second flush while a flush is running (`Bad state: StreamSink is bound to
+/// a stream`): here the flushes run one after another, and what is written during one is held back and written, in
+/// order, as soon as it is done.
+final class BackgroundLogSink {
+  /// Constructor.
+  BackgroundLogSink(this._sink);
+
+  final IOSink _sink;
+
+  /// Written while a flush was running.
+  final _held = StringBuffer();
+
+  var _flushing = false;
+
+  /// The flush running now.
+  Future<void>? _running;
+
+  /// The one flush waiting for [_running]: every caller arriving meanwhile shares it.
+  Future<void>? _queued;
+
+  /// Append [text].
+  void write(String text) {
+    if (_flushing) {
+      _held.write(text);
+    } else {
+      _sink.write(text);
+    }
+  }
+
+  /// Done when everything written before this call is handed to the file.
+  Future<void> flush() {
+    final running = _running;
+    if (!_flushing || running == null) {
+      return _running = _flushOnce();
+    }
+    // What was written since the running flush began is only written when it ends: one more flush after it.
+    return _queued ??= running.then<void>((_) {}, onError: (Object _) {}).then((_) {
+      _queued = null;
+      return flush();
+    });
+  }
+
+  Future<void> _flushOnce() async {
+    _flushing = true;
+    try {
+      await _sink.flush();
+    } finally {
+      _flushing = false;
+      if (_held.isNotEmpty) {
+        final text = _held.toString();
+        _held.clear();
+        _sink.write(text);
+      }
+    }
+  }
+}
+
 /// Log lines of an isolate without a page go to their own file in the log directory, exported with the app's logs.
 final class _BackgroundLogObserver implements TalkerObserver {
   _BackgroundLogObserver(this._sink);
 
-  final IOSink _sink;
+  final BackgroundLogSink _sink;
 
   void _write(TalkerData data) => _sink.write('${redactSensitive(data.generateTextMessage())}\n');
 
@@ -116,14 +176,16 @@ final class _BackgroundLogObserver implements TalkerObserver {
 
 /// Send the log lines of this isolate to the day's log file of the background isolates (`tsdm_client_bg_<day>.log`),
 /// and return its sink for the caller to flush.
-Future<IOSink> initBackgroundLogger() async {
+Future<BackgroundLogSink> initBackgroundLogger() async {
   final logDir = await getLogDir();
   if (!logDir.existsSync()) {
     await logDir.create(recursive: true);
   }
   final now = DateTime.now();
   final day = '${now.year}${"${now.month}".padLeft(2, "0")}${"${now.day}".padLeft(2, "0")}';
-  final sink = File('${logDir.path}${Platform.pathSeparator}tsdm_client_bg_$day.log').openWrite(mode: FileMode.append);
+  final sink = BackgroundLogSink(
+    File('${logDir.path}${Platform.pathSeparator}tsdm_client_bg_$day.log').openWrite(mode: FileMode.append),
+  );
   talker = RedactingTalker(
     logger: TalkerLogger(output: debugPrint),
     settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
