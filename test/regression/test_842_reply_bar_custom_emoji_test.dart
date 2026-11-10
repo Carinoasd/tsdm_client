@@ -253,6 +253,41 @@ void main() {
     });
   });
 
+  testWidgets('B. the group shown stays when the packs come in', (tester) async {
+    final store = (await tester.runAsync(registerStore))!;
+    final send = ValueNotifier<CustomEmojiSender?>(null);
+    addTearDown(send.dispose);
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<CustomEmojiSender?>(
+              valueListenable: send,
+              builder: (context, value, _) => EmojiPanel(
+                onPicked: (_) {},
+                sendCustomEmoji: value,
+                groups: const [
+                  EmojiGroup(name: 'G1', id: '1', routeName: 'g1', emojiList: []),
+                  EmojiGroup(name: 'G2', id: '2', routeName: 'g2', emojiList: []),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('G2'));
+    await tester.pumpAndSettle();
+    TabController controller() => tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    expect(controller().index, 3);
+
+    send.value = (_) async => null;
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('emoji-panel-pack-${store.packs.value.single.id}')), findsOneWidget);
+    expect(controller().index, 4, reason: 'still G2, one tab further');
+  });
+
   group('C. the reply bar', () {
     Future<(ReplyBarController, ReplyBloc)> pumpBar(WidgetTester tester) async {
       final controller = ReplyBarController();
@@ -358,6 +393,35 @@ void main() {
       await settle(tester);
       expect(bloc.state.status, ReplyStatus.success);
       expect(forum.replies.single.keys.where((e) => e.startsWith('attachnew')), ['attachnew[1603][description]']);
+    });
+
+    testWidgets('a reply stored after its editor closed binds nothing of it again', (tester) async {
+      final store = (await tester.runAsync(registerStore))!;
+      registerForum(_Forum());
+      final (controller, bloc) = await pumpBar(tester);
+      controller.setHintText('');
+      await settle(tester);
+      await openPanelAndTap(tester, store);
+      expect(forum.uploads, hasLength(1));
+
+      // Sent, and the editor closed before the forum answered.
+      await tester.tap(find.byKey(const ValueKey('reply-bar-send')));
+      await tester.pump();
+      controller.closeEditor();
+      await settle(tester);
+      expect(bloc.state.status, ReplyStatus.success);
+      expect(forum.replies.single.keys.where((e) => e.startsWith('attachnew')), ['attachnew[1700][description]']);
+
+      // The same emoji in the next reply: a new upload, never the attachment of the reply stored.
+      controller.setHintText('');
+      await settle(tester);
+      await openPanelAndTap(tester, store);
+      expect(forum.uploads, hasLength(2));
+      await tester.tap(find.byKey(const ValueKey('reply-bar-send')));
+      await settle(tester);
+      expect(forum.replies, hasLength(2));
+      expect(forum.replies.last.keys.where((e) => e.startsWith('attachnew')), ['attachnew[1701][description]']);
+      expect(forum.replies.last['message'], isNot(contains('[attachimg]1700[/attachimg]')));
     });
 
     for (final keptUnused in [true, false]) {

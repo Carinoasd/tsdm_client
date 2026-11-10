@@ -11,8 +11,8 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-final class _Log with LoggerMixin {
-  const _Log();
+final class _CustomEmojiSend with LoggerMixin {
+  const _CustomEmojiSend();
 }
 
 /// Put the custom emoji [emoji] into the post being written as an attachment ([CustomEmojiSender]), as the post
@@ -64,7 +64,7 @@ Future<String?> sendCustomEmojiAttachment(
   final result = await repo.uploadImage(upload, file.path).run();
   return result.match(
     (e) {
-      const _Log().handle(e);
+      const _CustomEmojiSend().handle(e);
       if (context.mounted) {
         showSnackBar(
           context: context,

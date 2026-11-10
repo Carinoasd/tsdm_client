@@ -115,8 +115,14 @@ final class _CustomEmojiReply {
   /// The reply page was read (or is being read) since the editor opened.
   bool asked = false;
 
-  /// The reply page could not be read: asked again after this time.
+  /// The reply page could not be read: asked again after this time, at most [maxTries] times for an editor.
   DateTime? failedAt;
+
+  /// Times the reply page was asked for the editor open now.
+  int tries = 0;
+
+  /// See [tries].
+  static const maxTries = 3;
 
   /// The upload the reply page offers, null when it offers none (or was not read).
   AttachmentUpload? upload;
@@ -129,6 +135,15 @@ final class _CustomEmojiReply {
 
   /// The attachments to bind to the reply.
   final attachNew = <int>[];
+
+  /// The reply page was read again: what this reply holds that the forum no longer keeps unused (bound elsewhere
+  /// meanwhile) is forgotten, never bound again. A new upload not bound yet is always among the unused ones.
+  void reread(AttachmentUpload? upload, Set<int> unused) {
+    this.upload = upload;
+    this.unused = {...unused};
+    attachNew.removeWhere((aid) => !unused.contains(aid));
+    inPost.removeWhere((_, aid) => !unused.contains(aid));
+  }
 
   /// The reply with [sent] was stored: they are bound to it and are no one's to reuse.
   void stored(Iterable<int> sent) {
@@ -484,6 +499,8 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
         // Clear the outer controller text.
         if (state.status == ReplyStatus.success) {
           controller.clear();
+          // Here, not in the editor: the editor may be closed before the forum stored the reply.
+          widget.controller._customEmojiStored();
           widget.controller
             .._hintText = null
             .._replyAction = null
@@ -692,9 +709,6 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
 
   /// The attachments of the reply are looked at before it is sent ([_attachNewOf]).
   bool _preparingSend = false;
-
-  /// The attachments the reply sent now binds, kept until the forum stored it.
-  List<int> _sentAttachNew = const [];
 
   /// Ticks while the forum still refuses the next post ([ReplyState.retryAt]).
   Timer? _countdown;
@@ -1140,9 +1154,10 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     }
   }
 
-  /// The custom emojis of the reply written now: of the account replying, to this thread; null in the chat pages, for
-  /// a guest and before the thread loaded.
-  _CustomEmojiReply? get _customEmojiReply {
+  /// The custom emojis of the reply written now: of the account replying, to this thread, made the first time they are
+  /// asked for (another account or thread starts anew); null in the chat pages, for a guest and before the thread
+  /// loaded.
+  _CustomEmojiReply? _customEmojiReplyOf() {
     if (widget.replyType != ReplyTypes.thread && widget.replyType != ReplyTypes.notice) {
       return null;
     }
@@ -1172,15 +1187,22 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         : '$homePage?mod=post&action=reply&fid=${parameters.fid}&tid=${parameters.tid}&extra=';
   }
 
-  /// The form of the reply page as the forum's app API serves it, null when it could not be read or is no such form.
-  Future<PostForm?> _replyPageForm() async {
+  /// The reply page as the forum answered it: a [PostEditFormApi] with the form of the forum's app API, another answer
+  /// (the web page, the forum's message), null when it could not be read.
+  Future<PostEditFormAnswer?> _replyPage() async {
     final url = _replyPageUrl;
     if (url == null) {
       return null;
     }
     final result = await _uploadRepository().fetchForm(url).run();
-    return result.match((_) => null, (answer) => answer is PostEditFormApi ? answer.form : null);
+    return result.match((_) => null, (answer) => answer);
   }
+
+  /// The form of the reply page as the forum's app API serves it, null when it could not be read or is no such form.
+  Future<PostForm?> _replyPageForm() async => switch (await _replyPage()) {
+    PostEditFormApi(:final form) => form,
+    _ => null,
+  };
 
   /// Read once while the editor is open what the reply page offers for the custom emojis, when there are any.
   void _askCustomEmojiUpload() {
@@ -1191,21 +1213,35 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     if (store == null || !store.packs.value.any((e) => e.emojis.isNotEmpty)) {
       return;
     }
-    final reply = _customEmojiReply;
+    final reply = _customEmojiReplyOf();
     final failed = reply?.failedAt;
     if (reply == null ||
         reply.asked ||
+        reply.tries >= _CustomEmojiReply.maxTries ||
         (failed != null && DateTime.now().difference(failed) < const Duration(seconds: 30))) {
       return;
     }
-    reply.asked = true;
+    reply
+      ..asked = true
+      ..tries += 1;
     unawaited(
-      _replyPageForm().then((form) {
-        reply
-          ..failedAt = form == null ? DateTime.now() : null
-          ..asked = form != null
-          ..upload = form?.attachmentUpload
-          ..unused = {...?form?.unusedAttachmentImages};
+      _replyPage().then((answer) {
+        switch (answer) {
+          case null:
+            // Not read (offline): asked again a little later.
+            reply
+              ..asked = false
+              ..failedAt = DateTime.now();
+          case PostEditFormApi(:final form):
+            reply
+              ..failedAt = null
+              ..reread(form.attachmentUpload, form.unusedAttachmentImages);
+          default:
+            // An answer without the form (the forum's message, no app API): no upload here, not asked again.
+            reply
+              ..failedAt = null
+              ..reread(null, const {});
+        }
         if (mounted) {
           setState(() {});
         }
@@ -1216,7 +1252,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   /// Puts a custom emoji into the reply ([sendCustomEmojiAttachment]); null when the reply cannot take one (the forum
   /// offers no image upload here, a chat page).
   CustomEmojiSender? get _customEmojiSender {
-    final reply = _customEmojiReply;
+    final reply = _customEmojiReplyOf();
     if (reply == null || !(reply.upload?.image ?? false)) {
       return null;
     }
@@ -1250,9 +1286,9 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   /// account's own uploads of custom emojis whose codes it holds otherwise (a draft restored) while the forum still
   /// keeps them unused. An attachment bound to another post never is: binding it again moves it out of that post.
   Future<List<int>> _attachNewOf(String message) async {
-    final reply = _customEmojiReply;
+    final reply = _customEmojiReplyOf();
     if (reply == null) {
-      _sentAttachNew = const [];
+      widget.controller._sentAttachNew = const [];
       return const [];
     }
     final aids = attachmentsInMessage(message, reply.attachNew);
@@ -1264,7 +1300,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       final unused = (await _replyPageForm())?.unusedAttachmentImages ?? const <int>{};
       aids.addAll(others.where(unused.contains));
     }
-    _sentAttachNew = aids;
+    widget.controller._sentAttachNew = aids;
     return aids;
   }
 
@@ -1808,7 +1844,9 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     });
     fullScreen = widget.fullScreen;
     // What the reply page offers is read again for this editor: the unused uploads change elsewhere.
-    widget.controller._customEmoji?.asked = false;
+    widget.controller._customEmoji
+      ?..asked = false
+      ..tries = 0;
     focusNode.requestFocus();
   }
 
@@ -1871,8 +1909,6 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       listener: (context, state) {
         // Clear text one time when user send request succeed.
         if (state.status == ReplyStatus.success && state.needClearText) {
-          widget.controller._customEmoji?.stored(_sentAttachNew);
-          _sentAttachNew = const [];
           _replyRichController.clearWithoutRequestingFocus();
           // Reset flag because we only want to clear the sent text.
           context.read<ReplyBloc>().add(ReplyResetClearTextStateTriggered());
@@ -2043,6 +2079,15 @@ final class ReplyBarController with LoggerMixin {
 
   /// The custom emojis of the reply, kept across editors until a reply is sent.
   _CustomEmojiReply? _customEmoji;
+
+  /// The attachments the reply sent now binds, kept until the forum stored it.
+  List<int> _sentAttachNew = const [];
+
+  /// The reply sent was stored: its attachments are bound to it ([_CustomEmojiReply.stored]).
+  void _customEmojiStored() {
+    _customEmoji?.stored(_sentAttachNew);
+    _sentAttachNew = const [];
+  }
 
   /// The side chosen for a debate reply, see [ReplyParameters.debate].
   int? get debateStand => _debateStand;

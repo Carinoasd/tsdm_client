@@ -82,6 +82,7 @@ class EmojiPanel extends StatefulWidget {
 class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
   TabController? _tabs;
   int _tabCount = 0;
+  int _firstGroup = 2;
 
   @override
   void dispose() {
@@ -97,16 +98,27 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
   }
 
   /// [count] tabs, the forum's groups from [firstGroup] on.
+  ///
+  /// Made again when the number of tabs changes (the custom emoji packs come once the reply knows it can take them, a
+  /// pack is added or emptied): the tab shown stays, a forum group by its place among the groups.
   TabController _controllerOf(int count, {required int firstGroup, required bool startWithRecent}) {
-    if (_tabs == null || _tabCount != count) {
-      _tabs?.dispose();
+    final old = _tabs;
+    if (old == null || _tabCount != count) {
+      final int initial;
+      if (old == null) {
+        // The recent ones first when there are any, else the first group of the forum.
+        initial = startWithRecent || count <= firstGroup ? 0 : firstGroup;
+      } else if (old.index < 2) {
+        initial = old.index;
+      } else if (old.index >= _firstGroup) {
+        initial = old.index - _firstGroup + firstGroup;
+      } else {
+        initial = old.index < firstGroup ? old.index : firstGroup - 1;
+      }
+      old?.dispose();
       _tabCount = count;
-      // The recent ones first when there are any, else the first group of the forum.
-      _tabs = TabController(
-        length: count,
-        vsync: this,
-        initialIndex: startWithRecent || count <= firstGroup ? 0 : firstGroup,
-      );
+      _firstGroup = firstGroup;
+      _tabs = TabController(length: count, vsync: this, initialIndex: count == 0 ? 0 : initial.clamp(0, count - 1));
     }
     return _tabs!;
   }
