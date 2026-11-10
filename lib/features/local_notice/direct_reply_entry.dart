@@ -105,9 +105,13 @@ Future<void> _handle(DirectReplyRequest request) async {
   } on Object catch (e, st) {
     _runtime = null;
     talker.handle(e, st, 'direct reply: failed to start');
-    // What was registered before the failure, so the next reply starts over.
-    await getIt.reset();
     await _showUnsent(request);
+    try {
+      // What was registered before the failure, so the next reply starts over.
+      await getIt.reset();
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'direct reply: clearing the failed start failed');
+    }
     await logSink.flush();
     return;
   }
@@ -130,9 +134,9 @@ Future<void> _handle(DirectReplyRequest request) async {
     try {
       try {
         await runtime.base.applyLocale((await readBackgroundSyncSettings(storage)).locale);
-      } on Object catch (e) {
+      } on Object catch (e, st) {
         // The texts of the notification only: sent all the same, in the language already loaded.
-        talker.warning('direct reply: language not read: $e');
+        talker.handle(e, st, 'direct reply: language not read');
       }
       // The proxy the user asked for: without it the reply would go out by a direct connection.
       await runtime.base.refreshNetwork();
