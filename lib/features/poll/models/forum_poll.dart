@@ -62,6 +62,7 @@ final class ForumPoll {
     this.action,
     this.formHash,
     this.votersUrl,
+    this.summaryInAppWords = false,
   });
 
   /// Current permission/state.
@@ -91,6 +92,10 @@ final class ForumPoll {
   /// The forum's page of the voters (plugin 2.8.0, `voters_url`), when the forum links it for the account; opened in
   /// the browser.
   final String? votersUrl;
+
+  /// Whether [summary] and [deadline] are the app's words ([forumPollFromSpecial]), not the forum's text: shown as
+  /// they are, never converted for the Chinese display.
+  final bool summaryInAppWords;
 
   /// Whether [ids] is a valid selection for this exact form.
   bool accepts(Set<String> ids) =>
@@ -260,5 +265,6 @@ ForumPoll forumPollFromSpecial(PollSpecial special, {required bool loggedIn}) {
     action: valid ? action : null,
     formHash: special.formHash.isEmpty ? null : special.formHash,
     votersUrl: special.canViewVoters ? special.votersUrl : null,
+    summaryInAppWords: true,
   );
 }

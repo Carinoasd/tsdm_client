@@ -338,12 +338,14 @@ class _PollCardState extends State<PollCard> {
       final canVote = !offline && poll?.availability == PollAvailability.available;
       final colorScheme = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
+      // The forum's summary and deadline are shown in the chosen script; those of the app's API are its own words.
+      String forumText(String text) => (poll?.summaryInAppWords ?? false) ? text : context.displayText(text);
       // Header: title, deadline under it, a spinner while busy. Status lines are banners, choices in the middle,
       // actions at the bottom.
       return AppEmbedCard(
         icon: Icons.poll_outlined,
         title: context.t.pollCard.title,
-        subtitle: (poll?.deadline.isNotEmpty ?? false) ? context.displayText(poll!.deadline) : null,
+        subtitle: (poll?.deadline.isNotEmpty ?? false) ? forumText(poll!.deadline) : null,
         trailing: state.busy ? const SizedBox(width: 20, height: 20, child: CircularIndicator()) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -364,7 +366,7 @@ class _PollCardState extends State<PollCard> {
                 child: AppNoticeBanner(tone: AppNoticeTone.error, message: context.t.general.failedToLoad),
               ),
             if (poll != null) ...[
-              if (poll.summary.isNotEmpty) Text(context.displayText(poll.summary), style: textTheme.bodyMedium),
+              if (poll.summary.isNotEmpty) Text(forumText(poll.summary), style: textTheme.bodyMedium),
               if (canVote)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

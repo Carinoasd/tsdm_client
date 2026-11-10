@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' hide State;
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/widgets/netdisk_row.dart';
@@ -154,6 +155,9 @@ void main() {
       ..registerSingleton<CookieProvider>(CookieProvider.buildEmpty())
       ..registerFactory<CookieProvider>(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
       ..registerSingleton<NetErrorSaver>(NetErrorSaver())
+      ..registerFactory<NetClientProvider>(
+        () => NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter()),
+      )
       ..registerSingleton<ImageCacheProvider>(
         ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter())),
       );
@@ -286,6 +290,33 @@ void main() {
     expect(find.text('1. 软件开发'), findsOneWidget);
     expect(_shown('多选投票'), findsOneWidget);
     expect(_shown('距结束还有'), findsOneWidget);
+  });
+
+  testWidgets("the poll of the app's API: the options converted, its summary and deadline in the app's words", (
+    tester,
+  ) async {
+    final poll = _special<PollSpecial>('poll_single_before', (s) {
+      s['expiration'] = 1792716600;
+      ((s['choices'] as List).first as Map<String, dynamic>)
+        ..['text'] = '软件开发'
+        ..['html'] = '软件开发';
+    });
+    // The card the thread page builds for it, for the account the page was served to.
+    final auth = AuthenticationRepository(
+      user: UserLoginInfo(username: 'viewer', uid: poll.viewerUid),
+    );
+    addTearDown(auth.dispose);
+    final card = RepositoryProvider<AuthenticationRepository>.value(
+      value: auth,
+      child: SpecialThreadCard(poll, pid: '1'),
+    );
+    await pump(tester, ChineseDisplayMode.traditional, card);
+    expect(find.text('1. 軟件開發'), findsOneWidget);
+    // Built by the app from its translations (Simplified here): not rewritten.
+    expect(_shown(t.specialThread.poll.single), findsOneWidget);
+    expect(t.specialThread.poll.single, '单选投票');
+    expect(_shown('投票截止：'), findsOneWidget);
+    await finish(tester);
   });
 
   testWidgets('the thread card of a list: title, thread type and excerpt; rebuilt when the mode changes', (
