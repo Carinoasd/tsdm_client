@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:go_router/go_router.dart';
@@ -117,12 +118,24 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
       return;
     }
     setState(() => _sending = false);
+    final name = _newName.text.trim();
     if (await reportCollectionOutcome(context, outcome)) {
       collectionChanges.value++;
       _newName.clear();
     }
     // The window of the forum lists the new collection: read it again, never create it twice.
     await _load(pick: createdCtid(outcome));
+    // No verdict (the answer was lost): the forum may have created it all the same. Its window tells: the one of that
+    // name is picked, and the name is not offered to be created again.
+    if (mounted && outcome is CollectionUnknown) {
+      final created = _form?.choices.where((e) => e.name == name).lastOrNull;
+      if (created != null) {
+        setState(() {
+          _picked.add(created.ctid);
+          _newName.clear();
+        });
+      }
+    }
   }
 
   Future<void> _collect(CollectThreadForm form) async {

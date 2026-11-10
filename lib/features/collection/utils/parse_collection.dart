@@ -256,7 +256,6 @@ CollectionCommentPage parseCollectionComments(uh.Document document) {
       ),
     );
   }
-  final form = document.querySelector('#ct form[action*="action=comment"] textarea[name="message"]')?.parent;
   final commentForm = document
       .querySelectorAll('#ct form[action*="action=comment"]')
       .where((f) => f.querySelector('textarea[name="message"]') != null)
@@ -268,7 +267,7 @@ CollectionCommentPage parseCollectionComments(uh.Document document) {
     comments: comments,
     currentPage: document.currentPage() ?? 1,
     totalPages: document.totalPages() ?? 1,
-    canComment: form != null,
+    canComment: commentForm != null,
     myRate: commentForm == null || mayRate
         ? null
         : _int(_starRe.firstMatch(commentForm.querySelector('span.star')?.className ?? '')?.group(1)),

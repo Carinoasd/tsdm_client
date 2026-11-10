@@ -187,6 +187,8 @@ final class CollectionRepository {
     }
     final Either<AppException, Object?> answer;
     try {
+      // A read, asked as the writes are (the result parameter, once): the plugin then answers the window as its result
+      // (`kind: page`, or the refusal, or the login redirect `login: 1`), which tells the refusals apart.
       answer = await _get('$_base&action=edit&op=addthread&tid=$tid&inajax=1', write: true);
     } on IdentityChangedException {
       return left(const CollectionAccountChanged());
@@ -194,7 +196,8 @@ final class CollectionRepository {
     switch (answer) {
       case Left(value: IdentityChangedException()):
         return left(const CollectionAccountChanged());
-      case Left():
+      case Left(:final value):
+        talker.warning('collection window failed: tid $tid: $value');
         return left(const CollectionUnknown());
       case Right(:final value):
         final form = parseCollectThreadForm(collectionDialogHtml(value), tid: tid, viewerUid: uid);

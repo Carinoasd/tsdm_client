@@ -2689,11 +2689,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
                           ),
                         // The forum's 淘帖: put the thread in collections of the account.
-                        if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                        if (int.tryParse(state.tid!) case final tid?
+                            when tid > 0 &&
+                                !state.isOffline &&
+                                context.read<AuthenticationRepository>().effectiveCurrentUid != null)
                           MenuCustomItem(
                             icon: Icons.collections_bookmark_outlined,
                             description: context.t.collection.collect,
-                            onSelected: () async => showCollectThreadSheet(context, tid: int.tryParse(state.tid!) ?? 0),
+                            onSelected: () async => showCollectThreadSheet(context, tid: tid),
                           ),
                         MenuCustomItem(
                           icon: Icons.qr_code_2_outlined,

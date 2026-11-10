@@ -40,6 +40,15 @@ class _CollectionListPageState extends State<CollectionListPage> {
   };
   CollectionOrder _order = CollectionOrder.dateline;
 
+  /// Notified when a tab loaded a page.
+  final _loaded = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _loaded.dispose();
+    super.dispose();
+  }
+
   List<CollectionListTab> _tabs(bool loggedIn) =>
       loggedIn ? CollectionListTab.values : const [CollectionListTab.recommended, CollectionListTab.all];
 
@@ -63,12 +72,11 @@ class _CollectionListPageState extends State<CollectionListPage> {
     };
   }
 
-  Future<void> _create(BuildContext context) async {
-    // The form hash of the session is on every page of the list: the first tab's will do.
-    final page = _tabKeys.values.map((k) => k.currentState?._pager.first).nonNulls.firstOrNull;
-    if (page == null) {
-      return;
-    }
+  /// A page of the list loaded for the account: the form hash of the session and whether the forum offers to create
+  /// a collection are on every page; null before one loaded.
+  CollectionListResult? _loadedPage() => _tabKeys.values.map((k) => k.currentState?._pager.first).nonNulls.firstOrNull;
+
+  Future<void> _create(BuildContext context, CollectionListResult page) async {
     final fields = await showCollectionEditDialog(context);
     if (fields == null || !context.mounted) {
       return;
@@ -97,7 +105,8 @@ class _CollectionListPageState extends State<CollectionListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final loggedIn = context.readOrNull<AuthenticationRepository>()?.currentUser != null;
+    // The account the thread page offers its "淘帖" to as well.
+    final loggedIn = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid != null;
     final tabs = _tabs(loggedIn);
     final initial = tabs.indexOf(widget.initialTab ?? CollectionListTab.recommended);
     return DefaultTabController(
@@ -132,12 +141,19 @@ class _CollectionListPageState extends State<CollectionListPage> {
                           ],
                         ),
                 ),
+                // Offered as the forum's page offers it, once a page of the list loaded.
                 if (loggedIn)
-                  IconButton(
-                    key: const ValueKey('collection-create'),
-                    icon: const Icon(Icons.add),
-                    tooltip: context.t.collection.create,
-                    onPressed: () async => _create(context),
+                  ListenableBuilder(
+                    listenable: _loaded,
+                    builder: (context, _) => switch (_loadedPage()) {
+                      final page? when page.canCreate && (page.viewerUid ?? 0) > 0 => IconButton(
+                        key: const ValueKey('collection-create'),
+                        icon: const Icon(Icons.add),
+                        tooltip: context.t.collection.create,
+                        onPressed: () async => _create(context, page),
+                      ),
+                      _ => sizedBoxEmpty,
+                    },
                   ),
               ],
               bottom: TabBar(tabs: [for (final tab in tabs) Tab(text: _tabName(context, tab))]),
@@ -152,6 +168,7 @@ class _CollectionListPageState extends State<CollectionListPage> {
                       tab: tab,
                       repository: _repository,
                       order: () => _order,
+                      onLoaded: () => _loaded.value++,
                     ),
                 ],
               ),
@@ -164,11 +181,18 @@ class _CollectionListPageState extends State<CollectionListPage> {
 }
 
 class _CollectionTab extends StatefulWidget {
-  const _CollectionTab({required this.tab, required this.repository, required this.order, super.key});
+  const _CollectionTab({
+    required this.tab,
+    required this.repository,
+    required this.order,
+    required this.onLoaded,
+    super.key,
+  });
 
   final CollectionListTab tab;
   final CollectionRepository repository;
   final CollectionOrder Function() order;
+  final VoidCallback onLoaded;
 
   @override
   State<_CollectionTab> createState() => _CollectionTabState();
@@ -188,7 +212,7 @@ class _CollectionTabState extends State<_CollectionTab> with AutomaticKeepAliveC
   void initState() {
     super.initState();
     collectionChanges.addListener(_onChanged);
-    unawaited(_pager.refresh());
+    unawaited(_pager.refresh().then((_) => widget.onLoaded()));
   }
 
   /// A collection was changed in the app: this list may show it otherwise now.

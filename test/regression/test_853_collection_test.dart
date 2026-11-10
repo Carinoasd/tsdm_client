@@ -12,6 +12,7 @@
 ///   without the plugin; `dialog.*` the forum's "淘帖" window; `stale_formhash.html` the forum's System Error page.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -29,6 +30,7 @@ import 'package:tsdm_client/features/collection/utils/collection_answer.dart';
 import 'package:tsdm_client/features/collection/utils/parse_collection.dart';
 import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
 import 'package:tsdm_client/features/collection/widgets/collect_thread_sheet.dart';
+import 'package:tsdm_client/features/collection/widgets/collection_pager.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -372,6 +374,50 @@ void main() {
       await forum.repository(uid: 31).comment(rated, message: 'm', rate: 5);
       expect(forum.sent.last.body?['ratescore'], '');
       expect(forum.sent.last.body?['message'], 'm');
+    });
+  });
+
+  group('pager', () {
+    /// A pager whose loads are answered by hand: page N of a load is its items `'<tag>:N'`, two pages.
+    (CollectionPager<List<String>, String>, List<(int, Completer<List<String>>)>) pager() {
+      final asked = <(int, Completer<List<String>>)>[];
+      final p = CollectionPager<List<String>, String>(
+        fetch: (page) => AsyncEither(() async {
+          final c = Completer<List<String>>();
+          asked.add((page, c));
+          return right(await c.future);
+        }),
+        itemsOf: (page) => page,
+        pagesOf: (_) => 2,
+      );
+      return (p, asked);
+    }
+
+    test('a refresh overtaken by another: the older answer is dropped', () async {
+      final (p, asked) = pager();
+      final first = p.refresh();
+      final second = p.refresh();
+      asked[1].$2.complete(['new:1']);
+      await second;
+      asked[0].$2.complete(['old:1']);
+      await first;
+      expect(p.items, ['new:1']);
+      expect(p.loading, isFalse);
+    });
+
+    test('a next page asked before a refresh is not added to the list the refresh loaded', () async {
+      final (p, asked) = pager();
+      final load = p.refresh();
+      asked[0].$2.complete(['a:1']);
+      await load;
+      final more = p.loadMore();
+      final again = p.refresh();
+      asked[2].$2.complete(['b:1']);
+      await again;
+      asked[1].$2.complete(['a:2']);
+      await more;
+      expect(p.items, ['b:1']);
+      expect((p.loadedPages, p.loadingMore, p.hasMore), (1, false, true));
     });
   });
 

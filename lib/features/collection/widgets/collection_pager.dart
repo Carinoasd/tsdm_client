@@ -44,6 +44,10 @@ final class CollectionPager<P, I> extends ChangeNotifier {
 
   bool _disposed = false;
 
+  /// Counts the loads of the first page: an answer of an older load (a page of the order picked before, a next page
+  /// asked before a refresh) is dropped.
+  int _generation = 0;
+
   /// Whether a next page exists.
   bool get hasMore => loadedPages < totalPages;
 
@@ -55,9 +59,15 @@ final class CollectionPager<P, I> extends ChangeNotifier {
 
   /// Load the first page again: the items loaded before stay until it came.
   Future<void> refresh() async {
+    final generation = ++_generation;
     loading = true;
+    // A next page asked before is of the list as it was: its answer is dropped.
+    loadingMore = false;
     _notify();
     final result = await fetch(1).run();
+    if (generation != _generation) {
+      return;
+    }
     loading = false;
     switch (result) {
       case Left(:final value):
@@ -80,10 +90,14 @@ final class CollectionPager<P, I> extends ChangeNotifier {
     if (loadingMore || loading || !hasMore) {
       return;
     }
+    final generation = _generation;
     loadingMore = true;
     moreFailed = false;
     _notify();
     final result = await fetch(loadedPages + 1).run();
+    if (generation != _generation) {
+      return;
+    }
     loadingMore = false;
     switch (result) {
       case Left(:final value):
