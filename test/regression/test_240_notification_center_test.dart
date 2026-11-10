@@ -187,7 +187,7 @@ final class _JsonAdapter implements HttpClientAdapter {
     body,
     200,
     headers: {
-      Headers.contentTypeHeader: ['application/json'],
+      Headers.contentTypeHeader: [contentType],
     },
   );
 
