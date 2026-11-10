@@ -96,6 +96,9 @@ void main() {
   late AppDatabase db;
   late StorageProvider storage;
 
+  /// A test closed [db] itself (a storage that fails).
+  var dbClosed = false;
+
   /// The settings as a start of the app reads them from the storage.
   Future<SettingsRepository> openSettings(WidgetTester tester) async {
     final settings = SettingsRepository(storage);
@@ -122,11 +125,14 @@ void main() {
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     storage = StorageProvider(db, {}, {});
+    dbClosed = false;
   });
 
   tearDown(() async {
     await LocaleSettings.setLocale(AppLocale.en);
-    await db.close();
+    if (!dbClosed) {
+      await db.close();
+    }
   });
 
   test('a stored tag is one of the languages of the app, anything else follows the device', () {
@@ -143,8 +149,9 @@ void main() {
     expect(boot, contains('await applyLanguageSetting(settings.locale);'));
 
     // No lifecycle callback, page or repository sets the language: the start and the choice in the settings go
-    // through `app_language.dart`, the background service has its own isolate (and its own translations).
-    final setter = RegExp(r'\b(setLocale|setLocaleRaw|useDeviceLocale)(Sync)?\(');
+    // through `app_language.dart`, the background service has its own isolate (and its own translations). Any
+    // mention counts, a call as much as a tear-off.
+    final setter = RegExp(r'\b(setLocale|setLocaleRaw|useDeviceLocale)(Sync)?\b');
     final callers =
         Directory('lib')
             .listSync(recursive: true)
@@ -260,6 +267,7 @@ void main() {
 
     // The storage fails: applied first, the app would speak a language the next start does not come back to.
     await tester.runAsync(db.close);
+    dbClosed = true;
     final error = await tester.runAsync<Object?>(() async {
       try {
         await chooseAppLanguage(settings, AppLocale.en);
