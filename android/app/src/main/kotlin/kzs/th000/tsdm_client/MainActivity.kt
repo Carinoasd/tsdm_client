@@ -20,6 +20,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import com.ryanheise.audioservice.AudioServicePlugin
 import kotlinx.coroutines.CancellationException
@@ -116,6 +117,12 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     /** Dart asked for the initial share: its handler for pushed shares is set, a share can be pushed to it now. */
     private var dartTakesShares = false
 
+    /**
+     * The intent this activity was launched with, when it is new: a tap on a local notification among them, see
+     * [pushLaunchToRunningDart].
+     */
+    private var initialLaunchIntent: Intent? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         shortcuts.onCreate(intent, savedInstanceState)
@@ -134,6 +141,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
             if (ShareIntents.isShare(launch)) {
                 initialShareIntent = launch
             }
+            initialLaunchIntent = launch
         }
         // A FlutterFragmentActivity configures its engine when its fragment attaches, after onCreate: the launch read
         // above is pushed at the end of configureFlutterEngine. Reading `flutterEngine` here would throw: the
@@ -229,15 +237,34 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         // (A recreated activity, with a saved state, attaches its fragment inside super.onCreate, so this runs before
         // onCreate read the intent: that launch is a replayed one, nothing of it is pushed.)
         if (dartRunning) {
-            pushLaunchToRunningDart()
+            pushLaunchToRunningDart(flutterEngine)
+        } else {
+            // A Dart that starts now reads the tap on a notification itself (getNotificationAppLaunchDetails).
+            initialLaunchIntent = null
         }
     }
 
     /**
      * The link and the share this activity was launched with, pushed to a Dart that runs since an activity before (see
-     * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut.
+     * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut and the tap on a local
+     * notification.
      */
-    private fun pushLaunchToRunningDart() {
+    private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine) {
+        // A tap on a local notification that made this activity (the task was swiped away from the recents, the
+        // background service or the player kept the process and its Dart): flutter_local_notifications tells Dart of a
+        // tap from onNewIntent alone, and keeps the one an activity was launched with for Dart's question at its start
+        // (getNotificationAppLaunchDetails), which this Dart asked long ago: the tap opened the home page and nothing
+        // else, and the text of a reply that was not sent, kept as a draft by that tap, was lost with its notification.
+        // Handed to the plugin as the new intent it is; the plugin takes its own intents only.
+        initialLaunchIntent?.let { launch ->
+            initialLaunchIntent = null
+            try {
+                val plugin = flutterEngine.plugins.get(FlutterLocalNotificationsPlugin::class.java)
+                (plugin as? FlutterLocalNotificationsPlugin)?.onNewIntent(launch)
+            } catch (e: Exception) {
+                Log.e("NOTIFICATION_TAP", "launch intent not handed to the notification plugin: ${e.message}")
+            }
+        }
         dartTakesShares = true
         shortcuts.pushPending()
         val links = deepLinkChannel

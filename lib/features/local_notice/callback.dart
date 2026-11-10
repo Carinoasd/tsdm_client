@@ -13,6 +13,10 @@ import 'package:window_manager/window_manager.dart';
 /// The payload is forwarded **synchronously first**, the desktop window restore that follows is awaited after: a
 /// listener (and the test for it) sees the payload as soon as this function is called, while the window only comes
 /// back on the next event loop turn. On non-desktop platforms the window part is skipped entirely.
+///
+/// On Android this is also where the tap that made a new activity over a Dart still running arrives (the task was
+/// swiped away while the background service or the player kept the process): `MainActivity.kt` hands that launch
+/// intent to the plugin, [rememberNotificationLaunch] is only asked once, at boot.
 Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
   talker.info(
     'local notification tapped: id=${resp.id} type=${resp.notificationResponseType.name} payload=${LocalNoticeKeys.loggable(resp.payload)} '
@@ -20,7 +24,14 @@ Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
   );
 
   // Forward the payload before anything asynchronous so every listener sees it immediately.
-  localNoticeStream.add(resp.payload);
+  if (localNoticeStream.hasListener || LocalNoticeKeys.parseOpenNotification(resp.payload) == null) {
+    localNoticeStream.add(resp.payload);
+  } else {
+    // Nobody listens: the home page is not built yet (the tap came while the app was starting). An event added to the
+    // stream now would be dropped, and with it the text of a reply that was not sent (the notification is gone with
+    // the tap): parked for the home page like the tap that started the app.
+    rememberLaunchPayload(resp.payload);
+  }
 
   // Desktop: bring the window back to the front. Without it the route change below is invisible while the window is
   // minimized or hidden. Done after the add so the payload delivery is not delayed.
