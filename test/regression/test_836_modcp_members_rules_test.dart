@@ -539,6 +539,8 @@ void main() {
       expect(holds('2026-11-11', '2027-01-31'), isFalse);
       // A start not after today, an end before the start: the forum sets its own.
       expect(holds('2026-11-01', '2026-11-05'), isTrue);
+      // Tomorrow is within the day of margin: not compared, whatever the form holds.
+      expect(holds('2026-11-10', '2026-12-31'), isTrue);
     });
 
     test('deleted: no longer listed', () async {
