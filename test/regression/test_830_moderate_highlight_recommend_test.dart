@@ -476,6 +476,7 @@ void main() {
       final posts = <Map<String, String>>[];
       await _open(tester, ModerateOperation.recommend, _repo(_data('window_recommend_closed.json'), posts));
       expect(find.text(t.moderate.unavailable), findsOneWidget);
+      expect(t.moderate.unavailable, isNot(t.redPacket.daily.unavailable));
       expect(find.widgetWithText(TextButton, t.general.retry), findsNothing);
       expect(find.widgetWithText(TextButton, t.general.ok), findsNothing);
       await tester.tap(find.widgetWithText(TextButton, t.general.cancel));
