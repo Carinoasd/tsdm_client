@@ -1,0 +1,299 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 70,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "forum",
+ "schema": 2,
+ "timeoffset": 8,
+ "forum": {
+  "fid": 2,
+  "name": "📢 公告 & 新手報到",
+  "description": "",
+  "rules": "",
+  "fup": 1,
+  "type": "forum",
+  "threads": 69,
+  "posts": 174,
+  "todayposts": 1,
+  "moderators": [
+   "gl_carol",
+   "ag_mod"
+  ],
+  "picstyle": 0,
+  "view": "list",
+  "ismoderator": 1,
+  "allow_post": 1,
+  "allow_poll": 1
+ },
+ "perms": {
+  "ismoderator": 1,
+  "allow_delthread": 1,
+  "allow_move": 1,
+  "allow_type": 1,
+  "allow_stick": 1,
+  "stick_max": 1,
+  "allow_digest": 1,
+  "digest_max": 3,
+  "allow_highlight": 1,
+  "allow_recommend": 0,
+  "allow_bump": 1,
+  "allow_close": 1
+ },
+ "query": {
+  "filter": "",
+  "typeid": 0,
+  "sortid": 0,
+  "orderby": "lastpost",
+  "ascdesc": "DESC",
+  "specialtype": "",
+  "dateline": 0,
+  "digest": 0,
+  "recommend": 0,
+  "archiveid": 0
+ },
+ "hiddenexists": 0,
+ "page": 1,
+ "pages": 4,
+ "tpp": 20,
+ "count": 69,
+ "types": {
+  "prefix": 0,
+  "listable": 0,
+  "required": 0,
+  "items": []
+ },
+ "sorts": {
+  "default": 0,
+  "items": []
+ },
+ "filters": {
+  "specialtype": [
+   {
+    "value": "poll",
+    "name": "投票"
+   },
+   {
+    "value": "reward",
+    "name": "悬赏"
+   },
+   {
+    "value": "activity",
+    "name": "活动"
+   },
+   {
+    "value": "debate",
+    "name": "辩论"
+   }
+  ],
+  "orderby": [
+   {
+    "value": "dateline",
+    "name": "发帖时间"
+   },
+   {
+    "value": "replies",
+    "name": "回复/查看"
+   },
+   {
+    "value": "views",
+    "name": "查看"
+   },
+   {
+    "value": "lastpost",
+    "name": "最后发表"
+   },
+   {
+    "value": "heats",
+    "name": "热门"
+   }
+  ],
+  "dateline": [
+   {
+    "value": 86400,
+    "name": "一天"
+   },
+   {
+    "value": 172800,
+    "name": "两天"
+   },
+   {
+    "value": 604800,
+    "name": "一周"
+   },
+   {
+    "value": 2592000,
+    "name": "一个月"
+   },
+   {
+    "value": 7948800,
+    "name": "三个月"
+   }
+  ]
+ },
+ "subforums": [
+  {
+   "fid": 15,
+   "name": "GLTEST 子版塊（型別 sub）",
+   "description": "",
+   "description_html": "",
+   "icon": "",
+   "namecolor": "",
+   "threads": 15,
+   "posts": 16,
+   "todayposts": 5,
+   "redirect": "",
+   "private": 0,
+   "lastpost": {
+    "tid": 9202821,
+    "subject": "回收站測試主題 1",
+    "dateline": 1794278278,
+    "author": "ag_mod"
+   },
+   "moderators": [
+    "ag_area"
+   ],
+   "subforums": [],
+   "permission": 2
+  }
+ ],
+ "threads": [
+  {
+   "tid": 9202766,
+   "fid": 2,
+   "subject": "活动：周末联机开黑",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1794060326,
+   "lastpost": 1794289591,
+   "lastposter": "ag_low",
+   "lastposterid": 31,
+   "views": 108,
+   "replies": 3,
+   "comments": 0,
+   "displayorder": 0,
+   "digest": 0,
+   "special": 4,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 2,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 1,
+   "weeknew": 1,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  },
+  {
+   "tid": 9202809,
+   "fid": 2,
+   "subject": "预览素材：十月新番你追了哪几部？",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1794199630,
+   "lastpost": 1794199656,
+   "lastposter": "ag_low2",
+   "lastposterid": 35,
+   "views": 114,
+   "replies": 0,
+   "comments": 0,
+   "displayorder": 0,
+   "digest": 0,
+   "special": 1,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 0,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 1,
+   "weeknew": 1,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  },
+  {
+   "tid": 9202810,
+   "fid": 2,
+   "subject": "预览素材：葬送的芙莉莲 第二季 01-04 网盘合集",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1794199656,
+   "lastpost": 1794199656,
+   "lastposter": "ag_low2",
+   "lastposterid": 35,
+   "views": 122,
+   "replies": 0,
+   "comments": 0,
+   "displayorder": 0,
+   "digest": 0,
+   "special": 0,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 0,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 1,
+   "weeknew": 1,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  }
+ ]
+}

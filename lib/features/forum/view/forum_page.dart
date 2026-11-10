@@ -24,7 +24,6 @@ import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
-import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
@@ -166,8 +165,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       context,
       threads: threads,
       fid: fid,
-      // The forum page answer carries no permissions: what a thread page of this forum told the account lately.
-      perms: uid == null ? null : ForumPermsMemory.of(uid: uid, fid: fid),
+      // What the page told this account it may do with them (plugin 3.8.0); every operation when it did not tell.
+      perms: uid != null && state.permsUid == uid ? state.perms : null,
     );
     if (report == null || !mounted) {
       return;

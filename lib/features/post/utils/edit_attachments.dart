@@ -1,4 +1,6 @@
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 
 /// An attachment of the edited post, as the edit form lists it (`attach.used` of the forum's app API, plugin 3.0.0):
 /// the website's attachment list of the edit page.
@@ -32,6 +34,33 @@ List<EditAttachment> editAttachmentsOf(Map<String, dynamic>? json) {
         ),
   ];
 }
+
+/// The query parameter of the editor's route telling whether the attachments of the edited floor may be deleted
+/// ([editedFloorAttachmentDeletion]): `1` or `0`, left out when the page of the floor did not tell.
+const editAttachmentDeletionQuery = 'delattach';
+
+/// Whether the editor of floor [post] offers deleting its attachments, as the page the floor is on told the account
+/// it was served to ([viewerUid]); null when it does not tell: the editor then offers it as before, and the forum
+/// decides when asked.
+///
+/// The account's own floor is never told: deleting the own attachments comes with editing the floor. A floor of
+/// another member (one the page names: an anonymous floor names none) is the moderators' to delete from, as [perms]
+/// say (`perms.allow_delattach` of the forum's app API, plugin 3.8.0: [ThreadPerms.allowDeleteAttachments]); an
+/// answer without the flag (an older plugin, the web page) tells nothing.
+bool? editedFloorAttachmentDeletion(Post post, {required int? viewerUid, required ThreadPerms? perms}) {
+  final author = int.tryParse(post.author.uid ?? '');
+  if (author == null || author <= 0 || viewerUid == null || viewerUid <= 0 || author == viewerUid) {
+    return null;
+  }
+  return perms?.allowDeleteAttachments;
+}
+
+/// What [editAttachmentDeletionQuery] of the editor's route [query] says; null when it says nothing.
+bool? editAttachmentDeletionOf(Map<String, String> query) => switch (query[editAttachmentDeletionQuery]) {
+  '1' => true,
+  '0' => false,
+  _ => null,
+};
 
 /// The edit form [json] once attachment [aid] was deleted (`forum.php?mod=ajax&action=deleteattach`), as the website's
 /// edit page leaves its form: the attachment out of the list and its fields (`attachupdate[aid]`, `attachnew[aid][…]`)

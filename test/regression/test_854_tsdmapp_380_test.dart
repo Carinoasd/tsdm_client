@@ -1,8 +1,10 @@
 /// What plugin tsdmapp 3.7.0 and 3.8.0 add to the forum's app API, read where an answer has it, with everything as
 /// it was for an answer that has not (the forum runs 3.6.0 until it updates):
 ///
-/// 1. `perms` of the thread page (`schema` 21): the management offered on the thread, on its floors and on several
-///    threads of its forum is what the forum says the account may do; without it, what a moderator was offered before.
+/// 1. `perms` of the thread page (`schema` 21): the management offered on the thread and on its floors is what the
+///    forum says the account may do; without it, what a moderator was offered before. Taking rates back and deleting
+///    the attachments of another member's floor have their own flags (`allow_removerate`, `allow_delattach`), where
+///    the answer carries them. `perms` of the forum page: the same for several threads picked in its list.
 /// 2. `warned` and `can.warn` of a floor.
 /// 3. The comments of a floor as fields (`comments`, `comment_more`, `comment_scores`), their pages (`type: comments`,
 ///    `schema` 22) and the comment window as a small form (`form: comment`).
@@ -12,12 +14,21 @@
 /// 6. The moderation panel's log as fields (`type: modcp_log`, `schema` 24).
 /// 7. `online` and `user.allow_stat` of the homepage.
 ///
+/// The times of a page of comments and of the log are printed with the answer's own `timeoffset` where it names one.
+///
 /// The fixtures under `test/data/tsdmapp_380` are the test forum's answers (Discuz! X5 with plugin tsdmapp 3.8.0),
 /// asked as a guest, members, the thread's author, a moderator of the forum and of another one, a super moderator and
 /// an administrator, then scrubbed (host, site name, form hash, clock) and cut: the author column of a floor to the
 /// link banning its author, its content without the scripts other plugins print, the panel's pages to their form or
-/// message. No forum of the test site sets score items for comments: `comment_scores` and the window's `items` are
-/// written into a copy of a real answer in the shape the plugin's specification gives.
+/// message, a forum page to its first threads, a page of comments without its `document`.
+///
+/// Plugin 3.8.0 was built twice. The fixtures of the first build carry no `timeoffset` in a page of comments and in
+/// the log, no `perms` in a forum page, no `allow_removerate` and `allow_delattach`, and its guest's log prompt says
+/// `login` 0: they stay as the answers that do not tell. The answers of the final build were asked the same way:
+/// `forum_perms_*` (a super moderator, the forum's moderator, a moderator whose group may do none of it, a member, a
+/// guest), `thread_stick_*` (asked again: the two flags), `comments_page2_timeoffset` and `modcp_log_timeoffset` (an
+/// account whose own time zone is +9), `modcp_log_guest_login`. `comment_form_items` and `thread_comment_scores` are
+/// the window and the thread page of a forum set up with two score items for comments, a comment scoring both.
 library;
 
 import 'dart:async';
@@ -30,11 +41,16 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart' show Left, Right, right;
+import 'package:fpdart/fpdart.dart' show Left, Right, left, right;
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
+import 'package:tsdm_client/features/forum/models/models.dart';
+import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
+import 'package:tsdm_client/features/forum/utils/forum_page_api.dart';
+import 'package:tsdm_client/features/forum/utils/forum_page_parser.dart';
 import 'package:tsdm_client/features/homepage/bloc/homepage_bloc.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/homepage/utils/online_summary.dart';
@@ -43,17 +59,21 @@ import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
+import 'package:tsdm_client/features/moderate/repository/floor_ops_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
+import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
+import 'package:tsdm_client/features/post/widgets/edit_attachments_button.dart';
 import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/post_comment/repository/post_comment_repository.dart';
 import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
@@ -128,6 +148,38 @@ final class _OfflineAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// The forum's page [name] of forum [fid], as the repository builds it from the answer.
+ForumPageData _forumPage(String name, String fid, {bool older = false}) => forumPageFromApi(
+  forumApiAnswerOf(older ? _older(name) : _json(name))!,
+  fid,
+);
+
+/// A forum repository answering every page asked with [page].
+final class _ForumPages extends ForumRepository {
+  _ForumPages(this.page);
+
+  ForumPageData page;
+
+  /// Whether the next request fails.
+  bool failing = false;
+
+  @override
+  AsyncEither<ForumPageData> fetchForum({required String fid, required FilterState filterState, int pageNumber = 1}) =>
+      AsyncEither(() async => failing ? left(HttpRequestFailedException(500)) : right(page));
+}
+
+/// The bloc of the thread page a floor is on: the thread, and nothing loading.
+final class _ThreadOnScreen extends Fake implements ThreadBloc {
+  @override
+  ThreadState get state => const ThreadState(tid: '9199345', status: ThreadStatus.success);
+
+  @override
+  Stream<ThreadState> get stream => const Stream.empty();
+
+  @override
+  bool get isClosed => false;
 }
 
 final class _Auth extends Fake implements AuthenticationRepository {
@@ -271,24 +323,98 @@ void main() {
       expect(ThreadPerms.fromApi('1'), isNull);
     });
 
-    test('kept for the forum page: what a thread page told a moderator, lately, never of a draft', () {
-      ForumPermsMemory.clear();
-      addTearDown(ForumPermsMemory.clear);
-      final superMod = _page('thread_comments_supermod.json').perms!;
-      expect(ForumPermsMemory.of(uid: 33, fid: 25), isNull);
-      ForumPermsMemory.note(uid: 33, fid: 25, perms: superMod, draft: true);
-      expect(ForumPermsMemory.of(uid: 33, fid: 25), isNull);
-      ForumPermsMemory.note(uid: 33, fid: 25, perms: superMod);
-      expect(ForumPermsMemory.of(uid: 33, fid: 25), superMod);
-      expect(ForumPermsMemory.of(uid: 33, fid: 2), isNull, reason: 'another forum');
-      expect(ForumPermsMemory.of(uid: 70, fid: 25), isNull, reason: 'another account');
-      expect(
-        ForumPermsMemory.of(uid: 33, fid: 25)!.threadOperations(moderateBatchOperations),
-        moderateBatchOperations,
-      );
-      // A page saying the account does not moderate the forum (any more) forgets it.
-      ForumPermsMemory.note(uid: 33, fid: 25, perms: _page('thread_comments_othermod.json').perms!);
-      expect(ForumPermsMemory.of(uid: 33, fid: 25), isNull);
+    test('taking rates back, deleting attachments of other floors: their own flags; the moderators before', () {
+      // The forum's moderator, whose group has a rate range; a member.
+      final moderator = _page('thread_stick_moderator.json');
+      expect(moderator.perms!.allowRemoveRate, isTrue);
+      expect(moderator.perms!.allowDeleteAttachments, isTrue);
+      final member = _page('thread_stick_member.json');
+      expect(member.perms!.allowRemoveRate, isFalse);
+      expect(member.perms!.allowDeleteAttachments, isFalse);
+
+      // The first build of plugin 3.8.0 has neither flag: rates are the moderators' as before, attachments not told.
+      final before = _page('thread_comments_supermod.json').perms!;
+      expect(before.isModerator, isTrue);
+      expect(before.allowRemoveRate, isTrue);
+      expect(before.allowDeleteAttachments, isNull);
+      expect(_page('thread_comments_othermod.json').perms!.allowRemoveRate, isFalse);
+      // A moderator whose group has no rate range (no account of the test forum is one): the flag decides.
+      final noRange = _json('thread_stick_moderator.json');
+      (noRange['perms'] as Map<String, dynamic>)['allow_removerate'] = 0;
+      final refused = threadPageFromApi(noRange, 1).perms!;
+      expect(refused.isModerator, isTrue);
+      expect(refused.allowRemoveRate, isFalse);
+
+      // In the editor: told for the floor of another member only, and only where the page tells.
+      final floors = _floors(moderator);
+      expect(floors['3940']!.author.uid, '31');
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: 70, perms: moderator.perms), isTrue);
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: 35, perms: member.perms), isFalse);
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: 31, perms: member.perms), isNull, reason: 'own');
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: 33, perms: before), isNull, reason: 'not told');
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: 33, perms: null), isNull);
+      expect(editedFloorAttachmentDeletion(floors['3940']!, viewerUid: null, perms: member.perms), isNull);
+      expect(editAttachmentDeletionOf(const {editAttachmentDeletionQuery: '1'}), isTrue);
+      expect(editAttachmentDeletionOf(const {editAttachmentDeletionQuery: '0'}), isFalse);
+      expect(editAttachmentDeletionOf(const {'tid': '1'}), isNull);
+    });
+
+    test('the forum page tells what may be done with several threads; a guest, an older answer do not', () {
+      // A super moderator in a forum that recommends threads: everything, sticking up to the forum's group.
+      final superMod = _forumPage('forum_perms_supermod.json', '33');
+      expect(superMod.permsUid, 33);
+      expect(superMod.perms!.isModerator, isTrue);
+      expect(superMod.perms!.threadOperations(moderateBatchOperations), moderateBatchOperations);
+      expect(superMod.perms!.allowsThread(ModerateOperation.recommend), isTrue);
+      expect((superMod.perms!.stickMax, superMod.perms!.digestMax), (2, 3));
+
+      // The forum's moderator: in the forum only; no recommendation in this forum.
+      final moderator = _forumPage('forum_perms_moderator.json', '2');
+      expect(moderator.permsUid, 70);
+      expect(moderator.perms!.threadOperations(moderateBatchOperations), moderateBatchOperations);
+      expect(moderator.perms!.maxLevelOf(ModerateOperation.stick), 1);
+      expect(moderator.perms!.allowsThread(ModerateOperation.recommend), isFalse);
+
+      // A moderator of the forum whose group may do none of it; a member.
+      final none = _forumPage('forum_perms_moderator_none.json', '25');
+      expect(none.perms!.isModerator, isTrue);
+      expect(none.perms!.threadOperations(moderateBatchOperations), isEmpty);
+      final member = _forumPage('forum_perms_member.json', '33');
+      expect(member.permsUid, 35);
+      expect(member.perms!.isModerator, isFalse);
+      expect(member.perms!.threadOperations(moderateBatchOperations), isEmpty);
+
+      // Nobody to tell: a guest. Nothing told: plugin 3.6.0.
+      final guest = _forumPage('forum_perms_guest.json', '33');
+      expect((guest.perms, guest.permsUid), (null, null));
+      expect(guest.normalThreadList, isNotEmpty);
+      final older = _forumPage('tsdmapp/forum_v2_fid2.json', '2', older: true);
+      expect((older.perms, older.permsUid), (null, null));
+      expect(older.normalThreadList, isNotEmpty);
+    });
+
+    test("the forum's page keeps what its latest answer told, for the account it told", () async {
+      final repository = _ForumPages(_forumPage('forum_perms_supermod.json', '33'));
+      final bloc = ForumBloc(fid: '33', forumRepository: repository)..add(const ForumLoadMoreRequested(1));
+      await bloc.stream.firstWhere((e) => e.status == ForumStatus.success);
+      expect(bloc.state.permsUid, 33);
+      expect(bloc.state.perms!.maxLevelOf(ModerateOperation.stick), 2);
+
+      // Asked again and answered by an older plugin: nothing carried over.
+      repository.page = _forumPage('tsdmapp/forum_v2_fid2.json', '2', older: true);
+      bloc.add(ForumRefreshRequested());
+      await bloc.stream.firstWhere((e) => e.perms == null && !e.refreshing);
+      expect((bloc.state.perms, bloc.state.permsUid), (null, null));
+
+      // Told again, then a page that fails to load: nothing left of what the page before told.
+      repository.page = _forumPage('forum_perms_supermod.json', '33');
+      bloc.add(ForumRefreshRequested());
+      await bloc.stream.firstWhere((e) => e.perms != null && !e.refreshing);
+      repository.failing = true;
+      bloc.add(const ForumJumpPageRequested(2));
+      await bloc.stream.firstWhere((e) => e.status == ForumStatus.failure);
+      expect((bloc.state.perms, bloc.state.permsUid), (null, null));
+      await bloc.close();
     });
 
     testWidgets('the sheet of a thread lists what the forum allows; every operation without permissions', (
@@ -351,15 +477,22 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      // What the forum's page told its moderator: every operation on several threads.
+      await open(_forumPage('forum_perms_moderator.json', '2').perms);
+      for (final operation in [t.moderate.stick, t.moderate.move, t.moderate.delete]) {
+        expect(find.text(operation), findsOneWidget, reason: operation);
+      }
+
       // A moderator whose group may only move threads.
+      await tester.pumpWidget(const SizedBox());
       await open(ThreadPerms.fromApi(const {'ismoderator': 1, 'allow_move': 1}));
       expect(find.text(t.moderate.move), findsOneWidget);
       expect(find.text(t.moderate.stick), findsNothing);
       expect(find.text(t.moderate.delete), findsNothing);
 
-      // One that may do none of the operations on several threads (warning floors only).
+      // One the forum's page told may do none of the operations on several threads.
       await tester.pumpWidget(const SizedBox());
-      await open(ThreadPerms.fromApi(const {'ismoderator': 1, 'allow_warn': 1, 'allow_banpost': 1}));
+      await open(_forumPage('forum_perms_moderator_none.json', '25').perms);
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.text(t.moderate.batch.noOperation), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
@@ -466,19 +599,35 @@ void main() {
       expect(_floors(member)['11263']!.comments.map((c) => c.id).toSet(), {null}, reason: 'no id on the page');
     });
 
-    test('the averages of the score items (the shape of the specification)', () {
-      final json = _json('thread_comments_author.json');
-      ((json['posts'] as List)[1] as Map<String, dynamic>)['comment_scores'] = [
-        {'name': '画质', 'score': 4},
-        {'name': '剧情', 'score': 4.5},
-        {'name': '', 'score': 3},
-      ];
-      final floor = _floors(threadPageFromApi(json, 1))['11263']!;
+    test('the averages of the score items, of a forum whose comments score two', () {
+      final floors = _floors(_page('thread_comment_scores.json'));
+      final floor = floors['3031']!;
       expect(floor.commentScores, const [
         PostCommentScore(name: '画质', score: 4),
-        PostCommentScore(name: '剧情', score: 4.5),
+        PostCommentScore(name: '剧情', score: 5),
       ]);
-      expect(floor.commentScores.map((e) => e.text), ['4', '4.5']);
+      // As the page prints them above the comments ("4.0", "5.0").
+      expect(floor.commentScores.map((e) => e.text), ['4.0', '5.0']);
+      // The comment that scored: its scores are the first line of its text, as the forum keeps them.
+      expect(floor.comments.first.content, '画质: 4 剧情: 5\n評分項樣本 tsdmapp380-1794294770');
+      expect(floor.moreComments, isTrue);
+      expect(floor.data, isNot(contains('id="comment_3031"')));
+      expect(floor.data, isNot(contains('cmstarv')), reason: 'the averages are not printed twice');
+      // A floor commented without scores, a floor without comments: none.
+      expect(floors['3025']!.comments, hasLength(2));
+      expect(floors['3025']!.commentScores, isEmpty);
+      expect(floors['3024']!.commentScores, isEmpty);
+
+      // An item without a name or without a number is left out.
+      expect(
+        postCommentScoresFromApi(const [
+          {'name': '', 'score': 3},
+          {'name': '画质'},
+          {'name': '剧情', 'score': 4.5},
+        ]),
+        const [PostCommentScore(name: '剧情', score: 4.5)],
+      );
+      expect(const PostCommentScore(name: '剧情', score: 4.5).text, '4.5');
     });
 
     test('a page of comments as fields, asked as a small form; the end told by its pages', () async {
@@ -513,6 +662,22 @@ void main() {
       expect(moderator!.comments.every((c) => c.canDelete), isTrue);
       final middle = _json('comments_page2_member.json')..['pages'] = 3;
       expect(postCommentPageFromApi(middle)!.hasMore, isTrue);
+    });
+
+    test("a page of comments is printed with its own time offset; with the floor's where it names none", () async {
+      // Asked by an account whose time zone is +9 (the forum's is +8).
+      final own = _json('comments_page2_timeoffset.json');
+      expect(own['timeoffset'], 9);
+      final forum = _Comments(reads: {'page=2': own});
+      final page = await forum.repository.fetchMore(tid: '9202819', pid: '11263', page: 2, timeOffset: 8);
+      expect(page!.comments.map((c) => c.time), ['2026-11-10 11:34', '2026-11-10 11:34', '2026-11-10 11:33']);
+      expect(postCommentPageFromApi(own)!.comments.last.time, '2026-11-10 11:33');
+
+      // The first build of plugin 3.8.0 names none: the offset of the floor's page, the forum's without one.
+      final before = _json('comments_page2_member.json');
+      expect(before.containsKey('timeoffset'), isFalse);
+      expect(postCommentPageFromApi(before, timeOffset: 9)!.comments.last.time, '2026-11-10 11:33');
+      expect(postCommentPageFromApi(before)!.comments.last.time, '2026-11-10 10:33');
     });
 
     test('a page of comments of an older plugin, of a forum without one: the same request, parsed as before', () async {
@@ -583,21 +748,29 @@ void main() {
       },
     );
 
-    test('score items of the window go as served, empty (the shape of the specification)', () async {
-      const window = '$baseUrl/forum.php?mod=misc&action=comment&tid=9202819&pid=11263&extra=&page=1';
-      final withItems = _json('comment_form.json')
-        ..['items'] = [
-          {'name': 'commentitem[画质]', 'type': 'hidden', 'value': '', 'label': '画质'},
-          {'name': 'commentitem[剧情]', 'type': 'hidden', 'value': '', 'label': '剧情'},
-        ];
-      final opened = await _Comments(reads: {'action=comment': withItems}).repository.openComment(window);
-      expect((opened as PostCommentWindowForm).form.fields, {
+    test('score items of the window go as served, empty: the comment gives no score', () async {
+      const window = '$baseUrl/forum.php?mod=misc&action=comment&tid=9199043&pid=3031&extra=&page=1';
+      final answer = _json('comment_form_items.json');
+      // Each item with its choices (0 to 5) and the window's "give no score", which is the empty value served.
+      final items = (answer['items'] as List).cast<Map<String, dynamic>>();
+      expect(items.map((e) => e['label']), ['画质', '剧情']);
+      expect(items.map((e) => (e['choices'] as List).length).toSet(), {6});
+      expect(items.map((e) => e['value']).toSet(), {''});
+      final opened = await _Comments(reads: {'action=comment': answer}).repository.openComment(window);
+      final form = (opened as PostCommentWindowForm).form;
+      expect(form.fields, {
         'commentitem[画质]': '',
         'commentitem[剧情]': '',
         'formhash': 'f1f2f3f4',
         'handlekey': 'comment',
         'commentsubmit': 'true',
       });
+      expect(form.uid, 56);
+      expect(
+        form.action,
+        '$baseUrl/forum.php?mod=post&action=reply&comment=yes&tid=9199043&pid=3031&extra=&page=1'
+        '&commentsubmit=yes&infloat=yes&inajax=1',
+      );
     });
 
     test('the window of an older plugin, of a forum without one: the same request, parsed as before', () async {
@@ -803,7 +976,9 @@ void main() {
       expect(first.action, 'recyclebinpost');
       expect(first.op, 'delete');
       expect(first.forum, 'GLTEST 子版塊（型別 sub）');
-      expect(first.time, matches(RegExp(r'^26-11-10 \d\d:\d\d$')));
+      // The first build of plugin 3.8.0 names no time offset: the forum's +8.
+      expect(_json('modcp_log_page1.json').containsKey('timeoffset'), isFalse);
+      expect(first.time, '26-11-10 10:38');
       expect(first.targets, ['pid 11270']);
       expect(page.entries[1].targets, ['tid 9202823']);
       expect(page.entries[2].targets, isEmpty, reason: 'a page of the panel opened');
@@ -818,6 +993,20 @@ void main() {
       expect(entries.last.targets, ['mr_alpha']);
     });
 
+    test("the lines are printed with the answer's own time offset", () {
+      // The same lines asked by a moderator whose time zone is +9.
+      final answer = _json('modcp_log_timeoffset.json');
+      expect(answer['timeoffset'], 9);
+      final page = switch (ModcpRepository.logOf(answer, uid: 70, keyword: 'recyclebin')) {
+        Right(value: ModcpReady(:final value)) => value,
+        final other => throw StateError('no log: $other'),
+      };
+      expect(page.entries, hasLength(5));
+      expect(page.entries.first.targets, ['pid 11270']);
+      expect(page.entries.map((e) => e.time).toSet(), {'26-11-10 11:38'});
+      expect(page.hasNext, isTrue);
+    });
+
     test("the panel's login form, its refusals, another account", () {
       final login = ModcpRepository.logOf(_json('modcp_log_login.json'), uid: 34).getRight().toNullable();
       expect((login! as ModcpNeedsLogin<ModcpLogPage>).formHash, 'f1f2f3f4');
@@ -828,8 +1017,16 @@ void main() {
       final noAccess = ModcpRepository.logOf(_json('modcp_log_noaccess.json'), uid: 35).getRight().toNullable();
       expect((noAccess! as ModcpRefused<ModcpLogPage>).message, '抱歉，您没有权限访问管理面板，请重新登录站点，然后重试');
 
-      // Served to another account, or to a guest (the session expired): dropped.
-      for (final answer in ['modcp_log_page1.json', 'modcp_log_login.json', 'modcp_log_guest.json']) {
+      // Served to another account, or to a guest (the session expired; the login prompt says `login` 1 since the
+      // final build of plugin 3.8.0, 0 before): dropped either way, by the account the answer names.
+      expect(_json('modcp_log_guest_login.json'), containsPair('login', 1));
+      expect(_json('modcp_log_guest.json'), containsPair('login', 0));
+      for (final answer in [
+        'modcp_log_page1.json',
+        'modcp_log_login.json',
+        'modcp_log_guest.json',
+        'modcp_log_guest_login.json',
+      ]) {
         expect(
           ModcpRepository.logOf(_json(answer), uid: 31),
           isA<Left<AppException, ModcpAnswer<ModcpLogPage>>>().having(
@@ -1077,6 +1274,74 @@ void main() {
       }
     });
 
+    testWidgets('taking rates back is on the menu of a rated floor only where allowed', (tester) async {
+      final page = _page('thread_stick_moderator.json');
+      final rated = _bare(_floors(page)['3940']!);
+      expect(rated.rate, isNotNull);
+      Widget onThread(Widget child) => BlocProvider<ThreadBloc>.value(value: _ThreadOnScreen(), child: child);
+
+      await pump(
+        tester,
+        onThread(PostCard(rated, onModerate: (_) {}, canRemoveRate: page.perms!.allowRemoveRate)),
+        uid: 70,
+      );
+      await openMenu(tester);
+      expect(find.text(t.moderateFloorOps.removeRate), findsOneWidget);
+
+      // A moderator the forum would refuse (`allow_removerate` 0): not offered.
+      await tester.pumpWidget(const SizedBox());
+      await pump(tester, onThread(PostCard(rated, onModerate: (_) {}, canRemoveRate: false)), uid: 70);
+      await openMenu(tester);
+      expect(find.text(t.moderateFloorOps.removeRate), findsNothing);
+      expect(find.text(t.moderate.deletePost), findsOneWidget, reason: 'the rest of the management stays');
+
+      // A floor nobody rated has nothing to take back.
+      await tester.pumpWidget(const SizedBox());
+      final unrated = _bare(_floors(page)['3950']!);
+      expect(unrated.rate, isNull);
+      await pump(tester, onThread(PostCard(unrated, onModerate: (_) {})), uid: 70);
+      await openMenu(tester);
+      expect(find.text(t.moderateFloorOps.removeRate), findsNothing);
+    });
+
+    testWidgets("the editor's attachments: listed, deleted only where the page of the floor allows", (tester) async {
+      final repository = FloorOpsRepository(
+        get: (_) async => throw StateError('no read'),
+        getOnce: (_) async => throw StateError('no write'),
+        post: (_, _) async => throw StateError('no post'),
+        currentUid: () => 35,
+      );
+      Future<void> open({bool? canDelete}) async {
+        await pump(
+          tester,
+          EditAttachmentsButton(
+            attachments: editAttachmentsOf(_older('moderate/edit_attach_moderator.json')! as Map<String, dynamic>),
+            tid: '9199345',
+            pid: '3940',
+            formHash: 'f1f2f3f4',
+            formUid: 35,
+            onDeleted: (_) {},
+            canDelete: canDelete ?? true,
+            repository: repository,
+          ),
+          uid: 35,
+        );
+        await tester.tap(find.byIcon(Icons.attach_file_outlined));
+        await tester.pumpAndSettle();
+      }
+
+      // The floor of another member, the account no moderator of the forum (`allow_delattach` 0).
+      await open(canDelete: false);
+      expect(find.text('mx.png'), findsOneWidget);
+      expect(find.text('mx.zip'), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+      // Not told (the own floor, an older plugin): as before.
+      await tester.pumpWidget(const SizedBox());
+      await open();
+      expect(find.byIcon(Icons.delete_outline), findsNWidgets(2));
+    });
+
     testWidgets('the stuck and the warned floor are marked', (tester) async {
       await pump(tester, PostCard(_bare(_floors(_page('thread_stick_member.json'))['3954']!)));
       expect(find.byTooltip(t.moderateFloorOps.stuck), findsOneWidget);
@@ -1089,11 +1354,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('the comments: more pages by id, the averages above them', (tester) async {
+    testWidgets('the comments: more pages by id, none shown twice', (tester) async {
       final json = _json('thread_comments_author.json');
-      ((json['posts'] as List)[1] as Map<String, dynamic>)['comment_scores'] = [
-        {'name': '画质', 'score': 4.5},
-      ];
       final floor = _floors(threadPageFromApi(json, 1))['11263']!;
       // The second page as it is when a comment was posted meanwhile: the last of the first page comes again.
       final next = _json('comments_page2_member.json');
@@ -1105,10 +1367,7 @@ void main() {
         PostCommentSection(floor, tid: '9202819', onReload: () {}),
         forum: forum,
       );
-      expect(find.byKey(const ValueKey('post-comment-scores')), findsOneWidget);
-      expect(find.text('画质'), findsOneWidget);
-      expect(find.text('4.5'), findsOneWidget);
-      expect(find.byIcon(Icons.star_half), findsOneWidget);
+      expect(find.byKey(const ValueKey('post-comment-scores')), findsNothing, reason: 'no score items in this forum');
       expect(find.byType(PostCommentTile), findsNWidgets(5));
       expect(find.byKey(const ValueKey('post-comment-delete-22')), findsNothing, reason: 'a member');
 
@@ -1117,6 +1376,26 @@ void main() {
       expect(find.byType(PostCommentTile), findsNWidgets(8), reason: 'the one shown already is not added again');
       expect(find.byKey(const ValueKey('post-comment-more')), findsNothing);
       expect(Uri.parse(forum.readUrls.single).queryParameters, containsPair('tsdmform', '1'));
+    });
+
+    testWidgets('the averages of the score items above the comments, as the page prints them', (tester) async {
+      final floor = _floors(_page('thread_comment_scores.json'))['3031']!;
+      await pump(tester, PostCommentSection(floor, tid: '9199043', onReload: () {}), uid: 56);
+      final scores = find.byKey(const ValueKey('post-comment-scores'));
+      expect(scores, findsOneWidget);
+      expect(find.descendant(of: scores, matching: find.text('画质')), findsOneWidget);
+      expect(find.descendant(of: scores, matching: find.text('4.0')), findsOneWidget);
+      expect(find.descendant(of: scores, matching: find.text('剧情')), findsOneWidget);
+      expect(find.descendant(of: scores, matching: find.text('5.0')), findsOneWidget);
+      // Four stars of five, then five of five.
+      expect(find.descendant(of: scores, matching: find.byIcon(Icons.star)), findsNWidgets(9));
+      expect(find.descendant(of: scores, matching: find.byIcon(Icons.star_border)), findsOneWidget);
+      // A half is drawn as one. (The avatars of the comments fail to load, no network, before the test ends.)
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+      await pump(tester, const PostCommentScores([PostCommentScore(name: '剧情', score: 4.5)]));
+      expect(find.text('4.5'), findsOneWidget);
+      expect(find.byIcon(Icons.star_half), findsOneWidget);
     });
   });
 }

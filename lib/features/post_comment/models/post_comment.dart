@@ -90,11 +90,11 @@ final class PostCommentScore {
   /// The item's name, as the forum set it.
   final String name;
 
-  /// The average, 0 to 5 (the page prints one decimal).
+  /// The average, 0 to 5.
   final double score;
 
-  /// [score] as the page prints it: one decimal, none for a whole number ("4", "4.5").
-  String get text => score == score.roundToDouble() ? '${score.round()}' : score.toStringAsFixed(1);
+  /// [score] as the page prints it: always with one decimal ("4.0", "4.5").
+  String get text => score.toStringAsFixed(1);
 
   @override
   bool operator ==(Object other) => other is PostCommentScore && other.name == name && other.score == score;
@@ -120,8 +120,12 @@ List<PostCommentScore> postCommentScoresFromApi(Object? scores) => scores is Lis
     : const [];
 
 /// A page of the comments of a floor answered by the forum's app API as fields (plugin 3.7.0, `type: comments`,
-/// `schema` 22) in [data], with [timeOffset] the offset the floor's page printed its times with (the answer names
-/// none); null for anything else (an older plugin's write result, the forum's fragment, its message).
+/// `schema` 22) in [data]; null for anything else (an older plugin's write result, the forum's fragment, its
+/// message).
+///
+/// The times are the forum's wall clock with the answer's own `timeoffset` (plugin 3.8.0: the offset of the account
+/// the page was served to, as the thread page's); an answer that names none (before) has them printed with
+/// [timeOffset], the offset the floor's page printed its times with.
 ///
 /// There is a next page while this one is before the last (`page` below `pages`) and has comments.
 PostCommentPage? postCommentPageFromApi(Object? data, {num timeOffset = 8}) {
@@ -129,7 +133,10 @@ PostCommentPage? postCommentPageFromApi(Object? data, {num timeOffset = 8}) {
   if (json == null || json['ok'] != 1 || json['type'] != 'comments') {
     return null;
   }
-  final comments = postCommentsFromApi(json['comments'], timeOffset: timeOffset);
+  final comments = postCommentsFromApi(
+    json['comments'],
+    timeOffset: json['timeoffset'] is num ? json['timeoffset'] as num : timeOffset,
+  );
   if (comments == null) {
     return null;
   }

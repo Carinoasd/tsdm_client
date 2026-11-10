@@ -76,6 +76,7 @@ import 'package:tsdm_client/features/pokemon/view/pokemon_storage_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/models/poll_create.dart';
 import 'package:tsdm_client/features/post/models/special_thread_form.dart';
+import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
 import 'package:tsdm_client/features/post/view/fast_reply_edit_template_page.dart';
 import 'package:tsdm_client/features/post/view/fast_reply_template_page.dart';
 import 'package:tsdm_client/features/post/view/poll_create_page.dart';
@@ -514,6 +515,7 @@ final List<RouteBase> _appRoutes = [
           SharedThreadDraft(:final imagePaths) => imagePaths,
           _ => null,
         },
+        canDeleteAttachments: editAttachmentDeletionOf(state.uri.queryParameters),
       );
     },
   ),

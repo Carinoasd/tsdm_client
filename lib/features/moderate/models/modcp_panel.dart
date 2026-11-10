@@ -541,7 +541,8 @@ final class ModcpLogPage {
 ///
 /// X5 writes the panel's operations to its database while its page still reads the log files of older versions and
 /// lists nothing: this answer is where the lines are. The times are the forum's wall clock with the answer's
-/// `timeoffset` (the forum's own when it names none); there is a next page while `page` is below `pages`.
+/// `timeoffset` (the offset of the account it was served to, as the thread page's; the forum's own +8 for an answer
+/// of the first build of plugin 3.8.0, which names none); there is a next page while `page` is below `pages`.
 ModcpLogPage? modcpLogFromApi(Map<String, dynamic> json, {String keyword = ''}) {
   if (json['ok'] != 1 || json['type'] != 'modcp_log' || json['entries'] is! List) {
     return null;

@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/moderate/widgets/remove_rate_dialog.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
 import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -730,10 +731,19 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           selfName: self?.username,
           hidden: currentBlockList(context, listen: false).hidesString,
         );
+        final deleteAttachments = editedFloorAttachmentDeletion(
+          widget.post,
+          viewerUid: threadBloc.state.floorsUid,
+          perms: threadBloc.state.perms,
+        );
         final edited = await context.pushNamed<bool>(
           ScreenPaths.editPost,
           pathParameters: {'editType': '$editType', 'fid': '${url.queryParameters["fid"]}'},
-          queryParameters: {'tid': '${url.queryParameters["tid"]}', 'pid': '${url.queryParameters["pid"]}'},
+          queryParameters: {
+            'tid': '${url.queryParameters["tid"]}',
+            'pid': '${url.queryParameters["pid"]}',
+            if (deleteAttachments != null) editAttachmentDeletionQuery: deleteAttachments ? '1' : '0',
+          },
           extra: mentionSuggestions,
         );
         if (!(edited ?? false)) {

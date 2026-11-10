@@ -2,6 +2,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/draft_box/models/draft_data.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -34,7 +35,19 @@ final class ForumPageData {
     required this.filterDatelineList,
     this.pollOfferUid,
     this.postAllowed,
+    this.perms,
+    this.permsUid,
   });
+
+  /// What the account the page was served to ([permsUid]) may do with several threads of the forum at once, as the
+  /// forum's app API tells it with the page (plugin 3.8.0, `perms` of the forum page answer: the web page's layer of
+  /// the picked threads); null when the page does not tell (an older plugin, the web page) and for a guest.
+  ///
+  /// Only what is offered: the forum checks again when an operation is sent.
+  final ThreadPerms? perms;
+
+  /// The account [perms] were told to, null without them.
+  final int? permsUid;
 
   /// Account the page offered its own poll creation link to, null when not offered.
   ///

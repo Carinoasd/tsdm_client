@@ -34,7 +34,6 @@ import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
-import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
@@ -618,18 +617,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// forum (a move puts the thread in another one): the management is offered only then.
   ///
   /// A page that tells what the account may manage itself ([ThreadState.perms], plugin 3.7.0 of the forum's app API)
-  /// asks nothing: the management offered is what it says ([_threadOperations], [_floorActions]). What it says is
-  /// kept for the forum page's management of several threads ([ForumPermsMemory]).
+  /// asks nothing: the management offered is what it says ([_threadOperations], [_floorActions]).
   void _askModerator(BuildContext context, ThreadState state) {
     final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
     final fid = state.fid;
-    if (state.perms case final perms? when !state.isOffline) {
+    if (state.perms != null && !state.isOffline) {
       _moderatorAsked = null;
       if (_moderates) {
         setState(() => _moderates = false);
-      }
-      if (uid != null && fid != null && state.floorsUid == uid) {
-        ForumPermsMemory.note(uid: uid, fid: fid, perms: perms, draft: state.isDraft);
       }
       return;
     }
@@ -675,8 +670,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// takes (`floorModerateActionsFor`), and whether taking rates of it back is offered: null and yes for a moderator
   /// of the forum when the page does not tell ([_moderates]); else what the page's permissions say
   /// ([ThreadState.perms]: the floor's own `can.warn` for the warning; a reply is stuck by the thread's author too,
-  /// moderator or not), rates taken back by a moderator of the forum. No management at all (`offered` false) when
-  /// neither applies.
+  /// moderator or not), rates taken back where the page says so (`ThreadPerms.allowRemoveRate`). No management at
+  /// all (`offered` false) when neither applies.
   ({bool offered, List<FloorModerateAction>? actions, bool removeRate}) _floorActions(ThreadState state, Post post) {
     if (state.isOffline || state.tid == null || state.fid == null) {
       return (offered: false, actions: const [], removeRate: false);
@@ -686,7 +681,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return (offered: _moderates, actions: null, removeRate: _moderates);
     }
     final actions = perms.floorOperations(canWarn: post.canWarn);
-    return (offered: actions.isNotEmpty || perms.isModerator, actions: actions, removeRate: perms.isModerator);
+    return (
+      offered: actions.isNotEmpty || perms.isModerator || perms.allowRemoveRate,
+      actions: actions,
+      removeRate: perms.allowRemoveRate,
+    );
   }
 
   /// Offer the management of the thread in [state]; reload the thread it changed, leave the thread it deleted.
