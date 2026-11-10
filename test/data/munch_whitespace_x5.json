@@ -499,6 +499,13 @@
   "test/data/tsdmapp_380/thread_stick_moderator.json#3955": "«￼\nNC048829off 粗體»\n«Only visible to the thread author»\n«This content only visible to ￼»\n«author»\n",
   "test/data/tsdmapp_380/thread_warned_supermod.json#3047": "«BU thread區 TA 一樓內文 A（1789158946626）\nBU thread區 ag_mid 編輯追加（1789158946626）\nBU thread區 ag_mid 編輯追加（1789158946626）\n￼»\n«￼本主题由 管理团队 于 2026-9-12 04:42 关闭»\n",
   "test/data/tsdmapp_380/thread_warned_supermod.json#3048": "«BU thread區 TA 回覆 A 將被警告（1789158946626）»\n",
-  "test/data/tsdmapp_380/thread_warned_supermod.json#3049": "«BU thread區 TA 回覆 C（1789158946626）»\n"
+  "test/data/tsdmapp_380/thread_warned_supermod.json#3049": "«BU thread區 TA 回覆 C（1789158946626）»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3024": "«BU thread區 TB 一樓內文 B（1789158946626）\nBU thread區 ag_admin 加標籤（1789158946626）\n￼BUrel946626»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3025": "«BU thread區 TB 回覆一 B（1789158946626）»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3027": "«水。。。。。。。。。。»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3028": "«BU thread區 TB 回覆五 B 待審用（1789158946626）\nBU thread區 P5 編輯後待審（1789158946626）\nBU thread區 P5 編輯後待審（1789158946626-61714498）»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3029": "«BU thread區 TB 附件回覆 B（1789158946626）\n￼bu_thread_attach.png (1003 Bytes, 下载次数: 0)\n[img]»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3030": "«￼»\n«本帖为密码帖 ，请输入密码»\n",
+  "test/data/tsdmapp_380/thread_comment_scores.json#3031": "«BU thread區 TB C 的回覆（1789158946626）»\n"
  }
 }
