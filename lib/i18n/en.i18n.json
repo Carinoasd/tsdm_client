@@ -3966,6 +3966,32 @@
     },
     "unconfirmed": "The result is unknown: check the list before sending again",
     "sendFailed": "Failed to send",
-    "identityChanged": "The account changed: this page sends nothing more"
+    "identityChanged": "The account changed: this page sends nothing more",
+    "wall": {
+      "title": "Wall",
+      "empty": "No messages yet",
+      "post": "Leave a message",
+      "reply": "Reply",
+      "replyTo": "Reply to $name",
+      "message": "Message",
+      "delete": "Delete message",
+      "sent": "Message posted",
+      "deleted": "Deleted",
+      "all": "All messages"
+    },
+    "poke": {
+      "send": "Poke",
+      "title": "Poke $name",
+      "note": "Say something",
+      "received": "Pokes received",
+      "empty": "No new pokes",
+      "greetBack": "Poke back",
+      "ignore": "Ignore",
+      "ignoreAll": "Ignore all",
+      "ignoreAllConfirm": "Ignore all the pokes received?",
+      "ignored": "Ignored",
+      "sent": "Sent",
+      "loadFailed": "Could not open the poke form"
+    }
   }
 }

@@ -99,6 +99,7 @@ import 'package:tsdm_client/features/space/view/blog_post_page.dart';
 import 'package:tsdm_client/features/space/view/space_album_page.dart';
 import 'package:tsdm_client/features/space/view/space_blog_page.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
+import 'package:tsdm_client/features/space/view/space_poke_page.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
@@ -284,15 +285,17 @@ final List<RouteBase> _appRoutes = [
       visitor: state.uri.queryParameters['view'] == 'visitor',
     ),
   ),
-  // A member's blogs and albums: home.php?mod=space&uid=N&do=blog|album[&id=M].
+  // A member's blogs, albums and wall: home.php?mod=space&uid=N&do=blog|album|wall[&id=M][&cid=C].
   AppRoute(
     path: ScreenPaths.space,
     builder: (state) => SpacePage(
       uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
       username: state.uri.queryParameters['username'],
       initialTab: SpaceTab.of(state.uri.queryParameters['tab']),
+      wallCid: int.tryParse(state.uri.queryParameters['cid'] ?? ''),
     ),
   ),
+  AppRoute(path: ScreenPaths.spacePokes, builder: (_) => const SpacePokePage()),
   AppRoute(
     path: ScreenPaths.spaceBlog,
     builder: (state) => SpaceBlogPage(

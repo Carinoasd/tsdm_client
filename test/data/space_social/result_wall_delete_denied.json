@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "message",
+  "message": "抱歉，您没有权限删除此评论",
+  "message_key": "no_privilege_comment_del",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

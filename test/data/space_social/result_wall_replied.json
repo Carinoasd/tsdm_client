@@ -1,0 +1,17 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 35,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "message",
+  "message": "已经回复到测试会员甲的留言板",
+  "message_key": "note_wall_reply_success",
+  "url": "https://forum.test/./",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "right"
+}

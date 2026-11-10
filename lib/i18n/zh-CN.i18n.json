@@ -3966,6 +3966,32 @@
     },
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
-    "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+    "identityChanged": "账号已切换，这个页面不会再发送任何内容",
+    "wall": {
+      "title": "留言板",
+      "empty": "还没有留言",
+      "post": "留言",
+      "reply": "回复",
+      "replyTo": "回复 $name",
+      "message": "内容",
+      "delete": "删除留言",
+      "sent": "已留言",
+      "deleted": "已删除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "说一句",
+      "received": "收到的招呼",
+      "empty": "还没有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已发送",
+      "loadFailed": "无法打开招呼"
+    }
   }
 }

@@ -282,11 +282,12 @@ class ScreenPaths {
   /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
   static const String friend = '/friend';
 
-  /// The blogs and the albums of a member, a tab each.
+  /// The blogs, the albums and the wall of a member, a tab each.
   ///
-  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog
+  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog, https://tsdm39.com/home.php?mod=space&uid=xxx&do=wall
   ///
-  /// Query parameters: `uid`, the member; `username` for the title; `tab`, `blog` (default) or `album`.
+  /// Query parameters: `uid`, the member (none for the account in use); `username` for the title; `tab`, `blog`
+  /// (default), `album` or `wall`; `cid`, the one message of the wall to show first.
   static const String space = '/space';
 
   /// A blog with its comments: https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog&id=yyy
@@ -306,6 +307,9 @@ class ScreenPaths {
   ///
   /// Query parameters: `albumId`, the album chosen first.
   static const String spaceAlbumUpload = '/space/albumUpload';
+
+  /// The greetings received: https://tsdm39.com/home.php?mod=spacecp&ac=poke
+  static const String spacePokes = '/space/pokes';
 
   /// Page to show "Latest thread" on web side.
   ///
