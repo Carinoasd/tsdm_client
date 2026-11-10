@@ -194,15 +194,12 @@ final class ForumWatchCubit extends Cubit<ForumWatchCubitState> with LoggerMixin
           result = ForumWatchChange.exists;
           return null;
         }
-        final forums = [
-          WatchedForum(fid: fid, name: name, updated: _clock().millisecondsSinceEpoch),
-          ...current.forums,
-        ];
-        if (current.fetchedCountWith(forums: forums) > forumWatchForumMax) {
+        final next = current.watching(fid, name: name, now: _clock().millisecondsSinceEpoch);
+        if (next.fetchedFids.length > forumWatchForumMax) {
           result = ForumWatchChange.limitReached;
           return null;
         }
-        return current.copyWith(forums: forums);
+        return next;
       },
       marks: {if (newestTid != null && newestTid > 0) forumWatchForumSource(fid): newestTid},
     );
@@ -217,8 +214,7 @@ final class ForumWatchCubit extends Cubit<ForumWatchCubitState> with LoggerMixin
     }
     await _store.updateConfig(
       uid,
-      (current) =>
-          current.watches(fid) ? current.copyWith(forums: [...current.forums.where((f) => f.fid != fid)]) : null,
+      (current) => current.watches(fid) ? current.unwatching(fid, now: _clock().millisecondsSinceEpoch) : null,
     );
     return ForumWatchChange.ok;
   }
@@ -243,11 +239,10 @@ final class ForumWatchCubit extends Cubit<ForumWatchCubitState> with LoggerMixin
         result = ForumWatchChange.limitReached;
         return null;
       }
-      final keyword = AlertKeyword(
-        text: text.trim().characters.take(forumWatchKeywordMaxLength).toString(),
-        updated: _clock().millisecondsSinceEpoch,
+      final next = current.withKeyword(
+        text.trim().characters.take(forumWatchKeywordMaxLength).toString(),
+        now: _clock().millisecondsSinceEpoch,
       );
-      final next = current.copyWith(keywords: [keyword, ...current.keywords]);
       // The first keyword makes the forums of a picked scope fetched.
       if (next.fetchedFids.length > forumWatchForumMax && next.fetchedFids.length > current.fetchedFids.length) {
         result = ForumWatchChange.limitReached;
@@ -267,7 +262,7 @@ final class ForumWatchCubit extends Cubit<ForumWatchCubitState> with LoggerMixin
     await _store.updateConfig(
       uid,
       (current) => current.keywords.any((k) => k.key == key)
-          ? current.copyWith(keywords: [...current.keywords.where((k) => k.key != key)])
+          ? current.withoutKeyword(key, now: _clock().millisecondsSinceEpoch)
           : null,
     );
     return ForumWatchChange.ok;
@@ -286,7 +281,7 @@ final class ForumWatchCubit extends Cubit<ForumWatchCubitState> with LoggerMixin
         result = ForumWatchChange.limitReached;
         return null;
       }
-      return current.copyWith(scope: scope);
+      return current.withScope(scope, now: _clock().millisecondsSinceEpoch);
     });
     return result;
   }

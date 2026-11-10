@@ -334,6 +334,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// With [crossDeviceSync], keep the floor bookmarks of the account on every device too.
   crossDeviceSyncBookmarks<bool>(name: 'crossDeviceSyncBookmarks', type: bool, defaultValue: true),
 
+  /// With [crossDeviceSync], keep the forums the account pinned to the frequent forums bar on every device too.
+  crossDeviceSyncPinnedForums<bool>(name: 'crossDeviceSyncPinnedForums', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the forums and keywords the account watches for new threads on every device too.
+  crossDeviceSyncForumWatch<bool>(name: 'crossDeviceSyncForumWatch', type: bool, defaultValue: true),
+
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(
     name: 'threadFloorInteractionMode',
@@ -453,7 +459,8 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// The pinned and recently visited forums of every account (a JSON object keyed by uid), see `decodeFrequentForums`.
   ///
-  /// It lives in the settings table, so a backup carries it; not part of the cross-device sync.
+  /// It lives in the settings table, so a backup carries it. The pinned forums of the account go with the cross-device
+  /// sync through a section of their own (`pinned_forums`), never this value as a whole.
   frequentForums<String>(name: 'frequentForums', type: String, defaultValue: ''),
   ;
 

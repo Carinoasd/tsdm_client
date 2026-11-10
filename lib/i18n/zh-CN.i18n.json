@@ -356,7 +356,9 @@
         "rateTemplates": "评分模板",
         "settings": "阅读与显示设置",
         "drafts": "本机草稿",
-        "bookmarks": "楼层书签"
+        "bookmarks": "楼层书签",
+        "pinnedForums": "钉选的版块",
+        "forumWatch": "新帖与关键字提醒"
       },
       "loginDevices": "登录设备",
       "security": "密码与安全",

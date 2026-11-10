@@ -356,7 +356,9 @@
         "rateTemplates": "Rate templates",
         "settings": "Reading and display settings",
         "drafts": "Local drafts",
-        "bookmarks": "Floor bookmarks"
+        "bookmarks": "Floor bookmarks",
+        "pinnedForums": "Pinned forums",
+        "forumWatch": "New thread and keyword alerts"
       },
       "loginDevices": "Login devices",
       "security": "Password and security",

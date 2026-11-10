@@ -661,7 +661,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           // background message service checks them too on Android). Not lazy: the check runs from the start.
           BlocProvider(
             create: (context) => ForumWatchCubit(
-              store: ForumWatchStore(getIt()),
+              store: ForumWatchStore.app ?? ForumWatchStore(getIt()),
               storage: getIt(),
               authenticationRepository: context.repo(),
               fetchFor: forumWatchFetcherOf,

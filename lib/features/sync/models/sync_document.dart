@@ -48,6 +48,19 @@ const syncBookmarkTombstonesMax = 100;
 /// with a long note: some 35 to 60 of the latest go with the sync, the older ones stay on their device.
 const int syncBookmarksMaxBytes = 24 * 1024;
 
+/// Most bytes the pinned forums of a document take, the records of the unpinned ones with them: the 30 a device pins
+/// and 30 records take about 4 KB.
+const int syncPinnedForumsMaxBytes = 6 * 1024;
+
+/// Most bytes the forums watched for new threads take in a document, the records of the unwatched ones with them
+/// (about 2 KB for the 10 a device watches and 30 records).
+const int syncWatchForumsMaxBytes = 3 * 1024;
+
+/// Most bytes the alert keywords take in a document, the records of the removed ones with them: 50 keywords of a few
+/// characters and 50 records take about 6 KB; of keywords as long as they may be (50 characters), the latest 25 or so
+/// go with the sync and the older ones stay on their device.
+const int syncWatchKeywordsMaxBytes = 8 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -72,7 +85,14 @@ const int syncBookmarksMaxBytes = 24 * 1024;
 ///              "<draft key>": {"updated": ms, "deleted": true}},
 ///  "bookmarks": {"<tid>:<pid>": {"updated": ms, "tid": 1, "pid": 2, "floor": 27, "page": 2, "note": "…",
 ///                                "excerpt": "…", "title": "…"},
-///                "<tid>:<pid>": {"updated": ms, "deleted": true}}}
+///                "<tid>:<pid>": {"updated": ms, "deleted": true}},
+///  "pinned_forums":  {"<fid>": {"updated": ms, "name": "…", "rank": 1048576},
+///                     "<fid>": {"updated": ms, "deleted": true}},
+///  "watch_forums":   {"<fid>": {"updated": ms, "name": "…"},
+///                     "<fid>": {"updated": ms, "deleted": true}},
+///  "watch_keywords": {"<keyword, lower case>": {"updated": ms, "text": "…"},
+///                     "<keyword, lower case>": {"updated": ms, "deleted": true}},
+///  "watch_scope": {"updated": ms, "custom": false, "latest": true, "forums": [{"fid": 1, "name": "…"}]}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -86,6 +106,17 @@ const int syncBookmarksMaxBytes = 24 * 1024;
 /// the sync on a device (its section is then neither read nor written there). `block_keywords` and `block_forums`
 /// (the thread list filters, added after the first release of `schema` 1) go with the block list; a version that does
 /// not read them carries them through as unknown sections, and a document without them reads as no filter.
+///
+/// `pinned_forums`, `watch_forums`, `watch_keywords` and `watch_scope` came later still, the same way (a version that
+/// does not read them carries them through), each pair on a switch of its own. `pinned_forums` holds the forums the
+/// account pinned to the frequent forums bar (`FrequentForum`): `rank` is where one stands among the others (the lower
+/// first, ties by forum id), so a forum moved on one device is one changed item and the order is the same everywhere;
+/// the forums visited lately stay on their device. `watch_forums` and `watch_keywords` hold the forums watched for new
+/// threads and the alert keywords, `watch_scope` (one item, the later wins whole) where the keywords are looked for
+/// (`ForumWatchConfig`, `forum_watch_sync.dart`); what a device's check knows (the newest thread seen per source, the
+/// threads announced, when it last ran) is never part of the document. Each of the three lists is held to the caps
+/// of a device and to a budget ([syncPinnedForumsMaxBytes], [syncWatchForumsMaxBytes], [syncWatchKeywordsMaxBytes]):
+/// together with the scope they take 12 KB when every list is full of usual names, 18 KB at most.
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device
@@ -175,13 +206,22 @@ final class SyncDocument {
   bool get newerThanKnown => schema > syncSchema;
 
   /// The item sections this version reads: a map of items keyed by the id of what they describe.
-  static const itemSections = ['visits', 'blocks', 'block_keywords', 'block_forums', 'drafts', 'bookmarks'];
+  static const itemSections = [
+    'visits',
+    'blocks',
+    'block_keywords',
+    'block_forums',
+    'drafts',
+    'bookmarks',
+    'pinned_forums',
+    'watch_forums',
+    'watch_keywords',
+  ];
 
   /// The sections this version reads as one item each.
-  static const singleSections = ['phrases', 'rate_templates', 'settings'];
+  static const singleSections = ['phrases', 'rate_templates', 'settings', 'watch_scope'];
 
-  /// The items of section [name] (`visits`, `blocks`, `block_keywords`, `block_forums`, `drafts`, `bookmarks`) by key,
-  /// empty when the section is missing or not an object.
+  /// The items of section [name] (one of [itemSections]) by key, empty when the section is missing or not an object.
   /// Items that are not objects are left out.
   Map<String, Map<String, dynamic>> items(String name) {
     final section = raw[name];
@@ -194,7 +234,7 @@ final class SyncDocument {
     };
   }
 
-  /// The one item of section [name] (`phrases`, `rate_templates`, `settings`), null when missing or not an object.
+  /// The one item of section [name] (one of [singleSections]), null when missing or not an object.
   Map<String, dynamic>? single(String name) {
     final section = raw[name];
     return section is Map<String, dynamic> ? section : null;
