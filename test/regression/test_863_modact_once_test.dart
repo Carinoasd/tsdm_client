@@ -11,9 +11,8 @@ void main() {
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
 
   testWidgets('the moderation notice of the first floor is a tappable block and prints once', (tester) async {
-    const html =
-        '<div class="modact"><a href="forum.php?mod=misc&amp;action=viewthreadmod&amp;tid=9202963">'
-        '本主题由 管理团队 于 刚刚 设置高亮</a></div><p>body</p>';
+    const link = '<a href="forum.php?mod=misc&amp;action=viewthreadmod&amp;tid=9202963">本主题由 管理团队 于 刚刚 设置高亮</a>';
+    const html = '<div class="modact">$link</div><p>body</p>';
     await tester.pumpWidget(
       TranslationProvider(
         child: MaterialApp(
