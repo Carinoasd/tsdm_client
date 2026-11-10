@@ -183,6 +183,9 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
   /// The forum's refusal, or why the list could not be had.
   Either<AppException, ModcpAnswer<Object?>>? _failure;
 
+  /// The list asked last: an answer to an earlier one is dropped.
+  int _generation = 0;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -194,12 +197,13 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
 
   /// Load the first page again.
   Future<void> _load() async {
+    final generation = ++_generation;
     setState(() {
       _loading = true;
       _failure = null;
     });
     final answer = await widget.repository.fetchRecycleBin(widget.kind, fid: widget.fid).run();
-    if (!mounted) {
+    if (!mounted || generation != _generation) {
       return;
     }
     setState(() {
@@ -231,9 +235,15 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
     if (last == null || !last.hasNext || _loadingMore) {
       return;
     }
+    final generation = _generation;
     setState(() => _loadingMore = true);
     final answer = await widget.repository.fetchRecycleBin(widget.kind, fid: widget.fid, page: last.page + 1).run();
     if (!mounted) {
+      return;
+    }
+    if (generation != _generation) {
+      // The list was loaded again meanwhile.
+      setState(() => _loadingMore = false);
       return;
     }
     switch (answer) {
@@ -258,10 +268,15 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
     }
   }
 
-  List<(int, RecycleBinItem)> get _items => [
-    for (final page in _pages)
-      for (final item in page.items) (page.page, item),
-  ];
+  /// The items of the pages loaded, each once: a page read after the bin changed may list one of the page before.
+  List<(int, RecycleBinItem)> get _items {
+    final seen = <String>{};
+    return [
+      for (final page in _pages)
+        for (final item in page.items)
+          if (seen.add(item.id)) (page.page, item),
+    ];
+  }
 
   Future<void> _act(RecycleBinAction action) async {
     final first = _pages.firstOrNull;
@@ -308,6 +323,7 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
         Right(value: RecycleBinDone(:final count)) => tr.done(count: count),
         Right(value: RecycleBinNotDone(:final remaining)) => tr.notDone(count: remaining.length),
         Right(value: RecycleBinRefused(:final message)) when message.isNotEmpty => message,
+        Right(value: RecycleBinUnknown()) => context.t.moderate.batch.unknown,
         Left(value: IdentityChangedException()) => context.t.general.accountChangedRetry,
         _ => context.t.moderate.failed,
       },
@@ -335,7 +351,10 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
     if (items.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
-        child: AppStateView(icon: Icons.delete_outline, message: context.t.modcp.binEmpty),
+        child: AppScrollableStateView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: AppStateView(icon: Icons.delete_outline, message: context.t.modcp.binEmpty, scrollable: false),
+        ),
       );
     }
     final hasNext = _pages.lastOrNull?.hasNext ?? false;

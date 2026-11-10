@@ -47,14 +47,18 @@ class _ModeratorLogPageState extends State<ModeratorLogPage> {
     super.dispose();
   }
 
+  /// The log asked last: an answer to an earlier one is dropped.
+  int _generation = 0;
+
   Future<void> _load() async {
+    final generation = ++_generation;
     final keyword = _keyword.text.trim();
     setState(() {
       _loading = true;
       _failure = null;
     });
     final answer = await widget.repository.fetchLog(keyword: keyword).run();
-    if (!mounted) {
+    if (!mounted || generation != _generation) {
       return;
     }
     setState(() {
@@ -78,9 +82,15 @@ class _ModeratorLogPageState extends State<ModeratorLogPage> {
     if (last == null || !last.hasNext || _loadingMore) {
       return;
     }
+    final generation = _generation;
     setState(() => _loadingMore = true);
     final answer = await widget.repository.fetchLog(keyword: _shownKeyword, page: last.page + 1).run();
     if (!mounted) {
+      return;
+    }
+    if (generation != _generation) {
+      // The log was asked again meanwhile.
+      setState(() => _loadingMore = false);
       return;
     }
     switch (answer) {
@@ -122,7 +132,10 @@ class _ModeratorLogPageState extends State<ModeratorLogPage> {
     if (entries.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
-        child: AppStateView(icon: Icons.history_outlined, message: context.t.modcp.logEmpty),
+        child: AppScrollableStateView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: AppStateView(icon: Icons.history_outlined, message: context.t.modcp.logEmpty, scrollable: false),
+        ),
       );
     }
     final hasNext = _pages.lastOrNull?.hasNext ?? false;

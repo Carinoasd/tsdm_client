@@ -231,7 +231,7 @@ void main() {
     test('the operation: the served fields, the items, no page of the panel but the one shown', () {
       final threads = _bin('recyclebin_threads.html', RecycleBinKind.threads);
       expect(
-        threads.submitUrl(),
+        threads.submitUrl,
         '$baseUrl/forum.php?mod=modcp&action=recyclebin&fid=$_fid&page=1',
       );
       expect(threads.body(RecycleBinAction.restore, ['9202822', '9202823']), {
@@ -243,7 +243,7 @@ void main() {
         'moderate[1]': '9202823',
       });
       final posts = _bin('recyclebin_posts.html', RecycleBinKind.posts);
-      expect(posts.submitUrl(), '$baseUrl/forum.php?mod=modcp&action=recyclebinpost&fid=$_fid&page=1');
+      expect(posts.submitUrl, '$baseUrl/forum.php?mod=modcp&action=recyclebinpost&fid=$_fid&page=1');
       expect(posts.body(RecycleBinAction.delete, ['11270']), {
         'formhash': 'f1f2f3f4',
         'posttableid': '0',
@@ -315,7 +315,7 @@ void main() {
       final outcome = await repo.submitRecycleBin(bin, RecycleBinAction.restore, ['9202822']).run();
       expect(outcome.getRight().toNullable(), isA<RecycleBinDone>().having((e) => e.count, 'count', 1));
       expect(forum.posts, hasLength(1));
-      expect(forum.posts.single.$1, bin.submitUrl());
+      expect(forum.posts.single.$1, bin.submitUrl);
       expect(forum.gets, isEmpty);
     });
 
@@ -344,6 +344,17 @@ void main() {
         outcome.getRight().toNullable(),
         isA<RecycleBinNotDone>().having((e) => e.remaining, 'remaining', ['9202823']).having((e) => e.done, 'done', 1),
       );
+    });
+
+    test('a later page that can not be read again: not told done', () async {
+      final forum = _Forum({}, postAnswer: (_, _) => _ok(_withNextPage(_text('recyclebin_restore_result.html'))));
+      final bin = _bin('recyclebin_threads.html', RecycleBinKind.threads);
+      final outcome = await forum.repository().submitRecycleBin(bin, RecycleBinAction.restore, [
+        '9202822',
+      ], lastPage: 3).run();
+      expect(forum.gets, ['$baseUrl/forum.php?mod=modcp&action=recyclebin&fid=$_fid&page=2']);
+      expect(forum.posts, hasLength(1));
+      expect(outcome.getRight().toNullable(), isA<RecycleBinUnknown>());
     });
 
     test('the panel failing (its session ended: an error page) is a failure, never sent again', () async {
@@ -475,6 +486,28 @@ void main() {
       expect(forum.posts, hasLength(1));
       expect(forum.posts.single.$2, containsPair('op', 'delete'));
       expect(forum.posts.single.$2, containsPair('moderate[0]', '9202823'));
+    });
+
+    testWidgets('an empty bin and an empty log are pulled to refresh', (tester) async {
+      final forum = _Forum({
+        'action=recyclebin': 'recyclebin_forums.html',
+        'action=recyclebin&fid=$_fid': 'recyclebin_delete_result_admin.html',
+        'action=recyclebinpost&fid=$_fid': 'recyclebin_delete_result_admin.html',
+        'action=log': 'log_empty.html',
+      });
+      await _pumpPage(tester, RecycleBinPage(repository: forum.repository()));
+      await tester.tap(find.byKey(const ValueKey('modcp-forum-$_fid')));
+      await tester.pumpAndSettle();
+      expect(find.text(t.modcp.binEmpty), findsOneWidget);
+      await tester.fling(find.text(t.modcp.binEmpty), const Offset(0, 400), 1000);
+      await tester.pumpAndSettle();
+      expect(forum.gets.where((e) => e.endsWith('action=recyclebin&fid=$_fid')), hasLength(2));
+
+      await _pumpPage(tester, ModeratorLogPage(repository: forum.repository()));
+      expect(find.text(t.modcp.logEmpty), findsOneWidget);
+      await tester.fling(find.text(t.modcp.logEmpty), const Offset(0, 400), 1000);
+      await tester.pumpAndSettle();
+      expect(forum.gets.where((e) => e.endsWith('action=log')), hasLength(2));
     });
 
     testWidgets('a forum keeping no bin: back to the forums, none chosen without asking', (tester) async {

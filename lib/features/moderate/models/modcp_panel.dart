@@ -230,9 +230,9 @@ final class RecycleBinList {
       '$baseUrl/forum.php?mod=modcp&action=${kind.action}'
       '${fid > 0 ? '&fid=$fid' : ''}${page > 1 ? '&page=$page' : ''}';
 
-  /// The url the bin's operations are posted to. The forum answers with page [page] of the bin again (no message):
-  /// what is still listed was not done.
-  String submitUrl({int page = 1}) => '$baseUrl/forum.php?mod=modcp&action=${kind.action}&fid=$fid&page=$page';
+  /// The url the bin's operations are posted to. The forum answers with the first page of the bin again (no
+  /// message): what is still listed was not done.
+  String get submitUrl => '$baseUrl/forum.php?mod=modcp&action=${kind.action}&fid=$fid&page=1';
 
   /// The form body of [action] on the items [ids].
   Map<String, String> body(RecycleBinAction action, List<String> ids) => {
@@ -316,6 +316,8 @@ RecycleBinList? parseRecycleBin(
     items: items,
     fields: fields,
     uid: uid,
+    // The template's `<button onclick="modthreads('delete')">`, printed for a group allowed to (`allowclearrecycle`,
+    // `forum/modcp_recyclebin.htm` and `modcp_recyclebinpost.htm`).
     canDelete: form.querySelectorAll('button').any((e) => (e.attributes['onclick'] ?? '').contains("'delete'")),
     page: page,
     hasNext: doc.querySelector('div.pg a.nxt') != null,
@@ -387,6 +389,13 @@ final class RecycleBinNotDone extends RecycleBinOutcome {
 
   /// The items still in the bin.
   final List<String> remaining;
+}
+
+/// Sent, and the panel answered, but whether all were done is not known: a later page an item was picked on could not
+/// be read again.
+final class RecycleBinUnknown extends RecycleBinOutcome {
+  /// Constructor.
+  const RecycleBinUnknown();
 }
 
 /// The panel showed its login form: its session ended, nothing was done.

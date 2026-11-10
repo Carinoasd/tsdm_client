@@ -143,7 +143,7 @@ final class ModcpRepository with LoggerMixin {
     if (uid <= 0 || list.uid != uid || list.fid <= 0) {
       return left(IdentityChangedException());
     }
-    final resp = await _post(list.submitUrl(), list.body(action, ids));
+    final resp = await _post(list.submitUrl, list.body(action, ids));
     final Object? data;
     switch (resp) {
       case Left(:final value):
@@ -180,8 +180,8 @@ final class ModcpRepository with LoggerMixin {
             case Left(value: IdentityChangedException()):
               return left(IdentityChangedException());
             default:
-              // Sent and answered: what the later pages hold is not known, the list will be read again.
-              more = false;
+              // Sent and answered, but what the later pages hold is not known: not told done.
+              return right(const RecycleBinUnknown());
           }
         }
     }
