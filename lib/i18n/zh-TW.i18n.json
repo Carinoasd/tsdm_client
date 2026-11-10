@@ -2495,16 +2495,6 @@
     "loadFailed": "載入失敗",
     "notificationChannel": "音樂播放"
   },
-  "videoPlayer": {
-    "play": "播放",
-    "speed": "倍速",
-    "mute": "靜音",
-    "unmute": "取消靜音",
-    "cannotPlay": "無法播放",
-    "loadFailed": "載入失敗",
-    "retry": "重試",
-    "open": "開啟"
-  },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",
     "allAccounts": "全部帳號",
