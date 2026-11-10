@@ -1,0 +1,93 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0 mdcp">
+<h1 class="mt cl">
+<span class="z">
+版块编辑 -&nbsp;
+</span>
+<span class="ftid">
+<select name="fid" id="fid" width="150" class="ps" change="location.href='forum.php?mod=modcp&action=forum&op=editforum&fid='+$('fid').value"><option value="2" >📢 公告 & 新手報到</option>
+<option value="6" >新番追蹤</option>
+<option value="7" >神作殿堂</option>
+<option value="8" >聲優茶話會</option>
+<option value="9" selected="selected">手遊情報站</option>
+<option value="10" >Galgame・美少女遊戲</option>
+<option value="11" >主機・PC 遊戲</option>
+<option value="12" >繪圖・插畫</option>
+<option value="13" >COS・攝影</option>
+<option value="14" >同人創作</option>
+<option value="15" >GLTEST 子版塊（型別 sub）</option>
+<option value="23" >LETIE_A7_子版測試</option>
+<option value="25" >周邊交易區</option>
+<option value="26" >BU 黑名單權限版 G</option>
+<option value="29" >BU 通知驗收版 H（1789171425534）</option>
+<option value="30" >BD 新人报到验收版</option>
+<option value="31" >PS 每日签到验收版</option>
+<option value="32" >CM 內容管理驗收版</option>
+<option value="33" >CM 內容管理驗收版2</option>
+<option value="34" >CM 內容管理驗收版3</option>
+</select>
+</span>
+</h1>
+<div class="exfm">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=forum&op=editforum">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<input type="hidden" name="fid" value="9">
+<table cellspacing="0" cellpadding="0">
+<caption>
+<h4>本版规则</h4>
+<div id="rulespreview"></div>
+</caption>
+<tr>
+<td class="ptm">
+<div class="tedt">
+<div class="bar">
+<div class="y"><a href="javascript:;" onclick="$('rulespreview').innerHTML = bbcode2html($('rulesmessage').value)">预览</a></div>
+<div class="fpd">
+<a href="javascript:;" title="文字加粗" class="fbld" onclick="seditor_insertunit('rules', '[b]', '[/b]');doane(event);">B</a>
+<a href="javascript:;" title="设置文字颜色" class="fclr" id="rulesforecolor" onclick="showColorBox(this.id, 2, 'rules');doane(event);">Color</a>
+<a id="rulesimg" href="javascript:;" title="图片" class="fmg" onclick="seditor_menu('rules', 'img');doane(event);">Image</a>
+<a id="rulesurl" href="javascript:;" title="添加链接" class="flnk" onclick="seditor_menu('rules', 'url');doane(event);">Link</a>
+</div></div>
+<div class="area">
+<textarea id="rulesmessage" name="rulesnew" class="pt" rows="8" disabled="disabled" readonly="readonly">[b]版主改的規則[/b]</textarea>
+</div>
+</div>
+<div>抱歉，您所在的用户组不允许修改版规！</div>
+</td>
+<td width="15%" valign="top" class="ptm">
+<p>编辑器代码 可用</p>
+<p>[img] 代码 可用</p>
+<p>HTML 代码 禁用</p>
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<button type="submit" name="editsubmit" class="pn" value="true"><strong>提交</strong></button>
+</td>
+</tr>
+</table>
+</form>
+</div>
+</div>
+</div>
+<div class="appl">
+<div class="tbn">
+<h2 class="mt bbda">论坛管理</h2>
+<ul>
+<li class="cl"><span class="y mtn">0</span><a href="forum.php?mod=modcp&action=home&amp;fid=9">内部留言</a></li>
+<li class="cl"><span class="y mtn"></span><a href="forum.php?mod=modcp&action=moderate&op=threads&amp;fid=9">审核</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=base&id=selfrate:modcp_base&amp;fid=9">自助評分</a></li>
+<li><a href="forum.php?mod=modcp&action=member&op=ban&amp;fid=9">禁止用户</a></li><li><a href="forum.php?mod=modcp&action=member&op=ipban&amp;fid=9">禁止 IP</a></li><li><a href="forum.php?mod=modcp&action=forumaccess&amp;fid=9">用户权限</a></li><li><a href="forum.php?mod=modcp&action=member&op=edit&amp;fid=9">编辑用户</a></li><li><a href="forum.php?mod=modcp&action=thread&op=thread&amp;fid=9">主题管理</a></li>
+<li><a href="forum.php?mod=modcp&action=forum&op=recommend&show=all&amp;fid=9">推荐主题</a></li><li class="a"><a href="forum.php?mod=modcp&action=forum&op=editforum&amp;fid=9">版块编辑</a></li><li><a href="forum.php?mod=modcp&action=announcement&amp;fid=9">公告</a></li><li><a href="forum.php?mod=modcp&action=log&amp;fid=9">管理日志</a></li><li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=cobuyer:entry">售卖帖共同买家</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=creditlist:entry">积分名单统计</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=ratetrack:entry">评分追踪</a></li>
+<li><a href="forum.php?mod=modcp&action=report&amp;fid=9">管理举报</a></li>
+<li><a href="forum.php?mod=forumdisplay&amp;fid=9">返回论坛</a></li>
+<li><a href="forum.php?mod=modcp&action=logout">退出</a></li>
+</ul>
+</div>
+</div>
+</div>
+</body></html>

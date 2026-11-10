@@ -315,7 +315,8 @@ void main() {
         expect(page.tid, '9199345');
         expect(forum.requests, hasLength(1), reason: 'no web page asked for the challenge');
         expect(_asksJson(forum.requests.single), isTrue);
-        expect(_asksLean(forum.requests.single), isTrue);
+        // The first page asks its document: the evaluation of the thread is only there (test_843).
+        expect(_asksLean(forum.requests.single), isFalse);
         await getIt.unregister<NetClientProvider>();
 
         // The forum's message with `login`, no schema, no document: a page too.

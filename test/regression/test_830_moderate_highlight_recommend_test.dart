@@ -391,6 +391,8 @@ void main() {
         ModerateOperation.type,
         ModerateOperation.move,
         ModerateOperation.copy,
+        ModerateOperation.merge,
+        ModerateOperation.split,
         ModerateOperation.repair,
         ModerateOperation.delete,
       ]);

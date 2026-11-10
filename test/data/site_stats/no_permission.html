@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>提示信息 -  测试论坛 -  Powered by Discuz!</title>
+</head>
+<body>
+<div id="wp" class="wp">
+<div id="ct" class="wp cl w">
+<div class="nfl">
+<div class="f_c altw">
+<div id="messagetext" class="alert_error">
+<p>抱歉，您所在的用户组(超级版主)无法进行此操作</p>
+
+</div>
+</div>
+</div>
+</div>	</div>
+
+
+<div class="mask" id="hb_mask">
+  <div class="fx-night" id="hb_night"></div>
+  <div class="fx-flash" id="hb_flash"></div>
+  <canvas class="fx-canvas" id="hb_fx"></canvas>
+  <div class="env-wrap">
+    <div class="fx-rays" id="hb_rays"></div>
+    <div class="fx-ring" id="hb_ring"></div>
+    <div class="env" id="hb_env">
+      <div class="flap"></div>
+      <div class="from" id="hb_from"></div>
+      <div class="bless" id="hb_bless"></div>
+      <div class="pwbox"><input type="text" id="hb_pw" placeholder="輸入口令" maxlength="64" autocomplete="off"><div class="pwerr" id="hb_pwerr"></div></div>
+      <button class="open-btn" id="hb_openbtn" onclick="hongbaoDoOpen()">開</button>
+      <button class="wd-btn" id="hb_wdbtn" onclick="hongbaoWithdraw()" style="display:none">撤回<br>剩餘</button>
+      <div class="inner">
+        <div class="who" id="hb_who"></div>
+        <div class="bless2" id="hb_bless2"></div>
+        <div class="amt" id="hb_amt"></div>
+        <div class="unit" id="hb_unit"></div>
+        <div class="stored">已存入你的帳戶</div>
+        <div class="reclink" id="hb_reclink" onclick="hongbaoToggleRecs()">看看大家的手氣 ›</div>
+        <div class="statemsg" id="hb_statemsg"></div>
+      </div>
+      <div class="recs" id="hb_recs"></div>
+    </div>
+    <div class="cat" id="hb_cat"></div>
+    <div class="bigtag" id="hb_bigtag">手 氣 爆 發 !</div>
+    <button class="env-close" onclick="hongbaoClose()">✕</button>
+    <label class="daily-skip" id="hb_dailyskip" style="display:none"><input type="checkbox" id="hb_skipchk"> 今日不再顯示</label>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -6,6 +6,8 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
+import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
@@ -22,6 +24,9 @@ typedef ModerateGet = Future<Either<AppException, ModerateResponse>> Function(St
 
 /// Post [body] to [url] once, never retried. Returns the failure of the transport as its left.
 typedef ModeratePost = Future<Either<AppException, ModerateResponse>> Function(String url, Map<String, String> body);
+
+/// Read page [page] of thread [tid], oldest floor first, as the thread page reads it.
+typedef ModerateThreadPage = Future<Either<AppException, ThreadPageInfo>> Function(String tid, int page);
 
 /// The error handler call of the AJAX answer to a management request the forum refused (without the app API):
 /// `errorhandle_mods('抱歉，您没有权限设置主题置顶', {});`, the message quoted with `\'` escaped.
@@ -42,10 +47,15 @@ String _unescape(String s) => s.replaceAllMapped(RegExp(r'\\(.)'), (m) => m.grou
 /// levels and forums the account may choose from, and refuses what the account may not do, in its own words.
 final class ModerateRepository with LoggerMixin {
   /// Constructor; transports are injected so the flow is tested without the forum.
-  ModerateRepository({required ModerateGet get, required ModeratePost post, int Function()? currentUid})
-    : _get = get,
-      _post = post,
-      _currentUid = currentUid ?? currentLoginUid;
+  ModerateRepository({
+    required ModerateGet get,
+    required ModeratePost post,
+    int Function()? currentUid,
+    ModerateThreadPage? threadPage,
+  }) : _get = get,
+       _post = post,
+       _threadPage = threadPage ?? _networkThreadPage,
+       _currentUid = currentUid ?? currentLoginUid;
 
   /// Uses the app's client.
   factory ModerateRepository.network() => ModerateRepository(
@@ -62,7 +72,25 @@ final class ModerateRepository with LoggerMixin {
 
   final ModerateGet _get;
   final ModeratePost _post;
+  final ModerateThreadPage _threadPage;
   final int Function() _currentUid;
+
+  static Future<Either<AppException, ThreadPageInfo>> _networkThreadPage(String tid, int page) =>
+      ThreadRepository().fetchThreadPage(tid: tid, pageNumber: page, reverseOrder: false).run();
+
+  /// Read page [page] of thread [tid] for the account logged in, oldest floor first: the thread to merge, the floors
+  /// to split off. A page served to another account is an [IdentityChangedException].
+  AsyncEither<ThreadPageInfo> fetchThreadPage(String tid, {int page = 1}) => AsyncEither(() async {
+    final uid = _currentUid();
+    if (uid <= 0) {
+      return left(IdentityChangedException());
+    }
+    final answer = await _threadPage(tid, page);
+    if (_currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    return answer;
+  });
 
   /// Whether an account moderates a forum, by `uid:fid`, with the time it was learnt.
   static final _moderates = <String, (bool, DateTime)>{};
@@ -150,6 +178,12 @@ final class ModerateRepository with LoggerMixin {
         }
       });
 
+  /// The forum refused a window by language key [key] for what asking again does not change: the account's group may
+  /// not do it (`no_privilege_stampthread`…), the thread is a special one (`special_noaction`: no copy, merge or split)
+  /// or has no reply to split off (`admin_split_invalid`).
+  static bool _refusedForGood(String key) =>
+      key.startsWith('no_privilege_') || key == 'special_noaction' || key == 'admin_split_invalid';
+
   /// The window of [operation] in answer [data], asked by account [uid].
   static Either<AppException, ModerateWindow> windowOf(
     Object? data,
@@ -166,7 +200,7 @@ final class ModerateRepository with LoggerMixin {
       if (result.kind != TsdmAppWriteKind.page) {
         // The account's group may not do it (`no_privilege_stampthread`…): asking again changes nothing. The AJAX
         // fragment of a forum without the plugin has no message key: its refusal is offered to retry.
-        return right(ModerateWindowRefused(result.reason, unavailable: result.messageKey.startsWith('no_privilege_')));
+        return right(ModerateWindowRefused(result.reason, unavailable: _refusedForGood(result.messageKey)));
       }
       final form = ModerateForm.parse(result.document, operation, tid: tid, fid: fid, uid: uid);
       if (form != null) {

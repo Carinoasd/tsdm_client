@@ -5,6 +5,7 @@ import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/special_block.dart';
+import 'package:tsdm_client/features/thread_recommend/utils/thread_recommend_answer.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_medal_menu_info.dart';
@@ -73,6 +74,9 @@ Map<String, dynamic>? threadApiAnswerOf(Object? data) {
 ///   ([Post.fromApi]). Without `special` every floor is exactly what it was. Since plugin 3.5.0 (`schema: 18`)
 ///   `special` is also the red packet of a thread of the hongbao plugin ([HongbaoSpecial]), kept on the first floor
 ///   only when the plugin's card is cut out of its content.
+/// * the evaluation of the thread ("支持", "踩": [Post.recommend] of the first floor) is read from the links the app
+///   cut from the first page's `document` ([threadRecommendHtmlKey], see `threadAnswerWithRecommend`): up to plugin
+///   3.7.0 no field carries it.
 ///
 /// The forum's message (`ok` 0): `login` 1 is the login prompt of a guest (`needLogin`), 0 a member without
 /// permission (`havePermission` false, the message text as the denied message, as the page's `#messagetext p`);
@@ -135,6 +139,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
   // The placeholder a rush thread prints for a deleted floor (`deleted` 1: "无效楼层，该帖已经被删除", no author, no
   // content) is left out, as the page parser leaves out a floor without an author.
   final bestAnswerForm = special == null ? _rewardBestAnswerFormOf(thread, viewerUid: uid, page: currentPage) : null;
+  // The evaluation of the thread ("支持", "踩") the app cut from the first page's document (threadAnswerWithRecommend).
+  final recommend = ThreadRecommend.fromHtml(_text(json[threadRecommendHtmlKey]), viewerUid: uid > 0 ? uid : null);
   final postList = _list(json['posts']).where((p) => _int(p['deleted']) != 1).map((p) {
     final first = _int(p['first']) == 1;
     var post = Post.fromApi(
@@ -151,6 +157,9 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
       timeOffset: timeOffset,
     );
     post = _withSpecial(post, special, first: first);
+    if (first && recommend != null) {
+      post = post.copyWith(recommend: recommend);
+    }
     post = _withDebateVote(
       post,
       special,
