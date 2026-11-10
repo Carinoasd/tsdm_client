@@ -116,7 +116,7 @@ const int syncWatchKeywordsMaxBytes = 8 * 1024;
 /// (`ForumWatchConfig`, `forum_watch_sync.dart`); what a device's check knows (the newest thread seen per source, the
 /// threads announced, when it last ran) is never part of the document. Each of the three lists is held to the caps
 /// of a device and to a budget ([syncPinnedForumsMaxBytes], [syncWatchForumsMaxBytes], [syncWatchKeywordsMaxBytes]):
-/// together with the scope they take 12 KB when every list is full of usual names, 18 KB at most.
+/// together with the scope they take 12 KB when every list is full of usual names, about 18 KB at most.
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device
