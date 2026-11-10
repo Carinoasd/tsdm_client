@@ -14,11 +14,11 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
+import 'package:tsdm_client/utils/html/link_gesture_recognizer.dart';
 import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/types.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/card/code_card.dart';
 import 'package:tsdm_client/widgets/card/spoiler_card.dart';
@@ -571,16 +571,16 @@ final class _SpanBuilder {
   /// How the author's colors are shown in the theme, see [_style].
   AuthorColors? _colors;
 
-  /// Open [url] as a link of the html renderer does: a tap on desktop, the end of a press on mobile, its info on a
-  /// long press or a secondary tap.
+  /// Open [url] as a link of the html renderer does: on a tap, its info on a long press (mobile, see
+  /// [LinkTapGestureRecognizer]) or a secondary tap (desktop).
   GestureRecognizer? _recognizer(String? url) {
     if (url == null) {
       return null;
     }
     final GestureRecognizer recognizer;
-    if (isMobile) {
-      recognizer = LongPressGestureRecognizer()
-        ..onLongPressCancel = () async {
+    if (useMobileLinkGesture) {
+      recognizer = LinkTapGestureRecognizer()
+        ..onTap = () async {
           await _openUrl(url);
         }
         ..onLongPress = () async {

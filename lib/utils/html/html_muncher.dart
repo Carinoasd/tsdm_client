@@ -33,6 +33,7 @@ import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/cloudflare_email.dart';
 import 'package:tsdm_client/utils/html/full_width_block.dart';
 import 'package:tsdm_client/utils/html/hidden_content.dart';
+import 'package:tsdm_client/utils/html/link_gesture_recognizer.dart';
 import 'package:tsdm_client/utils/html/media_card.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 // Netease card
@@ -1982,12 +1983,12 @@ final class _Muncher with LoggerMixin {
     ];
   }
 
-  /// Gesture recognizer that opens [url] on tap (desktop) or long-press cancel (mobile) and shows its info on
-  /// long press / secondary tap.
+  /// Gesture recognizer that opens [url] on tap and shows its info on long press (mobile, see
+  /// [LinkTapGestureRecognizer]) or secondary tap (desktop).
   GestureRecognizer _buildUrlRecognizer(String url) {
-    if (isMobile) {
-      return LongPressGestureRecognizer()
-        ..onLongPressCancel = () async {
+    if (useMobileLinkGesture) {
+      return LinkTapGestureRecognizer()
+        ..onTap = () async {
           await _openUrl(url);
         }
         ..onLongPress = () async {
