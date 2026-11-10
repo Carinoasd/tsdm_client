@@ -50,8 +50,9 @@ _Answer _page(String body) => (status: 200, body: body, location: null, disposit
 
 _Answer _redirect(String location) => (status: 302, body: '', location: location, disposition: null);
 
-/// The forum: answers each address from [answers] (the same address answered in turn), records the requests.
-final class _FakeFetcher implements AttachmentFetcher {
+/// The forum: answers each address from [answers] (the same address answered in turn), records the requests and
+/// tells its listeners each one.
+final class _FakeFetcher extends ChangeNotifier implements AttachmentFetcher {
   _FakeFetcher(this.answers, {this.pages = const {}});
 
   final Map<String, List<_Answer>> answers;
@@ -62,6 +63,20 @@ final class _FakeFetcher implements AttachmentFetcher {
   /// While not null, a fetch waits for it (or its cancel).
   Completer<void>? gate;
 
+  /// The addresses held back one by one: a fetch of one waits until it is [release]d (or cancelled), before anything
+  /// is written.
+  final _held = <String, Completer<void>>{};
+
+  /// Hold back the answers of [urls] until each is [release]d.
+  void hold(Iterable<String> urls) {
+    for (final url in urls) {
+      _held[url] = Completer<void>();
+    }
+  }
+
+  /// Let the answer of [url] go.
+  void release(String url) => _held.remove(url)!.complete();
+
   @override
   Future<AttachmentFetchAnswer> fetch(
     String url,
@@ -71,7 +86,8 @@ final class _FakeFetcher implements AttachmentFetcher {
     void Function(int received, int? total)? onProgress,
   }) async {
     requests.add(url);
-    final gate = this.gate;
+    notifyListeners();
+    final gate = _held[url] ?? this.gate;
     if (gate != null) {
       await Future.any([gate.future, cancelToken.whenCancel]);
       if (cancelToken.isCancelled) {
@@ -103,12 +119,35 @@ final class _FakeFetcher implements AttachmentFetcher {
   }
 }
 
-/// Wait until [test] holds for the downloads of [manager] (the runs are real async work).
-Future<void> _until(AttachmentDownloadManager manager, bool Function() test) async {
-  for (var i = 0; i < 200 && !test(); i++) {
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+/// Wait until [test] holds: looked at again each time [manager] tells a change of its downloads or [fetcher] is asked
+/// for an address. Nothing is polled and no delay is counted on (the runs are real async work, as slow as the machine
+/// is); what never comes fails with the downloads as they are.
+Future<void> _until(AttachmentDownloadManager manager, bool Function() test, {_FakeFetcher? fetcher}) async {
+  if (test()) {
+    return;
   }
-  expect(test(), isTrue);
+  final held = Completer<void>();
+  void look() {
+    if (!held.isCompleted && test()) {
+      held.complete();
+    }
+  }
+
+  manager.addListener(look);
+  fetcher?.addListener(look);
+  try {
+    await held.future.timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => fail(
+        'never came: the downloads are ${[
+          for (final uid in const [0, 31, 35]) ...manager.itemsOf(uid).map((e) => '${e.filename} ${e.status.name}'),
+        ]}, asked ${fetcher?.requests.length ?? '?'} times',
+      ),
+    );
+  } finally {
+    manager.removeListener(look);
+    fetcher?.removeListener(look);
+  }
 }
 
 void main() {
@@ -231,16 +270,20 @@ void main() {
       }
     });
 
-    AttachmentDownloadManager managerOf(_FakeFetcher fetcher, {DateTime Function()? now, int maxRunning = 2}) =>
-        AttachmentDownloadManager(
-          fetcher: fetcher,
-          store: AttachmentDownloadStore.memory(rows),
-          directory: () async => dir,
-          partDirectory: () async => parts,
-          now: now,
-          maxRunning: maxRunning,
-          progressInterval: Duration.zero,
-        );
+    AttachmentDownloadManager managerOf(
+      _FakeFetcher fetcher, {
+      DateTime Function()? now,
+      int maxRunning = 2,
+      Future<Directory> Function()? partDirectory,
+    }) => AttachmentDownloadManager(
+      fetcher: fetcher,
+      store: AttachmentDownloadStore.memory(rows),
+      directory: () async => dir,
+      partDirectory: partDirectory ?? () async => parts,
+      now: now,
+      maxRunning: maxRunning,
+      progressInterval: Duration.zero,
+    );
 
     List<Map<String, dynamic>> rowOf(int uid) =>
         (jsonDecode(rows[AttachmentDownloadStore.rowKeyOf(uid)]!) as List).cast<Map<String, dynamic>>();
@@ -399,21 +442,86 @@ void main() {
 
     test('at most two run at once, the others wait their turn in the order asked', () async {
       final urls = [
+        for (final aid in [1, 2, 3, 4]) _urlOf(aid),
+      ];
+      final fetcher = _FakeFetcher({
+        for (final (i, url) in urls.indexed) url: [_file('file $i', name: 'f$i.zip')],
+      })..hold(urls);
+      // The first download to start is the last of the two to reach the forum: its part folder answers late. Which of
+      // the two running asks first is no matter of the queue (both run), and is not counted on.
+      final slow = Completer<void>();
+      var asked = 0;
+      final manager = managerOf(
+        fetcher,
+        partDirectory: () async {
+          if (asked++ == 0) {
+            await slow.future;
+          }
+          return parts;
+        },
+      );
+      final items = [for (final url in urls) await manager.start(uid: 31, url: url, filename: url)];
+      AttachmentDownloadStatus statusOf(int i) => manager.find(31, items[i].id)!.status;
+      await _until(manager, () => fetcher.requests.isNotEmpty, fetcher: fetcher);
+      expect(fetcher.requests, [urls[1]]);
+      slow.complete();
+      await _until(manager, () => fetcher.requests.length == 2, fetcher: fetcher);
+      expect(fetcher.requests, [urls[1], urls[0]]);
+      expect(
+        [for (var i = 0; i < 4; i++) statusOf(i)],
+        [
+          AttachmentDownloadStatus.running,
+          AttachmentDownloadStatus.running,
+          AttachmentDownloadStatus.queued,
+          AttachmentDownloadStatus.queued,
+        ],
+      );
+
+      // One place free: the third asked takes it, not the fourth.
+      fetcher.release(urls[1]);
+      await _until(manager, () => fetcher.requests.length == 3, fetcher: fetcher);
+      expect(fetcher.requests.last, urls[2]);
+      expect(statusOf(1), AttachmentDownloadStatus.completed);
+      expect(statusOf(3), AttachmentDownloadStatus.queued);
+      // The other place: the fourth.
+      fetcher.release(urls[0]);
+      await _until(manager, () => fetcher.requests.length == 4, fetcher: fetcher);
+      expect(fetcher.requests.last, urls[3]);
+
+      fetcher
+        ..release(urls[2])
+        ..release(urls[3]);
+      await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
+      // The newest first.
+      expect(manager.itemsOf(31).map((e) => e.filename), ['f3.zip', 'f2.zip', 'f1.zip', 'f0.zip']);
+      expect(parts.existsSync(), isFalse);
+    });
+
+    test('a download finishing leaves the part folder to the one about to write there', () async {
+      final urls = [
         for (final aid in [1, 2, 3]) _urlOf(aid),
       ];
       final fetcher = _FakeFetcher({
         for (final (i, url) in urls.indexed) url: [_file('file $i', name: 'f$i.zip')],
-      })..gate = Completer<void>();
+      })..hold(urls);
       final manager = managerOf(fetcher);
       final items = [for (final url in urls) await manager.start(uid: 31, url: url, filename: url)];
-      await _until(manager, () => fetcher.requests.length == 2);
-      expect(fetcher.requests, urls.take(2));
-      expect(manager.find(31, items[2].id)!.status, AttachmentDownloadStatus.queued);
-      fetcher.gate!.complete();
-      await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
-      expect(fetcher.requests, urls);
-      // The newest first.
-      expect(manager.itemsOf(31).map((e) => e.filename), ['f2.zip', 'f1.zip', 'f0.zip']);
+      await _until(manager, () => fetcher.requests.length == 2, fetcher: fetcher);
+      // The first done, the third starts: it made sure its part folder is there and waits for the forum.
+      fetcher.release(urls[0]);
+      await _until(manager, () => fetcher.requests.length == 3, fetcher: fetcher);
+      // The second done meanwhile: nothing is in the part folder at that moment, and the third still needs it.
+      fetcher.release(urls[1]);
+      await _until(manager, () => manager.find(31, items[1].id)!.status == AttachmentDownloadStatus.completed);
+      expect(parts.existsSync(), isTrue);
+      expect(parts.listSync(), isEmpty);
+      // The forum answers the third: its part file is written where it was told.
+      fetcher.release(urls[2]);
+      await _until(manager, () => !manager.find(31, items[2].id)!.status.active);
+      expect(manager.find(31, items[2].id)!.status, AttachmentDownloadStatus.completed);
+      expect(File(manager.find(31, items[2].id)!.path!).readAsStringSync(), 'file 2');
+      // The last one out removes the folder.
+      expect(parts.existsSync(), isFalse);
     });
 
     test('kept per account; a download left running is failed when read again; forgetting an account', () async {
@@ -490,15 +598,27 @@ void main() {
       final manager = managerOf(fetcher);
       final failed = await manager.start(uid: 31, url: urls[0], filename: 'f0.zip');
       await _until(manager, () => manager.find(31, failed.id)?.status == AttachmentDownloadStatus.failed);
-      fetcher.gate = Completer<void>();
+      fetcher.hold(urls);
       for (final url in urls.skip(1)) {
         await manager.start(uid: 31, url: url, filename: url);
       }
       await manager.retry(31, failed.id);
-      await _until(manager, () => fetcher.requests.length == 3);
-      fetcher.gate!.complete();
+      // Two run (whichever asks the forum first), the third asked and the retried one wait.
+      await _until(manager, () => fetcher.requests.length == 3, fetcher: fetcher);
+      expect(fetcher.requests.first, urls[0]);
+      expect(fetcher.requests.skip(1), unorderedEquals([urls[1], urls[2]]));
+      // The places come free one at a time: the third asked first, the retried one last.
+      fetcher.release(urls[1]);
+      await _until(manager, () => fetcher.requests.length == 4, fetcher: fetcher);
+      expect(fetcher.requests.last, urls[3]);
+      fetcher.release(urls[2]);
+      await _until(manager, () => fetcher.requests.length == 5, fetcher: fetcher);
+      expect(fetcher.requests.last, urls[0]);
+      fetcher
+        ..release(urls[3])
+        ..release(urls[0]);
       await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
-      expect(fetcher.requests, [urls[0], urls[1], urls[2], urls[3], urls[0]]);
+      expect(fetcher.requests, hasLength(5));
     });
 
     test('two downloads of the same name finishing at once get two files', () async {
@@ -511,7 +631,7 @@ void main() {
       final manager = managerOf(fetcher);
       final first = await manager.start(uid: 31, url: a, filename: '1.zip');
       final second = await manager.start(uid: 31, url: b, filename: '1.zip');
-      await _until(manager, () => fetcher.requests.length == 2);
+      await _until(manager, () => fetcher.requests.length == 2, fetcher: fetcher);
       fetcher.gate!.complete();
       await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
       final paths = {manager.find(31, first.id)!.path, manager.find(31, second.id)!.path};
