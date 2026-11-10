@@ -253,6 +253,30 @@ class PostImagePart extends InheritedWidget {
   bool updateShouldNotify(PostImagePart oldWidget) => part != oldWidget.part;
 }
 
+/// Shows [child] at most [maxWidth] wide whatever the parent asks for: constraints are loosened first, so a parent
+/// that forces a width (a stretched column, a cell) does not blow a small picture up to fill it.
+class NoUpscale extends StatelessWidget {
+  /// Constructor.
+  const NoUpscale({required this.child, this.maxWidth, super.key});
+
+  /// The picture.
+  final Widget child;
+
+  /// The picture's own width in pixels; null when it is not known (no limit).
+  final double? maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    widthFactor: 1,
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+      child: child,
+    ),
+  );
+}
+
 /// A picture of a post: it keeps its place before it is there ([reservedImageBoxOf]), shows the progress of its
 /// download, and a failed one is tapped to load again.
 ///
@@ -505,7 +529,8 @@ class _PostImageState extends State<PostImage> {
             maxWidth: widget.declaredWidth ?? double.infinity,
             maxHeight: widget.declaredHeight ?? double.infinity,
           ),
-          child: cached,
+          // Once its size is known the picture is never shown larger than itself.
+          child: NoUpscale(maxWidth: ImageSizes.of(image.floorUrl)?.width, child: cached),
         ),
       ),
     );

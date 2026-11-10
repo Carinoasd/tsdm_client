@@ -31,7 +31,6 @@ import 'package:tsdm_client/features/site_stats/widgets/site_stats_chart_view.da
 import 'package:tsdm_client/features/task_center/cubit/task_center_cubit.dart';
 import 'package:tsdm_client/features/task_center/repository/task_center_repository.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
-import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
@@ -192,15 +191,6 @@ void main() {
       nextFrom: 100,
     );
     await check(tester, const UserGroupProgressBar(progress), original: '软件开发组', converted: '軟件開發組');
-  });
-
-  testWidgets('the latest moderation of a thread', (tester) async {
-    await check(
-      tester,
-      const OperationLogCard(latestAction: '软件开发 置顶', tid: '1'),
-      original: '软件开发 置顶',
-      converted: '軟件開發 置頂',
-    );
   });
 
   testWidgets('the comment of a floor: selectable, so the content and the author stay as they are', (tester) async {

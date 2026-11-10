@@ -106,7 +106,7 @@ final _cards = <_Card>[
   _Card(
     'moderation notice',
     '<div>正文末尾<div class="modact">本主题由 管理团队 于 3 小时前 添加图章 置顶</div>后续内容</div>',
-    () => find.ancestor(of: find.byIcon(Icons.manage_history_outlined), matching: find.byType(Container)).first,
+    () => find.ancestor(of: find.byIcon(Icons.manage_history_outlined), matching: find.byType(Material)).first,
   ),
   _Card(
     'centered text',

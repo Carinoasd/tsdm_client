@@ -548,14 +548,14 @@ void main() {
       expect(find.text('at ${ScreenPaths.threadV1}?tid=9199035'), findsOneWidget);
     });
 
-    testWidgets('the 淘帖 window: the collections holding the thread, a choice, the reason, sent once', (tester) async {
+    testWidgets('the 淘帖 window: a choice, the reason, sent once', (tester) async {
       final forum = _Forum({
         'op=addthread&tid=': 'dialog.json',
         'op=addthread&inajax': 'collect_done.json',
         'mod=collection&tid=': 'list_related.html',
       });
       await pump(tester, Scaffold(body: CollectThreadSheet(tid: 9199035, repository: forum.repository())));
-      expect(find.byKey(const ValueKey('collect-related-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('collect-related-3')), findsNothing);
       final submit = find.byKey(const ValueKey('collect-submit'));
       expect(tester.widget<FilledButton>(submit).onPressed, isNull);
       await tester.tap(find.byKey(const ValueKey('collect-choice-4')));

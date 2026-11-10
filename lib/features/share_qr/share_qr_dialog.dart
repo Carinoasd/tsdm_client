@@ -124,8 +124,9 @@ class _ShareQrDialogState extends State<ShareQrDialog> {
                     data: widget.url,
                     size: shareQrSize,
                     backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(color: Colors.black),
-                    dataModuleStyle: const QrDataModuleStyle(color: Colors.black),
+                    // The package's own eye and module styles are square and black. Styles built here with only a color
+                    // leave the shape out, which the painter draws round: decoders that look for square patterns (OpenCV)
+                    // do not find those.
                   ),
                   sizedBoxW12H12,
                   Text(

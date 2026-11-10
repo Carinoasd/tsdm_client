@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/netdisk/widgets/netdisk_row.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart';
 import 'package:tsdm_client/features/red_packet/widgets/red_packet_card.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
@@ -1417,7 +1418,7 @@ final class _Muncher with LoggerMixin {
         onTap: () async => showImageActionBottomSheet(context: context, imageUrl: url, hrefUrl: hrefUrl),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: imgWidth ?? double.infinity, maxHeight: imgHeight ?? double.infinity),
-          child: NetworkIndicatorImage(url),
+          child: NoUpscale(child: NetworkIndicatorImage(url)),
         ),
       );
     } else {
@@ -1760,30 +1761,37 @@ final class _Muncher with LoggerMixin {
       return null;
     }
     final theme = Theme.of(context);
+    // The link of the notice names the thread (`mod=misc&action=viewthreadmod&tid=N`): tapping the notice opens the log.
+    final tid = RegExp(
+      r'action=viewthreadmod&(?:amp;)?tid=(\d+)',
+    ).firstMatch(element.querySelector('a')?.attributes['href'] ?? '')?.group(1);
     // A block ([_munchDiv]): the line break before it goes there only when the line before it holds something.
     return [
       textWidgetSpan(
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.manage_history_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                sizedBoxW8H8,
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(children: content),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
+          child: Material(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: tid == null ? null : () async => showOperationLogDialog(context, tid),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.manage_history_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                    sizedBoxW8H8,
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(children: content),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

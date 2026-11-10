@@ -85,6 +85,8 @@ void main() {
       expect(tester.widget<Container>(find.byKey(const ValueKey('share-qr-card'))).color, Colors.white);
       expect(code.eyeStyle.color, Colors.black);
       expect(code.dataModuleStyle.color, Colors.black);
+      expect(code.eyeStyle.eyeShape, QrEyeShape.square);
+      expect(code.dataModuleStyle.dataModuleShape, QrDataModuleShape.square);
       expect(tester.takeException(), isNull);
     });
   }

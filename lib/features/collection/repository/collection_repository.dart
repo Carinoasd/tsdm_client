@@ -130,10 +130,6 @@ final class CollectionRepository {
     );
   });
 
-  /// The collections holding thread [tid] (the forum's "相关专辑").
-  AsyncEither<CollectionListResult> fetchRelated(int tid) =>
-      _page(relatedUrl(tid), (html) => parseCollectionList(parseHtmlDocument(html)));
-
   /// The page of collection [ctid], page [page] of its threads.
   AsyncEither<CollectionDetail> fetchDetail(int ctid, {int page = 1}) => _page(
     '${collectionUrl(ctid)}${page > 1 ? '&page=$page' : ''}',

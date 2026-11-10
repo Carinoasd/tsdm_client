@@ -23,6 +23,8 @@ void showSnackBar({
     margin: floating && bottomInset > 0 ? EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset) : null,
     content: Text(message),
     action: action,
+    // Flutter 3.41 keeps a bar with an action on screen until dismissed (and across routes); give it a deadline.
+    persist: false,
     showCloseIcon: showCloseIcon,
     // Flutter moves the action to a second row once it takes more than 25% of the bar; short bars with a Chinese
     // label and a close icon crossed that on 360dp phones (issue #4), so callers can raise the threshold.

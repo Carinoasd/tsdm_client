@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
@@ -24,10 +25,12 @@ import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
 import 'package:tsdm_client/features/notification/utils/relative_time.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -73,6 +76,25 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
 
   /// Flag indicating only show unread messages or not
   bool onlyShowUnread = false;
+
+  /// What the forum says in place of the private messages when it has them switched off, null while not known or when
+  /// they are on.
+  String? _pmClosedMessage;
+  bool _pmClosedAsked = false;
+
+  /// Ask the private message page once when the list is empty: a forum with private messages off answers it with its own
+  /// words ("私信功能尚未开启"), which says more than "no private messages yet".
+  Future<void> _askPmClosedMessage() async {
+    final answer = await getIt.get<NetClientProvider>().get(withTsdmAppJson(personalMessageUrl)).run();
+    // The forum often answers JSON as text/html, which arrives as a string.
+    final message = switch (tsdmAppAnswerJson(answer.toNullable()?.data)) {
+      {'error': 'message', 'message': final String text} when text.trim().isNotEmpty => text.trim(),
+      _ => null,
+    };
+    if (message != null && mounted) {
+      setState(() => _pmClosedMessage = message);
+    }
+  }
 
   /// Text of the search box, empty when not searching.
   String _query = '';
@@ -480,7 +502,17 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
                   scrollController: _personalMessageScrollController,
                   timestamps: shownPms.map((e) => e.timestamp).toList(),
                   emptyIcon: Icons.forum_outlined,
-                  empty: emptyOf(emptyTr.personalMessage, emptyTr.unreadPersonalMessage),
+                  empty: () {
+                    final text = emptyOf(emptyTr.personalMessage, emptyTr.unreadPersonalMessage);
+                    if (shownPms.isNotEmpty || _query.trim().isNotEmpty || onlyShowUnread) {
+                      return text;
+                    }
+                    if (!_pmClosedAsked) {
+                      _pmClosedAsked = true;
+                      unawaited(Future.microtask(_askPmClosedMessage));
+                    }
+                    return _pmClosedMessage ?? text;
+                  }(),
                   itemBuilder: (_, idx) =>
                       PersonalMessageCardV2(key: ValueKey('PM_${shownPms[idx].timestamp}'), shownPms[idx]),
                 ),
