@@ -658,6 +658,13 @@ void main() {
         composing: const TextRange(start: 100, end: 101),
       );
       expect(postCommentLimitEdit(at('字' * 100, 100), composing, 200), composing);
+      // Past the limit after a composition: a delete is taken, a composition ending without a change too.
+      expect(postCommentLimitEdit(at('a' * 205, 205), at('a' * 204, 204), 200).text, 'a' * 204);
+      final committed = postCommentLimitEdit(composing, at('字' * 101, 101), 200);
+      expect(committed.text, '字' * 101);
+      expect(committed.composing.isValid, isFalse);
+      // Nothing more goes in past it.
+      expect(postCommentLimitEdit(at('a' * 205, 205), at('${'a' * 205}b', 206), 200).text, 'a' * 205);
     });
 
     testWidgets('the limit counts as the forum does; pasted text is cut to fit', (tester) async {

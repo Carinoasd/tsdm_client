@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -561,10 +562,9 @@ TextEditingValue postCommentLimitEdit(TextEditingValue old, TextEditingValue val
   }
   final prefix = after.substring(0, start);
   final suffix = after.substring(after.length - end);
-  final room = limit - postCommentLength(prefix) - postCommentLength(suffix);
-  if (room < 0) {
-    return old;
-  }
+  // Over the limit already (a word composed past it): nothing more goes in, but a delete, or a composition ending
+  // without a change, is taken.
+  final room = math.max(0, limit - postCommentLength(prefix) - postCommentLength(suffix));
   final inserted = StringBuffer();
   var used = 0;
   for (final character in after.substring(start, after.length - end).characters) {
