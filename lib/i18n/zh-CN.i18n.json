@@ -2107,6 +2107,23 @@
       "unsupported": "应用不支持此举报表单，未送出；请改用浏览器。"
     }
   },
+  "modcp": {
+    "panel": "版主面板",
+    "recycleBin": "回收站",
+    "log": "版主日志",
+    "threads": "主题",
+    "posts": "回复",
+    "restore": "恢复",
+    "deleteForever": "彻底删除",
+    "selected": "已选 $count 项",
+    "done": "已处理 $count 项",
+    "notDone": "$count 项未完成",
+    "binEmpty": "回收站是空的",
+    "logEmpty": "没有日志",
+    "noForums": "没有可管理的版块",
+    "switchForum": "切换版块",
+    "keyword": "关键字"
+  },
   "moderate": {
     "menu": "管理",
     "stick": "置顶",

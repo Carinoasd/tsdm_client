@@ -2107,6 +2107,23 @@
       "unsupported": "App 不支援此檢舉表單，未送出；請改用瀏覽器。"
     }
   },
+  "modcp": {
+    "panel": "版主面板",
+    "recycleBin": "回收站",
+    "log": "版主日誌",
+    "threads": "主題",
+    "posts": "回覆",
+    "restore": "恢復",
+    "deleteForever": "徹底刪除",
+    "selected": "已選 $count 項",
+    "done": "已處理 $count 項",
+    "notDone": "$count 項未完成",
+    "binEmpty": "回收站是空的",
+    "logEmpty": "沒有日誌",
+    "noForums": "沒有可管理的版塊",
+    "switchForum": "切換版塊",
+    "keyword": "關鍵字"
+  },
   "moderate": {
     "menu": "管理",
     "stick": "置頂",
