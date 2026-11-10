@@ -101,9 +101,9 @@ final class BackgroundIsolateBase {
 ///
 /// An [IOSink] takes neither a write nor a second flush while a flush is running (`Bad state: StreamSink is bound to
 /// a stream`): here the flushes run one after another, and what is written during one is held back and written, in
-/// order, as soon as it is done. A flush that fails gives its own error to its caller; lines the file's sink then
-/// refuses (it throws) stay held, in order, for the next flush, up to [heldLimit]. A sink that takes them and loses
-/// them is no different from before.
+/// order, as soon as it is done. A flush that fails gives its own error to its caller; lines the file's sink
+/// refuses (it throws) are never thrown at who logs: they stay held, in order, for the next flush, up to
+/// [heldLimit]. A sink that takes them and loses them is no different from before.
 final class BackgroundLogSink {
   /// Constructor.
   BackgroundLogSink(this._sink);
@@ -115,7 +115,7 @@ final class BackgroundLogSink {
   static const int heldLimit = 256 * 1024;
 
   /// What is written in place of the lines given up.
-  static const droppedMark = '[log lines dropped: the log file could not be written]\n';
+  static const droppedMark = '[log lines dropped: too many held]\n';
 
   /// Written while a flush was running, or after lines the file's sink did not take.
   final _held = StringBuffer();
@@ -132,15 +132,24 @@ final class BackgroundLogSink {
   void write(String text) {
     // Behind the lines still held: the order of the file is the order of the calls.
     if (_flushing || _held.isNotEmpty) {
-      if (_held.length > heldLimit) {
-        _held
-          ..clear()
-          ..write(droppedMark);
-      }
-      _held.write(text);
-    } else {
-      _sink.write(text);
+      _hold(text);
+      return;
     }
+    try {
+      _sink.write(text);
+    } on Object {
+      // Refused by a file that failed.
+      _hold(text);
+    }
+  }
+
+  void _hold(String text) {
+    if (_held.length > heldLimit) {
+      _held
+        ..clear()
+        ..write(droppedMark);
+    }
+    _held.write(text);
   }
 
   /// Done when everything written before this call is handed to the file.

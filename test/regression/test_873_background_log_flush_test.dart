@@ -128,20 +128,28 @@ void main() {
     expect(failing.written.toString(), 'one\ntwo\nthree\nfour\n');
   });
 
+  test('a line the failed file refuses is held too, never thrown at who logs', () async {
+    final failing = _FailingSink()..broken = true;
+    final sink = BackgroundLogSink(failing);
+    expect(() => sink.write('one\n'), returnsNormally);
+    sink.write('two\n');
+    expect(failing.written.toString(), isEmpty);
+    await expectLater(sink.flush(), throwsA(isA<FileSystemException>()));
+
+    failing.broken = false;
+    await sink.flush();
+    expect(failing.written.toString(), 'one\ntwo\n');
+  });
+
   test('a file that stays unwritable does not grow the memory: the held lines are given up past the limit', () async {
     final failing = _FailingSink()..broken = true;
     final sink = BackgroundLogSink(failing);
-    await expectLater(sink.flush(), throwsA(isA<FileSystemException>()));
-    // Nothing held yet: the first line is refused by the sink itself, as a write to a failed file always was.
-    expect(() => sink.write('lost\n'), throwsStateError);
-
-    final first = sink.flush();
     final line = '${'x' * 1023}\n';
     for (var i = 0; i < BackgroundLogSink.heldLimit ~/ 1024 + 8; i++) {
       sink.write(line);
     }
     sink.write('last\n');
-    await expectLater(first, throwsA(isA<FileSystemException>()));
+    await expectLater(sink.flush(), throwsA(isA<FileSystemException>()));
 
     failing.broken = false;
     await sink.flush();
