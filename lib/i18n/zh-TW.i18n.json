@@ -1524,7 +1524,7 @@
       "alreadyClaimed": "今天已經領過囉，明天再來",
       "failed": "領取失敗：${err}",
       "claimedToday": "紅包已領取",
-      "unavailable": "紅包：暫無",
+      "unavailable": "無法在本版使用這項操作",
       "unavailableHint": "首頁目前沒有提供今日紅包（可能已領取或尚未開放），點一下重新檢查",
       "claimedRecordedHint": "本 App 記錄到這個帳號今天已領過紅包；首頁目前也沒有提供紅包",
       "needLogin": "登入領紅包"

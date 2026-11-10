@@ -663,7 +663,7 @@ final class ModerateRequest {
           'isrecommend': recommend ? '1' : '0',
           'expirationrecommend': recommend ? day(expiration) : '',
           ...form.recommendFields,
-          if (form.recommendTitle case final served?) 'reducetitle': (recommendTitle ?? served).trim(),
+          if (form.recommendTitle case final served? when recommend) 'reducetitle': (recommendTitle ?? served).trim(),
         },
         ModerateOperation.close || ModerateOperation.open => {'expirationclose': ''},
         ModerateOperation.move => {

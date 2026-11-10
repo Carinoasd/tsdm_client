@@ -358,6 +358,7 @@ void main() {
       ).body(form);
       expect(off['isrecommend'], '0');
       expect(off['expirationrecommend'], '');
+      expect(off.containsKey('reducetitle'), isFalse);
     });
 
     test('bump and sink', () {

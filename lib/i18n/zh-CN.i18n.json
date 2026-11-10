@@ -1524,7 +1524,7 @@
       "alreadyClaimed": "今天已经领过了，明天再来",
       "failed": "领取失败：${err}",
       "claimedToday": "红包已领取",
-      "unavailable": "红包：暂无",
+      "unavailable": "无法在本版使用这项操作",
       "unavailableHint": "首页目前没有提供今日红包（可能已领取或尚未开放），点一下重新检查",
       "claimedRecordedHint": "本 App 记录到这个账号今天已领过红包；首页目前也没有提供红包",
       "needLogin": "登录领红包"

@@ -1524,7 +1524,7 @@
       "alreadyClaimed": "Already claimed today, come back tomorrow",
       "failed": "Failed to claim: ${err}",
       "claimedToday": "Packet claimed",
-      "unavailable": "No packet now",
+      "unavailable": "Not available here",
       "unavailableHint": "The homepage offers no red packet right now (maybe already claimed or not open yet). Tap to check again.",
       "claimedRecordedHint": "This app recorded a claim of this account today; the homepage offers no packet either",
       "needLogin": "Log in to claim"

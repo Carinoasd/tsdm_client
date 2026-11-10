@@ -532,6 +532,8 @@ class _ModerateDialogState extends State<ModerateDialog> {
             child: TextField(
               controller: _recommendTitle,
               enabled: !_sending,
+              // The forum's limit of a thread's title.
+              maxLength: 80,
               decoration: InputDecoration(labelText: tr.recommendTitle),
             ),
           ),
