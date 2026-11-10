@@ -374,8 +374,9 @@ void main() {
       expect(find.byIcon(Icons.thumb_up), findsOneWidget);
     });
 
-    testWidgets('no verdict: said so, both off', (tester) async {
-      final sent = await pump(tester, _parse(_raw('p_btn_member.html'))!, 'p_btn_guest.html');
+    testWidgets('no verdict: said so, both off until the page is read again', (tester) async {
+      final recommend = _parse(_raw('p_btn_member.html'))!;
+      final sent = await pump(tester, recommend, 'p_btn_guest.html');
       await tester.tap(find.text('支持 1'));
       await tester.pumpAndSettle();
       expect(find.text(t.threadRecommend.unknown), findsOneWidget);
@@ -384,22 +385,41 @@ void main() {
       expect(sent, hasLength(1));
       expect(find.text('支持 1'), findsOneWidget);
 
-      // The floor built again: still off; the page read again (another count) may be evaluated.
+      // The same page built again (the floor scrolled back): still off.
       await tester.pumpWidget(const SizedBox());
-      final again = await pump(tester, _parse(_raw('p_btn_member.html'))!, 'result_add_succeed.json');
+      final again = await pump(tester, recommend, 'result_add_succeed.json');
       await tester.tap(find.text('支持 1'));
       await tester.pumpAndSettle();
       expect(again, isEmpty);
-      final reloaded = _parse(
-        _raw(
-          'p_btn_member.html',
-        ).replaceFirst('<span id="recommendv_add">1</span>', '<span id="recommendv_add">3</span>'),
-      )!;
+
+      // The page read again, its counts unchanged (the request never reached the forum): may be evaluated.
+      final reloaded = _parse(_raw('p_btn_member.html'))!;
+      expect(reloaded, recommend);
       final fresh = await pump(tester, reloaded, 'result_add_succeed.json');
-      await tester.tap(find.text('支持 3'));
+      await tester.tap(find.text('支持 1'));
       await tester.pumpAndSettle();
       expect(fresh, hasLength(1));
-      expect(find.text('支持 4'), findsOneWidget);
+      expect(find.text('支持 2'), findsOneWidget);
+    });
+
+    testWidgets('a transport failing with an error: no verdict, never left sending', (tester) async {
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            scaffoldMessengerKey: snackbarKey,
+            home: Scaffold(
+              body: RepositoryProvider(
+                create: (_) => ThreadRecommendRepository(send: (_) async => throw StateError('broken')),
+                child: ThreadRecommendButtons(_parse(_raw('p_btn_member.html'))!),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('支持 1'));
+      await tester.pumpAndSettle();
+      expect(find.text(t.threadRecommend.unknown), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
     testWidgets('the floor gone while sending: the answer kept, nothing sent twice', (tester) async {

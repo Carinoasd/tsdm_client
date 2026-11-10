@@ -59,7 +59,10 @@ final class ThreadRecommendMemory {
   }
 
   /// Forget everything (tests).
-  static void clear() => _entries.clear();
+  static void clear() {
+    _entries.clear();
+    changes.value++;
+  }
 }
 
 /// The forum's "支持" and "踩" of a thread under its first floor ([ThreadRecommend]): each button with the forum's
@@ -77,7 +80,7 @@ class ThreadRecommendButtons extends StatelessWidget {
 
   Future<void> _press(BuildContext context, ThreadRecommendSide side) async {
     if (ThreadRecommendMemory.of(recommend) case final entry?
-        when entry.status != ThreadRecommendStatus.unconfirmed || entry.from == recommend) {
+        when entry.status != ThreadRecommendStatus.unconfirmed || identical(entry.from, recommend)) {
       return;
     }
     if (recommend.guest) {
@@ -93,7 +96,14 @@ class ThreadRecommendButtons extends StatelessWidget {
       return;
     }
     ThreadRecommendMemory.set(recommend, side, ThreadRecommendStatus.sending);
-    final outcome = await repository.submit(recommend, side);
+    ThreadRecommendOutcome outcome;
+    try {
+      outcome = await repository.submit(recommend, side);
+    } on Object catch (e) {
+      // Never left sending: whatever went wrong, the answer told nothing.
+      talker.warning('thread recommend: $e');
+      outcome = const ThreadRecommendUnknown();
+    }
     // Kept whether this floor is still built or not: the one built again reads it.
     ThreadRecommendMemory.set(recommend, side, switch (outcome) {
       ThreadRecommendDone() => ThreadRecommendStatus.counted,
@@ -127,7 +137,9 @@ class ThreadRecommendButtons extends StatelessWidget {
     final sending = entry?.status == ThreadRecommendStatus.sending && entry?.side == side;
     final off = switch (entry) {
       null => false,
-      (:final from, side: _, status: ThreadRecommendStatus.unconfirmed) => from == recommend,
+      // The same page built again stays off; a page read again (another object, even with the same counts: a request
+      // that never reached the forum changed nothing) may be evaluated.
+      (:final from, side: _, status: ThreadRecommendStatus.unconfirmed) => identical(from, recommend),
       _ => true,
     };
     final icon = switch ((side, counted)) {
@@ -150,7 +162,8 @@ class ThreadRecommendButtons extends StatelessWidget {
     listenable: ThreadRecommendMemory.changes,
     builder: (context, _) {
       final entry = ThreadRecommendMemory.of(recommend);
-      // The page's counts, with the side counted from this very page added (a page read again has it already).
+      // The page's counts, with the side counted from this very page added (a page read again has it already; one read
+      // while the evaluation was out may lack it until read once more).
       final shown = switch (entry) {
         (:final from, :final side, status: ThreadRecommendStatus.counted) when from == recommend => from.pressed(side),
         _ => recommend,
