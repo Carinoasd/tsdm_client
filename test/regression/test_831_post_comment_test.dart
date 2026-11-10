@@ -59,11 +59,16 @@ Map<String, Post> _apiFloors(String name) => {
 };
 
 /// The floors of the web page, as the thread page reads each `div#post_PID`.
-Map<String, Post> _webFloors() => {
-  for (final e in parseHtmlDocument(_read('thread_member.html')).querySelectorAll('div[id^="post_"]'))
-    if (RegExp(r'^post_\d+$').hasMatch(e.id))
-      if (Post.fromPostNode(e, 1) case final post?) post.postID: post,
-};
+Map<String, Post> _webFloors() {
+  final floors = <String, Post>{};
+  for (final e in parseHtmlDocument(_read('thread_member.html')).querySelectorAll('div[id^="post_"]')) {
+    final post = RegExp(r'^post_\d+$').hasMatch(e.id) ? Post.fromPostNode(e, 1) : null;
+    if (post != null) {
+      floors[post.postID] = post;
+    }
+  }
+  return floors;
+}
 
 const _window = '$baseUrl/forum.php?mod=misc&action=comment&tid=1234567&pid=11263&extra=&page=1';
 
@@ -505,6 +510,39 @@ void main() {
       expect(find.text('帖子点评成功'), findsOneWidget);
       expect(forum.sent.single.$2['message'], '好帖');
       expect(reloads, 1);
+    });
+
+    testWidgets('the floor built again while the dialog is up (a reload re-keys it): the page is still reloaded', (
+      tester,
+    ) async {
+      var reloads = 0;
+      final generation = ValueNotifier(0);
+      addTearDown(generation.dispose);
+      final forum = _Forum(reads: {'action=comment': _json('window_api.json')}, answer: _json('comment_ok_api.json'));
+      await pump(
+        tester,
+        ValueListenableBuilder<int>(
+          valueListenable: generation,
+          builder: (_, value, _) => Builder(
+            key: ValueKey(value),
+            builder: (context) => TextButton(
+              onPressed: () async => showPostCommentDialog(context, _window, onDone: () => reloads++),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+        forum: forum,
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      generation.value++;
+      await tester.pump();
+      await tester.enterText(find.byKey(const ValueKey('post-comment-input')), '好帖');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('post-comment-send')));
+      await tester.pumpAndSettle();
+      expect(reloads, 1);
+      expect(find.text('帖子点评成功'), findsOneWidget);
     });
 
     testWidgets('a refused window, another account: nothing is sent', (tester) async {

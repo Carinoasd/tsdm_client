@@ -21,14 +21,6 @@ import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 PostCommentRepository _repositoryOf(BuildContext context) =>
     context.readOrNull<PostCommentRepository>() ?? PostCommentRepository.network(getIt.get<NetClientProvider>());
 
-/// The account in use, null for a guest.
-int? _currentUid(BuildContext context) => context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid;
-
-/// Whether [form] may still be sent: the account in use is [uid], the one the window was opened for, and the window
-/// was served to it when its answer says.
-bool _sameAccount(BuildContext context, int uid, PostCommentForm form) =>
-    _currentUid(context) == uid && (form.uid == null || form.uid == uid);
-
 /// The comments of a floor under its content ([Post.comments]), with the pages after the first on demand and the
 /// moderators' delete.
 ///
@@ -212,41 +204,45 @@ class PostCommentTile extends StatelessWidget {
 /// Comment on a floor through the forum's window [commentAction] ([Post.commentAction]): the window is read first (a
 /// refusal is said before anything is typed), the comment is sent once, and [onDone] reloads the floor's page when
 /// the forum took it (or may have).
+///
+/// The dialog says the outcome and calls [onDone] itself, before it closes: the floor's card may have been built again
+/// while it was open (a reload of the thread re-keys its floors), whose context then is gone.
 Future<void> showPostCommentDialog(BuildContext context, String commentAction, {VoidCallback? onDone}) async {
-  final uid = _currentUid(context);
-  if (uid == null) {
+  final auth = context.readOrNull<AuthenticationRepository>();
+  final uid = auth?.effectiveCurrentUid;
+  if (auth == null || uid == null) {
     showSnackBar(context: context, message: context.t.general.needLogin);
     return;
   }
-  final outcome = await showDialog<PostCommentOutcome>(
+  await showDialog<void>(
     context: context,
     builder: (_) => RootPage(
       DialogPaths.postComment,
-      _PostCommentDialog(repository: _repositoryOf(context), commentAction: commentAction, uid: uid),
+      _PostCommentDialog(
+        repository: _repositoryOf(context),
+        commentAction: commentAction,
+        uid: uid,
+        currentUid: () => auth.effectiveCurrentUid,
+        onDone: onDone,
+      ),
     ),
   );
-  if (!context.mounted || outcome == null) {
-    return;
-  }
-  final tr = context.t.postComment;
-  switch (outcome) {
-    case PostCommentDone(:final message):
-      showSnackBar(context: context, message: message.isEmpty ? tr.done : message);
-      onDone?.call();
-    case PostCommentRefused(:final message):
-      showSnackBar(context: context, message: message.isEmpty ? tr.refused : message);
-    case PostCommentUnknown():
-      showSnackBar(context: context, message: tr.unknown);
-      onDone?.call();
-  }
 }
 
 class _PostCommentDialog extends StatefulWidget {
-  const _PostCommentDialog({required this.repository, required this.commentAction, required this.uid});
+  const _PostCommentDialog({
+    required this.repository,
+    required this.commentAction,
+    required this.uid,
+    required this.currentUid,
+    this.onDone,
+  });
 
   final PostCommentRepository repository;
   final String commentAction;
   final int uid;
+  final int? Function() currentUid;
+  final VoidCallback? onDone;
 
   @override
   State<_PostCommentDialog> createState() => _PostCommentDialogState();
@@ -270,22 +266,29 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
     super.dispose();
   }
 
+  /// Say [message] and close.
+  void _close(String message) {
+    showSnackBar(context: context, message: message);
+    Navigator.of(context).pop();
+  }
+
   Future<void> _open() async {
     final window = await widget.repository.openComment(widget.commentAction);
     if (!mounted) {
       return;
     }
+    final tr = context.t.postComment;
     switch (window) {
       case PostCommentWindowForm(:final form):
         if (form.uid != null && form.uid != widget.uid) {
-          Navigator.of(context).pop(PostCommentRefused(context.t.postComment.accountChanged));
+          _close(tr.accountChanged);
           return;
         }
         setState(() => _form = form);
       case PostCommentWindowRefused(:final message):
-        Navigator.of(context).pop(PostCommentRefused(message));
+        _close(message.isEmpty ? tr.refused : message);
       case PostCommentWindowFailed():
-        Navigator.of(context).pop(PostCommentRefused(context.t.postComment.loadFailed));
+        _close(tr.loadFailed);
     }
   }
 
@@ -295,25 +298,31 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
     if (form == null || text.isEmpty || _sending) {
       return;
     }
-    if (!_sameAccount(context, widget.uid, form)) {
-      Navigator.of(context).pop(PostCommentRefused(context.t.postComment.accountChanged));
+    final tr = context.t.postComment;
+    if (widget.currentUid() != widget.uid || (form.uid != null && form.uid != widget.uid)) {
+      _close(tr.accountChanged);
       return;
     }
     setState(() => _sending = true);
     final outcome = await widget.repository.sendComment(form, text);
-    if (!mounted) {
-      return;
+    switch (outcome) {
+      case PostCommentDone(:final message):
+        widget.onDone?.call();
+        if (mounted) {
+          _close(message.isEmpty ? tr.done : message);
+        }
+      case PostCommentUnknown():
+        widget.onDone?.call();
+        if (mounted) {
+          _close(tr.unknown);
+        }
+      case PostCommentRefused(:final message):
+        // The forum's words, the text kept to send again (too soon after the last post, a word it does not take…).
+        if (mounted) {
+          setState(() => _sending = false);
+          showSnackBar(context: context, message: message.isEmpty ? tr.refused : message);
+        }
     }
-    if (outcome is PostCommentRefused) {
-      // The forum's words, the text kept to send again (too soon after the last post, a word it does not take…).
-      setState(() => _sending = false);
-      showSnackBar(
-        context: context,
-        message: outcome.message.isEmpty ? context.t.postComment.refused : outcome.message,
-      );
-      return;
-    }
-    Navigator.of(context).pop(outcome);
   }
 
   @override
@@ -359,6 +368,8 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
 /// Delete [comment] of thread [tid] as a moderator (the forum's `modaction('delcomment', ID)`): asked first with the
 /// forum's optional reason, then its window is read and its form sent once; [onDone] reloads the floor's page when
 /// the forum did it (or may have).
+///
+/// The dialog stays up while the forum is asked and says the outcome itself, as [showPostCommentDialog].
 Future<void> showPostCommentDeleteDialog(
   BuildContext context, {
   required String tid,
@@ -366,56 +377,43 @@ Future<void> showPostCommentDeleteDialog(
   required VoidCallback onDone,
 }) async {
   final id = comment.id;
-  final uid = _currentUid(context);
-  if (id == null || uid == null) {
+  final auth = context.readOrNull<AuthenticationRepository>();
+  final uid = auth?.effectiveCurrentUid;
+  if (id == null || auth == null || uid == null) {
     return;
   }
   final repository = _repositoryOf(context);
-  final reason = await showDialog<String>(
+  await showDialog<void>(
     context: context,
-    builder: (_) => RootPage(DialogPaths.postCommentDelete, _PostCommentDeleteDialog(comment)),
+    builder: (_) => RootPage(
+      DialogPaths.postCommentDelete,
+      _PostCommentDeleteDialog(
+        comment,
+        delete: (reason) async {
+          return switch (await repository.openDelete(tid: tid, commentId: id)) {
+            PostCommentWindowForm(:final form) =>
+              auth.effectiveCurrentUid != uid || (form.uid != null && form.uid != uid)
+                  ? null
+                  : await repository.sendDelete(form, reason),
+            PostCommentWindowRefused(:final message) => PostCommentRefused(message),
+            PostCommentWindowFailed() => const PostCommentUnknown(),
+          };
+        },
+        onDone: onDone,
+      ),
+    ),
   );
-  if (reason == null || !context.mounted) {
-    return;
-  }
-  final tr = context.t.postComment;
-  final window = await repository.openDelete(tid: tid, commentId: id);
-  if (!context.mounted) {
-    return;
-  }
-  final PostCommentOutcome outcome;
-  switch (window) {
-    case PostCommentWindowForm(:final form):
-      if (!_sameAccount(context, uid, form)) {
-        showSnackBar(context: context, message: tr.accountChanged);
-        return;
-      }
-      outcome = await repository.sendDelete(form, reason);
-    case PostCommentWindowRefused(:final message):
-      outcome = PostCommentRefused(message);
-    case PostCommentWindowFailed():
-      showSnackBar(context: context, message: tr.loadFailed);
-      return;
-  }
-  if (!context.mounted) {
-    return;
-  }
-  switch (outcome) {
-    case PostCommentDone(:final message):
-      showSnackBar(context: context, message: message.isEmpty ? tr.deleted : message);
-      onDone();
-    case PostCommentRefused(:final message):
-      showSnackBar(context: context, message: message.isEmpty ? tr.refused : message);
-    case PostCommentUnknown():
-      showSnackBar(context: context, message: tr.unknown);
-      onDone();
-  }
 }
 
 class _PostCommentDeleteDialog extends StatefulWidget {
-  const _PostCommentDeleteDialog(this.comment);
+  const _PostCommentDeleteDialog(this.comment, {required this.delete, required this.onDone});
 
   final PostComment comment;
+
+  /// Delete with the reason; null when the account changed (nothing sent).
+  final Future<PostCommentOutcome?> Function(String reason) delete;
+
+  final VoidCallback onDone;
 
   @override
   State<_PostCommentDeleteDialog> createState() => _PostCommentDeleteDialogState();
@@ -423,11 +421,35 @@ class _PostCommentDeleteDialog extends StatefulWidget {
 
 class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
   final _reason = TextEditingController();
+  bool _busy = false;
 
   @override
   void dispose() {
     _reason.dispose();
     super.dispose();
+  }
+
+  Future<void> _delete() async {
+    if (_busy) {
+      return;
+    }
+    final tr = context.t.postComment;
+    setState(() => _busy = true);
+    final outcome = await widget.delete(_reason.text.trim());
+    final message = switch (outcome) {
+      null => tr.accountChanged,
+      PostCommentDone(:final message) => message.isEmpty ? tr.deleted : message,
+      PostCommentRefused(:final message) => message.isEmpty ? tr.refused : message,
+      PostCommentUnknown() => tr.unknown,
+    };
+    if (outcome is PostCommentDone || outcome is PostCommentUnknown) {
+      widget.onDone();
+    }
+    if (!mounted) {
+      return;
+    }
+    showSnackBar(context: context, message: message);
+    Navigator.of(context).pop();
   }
 
   @override
@@ -449,6 +471,7 @@ class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
             TextField(
               key: const ValueKey('post-comment-delete-reason'),
               controller: _reason,
+              enabled: !_busy,
               decoration: InputDecoration(
                 labelText: tr.reason,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
@@ -458,10 +481,10 @@ class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
+        TextButton(onPressed: _busy ? null : () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
         TextButton(
           key: const ValueKey('post-comment-delete-confirm'),
-          onPressed: () => Navigator.of(context).pop(_reason.text.trim()),
+          onPressed: _busy ? null : _delete,
           child: Text(tr.delete, style: TextStyle(color: colorScheme.error)),
         ),
       ],
