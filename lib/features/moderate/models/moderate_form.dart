@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -48,6 +49,17 @@ enum ModerateOperation {
   /// Copy the thread's first post as a new thread of a forum (`action=copy`, `copyto`, the category `threadtypeid`).
   copy(0),
 
+  /// Merge another thread of the forum into this one (`action=merge`, `othertid`): its floors join this thread's in
+  /// the order they were posted, the other thread is deleted, and this thread takes the title and the author of the
+  /// earliest first floor of the two. The forum refuses a special thread, a thread stuck or waiting, and, to a
+  /// moderator of the forum alone, a thread of another forum.
+  merge(0),
+
+  /// Split floors of the thread off as a new thread of the same forum (`action=split`, the new title `subject`, the
+  /// floors' numbers `split` joined by `,`). The forum refuses a thread without replies; it takes every floor,
+  /// the first among them, and then leaves the thread without a floor, so one is always kept.
+  split(0),
+
   /// Count the thread's replies, last post and first post again (`action=repair`): done as soon as asked, the forum
   /// has no window of it.
   repair(0),
@@ -86,6 +98,17 @@ enum ModerateOperation {
     ModerateOperation.type => name,
     _ => null,
   };
+}
+
+/// The thread [input] names for a merge: a thread id, or a link to a thread of the forum (its page, a page of its
+/// rewritten url, a floor of it); null for anything else.
+String? moderateMergeTidOf(String input) {
+  final text = input.trim();
+  if (RegExp(r'^\d+$').hasMatch(text)) {
+    final tid = int.tryParse(text) ?? 0;
+    return tid > 0 ? '$tid' : null;
+  }
+  return threadLinkOf(text, text)?.tid.toString();
 }
 
 /// The text colors of a highlight by `highlight_color` (the forum's `forum_colorarray`, 0 the default color).
@@ -214,8 +237,8 @@ final class ModerateChoice {
 /// place as [ModerateForm.recommendFields]; the `operations[]` a window fixes as [ModerateRequest.operation]).
 const moderateServedFields = {'frommodcp', 'formhash', 'fid', 'redirect', 'handlekey', 'moderate[]'};
 
-/// The hidden fields of the window of an action of its own (`form#topicadminform`: stamp, icon, copy) the app sends
-/// back as they were served.
+/// The hidden fields of the window of an action of its own (`form#topicadminform`: stamp, icon, copy, merge, split) the
+/// app sends back as they were served.
 const moderateActionServedFields = {'formhash', 'fid', 'tid', 'handlekey'};
 
 /// The management window of the forum (`form#moderateform`) for one thread, as served to the account that asked.
@@ -508,7 +531,12 @@ final class ModerateForm {
         if (!_offers(form, operation) || choices.isEmpty) {
           return null;
         }
-      case ModerateOperation.stamp || ModerateOperation.stamplist || ModerateOperation.copy || ModerateOperation.repair:
+      case ModerateOperation.stamp ||
+          ModerateOperation.stamplist ||
+          ModerateOperation.copy ||
+          ModerateOperation.merge ||
+          ModerateOperation.split ||
+          ModerateOperation.repair:
         return null;
       case ModerateOperation.delete:
         if (form.querySelector('input[name="operations[]"][value="delete"]') == null) {
@@ -547,7 +575,8 @@ final class ModerateForm {
 
   /// The window of [asked], an action of its own, for thread [tid] in forum [fid] read from [doc], served to [uid];
   /// null when [doc] has no such window: no `form#topicadminform` posting to the action, a form hash missing, another
-  /// thread or forum, or none of the choices the action needs (the stamps, the icons, a forum to copy to).
+  /// thread or forum, or none of the choices the action needs (the stamps, the icons, a forum to copy to, the thread to
+  /// merge, the title and the floors of a split).
   static ModerateForm? _parseAction(
     uh.Document doc,
     ModerateOperation asked, {
@@ -586,6 +615,15 @@ final class ModerateForm {
         // Copying to the forum the thread is in is a copy as any other.
         forums = _forums(form.querySelector('select[name="copyto"]'), 0);
         if (forums.isEmpty) {
+          return null;
+        }
+      case ModerateOperation.merge:
+        if (form.querySelector('input[name="othertid"]') == null) {
+          return null;
+        }
+      case ModerateOperation.split:
+        if (form.querySelector('input[name="subject"]') == null ||
+            form.querySelector('textarea[name="split"]') == null) {
           return null;
         }
       case ModerateOperation.stick ||
@@ -862,6 +900,9 @@ final class ModerateRequest {
     this.recommendTitle,
     this.choice,
     this.threadType,
+    this.otherTid,
+    this.subject = '',
+    this.floors = const [],
   });
 
   /// The operation.
@@ -901,6 +942,15 @@ final class ModerateRequest {
   /// The category of the copy in the forum copied to (the forum's `getthreadtypes`); `0` when null.
   final String? threadType;
 
+  /// The thread merged into this one.
+  final String? otherTid;
+
+  /// The title of the thread split off, as typed.
+  final String subject;
+
+  /// The numbers of the floors split off (the floors' `position`, a post's `postFloor`).
+  final List<int> floors;
+
   /// The form body of this request for [form]: the served hidden fields, the operation and its own fields, the reason
   /// and the notice, as the website's window posts them. Nothing else (no ban of the author, no deletion of all his
   /// posts, no violation record). Nothing at all for a repair, which takes nothing.
@@ -916,6 +966,9 @@ final class ModerateRequest {
           ModerateOperation.stamp => {'stamp': choice ?? ''},
           ModerateOperation.stamplist => {'stamplist': choice ?? ''},
           ModerateOperation.copy => {'copyto': moveTo ?? '', 'threadtypeid': threadType ?? '0'},
+          ModerateOperation.merge => {'othertid': otherTid ?? ''},
+          // As the website's textarea is read: the numbers joined by `,`, in order.
+          ModerateOperation.split => {'subject': subject.trim(), 'split': (floors.toSet().toList()..sort()).join(',')},
           _ => const <String, String>{},
         },
         'reason': reason.trim(),
@@ -950,6 +1003,8 @@ final class ModerateRequest {
         ModerateOperation.stamp ||
         ModerateOperation.stamplist ||
         ModerateOperation.copy ||
+        ModerateOperation.merge ||
+        ModerateOperation.split ||
         ModerateOperation.repair ||
         ModerateOperation.delete => const <String, String>{},
         ModerateOperation.bump => {'expirationbump': ''},
