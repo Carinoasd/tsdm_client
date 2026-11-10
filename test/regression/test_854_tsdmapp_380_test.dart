@@ -320,11 +320,13 @@ void main() {
       expect(find.text(t.moderate.stick), findsOneWidget);
       expect(find.text(t.moderate.recommend), findsOneWidget);
 
-      // Nothing allowed: no sheet at all.
+      // Nothing allowed: said, no sheet at all.
       await tester.pumpWidget(const SizedBox());
       await open(_page('thread_comments_author.json').perms);
       expect(find.text(t.moderate.stick), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text(t.moderate.batch.noOperation), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
     });
 
     testWidgets('several threads: what the forum allows; nothing allowed is said, nothing picked', (tester) async {

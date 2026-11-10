@@ -107,39 +107,37 @@ const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.delete,
 ];
 
-/// Let the moderator pick one of [operations], delete last and apart; nothing to pick from is nothing picked.
-Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) async =>
-    operations.isEmpty
-    ? null
-    : showModalBottomSheet<ModerateOperation>(
-        context: context,
-        showDragHandle: true,
-        builder: (context) => SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final op in operations) ...[
-                  if (op == ModerateOperation.delete) const Divider(height: 1),
-                  ListTile(
-                    leading: Icon(
-                      moderateOperationIcon(op),
-                      color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
-                    ),
-                    title: Text(
-                      moderateOperationName(context, op),
-                      style: op == ModerateOperation.delete
-                          ? TextStyle(color: Theme.of(context).colorScheme.error)
-                          : null,
-                    ),
-                    onTap: () => Navigator.of(context).pop(op),
+/// Let the moderator pick one of [operations] (never empty: the callers say so instead), delete last and apart.
+Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) =>
+    showModalBottomSheet<ModerateOperation>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final op in operations) ...[
+                if (op == ModerateOperation.delete) const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    moderateOperationIcon(op),
+                    color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
                   ),
-                ],
+                  title: Text(
+                    moderateOperationName(context, op),
+                    style: op == ModerateOperation.delete
+                        ? TextStyle(color: Theme.of(context).colorScheme.error)
+                        : null,
+                  ),
+                  onTap: () => Navigator.of(context).pop(op),
+                ),
               ],
-            ),
+            ],
           ),
         ),
-      );
+      ),
+    );
 
 /// Offer the management of threads [threads] (tid and title, in the list's order) of forum [fid] to a moderator: pick
 /// an operation, fill in the forum's window of it once, send it for every thread; the threads not done are listed
@@ -236,8 +234,14 @@ Future<ModerateDone?> showThreadModerateSheet(
   ThreadPerms? perms,
   ModerateRepository? repository,
 }) async {
-  final offered = moderateOperationsFor(closed: closed);
-  final operation = await _pickOperation(context, perms?.threadOperations(offered) ?? offered);
+  final all = moderateOperationsFor(closed: closed);
+  final offered = perms?.threadOperations(all) ?? all;
+  if (offered.isEmpty) {
+    // The thread page offers no management then; said all the same should another caller get here.
+    showSnackBar(context: context, message: context.t.moderate.batch.noOperation);
+    return null;
+  }
+  final operation = await _pickOperation(context, offered);
   if (operation == null || !context.mounted) {
     return null;
   }
