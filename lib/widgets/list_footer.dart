@@ -186,22 +186,26 @@ class _ListFooterState extends State<ListFooter> {
         );
       case ListFooterStatus.noMore:
         final line = Expanded(child: Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.6)));
-        child = Row(
-          children: [
-            line,
-            Flexible(
-              flex: 3,
-              child: Padding(
-                padding: edgeInsetsL12R12,
-                child: Text(
-                  widget.noMoreText ?? context.t.general.noMoreData,
-                  style: quiet,
-                  textAlign: TextAlign.center,
+        // The text keeps its own width (at most 60%) and the two rules share the rest, so the line fills the row and
+        // the text sits in the middle: a loose `Flexible` text left the unused part of its share on the right.
+        child = LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              line,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+                child: Padding(
+                  padding: edgeInsetsL12R12,
+                  child: Text(
+                    widget.noMoreText ?? context.t.general.noMoreData,
+                    style: quiet,
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
-            line,
-          ],
+              line,
+            ],
+          ),
         );
       case ListFooterStatus.failed:
         final reason = failureReason(context, widget.failure ?? LoadFailure(LoadFailureKind.unknown));
