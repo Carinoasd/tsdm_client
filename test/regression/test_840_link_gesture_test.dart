@@ -153,6 +153,48 @@ void main() {
       expect(counts.outerTap, 0);
       expect(emailSheet(), findsNothing);
     });
+    testWidgets('a long press then a move off the link shows what it is once, opens nothing', (tester) async {
+      final counts = await pumpCard(tester);
+      final gesture = await tester.startGesture(centerOf(tester, '链接文字'));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(80, 0));
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(counts.opened, 0);
+      expect(counts.outerTap, 0);
+      expect(counts.outerLongPress, 0);
+      expect(emailSheet(), findsOneWidget);
+    });
+
+    testWidgets('a container long press shorter than the link one takes the touch: the link does nothing', (
+      tester,
+    ) async {
+      // The link wins a long press on it against a container long press of the same timeout because its timer starts
+      // first (it is the deepest member of the arena); a shorter container long press is the container's.
+      final counts = _Counts();
+      await tester.pumpWidget(
+        app(
+          RawGestureDetector(
+            gestures: {
+              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+                () => LongPressGestureRecognizer(duration: const Duration(milliseconds: 300)),
+                (r) => r.onLongPress = () => counts.outerLongPress++,
+              ),
+            },
+            child: Padding(padding: const EdgeInsets.all(16), child: content(counts)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(centerOf(tester, '链接文字'));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(counts.outerLongPress, 1);
+      expect(counts.opened, 0);
+      expect(emailSheet(), findsNothing);
+    });
   });
 
   group('in a scrolling list', () {

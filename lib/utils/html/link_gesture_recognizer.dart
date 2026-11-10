@@ -25,6 +25,11 @@ bool get useMobileLinkGesture => debugMobileLinkGestureOverride ?? isMobile;
 /// * Moved past the touch slop (a scroll starting on the link), or the touch taken by another recognizer, or
 ///   cancelled: nothing is called.
 ///
+/// Against a long press of a container around the content, the earlier deadline wins. With the same timeout (an
+/// ink well's, [kLongPressTimeout]) the link's: its timer starts first, the link being the deepest member of the
+/// arena, and timers due at the same time fire in the order they were started. A shorter container long press takes
+/// the touch and the link does nothing.
+///
 /// It is a [TapGestureRecognizer], so the semantics of a text span take its [onTap] as the link's action (a
 /// paragraph supports no other recognizer type there).
 class LinkTapGestureRecognizer extends TapGestureRecognizer {
