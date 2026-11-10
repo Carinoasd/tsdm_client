@@ -21,6 +21,13 @@
   "test/data/followed_thread_after_x5.html#pcb3": "«追踪测试回复第 1 楼，内容足够长一点»\n",
   "test/data/locked_purchase_x5.html#pcb0": "«[img]\n￼https://mora.jp/package/43000100/SEXX03272B00Z_48/\n\n■ tuki.、新曲「バブル」をリリース\n\nバブル - Bubble\ntuki.\nレーベル\n配信開始日\n収録曲数\n収録時間\n販売データ\nThe Lunar Landing Plan\n2026.08.23\n全1曲\n03:18\nハイレゾ｜FLAC｜48.0kHz/24bit»\n",
   "test/data/moderate/thread_floor_warned.html#pcb0": "«警告禁言測試回覆，請忽略。»\n",
+  "test/data/moderate/thread_moderator_edit_api.json#7654320": "«樓層操作測試主題首樓內容。»\n",
+  "test/data/moderate/thread_moderator_edit_api.json#7654321": "«四樓：低權會員的回覆，供置頂與編輯測試。（版主 测试版主 編輯）»\n",
+  "test/data/moderate/thread_stuck.html#pcb0": "«樓層操作測試主題首樓內容。»\n",
+  "test/data/moderate/thread_stuck.html#pcb1": "«四樓：低權會員的回覆，供置頂與編輯測試。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654321": "«四樓：低權會員的回覆，供置頂與編輯測試。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654322": "«二樓：超版的回覆。»\n",
+  "test/data/moderate/thread_stuck_api.json#7654323": "«三樓：管理員的回覆。»\n",
   "test/data/notice_friend_request_x5.html#notice0": {
    "before": "«￼Alice请求加您为好友，附言：附言样例  ￼批准申请»\n«@»\n",
    "after": "«￼Alice 请求加您为好友，附言：附言样例  ￼批准申请»\n«@»\n"

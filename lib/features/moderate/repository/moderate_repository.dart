@@ -449,14 +449,18 @@ final class ModerateRepository with LoggerMixin {
   ///
   /// As [fetchWindow]: the app API's `page`, or the AJAX fragment without the plugin; the forum's refusal is a
   /// [FloorModerateWindowRefused] with its words, a window served to another account an [IdentityChangedException].
+  /// [undo] asks the window of a choosable action with the undoing checked ([FloorModerateForm.windowUrl]).
   AsyncEither<FloorModerateWindow> fetchFloorWindow(
     FloorModerateAction action, {
     required String tid,
     required int fid,
     required String pid,
+    bool undo = false,
   }) => AsyncEither(() async {
     final uid = _currentUid();
-    final resp = await _get(withTsdmAppJsonWrite(FloorModerateForm.windowUrl(action, tid: tid, fid: fid, pid: pid)));
+    final resp = await _get(
+      withTsdmAppJsonWrite(FloorModerateForm.windowUrl(action, tid: tid, fid: fid, pid: pid, undo: undo)),
+    );
     switch (resp) {
       case Left(:final value):
         return left(value);

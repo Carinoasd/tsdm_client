@@ -2215,6 +2215,14 @@
   "bountyAnswerCard": {
     "title": "最佳答案"
   },
+  "moderateFloorOps": {
+    "stick": "置顶回复",
+    "unstick": "解除置顶",
+    "stuck": "置顶回复",
+    "removeRate": "撤销评分",
+    "attachments": "附件",
+    "deleteAttachment": "删除附件"
+  },
   "bbcodeEditor": {
     "experimentalInfo": "实验性bbcode编辑器",
     "experimentalInfoTitle": "实验性bbcode编辑器",

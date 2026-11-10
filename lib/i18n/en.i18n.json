@@ -2215,6 +2215,14 @@
   "bountyAnswerCard": {
     "title": "Best Answer"
   },
+  "moderateFloorOps": {
+    "stick": "Stick reply",
+    "unstick": "Unstick reply",
+    "stuck": "Stuck reply",
+    "removeRate": "Remove rates",
+    "attachments": "Attachments",
+    "deleteAttachment": "Delete attachment"
+  },
   "bbcodeEditor": {
     "experimentalInfo": "Experimental BBCode Editor",
     "experimentalInfoTitle": "Experimental BBCode Editor",

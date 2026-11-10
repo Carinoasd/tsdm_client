@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<form id="rateform" method="post" autocomplete="off" action="forum.php?mod=misc&amp;action=removerate&amp;ratesubmit=yes&amp;infloat=yes" onsubmit="ajaxpost('rateform', 'return_rate', 'return_rate', 'onerror');return false;">
+<div class="f_c">
+<h3 class="flb">
+<em id="return_rate">撤销评分</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('rate')" title="关闭">关闭</a></span>
+</h3>
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="tid" value="1234567">
+<input type="hidden" name="pid" value="7654321">
+<input type="hidden" name="referer" value="https://forum.test/forum.php?mod=viewthread&tid=1234567&page=#pid7654321" />
+<input type="hidden" name="handlekey" value="rate"><div class="c floatwrap">
+<table class="list" cellspacing="0" cellpadding="0">
+<thead>
+<tr>
+<td>&nbsp;</td>
+<td>用户名</td>
+<td>时间</td>
+<td>积分</td>
+<td>理由</td>
+</tr>
+</thead><tr>
+<td><input type="checkbox" name="logidarray[]" value="31 6 1700004217" /></td>
+<td><a href="home.php?mod=space&amp;uid=31">测试版主</a></td>
+<td><span title="2026-11-10 12:16">4&nbsp;分钟前</span></td>
+<td>精灵 <span class="xw1">+1</span> </td>
+<td>MX評分mid</td>
+</tr>
+<tr>
+<td><input type="checkbox" name="logidarray[]" value="30 1 1700004218" /></td>
+<td><a href="home.php?mod=space&amp;uid=30">测试管理员</a></td>
+<td><span title="2026-11-10 12:16">4&nbsp;分钟前</span></td>
+<td>威望 <span class="xw1">+1</span> </td>
+<td>MX評分admin</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="o pns">
+<label class="z" onclick="checkall(this.form, 'logid')"><input class="pc" type="checkbox" name="chkall" />全选</label>
+<label for="sendreasonpm"><input type="checkbox" name="sendreasonpm" id="sendreasonpm" class="pc" />通知作者</label>
+操作说明: <input name="reason" class="px vm" />
+<button class="pn pnc vm" type="submit" value="true" name="ratesubmit"><span>提交</span></button>
+</div>
+</form>
+
+<script type="text/javascript" reload="1">
+function succeedhandle_rate(locationhref) {
+ajaxget('forum.php?mod=viewthread&tid=1234567&viewpid=7654321', 'post_7654321', 'post_7654321');
+hideWindow('rate');
+}
+loadcss('forum_moderator');
+</script>
+
+]]></root>

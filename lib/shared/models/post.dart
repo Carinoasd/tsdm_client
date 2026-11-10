@@ -93,6 +93,7 @@ class Post with PostMappable {
     this.comments = const [],
     this.moreComments = false,
     this.commentAction,
+    this.stuck = false,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -525,6 +526,11 @@ class Post with PostMappable {
   /// `forum.php?mod=misc&action=viewwarning`). The app API does not tell it: false for a page of its answer.
   final bool warned;
 
+  /// The floor is a reply stuck under the first floor (`forum.php?mod=topicadmin&action=stickreply`): the web page
+  /// prints it there with 置顶回复 (`em.replystick`) in its header, on the thread's first page. The app API (plugin 3.7.0)
+  /// does not tell it: `threadPageFromApi` tells it by the order of the first page where it can.
+  final bool stuck;
+
   /// The member the forum offers the account to ban from posting from this floor (the 禁止 link of the author column,
   /// printed to a user group that may ban members, see [memberBanUidIn]); null when it offers none.
   final int? banAuthorUid;
@@ -665,7 +671,14 @@ class Post with PostMappable {
 
     final pollNode = postDataNode?.querySelector('form#poll');
 
-    final printedFloor = postDataNode?.querySelector('div.pi > strong > a > em')?.firstEndDeepText()?.parseToInt();
+    // A stuck reply: 置顶回复 in place of the number (`<em class="replystick">顶</em> 来自 4#`), its floor after it.
+    // In the floor number of the header, not in the content.
+    final stuck = postDataNode?.querySelector('div.pi > strong > a#postnum$postID > em.replystick') != null;
+    final printedFloor = stuck
+        ? RegExp(
+            r'(\d+)\s*#',
+          ).firstMatch(postDataNode?.querySelector('div.pi > strong > a')?.innerText ?? '')?.group(1)?.parseToInt()
+        : postDataNode?.querySelector('div.pi > strong > a > em')?.firstEndDeepText()?.parseToInt();
     // A hot reply: the forum numbers it -1, which the site's theme prints as it is ("-1#"), the default template as
     // "推荐". It has no floor number of its own.
     final hot =
@@ -787,6 +800,7 @@ class Post with PostMappable {
       // holds (a forum allowing HTML) is not it.
       fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
       warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
+      stuck: stuck,
       comments: commentPage?.comments ?? const [],
       moreComments: commentPage?.hasMore ?? false,
       // The forum prints the link only where this account may comment on the floor.
