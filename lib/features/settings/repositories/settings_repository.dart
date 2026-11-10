@@ -215,6 +215,7 @@ final class SettingsRepository with LoggerMixin {
       uploadImageMaxSide: s.extract(_SK.uploadImageMaxSide),
       uploadImageQuality: s.extract(_SK.uploadImageQuality),
       frequentForums: s.extract(_SK.frequentForums),
+      attachmentDownloadDirectory: s.extract(_SK.attachmentDownloadDirectory),
     );
   }
 

@@ -42,6 +42,7 @@ const _content = [
   'me-history',
   'me-local-drafts',
   'me-drafts',
+  'me-downloads',
 ];
 const _social = ['me-messages', 'me-friends', 'me-visitors'];
 const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats', 'me-site-stats'];

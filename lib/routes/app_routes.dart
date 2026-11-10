@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/account_security/view/account_security_page
 import 'package:tsdm_client/features/account_security/view/privacy_settings_page.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
+import 'package:tsdm_client/features/attachment_download/view/attachment_downloads_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/bank/view/bank_page.dart';
@@ -516,6 +517,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.readLater, builder: (_) => const ReadLaterPage()),
   AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
+  AppRoute(path: ScreenPaths.attachmentDownloads, builder: (_) => const AttachmentDownloadsPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
   AppRoute(path: ScreenPaths.forumWatch, builder: (_) => const ForumWatchPage()),
   AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),

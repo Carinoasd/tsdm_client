@@ -18,6 +18,8 @@ import 'package:tsdm_client/extensions/color.dart';
 import 'package:tsdm_client/extensions/duration.dart';
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/features/app_lock/widgets/app_lock_settings_section.dart';
+import 'package:tsdm_client/features/attachment_download/utils/download_location.dart';
+import 'package:tsdm_client/features/attachment_download/widgets/attachment_download_directory_tile.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
@@ -1269,6 +1271,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             await appOfflineThreads.trim(limit);
           },
         ),
+        if (canChooseDownloadDirectory) const AttachmentDownloadDirectoryTile(),
       ],
     );
   }
