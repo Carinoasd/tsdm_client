@@ -41,7 +41,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart' show Left, Right, right;
+import 'package:fpdart/fpdart.dart' show Left, Right, left, right;
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -162,9 +162,12 @@ final class _ForumPages extends ForumRepository {
 
   ForumPageData page;
 
+  /// Whether the next request fails.
+  bool failing = false;
+
   @override
   AsyncEither<ForumPageData> fetchForum({required String fid, required FilterState filterState, int pageNumber = 1}) =>
-      AsyncEither(() async => right(page));
+      AsyncEither(() async => failing ? left(HttpRequestFailedException(500)) : right(page));
 }
 
 /// The bloc of the thread page a floor is on: the thread, and nothing loading.
@@ -401,6 +404,15 @@ void main() {
       repository.page = _forumPage('tsdmapp/forum_v2_fid2.json', '2', older: true);
       bloc.add(ForumRefreshRequested());
       await bloc.stream.firstWhere((e) => e.perms == null && !e.refreshing);
+      expect((bloc.state.perms, bloc.state.permsUid), (null, null));
+
+      // Told again, then a page that fails to load: nothing left of what the page before told.
+      repository.page = _forumPage('forum_perms_supermod.json', '33');
+      bloc.add(ForumRefreshRequested());
+      await bloc.stream.firstWhere((e) => e.perms != null && !e.refreshing);
+      repository.failing = true;
+      bloc.add(const ForumJumpPageRequested(2));
+      await bloc.stream.firstWhere((e) => e.status == ForumStatus.failure);
       expect((bloc.state.perms, bloc.state.permsUid), (null, null));
       await bloc.close();
     });

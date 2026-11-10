@@ -682,7 +682,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
     final actions = perms.floorOperations(canWarn: post.canWarn);
     return (
-      offered: actions.isNotEmpty || perms.isModerator,
+      offered: actions.isNotEmpty || perms.isModerator || perms.allowRemoveRate,
       actions: actions,
       removeRate: perms.allowRemoveRate,
     );

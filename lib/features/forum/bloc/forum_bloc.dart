@@ -60,7 +60,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
     final generation = _generation;
     if (state.status == ForumStatus.failure) {
       // Restoring from failure state.
-      emit(state.copyWith(status: ForumStatus.loading, pollOfferUid: null, failure: null));
+      emit(state.copyWith(status: ForumStatus.loading, pollOfferUid: null, perms: null, permsUid: null, failure: null));
     } else if (appending) {
       emit(state.copyWith(loadingMore: true, loadMoreFailed: false));
     }
@@ -81,6 +81,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
               state.copyWith(
                 status: ForumStatus.failure,
                 pollOfferUid: null,
+                perms: null,
+                permsUid: null,
                 loadingMore: false,
                 failure: LoadFailure.of(e),
               ),
@@ -135,6 +137,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
           status: ForumStatus.loading,
           normalThreadList: [],
           pollOfferUid: null,
+          perms: null,
+          permsUid: null,
           loadMoreFailed: false,
           loadingMore: false,
           failure: null,
@@ -155,7 +159,15 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
               emit(state.copyWith(refreshing: false, failure: LoadFailure.of(e)));
               return;
             }
-            emit(state.copyWith(status: ForumStatus.failure, pollOfferUid: null, failure: LoadFailure.of(e)));
+            emit(
+              state.copyWith(
+                status: ForumStatus.failure,
+                pollOfferUid: null,
+                perms: null,
+                permsUid: null,
+                failure: LoadFailure.of(e),
+              ),
+            );
           },
           (v) async {
             if (generation != _generation) {
@@ -177,6 +189,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
         status: ForumStatus.loading,
         normalThreadList: [],
         pollOfferUid: null,
+        perms: null,
+        permsUid: null,
         loadMoreFailed: false,
         loadingMore: false,
         refreshing: false,
@@ -190,7 +204,15 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
             handle(e);
             error('failed to load forum page: fid=${state.fid}, pageNumber=${event.pageNumber} : $e');
             if (generation == _generation) {
-              emit(state.copyWith(status: ForumStatus.failure, pollOfferUid: null, failure: LoadFailure.of(e)));
+              emit(
+                state.copyWith(
+                  status: ForumStatus.failure,
+                  pollOfferUid: null,
+                  perms: null,
+                  permsUid: null,
+                  failure: LoadFailure.of(e),
+                ),
+              );
             }
           },
           (v) async {
@@ -214,6 +236,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
         normalThreadList: [],
         filterState: event.filterState,
         pollOfferUid: null,
+        perms: null,
+        permsUid: null,
         loadMoreFailed: false,
         loadingMore: false,
         refreshing: false,
@@ -227,7 +251,15 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
             handle(e);
             error('failed to load forum page: fid=${state.fid}, pageNumber=1 : $e');
             if (generation == _generation) {
-              emit(state.copyWith(status: ForumStatus.failure, pollOfferUid: null, failure: LoadFailure.of(e)));
+              emit(
+                state.copyWith(
+                  status: ForumStatus.failure,
+                  pollOfferUid: null,
+                  perms: null,
+                  permsUid: null,
+                  failure: LoadFailure.of(e),
+                ),
+              );
             }
           },
           (v) async {

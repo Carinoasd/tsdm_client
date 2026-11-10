@@ -57,7 +57,7 @@ class ForumState with ForumStateMappable {
 
   /// What the account the latest loaded page was served to ([permsUid]) may do with several threads of the forum at
   /// once ([ForumPageData.perms], the forum's app API of plugin 3.8.0); null when that page does not tell (an older
-  /// plugin, the web page, a guest).
+  /// plugin, the web page, a guest). Cleared with [pollOfferUid], while loading or on failure.
   final ThreadPerms? perms;
 
   /// The account [perms] were told to, null without them.
