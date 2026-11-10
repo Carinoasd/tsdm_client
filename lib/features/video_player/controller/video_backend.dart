@@ -66,8 +66,20 @@ final class MediaKitVideoBackend implements VideoBackend {
   @override
   Future<void> pause() => _player.pause();
 
+  /// Freed: a speed chosen from a menu still open is dropped.
+  bool _disposed = false;
+
+  Future<void> _setRate(double rate) async {
+    if (!_disposed) {
+      await _player.setRate(rate);
+    }
+  }
+
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() {
+    _disposed = true;
+    return _player.dispose();
+  }
 
   @override
   bool get playing => _player.state.playing;
@@ -87,7 +99,7 @@ final class MediaKitVideoBackend implements VideoBackend {
     required Future<void> Function() onEnterFullscreen,
     required Future<void> Function() onExitFullscreen,
   }) {
-    final speed = _SpeedButton(player: _player);
+    final speed = VideoSpeedButton(rate: _player.stream.rate, initialRate: _player.state.rate, onChanged: _setRate);
     final mobile = MaterialVideoControlsThemeData(
       // In a page that scrolls the gestures stay off (their default): a drag scrolls it.
       bottomButtonBar: [
@@ -135,31 +147,63 @@ String videoSpeedLabel(double speed) {
   return '${text}x';
 }
 
-/// Chooses the speed of [player].
-class _SpeedButton extends StatelessWidget {
-  const _SpeedButton({required this.player});
+/// Chooses the speed of a video: [rate] is the speed now (from [initialRate]), [onChanged] is told the one chosen.
+///
+/// The choice is applied when the button is gone already: the controls hide a few seconds after the last touch,
+/// a menu open or not, and take the button with them.
+@visibleForTesting
+class VideoSpeedButton extends StatelessWidget {
+  /// Constructor.
+  const VideoSpeedButton({required this.rate, required this.initialRate, required this.onChanged, super.key});
 
-  final Player player;
+  /// The speed, each time it changes.
+  final Stream<double> rate;
+
+  /// The speed before [rate] tells one.
+  final double initialRate;
+
+  /// The speed chosen.
+  final ValueChanged<double> onChanged;
+
+  Future<void> _choose(BuildContext context, double current) async {
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay = Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final value = await showMenu<double>(
+      context: context,
+      position: position,
+      initialValue: current,
+      items: [for (final speed in videoSpeeds) PopupMenuItem(value: speed, child: Text(videoSpeedLabel(speed)))],
+    );
+    // Not [PopupMenuButton]: it drops what is chosen once it is unmounted.
+    if (value != null) {
+      onChanged(value);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<double>(
-      stream: player.stream.rate,
-      initialData: player.state.rate,
+      stream: rate,
+      initialData: initialRate,
       builder: (context, snapshot) {
-        final rate = snapshot.data ?? 1.0;
-        return PopupMenuButton<double>(
-          tooltip: context.t.videoPlayer.speed,
-          initialValue: rate,
-          onSelected: (value) async => player.setRate(value),
-          itemBuilder: (context) => [
-            for (final speed in videoSpeeds) PopupMenuItem(value: speed, child: Text(videoSpeedLabel(speed))),
-          ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              videoSpeedLabel(rate),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        final current = snapshot.data ?? 1.0;
+        return Tooltip(
+          message: context.t.videoPlayer.speed,
+          child: InkWell(
+            onTap: () async => _choose(context, current),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Text(
+                videoSpeedLabel(current),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         );

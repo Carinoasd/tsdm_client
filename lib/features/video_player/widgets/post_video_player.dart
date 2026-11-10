@@ -386,11 +386,20 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
     };
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: PostVideoPlayer.maxWidth),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: ColoredBox(color: colorScheme.surfaceContainerHighest, child: content),
+      // A tap on the box is the player's: the controls of media_kit show on the pointer itself (a [Listener], no
+      // tap of theirs in the arena), which would leave the tap to the page around (the reading gestures of the thread
+      // page hiding its bars, the floor's tap to reply). This one wins it and does nothing; what is deeper (the play
+      // button, retry, the buttons of the controls) still wins it first.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        onTap: () {},
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ColoredBox(color: colorScheme.surfaceContainerHighest, child: content),
+          ),
         ),
       ),
     );
@@ -451,11 +460,12 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               Center(
+                // A pair of the theme made to be read on each other, standing out of the box in either brightness.
                 child: DecoratedBox(
-                  decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: colorScheme.inverseSurface, shape: BoxShape.circle),
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Icon(Icons.play_arrow_rounded, size: 40, color: colorScheme.surface),
+                    child: Icon(Icons.play_arrow_rounded, size: 40, color: colorScheme.onInverseSurface),
                   ),
                 ),
               ),
