@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
@@ -24,16 +25,19 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/collection/models/collection.dart';
 import 'package:tsdm_client/features/collection/repository/collection_repository.dart';
 import 'package:tsdm_client/features/collection/utils/collection_answer.dart';
 import 'package:tsdm_client/features/collection/utils/parse_collection.dart';
 import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/collection/widgets/collect_thread_sheet.dart';
 import 'package:tsdm_client/features/collection/widgets/collection_pager.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:universal_html/parsing.dart';
 
 const _dir = 'test/data/collection';
@@ -72,6 +76,11 @@ final class _Forum {
     },
     currentUid: () => uid,
   );
+}
+
+final class _Auth extends Fake implements AuthenticationRepository {
+  @override
+  int? get effectiveCurrentUid => 31;
 }
 
 void main() {
@@ -452,6 +461,53 @@ void main() {
       await tester.pumpWidget(TranslationProvider(child: MaterialApp.router(routerConfig: router)));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('the create button: as the forum offers it, once a page loaded, after a retry too', (tester) async {
+      var fail = true;
+      var offer = true;
+      final repository = CollectionRepository(
+        get: (url, {write = false}) async {
+          if (fail) {
+            return left(HttpRequestFailedException(500));
+          }
+          final html = _raw('list_recommended.html');
+          return right(
+            offer
+                ? html
+                : html.replaceFirst(
+                    '<li class="y o"><a href="forum.php?mod=collection&amp;action=edit">创建淘专辑</a></li>',
+                    '',
+                  ),
+          );
+        },
+        post: (url, body) async => throw StateError('nothing is posted'),
+        currentUid: () => 31,
+      );
+      Future<void> open() async {
+        await pump(
+          tester,
+          RepositoryProvider<AuthenticationRepository>.value(
+            value: _Auth(),
+            child: CollectionListPage(repository: repository),
+          ),
+        );
+      }
+
+      await open();
+      final create = find.byKey(const ValueKey('collection-create'));
+      expect(create, findsNothing);
+      fail = false;
+      await tester.tap(find.byKey(failureRetryKey).first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('collection-2')), findsOneWidget);
+      expect(create, findsOneWidget);
+      // A forum not offering to create one: no button.
+      offer = false;
+      await tester.pumpWidget(const SizedBox());
+      await open();
+      expect(find.byKey(const ValueKey('collection-2')), findsOneWidget);
+      expect(create, findsNothing);
+    });
 
     testWidgets("a collection's page subscribes, then shows the forum's page again", (tester) async {
       var followed = false;

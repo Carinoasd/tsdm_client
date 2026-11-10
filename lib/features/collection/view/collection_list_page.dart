@@ -212,7 +212,15 @@ class _CollectionTabState extends State<_CollectionTab> with AutomaticKeepAliveC
   void initState() {
     super.initState();
     collectionChanges.addListener(_onChanged);
-    unawaited(_pager.refresh().then((_) => widget.onLoaded()));
+    _pager.addListener(_onPager);
+    unawaited(_pager.refresh());
+  }
+
+  /// Any load that brought a page (the first, a retry, a refresh) tells the page: its app bar reads the page.
+  void _onPager() {
+    if (_pager.first != null) {
+      widget.onLoaded();
+    }
   }
 
   /// A collection was changed in the app: this list may show it otherwise now.
@@ -221,7 +229,9 @@ class _CollectionTabState extends State<_CollectionTab> with AutomaticKeepAliveC
   @override
   void dispose() {
     collectionChanges.removeListener(_onChanged);
-    _pager.dispose();
+    _pager
+      ..removeListener(_onPager)
+      ..dispose();
     super.dispose();
   }
 

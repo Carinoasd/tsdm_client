@@ -108,6 +108,8 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
   }
 
   Future<void> _create(CollectThreadForm form) async {
+    // The collections the account had: a new one is told apart from an older one of the same name.
+    final before = form.choices.map((e) => e.ctid).toSet();
     setState(() => _sending = true);
     final outcome = await widget.repository.create(
       viewerUid: form.viewerUid,
@@ -128,7 +130,7 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
     // No verdict (the answer was lost): the forum may have created it all the same. Its window tells: the one of that
     // name is picked, and the name is not offered to be created again.
     if (mounted && outcome is CollectionUnknown) {
-      final created = _form?.choices.where((e) => e.name == name).lastOrNull;
+      final created = _form?.choices.where((e) => e.name == name && !before.contains(e.ctid)).lastOrNull;
       if (created != null) {
         setState(() {
           _picked.add(created.ctid);
