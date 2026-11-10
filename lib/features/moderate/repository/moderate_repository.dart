@@ -159,13 +159,23 @@ final class ModerateRepository with LoggerMixin {
         return right(ModerateWindowRefused(result.reason));
       }
       final form = ModerateForm.parse(result.document, operation, tid: tid, fid: fid, uid: uid);
-      return form == null ? left(HttpRequestFailedException(HttpStatus.ok)) : right(ModerateWindowReady(form));
+      if (form != null) {
+        return right(ModerateWindowReady(form));
+      }
+      if (ModerateForm.lacksOperation(result.document, operation, fid: fid, tid: tid)) {
+        return right(const ModerateWindowRefused('', unavailable: true));
+      }
+      return left(HttpRequestFailedException(HttpStatus.ok));
     }
     final text = _ajaxText(tsdmAppAnswerText(data));
     // The account was checked around the request (fetchWindow): the window is that account's.
-    final form = ModerateForm.parse(parseHtmlDocument(text), operation, tid: tid, fid: fid, uid: uid);
+    final doc = parseHtmlDocument(text);
+    final form = ModerateForm.parse(doc, operation, tid: tid, fid: fid, uid: uid);
     if (form != null) {
       return right(ModerateWindowReady(form));
+    }
+    if (ModerateForm.lacksOperation(doc, operation, fid: fid, tid: tid)) {
+      return right(const ModerateWindowRefused('', unavailable: true));
     }
     if (_errorHandleRe.firstMatch(text)?.namedGroup('error') case final error?) {
       return right(ModerateWindowRefused(_unescape(error)));
@@ -233,13 +243,23 @@ final class ModerateRepository with LoggerMixin {
         return right(ModerateBatchWindowRefused(result.reason));
       }
       final form = ModerateForm.parseBatch(result.document, operation, tids: tids, fid: fid, uid: uid);
-      return form == null ? left(HttpRequestFailedException(HttpStatus.ok)) : right(ModerateBatchWindowReady(form));
+      if (form != null) {
+        return right(ModerateBatchWindowReady(form));
+      }
+      if (ModerateForm.lacksOperation(result.document, operation, fid: fid, tids: tids)) {
+        return right(const ModerateBatchWindowRefused('', unavailable: true));
+      }
+      return left(HttpRequestFailedException(HttpStatus.ok));
     }
     final text = _ajaxText(tsdmAppAnswerText(data));
     // The account was checked around the request (fetchBatchWindow): the window is that account's.
-    final form = ModerateForm.parseBatch(parseHtmlDocument(text), operation, tids: tids, fid: fid, uid: uid);
+    final doc = parseHtmlDocument(text);
+    final form = ModerateForm.parseBatch(doc, operation, tids: tids, fid: fid, uid: uid);
     if (form != null) {
       return right(ModerateBatchWindowReady(form));
+    }
+    if (ModerateForm.lacksOperation(doc, operation, fid: fid, tids: tids)) {
+      return right(const ModerateBatchWindowRefused('', unavailable: true));
     }
     if (_errorHandleRe.firstMatch(text)?.namedGroup('error') case final error?) {
       return right(ModerateBatchWindowRefused(_unescape(error)));

@@ -337,7 +337,8 @@ void main() {
       expect(moderateBatchOperations, containsAll([ModerateOperation.close, ModerateOperation.open]));
       expect(moderateBatchOperations, containsAll([ModerateOperation.bump, ModerateOperation.down]));
       expect(moderateBatchOperations.last, ModerateOperation.delete);
-      expect(moderateOperationsFor(closed: false), isNot(contains(ModerateOperation.bump)));
+      // Bump and sink of one thread are offered on the thread page too (test 830).
+      expect(moderateOperationsFor(closed: false), containsAll([ModerateOperation.bump, ModerateOperation.down]));
     });
 
     testWidgets('the dialog loads the window of the threads and pops what became of each', (tester) async {

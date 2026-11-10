@@ -23,6 +23,8 @@ enum ModerateDone {
 IconData moderateOperationIcon(ModerateOperation operation) => switch (operation) {
   ModerateOperation.stick => Icons.vertical_align_top_outlined,
   ModerateOperation.digest => Icons.star_outline,
+  ModerateOperation.highlight => Icons.format_color_text_outlined,
+  ModerateOperation.recommend => Icons.recommend_outlined,
   ModerateOperation.close => Icons.lock_outline,
   ModerateOperation.open => Icons.lock_open_outlined,
   ModerateOperation.move => Icons.drive_file_move_outline,
@@ -37,6 +39,8 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
   return switch (operation) {
     ModerateOperation.stick => tr.stick,
     ModerateOperation.digest => tr.digest,
+    ModerateOperation.highlight => tr.highlight,
+    ModerateOperation.recommend => tr.recommend,
     ModerateOperation.close => tr.close,
     ModerateOperation.open => tr.open,
     ModerateOperation.move => tr.move,
@@ -46,12 +50,16 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
   };
 }
 
-/// The operations offered on a thread: stick, digest, close or open (the one that changes it: [closed] is the lock
-/// beside the title), move, and delete last.
+/// The operations offered on a thread: stick, digest, highlight, recommend, close or open (the one that changes it:
+/// [closed] is the lock beside the title), bump and sink, move, and delete last.
 List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
   ModerateOperation.stick,
   ModerateOperation.digest,
+  ModerateOperation.highlight,
+  ModerateOperation.recommend,
   if (closed) ModerateOperation.open else ModerateOperation.close,
+  ModerateOperation.bump,
+  ModerateOperation.down,
   ModerateOperation.move,
   ModerateOperation.delete,
 ];
@@ -61,6 +69,7 @@ List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
 const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.stick,
   ModerateOperation.digest,
+  ModerateOperation.highlight,
   ModerateOperation.close,
   ModerateOperation.open,
   ModerateOperation.bump,
@@ -249,12 +258,18 @@ class _ModerateDialogState extends State<ModerateDialog> {
   /// The forum's refusal, or why the window could not be had.
   String? _error;
 
+  /// The window came without the operation: asking again changes nothing.
+  bool _unavailable = false;
+
   String? _level;
   DateTime? _expiration;
   String? _moveTo;
   bool _redirect = false;
   bool _notify = false;
+  ModerateHighlight _highlight = const ModerateHighlight();
+  bool _recommend = true;
   final _reason = TextEditingController();
+  final _recommendTitle = TextEditingController();
 
   @override
   void initState() {
@@ -265,6 +280,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
   @override
   void dispose() {
     _reason.dispose();
+    _recommendTitle.dispose();
     super.dispose();
   }
 
@@ -272,6 +288,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
     setState(() {
       _loading = true;
       _error = null;
+      _unavailable = false;
     });
     if (widget.tids case final tids?) {
       final answer = await widget.repository.fetchBatchWindow(widget.operation, tids: tids, fid: widget.fid).run();
@@ -283,11 +300,14 @@ class _ModerateDialogState extends State<ModerateDialog> {
         switch (answer) {
           case Right(value: ModerateBatchWindowReady(:final form)):
             _batch = form;
-            _form = form.window;
-            _level = form.window.currentLevel?.value;
-            _notify = form.window.notifyForced;
-          case Right(value: ModerateBatchWindowRefused(:final message)):
-            _error = message.isNotEmpty ? message : context.t.moderate.failed;
+            _took(form.window);
+          case Right(value: ModerateBatchWindowRefused(:final message, :final unavailable)):
+            _unavailable = unavailable;
+            _error = unavailable
+                ? context.t.moderate.unavailable
+                : message.isNotEmpty
+                ? message
+                : context.t.moderate.failed;
           case Left(:final value):
             _error = _failure(value);
         }
@@ -302,15 +322,28 @@ class _ModerateDialogState extends State<ModerateDialog> {
       _loading = false;
       switch (answer) {
         case Right(value: ModerateWindowReady(:final form)):
-          _form = form;
-          _level = form.currentLevel?.value;
-          _notify = form.notifyForced;
-        case Right(value: ModerateWindowRefused(:final message)):
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _took(form);
+        case Right(value: ModerateWindowRefused(:final message, :final unavailable)):
+          _unavailable = unavailable;
+          _error = unavailable
+              ? context.t.moderate.unavailable
+              : message.isNotEmpty
+              ? message
+              : context.t.moderate.failed;
         case Left(:final value):
           _error = _failure(value);
       }
     });
+  }
+
+  /// Fill the choices in as window [form] serves them.
+  void _took(ModerateForm form) {
+    _form = form;
+    _level = form.currentLevel?.value;
+    _notify = form.notifyForced;
+    _expiration = form.expiration;
+    _highlight = form.highlight ?? const ModerateHighlight();
+    _recommendTitle.text = form.recommendTitle ?? '';
   }
 
   String _failure(AppException e) =>
@@ -324,6 +357,9 @@ class _ModerateDialogState extends State<ModerateDialog> {
     redirect: _redirect,
     reason: _reason.text,
     notify: _notify,
+    highlight: _highlight,
+    recommend: _recommend,
+    recommendTitle: _form?.recommendTitle == null ? null : _recommendTitle.text,
   );
 
   /// Several threads are managed together.
@@ -433,9 +469,9 @@ class _ModerateDialogState extends State<ModerateDialog> {
           onPressed: _sending && _isBatch ? null : () => Navigator.of(context).pop(_isBatch ? null : false),
           child: Text(context.t.general.cancel),
         ),
-        if (form == null && !_loading)
+        if (form == null && !_loading && !_unavailable)
           TextButton(onPressed: _load, child: Text(context.t.general.retry))
-        else
+        else if (form != null || _loading)
           TextButton(
             onPressed: _canSend ? _send : null,
             child: _sending
@@ -450,9 +486,17 @@ class _ModerateDialogState extends State<ModerateDialog> {
     return !_isBatch ? dialog : PopScope(canPop: !_sending, child: dialog);
   }
 
+  /// The chosen operation has an end day: a level other than none, a highlight the forum counts, a recommendation.
+  bool _hasExpiration(ModerateForm form) => switch (_operation) {
+    ModerateOperation.stick ||
+    ModerateOperation.digest => form.levels.isNotEmpty && (int.tryParse(_level ?? '') ?? 0) > 0,
+    ModerateOperation.highlight => _highlight.marksTitle,
+    ModerateOperation.recommend => _recommend,
+    _ => false,
+  };
+
   List<Widget> _fields(BuildContext context, ModerateForm form) {
     final tr = context.t.moderate;
-    final hasLevel = (int.tryParse(_level ?? '') ?? 0) > 0;
     return [
       if (form.levels.isNotEmpty)
         Wrap(
@@ -467,7 +511,32 @@ class _ModerateDialogState extends State<ModerateDialog> {
               ),
           ],
         ),
-      if (form.levels.isNotEmpty && hasLevel)
+      if (_operation == ModerateOperation.highlight)
+        _HighlightFields(
+          value: _highlight,
+          enabled: !_sending,
+          onChanged: (v) => setState(() => _highlight = v),
+        ),
+      if (_operation == ModerateOperation.recommend) ...[
+        SegmentedButton<bool>(
+          segments: [
+            ButtonSegment(value: true, label: Text(tr.recommend)),
+            ButtonSegment(value: false, label: Text(tr.unrecommend)),
+          ],
+          selected: {_recommend},
+          onSelectionChanged: _sending ? null : (v) => setState(() => _recommend = v.first),
+        ),
+        if (_recommend && form.recommendTitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: TextField(
+              controller: _recommendTitle,
+              enabled: !_sending,
+              decoration: InputDecoration(labelText: tr.recommendTitle),
+            ),
+          ),
+      ],
+      if (_hasExpiration(form))
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.event_outlined),
@@ -566,5 +635,168 @@ class _ModerateDialogState extends State<ModerateDialog> {
       );
     }
     return items;
+  }
+}
+
+/// The background colors offered for a highlight, light enough for the title's text to stay readable.
+const List<String> moderateHighlightBackgrounds = ['#FFF3B0', '#FFE0CC', '#FFD6E0', '#D6F5D6', '#D6EBFF', '#E8DCFF'];
+
+/// The color of a `highlight_bgcolor` value (`#RGB` or `#RRGGBB`); null for any other.
+Color? _cssColor(String value) {
+  var hex = value.startsWith('#') ? value.substring(1) : '';
+  if (hex.length == 3) {
+    hex = hex.split('').map((e) => '$e$e').join();
+  }
+  final rgb = hex.length == 6 ? int.tryParse(hex, radix: 16) : null;
+  return rgb == null ? null : Color(0xFF000000 | rgb);
+}
+
+/// The choices of a highlight: the text color, bold, italic and underline, the background color.
+class _HighlightFields extends StatelessWidget {
+  const _HighlightFields({required this.value, required this.enabled, required this.onChanged});
+
+  final ModerateHighlight value;
+  final bool enabled;
+  final ValueChanged<ModerateHighlight> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.moderate;
+    final scheme = Theme.of(context).colorScheme;
+    // A color served that the app does not offer stays picked, and is offered.
+    final backgrounds = [
+      ...moderateHighlightBackgrounds,
+      if (value.background.isNotEmpty && !moderateHighlightBackgrounds.contains(value.background.toUpperCase()))
+        value.background,
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _row(
+          context,
+          icon: Icons.format_color_text_outlined,
+          label: tr.textColor,
+          children: [
+            for (final (i, argb) in moderateHighlightColors.indexed)
+              _Swatch(
+                color: i == 0 ? scheme.onSurface : Color(argb),
+                label: i == 0 ? tr.defaultColor : '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+                selected: value.color == i,
+                onTap: enabled ? () => onChanged(value.copyWith(color: i)) : null,
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SegmentedButton<int>(
+            multiSelectionEnabled: true,
+            emptySelectionAllowed: true,
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: 1, icon: const Icon(Icons.format_bold), tooltip: tr.bold),
+              ButtonSegment(value: 2, icon: const Icon(Icons.format_italic), tooltip: tr.italic),
+              ButtonSegment(value: 3, icon: const Icon(Icons.format_underlined), tooltip: tr.underline),
+            ],
+            selected: {if (value.bold) 1, if (value.italic) 2, if (value.underline) 3},
+            onSelectionChanged: enabled
+                ? (v) => onChanged(value.copyWith(bold: v.contains(1), italic: v.contains(2), underline: v.contains(3)))
+                : null,
+          ),
+        ),
+        _row(
+          context,
+          icon: Icons.format_color_fill_outlined,
+          label: tr.backgroundColor,
+          children: [
+            _Swatch(
+              color: scheme.surface,
+              label: tr.noColor,
+              selected: value.background.isEmpty,
+              onTap: enabled ? () => onChanged(value.copyWith(background: '')) : null,
+              child: Icon(Icons.format_color_reset_outlined, size: 18, color: scheme.onSurfaceVariant),
+            ),
+            for (final bg in backgrounds)
+              _Swatch(
+                color: _cssColor(bg) ?? scheme.surfaceContainerHighest,
+                label: bg,
+                selected: value.background.toUpperCase() == bg.toUpperCase(),
+                onTap: enabled ? () => onChanged(value.copyWith(background: bg)) : null,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context, {required IconData icon, required String label, required List<Widget> children}) =>
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: 12),
+            child: Tooltip(
+              message: label,
+              child: Icon(icon, semanticLabel: label),
+            ),
+          ),
+          Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: children)),
+        ],
+      );
+}
+
+/// A color to pick, ringed when picked.
+class _Swatch extends StatelessWidget {
+  const _Swatch({required this.color, required this.label, required this.selected, this.onTap, this.child});
+
+  final Color color;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 20,
+          child: Container(
+            width: 32,
+            height: 32,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 2),
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Center(
+                child:
+                    child ??
+                    (selected
+                        ? Icon(
+                            Icons.check,
+                            size: 16,
+                            color: ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+                                ? Colors.white
+                                : Colors.black,
+                          )
+                        : null),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -15,6 +15,14 @@ enum ModerateOperation {
   /// Digest or undigest (`digest`, `digestlevel` 0 to 3, `expirationdigest`).
   digest(1),
 
+  /// Highlight the title or take it off (`highlight`, `highlight_color` 0 to 8, `highlight_style[1..3]` bold, italic,
+  /// underline, `highlight_bgcolor`, `expirationhighlight`): no color and no style is no highlight.
+  highlight(1),
+
+  /// Recommend the thread in its forum or take it off (`recommend`, `isrecommend` 1 or 0, `expirationrecommend`, the
+  /// title shown `reducetitle`); the window holds it only where the forum turned recommendation on.
+  recommend(1),
+
   /// Close the thread (`close`).
   close(4),
 
@@ -42,9 +50,89 @@ enum ModerateOperation {
   /// The `operations[]` value the forum knows the operation by.
   String get value => name;
 
-  /// The `operation` parameter asking the window of the operation when its group holds others (group 3 is bump and
-  /// down unless asked for `delete`); null when the group is asked as it is.
-  String? get windowOperation => this == ModerateOperation.delete ? 'delete' : null;
+  /// The `operation` parameter asking the window of the operation when its group holds others; null when the group is
+  /// asked as it is.
+  ///
+  /// Group 3 is bump and down unless asked for `delete`. Group 1 asked for `recommend` holds the recommendation alone,
+  /// with the title and the image of one thread; asked for `highlight` it checks the highlight, as the thread page
+  /// asks it.
+  String? get windowOperation => switch (this) {
+    ModerateOperation.delete || ModerateOperation.highlight || ModerateOperation.recommend => name,
+    _ => null,
+  };
+}
+
+/// The text colors of a highlight by `highlight_color` (the forum's `forum_colorarray`, 0 the default color).
+const List<int> moderateHighlightColors = [
+  0xFF000000,
+  0xFFEE1B2E,
+  0xFFEE5023,
+  0xFF996600,
+  0xFF3C9D40,
+  0xFF2897C5,
+  0xFF2B65B7,
+  0xFF8F2A90,
+  0xFFEC1282,
+];
+
+/// How a thread's title is highlighted: the text color, the styles and the background color.
+@immutable
+final class ModerateHighlight {
+  /// Constructor.
+  const ModerateHighlight({
+    this.color = 0,
+    this.bold = false,
+    this.italic = false,
+    this.underline = false,
+    this.background = '',
+  });
+
+  /// The text color, an index of [moderateHighlightColors]; 0 the default color.
+  final int color;
+
+  /// Bold (`highlight_style[1]`).
+  final bool bold;
+
+  /// Italic (`highlight_style[2]`).
+  final bool italic;
+
+  /// Underlined (`highlight_style[3]`).
+  final bool underline;
+
+  /// The background color (`highlight_bgcolor`, `#RRGGBB` as the app sets it, any color the forum kept otherwise),
+  /// empty for none.
+  final String background;
+
+  /// The forum counts the title highlighted: a color or a style. The background alone is kept but logged as no
+  /// highlight, its end day dropped.
+  bool get marksTitle => color != 0 || bold || italic || underline;
+
+  /// Copy with some values changed.
+  ModerateHighlight copyWith({int? color, bool? bold, bool? italic, bool? underline, String? background}) =>
+      ModerateHighlight(
+        color: color ?? this.color,
+        bold: bold ?? this.bold,
+        italic: italic ?? this.italic,
+        underline: underline ?? this.underline,
+        background: background ?? this.background,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ModerateHighlight &&
+      other.color == color &&
+      other.bold == bold &&
+      other.italic == italic &&
+      other.underline == underline &&
+      other.background == background;
+
+  @override
+  int get hashCode => Object.hash(color, bold, italic, underline, background);
+
+  @override
+  String toString() =>
+      'ModerateHighlight($color${bold ? ', bold' : ''}${italic ? ', italic' : ''}${underline ? ', underline' : ''}'
+      '${background.isEmpty ? '' : ', $background'})';
 }
 
 /// One choice of a select of the window: a level, or a forum to move to.
@@ -84,8 +172,9 @@ final class ModerateChoice {
   String toString() => 'ModerateChoice($value, $label${selected ? ', selected' : ''})';
 }
 
-/// The hidden fields of the management window the app sends back as they were served; any other hidden field (the
-/// highlight colors of group 1, the `operations[]` a window fixes) is never sent.
+/// The hidden fields of the management window the app sends back as they were served; any other hidden field is
+/// never sent as served (the highlight of group 1 is sent as chosen, [ModerateRequest.highlight]; the recommendation's
+/// place as [ModerateForm.recommendFields]; the `operations[]` a window fixes as [ModerateRequest.operation]).
 const moderateServedFields = {'frommodcp', 'formhash', 'fid', 'redirect', 'handlekey', 'moderate[]'};
 
 /// The management window of the forum (`form#moderateform`) for one thread, as served to the account that asked.
@@ -106,6 +195,10 @@ final class ModerateForm {
     this.reasons = const [],
     this.canNotify = false,
     this.notifyForced = false,
+    this.expiration,
+    this.highlight,
+    this.recommendTitle,
+    this.recommendFields = const {},
   });
 
   /// The operation the window is for: the one asked, but close and open as the window checks it (the one that
@@ -143,6 +236,23 @@ final class ModerateForm {
 
   /// The forum notifies the author whatever is sent (the checkbox served checked and disabled).
   final bool notifyForced;
+
+  /// The day the stick, digest, highlight or recommendation of the thread ends, as the window shows it; null when it
+  /// does not end, or ends today or before (the forum takes a day after today only).
+  final DateTime? expiration;
+
+  /// The highlight of the thread now (the window of one thread), none for several threads; null for the other
+  /// operations.
+  final ModerateHighlight? highlight;
+
+  /// The title the recommendation shows (`reducetitle`: the thread's, or the one recommended before); null when the
+  /// window does not offer it (several threads, a window not asked for the recommendation).
+  final String? recommendTitle;
+
+  /// The fields of the recommendation sent as served: the place (`position`) and the image chosen
+  /// (`selectattach`, the one recommended before or the thread's first image), which the forum would otherwise
+  /// clear. Empty for the other operations.
+  final Map<String, String> recommendFields;
 
   /// The level the thread is at now (the selected one); null when none is selected: a level the account may not set,
   /// such as a global stick seen by a forum moderator, is not listed, and no level is chosen for the moderator.
@@ -226,6 +336,9 @@ final class ModerateForm {
     var levels = const <ModerateChoice>[];
     var forums = const <ModerateChoice>[];
     var canRedirect = false;
+    ModerateHighlight? highlight;
+    String? recommendTitle;
+    var recommendFields = const <String, String>{};
     switch (operation) {
       case ModerateOperation.stick || ModerateOperation.digest:
         final name = operation == ModerateOperation.stick ? 'sticklevel' : 'digestlevel';
@@ -243,6 +356,42 @@ final class ModerateForm {
         if (levels.isEmpty) {
           return null;
         }
+      case ModerateOperation.highlight:
+        String? value(String name) => form.querySelector('input[name="$name"]')?.attributes['value']?.trim();
+        final color = value('highlight_color');
+        if (!_offers(form, operation) || color == null) {
+          return null;
+        }
+        // The window of several threads serves them empty: none.
+        final index = int.tryParse(color) ?? 0;
+        final background = value('highlight_bgcolor') ?? '';
+        highlight = ModerateHighlight(
+          color: index >= 0 && index < moderateHighlightColors.length ? index : 0,
+          bold: value('highlight_style[1]') == '1',
+          italic: value('highlight_style[2]') == '1',
+          underline: value('highlight_style[3]') == '1',
+          // Kept as served (the forum keeps letters, digits and `#` of any color it is given), sent back unchanged.
+          background: background.replaceAll(RegExp('[^A-Za-z0-9#]'), ''),
+        );
+      case ModerateOperation.recommend:
+        final choices = form
+            .querySelectorAll('input[type="radio"][name="isrecommend"]')
+            .map((e) => e.attributes['value'])
+            .toSet();
+        if (!_offers(form, operation) || !choices.containsAll(['1', '0'])) {
+          return null;
+        }
+        recommendTitle = form.querySelector('input[name="reducetitle"]')?.attributes['value'];
+        final position = form.querySelector('input[name="position"]')?.attributes['value'];
+        final image = form.querySelector('select[name="selectattach"]');
+        recommendFields = {
+          'position': ?position,
+          if (image != null)
+            'selectattach':
+                image.querySelector('option[selected]')?.attributes['value'] ??
+                image.querySelector('option')?.attributes['value'] ??
+                '',
+        };
       case ModerateOperation.close || ModerateOperation.open:
         final radios = form.querySelectorAll('input[type="radio"][name="operations[]"]');
         final choices = radios.map((e) => e.attributes['value']).toSet();
@@ -293,7 +442,63 @@ final class ModerateForm {
       canNotify: notify != null,
       notifyForced:
           notify != null && notify.attributes.containsKey('disabled') && notify.attributes.containsKey('checked'),
+      expiration: _expiration(form, operation),
+      highlight: highlight,
+      recommendTitle: recommendTitle,
+      recommendFields: recommendFields,
     );
+  }
+
+  /// The window [form] offers [operation]: an `operations[]` of it (a checkbox, a radio, or the hidden one of a window
+  /// of that operation alone).
+  static bool _offers(uh.Element form, ModerateOperation operation) =>
+      form.querySelector('input[name="operations[]"][value="${operation.value}"]') != null;
+
+  /// The end day of [operation] the window shows (`Y-m-d H:i`), when after today.
+  static DateTime? _expiration(uh.Element form, ModerateOperation operation) {
+    final name = switch (operation) {
+      ModerateOperation.stick ||
+      ModerateOperation.digest ||
+      ModerateOperation.highlight ||
+      ModerateOperation.recommend => 'expiration${operation.value}',
+      _ => null,
+    };
+    final value = name == null ? null : form.querySelector('input[name="$name"]')?.attributes['value']?.trim();
+    final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(value ?? '');
+    if (match == null) {
+      return null;
+    }
+    final day = DateTime(int.parse(match.group(1)!), int.parse(match.group(2)!), int.parse(match.group(3)!));
+    final now = DateTime.now();
+    return day.isAfter(DateTime(now.year, now.month, now.day)) ? day : null;
+  }
+
+  /// [doc] is the forum's window of [operation]'s group for thread [tid] (or for threads [tids] of a management of
+  /// several) of forum [fid], served without [operation]: the account may not do it (no permission to highlight), or
+  /// the forum does not offer it there (recommendation turned off in the forum).
+  static bool lacksOperation(
+    uh.Document doc,
+    ModerateOperation operation, {
+    required int fid,
+    String? tid,
+    List<String>? tids,
+  }) {
+    final form = doc.querySelector('form#moderateform');
+    if (form == null || !_isTarget(form.attributes['action'] ?? '', operation.group)) {
+      return false;
+    }
+    String? hidden(String name) => form.querySelector('input[type="hidden"][name="$name"]')?.attributes['value'];
+    final served = form
+        .querySelectorAll('input[type="hidden"][name="moderate[]"]')
+        .map((e) => e.attributes['value'] ?? '')
+        .toList();
+    final asked = tids?.toSet() ?? {?tid};
+    return (hidden('formhash') ?? '').isNotEmpty &&
+        hidden('fid') == '$fid' &&
+        served.isNotEmpty &&
+        served.every(asked.contains) &&
+        (tids != null || served.length == 1) &&
+        !_offers(form, operation);
   }
 
   /// The window of operation [asked] for some of threads [tids] of forum [fid] read from [doc], served to [uid]; null
@@ -402,6 +607,9 @@ final class ModerateRequest {
     this.redirect = false,
     this.reason = '',
     this.notify = false,
+    this.highlight,
+    this.recommend = true,
+    this.recommendTitle,
   });
 
   /// The operation.
@@ -410,7 +618,7 @@ final class ModerateRequest {
   /// The stick or digest level ([ModerateChoice.value]).
   final String? level;
 
-  /// The day a stick or digest ends, none for no end.
+  /// The day a stick, digest, highlight or recommendation ends, none for no end.
   final DateTime? expiration;
 
   /// The forum to move to ([ModerateChoice.value]).
@@ -424,6 +632,16 @@ final class ModerateRequest {
 
   /// Notify the author.
   final bool notify;
+
+  /// The highlight to set; none takes it off.
+  final ModerateHighlight? highlight;
+
+  /// Recommend the thread (`isrecommend` 1), or take its recommendation off (0).
+  final bool recommend;
+
+  /// The title the recommendation shows, as typed; the window's [ModerateForm.recommendTitle] when null, the
+  /// thread's title when empty.
+  final String? recommendTitle;
 
   /// The form body of this request for [form]: the served hidden fields, the operation and its own fields, the reason
   /// and the notice, as the website's window posts them. Nothing else (no ban of the author, no deletion of all his
@@ -440,6 +658,13 @@ final class ModerateRequest {
       ...switch (operation) {
         ModerateOperation.stick => {'sticklevel': level ?? '0', 'expirationstick': hasLevel ? day(expiration) : ''},
         ModerateOperation.digest => {'digestlevel': level ?? '0', 'expirationdigest': hasLevel ? day(expiration) : ''},
+        ModerateOperation.highlight => _highlightBody(highlight ?? const ModerateHighlight(), day(expiration)),
+        ModerateOperation.recommend => {
+          'isrecommend': recommend ? '1' : '0',
+          'expirationrecommend': recommend ? day(expiration) : '',
+          ...form.recommendFields,
+          if (form.recommendTitle case final served?) 'reducetitle': (recommendTitle ?? served).trim(),
+        },
         ModerateOperation.close || ModerateOperation.open => {'expirationclose': ''},
         ModerateOperation.move => {
           'moveto': moveTo ?? '',
@@ -454,6 +679,16 @@ final class ModerateRequest {
       if (form.canNotify && (notify || form.notifyForced)) 'sendreasonpm': 'on',
     };
   }
+
+  /// The fields of highlight [h] ending on [day] (empty: no end); the end day only for a highlight the forum counts.
+  static Map<String, String> _highlightBody(ModerateHighlight h, String day) => {
+    'highlight_color': '${h.color}',
+    'highlight_style[1]': h.bold ? '1' : '0',
+    'highlight_style[2]': h.italic ? '1' : '0',
+    'highlight_style[3]': h.underline ? '1' : '0',
+    'highlight_bgcolor': h.background,
+    'expirationhighlight': h.marksTitle ? day : '',
+  };
 }
 
 /// The management window of the forum for several threads of a forum ([ModerateForm.parseBatch]).
@@ -523,10 +758,13 @@ final class ModerateWindowReady extends ModerateWindow {
 /// The forum refused to open the window, in its own words [message] (not a moderator of this forum, no such thread).
 final class ModerateWindowRefused extends ModerateWindow {
   /// Constructor.
-  const ModerateWindowRefused(this.message);
+  const ModerateWindowRefused(this.message, {this.unavailable = false});
 
   /// The forum's message, empty when it gave none.
   final String message;
+
+  /// The forum served the window without the operation ([ModerateForm.lacksOperation]): asking again changes nothing.
+  final bool unavailable;
 }
 
 /// What the forum answered when asked for the management window of several threads.
@@ -547,10 +785,13 @@ final class ModerateBatchWindowReady extends ModerateBatchWindow {
 /// moderator of this forum).
 final class ModerateBatchWindowRefused extends ModerateBatchWindow {
   /// Constructor.
-  const ModerateBatchWindowRefused(this.message);
+  const ModerateBatchWindowRefused(this.message, {this.unavailable = false});
 
   /// The forum's message, empty when it gave none.
   final String message;
+
+  /// The forum served the window without the operation ([ModerateForm.lacksOperation]).
+  final bool unavailable;
 }
 
 /// What became of one thread of a management of several threads.
