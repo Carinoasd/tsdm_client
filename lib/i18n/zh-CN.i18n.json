@@ -608,7 +608,10 @@
         "followedThreadMinutes": "${n} 分钟",
         "quietHours": "静音时段",
         "quietStart": "开始",
-        "quietEnd": "结束"
+        "quietEnd": "结束",
+        "forumNewThread": "版块新帖",
+        "keywordAlert": "关键字提醒",
+        "forumWatch": "新帖与关键字提醒"
       },
       "notificationHideContent": {
         "title": "通知不显示内容",
@@ -1114,6 +1117,12 @@
       "removed": "已取消收藏",
       "failed": "操作失败：$err",
       "needLogin": "请先登录再收藏"
+    },
+    "watch": {
+      "on": "新帖提醒",
+      "off": "关闭新帖提醒",
+      "watched": "已开启新帖提醒",
+      "unwatched": "已关闭新帖提醒"
     }
   },
   "threadPage": {
@@ -2492,7 +2501,9 @@
       "rate": "评分／点评",
       "pm": "私信",
       "system": "系统通知",
-      "followedThread": "追踪的帖子"
+      "followedThread": "追踪的帖子",
+      "forumNewThread": "版块新帖",
+      "keywordAlert": "关键字提醒"
     },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
@@ -3868,6 +3879,33 @@
     "notice": {
       "body": "《${title}》有 ${n} 条新回复",
       "hidden": "追踪的帖子有 ${n} 条新回复"
+    }
+  },
+  "forumWatch": {
+    "title": "新帖与关键字提醒",
+    "alerts": "提醒",
+    "settings": "设置",
+    "noAlerts": "还没有提醒",
+    "needLogin": "登录后可以使用新帖提醒",
+    "forums": "新帖提醒的版块",
+    "keywords": "关键字",
+    "keyword": "关键字",
+    "add": "添加",
+    "keywordExists": "关键字已存在",
+    "limitReached": "最多 ${forums} 个版块、${keywords} 个关键字",
+    "scope": "关键字范围",
+    "scopeDefault": "新帖提醒的版块和最新主题",
+    "scopeCustom": "自选",
+    "latest": "最新主题",
+    "pickForums": "选择版块",
+    "interval": "检查间隔",
+    "minutes": "${n} 分钟",
+    "notice": {
+      "thread": "${author}：${title}",
+      "forumMany": "${n} 个新主题",
+      "keywordOne": "关键字「${keyword}」",
+      "keywordMany": "${n} 个主题含关键字",
+      "keywordLine": "「${keyword}」${title}"
     }
   },
   "customEmoji": {

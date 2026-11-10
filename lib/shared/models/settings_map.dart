@@ -76,6 +76,9 @@ class SettingsMap with SettingsMapMappable {
     this.notifySystem = true,
     this.notifyFollowedThread = true,
     this.followedThreadCheckMinutes = 30,
+    this.notifyForumNewThread = true,
+    this.notifyKeywordAlert = true,
+    this.forumWatchCheckMinutes = 30,
     this.notifyQuietHours = false,
     this.notifyQuietStart = 1380,
     this.notifyQuietEnd = 480,
@@ -203,6 +206,15 @@ class SettingsMap with SettingsMapMappable {
 
   /// See `SettingsKeys.followedThreadCheckMinutes`. Not required: backups from older versions lack it.
   final int followedThreadCheckMinutes;
+
+  /// See `SettingsKeys.notifyForumNewThread`. Not required: backups from older versions lack it.
+  final bool notifyForumNewThread;
+
+  /// See `SettingsKeys.notifyKeywordAlert`. Not required: backups from older versions lack it.
+  final bool notifyKeywordAlert;
+
+  /// See `SettingsKeys.forumWatchCheckMinutes`. Not required: backups from older versions lack it.
+  final int forumWatchCheckMinutes;
 
   /// See `SettingsKeys.notifyQuietHours`. Not required: backups from older versions lack it.
   final bool notifyQuietHours;
@@ -418,6 +430,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.notifySystem => copyWith(notifySystem: value as bool?),
       SettingsKeys.notifyFollowedThread => copyWith(notifyFollowedThread: value as bool?),
       SettingsKeys.followedThreadCheckMinutes => copyWith(followedThreadCheckMinutes: value as int?),
+      SettingsKeys.notifyForumNewThread => copyWith(notifyForumNewThread: value as bool?),
+      SettingsKeys.notifyKeywordAlert => copyWith(notifyKeywordAlert: value as bool?),
+      SettingsKeys.forumWatchCheckMinutes => copyWith(forumWatchCheckMinutes: value as int?),
       SettingsKeys.notifyQuietHours => copyWith(notifyQuietHours: value as bool?),
       SettingsKeys.notifyQuietStart => copyWith(notifyQuietStart: value as int?),
       SettingsKeys.notifyQuietEnd => copyWith(notifyQuietEnd: value as int?),

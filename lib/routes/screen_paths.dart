@@ -394,6 +394,9 @@ class ScreenPaths {
   /// Page listing the threads the current account follows.
   static const String followedThreads = '/followedThreads';
 
+  /// Page of the forums watched for new threads, the alert keywords and the threads they found.
+  static const String forumWatch = '/forumWatch';
+
   /// Page managing the custom emoji packs.
   static const String customEmojiPacks = '/customEmojiPacks';
 

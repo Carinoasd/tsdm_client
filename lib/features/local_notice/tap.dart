@@ -334,8 +334,9 @@ Future<void> _noticesReloadedFor(
 String? routerTopLocation(GoRouter router) => router.routerDelegate.currentConfiguration.lastOrNull?.matchedLocation;
 
 /// Open the page [target] names from [context], a page under the app's providers, for the account in use: the floor
-/// of the notice (the thread when only that is known), the last floor of a followed thread, or the conversation; the
-/// notice or the conversation is marked as read, as a tap on its card does. False when [target] names nothing that can be opened.
+/// of the notice (the thread when only that is known), the last floor of a followed thread, the conversation, a watched
+/// forum or the page of the alerts of the watched forums and keywords; the notice or the conversation is marked as
+/// read, as a tap on its card does. False when [target] names nothing that can be opened.
 bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
   final RecognizedRoute? route;
   if (target.lastPost && target.tid != null) {
@@ -344,6 +345,10 @@ bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
     route = NoticeTarget(tid: target.tid, pid: target.pid).url.parseUrlToRoute();
   } else if (target.peerUid != null) {
     route = RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': '${target.peerUid}'});
+  } else if (target.fid != null) {
+    route = '$baseUrl/forum.php?mod=forumdisplay&fid=${target.fid}'.parseUrlToRoute();
+  } else if (target.watchAlerts) {
+    route = const RecognizedRoute(ScreenPaths.forumWatch);
   } else {
     route = null;
   }

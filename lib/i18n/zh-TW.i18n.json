@@ -608,7 +608,10 @@
         "followedThreadMinutes": "${n} 分鐘",
         "quietHours": "靜音時段",
         "quietStart": "開始",
-        "quietEnd": "結束"
+        "quietEnd": "結束",
+        "forumNewThread": "版塊新帖",
+        "keywordAlert": "關鍵字提醒",
+        "forumWatch": "新帖與關鍵字提醒"
       },
       "notificationHideContent": {
         "title": "通知不顯示內容",
@@ -1114,6 +1117,12 @@
       "removed": "已取消收藏",
       "failed": "操作失敗：$err",
       "needLogin": "請先登入再收藏"
+    },
+    "watch": {
+      "on": "新帖提醒",
+      "off": "關閉新帖提醒",
+      "watched": "已開啟新帖提醒",
+      "unwatched": "已關閉新帖提醒"
     }
   },
   "threadPage": {
@@ -2492,7 +2501,9 @@
       "rate": "評分／點評",
       "pm": "私訊",
       "system": "系統通知",
-      "followedThread": "追蹤的帖子"
+      "followedThread": "追蹤的帖子",
+      "forumNewThread": "版塊新帖",
+      "keywordAlert": "關鍵字提醒"
     },
     "channelName": "新提醒",
     "channelDesc": "自動同步訊息時收到新提醒",
@@ -3868,6 +3879,33 @@
     "notice": {
       "body": "《${title}》有 ${n} 條新回覆",
       "hidden": "追蹤的帖子有 ${n} 條新回覆"
+    }
+  },
+  "forumWatch": {
+    "title": "新帖與關鍵字提醒",
+    "alerts": "提醒",
+    "settings": "設定",
+    "noAlerts": "還沒有提醒",
+    "needLogin": "登入後可以使用新帖提醒",
+    "forums": "新帖提醒的版塊",
+    "keywords": "關鍵字",
+    "keyword": "關鍵字",
+    "add": "新增",
+    "keywordExists": "關鍵字已存在",
+    "limitReached": "最多 ${forums} 個版塊、${keywords} 個關鍵字",
+    "scope": "關鍵字範圍",
+    "scopeDefault": "新帖提醒的版塊和最新主題",
+    "scopeCustom": "自選",
+    "latest": "最新主題",
+    "pickForums": "選擇版塊",
+    "interval": "檢查間隔",
+    "minutes": "${n} 分鐘",
+    "notice": {
+      "thread": "${author}：${title}",
+      "forumMany": "${n} 個新主題",
+      "keywordOne": "關鍵字「${keyword}」",
+      "keywordMany": "${n} 個主題含關鍵字",
+      "keywordLine": "「${keyword}」${title}"
     }
   },
   "customEmoji": {

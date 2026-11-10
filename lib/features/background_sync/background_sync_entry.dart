@@ -9,6 +9,10 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_events.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_tick.dart';
+import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
+import 'package:tsdm_client/features/forum_watch/utils/forum_watch_check.dart';
+import 'package:tsdm_client/features/forum_watch/utils/forum_watch_fetch.dart';
+import 'package:tsdm_client/features/forum_watch/utils/forum_watch_notice.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
@@ -44,7 +48,8 @@ import 'package:tsdm_client/utils/redacting_talker.dart';
 /// Everything the service isolate needs, built once when it starts.
 final class _BackgroundSyncRuntime {
   _BackgroundSyncRuntime._(this.db, this.storage, this.settings, this.proxy, this.repository, this.plugin)
-    : followed = FollowedThreadStore(storage);
+    : followed = FollowedThreadStore(storage),
+      watch = ForumWatchStore(storage);
 
   final AppDatabase db;
   final StorageProvider storage;
@@ -55,6 +60,18 @@ final class _BackgroundSyncRuntime {
 
   /// The threads each account follows, checked by the service too (`followedThreadsTick`).
   final FollowedThreadStore followed;
+
+  /// The forums and keywords each account watches, checked by the service too (`forumWatchTick`).
+  final ForumWatchStore watch;
+
+  /// The reading of the watched sources of account [uid], with a client built as the sync's clients are.
+  Future<ForumWatchFetch> Function(String source) watchFetcherOf(int uid) => forumWatchFetcherOf(
+    uid,
+    clientFactory: (cookie) => NetClientProvider.buildNoCookie(
+      dio: settings.buildDefaultDio(nativeHttp: false),
+      cookie: cookie,
+    ),
+  );
 
   /// The check of one followed thread of account [uid], with a client built as the sync's clients are.
   Future<FollowedThreadFetch> Function(int tid) followedFetcherOf(int uid) => followedThreadFetcherOf(
@@ -119,6 +136,7 @@ final class _BackgroundSyncRuntime {
 
   Future<void> dispose() async {
     await followed.dispose();
+    await watch.dispose();
     await repository.dispose();
     await db.close();
   }
@@ -187,6 +205,8 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
   var ticking = false;
   var followChecking = false;
   Completer<void>? followDone;
+  var watchChecking = false;
+  Completer<void>? watchDone;
   var stopping = false;
 
   Future<void> stop(String why) async {
@@ -200,6 +220,8 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     // A check of the followed threads stops at its next thread (`keepGoing`): its writes land before the database
     // closes.
     await followDone?.future.timeout(const Duration(seconds: 40), onTimeout: () {});
+    // The same for a check of the watched forums: it stops at its next source.
+    await watchDone?.future.timeout(const Duration(seconds: 40), onTimeout: () {});
     await runtime.dispose();
     await logSink.flush();
     await service.stopSelf();
@@ -330,6 +352,49 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
     }
   }
 
+  /// Check the forums and keywords the account in use watches when a check is due (shared with the app's own check
+  /// through the settings table); one check at a time, apart from the other ticks.
+  Future<void> watchTick() async {
+    if (stopping || watchChecking) {
+      return;
+    }
+    watchChecking = true;
+    watchDone = Completer<void>();
+    try {
+      final uid = (await readBackgroundSyncSettings(runtime.storage)).loginUid;
+      await forumWatchTick(
+        storage: runtime.storage,
+        store: runtime.watch,
+        uid: uid,
+        fetch: runtime.watchFetcherOf(uid),
+        prepare: runtime.refreshNetwork,
+        keepGoing: () => !stopping,
+        announce: (batch) async {
+          if (stopping) {
+            return false;
+          }
+          await showForumWatchNotification(
+            plugin: runtime.plugin,
+            translations: t,
+            batch: batch,
+            uid: uid,
+            hideContent:
+                await runtime.storage.getBool(SettingsKeys.notificationHideContent.name) ??
+                SettingsKeys.notificationHideContent.defaultValue,
+          );
+          return true;
+        },
+      );
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'background sync: forum watch check failed');
+    } finally {
+      watchChecking = false;
+      watchDone?.complete();
+      watchDone = null;
+      await logSink.flush();
+    }
+  }
+
   /// Read the settings again: stop when the switch is off or auto sync is never, otherwise follow the interval.
   Future<void> reschedule() async {
     final settings = await readBackgroundSyncSettings(runtime.storage);
@@ -367,8 +432,13 @@ Future<void> backgroundSyncEntryPoint(ServiceInstance service) async {
   }
   await reschedule();
   if (!stopping) {
-    followTimer = Timer.periodic(followedThreadHeartbeat, (_) => unawaited(followTick()));
+    // The watched forums share the heartbeat of the followed threads (`forumWatchHeartbeat` is the same minute).
+    followTimer = Timer.periodic(followedThreadHeartbeat, (_) {
+      unawaited(followTick());
+      unawaited(watchTick());
+    });
   }
   await tick();
   unawaited(followTick());
+  unawaited(watchTick());
 }
