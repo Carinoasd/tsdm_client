@@ -383,10 +383,15 @@ void main() {
         ModerateOperation.digest,
         ModerateOperation.highlight,
         ModerateOperation.recommend,
+        ModerateOperation.stamp,
+        ModerateOperation.stamplist,
         ModerateOperation.close,
         ModerateOperation.bump,
         ModerateOperation.down,
+        ModerateOperation.type,
         ModerateOperation.move,
+        ModerateOperation.copy,
+        ModerateOperation.repair,
         ModerateOperation.delete,
       ]);
       expect(moderateBatchOperations, contains(ModerateOperation.highlight));

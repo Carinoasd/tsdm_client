@@ -125,9 +125,17 @@ final class ModerateRepository with LoggerMixin {
   /// The window comes as the app API's write result (plugin 2.6.0, a `page`), or as the AJAX fragment of a forum
   /// without the plugin; the forum's refusal to open it (`admin_nopermission`, no such thread) is a
   /// [ModerateWindowRefused] with its words. A window served to another account is an [IdentityChangedException].
+  ///
+  /// A repair has no window and is never asked one (the forum repairs the thread at its url): its window is made for
+  /// the account logged in ([ModerateForm.repair]), nothing is requested.
   AsyncEither<ModerateWindow> fetchWindow(ModerateOperation operation, {required String tid, required int fid}) =>
       AsyncEither(() async {
         final uid = _currentUid();
+        if (operation == ModerateOperation.repair) {
+          return uid <= 0
+              ? left(IdentityChangedException())
+              : right(ModerateWindowReady(ModerateForm.repair(tid: tid, fid: fid, uid: uid)));
+        }
         final resp = await _get(withTsdmAppJsonWrite(ModerateForm.windowUrl(operation, tid: tid, fid: fid)));
         switch (resp) {
           case Left(:final value):
@@ -156,7 +164,9 @@ final class ModerateRepository with LoggerMixin {
         return left(IdentityChangedException());
       }
       if (result.kind != TsdmAppWriteKind.page) {
-        return right(ModerateWindowRefused(result.reason));
+        // The account's group may not do it (`no_privilege_stampthread`…): asking again changes nothing. The AJAX
+        // fragment of a forum without the plugin has no message key: its refusal is offered to retry.
+        return right(ModerateWindowRefused(result.reason, unavailable: result.messageKey.startsWith('no_privilege_')));
       }
       final form = ModerateForm.parse(result.document, operation, tid: tid, fid: fid, uid: uid);
       if (form != null) {
@@ -188,21 +198,81 @@ final class ModerateRepository with LoggerMixin {
   /// Never sent when the account changed since the window was served ([IdentityChangedException]). The forum's
   /// verdict is read from the app API's result (the `admin_succeed` message key) or, without the plugin, from the
   /// handler the AJAX answer calls; anything else is a refusal in the forum's words.
+  ///
+  /// A repair is told by its own message key (`admin_repair_succeed`); without the plugin the forum calls the error
+  /// handler for it too, in its success box.
   AsyncEither<ModerateOutcome> submit(ModerateForm form, ModerateRequest request) => AsyncEither(() async {
-    if (request.operation.group != form.operation.group) {
+    if (request.operation.group != form.operation.group ||
+        (form.operation.group == 0 && request.operation != form.operation)) {
       return left(HttpRequestFailedException(null));
     }
     final uid = _currentUid();
     if (uid <= 0 || form.uid != uid) {
       return left(IdentityChangedException());
     }
+    final repair = form.operation == ModerateOperation.repair;
     final resp = await _post(form.submitUrl, request.body(form));
     return switch (resp) {
       Left(:final value) => left(value),
       Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
-      Right(:final value) => right(outcomeOf(value.data)),
+      Right(:final value) => right(
+        repair ? outcomeOf(value.data, successKey: 'admin_repair_succeed', successBox: true) : outcomeOf(value.data),
+      ),
     };
   });
+
+  /// The categories a thread copied to forum [fid] may be put in (`forum.php?mod=ajax&action=getthreadtypes`, the
+  /// select the copy window loads once a forum is picked), in the forum's order: `0` (none) among them unless the
+  /// forum requires one, `0` alone for a forum without categories. Those of moderators only are listed to a moderator
+  /// of [fid] only.
+  ///
+  /// An answer served to another account is an [IdentityChangedException].
+  AsyncEither<List<ModerateChoice>> fetchThreadTypes(int fid) => AsyncEither(() async {
+    final uid = _currentUid();
+    final resp = await _get(
+      withTsdmAppJsonWrite('$baseUrl/forum.php?mod=ajax&action=getthreadtypes&fid=$fid&inajax=1'),
+    );
+    switch (resp) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return left(HttpRequestFailedException(value.statusCode));
+      case Right(:final value):
+        if (_currentUid() != uid) {
+          return left(IdentityChangedException());
+        }
+        return threadTypesOf(value.data, uid: uid);
+    }
+  });
+
+  /// The categories of a forum in answer [data] to [fetchThreadTypes], asked by account [uid].
+  static Either<AppException, List<ModerateChoice>> threadTypesOf(Object? data, {required int uid}) {
+    final uh.Document doc;
+    if (tsdmAppWriteResultOf(data) case final result?) {
+      if (result.uid != uid) {
+        return left(IdentityChangedException());
+      }
+      if (result.kind != TsdmAppWriteKind.page) {
+        return left(HttpRequestFailedException(HttpStatus.ok));
+      }
+      doc = result.document;
+    } else {
+      doc = parseHtmlDocument(_ajaxText(tsdmAppAnswerText(data)));
+    }
+    final select = doc.querySelector('select[name="threadtypeid"]');
+    if (select == null) {
+      return left(HttpRequestFailedException(HttpStatus.ok));
+    }
+    final types = <ModerateChoice>[];
+    for (final option in select.querySelectorAll('option')) {
+      final value = option.attributes['value'] ?? '';
+      if (int.tryParse(value) == null || types.any((e) => e.value == value)) {
+        continue;
+      }
+      types.add(ModerateChoice(value: value, label: option.text?.trim() ?? ''));
+    }
+    return types.isEmpty ? left(HttpRequestFailedException(HttpStatus.ok)) : right(types);
+  }
 
   /// Ask the window of [operation] for threads [tids] of forum [fid]: the window of the threads the forum takes
   /// ([ModerateBatchForm.tids]), as [fetchWindow] asks the window of one thread.
@@ -349,8 +419,12 @@ final class ModerateRepository with LoggerMixin {
   }
 
   /// The forum's verdict in answer [data] to a management request; [successKey] is the language key of its success
-  /// (`admin_succeed` for a thread or a floor, `modcp_mod_succeed` for the moderation queue).
-  static ModerateOutcome outcomeOf(Object? data, {String successKey = 'admin_succeed'}) {
+  /// (`admin_succeed` for a thread or a floor, `modcp_mod_succeed` for the moderation queue, `admin_repair_succeed`
+  /// for a repair).
+  ///
+  /// Without the plugin a success calls the success handler, but with [successBox] also the error handler inside the
+  /// forum's success box (`div.alert_right`): a message the forum shows without sending the window on (a repair).
+  static ModerateOutcome outcomeOf(Object? data, {String successKey = 'admin_succeed', bool successBox = false}) {
     if (tsdmAppWriteResultOf(data) case final result?) {
       // Told by the language key, not by the words.
       if (result.succeeded && result.messageKey == successKey) {
@@ -363,6 +437,9 @@ final class ModerateRepository with LoggerMixin {
       return ModerateSucceeded(_unescape(match.namedGroup('message')!).trim());
     }
     if (_errorHandleRe.firstMatch(text)?.namedGroup('error') case final error?) {
+      if (successBox && parseHtmlDocument(text).querySelector('div.alert_right') != null) {
+        return ModerateSucceeded(_unescape(error).trim());
+      }
       return ModerateRefused(_unescape(error));
     }
     return const ModerateRefused('');
