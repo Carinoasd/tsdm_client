@@ -86,12 +86,17 @@ KeywordScope? _scopeOf(Map<String, dynamic> item) {
 /// [config] with the sections of the sync document taken in at [now] (milliseconds): the items of `watch_forums`
 /// ([forums]) and of `watch_keywords` ([keywords]), and the item of `watch_scope` ([scope]). Null when nothing changes.
 ///
-/// Per forum and per keyword the later `updated` wins, this device's on the same time: one the document holds is
-/// watched (or added) here, one it records as removed is removed here unless it was watched (or added) again later.
-/// One the document does not hold stays as it is, and so does one whose item this version does not read (not a forum
-/// id, a keyword that is not the key of its text or longer than a keyword may be). The scope is taken whole when the
-/// document's is later. The forums and the keywords are then the latest first, at most
-/// [forumWatchForumMax] and [forumWatchKeywordMax] of them (the others dropped without a record: not removed).
+/// Per forum and per keyword the later `updated` wins, the document's on the same time (as the merge of two documents
+/// keeps the forum's item then, so the devices end with the same): one the document holds is watched (or added)
+/// here, one it records as removed is removed here unless it was watched (or added) again later. One the document
+/// does not hold stays as it is, and so does one whose item this version does not read (not a forum id, a keyword
+/// that is not the key of its text or longer than a keyword may be). The scope is taken whole when the document's is
+/// later, or as late and another choice.
+///
+/// The forums and the keywords are then the latest first, at most [forumWatchForumMax] and [forumWatchKeywordMax] of
+/// them, and the forums the check fetches ([ForumWatchConfig.fetchedFids]: the watched ones and the ones of a picked
+/// scope, the limit the page holds a change to) at most [forumWatchForumMax]: over it the forums watched longest ago
+/// go, so the scope's are still looked in. What goes is dropped without a record: not removed on the other devices.
 ForumWatchConfig? forumWatchWithSynced(
   ForumWatchConfig config, {
   required Map<String, Map<String, dynamic>> forums,
@@ -122,7 +127,7 @@ ForumWatchConfig? forumWatchWithSynced(
       }
       final mine = nextLive[key];
       final mineAt = mine != null ? updatedOf(mine) : nextRemoved[key];
-      if (mineAt != null && mineAt >= updated) {
+      if (mineAt != null && mineAt > updated) {
         continue;
       }
       if (_deleted(item)) {
@@ -135,7 +140,7 @@ ForumWatchConfig? forumWatchWithSynced(
         continue;
       }
       final entry = read(key, item, updated);
-      if (entry == null) {
+      if (entry == null || entry == mine) {
         continue;
       }
       nextLive[key] = entry;
@@ -184,7 +189,9 @@ ForumWatchConfig? forumWatchWithSynced(
   var nextScope = config.scope;
   if (scope != null) {
     final theirs = _scopeOf(scope);
-    if (theirs != null && theirs.updated > config.scope.updated) {
+    if (theirs != null &&
+        (theirs.updated > config.scope.updated ||
+            (theirs.updated == config.scope.updated && !theirs.sameChoiceAs(config.scope)))) {
       nextScope = theirs;
       changed = true;
     }
@@ -192,12 +199,22 @@ ForumWatchConfig? forumWatchWithSynced(
   if (!changed) {
     return null;
   }
-  final next = ForumWatchConfig(
+  var next = ForumWatchConfig(
     forums: nextForums.values.toList(),
     keywords: nextKeywords.values.toList(),
     scope: nextScope,
     removedForums: removedForums,
     removedKeywords: removedKeywords,
   );
+  // Two devices' forums together may be more than a round fetches (the watched ones and the ones of a picked scope):
+  // the forums watched longest ago go, never one the keywords look in too (it would be fetched all the same).
+  while (next.fetchedFids.length > forumWatchForumMax) {
+    final scoped = next.keywordFids;
+    final oldest = next.forums.lastIndexWhere((f) => !scoped.contains(f.fid));
+    if (oldest < 0) {
+      break;
+    }
+    next = next.copyWith(forums: [...next.forums]..removeAt(oldest));
+  }
   return next == config ? null : next;
 }

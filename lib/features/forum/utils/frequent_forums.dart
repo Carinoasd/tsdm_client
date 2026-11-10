@@ -128,7 +128,8 @@ Map<int, int> _unpinnedKept(Map<int, int> unpinned, int now) {
 ///
 /// Anything else (an empty value, damaged JSON, entries that are not forums) reads as nothing for that part;
 /// duplicates are dropped and the lists are cut to their limits. Pinned forums saved before the ranks were kept (or
-/// whose ranks do not rise along the list) get the ranks of their places, changed at 0.
+/// whose ranks do not rise along the list) get the ranks of their places; one saved without a time counts as changed
+/// at 0, so any later change of another device wins over it.
 Map<int, FrequentForumsOfAccount> decodeFrequentForums(String raw) {
   if (raw.isEmpty) {
     return const {};
@@ -145,6 +146,9 @@ Map<int, FrequentForumsOfAccount> decodeFrequentForums(String raw) {
         continue;
       }
       var pinned = _decodeList(value['pinned'], frequentForumsPinnedMax, pinned: true);
+      // The saved order is what the bar shows: ranks that do not follow it (a version before the ranks rewrote the
+      // list) are given anew, without counting as a change. The next sync takes the document's rank of a forum
+      // changed at the same time, and the order of every device with it.
       if (_unranked(value['pinned']) || !_inOrder(pinned)) {
         pinned = _ranked(pinned);
       }
@@ -233,6 +237,8 @@ FrequentForumsOfAccount frequentForumsVisited(FrequentForumsOfAccount account, F
   if (account.isPinned(forum.fid)) {
     return FrequentForumsOfAccount(
       pinned: [
+        // The name is the title of the forum's own page (one source on every device). A new name is a change with a
+        // time: without one the device and the document would hold two names of the same time for ever.
         for (final e in account.pinned)
           e.fid == forum.fid && e.name != forum.name
               ? e._with(name: forum.name, updated: _after(_nowOr(now), e.updated))

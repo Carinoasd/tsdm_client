@@ -460,7 +460,7 @@ void main() {
       }
     });
 
-    test('taking the sections in: the later wins, this device on the same time, the scope whole', () {
+    test('taking the sections in: the later wins, the document on the same time, the scope whole', () {
       final c = const ForumWatchConfig()
           .watching(8, name: '版块8', now: _t)
           .watching(9, name: '版块9', now: _t + 1)
@@ -525,20 +525,93 @@ void main() {
       expect((next.scope.custom, next.scope.latest, next.scope.updated), (true, false, _t + 40));
       expect([for (final f in next.scope.forums) (f.fid, f.name)], [(3, '版块3')]);
 
-      // The same time: this device's stays. An older scope: this device's stays.
+      // An older item, an older scope: this device's stay.
       expect(
         forumWatchWithSynced(
           next,
           forums: {
-            '9': _gone(_t + 30),
-            '12': {'updated': _t + 5, 'name': '别名'},
+            '9': _gone(_t + 29),
+            '12': {'updated': _t + 4, 'name': '别名'},
           },
-          keywords: {'mine': _gone(_t + 3)},
+          keywords: {'mine': _gone(_t + 2)},
           scope: {'updated': _t + 39, 'custom': false},
           now: _t + 50,
         ),
         isNull,
       );
+      // The same time: the document's, as the merge of two documents keeps the forum's item then.
+      final tie = forumWatchWithSynced(
+        next,
+        forums: {
+          '9': _gone(_t + 30),
+          '12': {'updated': _t + 5, 'name': '别名'},
+        },
+        keywords: {
+          'mine': {'updated': _t + 3, 'text': 'MINE'},
+        },
+        scope: {'updated': _t + 40, 'custom': false},
+        now: _t + 50,
+      )!;
+      expect(tie.forums, [const WatchedForum(fid: 12, name: '别名', updated: _t + 5)]);
+      expect(tie.removedForums, {8: _t + 20, 9: _t + 30});
+      expect([for (final k in tie.keywords) k.text], ['Theirs', 'MINE']);
+      expect((tie.scope.custom, tie.scope.updated), (false, _t + 40));
+      // And then nothing more to take.
+      expect(
+        forumWatchWithSynced(
+          tie,
+          forums: forumWatchForumItems(tie),
+          keywords: forumWatchKeywordItems(tie),
+          scope: forumWatchScopeItem(tie),
+          now: _t + 50,
+        ),
+        isNull,
+      );
+    });
+
+    test('the forums a round fetches stay within 10 after a merge: the forums watched longest ago go', () {
+      // This device: 6 forums watched, 4 others picked for the keywords (10 fetched, the limit).
+      var c = const ForumWatchConfig().withKeyword('k', now: _t);
+      for (var fid = 1; fid <= 6; fid++) {
+        c = c.watching(fid, name: '版块$fid', now: _t + fid);
+      }
+      c = c.withScope(
+        KeywordScope(
+          custom: true,
+          forums: [for (var fid = 21; fid <= 23; fid++) _w(fid, 1), _w(6, 1)],
+        ),
+        now: _t + 10,
+      );
+      expect(c.fetchedFids, hasLength(9));
+      // The other device watched 4 more meanwhile.
+      final next = forumWatchWithSynced(
+        c,
+        forums: {
+          for (var fid = 11; fid <= 14; fid++) '$fid': {'updated': _t + 100 + fid, 'name': '版块$fid'},
+        },
+        keywords: const {},
+        scope: null,
+        now: _t + 500,
+      )!;
+      expect(next.fetchedFids, hasLength(forumWatchForumMax));
+      expect(
+        next.sources.toSet().containsAll([for (var fid = 21; fid <= 23; fid++) forumWatchForumSource(fid)]),
+        isTrue,
+      );
+      expect(next.watchedFids, {11, 12, 13, 14, 6, 5, 4}, reason: 'forums 1 to 3, watched longest ago, went');
+      expect(next.removedForums, isEmpty, reason: 'dropped, not unwatched: the other device keeps them');
+      // Forum 6 is older than what went but the keywords look in it too: dropping it would free nothing.
+      // Without a keyword the scope fetches nothing: every forum watched stays.
+      final plain = forumWatchWithSynced(
+        c.withoutKeyword('k', now: _t + 20),
+        forums: {
+          for (var fid = 11; fid <= 14; fid++) '$fid': {'updated': _t + 100 + fid, 'name': '版块$fid'},
+        },
+        keywords: const {},
+        scope: null,
+        now: _t + 500,
+      )!;
+      expect(plain.watchedFids, hasLength(10));
     });
 
     test('over the limits after a merge: the latest 10 forums and 50 keywords, the others without a record', () {

@@ -1097,8 +1097,8 @@ final class SyncRepository with LoggerMixin {
       }
     }
 
-    // The watch forum by forum and keyword by keyword, each where the merge is later than this device's, and the scope
-    // whole when the merge's is later. A forum that comes with it has no mark on this device: the first check of it
+    // The watch forum by forum and keyword by keyword, each where the merge is not older than this device's, and the
+    // scope whole likewise. A forum that comes with it has no mark on this device: the first check of it
     // only sets the mark, nothing posted before is announced.
     if (_on(SyncCategory.forumWatch)) {
       final forums = merged.items(forumWatchForumsSection);
