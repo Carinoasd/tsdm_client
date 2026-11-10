@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -128,6 +129,8 @@ Future<void> _boot(List<String> args) async {
         android: AndroidInitializationSettings('@drawable/ic_launcher_foreground'),
       ),
       onDidReceiveNotificationResponse: onLocalNotificationOpened,
+      // The reply typed in a notification, handled in the plugin's own isolate (`direct_reply_entry.dart`).
+      onDidReceiveBackgroundNotificationResponse: onNotificationActionInBackground,
     );
     // The first channel had default importance and Android never lets the app raise it: drop it so the
     // high-importance replacement is the only one left in the system notification settings (#13). Nothing before the

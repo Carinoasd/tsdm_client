@@ -15,7 +15,7 @@ import 'package:window_manager/window_manager.dart';
 /// back on the next event loop turn. On non-desktop platforms the window part is skipped entirely.
 Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
   talker.info(
-    'local notification tapped: id=${resp.id} type=${resp.notificationResponseType.name} payload=${resp.payload} '
+    'local notification tapped: id=${resp.id} type=${resp.notificationResponseType.name} payload=${LocalNoticeKeys.loggable(resp.payload)} '
     'listened=${localNoticeStream.hasListener}',
   );
 
@@ -63,11 +63,11 @@ Future<void> rememberNotificationLaunch() async {
       return;
     }
     final payload = launch.notificationResponse?.payload;
-    talker.info('app launched from local notification: payload=$payload');
+    talker.info('app launched from local notification: payload=${LocalNoticeKeys.loggable(payload)}');
     if (LocalNoticeKeys.parseOpenNotification(payload) != null) {
       rememberLaunchPayload(payload);
     } else {
-      talker.warning('ignore launch notification with unknown payload: $payload');
+      talker.warning('ignore launch notification with unknown payload: ${LocalNoticeKeys.loggable(payload)}');
     }
   } on Exception catch (e, st) {
     talker.handle(e, st, 'read notification launch details failed: ');

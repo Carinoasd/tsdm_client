@@ -9,6 +9,9 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/utils/switch_account.dart';
@@ -212,6 +215,14 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   }
 
   const notOpened = (step: LocalNoticeAccountStep.notSwitched, top: null, action: null);
+  if (uid != null && target != null) {
+    // A reply typed in a notification that was not sent: its text is the account's draft of the floor or the
+    // conversation, whatever is opened next.
+    await keepDirectReplyDraft(uid, target);
+    if (!context.mounted) {
+      return notOpened;
+    }
+  }
   final auth = context.read<AuthenticationRepository>();
   // The stored session counts: when a notification cold-starts the app the home page has its first frame before the
   // homepage fetch verified the login, and `currentUser` is still null at that point (#14).
@@ -339,7 +350,15 @@ String? routerTopLocation(GoRouter router) => router.routerDelegate.currentConfi
 /// read, as a tap on its card does. False when [target] names nothing that can be opened.
 bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
   final RecognizedRoute? route;
-  if (target.lastPost && target.tid != null) {
+  if (target.draft != null && target.tid != null && target.pid != null) {
+    // A reply typed in a notification that was not sent: the reply page of the floor, as the quick reply of a notice
+    // card opens it, which offers the text kept as its draft ([keepDirectReplyDraft]).
+    route = RecognizedRoute(
+      ScreenPaths.reply,
+      pathParameters: {'target': NoticeTarget(tid: target.tid, pid: target.pid).url},
+      queryParameters: {'noticeType': '${NoticeType.reply.index}'},
+    );
+  } else if (target.lastPost && target.tid != null) {
     route = '$baseUrl/forum.php?mod=redirect&tid=${target.tid}&goto=lastpost'.parseUrlToRoute();
   } else if (target.pid != null || target.tid != null) {
     route = NoticeTarget(tid: target.tid, pid: target.pid).url.parseUrlToRoute();
@@ -373,4 +392,47 @@ bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
     ).pushNamed(route.screenPath, pathParameters: route.pathParameters, queryParameters: route.queryParameters),
   );
   return true;
+}
+
+/// Keep the text of a reply typed in a notification that was not sent ([LocalNoticeTarget.draft]) as the local draft
+/// of account [uid] for the floor or the conversation of [target], so the editor opened next offers it.
+///
+/// Written here, in the app's isolate, and not by the isolate that tried to send it: the app's draft store keeps the
+/// drafts it read in memory and would write over a file changed behind it. A draft of the same target holding other
+/// text is moved aside first (listed, never lost). Nothing without a draft, a store or a target.
+Future<void> keepDirectReplyDraft(int uid, LocalNoticeTarget target, {LocalDraftStore? store, DateTime? now}) async {
+  final draft = target.draft;
+  final drafts = store ?? LocalDraftStore.app;
+  if (draft == null || drafts == null) {
+    return;
+  }
+  final tid = target.tid;
+  final pid = target.pid;
+  final peer = target.peerUid;
+  final LocalDraftKey key;
+  if (tid != null && pid != null) {
+    key = LocalDraftKey.floorReply('$tid', '$pid');
+  } else if (peer != null) {
+    key = LocalDraftKey.message('$peer');
+  } else {
+    return;
+  }
+  final at = now ?? DateTime.now();
+  final existing = await drafts.load(uid, key);
+  if (existing != null) {
+    if (existing.body == draft) {
+      return;
+    }
+    drafts.save(uid, existing.withKey(key.backupAt(existing.updatedAt.millisecondsSinceEpoch)));
+  }
+  drafts.save(
+    uid,
+    LocalDraft(
+      key: key,
+      body: draft,
+      updatedAt: at,
+      tid: tid == null ? null : '$tid',
+      replyAction: tid != null && pid != null ? directReplyActionUrl(tid: tid, pid: pid) : null,
+    ),
+  );
 }

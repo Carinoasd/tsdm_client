@@ -633,6 +633,9 @@
         "title": "通知不顯示內容",
         "detail": "系統通知只顯示帳號與新訊息數量，不顯示是誰、做了什麼和訊息內容"
       },
+      "notificationDirectReply": {
+        "title": "通知列直接回覆"
+      },
       "notificationPermission": {
         "title": "通知權限",
         "detail": "自動同步需要此權限才能把新提醒、訊息和公共訊息顯示為系統通知",
@@ -2637,6 +2640,14 @@
     "channelDesc": "自動同步訊息時收到新提醒",
     "ticker": "新提醒",
     "accountGone": "這則通知的帳號已不在這台裝置上",
+    "directReply": {
+      "action": "回覆",
+      "sent": "已回覆",
+      "failed": "回覆未送出",
+      "openApp": "需要在 App 中送出",
+      "locked": "App 已鎖定，請解鎖後送出",
+      "error": "送出失敗，請稍後重試"
+    },
     "notice": {
       "title": "新訊息",
       "titleOf": "[${username}] 新訊息",

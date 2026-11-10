@@ -47,7 +47,26 @@ final class ReplyFormInfo {
 /// Repository of reply.
 final class ReplyRepository with LoggerMixin {
   /// Constructor.
-  const ReplyRepository();
+  ///
+  /// Without a [client] every request goes with the client of the global cookie (`getIt`), as the app's pages send,
+  /// and the account replying is the one of the global cookie. A reply sent as another account (the reply typed in a
+  /// notification, sent in the background as the account of the notification) passes that account's [client] and its
+  /// uid as [owner]; [postForm] then asks the reply window as the post form of the forum's app API even before the
+  /// plugin was heard of in this isolate (a window that does not come back as one is asked the old way, as always).
+  const ReplyRepository({NetClientProvider? client, int? owner, bool postForm = false})
+    : _client = client,
+      _owner = owner,
+      _postForm = postForm;
+
+  final NetClientProvider? _client;
+  final int? _owner;
+  final bool _postForm;
+
+  NetClientProvider get _netClient => _client ?? getIt.get<NetClientProvider>();
+
+  /// The account replying: [_owner], else the one of the global cookie, null when not known.
+  int? get _ownerUid =>
+      _owner ?? (getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>().userLoginInfo.uid : null);
 
   /// Regexp to grep pmid wrapped in chat message send response.
   ///
@@ -167,8 +186,8 @@ final class ReplyRepository with LoggerMixin {
     List<int> attachNew = const [],
     SecCheckAnswer? verification,
   }) => AsyncEither(() async {
-    final netClient = getIt.get<NetClientProvider>();
-    if (TsdmAppApi.knowsPostForm) {
+    final netClient = _netClient;
+    if (_postForm || TsdmAppApi.knowsPostForm) {
       final structured = await _replyToPostWithForm(
         netClient,
         replyParameters: replyParameters,
@@ -398,7 +417,7 @@ final class ReplyRepository with LoggerMixin {
     }
     // The account replying: the one the thread page was served to, and the one of the global cookie the request
     // carried. A window served to another account (or to a guest) is not posted.
-    final owner = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>().userLoginInfo.uid : null;
+    final owner = _ownerUid;
     final served = tsdmAppInt(json['uid']);
     final form = PostForm.fromJson(json);
     if (served <= 0 ||
@@ -462,8 +481,8 @@ final class ReplyRepository with LoggerMixin {
   }
 
   Future<ReplyFormInfo?> _fetchReplyFormInfo(String replyAction) async {
-    final netClient = getIt.get<NetClientProvider>();
-    if (TsdmAppApi.knowsPostForm) {
+    final netClient = _netClient;
+    if (_postForm || TsdmAppApi.knowsPostForm) {
       final resp = await netClient.get(withTsdmAppJson('${replyAction.prependHost()}$_replyFormWindowSuffix')).run();
       switch (resp) {
         case Left():
@@ -559,8 +578,7 @@ final class ReplyRepository with LoggerMixin {
       formData['posttime'] = replyParameters.postTime.toString();
     }
     // Posted once: a transport retry would post the reply twice.
-    final respEither = await getIt
-        .get<NetClientProvider>()
+    final respEither = await _netClient
         .postForm(formatReplyThreadUrl(replyParameters.fid, replyParameters.tid), data: formData, singleAttempt: true)
         .run();
     if (respEither.isLeft()) {
@@ -615,7 +633,7 @@ final class ReplyRepository with LoggerMixin {
     final formData = <String, String>{'message': toOfficialMentions(message), 'formhash': formHash};
 
     // Sent once: a transport retry would send the message twice.
-    final e = await getIt.get<NetClientProvider>().postForm(targetUrl, data: formData, singleAttempt: true).run();
+    final e = await _netClient.postForm(targetUrl, data: formData, singleAttempt: true).run();
     if (e.isLeft()) {
       return left(e.unwrapErr());
     }
@@ -655,10 +673,7 @@ final class ReplyRepository with LoggerMixin {
   /// generated message.
   AsyncVoidEither replyPersonalMessage(String touid, Map<String, String> formData) => _reportSent(() async {
     // Sent once: a transport retry would send the message twice.
-    final e = await getIt
-        .get<NetClientProvider>()
-        .postForm(formatSendMessageUrl(touid), data: formData, singleAttempt: true)
-        .run();
+    final e = await _netClient.postForm(formatSendMessageUrl(touid), data: formData, singleAttempt: true).run();
     if (e.isLeft()) {
       return left(e.unwrapErr());
     }
@@ -707,8 +722,8 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// The account is the one of the global cookie the request carries, read before sending: the refresh must not run
   /// for an account switched to meanwhile.
-  static AsyncVoidEither _reportSent(Future<Either<AppException, void>> Function() send) => AsyncVoidEither(() async {
-    final sender = getIt.isRegistered<CookieProvider>() ? getIt.get<CookieProvider>().userLoginInfo.uid : null;
+  AsyncVoidEither _reportSent(Future<Either<AppException, void>> Function() send) => AsyncVoidEither(() async {
+    final sender = _ownerUid;
     final result = await send();
     if (result.isRight()) {
       PersonalMessageSent.notify(sender);

@@ -24,6 +24,12 @@ final class ShareThreadRepository with LoggerMixin {
   AsyncVoidEither sendToFriend({required String uid, required String message}) =>
       chatRepository.fetchChat(uid).flatMap((document) {
         final info = parseChatDialog(document);
+        if (info == null && document.querySelector('form[name="login"]') != null) {
+          // The login prompt instead of the dialog (the session expired): the forum's words.
+          final prompt = document.querySelector('[id^="returnmessage"]')?.text?.trim() ?? '';
+          error('share thread: chat dialog of $uid asks for a login');
+          return AsyncVoidEither.left(ReplyPersonalMessageFailedException(prompt));
+        }
         if (info == null) {
           error('share thread: chat dialog of $uid has no send form');
           return AsyncVoidEither.left(ChatDataDocumentNotFoundException());

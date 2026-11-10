@@ -48,6 +48,29 @@ class AppLockStore with LoggerMixin {
     return const AppLockConfig();
   }
 
+  /// Whether the lock is on, for what is done without unlocking (the reply typed in a notification): a file that
+  /// exists but can not be read, or the directory that can not be found, counts as locked, unlike [load].
+  Future<bool> lockedFailClosed() async {
+    final source = _file;
+    if (source == null) {
+      return _memory.enabled;
+    }
+    try {
+      final file = await source();
+      if (!file.existsSync()) {
+        return false;
+      }
+      final json = jsonDecode(await file.readAsString());
+      if (json is Map<String, Object?> && json['v'] == AppLockConfig.formatVersion) {
+        return AppLockConfig.fromJson(json).enabled;
+      }
+      warning('app lock: unknown file format, counted as locked');
+    } on Object catch (e) {
+      warning('app lock: file unreadable, counted as locked: $e');
+    }
+    return true;
+  }
+
   /// Save [config], through a temporary file renamed over the old one.
   Future<void> save(AppLockConfig config) async {
     final source = _file;
