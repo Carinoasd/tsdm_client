@@ -119,6 +119,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
           replyAction: event.replyAction,
           replyMessage: event.replyMessage,
           stand: event.stand,
+          attachNew: event.attachNew,
           verification: event.verification,
         )
         .run();
@@ -150,6 +151,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
           replyParameters: event.replyParameters,
           replyMessage: event.replyMessage,
           stand: event.stand,
+          attachNew: event.attachNew,
           verification: event.verification,
         )
         .run();

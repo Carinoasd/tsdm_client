@@ -10,12 +10,17 @@ import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/bbcode_editor_controller.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/chat/models/models.dart';
+import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/utils/custom_emoji_send.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_panel.dart';
@@ -27,6 +32,9 @@ import 'package:tsdm_client/features/local_draft/utils/draft_autosaver.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_text.dart';
 import 'package:tsdm_client/features/local_draft/widgets/draft_offer_banner.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
+import 'package:tsdm_client/features/post/models/post_form.dart';
+import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
+import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/post_limits.dart';
 import 'package:tsdm_client/features/post/widgets/sec_check_dialog.dart';
 import 'package:tsdm_client/features/root/models/models.dart';
@@ -38,6 +46,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -90,6 +99,43 @@ BBCodeEditorController _editorControllerFor(String body, {String? delta}) {
   return parserEnabled
       ? buildBBCodeEditorController(initialDelta: parseBBCodeTextToDelta(body))
       : buildBBCodeEditorController(initialText: normalizeBlockMarkerNesting(body));
+}
+
+/// The custom emojis of the replies of one account to one thread ([sendCustomEmojiAttachment]): the upload the reply
+/// page of the thread offers, the emojis put into the reply as attachments and the attachments to bind to it.
+final class _CustomEmojiReply {
+  _CustomEmojiReply(this.uid, this.tid);
+
+  /// The account.
+  final int uid;
+
+  /// The thread.
+  final String tid;
+
+  /// The reply page was read (or is being read) since the editor opened.
+  bool asked = false;
+
+  /// The reply page could not be read: asked again after this time.
+  DateTime? failedAt;
+
+  /// The upload the reply page offers, null when it offers none (or was not read).
+  AttachmentUpload? upload;
+
+  /// The account's unused uploads the reply page listed.
+  Set<int> unused = {};
+
+  /// The custom emojis in the reply as attachments, by SHA-256 of the image.
+  final inPost = <String, int>{};
+
+  /// The attachments to bind to the reply.
+  final attachNew = <int>[];
+
+  /// The reply with [sent] was stored: they are bound to it and are no one's to reuse.
+  void stored(Iterable<int> sent) {
+    unused.removeAll(sent);
+    inPost.clear();
+    attachNew.clear();
+  }
 }
 
 /// Widget provide reply functionality.
@@ -641,6 +687,15 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   /// The emoji panel is open: in place of the keyboard on mobile, under the editor on desktop.
   bool _emojiOpen = false;
 
+  /// Custom emojis going up as attachments.
+  int _sendingCustomEmoji = 0;
+
+  /// The attachments of the reply are looked at before it is sent ([_attachNewOf]).
+  bool _preparingSend = false;
+
+  /// The attachments the reply sent now binds, kept until the forum stored it.
+  List<int> _sentAttachNew = const [];
+
   /// Ticks while the forum still refuses the next post ([ReplyState.retryAt]).
   Timer? _countdown;
 
@@ -770,12 +825,18 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       error('refuse to send post to thread: empty rich text message');
       return;
     }
+    final message = _replyRichController.toForumBBCode();
+    final attachNew = await _attachNewOf(message);
+    if (!mounted) {
+      return;
+    }
     final draft = _draftOfSend;
     context.read<ReplyBloc>().add(
       ReplyToThreadRequested(
         replyParameters: _replyParameters!,
-        replyMessage: _replyRichController.toForumBBCode(),
+        replyMessage: message,
         stand: _stand,
+        attachNew: attachNew,
         draftUid: draft.uid,
         draftKey: draft.key,
       ),
@@ -795,13 +856,19 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       return;
     }
 
+    final message = _replyRichController.toForumBBCode();
+    final attachNew = await _attachNewOf(message);
+    if (!mounted || _replyAction == null) {
+      return;
+    }
     final draft = _draftOfSend;
     context.read<ReplyBloc>().add(
       ReplyToPostRequested(
         replyParameters: _replyParameters!,
         replyAction: _replyAction!,
-        replyMessage: _replyRichController.toForumBBCode(), // data,
+        replyMessage: message,
         stand: _stand,
+        attachNew: attachNew,
         draftUid: draft.uid,
         draftKey: draft.key,
       ),
@@ -898,6 +965,20 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
 
   /// Send message, according to [ReplyTypes].
   Future<void> _sendMessage() async {
+    if (_preparingSend) {
+      return;
+    }
+    setState(() => _preparingSend = true);
+    try {
+      await _sendMessageOfType();
+    } finally {
+      if (mounted) {
+        setState(() => _preparingSend = false);
+      }
+    }
+  }
+
+  Future<void> _sendMessageOfType() async {
     switch (widget.replyType) {
       case ReplyTypes.thread || ReplyTypes.notice:
         {
@@ -993,7 +1074,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   }
 
   /// Whether the send button is enabled: something to send, nothing in flight, thread open, user logged in.
-  bool get _sendEnabled => canSendReply && !isSendingReply && !_closed && _hasLogin;
+  bool get _sendEnabled =>
+      canSendReply && !isSendingReply && !_closed && _hasLogin && _sendingCustomEmoji == 0 && !_preparingSend;
 
   /// Send from the keyboard, same rules as the send button (#18).
   void _sendByShortcut() {
@@ -1047,12 +1129,143 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   void _insertPicked(String code) {
     if (isCustomImageBBCode(code)) {
       _replyRichController.insertBBCode(code);
+    } else if (isCustomEmojiBBCode(code)) {
+      // An attachment: its code goes in as text, as in the post editor.
+      _replyRichController.insertTextAtCursor(code);
     } else {
       _replyRichController.insertEmoji(code);
     }
     if (!isMobile) {
       focusNode.requestFocus();
     }
+  }
+
+  /// The custom emojis of the reply written now: of the account replying, to this thread; null in the chat pages, for
+  /// a guest and before the thread loaded.
+  _CustomEmojiReply? get _customEmojiReply {
+    if (widget.replyType != ReplyTypes.thread && widget.replyType != ReplyTypes.notice) {
+      return null;
+    }
+    final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    final tid = _replyParameters?.tid;
+    if (uid == null || uid <= 0 || tid == null || !_hasLogin) {
+      return null;
+    }
+    final kept = widget.controller._customEmoji;
+    if (kept != null && kept.uid == uid && kept.tid == tid) {
+      return kept;
+    }
+    return widget.controller._customEmoji = _CustomEmojiReply(uid, tid);
+  }
+
+  /// A repository for the reply page and the uploads, bound to the account using the app now.
+  PostEditRepository _uploadRepository() {
+    final auth = context.read<AuthenticationRepository>();
+    return PostEditRepository(client: getIt.get<NetClientProvider>(), currentUid: () => auth.effectiveCurrentUid);
+  }
+
+  /// The reply page of the thread, whose form offers the upload (the reply window of a floor offers none).
+  String? get _replyPageUrl {
+    final parameters = _replyParameters;
+    return parameters == null
+        ? null
+        : '$homePage?mod=post&action=reply&fid=${parameters.fid}&tid=${parameters.tid}&extra=';
+  }
+
+  /// The form of the reply page as the forum's app API serves it, null when it could not be read or is no such form.
+  Future<PostForm?> _replyPageForm() async {
+    final url = _replyPageUrl;
+    if (url == null) {
+      return null;
+    }
+    final result = await _uploadRepository().fetchForm(url).run();
+    return result.match((_) => null, (answer) => answer is PostEditFormApi ? answer.form : null);
+  }
+
+  /// Read once while the editor is open what the reply page offers for the custom emojis, when there are any.
+  void _askCustomEmojiUpload() {
+    if (!TsdmAppApi.knowsPostForm || _closed) {
+      return;
+    }
+    final store = CustomEmojiStore.app;
+    if (store == null || !store.packs.value.any((e) => e.emojis.isNotEmpty)) {
+      return;
+    }
+    final reply = _customEmojiReply;
+    final failed = reply?.failedAt;
+    if (reply == null ||
+        reply.asked ||
+        (failed != null && DateTime.now().difference(failed) < const Duration(seconds: 30))) {
+      return;
+    }
+    reply.asked = true;
+    unawaited(
+      _replyPageForm().then((form) {
+        reply
+          ..failedAt = form == null ? DateTime.now() : null
+          ..asked = form != null
+          ..upload = form?.attachmentUpload
+          ..unused = {...?form?.unusedAttachmentImages};
+        if (mounted) {
+          setState(() {});
+        }
+      }),
+    );
+  }
+
+  /// Puts a custom emoji into the reply ([sendCustomEmojiAttachment]); null when the reply cannot take one (the forum
+  /// offers no image upload here, a chat page).
+  CustomEmojiSender? get _customEmojiSender {
+    final reply = _customEmojiReply;
+    if (reply == null || !(reply.upload?.image ?? false)) {
+      return null;
+    }
+    return (emoji) => _sendCustomEmoji(reply, emoji);
+  }
+
+  Future<String?> _sendCustomEmoji(_CustomEmojiReply reply, CustomEmoji emoji) async {
+    setState(() => _sendingCustomEmoji++);
+    try {
+      return await sendCustomEmojiAttachment(
+        context,
+        emoji: emoji,
+        repo: _uploadRepository(),
+        upload: reply.upload,
+        unused: reply.unused,
+        used: const {},
+        inPost: reply.inPost,
+        bind: (aid) {
+          if (!reply.attachNew.contains(aid)) reply.attachNew.add(aid);
+        },
+        stillHere: () => mounted && identical(widget.controller._customEmoji, reply),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendingCustomEmoji--);
+      }
+    }
+  }
+
+  /// The attachments the reply [message] binds: the custom emojis put into it here that it still shows, and the
+  /// account's own uploads of custom emojis whose codes it holds otherwise (a draft restored) while the forum still
+  /// keeps them unused. An attachment bound to another post never is: binding it again moves it out of that post.
+  Future<List<int>> _attachNewOf(String message) async {
+    final reply = _customEmojiReply;
+    if (reply == null) {
+      _sentAttachNew = const [];
+      return const [];
+    }
+    final aids = attachmentsInMessage(message, reply.attachNew);
+    final others = attachmentsInMessage(
+      message,
+      (CustomEmojiStore.app?.uploadedAids(reply.uid) ?? const <int>{}).where((e) => !aids.contains(e)),
+    );
+    if (others.isNotEmpty) {
+      final unused = (await _replyPageForm())?.unusedAttachmentImages ?? const <int>{};
+      aids.addAll(others.where(unused.contains));
+    }
+    _sentAttachNew = aids;
+    return aids;
   }
 
   /// Open or close the emoji panel: in place of the keyboard on mobile, under the editor on desktop.
@@ -1287,6 +1500,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       bbcodeController: _replyRichController,
       disabledFeatures: fullScreen ? widget.fullScreenDisabledEditorFeatures : widget.disabledEditorFeatures,
       editorFocusNode: focusNode,
+      sendCustomEmoji: _customEmojiSender,
     );
   }
 
@@ -1312,6 +1526,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
               bbcodeController: _replyRichController,
               disabledFeatures: fullScreen ? widget.fullScreenDisabledEditorFeatures : widget.disabledEditorFeatures,
               editorFocusNode: focusNode,
+              sendCustomEmoji: _customEmojiSender,
             ),
           ),
           // As tall as the keyboard it takes the place of, once that was seen.
@@ -1323,6 +1538,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
             child: EmojiPanel(
               height: panelController.keyboardHeight > 120 ? panelController.keyboardHeight : 280,
               onPicked: _insertPicked,
+              sendCustomEmoji: _customEmojiSender,
             ),
           ),
         };
@@ -1409,6 +1625,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
     if (windowUrl != null) {
       _drafts.prefetch(windowUrl, context.readOrNull<ReplyRepository>() ?? const ReplyRepository());
     }
+    _askCustomEmojiUpload();
 
     final editor = Padding(
       padding: horizontal.add(const EdgeInsets.fromLTRB(12, 8, 12, 4)),
@@ -1474,7 +1691,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
             padding: horizontal.add(edgeInsetsL12R12),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(appInnerRadius),
-              child: EmojiPanel(height: 240, onPicked: _insertPicked),
+              child: EmojiPanel(height: 240, onPicked: _insertPicked, sendCustomEmoji: _customEmojiSender),
             ),
           ),
         Padding(padding: horizontal, child: _buildDesktopToolbar(context, state)),
@@ -1590,6 +1807,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       });
     });
     fullScreen = widget.fullScreen;
+    // What the reply page offers is read again for this editor: the unused uploads change elsewhere.
+    widget.controller._customEmoji?.asked = false;
     focusNode.requestFocus();
   }
 
@@ -1652,6 +1871,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       listener: (context, state) {
         // Clear text one time when user send request succeed.
         if (state.status == ReplyStatus.success && state.needClearText) {
+          widget.controller._customEmoji?.stored(_sentAttachNew);
+          _sentAttachNew = const [];
           _replyRichController.clearWithoutRequestingFocus();
           // Reset flag because we only want to clear the sent text.
           context.read<ReplyBloc>().add(ReplyResetClearTextStateTriggered());
@@ -1819,6 +2040,9 @@ final class ReplyBarController with LoggerMixin {
   /// The side chosen for a debate reply (0 neutral, 1 affirmative, 2 negative), kept across editors until a reply
   /// is sent; null when none was chosen (neutral).
   int? _debateStand;
+
+  /// The custom emojis of the reply, kept across editors until a reply is sent.
+  _CustomEmojiReply? _customEmoji;
 
   /// The side chosen for a debate reply, see [ReplyParameters.debate].
   int? get debateStand => _debateStand;
