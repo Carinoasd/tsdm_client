@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "Home",
+    "online": {
+      "total": "$count online",
+      "members": "$members members ($invisible invisible), $guests guests",
+      "record": "Record $count",
+      "recordAt": "Record $count on $date"
+    },
     "failedToBuildPinSection": "Failed to build homepage pin section: list length not equal: $length1, $length2",
     "welcome": {
       "history": "History",
@@ -2305,7 +2311,8 @@
       "title": "$operation ($count)",
       "done": "$count threads done",
       "failed": "$count threads not done",
-      "unknown": "Result unknown, refresh to check"
+      "unknown": "Result unknown, refresh to check",
+      "noOperation": "No management operation available"
     }
   },
   "packetCard": {

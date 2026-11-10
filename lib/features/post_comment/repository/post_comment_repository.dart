@@ -2,7 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
-import 'package:tsdm_client/features/tsdmapp/small_form.dart' show withSmallFormInAjax;
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -100,6 +100,11 @@ typedef PostCommentPost = Future<Object?> Function(String url, Map<String, Strin
 /// Every window and page is asked with the result parameter of the forum's app API ([withTsdmAppJsonWrite]), whose
 /// answer names the account it was served to; a forum without the plugin answers its AJAX fragment, read as the web
 /// page reads it. Forms are sent once, as the windows send them (`inajax=1`).
+///
+/// The comment window and the pages of comments are asked as small forms too ([tsdmAppFormQuery]): plugin 3.7.0
+/// answers the window as fields (`type: form`, `form: comment`) and a page as `type: comments` (`schema` 22). An
+/// older plugin does not know the parameter there and answers what it always did (its write result, a `page` with
+/// the forum's fragment), which is read as before: one request either way.
 final class PostCommentRepository with LoggerMixin {
   /// Constructor; transports are injected so the flow is tested without the forum.
   PostCommentRepository({required this.get, required this.post});
@@ -123,17 +128,91 @@ final class PostCommentRepository with LoggerMixin {
   final PostCommentPost post;
 
   /// The comment window [commentAction] of a floor (`Post.commentAction`), as the forum's `showWindow` asks it.
+  ///
+  /// Plugin 3.7.0 answers it as fields ([_commentFormOf]) or with the forum's message instead of it (the account's
+  /// own floor, comments closed, the login prompt). A form the app cannot send as served (a captcha, another plugin's
+  /// fields) and one the plugin could not tell are asked again the way they always were; so is nothing else: an older
+  /// plugin's answer and the forum's fragment are read from the same request.
   Future<PostCommentWindow> openComment(String commentAction) async {
     final url = _windowUrl(commentAction, handleKey: 'comment');
-    return _window(url, (doc) {
-      final form = doc.querySelector('form#commentform');
-      if (form == null) {
-        return null;
-      }
-      final limit = int.tryParse(doc.querySelector('#checklen')?.text?.trim() ?? '');
-      return (form: form, button: 'commentsubmit', maxLength: limit != null && limit > 0 ? limit : 200);
-    });
+    final Object? data;
+    try {
+      data = await get(withTsdmAppForm(url));
+    } on Object catch (e) {
+      error('comment window read failed: ${e.runtimeType}');
+      return const PostCommentWindowFailed();
+    }
+    switch (smallFormAnswerOf(data, SmallFormKind.comment)) {
+      case final SmallFormMessage message:
+        return PostCommentWindowRefused(message.reason);
+      case final SmallFormFields fields:
+        if (_commentFormOf(fields, asked: Uri.parse(url).queryParameters) case final form?) {
+          return PostCommentWindowForm(form);
+        }
+        return _commentWindowAsBefore(url);
+      case null when isSmallFormUnknown(data):
+        return _commentWindowAsBefore(url);
+      case null:
+        return _commentWindowOf(data);
+    }
   }
+
+  /// The form of the comment window [answer] of plugin 3.7.0: where it posts (`submit.url`, the forum's reply with
+  /// `comment=yes`), its hidden fields with the button's (`submit.fields`), the score items as served (`items`, each
+  /// empty: the window's "放弃此观点", the app sends no score) and the most characters the forum takes
+  /// (`message.max`). Null when the app cannot send it as served ([SmallFormFields.usable]: a captcha, another
+  /// plugin's fields) or it does not post where a comment on the floor [asked] for (the `tid` and `pid` of the
+  /// window's url) goes.
+  static PostCommentForm? _commentFormOf(SmallFormFields answer, {required Map<String, String> asked}) {
+    if (!answer.usable) {
+      return null;
+    }
+    final action = answer.submitUrl('forum.php', {
+      'mod': 'post',
+      'action': 'reply',
+      'comment': 'yes',
+      'tid': ?asked['tid'],
+      'pid': ?asked['pid'],
+    });
+    final fields = answer.submitFields;
+    if (action == null || (fields['formhash'] ?? '').isEmpty) {
+      return null;
+    }
+    final message = tsdmAppMap(answer.json['message']);
+    final limit = tsdmAppInt(message['max']);
+    return PostCommentForm(
+      action: withSmallFormInAjax(action),
+      fields: {
+        for (final item in tsdmAppList(answer.json['items']))
+          if (tsdmAppText(item['name']).isNotEmpty) tsdmAppText(item['name']): tsdmAppText(item['value']),
+        ...fields,
+      },
+      uid: answer.uid,
+      maxLength: limit > 0 ? limit : 200,
+    );
+  }
+
+  /// The comment window [url] asked as before plugin 3.7.0 (the write result of plugin 2.6.0, or the fragment).
+  Future<PostCommentWindow> _commentWindowAsBefore(String url) async {
+    final Object? data;
+    try {
+      data = await get(url);
+    } on Object catch (e) {
+      error('comment window read failed: ${e.runtimeType}');
+      return const PostCommentWindowFailed();
+    }
+    return _commentWindowOf(data);
+  }
+
+  /// The comment window in the answer [data] of an older plugin (its write result) or of the forum (the fragment).
+  PostCommentWindow _commentWindowOf(Object? data) => _windowOf(data, (doc) {
+    final form = doc.querySelector('form#commentform');
+    if (form == null) {
+      return null;
+    }
+    final limit = int.tryParse(doc.querySelector('#checklen')?.text?.trim() ?? '');
+    return (form: form, button: 'commentsubmit', maxLength: limit != null && limit > 0 ? limit : 200);
+  });
 
   /// Send the comment [message] with [form] ([openComment]).
   Future<PostCommentOutcome> sendComment(PostCommentForm form, String message) =>
@@ -158,14 +237,26 @@ final class PostCommentRepository with LoggerMixin {
       _send(form, {'reason': reason}, doneKeys: const {'admin_succeed'});
 
   /// Page [page] (2 and up) of the comments of floor [pid] of thread [tid]; null when it could not be read.
-  Future<PostCommentPage?> fetchMore({required String tid, required String pid, required int page}) async {
+  ///
+  /// Plugin 3.7.0 answers it as fields ([postCommentPageFromApi]), its times printed with [timeOffset] (the offset of
+  /// the floor's page, `Post.timeOffset`: the answer names none); an older plugin's answer and the forum's fragment
+  /// are parsed as before.
+  Future<PostCommentPage?> fetchMore({
+    required String tid,
+    required String pid,
+    required int page,
+    num? timeOffset,
+  }) async {
     final url = '$baseUrl/forum.php?mod=misc&action=commentmore&tid=$tid&pid=$pid&page=$page&inajax=1';
     final Object? data;
     try {
-      data = await get(url);
+      data = await get(withTsdmAppForm(url));
     } on Object catch (e) {
       error('comment page read failed: ${e.runtimeType}');
       return null;
+    }
+    if (postCommentPageFromApi(data, timeOffset: timeOffset ?? 8) case final fields?) {
+      return fields;
     }
     final result = tsdmAppWriteResultOf(data);
     final html = switch (result) {
@@ -197,6 +288,15 @@ final class PostCommentRepository with LoggerMixin {
       error('comment window read failed: ${e.runtimeType}');
       return const PostCommentWindowFailed();
     }
+    return _windowOf(data, formOf);
+  }
+
+  /// The window in the answer [data]: the write result of the forum's app API (a `page` with the window, anything
+  /// else the forum's message instead of it), or the forum's fragment.
+  PostCommentWindow _windowOf(
+    Object? data,
+    ({uh.Element form, String button, int maxLength})? Function(uh.HtmlDocument doc) formOf,
+  ) {
     final result = tsdmAppWriteResultOf(data);
     final String html;
     int? uid;

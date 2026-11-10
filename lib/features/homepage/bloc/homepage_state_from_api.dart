@@ -14,7 +14,8 @@ part of 'homepage_bloc.dart';
 /// * `slides` is the swiper ([swiperUrlsFromApi]), `unread` the header's notice count and new message mark
 ///   ([unreadInfoFromApi]);
 /// * `red_packet` is today's daily red packet (none for a guest, as from the page), `formhash` the form hash to
-///   claim it with.
+///   claim it with;
+/// * `online` are the numbers of the "在线会员" line (plugin 3.8.0, [HomeOnline]; none for an older answer).
 ///
 /// The forum's message (`ok` 0): the login prompt (`login` 1) asks to log in; any other message, or the prompt for
 /// an app that has no account, is the failure the web page of it would be parsed as.
@@ -38,5 +39,6 @@ HomepageState homepageStateFromApi(Map<String, dynamic> json, String? username, 
     // As from the page: the forum only offers the packet to a member.
     dailyRedPacket: loggedUsername.isEmpty ? null : dailyRedPacketFromApi(json),
     formHash: ForumHomeApiPage(json).formHash,
+    online: HomeOnline.fromApi(json['online']),
   );
 }

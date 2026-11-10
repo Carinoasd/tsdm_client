@@ -228,7 +228,7 @@ class _HomepagePageState extends State<HomepagePage> {
       HomeBlock.guide: guide,
       HomeBlock.stats: hasStatus ? HomeForumStatsCard(state.forumStatus) : null,
       HomeBlock.tools: tools,
-      HomeBlock.online: HomeOnlineCard(summary: state.onlineSummary),
+      HomeBlock.online: HomeOnlineCard(summary: state.onlineSummary, online: state.online),
     };
     final gap = layout == HomeLayout.compact ? 12.0 : 16.0;
 

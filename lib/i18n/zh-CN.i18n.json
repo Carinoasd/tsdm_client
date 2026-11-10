@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "主页",
+    "online": {
+      "total": "$count 人在线",
+      "members": "$members 会员（$invisible 隐身），$guests 位游客",
+      "record": "最高记录 $count",
+      "recordAt": "最高记录 $count（$date）"
+    },
     "failedToBuildPinSection": "无法处理主页的制定帖子: 数量不一致: $length1!=$length2",
     "welcome": {
       "history": "历史",
@@ -2305,7 +2311,8 @@
       "title": "$operation（$count）",
       "done": "已处理 $count 个主题",
       "failed": "$count 个主题未完成",
-      "unknown": "结果未知，请刷新确认"
+      "unknown": "结果未知，请刷新确认",
+      "noOperation": "没有可用的管理操作"
     }
   },
   "packetCard": {

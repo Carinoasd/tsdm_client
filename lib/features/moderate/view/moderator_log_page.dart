@@ -217,6 +217,16 @@ class _LogEntryCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(line([entry.operator, context.displayText(entry.group), entry.time, entry.ip]), style: muted),
+            if (entry.targets.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: SelectableText(entry.targets.join(' · '), style: theme.textTheme.bodySmall),
+              ),
+            if (entry.reason.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: SelectableText(entry.reason, style: theme.textTheme.bodyMedium),
+              ),
             if (entry.other.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),

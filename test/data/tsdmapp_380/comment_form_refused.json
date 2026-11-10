@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，您不能点评此帖或帖子尚未找到",
+ "message_key": "postcomment_error",
+ "login": 0,
+ "uid": 35,
+ "form": "comment"
+}

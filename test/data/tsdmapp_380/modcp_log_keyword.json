@@ -1,0 +1,65 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 33,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "modcp_log",
+ "schema": 24,
+ "enabled": 1,
+ "show_ip": 1,
+ "keyword": "mr_alpha",
+ "page": 1,
+ "perpage": 6,
+ "count": 2,
+ "pages": 1,
+ "entries": [
+  {
+   "id": 65161,
+   "dateline": 1794281919,
+   "uid": 33,
+   "username": "ag_mid",
+   "adminid": 2,
+   "group": "超级版主",
+   "ip": "192.0.2.1",
+   "action": "member",
+   "action_text": "用户管理",
+   "op": "ban",
+   "fid": 0,
+   "forum": "",
+   "other": "GET={ action=member;  app=forum; username=mr_alpha; uid=87;  ...",
+   "tids": [],
+   "pids": [],
+   "uids": [
+    87
+   ],
+   "usernames": [
+    "mr_alpha"
+   ],
+   "reason": "解除測試"
+  },
+  {
+   "id": 65146,
+   "dateline": 1794281901,
+   "uid": 33,
+   "username": "ag_mid",
+   "adminid": 2,
+   "group": "超级版主",
+   "ip": "192.0.2.1",
+   "action": "member",
+   "action_text": "用户管理",
+   "op": "ban",
+   "fid": 0,
+   "forum": "",
+   "other": "GET={ action=member;  username=mr_alpha; app=forum; };",
+   "tids": [],
+   "pids": [],
+   "uids": [],
+   "usernames": [
+    "mr_alpha"
+   ],
+   "reason": ""
+  }
+ ]
+}

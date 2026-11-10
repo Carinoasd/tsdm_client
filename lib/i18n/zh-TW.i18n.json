@@ -285,6 +285,12 @@
   },
   "homepage": {
     "title": "首頁",
+    "online": {
+      "total": "$count 人在線",
+      "members": "$members 會員（$invisible 隱身），$guests 位遊客",
+      "record": "最高紀錄 $count",
+      "recordAt": "最高紀錄 $count（$date）"
+    },
     "failedToBuildPinSection": "無法處理首頁的製定貼文: 數量不一致: $length1!=$length2",
     "welcome": {
       "history": "歷史",
@@ -2305,7 +2311,8 @@
       "title": "$operation（$count）",
       "done": "已處理 $count 個主題",
       "failed": "$count 個主題未完成",
-      "unknown": "結果未知，請重新整理確認"
+      "unknown": "結果未知，請重新整理確認",
+      "noOperation": "沒有可用的管理操作"
     }
   },
   "packetCard": {

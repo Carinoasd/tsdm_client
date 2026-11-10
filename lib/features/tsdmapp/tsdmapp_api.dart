@@ -60,6 +60,13 @@ import 'package:universal_html/parsing.dart';
 ///
 /// Plugin 3.6.0 keeps the devices an account logged in on (`device`, `login_device` feature): `status` tells it with
 /// `device: 1` ([knowsDevice]).
+///
+/// Plugin 3.7.0 adds to the thread page (`schema: 21`) what the account may manage (`perms`, `ThreadPerms`), each
+/// floor's warning and its comments as fields, the comment window as a small form and the pages of comments
+/// (`schema: 22`). Plugin 3.8.0 adds the evaluation of the thread (`recommend`) and the stuck replies (`stick`,
+/// `schema: 23`), the moderation panel's log (`schema: 24`), the numbers online and whether the account may see the
+/// statistics on the homepage, and keeps the line breaks of the message of a write result. Each is read where the
+/// answer has it and nothing is asked differently for it: an older plugin's answer is read as it always was.
 abstract final class TsdmAppApi {
   /// Url of an action.
   static String url(String action, [Map<String, String> query = const {}]) => Uri.parse(
@@ -336,7 +343,7 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '3.6.0';
+const expectedTsdmAppVersion = '3.8.0';
 
 /// The first version of the forum's plugin that answers the post forms (a new thread, a reply, an edit, the reply
 /// window) as structured fields (`type: post`, `schema` 16): see [TsdmAppApi.knowsPostForm].
@@ -571,18 +578,14 @@ const tsdmAppJsonQueryParameters = {'tsdmapp': 'json', 'nodoc': '1'};
 ///
 /// The parameters go before a `#fragment`, which is never sent to the server: the chat history url ends with `#last`
 /// and so was always answered the web page (roadmap item 3).
-///
-/// [nodoc] false leaves [tsdmAppNodocQuery] out: the answer then carries the page's `document` too (the first thread
-/// page, for the evaluation of the thread only it has).
-String withTsdmAppJson(String url, {bool nodoc = true}) {
+String withTsdmAppJson(String url) {
   final hash = url.indexOf('#');
   final base = hash < 0 ? url : url.substring(0, hash);
   if (base.contains('inajax=1') || base.contains(tsdmAppJsonQuery)) {
     return url;
   }
   final separator = !base.contains('?') ? '?' : (base.endsWith('?') || base.endsWith('&') ? '' : '&');
-  final lean = nodoc ? '&$tsdmAppNodocQuery' : '';
-  return '$base$separator$tsdmAppJsonQuery$lean${hash < 0 ? '' : url.substring(hash)}';
+  return '$base$separator$tsdmAppJsonQuery&$tsdmAppNodocQuery${hash < 0 ? '' : url.substring(hash)}';
 }
 
 /// The document to parse from a forum page answer [data]: the web page itself, or the page rebuilt from the blocks of

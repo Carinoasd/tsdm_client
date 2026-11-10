@@ -70,10 +70,11 @@ Map<String, String> _samples() {
     if (path.startsWith('test/data/render_regression/')) {
       continue;
     }
-    // The floors of test 831 as the thread page munches them: their comments are shown on their own.
+    // The floors of tests 831 and 854 as the thread page munches them: their comments are shown on their own.
     String floor(String html) {
       final pid = RegExp(r'id="comment_(\d+)"').firstMatch(html)?.group(1);
-      return pid == null || !path.startsWith('test/data/post_comment/') ? html : splitPostComments(html, pid).data;
+      final commented = path.startsWith('test/data/post_comment/') || path.startsWith('test/data/tsdmapp_380/');
+      return pid == null || !commented ? html : splitPostComments(html, pid).data;
     }
 
     if (path.endsWith('.html')) {

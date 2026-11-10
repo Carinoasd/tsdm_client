@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
+import 'package:tsdm_client/features/homepage/utils/online_summary.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/red_packet/models/models.dart';
 import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.dart';
@@ -501,13 +502,37 @@ class HomeForumStatsCard extends StatelessWidget {
 }
 
 /// The members online now: the "在线会员" line of the forum's homepage when the page carried it ([summary], the parts
-/// the forum prints between its dashes), and the list of them a tap away.
+/// the forum prints between its dashes; or its numbers [online], which the forum's app API gives, in the app's words),
+/// and the list of them a tap away.
 class HomeOnlineCard extends StatelessWidget {
   /// Constructor.
-  const HomeOnlineCard({required this.summary, super.key});
+  const HomeOnlineCard({required this.summary, this.online, super.key});
 
   /// The parts of the "在线会员" line, empty when the page carried none.
   final List<String> summary;
+
+  /// The numbers of the line, null when the page gave none.
+  final HomeOnline? online;
+
+  /// The lines under the title: the page's own, else the numbers.
+  List<String> _lines(BuildContext context) {
+    if (summary.isNotEmpty) {
+      return summary;
+    }
+    final online = this.online;
+    if (online == null) {
+      return const [];
+    }
+    final tr = context.t.homepage.online;
+    return [
+      tr.total(count: online.total),
+      tr.members(members: online.members, invisible: online.invisible, guests: online.guests),
+      if (online.record > 0)
+        online.recordDate.isEmpty
+            ? tr.record(count: online.record)
+            : tr.recordAt(count: online.record, date: online.recordDate),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +557,7 @@ class HomeOnlineCard extends StatelessWidget {
                       context.t.friendPage.online.title,
                       style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    for (final part in summary) ...[
+                    for (final part in _lines(context)) ...[
                       sizedBoxW2H2,
                       Text(part, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                     ],

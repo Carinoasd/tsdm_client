@@ -52,7 +52,15 @@ final class ModcpRepository with LoggerMixin {
   /// Read [url] for the account logged in and hand its document to [read]; a page served to another account, or the account
   /// changed meanwhile, is an [IdentityChangedException]; the panel's login form a [ModcpNeedsLogin]; a page [read]
   /// does not know is the panel's message ([ModcpRefused]), or a failure without one.
-  Future<Either<AppException, ModcpAnswer<T>>> _page<T>(String url, T? Function(uh.Document doc, int uid) read) async {
+  Future<Either<AppException, ModcpAnswer<T>>> _page<T>(String url, T? Function(uh.Document doc, int uid) read) =>
+      _answer(url, (data, uid) => answerOf(data, uid: uid, read: read));
+
+  /// Read [url] for the account logged in and hand the answer as it came to [read], with the account that asked: a
+  /// failed request and an account that changed meanwhile ([IdentityChangedException]) never reach it.
+  Future<Either<AppException, ModcpAnswer<T>>> _answer<T>(
+    String url,
+    Either<AppException, ModcpAnswer<T>> Function(Object? data, int uid) read,
+  ) async {
     final uid = _currentUid();
     if (uid <= 0) {
       return left(IdentityChangedException());
@@ -67,7 +75,7 @@ final class ModcpRepository with LoggerMixin {
         if (_currentUid() != uid) {
           return left(IdentityChangedException());
         }
-        return answerOf(value.data, uid: uid, read: read);
+        return read(value.data, uid);
     }
   }
 
@@ -76,8 +84,14 @@ final class ModcpRepository with LoggerMixin {
     Object? data, {
     required int uid,
     required T? Function(uh.Document doc, int uid) read,
+  }) => _answerOfPage(parseHtmlDocument(tsdmAppAnswerText(data)), uid: uid, read: read);
+
+  /// The panel's page [doc] asked by account [uid], read by [read].
+  static Either<AppException, ModcpAnswer<T>> _answerOfPage<T>(
+    uh.Document doc, {
+    required int uid,
+    required T? Function(uh.Document doc, int uid) read,
   }) {
-    final doc = parseHtmlDocument(tsdmAppAnswerText(data));
     if (moderatePageUid(doc) case final served? when served != uid) {
       return left(IdentityChangedException());
     }
@@ -203,24 +217,54 @@ final class ModcpRepository with LoggerMixin {
   });
 
   /// Read page [page] of the panel's log, the lines containing [keyword] only when not empty.
+  ///
+  /// Asked in the JSON mode of the forum's app API: plugin 3.8.0 answers the log as fields ([logOf]), an older plugin
+  /// and a forum without one leave the panel's pages alone and answer the web page, read as before. One request
+  /// either way.
   AsyncEither<ModcpAnswer<ModcpLogPage>> fetchLog({String keyword = '', int page = 1}) => AsyncEither(
-    () => _page(
-      ModcpLogPage.url(keyword: keyword, page: page),
-      (doc, uid) => parseModcpLog(doc, uid: uid, keyword: keyword, page: page),
+    () => _answer(
+      withTsdmAppJson(ModcpLogPage.url(keyword: keyword, page: page)),
+      (data, uid) => logOf(data, uid: uid, keyword: keyword, page: page),
     ),
   );
 
   /// The log in answer [data], asked by account [uid].
+  ///
+  /// The answer of the forum's app API (plugin 3.8.0), served to [uid] or dropped ([IdentityChangedException]):
+  ///
+  /// * the log as fields (`type: modcp_log`, `schema` 24: [modcpLogFromApi]);
+  /// * the forum's message instead of the panel (`error: message`: no access to the panel, the panel locked after
+  ///   too many wrong passwords, the login prompt) is the panel's refusal in its words;
+  /// * the panel's own page in the answer's `document` (`error: modcp_login`, the panel's login form;
+  ///   `modcp_noperm`, its "no permission"; `modcp_log_storage`, the page's own empty log of a forum that keeps the
+  ///   log in files) is read as the web page is.
+  ///
+  /// Anything else is the web page (an older plugin, no plugin), read as before.
   static Either<AppException, ModcpAnswer<ModcpLogPage>> logOf(
     Object? data, {
     required int uid,
     String keyword = '',
     int page = 1,
-  }) => answerOf(
-    data,
-    uid: uid,
-    read: (doc, uid) => parseModcpLog(doc, uid: uid, keyword: keyword, page: page),
-  );
+  }) {
+    ModcpLogPage? read(uh.Document doc, int uid) => parseModcpLog(doc, uid: uid, keyword: keyword, page: page);
+    final json = tsdmAppAnswerJson(data);
+    if (json == null) {
+      return answerOf(data, uid: uid, read: read);
+    }
+    if (json['uid'] is num && tsdmAppInt(json['uid']) != uid) {
+      return left(IdentityChangedException());
+    }
+    if (modcpLogFromApi(json, keyword: keyword) case final log?) {
+      return right(ModcpReady(log));
+    }
+    if (json['ok'] == 0 && json['error'] == 'message') {
+      return right(ModcpRefused(tsdmAppText(json['message']).trim()));
+    }
+    if (json['document'] is String) {
+      return _answerOfPage(tsdmAppPageDocument(json), uid: uid, read: read);
+    }
+    return left(HttpRequestFailedException(HttpStatus.ok));
+  }
 
   /// Log in to the panel with the account's [password] on the login form of form hash [formHash], once.
   AsyncEither<ModeratePanelLogin> loginPanel({required String formHash, required String password}) =>

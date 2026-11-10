@@ -77,6 +77,7 @@ class ThreadState with ThreadStateMappable {
     this.newRepliesSerial = 0,
     this.newRepliesCount = 0,
     this.newestFirst = false,
+    this.perms,
   });
 
   /// Status.
@@ -256,4 +257,9 @@ class ThreadState with ThreadStateMappable {
   /// Whether the floors are shown newest first, page 1 holding the latest replies: asked so (the reverse order), or
   /// the thread's author set it ([newestFirst]).
   bool get shownNewestFirst => newestFirst || exactOrder == 1 || (exactOrder == null && (reverseOrder ?? false));
+
+  /// What the account the last page loaded was served to may manage in the thread ([ThreadPageInfo.perms], the
+  /// forum's app API of plugin 3.7.0); null when that page does not tell (a web page, an older plugin, an offline
+  /// copy's is kept: nothing is offered offline anyway).
+  final ThreadPerms? perms;
 }

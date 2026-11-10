@@ -11,8 +11,8 @@
 ///   evaluated already, the account's own thread, no evaluation left today, a stale form hash, a guest;
 /// * `web_*.xml`: the forum's AJAX fragments of the same without the plugin.
 ///
-/// The plugin's thread answer has no field of the evaluation (3.7.0): the first page is asked with its `document`
-/// and the two links are cut from it.
+/// The plugin's thread answer has no field of the evaluation up to 3.7.0: such an answer shows none (the first page
+/// is asked lean, `nodoc=1`, as every page). Plugin 3.8.0 gives it as `recommend` (test_854).
 library;
 
 import 'dart:async';
@@ -30,9 +30,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/thread_recommend/repository/thread_recommend_repository.dart';
-import 'package:tsdm_client/features/thread_recommend/utils/thread_recommend_answer.dart';
 import 'package:tsdm_client/features/thread_recommend/widgets/thread_recommend_buttons.dart';
-import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -53,16 +51,6 @@ Object? _result(String name) => name.endsWith('.json') ? jsonDecode(_raw(name)) 
 /// The structured thread answer of the plugin (page 1, account 35), a fresh copy.
 Map<String, dynamic> _thread() =>
     jsonDecode(File('test/data/tsdmapp/thread_v3_plain.json').readAsStringSync()) as Map<String, dynamic>;
-
-/// [_thread] served to account 31 with the page's `document` and `head`, the first floor's `div#p_btn` being [pBtn].
-Map<String, dynamic> _threadWithDocument(String pBtn) => _thread()
-  ..['uid'] = 31
-  ..['head'] = '<link href="forum.php?mod=viewthread&amp;tid=9199345" />'
-  ..['document'] = [
-    '<div id="postlist"><div id="post_1"><table><tr><td class="plc">',
-    '<a href="forum.php?mod=misc&amp;action=rate&amp;tid=9199345">评分</a></td></tr>',
-    '<tr><td class="plc plm">$pBtn</td></tr></table></div></div>',
-  ].join();
 
 ThreadRecommend? _parse(String html, {int? viewerUid = 31}) =>
     ThreadRecommend.fromNode(parseHtmlDocument(html).body, viewerUid: viewerUid);
@@ -173,71 +161,27 @@ void main() {
     });
   });
 
-  group("the plugin's answer: the links cut from its document", () {
-    test('the two links only', () {
-      final links = threadRecommendLinksIn(_threadWithDocument(_raw('p_btn_member.html'))['document'] as String);
-      expect(RegExp('<a ').allMatches(links), hasLength(2));
-      expect(links, startsWith('<a id="recommend_add"'));
-      expect(links, endsWith('</a>'));
-      expect(threadRecommendLinksIn('<div id="p_btn"><a class="followp" href="x">转播</a></div>'), isEmpty);
+  group("the plugin's answer before 3.8.0: no evaluation", () {
+    test('nothing on any floor, whatever document the answer carries', () {
+      final page = threadPageFromApi(threadApiAnswerOf(_thread())!, 1);
+      expect(page.postList, isNotEmpty);
+      expect(page.postList.where((p) => p.recommend != null), isEmpty);
+
+      final withLinks = _thread()
+        ..['document'] = '<div id="postlist"><div id="post_1">${_raw('p_btn_member.html')}</div></div>';
+      expect(threadPageFromApi(threadApiAnswerOf(withLinks)!, 1).postList.where((p) => p.recommend != null), isEmpty);
     });
 
-    test('the answer kept without document and head, the evaluation on the first floor only', () {
-      final cut = threadAnswerWithRecommend(_threadWithDocument(_raw('p_btn_member.html')))! as Map<String, dynamic>;
-      expect(cut, isNot(contains('document')));
-      expect(cut, isNot(contains('head')));
-      expect(cut[threadRecommendHtmlKey], contains('recommend_subtract'));
-
-      final offline = threadAnswerWithoutRecommend(cut)! as Map<String, dynamic>;
-      expect(offline, isNot(contains(threadRecommendHtmlKey)), reason: 'no form hash in the offline copy');
-      expect(offline.keys.toSet(), cut.keys.toSet()..remove(threadRecommendHtmlKey));
-      final lean = _thread();
-      expect(identical(threadAnswerWithoutRecommend(lean), lean), isTrue);
-
-      final page = threadPageFromApi(threadApiAnswerOf(cut)!, 1);
-      final first = page.postList.firstWhere((p) => p.postFloor == 1);
-      expect(first.recommend?.viewerUid, 31);
-      expect(first.recommend?.add?.count, 1);
-      expect(page.postList.where((p) => p.recommend != null), hasLength(1));
-    });
-
-    test('a guest answer: buttons to the login', () {
-      final answer = _threadWithDocument(_raw('p_btn_guest.html'))..['uid'] = 0;
-      final page = threadPageFromApi(threadApiAnswerOf(threadAnswerWithRecommend(answer))!, 1);
-      expect(page.postList.firstWhere((p) => p.postFloor == 1).recommend?.guest, isTrue);
-    });
-
-    test('no links: the document is dropped all the same; a lean or a web answer is left as it came', () {
-      final cut = threadAnswerWithRecommend(_threadWithDocument('')) as Map<String, dynamic>?;
-      expect(cut, isNot(contains('document')));
-      expect(cut, isNot(contains(threadRecommendHtmlKey)));
-      expect(threadPageFromApi(cut!, 1).postList.where((p) => p.recommend != null), isEmpty);
-
-      final lean = _thread()..remove('document');
-      expect(identical(threadAnswerWithRecommend(lean), lean), isTrue);
-      final cache = {'ok': 0, 'error': 'unknown', 'document': _raw('p_btn_member.html')};
-      expect(identical(threadAnswerWithRecommend(cache), cache), isTrue);
-      const web = '<html><body></body></html>';
-      expect(threadAnswerWithRecommend(web), web);
-    });
-
-    test('withTsdmAppJson without nodoc', () {
-      const url = '$baseUrl/forum.php?mod=viewthread&tid=9199345&page=1';
-      expect(withTsdmAppJson(url, nodoc: false), '$url&tsdmapp=json');
-      expect(withTsdmAppJson('$url#x', nodoc: false), '$url&tsdmapp=json#x');
-      expect(withTsdmAppJson(url), '$url&tsdmapp=json&nodoc=1');
-    });
-
-    test('fetchThreadPage: page 1 by thread id asks its document, any other page stays lean', () async {
-      final forum = _Forum(_threadWithDocument(_raw('p_btn_member.html')));
+    test('fetchThreadPage: page 1 by thread id is asked lean as every page', () async {
+      final forum = _Forum(_thread()..remove('document'));
       getIt.registerFactory<NetClientProvider>(
         () => NetClientProvider.buildNoCookie(dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = forum),
       );
       try {
         final page = (await ThreadRepository().fetchThreadPage(tid: '9199345').run()).fold((e) => throw e, (v) => v);
-        expect(page.postList.firstWhere((p) => p.postFloor == 1).recommend?.subtract?.count, 2);
+        expect(page.postList.where((p) => p.recommend != null), isEmpty);
         expect(forum.requests.single.uri.queryParameters, containsPair('tsdmapp', 'json'));
-        expect(forum.requests.single.uri.queryParameters, isNot(contains('nodoc')));
+        expect(forum.requests.single.uri.queryParameters, containsPair('nodoc', '1'));
 
         await ThreadRepository().fetchThreadPage(tid: '9199345', pageNumber: 2).run();
         expect(forum.requests.last.uri.queryParameters, containsPair('nodoc', '1'));

@@ -1,0 +1,51 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "comments",
+ "schema": 22,
+ "tid": 9202819,
+ "pid": 11263,
+ "page": 2,
+ "perpage": 5,
+ "count": 8,
+ "pages": 2,
+ "comments": [
+  {
+   "id": 14,
+   "authorid": 38,
+   "author": "ag_t02",
+   "avatar": "https://forum.test/data/avatar/noavatar.svg",
+   "dateline": 1794278042,
+   "comment": "CM測試 ag_t02 點評 & <tag> \"q\"",
+   "comment_html": "CM測試 ag_t02 點評 &amp; &lt;tag&gt; &quot;q&quot;",
+   "rpid": 0,
+   "can_delete": 0
+  },
+  {
+   "id": 13,
+   "authorid": 37,
+   "author": "ag_t01",
+   "avatar": "https://forum.test/data/avatar/noavatar.svg",
+   "dateline": 1794278041,
+   "comment": "CM測試 ag_t01 點評 & <tag> \"q\"",
+   "comment_html": "CM測試 ag_t01 點評 &amp; &lt;tag&gt; &quot;q&quot;",
+   "rpid": 0,
+   "can_delete": 0
+  },
+  {
+   "id": 12,
+   "authorid": 31,
+   "author": "ag_low",
+   "avatar": "https://img.ts-dm.net/images/2024/11/22/2.gif",
+   "dateline": 1794278035,
+   "comment": "CM測試 點評一 [​b]粗[​/b] [​color=#FF0000]紅[​/color] <i>x</i>",
+   "comment_html": "CM測試 點評一 [​b]粗[​/b] [​color=#FF0000]紅[​/color] &lt;i&gt;x&lt;/i&gt;",
+   "rpid": 0,
+   "can_delete": 0
+  }
+ ],
+ "comment_scores": []
+}

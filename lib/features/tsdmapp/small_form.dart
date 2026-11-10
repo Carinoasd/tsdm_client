@@ -7,8 +7,8 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 
 /// The first `schema` of a small form answer (plugin 3.0.0, `type: form`): the rate, report and buy windows, the
-/// user group list and its switch window, the profile editor. Fields are only ever added: a later schema is read the
-/// same way.
+/// user group list and its switch window, the profile editor; since plugin 3.7.0 the comment window of a floor.
+/// Fields are only ever added: a later schema is read the same way.
 const smallFormSchema = 17;
 
 /// Query parameter asking the forum's plugin for a small form as structured fields (plugin 3.0.0), sent together
@@ -36,6 +36,9 @@ enum SmallFormKind {
 
   /// The profile editor (`home.php?mod=spacecp`).
   profile,
+
+  /// The comment window of a floor (`forum.php?mod=misc&action=comment`, plugin 3.7.0).
+  comment,
 }
 
 /// Add [tsdmAppJsonQuery] and [tsdmAppFormQuery] to [url] (and [tsdmAppNodocQuery] for a whole [page]: the user group
