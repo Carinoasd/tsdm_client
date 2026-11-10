@@ -15,6 +15,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
@@ -166,7 +167,10 @@ class PostCommentScores extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(item.name, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+              Text(
+                context.displayText(item.name),
+                style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
               sizedBoxW4H4,
               for (var star = 1; star <= 5; star++)
                 Icon(
