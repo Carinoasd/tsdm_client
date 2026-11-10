@@ -636,7 +636,7 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // Only side blocks left: they take the main column, not the right edge.
-      await setLayout(tester, hidden([HomeBlock.greeting, HomeBlock.guide, HomeBlock.pinned]));
+      await setLayout(tester, hidden([HomeBlock.greeting, HomeBlock.guide, HomeBlock.pinned, HomeBlock.online]));
       await settle(tester);
       expect(topLeftOf(tester, HomeBlock.stats).dx, lessThan(railX));
       expect(tester.takeException(), isNull);

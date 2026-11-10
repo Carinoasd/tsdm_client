@@ -500,6 +500,54 @@ class HomeForumStatsCard extends StatelessWidget {
   }
 }
 
+/// The members online now: the "在线会员" line of the forum's homepage when the page carried it ([summary], the parts
+/// the forum prints between its dashes), and the list of them a tap away.
+class HomeOnlineCard extends StatelessWidget {
+  /// Constructor.
+  const HomeOnlineCard({required this.summary, super.key});
+
+  /// The parts of the "在线会员" line, empty when the page carried none.
+  final List<String> summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      key: const ValueKey('home-online'),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: homeCardShape(context),
+      child: InkWell(
+        onTap: () async => context.pushNamed(ScreenPaths.friend, queryParameters: const {'view': 'online'}),
+        child: Padding(
+          padding: edgeInsetsL16T12R16B12,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.t.friendPage.online.title,
+                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    for (final part in summary) ...[
+                      sizedBoxW2H2,
+                      Text(part, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Entry of the voluntary support dialog: visible, but not in the way of the threads.
 class HomeSupportCard extends StatelessWidget {
   /// Constructor.

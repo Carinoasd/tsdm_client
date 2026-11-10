@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>趋势统计 - 站点统计 -  测试论坛 -  Powered by Discuz!</title>
+</head>
+<body>
+<div id="wp" class="wp">
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0">
+<h1 class="mt">趋势统计</h1>
+<form method="get" action="misc.php?mod=stat&amp;op=trend">
+<table cellspacing="0" cellpadding="0" class="dt bm mbw">
+<caption>
+<h2>统计分类</h2>
+<p class="pbm xg1">站点趋势统计系统，会记录站点每日的发展概况。通过每日的趋势变化，为站长运营站点提供科学的数据基础 </p>
+</caption>
+<tr class="tbmu">
+<th>基础数据:</th>
+<td>
+<a href="misc.php?mod=stat&amp;op=trend" class="a">综合概况</a> &nbsp;<label><input type="checkbox" name="types[]" value="login" class="pc"  />登录用户</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="mobilelogin" class="pc"  />手机登录用户</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="register" class="pc"  />新注册用户</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="invite" class="pc"  />好友邀请</label> &nbsp;
+</td>
+</tr>
+<tr class="tbmu">
+<th>论坛:</th>
+<td><label><input type="checkbox" name="types[]" value="thread" class="pc"  />发主题</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="poll" class="pc"  />发投票</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="activity" class="pc"  />发活动</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="reward" class="pc"  />发悬赏</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="debate" class="pc"  />发辩论</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="trade" class="pc"  />发商品</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="post" class="pc"  />发回复</label> &nbsp;
+</td>
+</tr>
+<tr class="tbmu">
+<th>圈子:</th>
+<td><label ><input type="checkbox" name="types[]" value="group" class="pc"  />创建圈子</label> &nbsp;
+<label ><input type="checkbox" name="types[]" value="groupthread" class="pc"  />发圈内主题</label> &nbsp;
+<label ><input type="checkbox" name="types[]" value="grouppost" class="pc"  />发圈内回复</label> &nbsp;
+</td>
+</tr>
+<tr class="tbmu">
+<th>家园:</th>
+<td><label><input type="checkbox" name="types[]" value="doing" class="pc"  />发记录</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="docomment" class="pc"  />记录回复</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="blog" class="pc"  />发日志</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="blogcomment" class="pc"  />日志评论</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="pic" class="pc"  />发图片</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="piccomment" class="pc"  />图片评论</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="share" class="pc"  />分享</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="sharecomment" class="pc"  />分享评论</label> &nbsp;
+</td>
+</tr>
+
+
+<tr class="tbmu">
+<th>互动:</th>
+<td><label><input type="checkbox" name="types[]" value="wall" class="pc"  />留言</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="poke" class="pc"  />打招呼</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="click" class="pc"  />表态</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="sendpm" class="pc"  />发短消息</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="addfriend" class="pc"  />好友请求</label> &nbsp;
+<label><input type="checkbox" name="types[]" value="friend" class="pc"  />成为好友</label> &nbsp;
+</td>
+</tr>
+<tr class="tbmu">
+<th>统计日期:</th>
+<td>
+
+<input type="text" name="primarybegin" class="px" value="2026-10-11" onclick="showcalendar(event, this, false)"/> - <input type="text" name="primaryend" class="px" value="2026-11-10" onclick="showcalendar(event, this, false)" />
+<label><input type="checkbox" name="merge" value="1" class="pc"  />合并统计</label>
+<button type="submit" class="pn pnc"><strong>查看</strong></button>
+</td>
+</tr>
+</table>
+<input type="hidden" name="type" value="" />
+<input type="hidden" name="mod" value="stat" />
+<input type="hidden" name="op" value="trend" />
+</form>
+<table cellspacing="0" cellpadding="0" width="100%">
+<caption>
+<h2>综合概况</h2>
+<p class="xg1">这里看到的是站点的综合概况发展统计(需要至少统计 2 天后才有效)</p>
+</caption>
+<tr>
+<td>
+<ul class="ptn pbm xl">
+
+</ul>
+</td>
+</tr>
+<tr><td>
+
+
+<div id="statchart"></div>
+<script type="text/javascript">drawstatchart('misc.php?mod=stat&op=trend&xml=1&type=all&primarybegin=2026-10-11&primaryend=2026-11-10');</script>
+</td></tr>
+</table>
+
+</div>
+</div><div class="appl">
+<div class="tbn">
+<h2 class="mt bbda">站点统计</h2>
+<ul>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=basic">基本概况</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=forumstat">版块统计</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=team">管理团队</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=modworks">管理统计</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=memberlist">会员列表</a></li>
+<li class="cl a"><a href="misc.php?mod=stat&amp;op=trend">趋势统计</a></li>
+</ul>
+</div>
+</div></div>	</div>
+
+
+<div class="mask" id="hb_mask">
+  <div class="fx-night" id="hb_night"></div>
+  <div class="fx-flash" id="hb_flash"></div>
+  <canvas class="fx-canvas" id="hb_fx"></canvas>
+  <div class="env-wrap">
+    <div class="fx-rays" id="hb_rays"></div>
+    <div class="fx-ring" id="hb_ring"></div>
+    <div class="env" id="hb_env">
+      <div class="flap"></div>
+      <div class="from" id="hb_from"></div>
+      <div class="bless" id="hb_bless"></div>
+      <div class="pwbox"><input type="text" id="hb_pw" placeholder="輸入口令" maxlength="64" autocomplete="off"><div class="pwerr" id="hb_pwerr"></div></div>
+      <button class="open-btn" id="hb_openbtn" onclick="hongbaoDoOpen()">開</button>
+      <button class="wd-btn" id="hb_wdbtn" onclick="hongbaoWithdraw()" style="display:none">撤回<br>剩餘</button>
+      <div class="inner">
+        <div class="who" id="hb_who"></div>
+        <div class="bless2" id="hb_bless2"></div>
+        <div class="amt" id="hb_amt"></div>
+        <div class="unit" id="hb_unit"></div>
+        <div class="stored">已存入你的帳戶</div>
+        <div class="reclink" id="hb_reclink" onclick="hongbaoToggleRecs()">看看大家的手氣 ›</div>
+        <div class="statemsg" id="hb_statemsg"></div>
+      </div>
+      <div class="recs" id="hb_recs"></div>
+    </div>
+    <div class="cat" id="hb_cat"></div>
+    <div class="bigtag" id="hb_bigtag">手 氣 爆 發 !</div>
+    <button class="env-close" onclick="hongbaoClose()">✕</button>
+    <label class="daily-skip" id="hb_dailyskip" style="display:none"><input type="checkbox" id="hb_skipchk"> 今日不再顯示</label>
+  </div>
+</div>
+</div>
+</body>
+</html>

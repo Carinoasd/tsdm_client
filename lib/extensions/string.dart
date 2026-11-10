@@ -187,6 +187,12 @@ extension ParseUrl on String {
               queryParameters['uid'] == null &&
               queryParameters['username'] == null)
             'view': 'visitor',
+          // The members online now, the "在线会员" link of the forum's homepage.
+          if (queryParameters['view'] == 'online' &&
+              queryParameters['type'] == 'member' &&
+              queryParameters['uid'] == null &&
+              queryParameters['username'] == null)
+            'view': 'online',
         },
       );
     }

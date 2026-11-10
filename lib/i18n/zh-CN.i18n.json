@@ -274,7 +274,8 @@
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
       "ratingStats": "评分统计",
-      "visitors": "最近访客"
+      "visitors": "最近访客",
+      "siteStats": "站点统计"
     }
   },
   "home": {
@@ -405,7 +406,8 @@
         "pinned": "置顶帖",
         "guide": "论坛导读",
         "stats": "论坛动态",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "在线会员"
       },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
@@ -1492,6 +1494,11 @@
         "unknownForm": "论坛返回的不是可识别的批准表单，未发送任何内容",
         "unknownAfterSubmit": "已发送批准，但无法识别论坛的回应，请到好友列表确认"
       }
+    },
+    "online": {
+      "title": "在线会员",
+      "empty": "没有在线会员",
+      "subtitle": "${count: int} 位会员"
     }
   },
   "redPacket": {
@@ -3920,6 +3927,10 @@
     "empty": "暂无排行",
     "minutes": "$n 分钟",
     "updated": "更新于 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站点统计",
+    "empty": "没有统计数据"
   },
   "spacePage": {
     "blogs": "日志",

@@ -274,7 +274,8 @@
       "readingStats": "Reading stats",
       "checkinCalendar": "Check-in calendar",
       "ratingStats": "Rating statistics",
-      "visitors": "Recent visitors"
+      "visitors": "Recent visitors",
+      "siteStats": "Site statistics"
     }
   },
   "home": {
@@ -405,7 +406,8 @@
         "pinned": "Pinned threads",
         "guide": "Forum guide",
         "stats": "Forum activity",
-        "tools": "My tools"
+        "tools": "My tools",
+        "online": "Online members"
       },
       "showShortcutInForumCard": {
         "title": "Forum Card Shortcut Entries",
@@ -1492,6 +1494,11 @@
         "unknownForm": "The forum did not answer with a known approval form, nothing was sent",
         "unknownAfterSubmit": "The approval was sent but the answer was not understood, check your friends list"
       }
+    },
+    "online": {
+      "title": "Online members",
+      "empty": "No members online",
+      "subtitle": "${count: int} members"
     }
   },
   "redPacket": {
@@ -3920,6 +3927,10 @@
     "empty": "No rankings yet",
     "minutes": "$n minutes",
     "updated": "Updated $last · next $next"
+  },
+  "siteStatsPage": {
+    "title": "Site statistics",
+    "empty": "No statistics"
   },
   "spacePage": {
     "blogs": "Blogs",

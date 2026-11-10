@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>基本概况 - 站点统计 -  测试论坛 -  Powered by Discuz!</title>
+</head>
+<body>
+<div id="wp" class="wp">
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0">
+<h1 class="mt">基本概况</h1>
+<table summary="会员统计" class="dt bm mbw">
+<caption><h2 class="mbn">会员统计</h2></caption>
+<tr>
+<th width="16%">注册会员</th>
+<td width="34%">5087</td>
+<th width="16%">发帖会员</th>
+<td width="34%">5048</td>
+</tr>
+<tr>
+<th>管理成员</th>
+<td>18</td>
+<th>未发帖会员</th>
+<td>39</td>
+</tr>
+<tr>
+<th>新会员</th>
+<td>0</td>
+<th>发帖会员占总数</th>
+<td>99.23%</td>
+</tr>
+<tr>
+<th>今日论坛之星</th>
+<td>ag_mid <em title="发帖数">(10)</em></td>
+<th>平均每人发帖数</th>
+<td>1.00</td>
+</tr>
+</table>
+
+<table summary="站点统计" class="dt bm">
+<caption><h2 class="mbn">站点统计</h2></caption>
+<tr>
+<th width="150">版块数</th>
+<td width="60">18</td>
+<th width="150">平均每日新增帖子数</th>
+<td width="60">57</td>
+<th width="150">最热门的版块</th>
+<td><a href="forum.php?mod=forumdisplay&amp;fid=7" target="_blank">神作殿堂</a></td>
+</tr>
+<tr>
+<th>主题数</th>
+<td>1290</td>
+<th>平均每日注册会员数</th>
+<td>0</td>
+<th>主题数</th>
+<td>28</td>
+</tr>
+<tr>
+<th>帖子数</th>
+<td>5089</td>
+<th>最近 24 小时新增帖子数</th>
+<td>23</td>
+<th>帖子数</th>
+<td>2301</td>
+</tr>
+<tr>
+<th>平均每个主题被回复次数</th>
+<td>2.94</td>
+<th>最近 24 小时新增会员数</th>
+<td>0</td>
+<th>论坛活跃指数</th>
+<td>57</td>
+</tr>
+</table>
+<div class="notice">统计数据已被缓存，上次于 2026-11-10 10:43 被更新，下次将于 2026-11-10 15:43 进行更新</div>
+</div>
+</div><div class="appl">
+<div class="tbn">
+<h2 class="mt bbda">站点统计</h2>
+<ul>
+<li class="cl a"><a href="misc.php?mod=stat&amp;op=basic">基本概况</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=forumstat">版块统计</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=team">管理团队</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=modworks">管理统计</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=memberlist">会员列表</a></li>
+<li class="cl"><a href="misc.php?mod=stat&amp;op=trend">趋势统计</a></li>
+</ul>
+</div>
+</div></div>	</div>
+
+
+<div class="mask" id="hb_mask">
+  <div class="fx-night" id="hb_night"></div>
+  <div class="fx-flash" id="hb_flash"></div>
+  <canvas class="fx-canvas" id="hb_fx"></canvas>
+  <div class="env-wrap">
+    <div class="fx-rays" id="hb_rays"></div>
+    <div class="fx-ring" id="hb_ring"></div>
+    <div class="env" id="hb_env">
+      <div class="flap"></div>
+      <div class="from" id="hb_from"></div>
+      <div class="bless" id="hb_bless"></div>
+      <div class="pwbox"><input type="text" id="hb_pw" placeholder="輸入口令" maxlength="64" autocomplete="off"><div class="pwerr" id="hb_pwerr"></div></div>
+      <button class="open-btn" id="hb_openbtn" onclick="hongbaoDoOpen()">開</button>
+      <button class="wd-btn" id="hb_wdbtn" onclick="hongbaoWithdraw()" style="display:none">撤回<br>剩餘</button>
+      <div class="inner">
+        <div class="who" id="hb_who"></div>
+        <div class="bless2" id="hb_bless2"></div>
+        <div class="amt" id="hb_amt"></div>
+        <div class="unit" id="hb_unit"></div>
+        <div class="stored">已存入你的帳戶</div>
+        <div class="reclink" id="hb_reclink" onclick="hongbaoToggleRecs()">看看大家的手氣 ›</div>
+        <div class="statemsg" id="hb_statemsg"></div>
+      </div>
+      <div class="recs" id="hb_recs"></div>
+    </div>
+    <div class="cat" id="hb_cat"></div>
+    <div class="bigtag" id="hb_bigtag">手 氣 爆 發 !</div>
+    <button class="env-close" onclick="hongbaoClose()">✕</button>
+    <label class="daily-skip" id="hb_dailyskip" style="display:none"><input type="checkbox" id="hb_skipchk"> 今日不再顯示</label>
+  </div>
+</div>
+</div>
+</body>
+</html>
