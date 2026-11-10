@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
+import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
+import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
@@ -31,16 +34,29 @@ Uint8List? _cachedEmoji(String code) {
 }
 
 /// The emoji panel of the reply box: the emojis inserted lately first (kept on this device, [RecentEmojiStore]), the
-/// user's saved images, then the forum's emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`) or the
-/// image's BBCode (`[img]…[/img]`, [isCustomImageBBCode]); the panel stays open for the next one.
+/// user's saved images, the user's custom emoji packs (with [sendCustomEmoji], those with images), then the forum's
+/// emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`), the image's BBCode (`[img]…[/img]`,
+/// [isCustomImageBBCode]) or the attachment of a custom emoji once [sendCustomEmoji] gave it
+/// (`[attachimg]aid[/attachimg]`, [isCustomEmojiBBCode]); the panel stays open for the next one.
 ///
 /// [groups] replaces the forum's groups (tests), [emojiImage] the emoji cache.
 class EmojiPanel extends StatefulWidget {
   /// Constructor.
-  const EmojiPanel({required this.onPicked, this.height = 280, this.groups, this.emojiImage, super.key});
+  const EmojiPanel({
+    required this.onPicked,
+    this.height = 280,
+    this.groups,
+    this.emojiImage,
+    this.sendCustomEmoji,
+    super.key,
+  });
 
   /// Called with what was picked.
   final void Function(String code) onPicked;
+
+  /// Puts a custom emoji into the reply as an attachment, null where the reply cannot take one: the custom emoji
+  /// packs are offered only with it.
+  final CustomEmojiSender? sendCustomEmoji;
 
   /// Height of the panel.
   final double height;
@@ -66,6 +82,7 @@ class EmojiPanel extends StatefulWidget {
 class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
   TabController? _tabs;
   int _tabCount = 0;
+  int _firstGroup = 2;
 
   @override
   void dispose() {
@@ -80,12 +97,28 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     widget.onPicked(code);
   }
 
-  TabController _controllerOf(int count, {required bool startWithRecent}) {
-    if (_tabs == null || _tabCount != count) {
-      _tabs?.dispose();
+  /// [count] tabs, the forum's groups from [firstGroup] on.
+  ///
+  /// Made again when the number of tabs changes (the custom emoji packs come once the reply knows it can take them, a
+  /// pack is added or emptied): the tab shown stays, a forum group by its place among the groups.
+  TabController _controllerOf(int count, {required int firstGroup, required bool startWithRecent}) {
+    final old = _tabs;
+    if (old == null || _tabCount != count) {
+      final int initial;
+      if (old == null) {
+        // The recent ones first when there are any, else the first group of the forum.
+        initial = startWithRecent || count <= firstGroup ? 0 : firstGroup;
+      } else if (old.index < 2) {
+        initial = old.index;
+      } else if (old.index >= _firstGroup) {
+        initial = old.index - _firstGroup + firstGroup;
+      } else {
+        initial = old.index < firstGroup ? old.index : firstGroup - 1;
+      }
+      old?.dispose();
       _tabCount = count;
-      // The recent ones first when there are any, else the first group of the forum.
-      _tabs = TabController(length: count, vsync: this, initialIndex: startWithRecent || count < 3 ? 0 : 2);
+      _firstGroup = firstGroup;
+      _tabs = TabController(length: count, vsync: this, initialIndex: count == 0 ? 0 : initial.clamp(0, count - 1));
     }
     return _tabs!;
   }
@@ -176,10 +209,26 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTabs(BuildContext context, List<EmojiGroup> groups) {
+  /// The tabs, with the custom emoji packs that have images when the reply can take them ([EmojiPanel.sendCustomEmoji]).
+  Widget _buildWithPacks(BuildContext context, List<EmojiGroup> groups) {
+    final store = CustomEmojiStore.app;
+    if (widget.sendCustomEmoji == null || store == null) {
+      return _buildTabs(context, groups, const []);
+    }
+    return ValueListenableBuilder<List<CustomEmojiPack>>(
+      valueListenable: store.packs,
+      builder: (context, packs, _) => _buildTabs(context, groups, packs.where((e) => e.emojis.isNotEmpty).toList()),
+    );
+  }
+
+  Widget _buildTabs(BuildContext context, List<EmojiGroup> groups, List<CustomEmojiPack> packs) {
     final tr = context.t.bbcodeEditor;
     final hasRecent = RecentEmojiStore.app?.recent.value.isNotEmpty ?? false;
-    final controller = _controllerOf(groups.length + 2, startWithRecent: hasRecent);
+    final controller = _controllerOf(
+      groups.length + packs.length + 2,
+      firstGroup: packs.length + 2,
+      startWithRecent: hasRecent,
+    );
     return Column(
       children: [
         TabBar(
@@ -196,6 +245,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
               child: Text(tr.emoji.recent),
             ),
             Tab(height: 40, child: Text(tr.customImage.tab)),
+            ...packs.map((e) => Tab(key: ValueKey('emoji-panel-pack-${e.id}'), height: 40, child: Text(e.name))),
             ...groups.map((e) => Tab(height: 40, child: Text(e.name))),
           ],
         ),
@@ -205,6 +255,17 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
             children: [
               _buildRecent(context),
               _buildImages(context),
+              // A custom emoji is an attachment of this reply only: never one of the recent emojis.
+              ...packs.map(
+                (e) => CustomEmojiGrid(
+                  key: ValueKey('emoji-panel-pack-grid-${e.id}'),
+                  pack: e,
+                  send: widget.sendCustomEmoji!,
+                  onSent: (bbcode) {
+                    if (bbcode != null && mounted) widget.onPicked(bbcode);
+                  },
+                ),
+              ),
               ...groups.map((e) => _grid(e.emojiList.map((emoji) => emoji.code).toList())),
             ],
           ),
@@ -218,7 +279,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     final groups = widget.groups ?? EmojiPanel.debugGroups;
     final Widget body;
     if (groups != null) {
-      body = _buildTabs(context, groups);
+      body = _buildWithPacks(context, groups);
     } else {
       body = MultiBlocProvider(
         providers: [
@@ -234,7 +295,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
               context,
               () => context.read<EmojiBloc>().add(EmojiFetchFromAssetEvent()),
             ),
-            EmojiStatus.success => _buildTabs(context, state.emojiGroupList ?? const []),
+            EmojiStatus.success => _buildWithPacks(context, state.emojiGroupList ?? const []),
           },
         ),
       );
