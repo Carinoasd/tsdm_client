@@ -360,6 +360,11 @@ final class RepliedNotice {
   /// silently: the system UI may still be keeping it. One whose texts changed is a newer item and is left as it is.
   /// When the shade held nothing under the id, the notification under the tag the id was last posted with is posted
   /// saying [told], silently, if [told] is given. Done once: a second call does nothing.
+  ///
+  /// When the shade could not be read as the reply arrived, what it holds under the id now is what is closed: a newer
+  /// item posted meanwhile can not be told from the one answered then, and is taken back with it. Chosen over leaving
+  /// the answered one in the shade for good; both need the shade to fail and a newer item to come within the seconds
+  /// of the reply.
   Future<void> seal(Translations translations, {String? payload, RepliedNoticeTold? told}) async {
     if (_sealing) {
       return;
@@ -403,6 +408,8 @@ final class RepliedNotice {
     }
   }
 
+  /// The notification as [showLocalNotificationWith] posts one offering the direct reply, less the action: a single
+  /// item ([directReplyFits]), so the whole body in the big text style, never the list of several items.
   Future<void> _post(
     Translations translations,
     _HeldNotice notice,

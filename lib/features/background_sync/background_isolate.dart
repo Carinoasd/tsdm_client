@@ -101,14 +101,15 @@ final class BackgroundIsolateBase {
 ///
 /// An [IOSink] takes neither a write nor a second flush while a flush is running (`Bad state: StreamSink is bound to
 /// a stream`): here the flushes run one after another, and what is written during one is held back and written, in
-/// order, as soon as it is done.
+/// order, as soon as it is done. A flush that fails gives its own error to its caller; lines the file's sink would
+/// not take then stay held, in order, for the next flush.
 final class BackgroundLogSink {
   /// Constructor.
   BackgroundLogSink(this._sink);
 
   final IOSink _sink;
 
-  /// Written while a flush was running.
+  /// Written while a flush was running, or after lines the file's sink did not take.
   final _held = StringBuffer();
 
   var _flushing = false;
@@ -121,7 +122,8 @@ final class BackgroundLogSink {
 
   /// Append [text].
   void write(String text) {
-    if (_flushing) {
+    // Behind the lines still held: the order of the file is the order of the calls.
+    if (_flushing || _held.isNotEmpty) {
       _held.write(text);
     } else {
       _sink.write(text);
@@ -144,14 +146,26 @@ final class BackgroundLogSink {
   Future<void> _flushOnce() async {
     _flushing = true;
     try {
+      // What an earlier, failed flush left behind.
+      _release();
       await _sink.flush();
     } finally {
       _flushing = false;
-      if (_held.isNotEmpty) {
-        final text = _held.toString();
-        _held.clear();
-        _sink.write(text);
-      }
+      _release();
+    }
+  }
+
+  /// Hand the held lines to the file's sink. One that does not take them (it failed) keeps them held: the error the
+  /// caller of [flush] gets is the one of the flush, not this one.
+  void _release() {
+    if (_held.isEmpty) {
+      return;
+    }
+    try {
+      _sink.write(_held.toString());
+      _held.clear();
+    } on Object {
+      // Kept for the next flush.
     }
   }
 }

@@ -13,6 +13,28 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/features/background_sync/background_isolate.dart';
 
+/// A file sink whose disk can fail: while [broken], a flush fails and a write is refused.
+final class _FailingSink extends Fake implements IOSink {
+  final written = StringBuffer();
+  bool broken = false;
+
+  @override
+  void write(Object? object) {
+    if (broken) {
+      throw StateError('StreamSink is closed');
+    }
+    written.write(object);
+  }
+
+  @override
+  Future<void> flush() async {
+    await Future<void>.delayed(Duration.zero);
+    if (broken) {
+      throw const FileSystemException('no space left on device');
+    }
+  }
+}
+
 void main() {
   late Directory dir;
   late File file;
@@ -89,6 +111,23 @@ void main() {
     expect(file.readAsLinesSync(), ['one', 'two', 'three', 'four']);
   });
 
+  test('a flush that fails gives its own error, the lines the sink did not take wait for the next, in order', () async {
+    final failing = _FailingSink();
+    final sink = BackgroundLogSink(failing)..write('one\n');
+    failing.broken = true;
+    final first = sink.flush();
+    // Held back while the flush runs; the sink does not take them when it ends.
+    sink.write('two\n');
+    await expectLater(first, throwsA(isA<FileSystemException>()));
+    sink.write('three\n');
+    expect(failing.written.toString(), 'one\n');
+
+    failing.broken = false;
+    await sink.flush();
+    sink.write('four\n');
+    expect(failing.written.toString(), 'one\ntwo\nthree\nfour\n');
+  });
+
   test('the ticks of the service, overlapping for a while: no unhandled error', () async {
     final sink = BackgroundLogSink(raw);
     final errors = <Object>[];
@@ -113,7 +152,8 @@ void main() {
             ..add(tick('follow$round', 2))
             ..add(tick('watch$round', 2));
         }
-        await Future.wait(ticks);
+        // An error thrown in the zone may leave these undone: failed by the timeout, not hung.
+        await Future.wait(ticks).timeout(const Duration(seconds: 10));
         await sink.flush();
       },
       (e, _) => errors.add(e),

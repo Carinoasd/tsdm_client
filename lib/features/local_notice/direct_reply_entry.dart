@@ -195,6 +195,8 @@ Future<void> _handle(NotificationResponse response) async {
   } finally {
     // Sealed here when nothing above got to it; a no-op otherwise.
     await replied?.seal(t, payload: request.payload);
+    // Waits for the system to show the sealed notification ([directReplySealedFor]): the next reply of the queue
+    // starts that much later, on purpose.
     await replied?.remove();
     await logSink.flush();
   }
