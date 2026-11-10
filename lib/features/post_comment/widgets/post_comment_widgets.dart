@@ -73,7 +73,9 @@ class _PostCommentSectionState extends State<PostCommentSection> {
     }
     setState(() => _loading = true);
     final comments = widget.post.comments;
-    final page = await _repositoryOf(context).fetchMore(tid: tid, pid: widget.post.postID, page: _page + 1);
+    final page = await _repositoryOf(
+      context,
+    ).fetchMore(tid: tid, pid: widget.post.postID, page: _page + 1, timeOffset: widget.post.timeOffset);
     if (!mounted || !identical(comments, widget.post.comments)) {
       return;
     }
@@ -82,8 +84,9 @@ class _PostCommentSectionState extends State<PostCommentSection> {
       showSnackBar(context: context, message: context.t.postComment.loadFailed);
       return;
     }
-    // A comment posted meanwhile moves the pages on: one shown already is not added again. A member's comments have
-    // no id (no delete link): their author, time and text tell them apart.
+    // A comment posted meanwhile moves the pages on: one shown already is not added again. The forum's app API names
+    // every comment's id (plugin 3.7.0); read from the page, a member's comments have none (no delete link): their
+    // author, time and text tell them apart.
     Object keyOf(PostComment c) => c.id ?? (c.authorUid, c.authorName, c.time, c.content);
     final known = {
       for (final c in [...widget.post.comments, ..._more]) keyOf(c),
@@ -109,6 +112,10 @@ class _PostCommentSectionState extends State<PostCommentSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.post.commentScores.isNotEmpty) ...[
+              PostCommentScores(widget.post.commentScores),
+              sizedBoxW12H12,
+            ],
             for (final (i, comment) in comments.indexed) ...[
               if (i > 0) sizedBoxW12H12,
               PostCommentTile(
@@ -133,6 +140,45 @@ class _PostCommentSectionState extends State<PostCommentSection> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The averages of the items the comments of a floor scored, as the web page prints them above the comments: each
+/// item's name with its stars and its average.
+class PostCommentScores extends StatelessWidget {
+  /// Constructor.
+  const PostCommentScores(this.scores, {super.key});
+
+  /// The averages.
+  final List<PostCommentScore> scores;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Wrap(
+      key: const ValueKey('post-comment-scores'),
+      spacing: 16,
+      runSpacing: 4,
+      children: [
+        for (final item in scores)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(item.name, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+              sizedBoxW4H4,
+              for (var star = 1; star <= 5; star++)
+                Icon(
+                  item.score >= star ? Icons.star : (item.score >= star - 0.5 ? Icons.star_half : Icons.star_border),
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+              sizedBoxW4H4,
+              Text(item.text, style: textTheme.labelMedium),
+            ],
+          ),
+      ],
     );
   }
 }
