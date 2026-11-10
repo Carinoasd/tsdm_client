@@ -1418,7 +1418,7 @@ final class _Muncher with LoggerMixin {
         onTap: () async => showImageActionBottomSheet(context: context, imageUrl: url, hrefUrl: hrefUrl),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: imgWidth ?? double.infinity, maxHeight: imgHeight ?? double.infinity),
-          child: NetworkIndicatorImage(url),
+          child: NoUpscale(child: NetworkIndicatorImage(url)),
         ),
       );
     } else {
