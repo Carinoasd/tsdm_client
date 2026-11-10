@@ -663,6 +663,18 @@ void main() {
       final committed = postCommentLimitEdit(composing, at('字' * 101, 101), 200);
       expect(committed.text, '字' * 101);
       expect(committed.composing.isValid, isFalse);
+      // A composition ending in the middle: the caret stays where it was.
+      final mid = postCommentLimitEdit(
+        TextEditingValue(
+          text: 'a' * 205,
+          selection: const TextSelection.collapsed(offset: 55),
+          composing: const TextRange(start: 50, end: 55),
+        ),
+        at('a' * 205, 55),
+        200,
+      );
+      expect(mid.selection.baseOffset, 55);
+      expect(mid.composing.isValid, isFalse);
       // Nothing more goes in past it.
       expect(postCommentLimitEdit(at('a' * 205, 205), at('${'a' * 205}b', 206), 200).text, 'a' * 205);
     });

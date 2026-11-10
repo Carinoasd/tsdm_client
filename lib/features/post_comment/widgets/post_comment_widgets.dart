@@ -567,12 +567,17 @@ TextEditingValue postCommentLimitEdit(TextEditingValue old, TextEditingValue val
   final room = math.max(0, limit - postCommentLength(prefix) - postCommentLength(suffix));
   final inserted = StringBuffer();
   var used = 0;
-  for (final character in after.substring(start, after.length - end).characters) {
+  final segment = after.substring(start, after.length - end);
+  for (final character in segment.characters) {
     used += postCommentLength(character);
     if (used > room) {
       break;
     }
     inserted.write(character);
+  }
+  if (inserted.length == segment.length) {
+    // Nothing cut (a delete, a composition ending): the edit as it came, with the caret where the IME put it.
+    return value;
   }
   final text = '$prefix$inserted$suffix';
   return TextEditingValue(
