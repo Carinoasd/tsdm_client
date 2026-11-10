@@ -2556,7 +2556,6 @@
       "failed": "Reply not sent",
       "openApp": "Send it in the app",
       "locked": "The app is locked, unlock it to send",
-      "loggedOut": "The login of the account has expired",
       "error": "Sending failed, try again later"
     },
     "notice": {

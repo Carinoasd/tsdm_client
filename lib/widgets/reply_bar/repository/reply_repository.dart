@@ -482,7 +482,7 @@ final class ReplyRepository with LoggerMixin {
 
   Future<ReplyFormInfo?> _fetchReplyFormInfo(String replyAction) async {
     final netClient = _netClient;
-    if (TsdmAppApi.knowsPostForm) {
+    if (_postForm || TsdmAppApi.knowsPostForm) {
       final resp = await netClient.get(withTsdmAppJson('${replyAction.prependHost()}$_replyFormWindowSuffix')).run();
       switch (resp) {
         case Left():

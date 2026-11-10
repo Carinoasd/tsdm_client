@@ -24,6 +24,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/app_lock/repository/app_lock_store.dart';
 import 'package:tsdm_client/features/forum_watch/utils/forum_watch_notice.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
@@ -46,6 +47,24 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 
 const _dir = 'test/data/tsdmapp';
 
+/// The login prompt the forum answers the chat dialog with when the session expired (test forum, trimmed).
+// The XML declaration has to come first.
+// ignore: leading_newlines_in_multiline_strings
+const _loginPrompt = '''<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div id="main_messaqge_Ab1Cd">
+<div id="layer_login_Ab1Cd">
+<h3 class="flb">
+<em id="returnmessage_Ab1Cd">
+您需要先登录才能继续本操作</em>
+</h3>
+<form method="post" autocomplete="off" name="login" id="loginform_Ab1Cd" action="member.php?mod=logging&amp;action=login&amp;loginsubmit=yes&amp;handlekey=showmsg_1000">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+</form>
+</div>
+</div>
+]]></root>''';
+
 String _fixture(String path) => File(path).readAsStringSync();
 
 /// The account of the recorded reply window (`post_v16_reply_float.json`).
@@ -58,6 +77,7 @@ final class _Forum implements HttpClientAdapter {
     String? window,
     String? reply,
     String? message,
+    this.chat,
     this.offline = false,
   }) : window = window ?? _fixture('$_dir/post_v16_reply_float.json'),
        reply = reply ?? _fixture('$_dir/write_v13_reply_ok.json'),
@@ -66,6 +86,9 @@ final class _Forum implements HttpClientAdapter {
   final String window;
   final String reply;
   final String message;
+
+  /// The chat dialog, `chat_dialog_x5.xml` when null.
+  final String? chat;
   final bool offline;
 
   final requests = <({String method, Uri uri, Map<String, String> form})>[];
@@ -93,7 +116,7 @@ final class _Forum implements HttpClientAdapter {
     } else if (q['action'] == 'reply') {
       answer = window;
     } else if (q['ac'] == 'pm' && q['op'] == 'showmsg') {
-      answer = _fixture('test/data/chat_dialog_x5.xml');
+      answer = chat ?? _fixture('test/data/chat_dialog_x5.xml');
     } else {
       throw DioException.connectionError(requestOptions: options, reason: 'unexpected');
     }
@@ -439,6 +462,26 @@ void main() {
 
       final (flood, _, _) = await run(request, forum: _Forum(message: _fixture('$_dir/write_v13_pm_flood.json')));
       expect((flood as DirectReplyNotSent).reason, '两次发送短消息太快，请稍候再发送');
+    });
+
+    test("a private message with an expired login says the forum's prompt, nothing posted", () async {
+      final request = DirectReplyRequest.of(_action(input: '在的', payload: _pmPayload(2000)))!;
+      final (outcome, forum, _) = await run(request, forum: _Forum(chat: _loginPrompt));
+      expect((outcome as DirectReplyNotSent).reason, '您需要先登录才能继续本操作');
+      expect(forum.posts, isEmpty);
+    });
+
+    test('an app lock file that can not be read counts as locked', () async {
+      final dir = Directory.systemTemp.createTempSync('direct_reply_lock_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final file = File('${dir.path}/app_lock.json');
+      final store = AppLockStore(file: () async => file);
+      expect(await appLocked(store: store), isFalse, reason: 'no file: no lock');
+      file.writeAsStringSync('{broken');
+      expect(await appLocked(store: store), isTrue);
+      file.writeAsStringSync('{"v": 999}');
+      expect(await appLocked(store: store), isTrue);
+      expect(await appLocked(store: AppLockStore(file: () async => throw const FileSystemException('no dir'))), isTrue);
     });
 
     test('nothing is sent with the setting turned off, the app locked or the account gone', () async {

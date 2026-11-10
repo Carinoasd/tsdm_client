@@ -2556,7 +2556,6 @@
       "failed": "回复未发送",
       "openApp": "需要在 App 中发送",
       "locked": "App 已锁定，请解锁后发送",
-      "loggedOut": "账号登录已失效",
       "error": "发送失败，请稍后重试"
     },
     "notice": {

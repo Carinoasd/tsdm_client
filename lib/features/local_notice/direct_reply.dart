@@ -87,8 +87,9 @@ Future<bool> directReplyEnabled(StorageProvider storage) async =>
     await storage.getBool(SettingsKeys.notificationDirectReply.name) ??
     SettingsKeys.notificationDirectReply.defaultValue;
 
-/// Whether the app lock is on (the file of this device, readable from any isolate).
-Future<bool> appLocked() async => (await AppLockStore().load()).enabled;
+/// Whether the app lock is on (the file of this device, readable from any isolate); a lock file that can not be read
+/// counts as locked ([AppLockStore.lockedFailClosed]): nothing is sent without unlocking.
+Future<bool> appLocked({AppLockStore? store}) => (store ?? AppLockStore()).lockedFailClosed();
 
 /// The action of the direct reply, with the texts of [translations].
 ///
@@ -120,8 +121,8 @@ final class DirectReplyRequest {
   /// not one of the auto sync (a watched forum's, a followed thread's) or a payload naming no account or no floor or
   /// conversation.
   static DirectReplyRequest? of(NotificationResponse response) {
-    // Only the notifications of the auto sync carry the action; the new threads of a watched forum and the keyword
-    // alerts never do.
+    // Only the notifications of the auto sync carry the action ([isLocalNoticeId] already leaves the others out); the
+    // new threads of a watched forum and the keyword alerts never do, said once more on purpose.
     if (response.actionId != directReplyActionId ||
         !isLocalNoticeId(response.id) ||
         isForumWatchNoticeId(response.id)) {

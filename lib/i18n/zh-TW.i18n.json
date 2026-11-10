@@ -2556,7 +2556,6 @@
       "failed": "回覆未送出",
       "openApp": "需要在 App 中送出",
       "locked": "App 已鎖定，請解鎖後送出",
-      "loggedOut": "帳號登入已失效",
       "error": "送出失敗，請稍後重試"
     },
     "notice": {

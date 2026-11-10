@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/background_sync/background_isolate.dart';
@@ -22,14 +23,12 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 /// What the isolate of the notification plugin needs, opened at the first reply and kept for the next ones: the plugin
 /// keeps its engine for as long as the process lives.
 final class _DirectReplyRuntime {
-  _DirectReplyRuntime._(this.base, this.plugin, this.logSink);
+  _DirectReplyRuntime._(this.base, this.plugin);
 
   final BackgroundIsolateBase base;
   final FlutterLocalNotificationsPlugin plugin;
-  final IOSink logSink;
 
   static Future<_DirectReplyRuntime> create() async {
-    final logSink = await initBackgroundLogger();
     // The same database, settings and clients as the background message service.
     final base = await BackgroundIsolateBase.open();
     final plugin = FlutterLocalNotificationsPlugin();
@@ -39,7 +38,7 @@ final class _DirectReplyRuntime {
       ),
       onDidReceiveBackgroundNotificationResponse: onNotificationActionInBackground,
     );
-    return _DirectReplyRuntime._(base, plugin, logSink);
+    return _DirectReplyRuntime._(base, plugin);
   }
 
   /// The client of account [uid], from its cookie stored on this device; null when the account is not on it any more.
@@ -53,6 +52,9 @@ final class _DirectReplyRuntime {
 }
 
 Future<_DirectReplyRuntime>? _runtime;
+
+/// The log of this isolate, set up once: `talker` can be given only once.
+Future<IOSink>? _logSink;
 
 /// The end of the queue: one reply at a time.
 Future<void> _queue = Future<void>.value();
@@ -87,12 +89,26 @@ Future<void> onNotificationActionInBackground(NotificationResponse response) asy
 
 Future<void> _handle(DirectReplyRequest request) async {
   DartPluginRegistrant.ensureInitialized();
+  final IOSink logSink;
+  try {
+    logSink = await (_logSink ??= initBackgroundLogger());
+  } on Object catch (e) {
+    // Set up as the last step: tried again with the next reply.
+    _logSink = null;
+    debugPrint('direct reply: no log: $e');
+    await _showUnsent(request);
+    return;
+  }
   final _DirectReplyRuntime runtime;
   try {
     runtime = await (_runtime ??= _DirectReplyRuntime.create());
   } on Object catch (e, st) {
     _runtime = null;
     talker.handle(e, st, 'direct reply: failed to start');
+    // What was registered before the failure, so the next reply starts over.
+    await getIt.reset();
+    await _showUnsent(request);
+    await logSink.flush();
     return;
   }
   final key = '${request.uid}:${request.target.toQuery()}:${request.message.hashCode}';
@@ -131,10 +147,36 @@ Future<void> _handle(DirectReplyRequest request) async {
       _recent.remove(key);
     }
     talker.info('direct reply: ${outcome.runtimeType}');
-    await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
+    try {
+      await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
+    } on Object catch (e) {
+      talker.warning('direct reply: showing the outcome failed, once more: $e');
+      await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
+    }
   } on Object catch (e, st) {
     talker.handle(e, st, 'direct reply: failed');
   } finally {
-    await runtime.logSink.flush();
+    await logSink.flush();
+  }
+}
+
+/// The notification telling [request] was not sent, when nothing of the isolate could be set up: the notification it
+/// came from is gone, the text must not be. In the default language: the settings could not be read.
+Future<void> _showUnsent(DirectReplyRequest request) async {
+  try {
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('@drawable/ic_launcher_foreground'),
+      ),
+    );
+    await showDirectReplyOutcome(
+      plugin: plugin,
+      translations: t,
+      request: request,
+      outcome: DirectReplyNotSent(t.localNotification.directReply.error),
+    );
+  } on Object catch (e) {
+    debugPrint('direct reply: telling it was not sent failed: $e');
   }
 }
