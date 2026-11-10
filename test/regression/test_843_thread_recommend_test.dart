@@ -15,6 +15,7 @@
 /// and the two links are cut from it.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -382,6 +383,60 @@ void main() {
       await tester.pumpAndSettle();
       expect(sent, hasLength(1));
       expect(find.text('支持 1'), findsOneWidget);
+
+      // The floor built again: still off; the page read again (another count) may be evaluated.
+      await tester.pumpWidget(const SizedBox());
+      final again = await pump(tester, _parse(_raw('p_btn_member.html'))!, 'result_add_succeed.json');
+      await tester.tap(find.text('支持 1'));
+      await tester.pumpAndSettle();
+      expect(again, isEmpty);
+      final reloaded = _parse(
+        _raw(
+          'p_btn_member.html',
+        ).replaceFirst('<span id="recommendv_add">1</span>', '<span id="recommendv_add">3</span>'),
+      )!;
+      final fresh = await pump(tester, reloaded, 'result_add_succeed.json');
+      await tester.tap(find.text('支持 3'));
+      await tester.pumpAndSettle();
+      expect(fresh, hasLength(1));
+      expect(find.text('支持 4'), findsOneWidget);
+    });
+
+    testWidgets('the floor gone while sending: the answer kept, nothing sent twice', (tester) async {
+      final recommend = _parse(_raw('p_btn_member.html'))!;
+      final answer = Completer<Object?>();
+      var sent = 0;
+      Widget app() => TranslationProvider(
+        child: MaterialApp(
+          scaffoldMessengerKey: snackbarKey,
+          home: Scaffold(
+            body: RepositoryProvider(
+              create: (_) => ThreadRecommendRepository(
+                send: (url) {
+                  sent++;
+                  return answer.future;
+                },
+              ),
+              child: ThreadRecommendButtons(recommend),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(app());
+      await tester.tap(find.text('支持 1'));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox());
+
+      // Built again while the answer is out: off, nothing more sent.
+      await tester.pumpWidget(app());
+      await tester.tap(find.text('踩踩 2'));
+      await tester.pump();
+      expect(sent, 1);
+
+      answer.complete(_result('result_add_succeed.json'));
+      await tester.pumpAndSettle();
+      expect(find.text('支持 2'), findsOneWidget);
+      expect(find.byIcon(Icons.thumb_up), findsOneWidget);
     });
 
     testWidgets("refused: the forum's words, the counts as they were", (tester) async {

@@ -11,76 +11,75 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
+/// Where an evaluation sent from the app stands ([ThreadRecommendMemory]).
+enum ThreadRecommendStatus {
+  /// Sent, no answer yet.
+  sending,
+
+  /// The forum counted it.
+  counted,
+
+  /// The forum's answer told nothing.
+  unconfirmed,
+}
+
+/// An evaluation sent from the app: the page it was sent `from`, its `side` and where it stands (`status`).
+typedef ThreadRecommendEntry = ({ThreadRecommend from, ThreadRecommendSide side, ThreadRecommendStatus status});
+
+/// The evaluations sent from the app while it runs, by account and thread ([ThreadRecommendEntry]).
+///
+/// The floors of a thread page are built again when they scroll back into view, and the forum does not tell which
+/// side an account took: the buttons read it from here, so an evaluation being sent stays sent, a counted one stays
+/// counted and one without a verdict stays off until the page is read again, whatever floor was built meanwhile.
+final class ThreadRecommendMemory {
+  ThreadRecommendMemory._();
+
+  static final _entries = <(int, int), ThreadRecommendEntry>{};
+
+  /// Counts the changes of the entries: told whenever one changes.
+  static final changes = ValueNotifier<int>(0);
+
+  /// The entry of [recommend]'s account and thread, if any.
+  static ThreadRecommendEntry? of(ThreadRecommend recommend) =>
+      recommend.viewerUid == null ? null : _entries[(recommend.viewerUid!, recommend.tid)];
+
+  /// Set the entry of [from]'s account and thread: [side] sent from it, [status] where it stands; none at all
+  /// without [status] (refused, nothing sent).
+  static void set(ThreadRecommend from, ThreadRecommendSide side, ThreadRecommendStatus? status) {
+    final uid = from.viewerUid;
+    if (uid == null) {
+      return;
+    }
+    if (status == null) {
+      _entries.remove((uid, from.tid));
+    } else {
+      _entries[(uid, from.tid)] = (from: from, side: side, status: status);
+    }
+    changes.value++;
+  }
+
+  /// Forget everything (tests).
+  static void clear() => _entries.clear();
+}
+
 /// The forum's "支持" and "踩" of a thread under its first floor ([ThreadRecommend]): each button with the forum's
 /// text and count, as the web page prints them (the count only when there is one).
 ///
 /// A guest's button opens the login. A member's sends the evaluation once ([ThreadRecommendRepository]): counted, its
 /// count goes up and both buttons stay off (the forum takes one evaluation per member and thread); refused, the
-/// forum's message is shown.
-class ThreadRecommendButtons extends StatefulWidget {
+/// forum's message is shown; without a verdict both stay off until the page is read again.
+class ThreadRecommendButtons extends StatelessWidget {
   /// Constructor.
   const ThreadRecommendButtons(this.recommend, {super.key});
 
   /// The evaluation the page printed.
   final ThreadRecommend recommend;
 
-  @override
-  State<ThreadRecommendButtons> createState() => _ThreadRecommendButtonsState();
-}
-
-/// The evaluations counted from the app while it runs, by account and thread: the page they were sent from and the
-/// side counted. The floors of a thread page are built again when they scroll back into view, and the forum does not
-/// tell which side an account took: the buttons read it from here, so a counted evaluation stays counted.
-final class ThreadRecommendMemory {
-  ThreadRecommendMemory._();
-
-  static final _counted = <(int, int), ({ThreadRecommend from, ThreadRecommendSide side})>{};
-
-  /// What [recommend]'s account counted on its thread, if anything.
-  static ({ThreadRecommend from, ThreadRecommendSide side})? of(ThreadRecommend recommend) =>
-      recommend.viewerUid == null ? null : _counted[(recommend.viewerUid!, recommend.tid)];
-
-  /// [side] was counted from the page of [from].
-  static void remember(ThreadRecommend from, ThreadRecommendSide side) {
-    if (from.viewerUid case final uid?) {
-      _counted[(uid, from.tid)] = (from: from, side: side);
-    }
-  }
-
-  /// Forget everything (tests).
-  static void clear() => _counted.clear();
-}
-
-class _ThreadRecommendButtonsState extends State<ThreadRecommendButtons> {
-  /// The side being sent.
-  ThreadRecommendSide? _sending;
-
-  /// The forum's answer told nothing: the buttons stay off until the page is read again.
-  bool _unconfirmed = false;
-
-  /// The side counted for this account and thread, if any.
-  ThreadRecommendSide? get _counted => ThreadRecommendMemory.of(widget.recommend)?.side;
-
-  /// The evaluation shown: the page's, with the side counted from it added while the page is the one it was sent
-  /// from (a page read again has it in its counts already).
-  ThreadRecommend get _recommend => switch (ThreadRecommendMemory.of(widget.recommend)) {
-    (:final from, :final side) when from == widget.recommend => from.pressed(side),
-    _ => widget.recommend,
-  };
-
-  @override
-  void didUpdateWidget(ThreadRecommendButtons oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.recommend != widget.recommend) {
-      _unconfirmed = false;
-    }
-  }
-
-  Future<void> _press(ThreadRecommendSide side) async {
-    if (_sending != null || _counted != null || _unconfirmed) {
+  Future<void> _press(BuildContext context, ThreadRecommendSide side) async {
+    if (ThreadRecommendMemory.of(recommend) case final entry?
+        when entry.status != ThreadRecommendStatus.unconfirmed || entry.from == recommend) {
       return;
     }
-    final recommend = widget.recommend;
     if (recommend.guest) {
       await context.pushNamed(ScreenPaths.login);
       return;
@@ -93,15 +92,20 @@ class _ThreadRecommendButtonsState extends State<ThreadRecommendButtons> {
       showSnackBar(context: context, message: context.t.general.accountChangedRetry);
       return;
     }
-    setState(() => _sending = side);
+    ThreadRecommendMemory.set(recommend, side, ThreadRecommendStatus.sending);
     final outcome = await repository.submit(recommend, side);
-    if (!mounted) {
+    // Kept whether this floor is still built or not: the one built again reads it.
+    ThreadRecommendMemory.set(recommend, side, switch (outcome) {
+      ThreadRecommendDone() => ThreadRecommendStatus.counted,
+      ThreadRecommendUnknown() => ThreadRecommendStatus.unconfirmed,
+      _ => null,
+    });
+    if (!context.mounted) {
       return;
     }
-    setState(() => _sending = null);
     switch (outcome) {
       case ThreadRecommendDone():
-        setState(() => ThreadRecommendMemory.remember(recommend, side));
+        break;
       case ThreadRecommendRefused(:final message):
         showSnackBar(context: context, message: message);
       case ThreadRecommendNeedLogin():
@@ -109,13 +113,23 @@ class _ThreadRecommendButtonsState extends State<ThreadRecommendButtons> {
       case ThreadRecommendAccountChanged():
         showSnackBar(context: context, message: context.t.general.accountChangedRetry);
       case ThreadRecommendUnknown():
-        setState(() => _unconfirmed = true);
         showSnackBar(context: context, message: context.t.threadRecommend.unknown);
     }
   }
 
-  Widget _button(BuildContext context, ThreadRecommendSide side, ThreadRecommendButton button) {
-    final counted = _counted == side;
+  Widget _button(
+    BuildContext context,
+    ThreadRecommendSide side,
+    ThreadRecommendButton button,
+    ThreadRecommendEntry? entry,
+  ) {
+    final counted = entry?.status == ThreadRecommendStatus.counted && entry?.side == side;
+    final sending = entry?.status == ThreadRecommendStatus.sending && entry?.side == side;
+    final off = switch (entry) {
+      null => false,
+      (:final from, side: _, status: ThreadRecommendStatus.unconfirmed) => from == recommend,
+      _ => true,
+    };
     final icon = switch ((side, counted)) {
       (ThreadRecommendSide.add, false) => Icons.thumb_up_outlined,
       (ThreadRecommendSide.add, true) => Icons.thumb_up,
@@ -124,22 +138,29 @@ class _ThreadRecommendButtonsState extends State<ThreadRecommendButtons> {
     };
     final colorScheme = Theme.of(context).colorScheme;
     return TextButton.icon(
-      onPressed: _sending != null || _counted != null || _unconfirmed ? null : () async => _press(side),
+      onPressed: off ? null : () async => _press(context, side),
       style: counted ? TextButton.styleFrom(disabledForegroundColor: colorScheme.primary) : null,
-      icon: _sending == side ? const SizedBox(width: 16, height: 16, child: CircularIndicator()) : Icon(icon, size: 18),
+      icon: sending ? const SizedBox(width: 16, height: 16, child: CircularIndicator()) : Icon(icon, size: 18),
       label: Text(button.count > 0 ? '${button.label} ${button.count}' : button.label),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final add = _recommend.add;
-    final subtract = _recommend.subtract;
-    return Wrap(
-      children: [
-        if (add != null) _button(context, ThreadRecommendSide.add, add),
-        if (subtract != null) _button(context, ThreadRecommendSide.subtract, subtract),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: ThreadRecommendMemory.changes,
+    builder: (context, _) {
+      final entry = ThreadRecommendMemory.of(recommend);
+      // The page's counts, with the side counted from this very page added (a page read again has it already).
+      final shown = switch (entry) {
+        (:final from, :final side, status: ThreadRecommendStatus.counted) when from == recommend => from.pressed(side),
+        _ => recommend,
+      };
+      return Wrap(
+        children: [
+          if (shown.add case final add?) _button(context, ThreadRecommendSide.add, add, entry),
+          if (shown.subtract case final subtract?) _button(context, ThreadRecommendSide.subtract, subtract, entry),
+        ],
+      );
+    },
+  );
 }
