@@ -45,13 +45,22 @@ final class BackgroundIsolateBase {
     // Dart analyzer does not work on conditional export.
     // ignore: undefined_function
     final db = AppDatabase(conn.connect());
-    final storage = StorageProvider(db, await preloadCookie(db), {});
-    final settingsRepo = SettingsRepository(storage);
-    await settingsRepo.init();
+    final StorageProvider storage;
+    final SettingsRepository settingsRepo;
+    try {
+      storage = StorageProvider(db, await preloadCookie(db), {});
+      settingsRepo = SettingsRepository(storage);
+      await settingsRepo.init();
+    } on Object {
+      // Not left open for the next try.
+      await db.close();
+      rethrow;
+    }
     final proxy = ProxyProvider();
     getIt
       ..registerSingleton(proxy)
-      ..registerSingleton(db)
+      // Closed by `getIt.reset()` too: an isolate starting over after a failure opens it again.
+      ..registerSingleton(db, dispose: (d) => d.close())
       ..registerSingleton(storage)
       ..registerSingleton(settingsRepo)
       ..registerFactory(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)

@@ -116,19 +116,24 @@ Future<void> _handle(DirectReplyRequest request) async {
   _recent.removeWhere((_, at) => now.difference(at) > _sameReplyWindow);
   if (_recent.containsKey(key)) {
     talker.info('direct reply: the same text was just sent, dropped');
+    await logSink.flush();
     return;
   }
   _recent[key] = now;
   final storage = runtime.base.storage;
   try {
-    final settings = await readBackgroundSyncSettings(storage);
-    await runtime.base.applyLocale(settings.locale);
     talker.info(
       'direct reply: sending for uid ${"${request.uid}".obscured(4)} '
       '(${request.toConversation ? 'message' : 'floor'})',
     );
     DirectReplyOutcome outcome;
     try {
+      try {
+        await runtime.base.applyLocale((await readBackgroundSyncSettings(storage)).locale);
+      } on Object catch (e) {
+        // The texts of the notification only: sent all the same, in the language already loaded.
+        talker.warning('direct reply: language not read: $e');
+      }
       // The proxy the user asked for: without it the reply would go out by a direct connection.
       await runtime.base.refreshNetwork();
       outcome = await runDirectReply(
@@ -169,6 +174,7 @@ Future<void> _showUnsent(DirectReplyRequest request) async {
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/ic_launcher_foreground'),
       ),
+      onDidReceiveBackgroundNotificationResponse: onNotificationActionInBackground,
     );
     await showDirectReplyOutcome(
       plugin: plugin,
