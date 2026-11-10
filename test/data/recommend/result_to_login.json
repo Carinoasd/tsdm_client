@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 0,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "您需要先登录才能继续本操作",
+  "message_key": "to_login",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

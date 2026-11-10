@@ -385,7 +385,12 @@ void main() {
         {(35, 9199345, 1, 0, 0), (35, 9199345, 1, 1, 0), (35, 9199345, 1, 0, 32), (35, 9199345, 2, 2, 0)},
       );
       final first = rows.firstWhere((e) => e.orderType == 0 && e.authorId == 0);
-      expect(jsonDecode(first.body), jsonDecode(_answer('thread_v3_plain.json', 35)), reason: 'the answer as it came');
+      // The first page comes with its document (the evaluation of the thread, test_843), kept without it.
+      expect(
+        jsonDecode(first.body),
+        (jsonDecode(_answer('thread_v3_plain.json', 35)) as Map<String, dynamic>)..remove('document'),
+        reason: 'the answer as it came, without its document',
+      );
       expect(first.size, utf8.encode(first.body).length);
       expect(first.savedAt.isAfter(before), isTrue);
       expect(forum.requests, hasLength(4), reason: 'no extra request');

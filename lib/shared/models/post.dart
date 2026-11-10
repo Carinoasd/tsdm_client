@@ -90,6 +90,7 @@ class Post with PostMappable {
     this.warned = false,
     this.banAuthorUid,
     this.authorBanned = false,
+    this.recommend,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -484,6 +485,10 @@ class Post with PostMappable {
   /// ([banAuthorUid]) would be lifted.
   final bool authorBanned;
 
+  /// The forum's "支持" and "踩" of the thread with their counts, which the page prints under the first floor (see
+  /// [ThreadRecommend]); null on any other floor and when the forum printed none.
+  final ThreadRecommend? recommend;
+
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).
   int? get shownFloor => postFloor ?? hotFloor;
 
@@ -737,6 +742,7 @@ class Post with PostMappable {
       warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
       banAuthorUid: memberBanUidIn(userProfileNode, authorUid: int.tryParse(postAuthor.uid ?? '')),
       authorBanned: memberBannedIn(userProfileNode),
+      recommend: ThreadRecommend.fromNode(element.querySelector('div#p_btn'), viewerUid: viewerUid),
     );
   }
 

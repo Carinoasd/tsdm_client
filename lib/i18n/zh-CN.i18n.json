@@ -3937,5 +3937,8 @@
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
     "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+  },
+  "threadRecommend": {
+    "unknown": "未能确认结果，请重新整理帖子查看。"
   }
 }

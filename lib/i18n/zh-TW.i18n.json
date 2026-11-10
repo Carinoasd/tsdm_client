@@ -3937,5 +3937,8 @@
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
     "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+  },
+  "threadRecommend": {
+    "unknown": "未能確認結果，請重新整理帖子查看。"
   }
 }

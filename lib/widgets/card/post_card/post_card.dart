@@ -37,6 +37,7 @@ import 'package:tsdm_client/features/thread/v1/utils/post_export.dart' show Post
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart' show copyPostAsText, exportLabelsOf;
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/interactive_post_entry.dart';
+import 'package:tsdm_client/features/thread_recommend/widgets/thread_recommend_buttons.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
@@ -863,7 +864,16 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           padding: const EdgeInsets.only(left: 8),
           child: SpecialBestAnswerButton(request, onReload: reload),
         ),
-      const Spacer(),
+      // The forum's 支持 and 踩 of the thread, under the first floor as the web page prints them.
+      if (widget.post.recommend case final recommend? when !isOfflineFloor(context))
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Align(alignment: AlignmentDirectional.centerStart, child: ThreadRecommendButtons(recommend)),
+          ),
+        )
+      else
+        const Spacer(),
       // The floor's action menu, at the end of the floor: muted rounded button, the icon stays the usual "more" so it
       // reads like the other menus of the app.
       PopupMenuButton(
