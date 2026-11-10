@@ -159,8 +159,9 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }
       case ExternalLaunchFallback(:final uri):
-        // A program load is not seen by the navigation check (Android): a page the app has opens in the app here.
-        if (browserNavigationOf(uri, mainFrame: true) is BrowserNavigationOpenInApp) {
+        // A program load is not seen by the navigation check (Android): a page the app has opens in the app here,
+        // but for a signed out page, which keeps every forum page in the web view.
+        if (!widget.guest && browserNavigationOf(uri, mainFrame: true) is BrowserNavigationOpenInApp) {
           if (mounted) {
             await context.dispatchAsUrl('$uri');
           }
