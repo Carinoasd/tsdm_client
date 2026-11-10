@@ -49,17 +49,23 @@ Future<Directory> attachmentDownloadDirectory({String? chosen}) async {
   return await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
 }
 
-/// The file called [name] in [dir], or `name (1).ext`, `name (2).ext`… when one of that name is there already.
-File uniqueFileIn(Directory dir, String name) {
+/// Where the part files of the downloads are written: the app's temporary folder, apart from the downloads folder.
+Future<Directory> attachmentPartDirectory() async =>
+    Directory(p.join((await getTemporaryDirectory()).path, 'attachment_parts'));
+
+/// The file called [name] in [dir], or `name (1).ext`, `name (2).ext`… when one of that name is there already or its
+/// path is [taken].
+File uniqueFileIn(Directory dir, String name, {Set<String> taken = const {}}) {
+  bool free(File f) => !taken.contains(f.path) && !f.existsSync();
   var file = File(p.join(dir.path, name));
-  if (!file.existsSync()) {
+  if (free(file)) {
     return file;
   }
   final ext = p.extension(name);
   final stem = name.substring(0, name.length - ext.length);
   for (var i = 1; i < 10000; i++) {
     file = File(p.join(dir.path, '$stem ($i)$ext'));
-    if (!file.existsSync()) {
+    if (free(file)) {
       return file;
     }
   }

@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/attachment_download/models/attachment_download.dart';
 import 'package:tsdm_client/features/attachment_download/repository/attachment_download_manager.dart';
 import 'package:tsdm_client/features/attachment_download/repository/attachment_download_store.dart';
@@ -31,7 +32,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:universal_html/parsing.dart';
 
-const _base = 'https://forum.test';
+const String _base = baseUrl;
 
 String _fixture(String name) => File('test/data/attachment_download/$name').readAsStringSync();
 
@@ -128,6 +129,8 @@ void main() {
       expect(isAttachCreditUrl('forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4'), isTrue);
       expect(tidOfAttachmentUrl(_urlOf(36)), '1000');
       expect(tidOfAttachmentUrl('forum.php?mod=attachment&aid=36'), isNull);
+      // Another forum's attachment stays a link.
+      expect(isAttachmentDownloadUrl('https://bbs.other.test/forum.php?mod=attachment&aid=MzZ8YQ%3D%3D'), isFalse);
     });
 
     test('the sizes the forum prints', () {
@@ -211,16 +214,20 @@ void main() {
 
   group('the downloads', () {
     late Directory dir;
+    late Directory parts;
     late Map<String, String> rows;
 
     setUp(() {
       dir = Directory.systemTemp.createTempSync('tsdm_844_downloads');
+      parts = Directory.systemTemp.createTempSync('tsdm_844_parts');
       rows = {};
     });
 
     tearDown(() {
-      if (dir.existsSync()) {
-        dir.deleteSync(recursive: true);
+      for (final d in [dir, parts]) {
+        if (d.existsSync()) {
+          d.deleteSync(recursive: true);
+        }
       }
     });
 
@@ -229,6 +236,7 @@ void main() {
           fetcher: fetcher,
           store: AttachmentDownloadStore.memory(rows),
           directory: () async => dir,
+          partDirectory: () async => parts,
           now: now,
           maxRunning: maxRunning,
           progressInterval: Duration.zero,
@@ -255,6 +263,7 @@ void main() {
       expect(done.finishedAt, isNotNull);
       // No part file left.
       expect(dir.listSync().map((e) => e.path.split('/').last), ['测试 歌曲.mp3']);
+      expect(parts.listSync(), isEmpty);
       expect(rowOf(31).single['status'], 'completed');
       expect(rows.containsKey(AttachmentDownloadStore.rowKeyOf(35)), isFalse);
     });
@@ -286,6 +295,7 @@ void main() {
       ]);
       // Nothing saved: no file, no part file.
       expect(dir.listSync(), isEmpty);
+      expect(parts.listSync(), isEmpty);
     });
 
     test('a redirect to the purchase fails with it', () async {
@@ -378,6 +388,7 @@ void main() {
       await manager.cancel(31, item.id);
       await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.cancelled);
       expect(dir.listSync(), isEmpty);
+      expect(parts.listSync(), isEmpty);
       expect(attachmentDownloadActionsOf(manager.find(31, item.id)!).first.kind, AttachmentDownloadActionKind.retry);
 
       fetcher.gate = null;
@@ -414,7 +425,7 @@ void main() {
       final running = await first.start(uid: 31, url: url, filename: 'acc_note.zip');
       await _until(first, () => first.find(31, running.id)?.status == AttachmentDownloadStatus.running);
       expect(rowOf(31).single['status'], 'running');
-      File('${dir.path}/.${running.id}.part').writeAsStringSync('half');
+      File('${parts.path}/${running.id}.part').writeAsStringSync('half');
 
       // The app went away; another account has its own list.
       rows[AttachmentDownloadStore.rowKeyOf(35)] = jsonEncode([
@@ -431,7 +442,7 @@ void main() {
       final mine = await second.load(31);
       expect(mine.single.status, AttachmentDownloadStatus.failed);
       expect(mine.single.message, isNull);
-      expect(File('${dir.path}/.${running.id}.part').existsSync(), isFalse);
+      expect(File('${parts.path}/${running.id}.part').existsSync(), isFalse);
       expect(rowOf(31).single['status'], 'failed');
       expect((await second.load(35)).map((e) => e.filename), ['other.zip']);
       expect(second.itemsOf(31).map((e) => e.filename), ['acc_note.zip']);
@@ -459,14 +470,55 @@ void main() {
         final again = await manager.start(uid: 31, url: later, filename: 'acc_note.zip');
         expect(again.id, item.id);
         expect(fetcher.requests, [first]);
-        // Its file deleted outside the app: downloaded again.
+        // Its file deleted outside the app: downloaded again, in the same entry.
         File(manager.find(31, item.id)!.path!).deleteSync();
         final fresh = await manager.start(uid: 31, url: later, filename: 'acc_note.zip');
-        expect(fresh.id, isNot(item.id));
+        expect(fresh.id, item.id);
         await _until(manager, () => manager.find(31, fresh.id)?.status == AttachmentDownloadStatus.completed);
         expect(fetcher.requests, [first, later]);
       },
     );
+
+    test('two downloads of the same name finishing at once get two files', () async {
+      final a = _urlOf(1);
+      final b = _urlOf(2);
+      final fetcher = _FakeFetcher({
+        a: [_file('first', name: '1.zip')],
+        b: [_file('second', name: '1.zip')],
+      })..gate = Completer<void>();
+      final manager = managerOf(fetcher);
+      final first = await manager.start(uid: 31, url: a, filename: '1.zip');
+      final second = await manager.start(uid: 31, url: b, filename: '1.zip');
+      await _until(manager, () => fetcher.requests.length == 2);
+      fetcher.gate!.complete();
+      await _until(manager, () => manager.itemsOf(31).every((e) => e.status == AttachmentDownloadStatus.completed));
+      final paths = {manager.find(31, first.id)!.path, manager.find(31, second.id)!.path};
+      expect(paths, hasLength(2));
+      expect(paths.map((e) => File(e!).readAsStringSync()).toSet(), {'first', 'second'});
+    });
+
+    test('a saved attachment whose file is gone is downloaded again in the same entry, paid address kept', () async {
+      final url = _urlOf(36);
+      const credit = '$_base/forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4';
+      final paid = '${_urlOf(36)}&ck=c1c2c3c4';
+      final fetcher = _FakeFetcher(
+        {
+          url: [_redirect('forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4')],
+          paid: [_file('zip bytes')],
+        },
+        pages: {credit: _fixture('credit_taken.html')},
+      );
+      final manager = managerOf(fetcher);
+      final item = await manager.start(uid: 31, url: url, filename: 'acc_note.zip');
+      await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.completed);
+      File(manager.find(31, item.id)!.path!).deleteSync();
+      final again = await manager.start(uid: 31, url: url, filename: 'acc_note.zip');
+      expect(again.id, item.id);
+      await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.completed);
+      expect(fetcher.pageRequests, [credit]);
+      expect(manager.itemsOf(31), hasLength(1));
+      expect(File(manager.find(31, item.id)!.path!).existsSync(), isTrue);
+    });
 
     test('removing a download deletes its file', () async {
       final url = _urlOf(36);
@@ -581,6 +633,7 @@ void main() {
         fetcher: fetcher,
         store: AttachmentDownloadStore.memory(rows),
         directory: () async => dir,
+        partDirectory: () async => Directory('${dir.path}/parts'),
         progressInterval: Duration.zero,
       );
       getIt.registerSingleton<AttachmentDownloadManager>(manager);

@@ -34,7 +34,7 @@ final class AttachmentDownloadStore with LoggerMixin {
   /// The settings row of the downloads of account [uid].
   static String rowKeyOf(int uid) => 'attachmentDownloads.$uid';
 
-  /// The most downloads an account keeps: the oldest finished ones go first.
+  /// The most downloads an account keeps; the manager drops the oldest finished ones first, the store keeps the newest.
   static const maxItems = 300;
 
   final Future<String?> Function(String key) _read;

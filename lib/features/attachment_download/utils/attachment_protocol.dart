@@ -14,13 +14,15 @@ library;
 import 'dart:convert';
 
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
-/// Whether [url] is the download address of an attachment (`forum.php?mod=attachment&aid=…`).
+/// Whether [url] is the download address of an attachment of this forum (`forum.php?mod=attachment&aid=…`, relative or
+/// on the forum's host); the attachments of other forums are links as before.
 bool isAttachmentDownloadUrl(String url) {
   final uri = url.trim().tryParseAsUri();
-  if (uri == null || (uri.hasScheme && uri.scheme != 'http' && uri.scheme != 'https')) {
+  if (uri == null || (uri.hasScheme && uri.scheme != 'http' && uri.scheme != 'https') || !uri.isForumOrRelative) {
     return false;
   }
   final query = uri.queryParameters;

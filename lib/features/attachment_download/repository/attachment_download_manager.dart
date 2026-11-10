@@ -41,12 +41,14 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     AttachmentFetcher? fetcher,
     AttachmentDownloadStore? store,
     Future<Directory> Function()? directory,
+    Future<Directory> Function()? partDirectory,
     DateTime Function()? now,
     this.maxRunning = 2,
     this.progressInterval = const Duration(milliseconds: 200),
   }) : _fetcher = fetcher ?? const NetAttachmentFetcher(),
        _store = store ?? AttachmentDownloadStore(),
        _directory = directory ?? attachmentDownloadDirectory,
+       _partDirectory = partDirectory ?? attachmentPartDirectory,
        _now = now ?? DateTime.now;
 
   /// The app's manager, null when none is registered (tests of other features).
@@ -62,12 +64,19 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
   final AttachmentFetcher _fetcher;
   final AttachmentDownloadStore _store;
   final Future<Directory> Function() _directory;
+  final Future<Directory> Function() _partDirectory;
   final DateTime Function() _now;
 
   final _items = <int, List<AttachmentDownload>>{};
   final _loading = <int, Future<List<AttachmentDownload>>>{};
   final _tokens = <String, CancelToken>{};
   var _seq = 0;
+
+  /// How many times each account was forgotten ([forget]): a read started before is not kept.
+  final _generations = <int, int>{};
+
+  /// Paths of files being moved into place: two downloads of the same name finishing at once get two names.
+  final _reserved = <String>{};
 
   /// The downloads of account [uid], the newest first; empty until [load]ed.
   List<AttachmentDownload> itemsOf(int uid) => List.unmodifiable(_items[uid] ?? const <AttachmentDownload>[]);
@@ -80,8 +89,13 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     if (_items[uid] case final items?) {
       return items;
     }
+    final generation = _generations[uid] ?? 0;
     return _loading[uid] ??= () async {
       final read = await _store.load(uid);
+      if (generation != (_generations[uid] ?? 0)) {
+        // Forgotten while read.
+        return const <AttachmentDownload>[];
+      }
       final interrupted = read.where((e) => e.status.active).toList();
       final items = [
         for (final e in read) e.status.active ? e.copyWith(status: AttachmentDownloadStatus.failed, received: 0) : e,
@@ -103,8 +117,8 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
 
   /// Download the attachment at [url] for account [uid]. The same attachment (by its id, the address changes with each
   /// page) running or saved already (its file still there) is not downloaded again: that download is returned. One
-  /// that failed or was cancelled starts again from [url], keeping the paid address ([AttachmentDownload.resolvedUrl])
-  /// so the credits of the download are not taken twice.
+  /// that failed, was cancelled or whose file is gone starts again from [url], keeping the paid address
+  /// ([AttachmentDownload.resolvedUrl]) so the credits of the download are not taken twice.
   ///
   /// [filename] and [size] are what the post shows of it; [tid] and [threadTitle] the thread it is in.
   Future<AttachmentDownload> start({
@@ -125,7 +139,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     if (items.where((e) => same(e) && kept(e)).firstOrNull case final existing?) {
       return existing;
     }
-    final stopped = items.where((e) => same(e) && e.status != AttachmentDownloadStatus.completed).firstOrNull;
+    final stopped = items.where(same).firstOrNull;
     if (stopped != null) {
       final again = stopped.copyWith(
         url: url,
@@ -134,13 +148,14 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         clearTotal: true,
         clearMessage: true,
         clearFinishedAt: true,
+        clearPath: true,
       );
       items
         ..removeWhere((e) => e.id == stopped.id)
         ..insert(0, again);
       await _save(uid);
       notifyListeners();
-      _pump(uid);
+      _pump();
       return again;
     }
     final now = _now();
@@ -155,9 +170,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       threadTitle: threadTitle,
     );
     items.insert(0, item);
+    _trim(uid);
     await _save(uid);
     notifyListeners();
-    _pump(uid);
+    _pump();
     return item;
   }
 
@@ -195,7 +211,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     );
     await _save(uid);
     notifyListeners();
-    _pump(uid);
+    _pump();
   }
 
   /// Remove the download [id] of account [uid] from the list; its file too with [deleteFile].
@@ -224,6 +240,8 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
 
   /// Account [uid] was removed from this device: its downloads stop and are forgotten (the files stay).
   void forget(int uid) {
+    _generations[uid] = (_generations[uid] ?? 0) + 1;
+    unawaited(_loading.remove(uid));
     for (final e in _items.remove(uid) ?? const <AttachmentDownload>[]) {
       _tokens.remove(e.id)?.cancel('forgotten');
     }
@@ -244,31 +262,44 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
 
   Future<void> _save(int uid) => _store.save(uid, _items[uid] ?? const []);
 
-  void _pump(int uid) {
+  /// Keep at most [AttachmentDownloadStore.maxItems] downloads of account [uid]: the oldest finished ones leave the list
+  /// (their files stay where they were saved).
+  void _trim(int uid) {
     final items = _items[uid];
     if (items == null) {
       return;
     }
-    var running = _tokens.length;
-    // The oldest asked first.
-    for (final item in items.reversed.toList()) {
-      if (running >= maxRunning) {
-        break;
-      }
-      if (item.status == AttachmentDownloadStatus.queued && !_tokens.containsKey(item.id)) {
-        running++;
-        final token = CancelToken();
-        _tokens[item.id] = token;
-        unawaited(_run(item, token));
+    for (var i = items.length - 1; i >= 0 && items.length > AttachmentDownloadStore.maxItems; i--) {
+      if (!items[i].status.active) {
+        items.removeAt(i);
       }
     }
   }
 
-  String _partPath(Directory dir, AttachmentDownload item) => p.join(dir.path, '.${item.id}.part');
+  /// Start the queued downloads of every account while fewer than [maxRunning] run, the oldest asked first.
+  void _pump() {
+    var running = _tokens.length;
+    final queued = [
+      for (final items in _items.values)
+        ...items.where((e) => e.status == AttachmentDownloadStatus.queued && !_tokens.containsKey(e.id)),
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final item in queued) {
+      if (running >= maxRunning) {
+        break;
+      }
+      running++;
+      final token = CancelToken();
+      _tokens[item.id] = token;
+      unawaited(_run(item, token));
+    }
+  }
+
+  // The part files live apart from the downloads folder (shown as they are on Windows), in the app's temporary folder.
+  String _partPath(Directory dir, AttachmentDownload item) => p.join(dir.path, '${item.id}.part');
 
   Future<void> _deletePart(AttachmentDownload item) async {
     try {
-      final part = File(_partPath(await _directory(), item));
+      final part = File(_partPath(await _partDirectory(), item));
       if (part.existsSync()) {
         await part.delete();
       }
@@ -285,17 +316,28 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     notifyListeners();
     File? part;
     try {
-      final dir = await _directory();
-      await dir.create(recursive: true);
-      part = File(_partPath(dir, item));
+      final partDir = await _partDirectory();
+      await partDir.create(recursive: true);
+      part = File(_partPath(partDir, item));
       item = await _fetch(item, part, token);
       if (find(uid, item.id) == null) {
         // Removed meanwhile: nothing is kept.
         item = item.copyWith(status: AttachmentDownloadStatus.cancelled);
       }
       if (item.status == AttachmentDownloadStatus.completed) {
-        final target = uniqueFileIn(dir, safeDownloadFileName(item.filename, fallback: 'attachment-${item.id}'));
-        await part.rename(target.path);
+        final dir = await _directory();
+        await dir.create(recursive: true);
+        final target = uniqueFileIn(
+          dir,
+          safeDownloadFileName(item.filename, fallback: 'attachment-${item.id}'),
+          taken: _reserved,
+        );
+        _reserved.add(target.path);
+        try {
+          await _move(part, target);
+        } finally {
+          _reserved.remove(target.path);
+        }
         item = item.copyWith(path: target.path, filename: p.basename(target.path));
       }
     } on DioException catch (e) {
@@ -328,7 +370,17 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       await _save(uid);
       notifyListeners();
     }
-    _pump(uid);
+    _pump();
+  }
+
+  /// Move [part] to [target]: a rename, a copy when they are on different volumes.
+  static Future<void> _move(File part, File target) async {
+    try {
+      await part.rename(target.path);
+    } on FileSystemException {
+      await part.copy(target.path);
+      await part.delete();
+    }
   }
 
   /// Fetch [start] into [part], following the forum: redirects, the page taking the credits, a message page.
@@ -374,7 +426,8 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
           return item.copyWith(status: AttachmentDownloadStatus.failed, purchaseUrl: next);
         }
         if (isAttachCreditUrl(next)) {
-          // Loading the page takes the credits; it links to the download for an hour.
+          // Loading the page takes the credits; it links to the download for an hour. Not cancelled halfway on
+          // purpose: once asked for, the credits are taken, and its link is kept for a retry.
           final page = await _fetcher.fetchPage(next, uid: item.uid);
           final said = forumAnswerOf(page, base: Uri.parse(next));
           final link = said?.link;
