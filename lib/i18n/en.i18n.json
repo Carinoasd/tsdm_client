@@ -1615,7 +1615,6 @@
     "reason": "Reason: $reason",
     "collect": "Collect",
     "collectTitle": "Add to collections",
-    "collectedIn": "In collections",
     "reasonField": "Reason",
     "newCollection": "New collection",
     "collectSubmit": "Add",

@@ -1615,7 +1615,6 @@
     "reason": "淘帖理由：$reason",
     "collect": "淘帖",
     "collectTitle": "收录到淘专辑",
-    "collectedIn": "已收录于",
     "reasonField": "淘帖理由",
     "newCollection": "新建淘专辑",
     "collectSubmit": "收录",

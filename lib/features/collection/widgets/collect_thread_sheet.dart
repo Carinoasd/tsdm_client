@@ -13,7 +13,6 @@ import 'package:tsdm_client/features/collection/widgets/collection_tiles.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
-import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Put thread [tid] in collections of the account, as the forum's "淘帖" window does: the collections holding it
@@ -49,7 +48,6 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
   bool _sending = false;
   CollectThreadForm? _form;
   String? _refusal;
-  List<CollectionSummary> _related = const [];
 
   @override
   void initState() {
@@ -67,18 +65,14 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
 
   Future<void> _load({int? pick}) async {
     setState(() => _loading = true);
-    final (form, related) = await (
-      widget.repository.fetchCollectForm(widget.tid),
-      widget.repository.fetchRelated(widget.tid).run(),
-    ).wait;
+    // The forum's "related collections" page answers every collection for a thread that is in none, with nothing to tell
+    // the two apart, so the window does not list what holds the thread.
+    final form = await widget.repository.fetchCollectForm(widget.tid);
     if (!mounted) {
       return;
     }
     setState(() {
       _loading = false;
-      if (related case Right(:final value)) {
-        _related = value.items;
-      }
       switch (form) {
         case Right(:final value):
           _form = value;
@@ -171,18 +165,6 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
       shrinkWrap: true,
       padding: edgeInsetsL16R16B12.add(MediaQuery.viewInsetsOf(context)),
       children: [
-        if (_related.isNotEmpty) ...[
-          AppSectionHeader(tr.collectedIn, icon: Icons.collections_bookmark_outlined),
-          for (final c in _related)
-            ListTile(
-              key: ValueKey('collect-related-${c.ctid}'),
-              contentPadding: EdgeInsets.zero,
-              title: Text(c.name),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async => openCollection(context, c.ctid),
-            ),
-          sizedBoxW8H8,
-        ],
         if (_refusal case final refusal?)
           Padding(
             padding: edgeInsetsT4B4,
