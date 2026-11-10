@@ -1,0 +1,103 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 56,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "comment",
+ "float": 1,
+ "ajax": 1,
+ "tid": 9199043,
+ "pid": 3031,
+ "submit": {
+  "url": "forum.php?mod=post&action=reply&comment=yes&tid=9199043&pid=3031&extra=&page=1&commentsubmit=yes&infloat=yes",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "handlekey": "comment",
+   "commentsubmit": "true"
+  }
+ },
+ "message": {
+  "name": "message",
+  "type": "textarea",
+  "value": "",
+  "max": 200,
+  "unit": "dstrlen",
+  "cut": 1
+ },
+ "items": [
+  {
+   "name": "commentitem[画质]",
+   "type": "hidden",
+   "value": "",
+   "label": "画质",
+   "choices": [
+    {
+     "value": "0",
+     "label": "差"
+    },
+    {
+     "value": "1",
+     "label": "一般"
+    },
+    {
+     "value": "2",
+     "label": "还行"
+    },
+    {
+     "value": "3",
+     "label": "好"
+    },
+    {
+     "value": "4",
+     "label": "很好"
+    },
+    {
+     "value": "5",
+     "label": "非常好"
+    }
+   ],
+   "abstain": "放弃此观点"
+  },
+  {
+   "name": "commentitem[剧情]",
+   "type": "hidden",
+   "value": "",
+   "label": "剧情",
+   "choices": [
+    {
+     "value": "0",
+     "label": "差"
+    },
+    {
+     "value": "1",
+     "label": "一般"
+    },
+    {
+     "value": "2",
+     "label": "还行"
+    },
+    {
+     "value": "3",
+     "label": "好"
+    },
+    {
+     "value": "4",
+     "label": "很好"
+    },
+    {
+     "value": "5",
+     "label": "非常好"
+    }
+   ],
+   "abstain": "放弃此观点"
+  }
+ ],
+ "seccheck": null,
+ "hook_fields": [],
+ "unsupported": []
+}

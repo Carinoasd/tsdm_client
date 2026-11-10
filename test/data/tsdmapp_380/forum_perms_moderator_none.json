@@ -1,0 +1,282 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 34,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "forum",
+ "schema": 2,
+ "timeoffset": 8,
+ "forum": {
+  "fid": 25,
+  "name": "周邊交易區",
+  "description": "",
+  "rules": "",
+  "fup": 24,
+  "type": "forum",
+  "threads": 48,
+  "posts": 187,
+  "todayposts": 7,
+  "moderators": [
+   "ag_area"
+  ],
+  "picstyle": 0,
+  "view": "list",
+  "ismoderator": 1,
+  "allow_post": 1,
+  "allow_poll": 1
+ },
+ "perms": {
+  "ismoderator": 1,
+  "allow_delthread": 0,
+  "allow_move": 0,
+  "allow_type": 0,
+  "allow_stick": 0,
+  "stick_max": 0,
+  "allow_digest": 0,
+  "digest_max": 0,
+  "allow_highlight": 0,
+  "allow_recommend": 0,
+  "allow_bump": 0,
+  "allow_close": 0
+ },
+ "query": {
+  "filter": "",
+  "typeid": 0,
+  "sortid": 0,
+  "orderby": "lastpost",
+  "ascdesc": "DESC",
+  "specialtype": "",
+  "dateline": 0,
+  "digest": 0,
+  "recommend": 0,
+  "archiveid": 0
+ },
+ "hiddenexists": 0,
+ "page": 1,
+ "pages": 3,
+ "tpp": 20,
+ "count": 48,
+ "types": {
+  "prefix": 0,
+  "listable": 0,
+  "required": 0,
+  "items": []
+ },
+ "sorts": {
+  "default": 0,
+  "items": [
+   {
+    "id": 1,
+    "name": "BU分類855956"
+   }
+  ]
+ },
+ "filters": {
+  "specialtype": [
+   {
+    "value": "poll",
+    "name": "投票"
+   },
+   {
+    "value": "trade",
+    "name": "商品"
+   },
+   {
+    "value": "reward",
+    "name": "悬赏"
+   },
+   {
+    "value": "activity",
+    "name": "活动"
+   },
+   {
+    "value": "debate",
+    "name": "辩论"
+   }
+  ],
+  "orderby": [
+   {
+    "value": "dateline",
+    "name": "发帖时间"
+   },
+   {
+    "value": "replies",
+    "name": "回复/查看"
+   },
+   {
+    "value": "views",
+    "name": "查看"
+   },
+   {
+    "value": "lastpost",
+    "name": "最后发表"
+   },
+   {
+    "value": "heats",
+    "name": "热门"
+   }
+  ],
+  "dateline": [
+   {
+    "value": 86400,
+    "name": "一天"
+   },
+   {
+    "value": 172800,
+    "name": "两天"
+   },
+   {
+    "value": 604800,
+    "name": "一周"
+   },
+   {
+    "value": 2592000,
+    "name": "一个月"
+   },
+   {
+    "value": 7948800,
+    "name": "三个月"
+   }
+  ]
+ },
+ "subforums": [],
+ "threads": [
+  {
+   "tid": 9199039,
+   "fid": 25,
+   "subject": "BU 驗收 B 的分區置頂主題（1789153112776）",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1789153333,
+   "lastpost": 1789153333,
+   "lastposter": "ag_low2",
+   "lastposterid": 35,
+   "views": 10,
+   "replies": 0,
+   "comments": 0,
+   "displayorder": 2,
+   "digest": 0,
+   "special": 0,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 0,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 0,
+   "weeknew": 0,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  },
+  {
+   "tid": 9199070,
+   "fid": 25,
+   "subject": "BU lists B 的新置頂主題（STK2-855956）",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1789168173,
+   "lastpost": 1789190176,
+   "lastposter": "ag_mid",
+   "lastposterid": 33,
+   "views": 3,
+   "replies": 1,
+   "comments": 0,
+   "displayorder": 1,
+   "digest": 0,
+   "special": 0,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 1,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 0,
+   "weeknew": 0,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  },
+  {
+   "tid": 9199038,
+   "fid": 25,
+   "subject": "BU 驗收 B 的本版置頂主題（1789153112776）",
+   "author": "ag_low2",
+   "authorid": 35,
+   "anonymous": 0,
+   "authorcolor": "",
+   "dateline": 1789153316,
+   "lastpost": 1789153316,
+   "lastposter": "ag_low2",
+   "lastposterid": 35,
+   "views": 43,
+   "replies": 0,
+   "comments": 0,
+   "displayorder": 1,
+   "digest": 0,
+   "special": 0,
+   "price": 0,
+   "readperm": 0,
+   "replycredit": 0,
+   "closed": 0,
+   "moved": 0,
+   "grouptid": 0,
+   "typeid": 0,
+   "typename": "",
+   "sortid": 0,
+   "sortname": "",
+   "attachment": 0,
+   "rate": 0,
+   "recommends": 0,
+   "heats": 0,
+   "heatlevel": 0,
+   "recommendicon": 0,
+   "new": 0,
+   "weeknew": 0,
+   "istoday": 0,
+   "hidden": 0,
+   "icon": "",
+   "style": null,
+   "pages": 1,
+   "cover": "",
+   "rushreply": 0,
+   "isgroup": 0
+  }
+ ]
+}

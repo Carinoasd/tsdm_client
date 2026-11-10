@@ -162,6 +162,7 @@ class PostEditPage extends StatefulWidget {
     this.transfer,
     this.mentionSuggestions,
     this.sharedImages,
+    this.canDeleteAttachments,
     super.key,
   });
 
@@ -182,6 +183,10 @@ class PostEditPage extends StatefulWidget {
 
   /// The authors of the thread a floor is edited from, suggested for a typed `@`; null when not opened from a thread.
   final List<MentionSuggestion>? mentionSuggestions;
+
+  /// Whether deleting the attachments of the edited floor is offered, as the page of the floor told
+  /// (`editedFloorAttachmentDeletion`); null when it did not tell: offered, the forum decides.
+  final bool? canDeleteAttachments;
 
   /// Reason to enter [PostEditPage].
   ///
@@ -1609,6 +1614,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             pid: pid,
             formHash: formHash,
             formUid: form.uid,
+            canDelete: widget.canDeleteAttachments ?? true,
             // The answer may come once the editor is gone: nothing to tell then.
             onDeleted: (aid) {
               if (!bloc.isClosed) bloc.add(PostEditAttachmentDeleted(aid));

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/utils/forum_page_parser.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/parsing.dart';
@@ -56,6 +57,9 @@ Map<String, dynamic>? forumApiAnswerOf(Object? data) {
 /// * `forum.allow_poll` with the answer's `uid` is the poll offer (a guest, `uid` 0, is never offered one).
 /// * `forum.allow_post` is whether the account may post a thread; unknown for a guest (`uid` 0), who needs an account
 ///   first, and for an answer without the field.
+/// * `perms` (plugin 3.8.0, beside `forum`) is what the account may do with several threads of the forum at once
+///   ([ThreadPerms], [ForumPageData.perms] with the answer's `uid`); an answer without it (an older plugin) and a
+///   guest's tell nothing, and the management of the picked threads offers what it offered before.
 ForumPageData forumPageFromApi(Map<String, dynamic> json, String fid) {
   if (json['ok'] != 1) {
     final needLogin = json['login'] == 1;
@@ -130,6 +134,7 @@ ForumPageData forumPageFromApi(Map<String, dynamic> json, String fid) {
   ];
 
   final uid = _int(json['uid']);
+  final perms = uid > 0 ? ThreadPerms.fromApi(json['perms']) : null;
 
   return ForumPageData(
     title: _text(forum['name']),
@@ -149,6 +154,8 @@ ForumPageData forumPageFromApi(Map<String, dynamic> json, String fid) {
     filterDatelineList: filterDatelineList,
     pollOfferUid: _int(forum['allow_poll']) == 1 && uid > 0 ? uid : null,
     postAllowed: uid > 0 && forum.containsKey('allow_post') ? _int(forum['allow_post']) == 1 : null,
+    perms: perms,
+    permsUid: perms == null ? null : uid,
   );
 }
 

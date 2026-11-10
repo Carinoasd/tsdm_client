@@ -5,6 +5,7 @@ import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/forum/utils/forum_page_parser.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -113,6 +114,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
       canLoadMore: false,
       totalPages: math.min(page.totalPages ?? state.currentPage, state.currentPage),
       pollOfferUid: page.pollOfferUid,
+      perms: page.perms,
+      permsUid: page.permsUid,
     );
   }
 
@@ -264,6 +267,8 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
       filterDatelineList: page.filterDatelineList,
       // Always the latest page's own offer: never carried over from an earlier page or account.
       pollOfferUid: page.pollOfferUid,
+      perms: page.perms,
+      permsUid: page.permsUid,
     );
 
     if (page.stickThreadList.isNotEmpty) {

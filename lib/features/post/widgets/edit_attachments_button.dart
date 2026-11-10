@@ -10,6 +10,7 @@ import 'package:tsdm_client/utils/show_toast.dart';
 
 /// The attachments of the edited post (the website's attachment list of the edit page): a button with their count,
 /// opening the list, where each one is deleted (the post's author, a moderator of the forum: the forum decides).
+/// Where the page of the floor told that the account may not delete them ([canDelete] false), they are only listed.
 ///
 /// The forum deletes an attachment right away, whether the edit is saved or not: each deletion is confirmed and sent
 /// once; [onDeleted] is called with the attachment once the forum deleted it.
@@ -22,6 +23,7 @@ class EditAttachmentsButton extends StatelessWidget {
     required this.formHash,
     required this.formUid,
     required this.onDeleted,
+    this.canDelete = true,
     this.repository,
     super.key,
   });
@@ -43,6 +45,10 @@ class EditAttachmentsButton extends StatelessWidget {
 
   /// Called with the attachment the forum deleted.
   final void Function(int aid) onDeleted;
+
+  /// Whether deleting is offered (`editedFloorAttachmentDeletion`: no for the floor of another member the account
+  /// may not delete attachments of).
+  final bool canDelete;
 
   /// Where the deletion goes; the network by default.
   final FloorOpsRepository? repository;
@@ -66,6 +72,7 @@ class EditAttachmentsButton extends StatelessWidget {
           formHash: formHash,
           formUid: formUid,
           onDeleted: onDeleted,
+          canDelete: canDelete,
           repository: repository ?? FloorOpsRepository.network(),
         ),
       ),
@@ -81,6 +88,7 @@ class _AttachmentList extends StatefulWidget {
     required this.formHash,
     required this.formUid,
     required this.onDeleted,
+    required this.canDelete,
     required this.repository,
   });
 
@@ -90,6 +98,7 @@ class _AttachmentList extends StatefulWidget {
   final String formHash;
   final int formUid;
   final void Function(int aid) onDeleted;
+  final bool canDelete;
   final FloorOpsRepository repository;
 
   @override
@@ -167,7 +176,9 @@ class _AttachmentListState extends State<_AttachmentList> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: _deleting == attachment.aid
+                trailing: !widget.canDelete
+                    ? null
+                    : _deleting == attachment.aid
                     ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
                     : IconButton(
                         icon: Icon(Icons.delete_outline, color: colorScheme.error),

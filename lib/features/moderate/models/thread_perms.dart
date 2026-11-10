@@ -11,12 +11,18 @@ import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 ///
 /// An answer without `perms` (an older plugin, the web page) has none of this ([fromApi] gives null): the app then
 /// offers what it offered before, to an account the forum page says moderates the forum.
+///
+/// The forum page answer carries `perms` of the same shape since plugin 3.8.0, for the management of several threads
+/// picked in its list: only the flags the web page's layer of the picked threads has (delete, move, type, stick,
+/// digest, highlight, recommend, bump, close, with `stick_max` and `digest_max`), none of them set on an archived
+/// page. A flag an answer does not carry reads as not allowed (the two added by plugin 3.8.0 apart, which older
+/// thread page answers lack: [allowRemoveRate], [allowDeleteAttachments]).
 @immutable
 final class ThreadPerms {
   /// Constructor.
   const ThreadPerms(this._flags);
 
-  /// The permissions in `perms` of a thread page answer; null when the answer has none.
+  /// The permissions in `perms` of a thread page answer, or of a forum page answer; null when the answer has none.
   static ThreadPerms? fromApi(Object? perms) {
     if (perms is! Map<String, dynamic>) {
       return null;
@@ -43,6 +49,19 @@ final class ThreadPerms {
 
   /// The account may ban members from posting (`allow_banuser`: the user group's permission, whatever the forum).
   bool get allowBanUser => _allows('allow_banuser');
+
+  /// The account may take rates of the thread's floors back: `allow_removerate` where the answer tells (plugin
+  /// 3.8.0: a moderator of the forum whose user group has a rate range, as the forum checks when the window is sent),
+  /// a moderator of the forum where it does not (before: as the web page, whose link asks for the moderator only).
+  bool get allowRemoveRate => _told('allow_removerate') ?? isModerator;
+
+  /// The account may delete the attachments of floors that are not its own (`allow_delattach`, plugin 3.8.0: the
+  /// moderators of the forum, whatever their user group; an author deleting the attachments of the own floor is not
+  /// this flag's business); null when the answer does not tell (before plugin 3.8.0: the forum decides when asked).
+  bool? get allowDeleteAttachments => _told('allow_delattach');
+
+  /// Flag [key] where the answer carries it, null where it does not.
+  bool? _told(String key) => _flags.containsKey(key) ? _allows(key) : null;
 
   /// Whether the web page's management menu of the thread has [operation].
   bool allowsThread(ModerateOperation operation) => _allows(switch (operation) {
@@ -102,40 +121,4 @@ final class ThreadPerms {
 
   @override
   String toString() => 'ThreadPerms(${_flags.entries.where((e) => e.value != 0).map((e) => e.key).join(', ')})';
-}
-
-/// What the accounts of this run may manage in the forums whose threads they opened, by account and forum, as the last
-/// thread page of that forum told ([ThreadPerms]): the forum page answer carries no permissions, the management of
-/// several threads of a forum page reads them here.
-///
-/// Only what a thread page told a moderator of its forum about a thread that is not a draft is kept (the forum offers
-/// no management of a draft), and only for [keptFor]: a forum no thread was opened of, or not lately, has none, and
-/// the forum page offers what it offered before.
-abstract final class ForumPermsMemory {
-  /// How long what a thread page told is kept.
-  static const keptFor = Duration(minutes: 10);
-
-  static final _known = <(int, int), (ThreadPerms, DateTime)>{};
-
-  /// Keep [perms] of a thread page of forum [fid] served to account [uid]. A [draft]'s tell nothing of the forum and
-  /// are not kept; a page that does not say the account moderates the forum forgets what was known instead.
-  static void note({required int uid, required int fid, required ThreadPerms perms, bool draft = false}) {
-    if (uid <= 0 || fid <= 0 || draft) {
-      return;
-    }
-    if (!perms.isModerator) {
-      _known.remove((uid, fid));
-      return;
-    }
-    _known[(uid, fid)] = (perms, DateTime.now());
-  }
-
-  /// What account [uid] may manage in forum [fid], null when no thread page told it lately.
-  static ThreadPerms? of({required int uid, required int fid}) => switch (_known[(uid, fid)]) {
-    (final perms, final at) when DateTime.now().difference(at) < keptFor => perms,
-    _ => null,
-  };
-
-  /// Forget everything (tests).
-  static void clear() => _known.clear();
 }

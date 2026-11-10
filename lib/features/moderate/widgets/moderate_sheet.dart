@@ -143,9 +143,10 @@ Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOpe
 /// an operation, fill in the forum's window of it once, send it for every thread; the threads not done are listed
 /// with why. Null when nothing was sent.
 ///
-/// With [perms] (what a thread page of the forum told the account lately, `ForumPermsMemory`) only the operations the
-/// forum's own management menu has are offered (none of them is said so, nothing picked); without, every one, as the
-/// forum's window decides.
+/// With [perms] (what the forum's page told the account, plugin 3.8.0 of the forum's app API: `ForumState.perms`)
+/// only the operations the web page's layer of the picked threads has are offered (none of them is said so, nothing
+/// picked), and a stick or a digest no higher than the account may set; without (an older plugin, the web page),
+/// every one, as the forum's window decides.
 Future<ModerateBatchReport?> showBatchModerateSheet(
   BuildContext context, {
   required List<(String, String)> threads,

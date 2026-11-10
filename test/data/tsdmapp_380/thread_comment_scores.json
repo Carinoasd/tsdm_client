@@ -1,0 +1,867 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 56,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "thread",
+ "schema": 23,
+ "codes": {
+  "allowsmilies": 1,
+  "allowbbcode": 1,
+  "allowimgcode": 1,
+  "allowhtml": 0,
+  "allowmediacode": 0,
+  "jammer": 0,
+  "maxsmilies": 10,
+  "imgwhitelist": {
+   "enabled": 0,
+   "domains": []
+  }
+ },
+ "smilies_version": "1071fed373e93cf2a184c2ef81938b99",
+ "timeoffset": 8,
+ "thread": {
+  "tid": 9199043,
+  "fid": 25,
+  "subject": "BU thread區 B 的主題（1789158946626）",
+  "authorid": 35,
+  "author": "ag_low2",
+  "anonymous": 0,
+  "dateline": 1789158948,
+  "views": 100,
+  "replies": 7,
+  "allreplies": 16,
+  "readperm": 0,
+  "price": 0,
+  "special": 0,
+  "closed": 0,
+  "digest": 0,
+  "displayorder": 0,
+  "typeid": 0,
+  "typename": "",
+  "sortid": 0,
+  "sortname": "",
+  "moved": 0,
+  "soft_closed": 0,
+  "draft": 0,
+  "pay": null,
+  "modact": ""
+ },
+ "forum": {
+  "fid": 25,
+  "name": "周邊交易區"
+ },
+ "nav": [
+  {
+   "fid": 24,
+   "name": "BU 黑名單驗收分區",
+   "type": "group"
+  },
+  {
+   "fid": 25,
+   "name": "周邊交易區",
+   "type": "forum"
+  }
+ ],
+ "page": 1,
+ "pages": 1,
+ "ppp": 10,
+ "ordertype": 0,
+ "authorid": 0,
+ "reply": {
+  "allowed": 1,
+  "fastpost": 1,
+  "fastpost_allowed": 1,
+  "posttime": "1700000000",
+  "subject": "",
+  "action": "forum.php?mod=post&action=reply&fid=25&tid=9199043&extra=&replysubmit=yes&infloat=yes&handlekey=fastpost",
+  "seccheck": null
+ },
+ "menus_html": [],
+ "perms": {
+  "ismoderator": 0,
+  "allow_comment": 1,
+  "allow_warn": 0,
+  "allow_banpost": 0,
+  "allow_delpost": 0,
+  "allow_stickreply": 0,
+  "allow_banuser": 0,
+  "allow_delcomment": 0,
+  "allow_delthread": 0,
+  "allow_bump": 0,
+  "allow_stick": 0,
+  "stick_max": 0,
+  "allow_live": 0,
+  "allow_highlight": 0,
+  "allow_digest": 0,
+  "digest_max": 0,
+  "allow_recommend": 0,
+  "allow_stamp": 0,
+  "allow_stamplist": 0,
+  "allow_close": 0,
+  "allow_move": 0,
+  "allow_type": 0,
+  "allow_copy": 0,
+  "allow_merge": 0,
+  "allow_refund": 0,
+  "allow_split": 0,
+  "allow_repair": 0,
+  "allow_removereward": 0,
+  "allow_removerate": 0,
+  "allow_delattach": 0
+ },
+ "recommend": {
+  "enabled": 1,
+  "shown": 1,
+  "add": {
+   "label": "支持",
+   "count": 0
+  },
+  "subtract": {
+   "label": "踩踩",
+   "count": 0
+  },
+  "recommend_add": 0,
+  "recommend_sub": 0,
+  "recommends": 0,
+  "step": 1,
+  "daycount": 0,
+  "ownthread": 0,
+  "can": 1,
+  "why": "",
+  "urls": {
+   "add": "forum.php?mod=misc&action=recommend&tid=9199043&hash=f1f2f3f4&do=add",
+   "subtract": "forum.php?mod=misc&action=recommend&tid=9199043&hash=f1f2f3f4&do=subtract"
+  }
+ },
+ "posts": [
+  {
+   "pid": 3024,
+   "position": 1,
+   "deleted": 0,
+   "first": 1,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789158948,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=viewthread&tid=9199043",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 0,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&reppost=3024&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3024&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3024",
+    "report": "misc.php?mod=report&rtype=post&rid=3024&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3024&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": null,
+   "author_html": "",
+   "body_html": "\r\n \r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\">\r\n<tr>\r\n<td class=\"t_f\" id=\"postmessage_3024\">\r\nBU thread區 TB 一樓內文 B（1789158946626）<br />\r\nBU thread區 ag_admin 加標籤（1789158946626）</td>\r\n</tr>\r\n</table>\r\n<div class=\"ptg mbm mtn\">\r\n<a title=\"BUrel946626\" href=\"misc.php?mod=tag&amp;id=1\" target=\"_blank\">BUrel946626</a></div>\r\n\r\n</div>\r\n<div id=\"comment_3024\" class=\"cm\">\r\n</div>\r\n\r\n<div id=\"post_rate_div_3024\"></div>\r\n",
+   "message": "BU thread區 TB 一樓內文 B（1789158946626）\r\nBU thread區 ag_admin 加標籤（1789158946626）",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3025,
+   "position": 2,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789158965,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3025",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3025&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3025&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3025",
+    "report": "misc.php?mod=report&rtype=post&rid=3025&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3025&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": {
+    "count": 1,
+    "columns": [
+     "天使币"
+    ],
+    "totals": [
+     1
+    ],
+    "records": [
+     {
+      "uid": 32,
+      "username": "ag_admin",
+      "avatar": "https://forum.test/data/avatar/noavatar.svg",
+      "values": [
+       1
+      ],
+      "reason": "BU區重載61416716"
+     }
+    ]
+   },
+   "author_html": "",
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_3025\">\r\nBU thread區 TB 回覆一 B（1789158946626）</td></tr></table>\r\n\r\n</div>\r\n<div id=\"comment_3025\" class=\"cm\">\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>点评</h3>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=31\" c=\"1\"><img src=\"https://s2.loli.net/2025/12/29/ZWymE4TdwxguLVK.gif\" class=\"user_avatar\" referrerpolicy=\"no-referrer\" loading=\"lazy\" decoding=\"async\" data-rndavt=\"./data/avatar/noavatar.svg\" data-rndavt-def=\"./data/avatar/noavatar.svg\" onerror=\"var e=this,s=e.getAttribute(&#039;data-rndavt&#039;),d=e.getAttribute(&#039;data-rndavt-def&#039;),c=e.getAttribute(&#039;src&#039;);if(s&amp;&amp;c!==s&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,s)}else if(d&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,d)}else{e.onerror=null}\" style=\"object-fit:cover;\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=31\" class=\"xi2 xw1\">ag_low</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 A 點評 R1（1789158946626-61768295）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:22</span>\r\n</div>\r\n</div>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=31\" c=\"1\"><img src=\"https://s2.loli.net/2025/12/29/ZWymE4TdwxguLVK.gif\" class=\"user_avatar\" referrerpolicy=\"no-referrer\" loading=\"lazy\" decoding=\"async\" data-rndavt=\"./data/avatar/noavatar.svg\" data-rndavt-def=\"./data/avatar/noavatar.svg\" onerror=\"var e=this,s=e.getAttribute(&#039;data-rndavt&#039;),d=e.getAttribute(&#039;data-rndavt-def&#039;),c=e.getAttribute(&#039;src&#039;);if(s&amp;&amp;c!==s&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,s)}else if(d&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,d)}else{e.onerror=null}\" style=\"object-fit:cover;\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=31\" class=\"xi2 xw1\">ag_low</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 A 點評 R1（1789158946626-61416716）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:17</span>\r\n</div>\r\n</div>\r\n</div>\r\n\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>评分</h3>\r\n<dl id=\"ratelog_3025\" class=\"rate\">\r\n<dd style=\"margin:0\">\r\n<div id=\"post_rate_3025\"></div>\r\n<table class=\"ratl\">\r\n<tr>\r\n<th class=\"xw1\" width=\"120\"><a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3025\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\"> 参与人数 <span class=\"xi1\">1</span></a></th><th class=\"xw1\" width=\"80\">天使币 <i><span class=\"xi1\">+1</span></i></th>\r\n<th>\r\n<a href=\"javascript:;\" onclick=\"toggleRatelogCollapse('ratelog_3025', this);\" class=\"y xi2 op\">收起</a>\r\n<i class=\"txt_h\">理由</i>\r\n</th>\r\n</tr>\r\n<tbody class=\"ratl_l\"><tr id=\"rate_3025_32\">\r\n<td>\r\n<a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a> <a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\">ag_admin</a>\r\n</td><td class=\"xi1\"> + 1</td>\r\n<td class=\"xg1\">BU區重載61416716</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p class=\"ratc\">\r\n<a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3025\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\" class=\"xi2\">查看全部评分</a>\r\n</p>\r\n</dd>\r\n</dl>\r\n",
+   "message": "BU thread區 TB 回覆一 B（1789158946626）",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [
+    {
+     "id": 9,
+     "authorid": 31,
+     "author": "ag_low",
+     "avatar": "https://img.ts-dm.net/images/2024/11/22/2.gif",
+     "dateline": 1789161779,
+     "comment": "BU thread區 A 點評 R1（1789158946626-61768295）",
+     "comment_html": "BU thread區 A 點評 R1（1789158946626-61768295）",
+     "rpid": 0,
+     "can_delete": 0
+    },
+    {
+     "id": 8,
+     "authorid": 31,
+     "author": "ag_low",
+     "avatar": "https://img.ts-dm.net/images/2024/11/22/2.gif",
+     "dateline": 1789161428,
+     "comment": "BU thread區 A 點評 R1（1789158946626-61416716）",
+     "comment_html": "BU thread區 A 點評 R1（1789158946626-61416716）",
+     "rpid": 0,
+     "can_delete": 0
+    }
+   ],
+   "comment_count": 2,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3026,
+   "position": 3,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789158982,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3026",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3026&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3026&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3026",
+    "report": "misc.php?mod=report&rtype=post&rid=3026&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3026&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": null,
+   "author_html": "",
+   "body_html": "\r\n<div class=\"locked\">提示: <em>该帖被管理员或版主屏蔽</em></div>\r\n",
+   "message": null,
+   "message_reason": "banned",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3027,
+   "position": 4,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789158999,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3027",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3027&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3027&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3027",
+    "report": "misc.php?mod=report&rtype=post&rid=3027&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3027&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": {
+    "count": 1,
+    "columns": [
+     "天使币"
+    ],
+    "totals": [
+     1
+    ],
+    "records": [
+     {
+      "uid": 32,
+      "username": "ag_admin",
+      "avatar": "https://forum.test/data/avatar/noavatar.svg",
+      "values": [
+       1
+      ],
+      "reason": "BU區重載二61768295"
+     }
+    ]
+   },
+   "author_html": "",
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_3027\">\r\n水。。。。。。。。。。</td></tr></table>\r\n\r\n</div>\r\n<div id=\"comment_3027\" class=\"cm\">\r\n</div>\r\n\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>评分</h3>\r\n<dl id=\"ratelog_3027\" class=\"rate\">\r\n<dd style=\"margin:0\">\r\n<div id=\"post_rate_3027\"></div>\r\n<table class=\"ratl\">\r\n<tr>\r\n<th class=\"xw1\" width=\"120\"><a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3027\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\"> 参与人数 <span class=\"xi1\">1</span></a></th><th class=\"xw1\" width=\"80\">天使币 <i><span class=\"xi1\">+1</span></i></th>\r\n<th>\r\n<a href=\"javascript:;\" onclick=\"toggleRatelogCollapse('ratelog_3027', this);\" class=\"y xi2 op\">收起</a>\r\n<i class=\"txt_h\">理由</i>\r\n</th>\r\n</tr>\r\n<tbody class=\"ratl_l\"><tr id=\"rate_3027_32\">\r\n<td>\r\n<a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a> <a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\">ag_admin</a>\r\n</td><td class=\"xi1\"> + 1</td>\r\n<td class=\"xg1\">BU區重載二61768295</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p class=\"ratc\">\r\n<a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3027\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\" class=\"xi2\">查看全部评分</a>\r\n</p>\r\n</dd>\r\n</dl>\r\n",
+   "message": "水。。。。。。。。。。",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3028,
+   "position": 5,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789159016,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3028",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": {
+    "username": "ag_low2",
+    "time": "2026-9-12 05:22"
+   },
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3028&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3028&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3028",
+    "report": "misc.php?mod=report&rtype=post&rid=3028&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3028&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": {
+    "count": 1,
+    "columns": [
+     "天使币"
+    ],
+    "totals": [
+     1
+    ],
+    "records": [
+     {
+      "uid": 32,
+      "username": "ag_admin",
+      "avatar": "https://forum.test/data/avatar/noavatar.svg",
+      "values": [
+       1
+      ],
+      "reason": "BU區重載61768295"
+     }
+    ]
+   },
+   "author_html": "",
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_3028\">\r\n<i class=\"pstatus\"> 本帖最后由 ag_low2 于 2026-9-12 05:22 编辑 </i><br />\n<br />\nBU thread區 TB 回覆五 B 待審用（1789158946626）<br />\r\nBU thread區 P5 編輯後待審（1789158946626）<br />\r\nBU thread區 P5 編輯後待審（1789158946626-61714498）</td></tr></table>\r\n\r\n</div>\r\n<div id=\"comment_3028\" class=\"cm\">\r\n</div>\r\n\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>评分</h3>\r\n<dl id=\"ratelog_3028\" class=\"rate\">\r\n<dd style=\"margin:0\">\r\n<div id=\"post_rate_3028\"></div>\r\n<table class=\"ratl\">\r\n<tr>\r\n<th class=\"xw1\" width=\"120\"><a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3028\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\"> 参与人数 <span class=\"xi1\">1</span></a></th><th class=\"xw1\" width=\"80\">天使币 <i><span class=\"xi1\">+1</span></i></th>\r\n<th>\r\n<a href=\"javascript:;\" onclick=\"toggleRatelogCollapse('ratelog_3028', this);\" class=\"y xi2 op\">收起</a>\r\n<i class=\"txt_h\">理由</i>\r\n</th>\r\n</tr>\r\n<tbody class=\"ratl_l\"><tr id=\"rate_3028_32\">\r\n<td>\r\n<a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a> <a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\">ag_admin</a>\r\n</td><td class=\"xi1\"> + 1</td>\r\n<td class=\"xg1\">BU區重載61768295</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p class=\"ratc\">\r\n<a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3028\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\" class=\"xi2\">查看全部评分</a>\r\n</p>\r\n</dd>\r\n</dl>\r\n",
+   "message": "[i=s] 本帖最后由 ag_low2 于 2026-9-12 05:22 编辑 [/i]\n\nBU thread區 TB 回覆五 B 待審用（1789158946626）\r\nBU thread區 P5 編輯後待審（1789158946626）\r\nBU thread區 P5 編輯後待審（1789158946626-61714498）",
+   "message_reason": "",
+   "bbcodeoff": 0,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3029,
+   "position": 6,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789159034,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3029",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3029&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3029&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3029",
+    "report": "misc.php?mod=report&rtype=post&rid=3029&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3029&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": {
+    "count": 1,
+    "columns": [
+     "天使币"
+    ],
+    "totals": [
+     1
+    ],
+    "records": [
+     {
+      "uid": 32,
+      "username": "ag_admin",
+      "avatar": "https://forum.test/data/avatar/noavatar.svg",
+      "values": [
+       1
+      ],
+      "reason": "BU區重載二61416716"
+     }
+    ]
+   },
+   "author_html": "",
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_3029\">\r\nBU thread區 TB 附件回覆 B（1789158946626）</td></tr></table>\r\n<div class=\"pattl\">\r\n\r\n\r\n<ignore_js_op>\r\n\r\n<dl class=\"tattl attm\">\r\n<dt></dt>\r\n<dd>\r\n\r\n<p class=\"mbn\">\r\n<a href=\"forum.php?mod=attachment&amp;aid=MXw2OWExYTBkY3wxNzk0Mjk0NzgzfDU2fDkxOTkwNDM%3D&amp;nothumb=yes\" onmouseover=\"showMenu({'ctrlid':this.id,'pos':'12'})\" id=\"aid1\" class=\"xw1\" target=\"_blank\">bu_thread_attach.png</a>\r\n<em class=\"xg1\">(1003 Bytes, 下载次数: 0)</em>\r\n</p>\r\n<div class=\"tip tip_4\" id=\"aid1_menu\" style=\"display: none\" disautofocus=\"true\">\r\n<div>\r\n<p>\r\n<a href=\"forum.php?mod=attachment&amp;aid=MXw2OWExYTBkY3wxNzk0Mjk0NzgzfDU2fDkxOTkwNDM%3D&amp;nothumb=yes\" target=\"_blank\">下载附件</a>\r\n\r\n&nbsp;<a href=\"javascript:;\" onclick=\"showWindow(this.id, this.getAttribute('url'), 'get', 0);\" id=\"savephoto_1\" url=\"home.php?mod=spacecp&amp;ac=album&amp;op=saveforumphoto&amp;aid=1&amp;handlekey=savephoto_1\">保存到相册</a>\r\n\r\n</p>\r\n<p>\r\n<span class=\"y\">2026-9-12 04:37 上传</span>\r\n<a href=\"javascript:;\" onclick=\"imageRotate('aimg_1', 1)\"><i class=\"fico-refresh fic6 fc-v fifx fnmr vm\"></i></a>\r\n<a href=\"javascript:;\" onclick=\"imageRotate('aimg_1', 2)\"><i class=\"fico-refresh fic6 fc-v fnmr vm\"></i></a>\r\n</p>\r\n</div>\r\n<div class=\"tip_horn\"></div>\r\n</div>\r\n<p class=\"mbn\">\r\n\r\n</p>\r\n\r\n\r\n\r\n<div class=\"mbn savephotop\">\r\n\r\n<img id=\"aimg_1\" aid=\"1\" src=\"static/image/common/none.gif\" zoomfile=\"data/attachment/forum/202609/12/043714mb1dtb1nn1oo2bp4.png\" file=\"data/attachment/forum/202609/12/043714mb1dtb1nn1oo2bp4.png\" class=\"zoom\" onclick=\"zoom(this, this.src, 0, 0, 0)\" width=\"24\" alt=\"bu_thread_attach.png\" title=\"bu_thread_attach.png\" w=\"24\" />\r\n\r\n</div>\r\n\r\n</dd>\r\n</dl>\r\n\r\n</ignore_js_op>\r\n\r\n</div>\r\n\r\n</div>\r\n<div id=\"comment_3029\" class=\"cm\">\r\n</div>\r\n\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>评分</h3>\r\n<dl id=\"ratelog_3029\" class=\"rate\">\r\n<dd style=\"margin:0\">\r\n<div id=\"post_rate_3029\"></div>\r\n<table class=\"ratl\">\r\n<tr>\r\n<th class=\"xw1\" width=\"120\"><a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3029\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\"> 参与人数 <span class=\"xi1\">1</span></a></th><th class=\"xw1\" width=\"80\">天使币 <i><span class=\"xi1\">+1</span></i></th>\r\n<th>\r\n<a href=\"javascript:;\" onclick=\"toggleRatelogCollapse('ratelog_3029', this);\" class=\"y xi2 op\">收起</a>\r\n<i class=\"txt_h\">理由</i>\r\n</th>\r\n</tr>\r\n<tbody class=\"ratl_l\"><tr id=\"rate_3029_32\">\r\n<td>\r\n<a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a> <a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\">ag_admin</a>\r\n</td><td class=\"xi1\"> + 1</td>\r\n<td class=\"xg1\">BU區重載二61416716</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p class=\"ratc\">\r\n<a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3029\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\" class=\"xi2\">查看全部评分</a>\r\n</p>\r\n</dd>\r\n</dl>\r\n",
+   "message": "BU thread區 TB 附件回覆 B（1789158946626）",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [
+    {
+     "aid": 1,
+     "filename": "bu_thread_attach.png",
+     "description": "",
+     "isimage": 1,
+     "url": "https://forum.test/data/attachment/forum/202609/12/043714mb1dtb1nn1oo2bp4.png",
+     "thumb": "",
+     "download": "https://forum.test/forum.php?mod=attachment&aid=MXw2OWExYTBkY3wxNzk0Mjk0NzgzfDU2fDkxOTkwNDM%3D",
+     "width": 24,
+     "height": 24,
+     "filesize": 1003,
+     "price": 0,
+     "readperm": 0,
+     "downloads": 0,
+     "locked": 0,
+     "inpost": 0,
+     "dateline": 1789159034
+    }
+   ],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3030,
+   "position": 7,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 35,
+   "author": "ag_low2",
+   "anonymous": 0,
+   "dateline": 1789159052,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3030",
+   "group": {
+    "gid": 23,
+    "title": "AG低權組",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3030&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3030&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3030",
+    "report": "misc.php?mod=report&rtype=post&rid=3030&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3030&extra=&page=1"
+   },
+   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": null,
+   "author_html": "",
+   "body_html": "\r\n<div class=\"locked\">本帖为密码帖 ，请输入密码<input type=\"text\" id=\"postpw_3030\" class=\"vm\" />&nbsp;<button class=\"pn vm\" type=\"button\" onclick=\"submitpostpw(3030)\"><strong>提交</strong></button></div>\r\n",
+   "message": null,
+   "message_reason": "password",
+   "bbcodeoff": 0,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  },
+  {
+   "pid": 3031,
+   "position": 8,
+   "deleted": 0,
+   "first": 0,
+   "authorid": 33,
+   "author": "ag_mid",
+   "anonymous": 0,
+   "dateline": 1789159053,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/noavatar.svg",
+   "share_url": "forum.php?mod=redirect&goto=findpost&ptid=9199043&pid=3031",
+   "group": {
+    "gid": 2,
+    "title": "超级版主",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 0,
+    "rate": 0,
+    "report": 1,
+    "comment": 1,
+    "warn": 0
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=25&tid=9199043&repquote=3031&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=25&tid=9199043&pid=3031&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9199043&pid=3031",
+    "report": "misc.php?mod=report&rtype=post&rid=3031&tid=9199043&fid=25",
+    "comment": "forum.php?mod=misc&action=comment&tid=9199043&pid=3031&extra=&page=1"
+   },
+   "signature_html": "",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": {
+    "count": 1,
+    "columns": [
+     "天使币"
+    ],
+    "totals": [
+     1
+    ],
+    "records": [
+     {
+      "uid": 32,
+      "username": "ag_admin",
+      "avatar": "https://forum.test/data/avatar/noavatar.svg",
+      "values": [
+       1
+      ],
+      "reason": "BU區對照評分"
+     }
+    ]
+   },
+   "author_html": "",
+   "body_html": "\r\n<div class=\"t_fsz\"><table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_3031\">\r\nBU thread區 TB C 的回覆（1789158946626）</td></tr></table>\r\n\r\n</div>\r\n<div id=\"comment_3031\" class=\"cm\">\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>点评</h3>\r\n<div class=\"pstl\">画质: <i class=\"cmstarv\">4.0</i><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-s fnmr\"></span> 剧情: <i class=\"cmstarv\">5.0</i><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><span class=\"fico-star fc-l fnmr\"></span><br /> </div><div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=56\" c=\"1\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=56\" class=\"xi2 xw1\">ag_t20</a>\r\n</div>\r\n<div class=\"psti\">\r\n画质: <i>4</i> 剧情: <i>5</i> <br />評分項樣本 tsdmapp380-1794294770&nbsp;\r\n<span class=\"xg1\">\r\n发表于 <span title=\"2026-11-10 15:13\">刚刚</span></span>\r\n</div>\r\n</div>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=32\" c=\"1\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=32\" class=\"xi2 xw1\">ag_admin</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 ag_admin 點評 C1（1789158946626）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:09</span>\r\n</div>\r\n</div>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=34\" c=\"1\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=34\" class=\"xi2 xw1\">ag_area</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 ag_area 點評 C1（1789158946626）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:09</span>\r\n</div>\r\n</div>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=39\" c=\"1\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=39\" class=\"xi2 xw1\">ag_t03</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 ag_t03 點評 C1（1789158946626）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:09</span>\r\n</div>\r\n</div>\r\n<div class=\"pstl xs1 cl\">\r\n<div class=\"psta vm\">\r\n<a href=\"home.php?mod=space&amp;uid=38\" c=\"1\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a>\r\n<a href=\"home.php?mod=space&amp;uid=38\" class=\"xi2 xw1\">ag_t02</a>\r\n</div>\r\n<div class=\"psti\">\r\nBU thread區 ag_t02 點評 C1（1789158946626）&nbsp;\r\n<span class=\"xg1\">\r\n发表于 2026-9-12 05:09</span>\r\n</div>\r\n</div>\r\n<div class=\"pgs mbm mtn cl\"><div class=\"pg\"><a href=\"javascript:;\" class=\"nxt\" onclick=\"ajaxget('forum.php?mod=misc&action=commentmore&tid=9199043&pid=3031&page=2', 'comment_3031')\">下一页</a></div></div></div>\r\n\r\n<h3 class=\"psth xs1\"><span class=\"icon_ring vm\"></span>评分</h3>\r\n<dl id=\"ratelog_3031\" class=\"rate\">\r\n<dd style=\"margin:0\">\r\n<div id=\"post_rate_3031\"></div>\r\n<table class=\"ratl\">\r\n<tr>\r\n<th class=\"xw1\" width=\"120\"><a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3031\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\"> 参与人数 <span class=\"xi1\">1</span></a></th><th class=\"xw1\" width=\"80\">天使币 <i><span class=\"xi1\">+1</span></i></th>\r\n<th>\r\n<a href=\"javascript:;\" onclick=\"toggleRatelogCollapse('ratelog_3031', this);\" class=\"y xi2 op\">收起</a>\r\n<i class=\"txt_h\">理由</i>\r\n</th>\r\n</tr>\r\n<tbody class=\"ratl_l\"><tr id=\"rate_3031_32\">\r\n<td>\r\n<a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a> <a href=\"home.php?mod=space&amp;uid=32\" target=\"_blank\">ag_admin</a>\r\n</td><td class=\"xi1\"> + 1</td>\r\n<td class=\"xg1\">BU區對照評分</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p class=\"ratc\">\r\n<a href=\"forum.php?mod=misc&amp;action=viewratings&amp;tid=9199043&amp;pid=3031\" onclick=\"showWindow('viewratings', this.href)\" title=\"查看全部评分\" class=\"xi2\">查看全部评分</a>\r\n</p>\r\n</dd>\r\n</dl>\r\n",
+   "message": "BU thread區 TB C 的回覆（1789158946626）",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [
+    {
+     "id": 28,
+     "authorid": 56,
+     "author": "ag_t20",
+     "avatar": "https://forum.test/data/avatar/noavatar.svg",
+     "dateline": 1794294783,
+     "comment": "画质: 4 剧情: 5\n評分項樣本 tsdmapp380-1794294770",
+     "comment_html": "画质: <i>4</i> 剧情: <i>5</i> <br />評分項樣本 tsdmapp380-1794294770",
+     "rpid": 0,
+     "can_delete": 0
+    },
+    {
+     "id": 7,
+     "authorid": 32,
+     "author": "ag_admin",
+     "avatar": "https://forum.test/data/avatar/noavatar.svg",
+     "dateline": 1789160958,
+     "comment": "BU thread區 ag_admin 點評 C1（1789158946626）",
+     "comment_html": "BU thread區 ag_admin 點評 C1（1789158946626）",
+     "rpid": 0,
+     "can_delete": 0
+    },
+    {
+     "id": 6,
+     "authorid": 34,
+     "author": "ag_area",
+     "avatar": "https://forum.test/data/avatar/noavatar.svg",
+     "dateline": 1789160957,
+     "comment": "BU thread區 ag_area 點評 C1（1789158946626）",
+     "comment_html": "BU thread區 ag_area 點評 C1（1789158946626）",
+     "rpid": 0,
+     "can_delete": 0
+    },
+    {
+     "id": 5,
+     "authorid": 39,
+     "author": "ag_t03",
+     "avatar": "https://forum.test/data/avatar/noavatar.svg",
+     "dateline": 1789160955,
+     "comment": "BU thread區 ag_t03 點評 C1（1789158946626）",
+     "comment_html": "BU thread區 ag_t03 點評 C1（1789158946626）",
+     "rpid": 0,
+     "can_delete": 0
+    },
+    {
+     "id": 4,
+     "authorid": 38,
+     "author": "ag_t02",
+     "avatar": "https://forum.test/data/avatar/noavatar.svg",
+     "dateline": 1789160954,
+     "comment": "BU thread區 ag_t02 點評 C1（1789158946626）",
+     "comment_html": "BU thread區 ag_t02 點評 C1（1789158946626）",
+     "rpid": 0,
+     "can_delete": 0
+    }
+   ],
+   "comment_count": 7,
+   "comment_more": 1,
+   "comment_scores": [
+    {
+     "name": "画质",
+     "score": 4
+    },
+    {
+     "name": "剧情",
+     "score": 5
+    }
+   ],
+   "stick": 0
+  }
+ ],
+ "special": null
+}

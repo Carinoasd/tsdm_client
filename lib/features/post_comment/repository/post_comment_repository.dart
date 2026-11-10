@@ -238,9 +238,9 @@ final class PostCommentRepository with LoggerMixin {
 
   /// Page [page] (2 and up) of the comments of floor [pid] of thread [tid]; null when it could not be read.
   ///
-  /// Plugin 3.7.0 answers it as fields ([postCommentPageFromApi]), its times printed with [timeOffset] (the offset of
-  /// the floor's page, `Post.timeOffset`: the answer names none); an older plugin's answer and the forum's fragment
-  /// are parsed as before.
+  /// Plugin 3.7.0 answers it as fields ([postCommentPageFromApi]), its times printed with the answer's own
+  /// `timeoffset` (plugin 3.8.0), or with [timeOffset] where it names none (the offset of the floor's page,
+  /// `Post.timeOffset`); an older plugin's answer and the forum's fragment are parsed as before.
   Future<PostCommentPage?> fetchMore({
     required String tid,
     required String pid,
