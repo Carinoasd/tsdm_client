@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -69,6 +70,12 @@ class _MePageState extends State<MePage> {
         unawaited(_scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut));
       }
     });
+    spaceModulesOff.addListener(_onSpaceModulesChanged);
+  }
+
+  /// A module of the space was found switched off: its entry goes.
+  void _onSpaceModulesChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -90,6 +97,7 @@ class _MePageState extends State<MePage> {
 
   @override
   void dispose() {
+    spaceModulesOff.removeListener(_onSpaceModulesChanged);
     unawaited(_scrollToTopSub.cancel());
     unawaited(_homePageSub?.cancel());
     _scrollController.dispose();
@@ -202,9 +210,10 @@ class _MePageState extends State<MePage> {
     ];
   }
 
-  /// The other users: messages, friends and visitors.
+  /// The other users: messages, friends and visitors, the broadcasts of the members followed and the records.
   List<_MeEntry> _socialEntries(BuildContext context) {
     final tr = context.t.mePage.entries;
+    final off = spaceModulesOff.value;
     return [
       // The private messages are a tab of the notifications.
       (
@@ -228,6 +237,21 @@ class _MePageState extends State<MePage> {
         label: tr.visitors,
         onTap: () => _open(ScreenPaths.friend, query: {'view': 'visitor'}),
       ),
+      // Offered until the forum says their module is switched off.
+      if (!off.contains(SpaceModule.broadcast))
+        (
+          key: const ValueKey('me-follow-feed'),
+          icon: Icons.dynamic_feed_outlined,
+          label: tr.followFeed,
+          onTap: () => _open(ScreenPaths.followFeed),
+        ),
+      if (!off.contains(SpaceModule.doing))
+        (
+          key: const ValueKey('me-doings'),
+          icon: Icons.edit_note_outlined,
+          label: tr.doings,
+          onTap: () => _open(ScreenPaths.doing),
+        ),
     ];
   }
 

@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "您输入的转播理由超过140个字",
+  "message_key": "follow_input_word_limit",
+  "url": "",
+  "handlekey": "qrelay_708",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

@@ -277,7 +277,9 @@
       "checkinCalendar": "簽到日曆",
       "ratingStats": "評分統計",
       "visitors": "最近訪客",
-      "siteStats": "站點統計"
+      "siteStats": "站點統計",
+      "followFeed": "動態",
+      "doings": "記錄"
     }
   },
   "home": {
@@ -4176,6 +4178,54 @@
       "ignored": "已忽略",
       "sent": "已送出",
       "loadFailed": "無法開啟招呼"
+    },
+    "follow": {
+      "action": "關注",
+      "feed": "動態",
+      "broadcasts": "廣播",
+      "following": "關注",
+      "followers": "粉絲",
+      "members": "關注與粉絲",
+      "hall": "廣場",
+      "emptyFeed": "還沒有動態",
+      "emptyFollowing": "還沒有關注任何人",
+      "emptyFollowers": "還沒有粉絲",
+      "follow": "關注",
+      "unfollow": "取消關注",
+      "followed": "已關注",
+      "unfollowed": "已取消關注",
+      "mutual": "互相關注",
+      "followsYou": "關注了你",
+      "remark": "備註",
+      "remarkSaved": "備註已儲存",
+      "loadFailed": "無法讀取關注狀態",
+      "counts": "粉絲 ${followers: int} · 關注 ${following: int}",
+      "relay": "轉播",
+      "relayNote": "轉播理由",
+      "relayReply": "同時回覆主題",
+      "relayed": "已轉播",
+      "deleteFeed": "刪除廣播",
+      "deleted": "已刪除"
+    },
+    "doing": {
+      "title": "記錄",
+      "all": "全站",
+      "follow": "關注",
+      "friends": "好友",
+      "mine": "我的",
+      "empty": "還沒有記錄",
+      "post": "發布記錄",
+      "message": "內容",
+      "posted": "已發布",
+      "reply": "回覆",
+      "replyTo": "回覆 $name",
+      "replies": "回覆",
+      "noReplies": "還沒有回覆",
+      "replied": "已回覆",
+      "moreReplies": "更多回覆",
+      "deleteDoing": "刪除記錄",
+      "deleteReply": "刪除回覆",
+      "deleted": "已刪除"
     }
   },
   "postComment": {

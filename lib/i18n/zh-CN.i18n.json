@@ -277,7 +277,9 @@
       "checkinCalendar": "签到日历",
       "ratingStats": "评分统计",
       "visitors": "最近访客",
-      "siteStats": "站点统计"
+      "siteStats": "站点统计",
+      "followFeed": "动态",
+      "doings": "记录"
     }
   },
   "home": {
@@ -4176,6 +4178,54 @@
       "ignored": "已忽略",
       "sent": "已发送",
       "loadFailed": "无法打开招呼"
+    },
+    "follow": {
+      "action": "关注",
+      "feed": "动态",
+      "broadcasts": "广播",
+      "following": "关注",
+      "followers": "粉丝",
+      "members": "关注与粉丝",
+      "hall": "广场",
+      "emptyFeed": "还没有动态",
+      "emptyFollowing": "还没有关注任何人",
+      "emptyFollowers": "还没有粉丝",
+      "follow": "关注",
+      "unfollow": "取消关注",
+      "followed": "已关注",
+      "unfollowed": "已取消关注",
+      "mutual": "互相关注",
+      "followsYou": "关注了你",
+      "remark": "备注",
+      "remarkSaved": "备注已保存",
+      "loadFailed": "无法读取关注状态",
+      "counts": "粉丝 ${followers: int} · 关注 ${following: int}",
+      "relay": "转播",
+      "relayNote": "转播理由",
+      "relayReply": "同时回复主题",
+      "relayed": "已转播",
+      "deleteFeed": "删除广播",
+      "deleted": "已删除"
+    },
+    "doing": {
+      "title": "记录",
+      "all": "全站",
+      "follow": "关注",
+      "friends": "好友",
+      "mine": "我的",
+      "empty": "还没有记录",
+      "post": "发布记录",
+      "message": "内容",
+      "posted": "已发布",
+      "reply": "回复",
+      "replyTo": "回复 $name",
+      "replies": "回复",
+      "noReplies": "还没有回复",
+      "replied": "已回复",
+      "moreReplies": "更多回复",
+      "deleteDoing": "删除记录",
+      "deleteReply": "删除回复",
+      "deleted": "已删除"
     }
   },
   "postComment": {

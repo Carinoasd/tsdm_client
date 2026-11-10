@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<div class="doing_form" id="abc12345_form_3_0"></div>
+<!-- 普通评论 -->
+ <div id="comment_1_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=31" c="1"><img src="./data/avatar/000/00/00/31_avatar_small.jpg" class="user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=31" c="1" class="author_name">测试会员甲</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:47</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+剧场版好看吗？&lt;i&gt;x&lt;/i&gt;</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 1, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+<a href="home.php?mod=spacecp&amp;ac=doing&amp;op=delete&amp;doid=3&amp;docid=1&amp;handlekey=doinghk_3_1" id="abc12345_doing_delete_3_1" onclick="showWindow(this.id, this.href, 'get', 0);" class="icon_box"><i class="fico-delete"></i><span>删除</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_1"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_4_li" class="doing_list cl cl dtll " style="padding-left:4em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=37" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=37" c="1" class="author_name">测试会员01</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:02</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+楼中回复 1</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 4, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_4"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_5_li" class="doing_list cl cl dtll " style="padding-left:4em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=38" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=38" c="1" class="author_name">测试会员02</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:03</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+楼中回复 2</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 5, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_5"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_6_li" class="doing_list cl cl dtll " style="padding-left:4em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=39" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=39" c="1" class="author_name">测试会员03</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:04</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+楼中回复 3</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 6, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_6"></div>
+</div>
+</div>
+</div>
+<!-- 展开/折叠按钮 -->
+<div id="comment_toggle_1_li" class="doing_comment_list cl dtll toggle-comment" style="padding-left:2em;">
+<div class="ptm" style="margin-left: 10px;">
+<div>
+<p>
+<a href="javascript:;" class="toggle-comment-btn" onclick="toggle_child_comments(1);" data-root-id="1">
+<span class="toggle-icon">+</span> 查看更多(4)
+</a>
+</p>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_7_li" class="doing_list cl cl dtll hidden-comment  hidden-comment " style="padding-left:2em; display: none;"  data-root-id="1"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=40" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=40" c="1" class="author_name">测试会员04</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:05</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+楼中回复 4</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 7, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_7"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_8_li" class="doing_list cl cl dtll hidden-comment  hidden-comment " style="padding-left:2em; display: none;"  data-root-id="1"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=41" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=41" c="1" class="author_name">测试会员05</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:06</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+楼中回复 5</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 8, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_8"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_2_li" class="doing_list cl cl dtll hidden-comment  hidden-comment " style="padding-left:2em; display: none;"  data-root-id="1"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=35" c="1"><img data-src="./data/avatar/000/00/00/35_avatar_small.jpg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=35" c="1" class="author_name">测试会员乙</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:47</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+很好看，推荐去看</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 2, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_2"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_20_li" class="doing_list cl cl dtll hidden-comment  hidden-comment " style="padding-left:2em; display: none;"  data-root-id="1"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=35" c="1"><img data-src="./data/avatar/000/00/00/35_avatar_small.jpg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=35" c="1" class="author_name">测试会员乙</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:52</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+<span class="">回复 <a href="home.php?mod=space&amp;uid=37" c="1" class="author_name">测试会员01</a>: </span>
+回复楼中楼的一则</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 20, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_20"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_19_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=55" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=55" c="1" class="author_name">测试会员19</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:29</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 11</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 19, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_19"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_18_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=54" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=54" c="1" class="author_name">测试会员18</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:28</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 10</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 18, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_18"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_17_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=53" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=53" c="1" class="author_name">测试会员17</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:27</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 9</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 17, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_17"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_16_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=52" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=52" c="1" class="author_name">测试会员16</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:26</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 8</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 16, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_16"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_15_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=51" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=51" c="1" class="author_name">测试会员15</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:25</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 7</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 15, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_15"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_14_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=50" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=50" c="1" class="author_name">测试会员14</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:24</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 6</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 14, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_14"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_13_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=49" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=49" c="1" class="author_name">测试会员13</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:23</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 5</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 13, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_13"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_12_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=48" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=48" c="1" class="author_name">测试会员12</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:22</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 4</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 12, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_12"></div>
+</div>
+</div>
+</div>
+<!-- 普通评论 -->
+ <div id="comment_11_li" class="doing_list cl cl " style="padding-left:0em;"  >
+<div class="doing_list_item">
+<div class="doing_avatar">
+<a href="home.php?mod=space&amp;uid=47" c="1"><img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar"></a>
+</div>
+<div class="item_right">
+<div class="item_author_box">
+<a href="home.php?mod=space&amp;uid=47" c="1" class="author_name">测试会员11</a>
+</div>
+<div class="item_info_date">
+<span >2026-11-10 13:21</span>
+<span >来自 </span>
+</div>
+<div class="item_content">
+<div class="item_content_box mbm">
+路过留个言 3</div>
+</div>
+<div class="item_info">
+<div class="item_info_interactions">
+<div class="interactions_left">
+<a href="javascript:;" onclick="docomment_form(3, 11, 'abc12345');" class="icon_box"><i class="fico-comment"></i><span>回复</span></a>
+</div>
+</div>
+</div>
+<div class="doingreply_form" id="abc12345_form_3_11"></div>
+</div>
+</div>
+</div>
+<div class="pgs cl mtm"><div class="pg"><strong>1</strong><a href="javascript:;" onclick="docomment_get_page(3, 'abc12345', 2);" data-page="2">2</a><label><input type="text" name="custompage" class="px" size="2" title="输入页码，按回车快速跳转" value="1" onkeydown="if(event.keyCode==13) {window.location='home.php?mod=spacecp&ac=doing&op=getcomment&doid=3&key=abc12345&page_c={page}&amp;'.replace('{page}', this.value == 1 ? '' : this.value); doane(event);}" /><span title="共 2 页"> / 2 页</span></label><a href="javascript:;" onclick="docomment_get_page(3, 'abc12345', 2);" data-page="2">下一页</a></div></div>
+]]></root>

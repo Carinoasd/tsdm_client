@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
+import 'package:tsdm_client/features/follow/widgets/follow_widgets.dart';
 import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -112,6 +113,9 @@ enum _ProfileActions {
 enum _MemberActions {
   /// Greet them (`home.php?mod=spacecp&ac=poke&op=send&uid=N`).
   poke,
+
+  /// Follow them, no longer follow them, note a name for them (`home.php?mod=spacecp&ac=follow&op=add|del|bkname`).
+  follow,
 }
 
 /// Page of user profile.
@@ -421,11 +425,14 @@ class _ProfilePageState extends State<ProfilePage> {
               final memberActions = [
                 // The forum greets no one oneself (`not_to_their_own_greeted`).
                 if (!off.contains(SpaceModule.poke) && !_isOwnProfile(context, '$memberUid')) _MemberActions.poke,
+                // Nor follows oneself (`follow_not_follow_self`).
+                if (!off.contains(SpaceModule.follow) && !_isOwnProfile(context, '$memberUid')) _MemberActions.follow,
               ];
               if (memberActions.isEmpty) return sizedBoxEmpty;
               return PopupMenuButton<_MemberActions>(
                 onSelected: (action) async => switch (action) {
                   _MemberActions.poke => showPokeDialog(context, uid: memberUid, username: userProfile.username),
+                  _MemberActions.follow => showFollowDialog(context, uid: memberUid, username: userProfile.username),
                 },
                 itemBuilder: (context) => [
                   for (final action in memberActions)
@@ -435,10 +442,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         children: [
                           Icon(switch (action) {
                             _MemberActions.poke => Icons.waving_hand_outlined,
+                            _MemberActions.follow => Icons.person_add_alt_outlined,
                           }),
                           sizedBoxPopupMenuItemIconSpacing,
                           Text(switch (action) {
                             _MemberActions.poke => context.t.spacePage.poke.send,
+                            _MemberActions.follow => context.t.spacePage.follow.action,
                           }),
                         ],
                       ),
@@ -916,6 +925,23 @@ class _ProfilePageState extends State<ProfilePage> {
                   ScreenPaths.space,
                   {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
                 ),
+              // The broadcasts, the records, and the members followed with the followers.
+              for (final (module, icon, title, path) in [
+                (
+                  SpaceModule.broadcast,
+                  Icons.dynamic_feed_outlined,
+                  context.t.spacePage.follow.broadcasts,
+                  ScreenPaths.followFeed,
+                ),
+                (SpaceModule.doing, Icons.edit_note_outlined, context.t.spacePage.doing.title, ScreenPaths.doing),
+                (
+                  SpaceModule.follow,
+                  Icons.people_outline,
+                  context.t.spacePage.follow.members,
+                  ScreenPaths.followMembers,
+                ),
+              ])
+                if (!off.contains(module)) (icon, title, path, {'uid': '$spaceUid', 'username': ?userProfile.username}),
             ];
             return AppSurface(
               padding: EdgeInsets.zero,

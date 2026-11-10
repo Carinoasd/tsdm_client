@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "您已经关注了TA",
+  "message_key": "follow_followed_ta",
+  "url": "",
+  "handlekey": "followmod",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

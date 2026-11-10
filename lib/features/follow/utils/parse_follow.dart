@@ -1,0 +1,320 @@
+import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/follow/models/follow_models.dart';
+import 'package:tsdm_client/features/space/models/space_models.dart';
+import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:universal_html/html.dart' as uh;
+import 'package:universal_html/parsing.dart';
+
+final _uidRe = RegExp(r'[?&;]uid=(\d+)');
+final _tidRe = RegExp(r'[?&;]tid=(\d+)');
+final _digitsRe = RegExp(r'\d+');
+final _countRe = RegExp(r'\((\d+)\)');
+final _relayRe = RegExp(r'quickrelay\(\s*\d+\s*,\s*(\d+)');
+final _feedInfoRe = RegExp(r'feedInfo\s*=\s*\{[^}]*archiver:\s*(\d+)\s*,\s*primary:\s*(\d+)');
+
+int? _intOf(RegExp re, String? s) => s == null ? null : int.tryParse(re.firstMatch(s)?.group(1) ?? '');
+
+String? _textOf(uh.Element? e) {
+  final s = e?.text?.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return s == null || s.isEmpty ? null : s;
+}
+
+String? _avatarOf(uh.Element? img) {
+  final url = img?.attributes['src'] ?? img?.attributes['data-src'];
+  return url == null || url.isEmpty ? null : spaceAbsoluteUrl(url);
+}
+
+/// The first page of the broadcasts: of the member [uid] (`home.php?mod=follow&uid=N&do=view`), else the [view] of
+/// the account in use (`home.php?mod=follow&view=follow|other`).
+String followFeedUrl({FollowFeedView view = FollowFeedView.follow, int? uid}) => uid != null && uid > 0
+    ? '$baseUrl/home.php?mod=follow&uid=$uid&do=view'
+    : '$baseUrl/home.php?mod=follow&view=${view == FollowFeedView.hall ? 'other' : 'follow'}';
+
+/// The first page of the members [uid] follows, or of their [followers]; of the account in use without [uid].
+String followListUrl({required bool followers, int? uid}) =>
+    '$baseUrl/home.php?mod=follow&do=${followers ? 'follower' : 'following'}${uid != null && uid > 0 ? '&uid=$uid' : ''}';
+
+/// Whether [url] is a further page of broadcasts ([followMoreFeedUrl]), answered as a fragment.
+bool isFollowMoreFeedUrl(String url) => url.contains('op=getfeed');
+
+String _moreFeedUrl(String scope, {required bool archive, required int page}) =>
+    '$baseUrl/home.php?mod=spacecp&ac=follow&op=getfeed&archiver=${archive ? 1 : 0}&page=$page&inajax=1&$scope';
+
+/// The page [page] of the broadcasts after the first page [firstPageUrl] ([followFeedUrl]), the way the website loads
+/// more of them: `home.php?mod=spacecp&ac=follow&op=getfeed&archiver=A&page=P&inajax=1` with `viewtype` of the
+/// account's own lists or `uid` of a member; [archive] asks the broadcasts the forum filed away (older than its
+/// `followretainday`), which follow the recent ones and count their pages from one again.
+String followMoreFeedUrl(String firstPageUrl, {required bool archive, required int page}) {
+  final query = Uri.tryParse(firstPageUrl)?.queryParameters ?? const <String, String>{};
+  final uid = int.tryParse(query['uid'] ?? '');
+  return _moreFeedUrl(
+    uid != null && uid > 0 ? 'uid=$uid' : 'viewtype=${query['view'] == 'other' ? 'other' : 'follow'}',
+    archive: archive,
+    page: page,
+  );
+}
+
+/// Where the further page [url] ([followMoreFeedUrl]) is: the archive or the recent ones, and its page.
+({bool archive, int page}) followMoreFeedPosition(String url) {
+  final query = Uri.tryParse(url)?.queryParameters ?? const <String, String>{};
+  return (archive: query['archiver'] == '1', page: int.tryParse(query['page'] ?? '') ?? 1);
+}
+
+/// The further page [url] moved to [archive] and [page], of the same broadcasts.
+String followMoreFeedUrlAt(String url, {required bool archive, required int page}) {
+  final query = Uri.tryParse(url)?.queryParameters ?? const <String, String>{};
+  final uid = int.tryParse(query['uid'] ?? '');
+  return _moreFeedUrl(
+    uid != null && uid > 0 ? 'uid=$uid' : 'viewtype=${query['viewtype'] == 'other' ? 'other' : 'follow'}',
+    archive: archive,
+    page: page,
+  );
+}
+
+/// A broadcast of a list.
+///
+/// ```html
+/// <li class="cl" id="feed_li_718">
+///   <div class="z flw_avt"><a href="home.php?mod=space&uid=31"><img …></a></div>   (the first of a member's run only)
+///   <div class="flw_article">
+///     <a href="home.php?mod=spacecp&ac=follow&feedid=718&op=delete" id="c_delete_718" class="flw_delete">删除</a>
+///     <div class="flw_author"><a href="home.php?mod=space&uid=31">NAME</a>
+///       <span class="xg1">&nbsp;<span title="2026-11-10 13:46">13&nbsp;秒前</span></span></div>
+///     <div class="flw_quotenote xs2 pbw">NOTE</div>                    (a reply, a relay)
+///     <div class="flw_quote">                                           (with a note only)
+///       <h2 class="wx pbn"><a href="forum.php?mod=viewthread&tid=T&extra=page%3D1">TITLE</a></h2>
+///       <div class="pbm c cl" id="original_content_718">…the beginning of the thread…</div>
+///       <div class="xg1 cl"><span class="y"><a id="relay_718" onclick="quickrelay(718, T);">转播(1)</a>
+///         <a onclick="quickreply(F, T, 718)">回复(3)</a></span>
+///         <a href="home.php?mod=space&uid=31">AUTHOR</a> 发表于 2026-11-7 22:05&nbsp;
+///         #<a href="forum.php?mod=forumdisplay&fid=F">FORUM</a></div>
+///     </div>
+///   </div>
+/// </li>
+/// ```
+///
+/// A thread that is gone leaves "内容已被删除" in `original_content_…` and no title nor counts. The link of the
+/// original author under a note carries the uid of the broadcaster (the forum's template), so only the name is read.
+FollowFeed? _feedOf(uh.Element li) {
+  final feedId = int.tryParse(_digitsRe.firstMatch(li.id)?.group(0) ?? '');
+  final author = li.querySelector('div.flw_author a[href*="uid="]');
+  final uid = _intOf(_uidRe, author?.attributes['href']);
+  final name = _textOf(author);
+  if (feedId == null || uid == null || name == null) {
+    return null;
+  }
+  final titleLink = li.querySelector('h2 a[href*="mod=viewthread"]');
+  final relay = li.querySelector('a[id^="relay_"]');
+  final reply = li.querySelector('a[onclick^="quickreply"]');
+  final threadId = _intOf(_tidRe, titleLink?.attributes['href']) ?? _intOf(_relayRe, relay?.attributes['onclick']);
+  final content = li.querySelector('div[id^="original_content_"]');
+  if (content != null) {
+    // The attachments are downloaded in the thread; the pictures are served from the forum.
+    for (final attach in content.querySelectorAll('div.flw_attach')) {
+      attach.remove();
+    }
+    for (final img in content.querySelectorAll('img[src]')) {
+      img.attributes['src'] = spaceAbsoluteUrl(img.attributes['src']!);
+    }
+  }
+  final note = li.querySelector('div.flw_quotenote');
+  final footer = relay?.parent?.parent ?? reply?.parent?.parent;
+  final forum = footer?.querySelector('a[href*="mod=forumdisplay"]');
+  String? origin;
+  if (note != null && footer != null) {
+    final rest = footer.clone(true) as uh.Element;
+    for (final e in [...rest.querySelectorAll('span.y'), ...rest.querySelectorAll('a[href*="mod=forumdisplay"]')]) {
+      e.remove();
+    }
+    origin = _textOf(rest)?.replaceFirst(RegExp(r'\s*#$'), '');
+    if (origin != null && origin.isEmpty) {
+      origin = null;
+    }
+  }
+  return FollowFeed(
+    feedId: feedId,
+    uid: uid,
+    username: name,
+    time: _textOf(li.querySelector('div.flw_author span.xg1')),
+    note: note,
+    threadId: threadId,
+    threadTitle: _textOf(titleLink),
+    content: content,
+    threadMissing: footer == null,
+    origin: origin,
+    forumName: _textOf(forum),
+    relayCount: _intOf(_countRe, relay?.text),
+    replyCount: _intOf(_countRe, reply?.text),
+    canRelay: relay != null && threadId != null,
+    canDelete: li.querySelector('a.flw_delete') != null,
+  );
+}
+
+List<FollowFeed> _feedsOf(uh.Element? root) => [
+  for (final li in root?.querySelectorAll('li[id^="feed_li_"]') ?? const <uh.Element>[]) ?_feedOf(li),
+];
+
+/// The first page of broadcasts ([followFeedUrl], asked as [url]): the twenty latest in `ul#followlist`.
+///
+/// More of them follow when the page carries the script that loads them (`var feedInfo = {…, archiver: 1, primary: 1,
+/// …}`): the recent ones from their page two while `primary` is set, else the filed ones (page one of them came with
+/// this page already, see `home/follow/feed`); a shorter page is followed by the filed ones from their first page.
+/// Without broadcasts the page prints `div.emp`; what the forum prints
+/// instead (`follow_status_off` "抱歉，广播功能尚未开启", the login prompt) is the page's [SpaceListPage.message].
+SpaceListPage<FollowFeed> parseFollowFeedPage(uh.Document document, String url) {
+  final list = document.querySelector('ul#followlist');
+  final session = spaceSessionOf(document);
+  if (list == null) {
+    if (spaceNoticeOf(document) case final notice?) {
+      return SpaceListPage(items: const [], message: notice.message, needLogin: notice.needLogin);
+    }
+    return SpaceListPage(items: const [], needLogin: session == null, session: session);
+  }
+  final feeds = _feedsOf(list);
+  String? next;
+  for (final script in document.querySelectorAll('script')) {
+    final match = _feedInfoRe.firstMatch(script.text ?? '');
+    if (match == null) {
+      continue;
+    }
+    final primary = match.group(2) != '0';
+    if (primary || match.group(1) != '0') {
+      next = followMoreFeedUrl(url, archive: !primary, page: 2);
+    }
+    break;
+  }
+  // A page of fewer than twenty carries no such script and the website stops there, though the forum still answers
+  // the filed ones (a member with one recent broadcast and a hundred filed shows one): they are asked from their
+  // first page, which only repeats what this page may already hold of them.
+  if (next == null && feeds.isNotEmpty) {
+    next = followMoreFeedUrl(url, archive: true, page: 1);
+  }
+  // A list without a broadcast to show has no end to load more from: it is the empty list.
+  return SpaceListPage(items: feeds, nextPageUrl: feeds.isEmpty ? null : next, session: session);
+}
+
+/// A further page of broadcasts ([followMoreFeedUrl]) out of its fragment [html]: the `<li>` of the list, or the word
+/// `false` once there are no more (null).
+List<FollowFeed>? parseFollowMoreFeeds(String html) {
+  if (html.trim() == 'false') {
+    return null;
+  }
+  return _feedsOf(parseHtmlDocument('<html><body><ul>$html</ul></body></html>').body);
+}
+
+/// A page of the members followed, or of the followers ([followListUrl]).
+///
+/// ```html
+/// <ul class="flw_ulist">
+///   <li class="cl">
+///     <a href="home.php?mod=space&uid=35" title="NAME" class="flw_avt"><img …></a>
+///     <span class="z flw_status_2">互相关注</span>
+///     <a id="a_followmod_35" href="home.php?mod=spacecp&ac=follow&op=del&fuid=35" class="flw_btn_unfo">取消关注</a>
+///     <h6 class="pbn xs2"><a href="home.php?mod=space&uid=35" title="NAME">NAME</a>
+///       <span id="followbkame_35" class="xg1 xs1 xw0">REMARK</span></h6>
+///     <p><span class="xg1">最近动作: </span>…</p>
+///     <p class="ptm xg1">粉丝: <a …><strong id="followernum_35">1</strong></a>人 关注: <a …><strong>1</strong></a>人
+///       | <a href="…&op=bkname&fuid=35&handlekey=followbkame_35" id="fbkname_35">添加备注</a> | …</p>
+///   </li>
+/// </ul>
+/// <div class="pg">…<a href="home.php?mod=follow&do=following&page=2" class="nxt">下一页</a></div>
+/// ```
+///
+/// The follow link is printed in the account's own lists (`flw_btn_fo` 关注 for a follower not followed back), the
+/// remark in its list of the followed. What the forum prints instead (`follower_status_off` "抱歉，关注功能尚未开启",
+/// the login prompt, a member that does not exist) is the page's [SpaceListPage.message].
+SpaceListPage<FollowUser> parseFollowListPage(uh.Document document) {
+  final session = spaceSessionOf(document);
+  final list = document.querySelector('ul.flw_ulist');
+  if (list == null) {
+    if (spaceNoticeOf(document) case final notice?) {
+      return SpaceListPage(items: const [], message: notice.message, needLogin: notice.needLogin);
+    }
+    return SpaceListPage(items: const [], needLogin: session == null, session: session);
+  }
+  final items = <FollowUser>[];
+  for (final li in list.children.where((e) => e.localName == 'li')) {
+    final link = li.querySelector('h6 a[href*="uid="]');
+    final uid = _intOf(_uidRe, link?.attributes['href']);
+    final name = _textOf(link);
+    if (uid == null || name == null) {
+      continue;
+    }
+    final button = li.querySelector('a[id^="a_followmod_"]');
+    final counts = li.querySelectorAll('p.ptm strong');
+    // "最近动作: …", under the name.
+    final recent = li.children.where((e) => e.localName == 'p' && !e.classes.contains('ptm')).firstOrNull;
+    recent?.querySelector('span.xg1')?.remove();
+    items.add(
+      FollowUser(
+        uid: uid,
+        username: name,
+        avatarUrl: _avatarOf(li.querySelector('a.flw_avt img')),
+        remark: _textOf(li.querySelector('span[id^="followbkame_"]')),
+        recentNote: _textOf(recent),
+        followerCount: int.tryParse(_textOf(li.querySelector('strong[id^="followernum_"]')) ?? ''),
+        followingCount: counts.length > 1 ? int.tryParse(_textOf(counts[1]) ?? '') : null,
+        following: button == null ? null : (button.attributes['href'] ?? '').contains('op=del'),
+        mutual: li.querySelector('span.flw_status_2') != null,
+        canRemark: li.querySelector('a[id^="fbkname_"]') != null,
+      ),
+    );
+  }
+  return SpaceListPage(
+    items: items,
+    nextPageUrl: spaceNextPageUrlOf(document.querySelector('div#ct') ?? document.documentElement),
+    session: session,
+  );
+}
+
+/// What the viewer is to the member [uid], out of the head of a follow page of that member ([followListUrl] with
+/// their uid); null on the viewer's own pages, for a guest, and for what the forum prints instead.
+///
+/// ```html
+/// <div class="flw_hd">
+///   <div class="tns"><table><tr>
+///     <th><p><a href="home.php?mod=follow&uid=35&do=view">117</a></p><span>…广播…</span></th>
+///     <th><p><a href="home.php?mod=follow&do=following&uid=35">1</a></p><span>…关注…</span></th>
+///     <td><p><a href="home.php?mod=follow&do=follower&uid=35" id="followernum_35">1</a></p><span>…粉丝…</span></td>
+///   </tr></table></div>
+///   <div class="mtm o cl">
+///     <div id="followflag">…<span class="z flw_status_2">互相关注</span>
+///       <a id="a_followmod_35" href="…&op=del&fuid=35&from=head">取消关注</a></div>
+///     <div id="unfollowflag" style="display: none"><span class="z flw_status_1">TA已关注您</span>
+///       <a id="a_followmod_35" href="…&op=add&hash=HASH&fuid=35&from=head" class="flw_btn_fo">关注</a></div>
+///   </div>
+/// </div>
+/// <div class="h cl">…<h2 class="mt">NAME<span class="xs1 xg1 xw0"><span id="followbkame_35">REMARK</span>
+///   <a … id="fbkname_35">[修改备注]</a></span></h2></div>
+/// ```
+///
+/// The block shown (the other one is `display: none`) tells whether the viewer follows the member: a member followed
+/// back is 互相关注 (`flw_status_2`), one who follows the viewer and is not followed prints "TA已关注您".
+FollowRelation? parseFollowRelation(uh.Document document, int uid) {
+  final session = spaceSessionOf(document);
+  final followed = document.querySelector('div#followflag');
+  final unfollowed = document.querySelector('div#unfollowflag');
+  if (session == null || followed == null || unfollowed == null) {
+    return null;
+  }
+  final following = !(followed.attributes['style'] ?? '').contains('none');
+  final head = document.querySelector('div.flw_hd');
+  int? count(String selector) => int.tryParse(_textOf(head?.querySelector(selector)) ?? '');
+  final title = document.querySelector('div.h h2.mt');
+  final remark = _textOf(title?.querySelector('span[id^="followbkame_"]'));
+  // The name is the title without the remark and its link.
+  title?.querySelector('span')?.remove();
+  return FollowRelation(
+    session: session,
+    uid: uid,
+    username: _textOf(title),
+    following: following,
+    followsViewer: following
+        ? followed.querySelector('span.flw_status_2') != null
+        : unfollowed.querySelector('span[class*="flw_status"]') != null,
+    remark: following ? remark : null,
+    feedCount: count('th p a[href*="do=view"]'),
+    followingCount: count('th p a[href*="do=following"]'),
+    followerCount: count('td p a[href*="do=follower"]'),
+  );
+}

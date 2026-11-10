@@ -1,0 +1,19 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "操作成功",
+  "message_key": "do_success",
+  "url": "https://forum.test/./",
+  "handlekey": "c_delete_717",
+  "values": {
+    "feedid": "717"
+  },
+  "login": 0,
+  "alert": "right"
+}
