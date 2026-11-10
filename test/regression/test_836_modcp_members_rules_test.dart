@@ -403,8 +403,13 @@ void main() {
         outcome.getRight().toNullable(),
         isA<ModcpWriteDone>().having((e) => e.message, 'message', contains('版规更新成功')),
       );
-      final other = await forum.repository().saveForumRules(_rules('rules_editable.html'), 'something else').run();
-      expect(other.getRight().toNullable(), isA<ModcpWriteUnknown>());
+      // The forum turns some BBCode around (a tab to spaces, `[s]`, lists): its line tells.
+      final turned = await forum.repository().saveForumRules(_rules('rules_editable.html'), '[s]x[/s]').run();
+      expect(turned.getRight().toNullable(), isA<ModcpWriteDone>());
+      // The editor drawn again without the line nor the text: nothing tells.
+      final silent = _Forum({}, postAnswer: (_, _) => _ok(_text('rules_editable.html')));
+      final unknown = await silent.repository().saveForumRules(_rules('rules_editable.html'), 'x').run();
+      expect(unknown.getRight().toNullable(), isA<ModcpWriteUnknown>());
     });
 
     test('版规更新成功 printed, the rules kept: refused with the note', () async {
@@ -593,6 +598,27 @@ void main() {
       expect(find.byKey(const ValueKey('modcp-ban-4')), findsOneWidget);
       expect(find.byKey(const ValueKey('modcp-ban-5')), findsNothing);
       expect(find.byKey(const ValueKey('modcp-member-edit')), findsNothing);
+    });
+
+    testWidgets('a member the ban page refuses: still found on the edit page, its refusal shown', (tester) async {
+      final forum = _Forum({
+        'action=home': 'menu_supermod.html',
+        'op=ban&uid=101': 'member_ban_staff.html',
+        'op=edit&uid=101': 'member_edit.html',
+      });
+      await _pumpPage(tester, ModcpMembersPage(repository: forum.repository()));
+      await tester.tap(find.text(t.modcp.byUid));
+      await tester.pump();
+      await tester.enterText(find.byKey(const ValueKey('modcp-member-query')), '101');
+      await tester.tap(find.byKey(const ValueKey('modcp-member-search')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('modcp-member-edit')), findsOneWidget);
+      expect(find.textContaining('您不能直接禁止该用户'), findsOneWidget);
+      expect(find.byKey(const ValueKey('modcp-ban-4')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('modcp-member-edit')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('modcp-edit-signature')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('new members: pick, approve with a reason, the list read again', (tester) async {

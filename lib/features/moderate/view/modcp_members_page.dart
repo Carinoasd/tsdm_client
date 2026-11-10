@@ -39,6 +39,9 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
   bool _searching = false;
   Either<AppException, ModcpAnswer<ModcpMemberLookup>>? _found;
 
+  /// The ban page's refusal of the member found on the edit page instead.
+  String _refusal = '';
+
   @override
   void initState() {
     super.initState();
@@ -87,13 +90,24 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
       _asked = query;
       _searching = true;
     });
-    final found = await widget.repository.lookupMember(query, edit: !menu.canBanMember).run();
+    var found = await widget.repository.lookupMember(query, edit: !menu.canBanMember).run();
+    var refusal = '';
+    if (found case Right(value: ModcpRefused(:final message)) when menu.canBanMember && menu.canEditMember) {
+      // The ban page refuses members of groups that can not be banned (special groups, staff), the edit page only
+      // the staff: the profile may still be edited.
+      final edit = await widget.repository.lookupMember(query, edit: true).run();
+      if (edit case Right(value: ModcpReady(value: ModcpMemberLookup(edit: _?)))) {
+        found = edit;
+        refusal = message;
+      }
+    }
     if (!mounted) {
       return;
     }
     setState(() {
       _searching = false;
       _found = found;
+      _refusal = refusal;
     });
   }
 
@@ -202,7 +216,7 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
           child: ListTile(
             key: ValueKey('modcp-member-${edit.memberUid}'),
             title: Text(edit.username),
-            subtitle: Text('UID ${edit.memberUid}'),
+            subtitle: Text(['UID ${edit.memberUid}', if (_refusal.isNotEmpty) _refusal].join(' · ')),
             trailing: TextButton(
               key: const ValueKey('modcp-member-edit'),
               onPressed: () => _openEdit(edit.memberUid),

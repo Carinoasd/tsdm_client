@@ -419,17 +419,19 @@ final class ModcpRepository with LoggerMixin {
 
   /// Save [text] as the rules of [rules]' forum, once.
   ///
-  /// The panel prints 版规更新成功 even when it kept the rules (a group not allowed to change them): done only when the
-  /// editor it draws again is open and holds what was sent.
+  /// The panel prints 版规更新成功 even when it kept the rules (a group not allowed to change them, its editor then
+  /// locked): done when the editor it draws again for the forum is open and holds what was sent, or says so (the
+  /// forum turns some BBCode around: tabs to spaces, `[s]`, lists).
   AsyncEither<ModcpWriteOutcome> saveForumRules(ForumRules rules, String text) => AsyncEither(() async {
     final sent = await _send(rules.uid, ForumRules.submitUrl, rules.body(text));
     return sent.map(
       (written) => switch (written) {
         _WrittenPage(:final doc) => switch (parseForumRules(doc, uid: rules.uid)) {
           final now? when now.fid == rules.fid && !now.editable => ModcpWriteRefused(now.note),
-          final now? when now.fid == rules.fid && modcpNormalized(now.rules) == modcpNormalized(text) => ModcpWriteDone(
-            message: now.message,
-          ),
+          final now?
+              when now.fid == rules.fid &&
+                  (modcpNormalized(now.rules) == modcpNormalized(text) || now.message.isNotEmpty) =>
+            ModcpWriteDone(message: now.message),
           _ => const ModcpWriteUnknown(),
         },
         final other => _messageOutcome(other),
