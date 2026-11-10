@@ -3982,5 +3982,8 @@
     "unknown": "結果不明，已重新載入",
     "loadFailed": "載入失敗",
     "accountChanged": "帳號已切換，沒有送出"
+  },
+  "threadRecommend": {
+    "unknown": "未能確認結果，請重新整理帖子查看。"
   }
 }

@@ -3982,5 +3982,8 @@
     "unknown": "Result unknown, reloaded",
     "loadFailed": "Failed to load",
     "accountChanged": "The account changed: nothing was sent"
+  },
+  "threadRecommend": {
+    "unknown": "Could not confirm the result: refresh the thread to see it."
   }
 }

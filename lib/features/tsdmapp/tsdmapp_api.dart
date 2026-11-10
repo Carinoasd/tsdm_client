@@ -571,14 +571,18 @@ const tsdmAppJsonQueryParameters = {'tsdmapp': 'json', 'nodoc': '1'};
 ///
 /// The parameters go before a `#fragment`, which is never sent to the server: the chat history url ends with `#last`
 /// and so was always answered the web page (roadmap item 3).
-String withTsdmAppJson(String url) {
+///
+/// [nodoc] false leaves [tsdmAppNodocQuery] out: the answer then carries the page's `document` too (the first thread
+/// page, for the evaluation of the thread only it has).
+String withTsdmAppJson(String url, {bool nodoc = true}) {
   final hash = url.indexOf('#');
   final base = hash < 0 ? url : url.substring(0, hash);
   if (base.contains('inajax=1') || base.contains(tsdmAppJsonQuery)) {
     return url;
   }
   final separator = !base.contains('?') ? '?' : (base.endsWith('?') || base.endsWith('&') ? '' : '&');
-  return '$base$separator$tsdmAppJsonQuery&$tsdmAppNodocQuery${hash < 0 ? '' : url.substring(hash)}';
+  final lean = nodoc ? '&$tsdmAppNodocQuery' : '';
+  return '$base$separator$tsdmAppJsonQuery$lean${hash < 0 ? '' : url.substring(hash)}';
 }
 
 /// The document to parse from a forum page answer [data]: the web page itself, or the page rebuilt from the blocks of
