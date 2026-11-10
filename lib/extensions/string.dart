@@ -240,7 +240,8 @@ extension ParseUrl on String {
     }
 
     // The records: home.php?mod=space[&uid=N]&do=doing[&view=…][&doid=M]. A record alone with `doid` (the link of a
-    // reply notice, which also names its owner); a member's own with `uid`; else the lists of the account in use.
+    // reply notice; its `uid` is the member notified, not the author of the record, so it is dropped: the forum finds
+    // the record of anyone when no member is named); a member's own with `uid`; else the lists of the account in use.
     if (mod == 'space' && queryParameters['do'] == 'doing') {
       final uid = int.tryParse(queryParameters['uid'] ?? '');
       final doid = int.tryParse(queryParameters['doid'] ?? '');
