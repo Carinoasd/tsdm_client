@@ -3967,5 +3967,20 @@
     "unconfirmed": "The result is unknown: check the list before sending again",
     "sendFailed": "Failed to send",
     "identityChanged": "The account changed: this page sends nothing more"
+  },
+  "postComment": {
+    "title": "Comments",
+    "menu": "Comment",
+    "send": "Post",
+    "more": "More comments",
+    "delete": "Delete",
+    "deleteTitle": "Delete comment",
+    "reason": "Reason",
+    "done": "Comment posted",
+    "deleted": "Deleted",
+    "refused": "The forum refused this",
+    "unknown": "Result unknown, reloaded",
+    "loadFailed": "Failed to load",
+    "accountChanged": "The account changed: nothing was sent"
   }
 }

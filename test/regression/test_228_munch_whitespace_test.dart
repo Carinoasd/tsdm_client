@@ -29,6 +29,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
@@ -69,6 +70,12 @@ Map<String, String> _samples() {
     if (path.startsWith('test/data/render_regression/')) {
       continue;
     }
+    // The floors of test 831 as the thread page munches them: their comments are shown on their own.
+    String floor(String html) {
+      final pid = RegExp(r'id="comment_(\d+)"').firstMatch(html)?.group(1);
+      return pid == null || !path.startsWith('test/data/post_comment/') ? html : splitPostComments(html, pid).data;
+    }
+
     if (path.endsWith('.html')) {
       final raw = file.readAsStringSync();
       final document = parseHtmlDocument(raw);
@@ -76,7 +83,7 @@ Map<String, String> _samples() {
       final bodies = document.querySelectorAll('div.pcb');
       if (bodies.isNotEmpty) {
         for (final (i, e) in bodies.indexed) {
-          add('$path#pcb$i', e.innerHtml ?? '');
+          add('$path#pcb$i', floor(e.innerHtml ?? ''));
         }
       } else {
         final messages = document.querySelectorAll('[id^="postmessage_"]');
@@ -113,7 +120,7 @@ Map<String, String> _samples() {
         for (final p in posts.whereType<Map<String, dynamic>>()) {
           final pid = p['pid'];
           if (p['body_html'] case final String body) {
-            add('$path#$pid', body);
+            add('$path#$pid', floor(body));
           }
           if (p['signature_html'] case final String signature) {
             add('$path#$pid/sig', signature);

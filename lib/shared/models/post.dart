@@ -90,6 +90,9 @@ class Post with PostMappable {
     this.warned = false,
     this.banAuthorUid,
     this.authorBanned = false,
+    this.comments = const [],
+    this.moreComments = false,
+    this.commentAction,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -217,7 +220,8 @@ class Post with PostMappable {
     }
 
     final pollHtml = _apiText(p['poll_html']);
-    final bodyHtml = _apiText(p['body_html']);
+    // The comments are shown under the content as their own list: their block is cut out of it.
+    final (data: bodyHtml, comments: commentPage) = splitPostComments(_apiText(p['body_html']), postID);
     // The red packet block sits beside the content on the web page (`div.pct > div#ts_packet`, not in `body_html`):
     // the answer cuts it out as `packet_html`, read with the selectors of the web page.
     final packetHtml = _apiText(p['packet_html']);
@@ -277,6 +281,17 @@ class Post with PostMappable {
       hot: hot,
       hotFloor: hot && _apiInt(p['hot_position']) > 0 ? _apiInt(p['hot_position']) : null,
       fromApp: _apiInt(p['from_app']) == 1,
+      comments: commentPage?.comments ?? const [],
+      moreComments: commentPage?.hasMore ?? false,
+      commentAction: _apiCommentAction(
+        can: can,
+        urls: urls,
+        tid: tid,
+        pid: postID,
+        first: first,
+        authorId: anonymous ? 0 : authorId,
+        viewerUid: viewerUid,
+      ),
       banAuthorUid: memberBanUidIn(table.querySelector('td.pls'), authorUid: authorId),
       authorBanned:
           (group != null && memberBannedGroups.contains(_apiInt(group['gid']))) ||
@@ -284,8 +299,42 @@ class Post with PostMappable {
     );
   }
 
+  /// The comment window of a floor of a structured answer, for [Post.commentAction].
+  ///
+  /// The answer's `can.comment` with `urls.comment` when it carries them. An answer without them (plugin 3.6.0 and
+  /// before: the web page's `a.cmmnt` is in the floor's action bar, which no field carries) gives the window of a floor
+  /// the account may reply to and did not write, past the first floor (the forum's default lets members comment on
+  /// replies only): the window itself then says when the forum refuses, before anything is typed.
+  static String? _apiCommentAction({
+    required Map<String, dynamic> can,
+    required Map<String, dynamic> urls,
+    required String tid,
+    required String pid,
+    required bool first,
+    required int authorId,
+    required int viewerUid,
+  }) {
+    if (can.containsKey('comment')) {
+      final url = _apiText(urls['comment']);
+      return _apiInt(can['comment']) == 1 && url.isNotEmpty ? url.prependHost() : null;
+    }
+    if (viewerUid <= 0 || first || authorId == viewerUid || _apiInt(can['reply']) != 1 || tid.isEmpty) {
+      return null;
+    }
+    return postCommentWindowUrl(tid: tid, pid: pid);
+  }
+
   /// Post ID.
   final String postID;
+
+  /// The comments (点评) the floor's page shows, newest first, cut out of [data].
+  final List<PostComment> comments;
+
+  /// The forum has more comments of this floor than [comments] (`forum.php?mod=misc&action=commentmore`).
+  final bool moreComments;
+
+  /// The forum's comment window of this floor (`a.cmmnt`), where this account may comment on it.
+  final String? commentAction;
 
   /// Post floor number.
   /// Make it nullable to be compatible with all web page styles.
@@ -584,8 +633,11 @@ class Post with PostMappable {
     // </div>
     //
     // Now we only search for the <div class="pcb"> node.
-    final postData =
-        postDataNode?.querySelector('div.pcb')?.innerHtml ?? postDataNode?.querySelector('div.pcbs')?.innerHtml;
+    // The comments are shown under the content as their own list: their block is cut out of it.
+    final (data: postData, comments: commentPage) = splitPostComments(
+      postDataNode?.querySelector('div.pcb')?.innerHtml ?? postDataNode?.querySelector('div.pcbs')?.innerHtml ?? '',
+      postID,
+    );
 
     // Locked block in this post.
     //
@@ -701,7 +753,7 @@ class Post with PostMappable {
       postFloor: postFloor,
       author: postAuthor,
       publishTime: postPublishTime,
-      data: postData ?? '',
+      data: postData,
       locked: locked ?? [],
       replyAction: replyAction,
       rate: rate,
@@ -735,6 +787,10 @@ class Post with PostMappable {
       // holds (a forum allowing HTML) is not it.
       fromApp: element.querySelector('.pti')?.querySelector('#tsdmappfrom$postID') != null,
       warned: postDataNode?.querySelector('div.pi a[href*="action=viewwarning"]') != null,
+      comments: commentPage?.comments ?? const [],
+      moreComments: commentPage?.hasMore ?? false,
+      // The forum prints the link only where this account may comment on the floor.
+      commentAction: element.querySelector('a.cmmnt')?.attributes['href']?.replaceAll('&amp;', '&').prependHost(),
       banAuthorUid: memberBanUidIn(userProfileNode, authorUid: int.tryParse(postAuthor.uid ?? '')),
       authorBanned: memberBannedIn(userProfileNode),
     );
