@@ -71,11 +71,7 @@ void main() {
       final configure = bodyOf('override fun configureFlutterEngine(flutterEngine: FlutterEngine)');
       expect(
         configure,
-        contains(
-          '        if (dartRunning) {\n'
-          '            pushLaunchToRunningDart(flutterEngine)\n'
-          '        } else {\n',
-        ),
+        contains(RegExp(r'if \(dartRunning\) \{\s*pushLaunchToRunningDart\(flutterEngine\)\s*\} else \{')),
       );
       expect(configure.substring(configure.indexOf('} else {')), contains('initialLaunchIntent = null'));
       expect(File('lib/main.dart').readAsStringSync(), contains('await rememberNotificationLaunch()'));
@@ -101,9 +97,21 @@ void main() {
 
     test('what a Dart started a moment ago does not take is kept for its question', () {
       final push = bodyOf('private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine)');
-      expect(push, contains('links.invokeMethod("onDeepLink", it, unheard { initialDeepLink = it })'));
-      expect(push, contains('channel.invokeMethod(ShareIntents.ON_SHARE, payload, unheard {'));
-      expect(push.substring(push.indexOf('ShareIntents.ON_SHARE')), contains('initialShareIntent = pending'));
+      // Never over a newer one that came meanwhile (onNewIntent).
+      expect(push, contains('unheard { if (initialDeepLink == null) initialDeepLink = it }'));
+      expect(push, contains('channel.invokeMethod(ShareIntents.ON_SHARE, payload, shareUnheard(pending))'));
+      expect(
+        bodyOf('private fun shareUnheard(intent: Intent)'),
+        allOf(
+          contains('dartTakesShares = false'),
+          contains('if (initialShareIntent == null) initialShareIntent = intent'),
+        ),
+      );
+      // A share arriving at the activity that runs goes the same way.
+      expect(
+        bodyOf('override fun onNewIntent(intent: Intent)'),
+        contains('channel.invokeMethod(ShareIntents.ON_SHARE, payload, shareUnheard(intent))'),
+      );
       final shortcuts = File(
         'android/app/src/main/kotlin/kzs/th000/tsdm_client/ShortcutsHandler.kt',
       ).readAsStringSync();
@@ -112,7 +120,10 @@ void main() {
         shortcuts.indexOf('fun onNewIntent'),
       );
       expect(pushPending, contains('override fun notImplemented() {'));
-      expect(pushPending.substring(pushPending.indexOf('notImplemented')), contains('pending = it'));
+      expect(
+        pushPending.substring(pushPending.indexOf('notImplemented')),
+        contains('if (pending == null) pending = it'),
+      );
     });
   });
 
@@ -156,6 +167,16 @@ void main() {
         LocalNoticeKeys.loggable(failedReply),
         'openNotification:31#tid=100&pid=200&draft=…',
       );
+    });
+
+    test('a second tap before the home page listens replaces the first', () async {
+      final other = LocalNoticeKeys.withTarget(
+        LocalNoticeKeys.openNotificationOf(31),
+        const LocalNoticeTarget(tid: 300, pid: 400),
+      );
+      await onLocalNotificationOpened(tap(failedReply));
+      await onLocalNotificationOpened(tap(other));
+      expect(pendingLaunchPayload, other);
     });
 
     test('a payload that is not of this app is never parked', () async {

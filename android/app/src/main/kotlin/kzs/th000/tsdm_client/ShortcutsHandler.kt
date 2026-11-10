@@ -81,7 +81,7 @@ class ShortcutsHandler {
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
                 override fun notImplemented() {
                     dartListening = false
-                    pending = it
+                    if (pending == null) pending = it
                 }
             })
         }

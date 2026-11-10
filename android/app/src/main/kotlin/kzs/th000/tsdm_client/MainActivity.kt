@@ -282,7 +282,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         if (links != null) {
             initialDeepLink?.let {
                 initialDeepLink = null
-                links.invokeMethod("onDeepLink", it, unheard { initialDeepLink = it })
+                links.invokeMethod("onDeepLink", it, unheard { if (initialDeepLink == null) initialDeepLink = it })
             }
         }
         initialShareIntent?.let { pending ->
@@ -290,13 +290,19 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
             val channel = shareChannel ?: return@let
             updateScope.launch {
                 val payload = readShare(pending) ?: return@launch
-                channel.invokeMethod(ShareIntents.ON_SHARE, payload, unheard {
-                    // Read again when Dart asks: the copies made for this push are cleaned up a day later.
-                    dartTakesShares = false
-                    initialShareIntent = pending
-                })
+                channel.invokeMethod(ShareIntents.ON_SHARE, payload, shareUnheard(pending))
             }
         }
+    }
+
+    /**
+     * The result of pushing the share of [intent] to Dart: when Dart does not listen (yet), the share is kept for its
+     * question, unless a newer one is kept already. It is read again then: the copies made for the push are cleaned
+     * up a day later.
+     */
+    private fun shareUnheard(intent: Intent) = unheard {
+        dartTakesShares = false
+        if (initialShareIntent == null) initialShareIntent = intent
     }
 
     /** The result of a push to Dart that only tells when Dart does not listen to the channel (yet): [kept] runs then. */
@@ -338,7 +344,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
             }
             updateScope.launch {
                 val payload = readShare(intent) ?: return@launch
-                channel.invokeMethod(ShareIntents.ON_SHARE, payload)
+                channel.invokeMethod(ShareIntents.ON_SHARE, payload, shareUnheard(intent))
             }
         }
     }

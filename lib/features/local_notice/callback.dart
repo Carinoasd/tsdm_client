@@ -14,9 +14,10 @@ import 'package:window_manager/window_manager.dart';
 /// listener (and the test for it) sees the payload as soon as this function is called, while the window only comes
 /// back on the next event loop turn. On non-desktop platforms the window part is skipped entirely.
 ///
-/// On Android this is also where the tap that made a new activity over a Dart still running arrives (the task was
-/// swiped away while the background service or the player kept the process): `MainActivity.kt` hands that launch
-/// intent to the plugin, [rememberNotificationLaunch] is only asked once, at boot.
+/// On Android this is also where the tap that made a new activity over a Dart still running arrives: the task was
+/// swiped away while the background service or the player kept the process, or the process was started without an
+/// activity (the background service at boot or after an update). `MainActivity.kt` hands that launch intent to the
+/// plugin, [rememberNotificationLaunch] is only asked once, at boot.
 Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
   talker.info(
     'local notification tapped: id=${resp.id} type=${resp.notificationResponseType.name} payload=${LocalNoticeKeys.loggable(resp.payload)} '
@@ -29,7 +30,10 @@ Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
   } else {
     // Nobody listens: the home page is not built yet (the tap came while the app was starting). An event added to the
     // stream now would be dropped, and with it the text of a reply that was not sent (the notification is gone with
-    // the tap): parked for the home page like the tap that started the app.
+    // the tap): parked for the home page like the tap that started the app. One is kept: the latest.
+    if (pendingLaunchPayload case final earlier? when earlier != resp.payload) {
+      talker.warning('a notification tap not handled yet is replaced: ${LocalNoticeKeys.loggable(earlier)}');
+    }
     rememberLaunchPayload(resp.payload);
   }
 
