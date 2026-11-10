@@ -102,6 +102,7 @@ void showRefreshFailedSnackBar(BuildContext context, LoadFailure? failure, {Void
         behavior: SnackBarBehavior.floating,
         content: Text(context.t.loadState.refreshFailed(reason: reason)),
         action: onRetry == null ? null : SnackBarAction(label: context.t.general.retry, onPressed: onRetry),
+        persist: false,
       ),
     );
 }
