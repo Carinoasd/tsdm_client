@@ -26,6 +26,8 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
+import 'package:tsdm_client/features/video_player/models/post_video.dart';
+import 'package:tsdm_client/features/video_player/widgets/post_video_player.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
@@ -2624,6 +2626,17 @@ final class _Muncher with LoggerMixin {
   List<InlineSpan>? _buildIgnoreJsOp(uh.Element element) {
     final attachment = PostAudioAttachment.of(element, apple: isIOS || isMacOS);
     if (attachment == null) {
+      // A video attachment is a player of it ([PostVideoPlayer]).
+      if (PostVideo.attachmentOf(element) case final video?) {
+        return _munchBlock(
+          element,
+          deferBreak: false,
+          () => [
+            textWidgetSpan(PostVideoPlayer(video, onOpen: () async => _openUrl(video.url.toString()))),
+            emptySpan,
+          ],
+        );
+      }
       return _munch(element);
     }
     return _munchBlock(

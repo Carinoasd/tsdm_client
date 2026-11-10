@@ -474,6 +474,7 @@
   "test/data/post_comment/thread_api_member.json#11264": "«CM測試 ag_low2 回覆 2»\n",
   "test/data/post_comment/thread_member.html#pcb0": "«CM測試 主樓內容»\n",
   "test/data/post_comment/thread_member.html#pcb1": "«CM測試 ag_low2 回覆 1»\n",
-  "test/data/post_comment/thread_member.html#pcb2": "«CM測試 ag_low2 回覆 2»\n"
+  "test/data/post_comment/thread_member.html#pcb2": "«CM測試 ag_low2 回覆 2»\n",
+  "test/data/video_post_x5.html#postmessage_1": "«video test\n￼\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n￼https://video.example.com/live/index.m3u8\n\nend»\n«clip.mp4 · 23.95 KB»\n«clip.mp4»\n«clip.webm»\n"
  }
 }
