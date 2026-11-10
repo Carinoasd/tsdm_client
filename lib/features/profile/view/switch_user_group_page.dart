@@ -6,6 +6,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/profile/bloc/switch_user_group_bloc.dart';
 import 'package:tsdm_client/features/profile/repository/switch_user_group_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -39,7 +40,10 @@ class _SwitchUserGroupPageState extends State<SwitchUserGroupPage> with LoggerMi
           AppSurface(
             padding: EdgeInsets.zero,
             child: SectionListTile(
-              title: Text(state.currentUserGroup, style: bodyTheme?.copyWith(color: colorScheme.secondary)),
+              title: Text(
+                context.displayText(state.currentUserGroup),
+                style: bodyTheme?.copyWith(color: colorScheme.secondary),
+              ),
             ),
           ),
           if (state.status == SwitchUserGroupStatus.switching)
@@ -57,7 +61,7 @@ class _SwitchUserGroupPageState extends State<SwitchUserGroupPage> with LoggerMi
                 else
                   ...state.availableGroups.map(
                     (e) => SectionListTile(
-                      title: Text(e.name),
+                      title: Text(context.displayText(e.name)),
                       subtitle: Text('GID: ${e.gid}'),
                       enabled: state.status != SwitchUserGroupStatus.switching,
                       onTap: () async {

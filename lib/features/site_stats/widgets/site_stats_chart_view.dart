@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/site_stats/models/site_stats.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/charts/chart_format.dart';
 
 /// The trend of a statistics page: a line for every series over the forum's own labels (days the forum names, gaps
@@ -124,7 +125,7 @@ class SiteStatsChartView extends StatelessWidget {
                 children: [
                   Container(width: 10, height: 10, color: _colorOf(colorScheme, i)),
                   const SizedBox(width: 4),
-                  Text(series.title, style: labelStyle),
+                  Text(context.displayText(series.title), style: labelStyle),
                 ],
               ),
           ],

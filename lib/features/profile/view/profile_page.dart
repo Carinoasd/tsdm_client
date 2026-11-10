@@ -36,6 +36,7 @@ import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
@@ -783,7 +784,7 @@ class _ProfilePageState extends State<ProfilePage> {
         CachedImage(image, maxWidth: 200, height: profileBadgeHeight, fit: BoxFit.contain),
         sizedBoxW8H8,
         Text(
-          name,
+          context.displayText(name),
           textAlign: TextAlign.start,
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),
@@ -979,7 +980,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   .map(
                     (e) => ActionChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(e.name),
+                      label: Text(context.displayText(e.name)),
                       onPressed: () async => context.pushNamed(ScreenPaths.forum, pathParameters: {'fid': '${e.fid}'}),
                     ),
                   )

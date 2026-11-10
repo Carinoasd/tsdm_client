@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/points/bloc/points_bloc.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/selectable_list_tile.dart';
@@ -58,7 +59,7 @@ final class _PointsQueryFormState extends State<PointsQueryForm> {
         return widget.allParameters.extTypeList
             .map(
               (e) => SelectableListTile(
-                title: Text(e.name),
+                title: Text(context.displayText(e.name)),
                 selected: e == pointsType,
                 onTap: () {
                   setState(() {
@@ -82,7 +83,7 @@ final class _PointsQueryFormState extends State<PointsQueryForm> {
         return widget.allParameters.operationTypeList
             .map(
               (e) => SelectableListTile(
-                title: Text(e.name),
+                title: Text(context.displayText(e.name)),
                 selected: e == operationType,
                 onTap: () {
                   setState(() {
@@ -105,7 +106,7 @@ final class _PointsQueryFormState extends State<PointsQueryForm> {
         return widget.allParameters.changeTypeList
             .map(
               (e) => SelectableListTile(
-                title: Text(e.name),
+                title: Text(context.displayText(e.name)),
                 selected: e == changeType,
                 onTap: () {
                   setState(() {
@@ -223,7 +224,7 @@ final class _PointsQueryFormState extends State<PointsQueryForm> {
           borderSide: BorderSide.none,
         ),
       ),
-      child: Text(value),
+      child: Text(context.displayText(value)),
     ),
   );
 

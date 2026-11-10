@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -48,7 +49,7 @@ class _ModerateQueuePageState extends State<ModerateQueuePage> {
       length: ModerateQueueKind.values.length,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.title == null ? tr.queue : '${tr.queue} · ${widget.title}'),
+          title: Text(widget.title == null ? tr.queue : '${tr.queue} · ${context.displayText(widget.title!)}'),
           bottom: TabBar(
             tabs: [
               for (final kind in ModerateQueueKind.values)
@@ -255,7 +256,7 @@ class _QueueItemCard extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Text(item.subject, style: theme.textTheme.titleSmall),
+              child: Text(context.displayText(item.subject), style: theme.textTheme.titleSmall),
             ),
             const SizedBox(height: 4),
             Text(
@@ -376,7 +377,7 @@ class _QueueActionDialogState extends State<_QueueActionDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.item.subject, style: Theme.of(context).textTheme.titleSmall),
+              Text(context.displayText(widget.item.subject), style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
               TextField(
                 controller: _reason,

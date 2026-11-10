@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/tag/models/forum_tag.dart';
 import 'package:tsdm_client/features/tag/repository/tag_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -95,7 +96,7 @@ class _TagCloudPageState extends State<TagCloudPage> {
                 for (final tag in tags)
                   ActionChip(
                     key: ValueKey('tag-${tag.id}'),
-                    label: Text(tag.count > 0 ? '${tag.name} ${tag.count}' : tag.name),
+                    label: Text(context.displayText(tag.count > 0 ? '${tag.name} ${tag.count}' : tag.name)),
                     onPressed: () async => context.dispatchAsUrl(tag.url),
                   ),
               ],

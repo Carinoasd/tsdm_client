@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 const _webUrl = '$baseUrl/plugin.php?id=tsdmtitle:tsdmtitle&action=exchange';
@@ -75,12 +76,12 @@ class _TitleExchangePageState extends State<TitleExchangePage> {
       content: [
         Center(child: ToolsImage(t.imageUrl, width: 184, height: 100)),
         sizedBoxW12H12,
-        Text(tr.exchangeConfirm(name: t.name)),
+        Text(tr.exchangeConfirm(name: context.displayText(t.name))),
         if (t.consume) ...[
           sizedBoxW12H12,
           AppNoticeBanner(
             tone: AppNoticeTone.warning,
-            message: tr.exchangeConsumeConfirm(medals: t.medals.map((m) => '「${m.name}」').join()),
+            message: tr.exchangeConsumeConfirm(medals: t.medals.map((m) => '「${context.displayText(m.name)}」').join()),
           ),
         ],
         sizedBoxW12H12,
@@ -119,7 +120,10 @@ class _TitleExchangePageState extends State<TitleExchangePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(t.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      context.displayText(t.name),
+                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
                     sizedBoxW4H4,
                     Text(
                       tr.exchangeProgress(have: t.have, need: t.medals.length),
@@ -139,7 +143,7 @@ class _TitleExchangePageState extends State<TitleExchangePage> {
             children: [
               for (final m in t.medals)
                 Tooltip(
-                  message: m.name,
+                  message: context.displayText(m.name),
                   child: Opacity(
                     opacity: m.owned ? 1 : 0.35,
                     child: ToolsImage(m.imageUrl, width: 22, height: 36),

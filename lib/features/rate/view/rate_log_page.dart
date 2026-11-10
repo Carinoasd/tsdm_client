@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/rate/repository/rate_repository.dart';
 import 'package:tsdm_client/features/rate/widgets/fast_rate_template_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -81,7 +82,7 @@ class _RateLogPageState extends State<RateLogPage> with SingleTickerProviderStat
           ),
           sizedBoxW8H8,
           Wrap(spacing: 6, runSpacing: 6, children: scores),
-          if (reason.isNotEmpty) ...[sizedBoxW8H8, QuotedText(reason)],
+          if (reason.isNotEmpty) ...[sizedBoxW8H8, QuotedText(context.displayText(reason))],
         ],
       ),
     );

@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/ranklist/models/ranklist.dart';
 import 'package:tsdm_client/features/ranklist/repository/ranklist_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
@@ -295,7 +296,9 @@ class _MemberTile extends StatelessWidget {
       ],
     ),
     title: Text(member.username, maxLines: 1, overflow: TextOverflow.ellipsis),
-    subtitle: member.groupName == null ? null : Text(member.groupName!, maxLines: 1, overflow: TextOverflow.ellipsis),
+    subtitle: member.groupName == null
+        ? null
+        : Text(context.displayText(member.groupName!), maxLines: 1, overflow: TextOverflow.ellipsis),
     trailing: _Value(value),
     onTap: () => context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': member.uid}),
   );
@@ -308,11 +311,11 @@ class _ThreadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = [?thread.forumName, ?thread.author].join(' · ');
+    final info = [if (thread.forumName case final f?) context.displayText(f), ?thread.author].join(' · ');
     return ListTile(
       key: ValueKey('ranklist-thread-${thread.tid}'),
       leading: _Rank(thread.rank),
-      title: Text(thread.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(context.displayText(thread.title), maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: info.isEmpty ? null : Text(info, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: _Value(thread.value),
       onTap: () => openThread(context, threadID: thread.tid, title: thread.title),
