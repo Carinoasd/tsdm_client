@@ -37,3 +37,13 @@ Object? threadAnswerWithRecommend(Object? data) {
     if (links.isNotEmpty) threadRecommendHtmlKey: links,
   };
 }
+
+/// The answer [data] as an offline copy keeps it: without the evaluation links [threadAnswerWithRecommend] added
+/// (the form hash of the session is in them; an offline floor offers no evaluation). Any other answer as it is.
+Object? threadAnswerWithoutRecommend(Object? data) => switch (data) {
+  final Map<String, dynamic> json when json.containsKey(threadRecommendHtmlKey) => {
+    for (final e in json.entries)
+      if (e.key != threadRecommendHtmlKey) e.key: e.value,
+  },
+  _ => data,
+};

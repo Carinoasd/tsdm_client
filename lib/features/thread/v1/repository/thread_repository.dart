@@ -234,7 +234,9 @@ class ThreadRepository {
                   orderType: orderType,
                   authorId: authorId,
                 ),
-                data,
+                // Without the evaluation links: they hold the session's form hash, and an offline floor offers no
+                // evaluation.
+                threadAnswerWithoutRecommend(data),
               );
             }
           }
@@ -415,7 +417,7 @@ class ThreadRepository {
     final respEither = await getIt
         .get<NetClientProvider>()
         .get(
-          withDocument ? '${_threadUrl!}&$tsdmAppJsonQuery' : withTsdmAppJson(_threadUrl!),
+          withTsdmAppJson(_threadUrl!, nodoc: !withDocument),
           options: onNotFound == null
               ? null
               : Options(validateStatus: (s) => s != null && ((s >= 200 && s < 300) || s == HttpStatus.notFound)),

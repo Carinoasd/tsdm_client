@@ -87,16 +87,18 @@ ThreadRecommendOutcome threadRecommendOutcomeOf(Object? data) {
 final _cdataRe = RegExp(r'<!\[CDATA\[([\s\S]*?)\]\]>');
 
 /// The plugin's plain text [message] of a refusal with the line break the forum prints after the evaluation index
-/// [index] ("评价指数 1" then "您已评价过本主题"), which the plain text lost; as it is when the index is not in it.
+/// [index] ("评价指数 1" then "您已评价过本主题"), which the plain text lost; as it is when the index is not in it after a
+/// space.
 String _withIndexLine(String message, String? index) {
   if (index == null || index.isEmpty) {
     return message;
   }
-  final at = message.indexOf(index);
+  // The index the forum prints after its label and a space ("评价指数 1"), not a digit of the label itself.
+  final at = message.indexOf(' $index');
   if (at < 0) {
     return message;
   }
-  final end = at + index.length;
+  final end = at + 1 + index.length;
   final rest = message.substring(end).trim();
   return rest.isEmpty ? message : '${message.substring(0, end).trim()}\n$rest';
 }

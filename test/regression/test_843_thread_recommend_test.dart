@@ -31,6 +31,7 @@ import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
 import 'package:tsdm_client/features/thread_recommend/repository/thread_recommend_repository.dart';
 import 'package:tsdm_client/features/thread_recommend/utils/thread_recommend_answer.dart';
 import 'package:tsdm_client/features/thread_recommend/widgets/thread_recommend_buttons.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -41,6 +42,8 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:universal_html/parsing.dart';
 
 const _dir = 'test/data/recommend';
+
+Translations get t => LocaleSettings.instance.currentTranslations;
 
 String _raw(String name) => File('$_dir/$name').readAsStringSync();
 
@@ -128,6 +131,10 @@ void main() {
       }
     });
 
+    test("a member's page that does not tell its account: none", () {
+      expect(_parse(_raw('p_btn_member.html'), viewerUid: null), isNull);
+    });
+
     test('a count of 0 (hidden by the page), one button only, none, or not the forum evaluation', () {
       final member = _raw('p_btn_member.html');
       final zero = member.replaceFirst(
@@ -180,6 +187,12 @@ void main() {
       expect(cut, isNot(contains('head')));
       expect(cut[threadRecommendHtmlKey], contains('recommend_subtract'));
 
+      final offline = threadAnswerWithoutRecommend(cut)! as Map<String, dynamic>;
+      expect(offline, isNot(contains(threadRecommendHtmlKey)), reason: 'no form hash in the offline copy');
+      expect(offline.keys.toSet(), cut.keys.toSet()..remove(threadRecommendHtmlKey));
+      final lean = _thread();
+      expect(identical(threadAnswerWithoutRecommend(lean), lean), isTrue);
+
       final page = threadPageFromApi(threadApiAnswerOf(cut)!, 1);
       final first = page.postList.firstWhere((p) => p.postFloor == 1);
       expect(first.recommend?.viewerUid, 31);
@@ -205,6 +218,13 @@ void main() {
       expect(identical(threadAnswerWithRecommend(cache), cache), isTrue);
       const web = '<html><body></body></html>';
       expect(threadAnswerWithRecommend(web), web);
+    });
+
+    test('withTsdmAppJson without nodoc', () {
+      const url = '$baseUrl/forum.php?mod=viewthread&tid=9199345&page=1';
+      expect(withTsdmAppJson(url, nodoc: false), '$url&tsdmapp=json');
+      expect(withTsdmAppJson('$url#x', nodoc: false), '$url&tsdmapp=json#x');
+      expect(withTsdmAppJson(url), '$url&tsdmapp=json&nodoc=1');
     });
 
     test('fetchThreadPage: page 1 by thread id asks its document, any other page stays lean', () async {
@@ -234,6 +254,10 @@ void main() {
       expect(refusal('result_duplicate.json'), '评价指数 1\n您已评价过本主题');
       expect(refusal('result_self_disallow.json'), '评价指数 1\n您不能评价自己的帖子');
       expect(refusal('result_outoftimes.json'), '评价指数 0\n今日评价机会已用完');
+      // The line break goes after the index the forum prints after a space, not after a digit of its label.
+      final relabeled = _result('result_duplicate.json')! as Map<String, dynamic>;
+      relabeled['message'] = '第1评价指数 1您已评价过本主题';
+      expect((threadRecommendOutcomeOf(relabeled) as ThreadRecommendRefused).message, '第1评价指数 1\n您已评价过本主题');
       expect(refusal('result_submit_invalid.json'), '抱歉，您的请求来路不正确或表单验证串不符，无法提交');
       expect(threadRecommendOutcomeOf(_result('result_to_login.json')), isA<ThreadRecommendNeedLogin>());
     });
@@ -287,6 +311,8 @@ void main() {
   });
 
   group('the buttons', () {
+    setUp(ThreadRecommendMemory.clear);
+
     Future<List<String>> pump(WidgetTester tester, ThreadRecommend recommend, String result) async {
       final sent = <String>[];
       await tester.pumpWidget(
@@ -326,6 +352,36 @@ void main() {
       await tester.tap(find.text('支持 2'));
       await tester.pumpAndSettle();
       expect(sent, hasLength(1), reason: 'one evaluation per member and thread');
+
+      // The floor built again (scrolled out of view and back): still counted, still off.
+      await tester.pumpWidget(const SizedBox());
+      final again = await pump(tester, recommend, 'result_add_succeed.json');
+      expect(find.text('支持 2'), findsOneWidget);
+      expect(find.byIcon(Icons.thumb_up), findsOneWidget);
+      await tester.tap(find.text('踩踩 2'));
+      await tester.pumpAndSettle();
+      expect(again, isEmpty);
+
+      // The page read again has the support in its count: not added twice.
+      final reloaded = _parse(
+        _raw(
+          'p_btn_member.html',
+        ).replaceFirst('<span id="recommendv_add">1</span>', '<span id="recommendv_add">2</span>'),
+      )!;
+      await pump(tester, reloaded, 'result_add_succeed.json');
+      expect(find.text('支持 2'), findsOneWidget);
+      expect(find.byIcon(Icons.thumb_up), findsOneWidget);
+    });
+
+    testWidgets('no verdict: said so, both off', (tester) async {
+      final sent = await pump(tester, _parse(_raw('p_btn_member.html'))!, 'p_btn_guest.html');
+      await tester.tap(find.text('支持 1'));
+      await tester.pumpAndSettle();
+      expect(find.text(t.threadRecommend.unknown), findsOneWidget);
+      await tester.tap(find.text('踩踩 2'));
+      await tester.pumpAndSettle();
+      expect(sent, hasLength(1));
+      expect(find.text('支持 1'), findsOneWidget);
     });
 
     testWidgets("refused: the forum's words, the counts as they were", (tester) async {

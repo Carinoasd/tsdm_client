@@ -69,8 +69,12 @@ final class ThreadRecommend extends Equatable {
     if (query['mod'] != 'misc' || query['action'] != 'recommend' || tid <= 0) {
       return null;
     }
-    // A guest's buttons open the login window (`showWindow('login', …)`), a member's send the evaluation.
-    final guest = (viewerUid ?? 0) <= 0 || (link.attributes['onclick'] ?? '').contains("'login'");
+    // A guest's buttons open the login window (`showWindow('login', …)`), a member's send the evaluation. A member's
+    // page that does not tell its account is none: the request could not be checked against the account in use.
+    final guest = (link.attributes['onclick'] ?? '').contains("'login'") || viewerUid == 0;
+    if (!guest && (viewerUid == null || viewerUid < 0)) {
+      return null;
+    }
     final add = _buttonOf(addLink, 'recommendv_add');
     final subtract = _buttonOf(subtractLink, 'recommendv_subtract');
     if (add == null && subtract == null) {
