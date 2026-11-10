@@ -608,7 +608,10 @@
         "followedThreadMinutes": "${n} min",
         "quietHours": "Quiet hours",
         "quietStart": "From",
-        "quietEnd": "Until"
+        "quietEnd": "Until",
+        "forumNewThread": "New threads in forums",
+        "keywordAlert": "Keyword alerts",
+        "forumWatch": "New thread alerts"
       },
       "notificationHideContent": {
         "title": "Hide notification content",
@@ -1114,6 +1117,12 @@
       "removed": "Forum removed from favorites",
       "failed": "Failed: $err",
       "needLogin": "Login to add favorites"
+    },
+    "watch": {
+      "on": "Alert new threads",
+      "off": "Stop new thread alerts",
+      "watched": "New thread alerts on",
+      "unwatched": "New thread alerts off"
     }
   },
   "threadPage": {
@@ -2479,7 +2488,9 @@
       "rate": "Ratings and comments",
       "pm": "Private messages",
       "system": "System notices",
-      "followedThread": "Followed threads"
+      "followedThread": "Followed threads",
+      "forumNewThread": "New threads in forums",
+      "keywordAlert": "Keyword alerts"
     },
     "channelName": "New auto sync notice",
     "channelDesc": "Received new notice when auto sync",
@@ -3855,6 +3866,33 @@
     "notice": {
       "body": "\"${title}\" has ${n} new replies",
       "hidden": "A followed thread has ${n} new replies"
+    }
+  },
+  "forumWatch": {
+    "title": "New thread alerts",
+    "alerts": "Alerts",
+    "settings": "Settings",
+    "noAlerts": "No alerts yet",
+    "needLogin": "Log in to get new thread alerts",
+    "forums": "Watched forums",
+    "keywords": "Keywords",
+    "keyword": "Keyword",
+    "add": "Add",
+    "keywordExists": "Keyword already added",
+    "limitReached": "At most ${forums} forums and ${keywords} keywords",
+    "scope": "Look for keywords in",
+    "scopeDefault": "Watched forums and latest threads",
+    "scopeCustom": "Pick",
+    "latest": "Latest threads",
+    "pickForums": "Pick forums",
+    "interval": "Check interval",
+    "minutes": "${n} min",
+    "notice": {
+      "thread": "${author}: ${title}",
+      "forumMany": "${n} new threads",
+      "keywordOne": "Keyword \"${keyword}\"",
+      "keywordMany": "${n} threads with keywords",
+      "keywordLine": "\"${keyword}\" ${title}"
     }
   },
   "customEmoji": {

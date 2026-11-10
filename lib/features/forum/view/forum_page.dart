@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
 import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
 import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
+import 'package:tsdm_client/features/forum_watch/cubit/forum_watch_cubit.dart';
+import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
@@ -33,6 +36,7 @@ import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/forum_card.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
@@ -299,6 +303,44 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         )
       : null;
 
+  /// Watch this forum for new threads, or stop: the threads after the newest one shown now are announced (after the
+  /// newest of the first check when the list shown is filtered).
+  Future<void> _toggleWatch(BuildContext context, ForumState state) async {
+    final fid = int.tryParse(widget.fid);
+    final cubit = context.read<ForumWatchCubit>();
+    if (fid == null) {
+      return;
+    }
+    final tr = context.t.forumPage.watch;
+    if (cubit.state.config.watches(fid)) {
+      final result = await cubit.unwatchForum(fid);
+      if (context.mounted) {
+        result == ForumWatchChange.ok
+            ? showSnackBar(context: context, message: tr.unwatched)
+            : showForumWatchChange(context, result);
+      }
+      return;
+    }
+    // Only the forum's own list tells its newest thread: a filtered one may show none of the latest.
+    final newest = state.filterState.isFiltering()
+        ? 0
+        : state.normalThreadList.map((e) => int.tryParse(e.threadID) ?? 0).fold(0, math.max);
+    final result = await cubit.watchForum(
+      fid,
+      name: widget.title ?? state.title ?? '',
+      newestTid: newest > 0 ? newest : null,
+    );
+    if (context.mounted) {
+      result == ForumWatchChange.ok
+          ? showSnackBar(context: context, message: tr.watched)
+          : showForumWatchChange(context, result);
+    }
+    if (mounted) {
+      // Relabel the menu item.
+      setState(() {});
+    }
+  }
+
   PreferredSizeWidget _buildListAppBar(BuildContext context, ForumState state) {
     return ListAppBar(
       title: widget.title ?? state.title,
@@ -344,6 +386,16 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             }
           },
         ),
+        if (context.readOrNull<ForumWatchCubit>() != null)
+          MenuCustomItem(
+            icon: isForumWatched(context, int.tryParse(widget.fid))
+                ? Icons.notifications_off_outlined
+                : Icons.notifications_active_outlined,
+            description: isForumWatched(context, int.tryParse(widget.fid))
+                ? context.t.forumPage.watch.off
+                : context.t.forumPage.watch.on,
+            onSelected: () async => _toggleWatch(context, state),
+          ),
         MenuCustomItem(
           icon: Icons.numbers_outlined,
           description: context.t.forumPage.copyFid(fid: widget.fid),

@@ -242,6 +242,16 @@ class StorageProvider with LoggerMixin {
   /// milliseconds since epoch.
   static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
 
+  /// Settings name of what account [uid] watches for new threads (`ForumWatchStore`), a JSON object.
+  static String forumWatchKey(int uid) => 'forumWatch.$uid';
+
+  /// Settings name of what the check of the watched forums of account [uid] knows (`ForumWatchStore`), a JSON object.
+  static String forumWatchStateKey(int uid) => 'forumWatchState.$uid';
+
+  /// Settings name of the time the watched forums of account [uid] were last checked (`ForumWatchCheckSlot`), in
+  /// milliseconds since epoch.
+  static String forumWatchCheckedAtKey(int uid) => 'forumWatchCheckedAt.$uid';
+
   /// How many times the cookie of each uid was saved or removed through this provider: a read of its row that one of
   /// them overtook does not put what it read into the cache ([fetchCookieOfUid]).
   final _cookieWrites = <int, int>{};
@@ -251,9 +261,9 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Delete the local marks of account [uid] removed from this device: the threads it replied to, its offline thread
-  /// pages, the times it was polled for notifications, the threads it follows, the pages saved for the next start
-  /// ([SavedAnswerStore]), the drafts its editors kept ([LocalDraftStore]), the time it spent reading and its floor
-  /// bookmarks ([FloorBookmarkStore]).
+  /// pages, the times it was polled for notifications, the threads it follows, the forums and keywords it watches
+  /// (`ForumWatchStore`), the pages saved for the next start ([SavedAnswerStore]), the drafts its editors kept
+  /// ([LocalDraftStore]), the time it spent reading and its floor bookmarks ([FloorBookmarkStore]).
   Future<void> _deleteAccountMarks(int uid) async {
     _wroteCookieOf(uid);
     // The pages saved to show at the next start (the homepage, the guide) were served to the account.
@@ -268,6 +278,9 @@ class StorageProvider with LoggerMixin {
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
     await settings.deleteByName(followedThreadsKey(uid));
     await settings.deleteByName(followedThreadsCheckedAtKey(uid));
+    await settings.deleteByName(forumWatchKey(uid));
+    await settings.deleteByName(forumWatchStateKey(uid));
+    await settings.deleteByName(forumWatchCheckedAtKey(uid));
     // The floor bookmarks (and the sync's records of the removed ones): the store forgets them at once (a write it has
     // queued waits for this transaction), the row goes here.
     FloorBookmarkStore.app?.forget(uid);

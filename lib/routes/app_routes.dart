@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dar
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
+import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
 import 'package:tsdm_client/features/friend/view/friend_page.dart';
 import 'package:tsdm_client/features/home/view/home_page.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
@@ -508,6 +509,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
+  AppRoute(path: ScreenPaths.forumWatch, builder: (_) => const ForumWatchPage()),
   AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),
   AppRoute(
     path: ScreenPaths.customEmojiPack,

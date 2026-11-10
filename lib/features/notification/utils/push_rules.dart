@@ -25,7 +25,13 @@ enum NoticeCategory {
 
   /// New replies of the threads the account follows, found by the app itself (`checkFollowedThreads`): the forum
   /// sends no notice for them, so no notice is of this category.
-  followedThread
+  followedThread,
+
+  /// New threads of the forums the account watches, found by the app itself (`checkForumWatch`).
+  forumNewThread,
+
+  /// New threads whose title holds one of the account's alert keywords, found by the app itself (`checkForumWatch`).
+  keywordAlert
   ;
 
   /// The setting that switches this category on.
@@ -36,6 +42,8 @@ enum NoticeCategory {
     pm => SettingsKeys.notifyPersonalMessage,
     system => SettingsKeys.notifySystem,
     followedThread => SettingsKeys.notifyFollowedThread,
+    forumNewThread => SettingsKeys.notifyForumNewThread,
+    keywordAlert => SettingsKeys.notifyKeywordAlert,
   };
 
   /// Id of the Android notification channel of this category.
@@ -46,6 +54,8 @@ enum NoticeCategory {
     pm => 'noticePm',
     system => 'noticeSystem',
     followedThread => 'noticeFollowedThread',
+    forumNewThread => 'noticeForumNewThread',
+    keywordAlert => 'noticeKeywordAlert',
   };
 }
 

@@ -1059,6 +1059,25 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             }
           },
         ),
+        category(
+          NoticeCategory.forumNewThread,
+          Icons.fiber_new_outlined,
+          tr.forumNewThread,
+          value: map.notifyForumNewThread,
+        ),
+        category(
+          NoticeCategory.keywordAlert,
+          Icons.manage_search_outlined,
+          tr.keywordAlert,
+          value: map.notifyKeywordAlert,
+        ),
+        SectionListTile(
+          key: const ValueKey('notice-forum-watch'),
+          leading: const Icon(Icons.tune_outlined),
+          title: Text(tr.forumWatch),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.forumWatch),
+        ),
         SectionSwitchListTile(
           key: const ValueKey('notice-quiet-hours'),
           secondary: const Icon(Icons.bedtime_outlined),

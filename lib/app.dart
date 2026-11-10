@@ -28,6 +28,10 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_day_watcher.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
+import 'package:tsdm_client/features/forum_watch/cubit/forum_watch_cubit.dart';
+import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
+import 'package:tsdm_client/features/forum_watch/utils/forum_watch_fetch.dart';
+import 'package:tsdm_client/features/forum_watch/utils/forum_watch_notice.dart';
 import 'package:tsdm_client/features/home/cubit/init_cubit.dart';
 import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dart';
 import 'package:tsdm_client/features/home_widget/repository/home_widget_channel.dart';
@@ -650,6 +654,31 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                           .catchError((Object e) => talker.warning('taking back notification failed: $e')),
                     )
                   : null,
+            )..start(),
+            lazy: false,
+          ),
+          // The forums and keywords the account in use watches for new threads, checked while the app runs (the
+          // background message service checks them too on Android). Not lazy: the check runs from the start.
+          BlocProvider(
+            create: (context) => ForumWatchCubit(
+              store: ForumWatchStore(getIt()),
+              storage: getIt(),
+              authenticationRepository: context.repo(),
+              fetchFor: forumWatchFetcherOf,
+              announce: (uid, batch) async {
+                if (!autoSyncPostsNotifications) {
+                  // Nothing is posted here: the page of the alerts lists them.
+                  return true;
+                }
+                await showForumWatchNotification(
+                  plugin: flnp,
+                  translations: t,
+                  batch: batch,
+                  uid: uid,
+                  hideContent: getIt.get<SettingsRepository>().currentSettings.notificationHideContent,
+                );
+                return true;
+              },
             )..start(),
             lazy: false,
           ),
