@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/cached_image/cover_resize_image.dart';
@@ -155,7 +156,7 @@ class _PreviewRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                excerpt,
+                context.displayText(excerpt),
                 key: const ValueKey('thread-preview-excerpt'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

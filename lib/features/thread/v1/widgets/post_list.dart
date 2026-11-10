@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/thread/v1/widgets/floor_layout.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -614,7 +615,7 @@ class PostListState extends State<PostList> with LoggerMixin {
             child: SizedBox(
               width: double.infinity,
               child: Text(
-                widget.title ?? '',
+                context.displayText(widget.title ?? ''),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, height: 1.35),
               ),
             ),

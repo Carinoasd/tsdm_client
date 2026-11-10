@@ -240,7 +240,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                     sizedBoxW8H8,
                     Expanded(
                       child: Text(
-                        widget.forum.latestThreadTitle ?? '',
+                        context.displayText(widget.forum.latestThreadTitle ?? ''),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: large ? textTheme.bodyMedium : textTheme.labelMedium,
@@ -292,7 +292,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
     final wrapChildren = dataList
         .map(
           (e) => ActionChip(
-            label: Text(e.$1),
+            label: Text(context.displayText(e.$1)),
             labelStyle: widget.large ? Theme.of(context).textTheme.labelMedium : Theme.of(context).textTheme.labelSmall,
             visualDensity: VisualDensity.compact,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),

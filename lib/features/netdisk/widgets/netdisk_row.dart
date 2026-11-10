@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 
 /// A row of chips under an online storage link of a post: the service, its codes (tap to copy) and the button opening
@@ -23,7 +24,7 @@ class NetdiskRow extends StatelessWidget {
         spacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _chip(context, icon: Icons.cloud_outlined, label: link.provider.name),
+          _chip(context, icon: Icons.cloud_outlined, label: context.displayText(link.provider.name)),
           if (extractCode != null)
             _chip(
               context,

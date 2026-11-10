@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// The card of the thread a link in a post's content leads to ([threadLinkOf]), put right after the link: its title,
 /// its author, its forum, its replies and views, when it was started; tapping it opens the link ([onOpen]) as tapping
@@ -163,7 +164,7 @@ class _Card extends StatelessWidget {
     final time = info.publishTime;
     final meta = <(IconData, String)>[
       if (info.author != null) (Icons.person_outline, info.author!),
-      if (info.forumName != null) (Icons.folder_outlined, info.forumName!),
+      if (info.forumName != null) (Icons.folder_outlined, context.displayText(info.forumName!)),
       if (info.replyCount != null) (Icons.forum_outlined, '${info.replyCount}'),
       if (info.viewCount != null) (Icons.bar_chart_outlined, '${info.viewCount}'),
       if (time != null) (Icons.access_time, time.elapsedTillNow(context)),
@@ -180,7 +181,7 @@ class _Card extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            info.title,
+            context.displayText(info.title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.primary),
