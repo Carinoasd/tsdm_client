@@ -13,6 +13,8 @@ import 'package:tsdm_client/features/space/cubit/space_list_cubit.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/repository/space_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
+import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -28,21 +30,25 @@ enum SpaceTab {
   blog,
 
   /// The albums.
-  album
+  album,
+
+  /// The wall.
+  wall
   ;
 
-  /// The tab named [name] (`blog`, `album`), the blogs by default.
+  /// The tab named [name] (`blog`, `album`, `wall`), the blogs by default.
   static SpaceTab of(String? name) => values.where((e) => e.name == name).firstOrNull ?? blog;
 }
 
-/// The blogs and the albums of the member [uid], a tab each.
+/// The blogs, the albums and the wall of the member [uid], a tab each.
 ///
-/// The member's own space offers to post a blog and to upload pictures.
+/// The member's own space offers to post a blog and to upload pictures; the wall offers to write a message to whom
+/// the forum prints its message box, and on each message the forum's own reply and delete.
 class SpacePage extends StatefulWidget {
   /// Constructor.
-  const SpacePage({required this.uid, this.username, this.initialTab = SpaceTab.blog, super.key});
+  const SpacePage({required this.uid, this.username, this.initialTab = SpaceTab.blog, this.wallCid, super.key});
 
-  /// The member.
+  /// The member; 0 for the account in use.
   final int uid;
 
   /// Their name, for the title.
@@ -50,6 +56,9 @@ class SpacePage extends StatefulWidget {
 
   /// The tab shown first.
   final SpaceTab initialTab;
+
+  /// The wall shows this message only (the link of a wall notice), until all the messages are asked for.
+  final int? wallCid;
 
   @override
   State<SpacePage> createState() => _SpacePageState();
@@ -59,6 +68,11 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
   late final TabController _tabController;
   late final SpaceListCubit<SpaceBlog> _blogs;
   late final SpaceListCubit<SpaceAlbum> _albums;
+  late SpaceListCubit<SpaceBlogComment> _wall;
+  late int? _wallCid = widget.wallCid;
+
+  /// The member; the account in use for a link without one (`home.php?mod=space&do=wall`).
+  late final int _uid = widget.uid > 0 ? widget.uid : context.read<AuthenticationRepository>().currentUser?.uid ?? 0;
 
   /// The account changes: the owner's actions follow the account in use.
   StreamSubscription<AuthStatus>? _authSubscription;
@@ -70,17 +84,19 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
       ..addListener(() => setState(() {}));
     const repo = SpaceRepository();
     _blogs = SpaceListCubit<SpaceBlog>(
-      firstPageUrl: spaceBlogListUrl(widget.uid),
+      firstPageUrl: spaceBlogListUrl(_uid),
       fetch: repo.fetchBlogList,
       keyOf: (e) => e.blogId,
     );
     _albums = SpaceListCubit<SpaceAlbum>(
-      firstPageUrl: spaceAlbumListUrl(widget.uid),
+      firstPageUrl: spaceAlbumListUrl(_uid),
       fetch: repo.fetchAlbumList,
       keyOf: (e) => e.albumId,
     );
+    _wall = _wallCubit();
     unawaited(_blogs.load());
     unawaited(_albums.load());
+    unawaited(_wall.load());
     _authSubscription = context.read<AuthenticationRepository>().status.listen((_) {
       if (mounted) setState(() {});
     });
@@ -92,16 +108,65 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
     _tabController.dispose();
     unawaited(_blogs.close());
     unawaited(_albums.close());
+    unawaited(_wall.close());
     super.dispose();
   }
 
-  bool get _own => context.read<AuthenticationRepository>().currentUser?.uid == widget.uid;
+  SpaceListCubit<SpaceBlogComment> _wallCubit() => SpaceListCubit<SpaceBlogComment>(
+    firstPageUrl: spaceWallUrl(_uid, cid: _wallCid),
+    fetch: const SpaceRepository().fetchWall,
+    keyOf: (e) => e.cid,
+  );
+
+  /// The whole wall, after the one message of a notice.
+  void _showWholeWall() {
+    final old = _wall;
+    setState(() {
+      _wallCid = null;
+      _wall = _wallCubit();
+    });
+    unawaited(old.close());
+    unawaited(_wall.load());
+  }
+
+  Future<void> _writeOnWall(SpaceSession session, {SpaceBlogComment? replyTo}) async {
+    // A wall opened without its member is the account's own: the one its page was served to.
+    final owner = _uid > 0 ? _uid : session.uid;
+    if (await showWallMessageDialog(context, session: session, ownerUid: owner, replyTo: replyTo) && mounted) {
+      unawaited(_wall.refresh());
+    }
+  }
+
+  Future<void> _deleteFromWall(SpaceSession session, SpaceBlogComment comment) async {
+    if (await deleteWallMessage(context, session: session, comment: comment) && mounted) {
+      unawaited(_wall.refresh());
+    }
+  }
+
+  Widget _wallTile(BuildContext context, SpaceListState<SpaceBlogComment> state, SpaceBlogComment comment) {
+    final session = state.session;
+    return AppSurface(
+      child: SpaceBlogCommentTile(
+        comment,
+        trailing: session == null || !(comment.canReply || comment.canDelete)
+            ? null
+            : WallMessageActions(
+                onReply: comment.canReply ? () async => _writeOnWall(session, replyTo: comment) : null,
+                onDelete: comment.canDelete ? () async => _deleteFromWall(session, comment) : null,
+              ),
+      ),
+    );
+  }
+
+  bool get _own => context.read<AuthenticationRepository>().currentUser?.uid == _uid;
 
   Future<void> _write() async {
     final path = switch (SpaceTab.values[_tabController.index]) {
       SpaceTab.blog => ScreenPaths.spaceBlogPost,
       SpaceTab.album => ScreenPaths.spaceAlbumUpload,
+      SpaceTab.wall => null,
     };
+    if (path == null) return;
     final changed = await context.pushNamed<bool>(path);
     if (!mounted || !(changed ?? false)) return;
     unawaited(_blogs.refresh());
@@ -114,17 +179,38 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
     final tab = SpaceTab.values[_tabController.index];
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.username ?? (tab == SpaceTab.blog ? tr.blogs : tr.albums)),
+        title: Text(
+          widget.username ??
+              switch (tab) {
+                SpaceTab.blog => tr.blogs,
+                SpaceTab.album => tr.albums,
+                SpaceTab.wall => tr.wall.title,
+              },
+        ),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
             Tab(text: tr.blogs),
             Tab(text: tr.albums),
+            Tab(text: tr.wall.title),
           ],
         ),
       ),
-      // Follows the account in use: another account's space offers nothing to write.
-      floatingActionButton: _own
+      // Follows the account in use: another account's space offers nothing to write; a wall offers to whom the forum
+      // printed its message box, on the account its page was served to.
+      floatingActionButton: tab == SpaceTab.wall
+          ? BlocBuilder<SpaceListCubit<SpaceBlogComment>, SpaceListState<SpaceBlogComment>>(
+              bloc: _wall,
+              builder: (context, state) => switch (state.session) {
+                final session? when state.canPost && state.status == SpaceLoadStatus.success => FloatingActionButton(
+                  tooltip: tr.wall.post,
+                  onPressed: () async => _writeOnWall(session),
+                  child: const Icon(Icons.edit_note_outlined),
+                ),
+                _ => const SizedBox.shrink(),
+              },
+            )
+          : _own
           ? FloatingActionButton(
               tooltip: tab == SpaceTab.blog ? tr.newBlog : tr.upload,
               onPressed: _write,
@@ -138,7 +224,7 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
           children: [
             BlocProvider.value(
               value: _blogs,
-              child: _SpaceList<SpaceBlog>(
+              child: SpaceListView<SpaceBlog>(
                 emptyIcon: Icons.article_outlined,
                 emptyMessage: tr.emptyBlogs,
                 itemBuilder: (context, blog) => SpaceBlogCard(blog),
@@ -146,11 +232,36 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
             ),
             BlocProvider.value(
               value: _albums,
-              child: _SpaceList<SpaceAlbum>(
+              child: SpaceListView<SpaceAlbum>(
                 emptyIcon: Icons.photo_library_outlined,
                 emptyMessage: tr.emptyAlbums,
                 grid: true,
                 itemBuilder: (context, album) => SpaceAlbumTile(album),
+              ),
+            ),
+            BlocProvider.value(
+              value: _wall,
+              child: BlocListener<SpaceListCubit<SpaceBlogComment>, SpaceListState<SpaceBlogComment>>(
+                listenWhen: (prev, curr) => curr.status == SpaceLoadStatus.notice && prev.status != curr.status,
+                listener: (context, state) {
+                  if (spaceModuleSwitchedOff(state.message)) markSpaceModuleOff(SpaceModule.wall);
+                },
+                child: SpaceListView<SpaceBlogComment>(
+                  key: ValueKey(_wall),
+                  emptyIcon: Icons.forum_outlined,
+                  emptyMessage: tr.wall.empty,
+                  itemBuilder: (context, comment) =>
+                      _wallTile(context, context.read<SpaceListCubit<SpaceBlogComment>>().state, comment),
+                  footer: _wallCid == null
+                      ? null
+                      : Center(
+                          child: TextButton.icon(
+                            onPressed: _showWholeWall,
+                            icon: const Icon(Icons.forum_outlined),
+                            label: Text(tr.wall.all),
+                          ),
+                        ),
+                ),
               ),
             ),
           ],
@@ -160,27 +271,38 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
   }
 }
 
-/// A list of the space, refreshed by pulling down, the next page loaded at its end.
-class _SpaceList<T> extends StatefulWidget {
-  const _SpaceList({
+/// A list of the space ([SpaceListCubit] above it), refreshed by pulling down, the next page loaded at its end.
+class SpaceListView<T> extends StatefulWidget {
+  /// Constructor.
+  const SpaceListView({
     required this.emptyIcon,
     required this.emptyMessage,
     required this.itemBuilder,
     this.grid = false,
+    this.footer,
+    super.key,
   });
 
+  /// Icon of the empty list.
   final IconData emptyIcon;
+
+  /// Words of the empty list.
   final String emptyMessage;
+
+  /// An item.
   final Widget Function(BuildContext context, T item) itemBuilder;
 
   /// Tiles in a grid (the albums) rather than cards in a column.
   final bool grid;
 
+  /// After the items (and the note), before the loading footer.
+  final Widget? footer;
+
   @override
-  State<_SpaceList<T>> createState() => _SpaceListState<T>();
+  State<SpaceListView<T>> createState() => _SpaceListViewState<T>();
 }
 
-class _SpaceListState<T> extends State<_SpaceList<T>> with AutomaticKeepAliveClientMixin {
+class _SpaceListViewState<T> extends State<SpaceListView<T>> with AutomaticKeepAliveClientMixin {
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
 
   @override
@@ -252,6 +374,7 @@ class _SpaceListState<T> extends State<_SpaceList<T>> with AutomaticKeepAliveCli
             children: [
               sizedBoxW32H32,
               AppStateView(icon: widget.emptyIcon, message: widget.emptyMessage, scrollable: false),
+              ?widget.footer,
             ],
           );
         }
@@ -280,20 +403,22 @@ class _SpaceListState<T> extends State<_SpaceList<T>> with AutomaticKeepAliveCli
             ],
           );
         }
+        final extra = [
+          if (note != null)
+            Padding(
+              padding: edgeInsetsL12T4R12B4,
+              child: Text(note, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+            ),
+          ?widget.footer,
+          footer,
+        ];
         return ListView.separated(
           padding: padding,
-          itemCount: state.items.length + (note == null ? 1 : 2),
+          itemCount: state.items.length + extra.length,
           separatorBuilder: (_, _) => const SizedBox(height: appSurfaceGapCompact),
-          itemBuilder: (context, index) {
-            if (index < state.items.length) return widget.itemBuilder(context, state.items[index]);
-            if (note != null && index == state.items.length) {
-              return Padding(
-                padding: edgeInsetsL12T4R12B4,
-                child: Text(note, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
-              );
-            }
-            return footer;
-          },
+          itemBuilder: (context, index) => index < state.items.length
+              ? widget.itemBuilder(context, state.items[index])
+              : extra[index - state.items.length],
         );
       },
     );

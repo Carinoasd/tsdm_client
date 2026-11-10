@@ -6,7 +6,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/html.dart' as uh;
 
-/// Reads the blogs and the albums of a member's space.
+/// Reads the blogs, the albums and the wall of a member's space, and the greetings received.
 ///
 /// Every page is asked in the JSON mode of the forum's app API ([withTsdmAppJson]); the plugin (3.4.0) leaves the
 /// space pages alone and answers the web page, which is parsed ([tsdmAppPageDocument] also rebuilds a page from the
@@ -29,4 +29,10 @@ final class SpaceRepository {
 
   /// A page of the pictures of an album ([spaceAlbumUrl], or the next page of one).
   AsyncEither<SpaceListPage<SpacePhoto>> fetchAlbumPhotos(String url) => _page(url, parseSpaceAlbumPhotosPage);
+
+  /// A page of a wall ([spaceWallUrl], or the next page of one).
+  AsyncEither<SpaceListPage<SpaceBlogComment>> fetchWall(String url) => _page(url, parseSpaceWallPage);
+
+  /// A page of the greetings received ([spacePokeListUrl], or the next page of it).
+  AsyncEither<SpaceListPage<ReceivedPoke>> fetchPokes(String url) => _page(url, parseReceivedPokePage);
 }

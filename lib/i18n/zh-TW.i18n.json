@@ -4129,7 +4129,33 @@
     },
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
-    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容",
+    "wall": {
+      "title": "留言板",
+      "empty": "還沒有留言",
+      "post": "留言",
+      "reply": "回覆",
+      "replyTo": "回覆 $name",
+      "message": "內容",
+      "delete": "刪除留言",
+      "sent": "已留言",
+      "deleted": "已刪除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "說一句",
+      "received": "收到的招呼",
+      "empty": "還沒有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已送出",
+      "loadFailed": "無法開啟招呼"
+    }
   },
   "postComment": {
     "title": "點評",

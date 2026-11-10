@@ -41,6 +41,8 @@ final class SpaceListState<T> {
     this.loadingMore = false,
     this.loadMoreFailed = false,
     this.failure,
+    this.session,
+    this.canPost = false,
   });
 
   /// Where the page is.
@@ -79,6 +81,12 @@ final class SpaceListState<T> {
   /// Why the last load failed.
   final LoadFailure? failure;
 
+  /// The account the first page was served to and its form hash (the wall, the greetings received).
+  final SpaceSession? session;
+
+  /// The first page of a wall printed its message box.
+  final bool canPost;
+
   /// Copy with the given fields.
   SpaceListState<T> copyWith({
     SpaceLoadStatus? status,
@@ -106,6 +114,9 @@ final class SpaceListState<T> {
     loadingMore: loadingMore ?? this.loadingMore,
     loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
     failure: failure == _keep ? this.failure : failure as LoadFailure?,
+    // Kept as they are: they come with the first page only.
+    session: session,
+    canPost: canPost,
   );
 }
 
@@ -174,6 +185,8 @@ final class SpaceListCubit<T> extends Cubit<SpaceListState<T>> with LoggerMixin 
             title: value.title,
             totalCount: value.totalCount,
             hiddenNote: value.hiddenNote,
+            session: value.session,
+            canPost: value.canPost,
           ),
         );
     }

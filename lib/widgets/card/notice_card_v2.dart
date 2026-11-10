@@ -135,7 +135,7 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     if (_contentLinkOpened) {
       return;
     }
-    final url = _tapUrlOf(_info);
+    final url = noticeTapUrlOf(_info, widget.data.data);
     _onUrlLaunched(markAsRead: true);
     if (url != null) {
       await context.dispatchAsUrl(url);
@@ -371,23 +371,6 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
       body: MunchedHtml(widget.data.data, options: MunchOptions(onUrlLaunched: _onContentUrlLaunched)),
     );
   }
-}
-
-/// Where a tap on a notice card with [info] goes: the floor or thread it links, else the profile of the user of a
-/// friend, poke or wall notice; null when there is nowhere to go.
-String? _tapUrlOf(NoticeInfo info) {
-  if (info.target case final target?) {
-    return target.url;
-  }
-  final authorId = info.authorId;
-  if (authorId != null &&
-      (info.kind == NoticeKind.friend ||
-          info.kind == NoticeKind.friendRequest ||
-          info.kind == NoticeKind.poke ||
-          info.kind == NoticeKind.wall)) {
-    return '$baseUrl/home.php?mod=space&uid=$authorId';
-  }
-  return null;
 }
 
 /// Widget to display personal message stored in [PersonalMessageV2].
