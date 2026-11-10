@@ -84,15 +84,21 @@ class _NotificationPageState extends State<NotificationPage> with SingleTickerPr
 
   /// Ask the private message page once when the list is empty: a forum with private messages off answers it with its own
   /// words ("私信功能尚未开启"), which says more than "no private messages yet".
+  ///
+  /// Only an extra over the empty list: whatever goes wrong while asking leaves the list as it is.
   Future<void> _askPmClosedMessage() async {
-    final answer = await getIt.get<NetClientProvider>().get(withTsdmAppJson(personalMessageUrl)).run();
-    // The forum often answers JSON as text/html, which arrives as a string.
-    final message = switch (tsdmAppAnswerJson(answer.toNullable()?.data)) {
-      {'error': 'message', 'message': final String text} when text.trim().isNotEmpty => text.trim(),
-      _ => null,
-    };
-    if (message != null && mounted) {
-      setState(() => _pmClosedMessage = message);
+    try {
+      final answer = await getIt.get<NetClientProvider>().get(withTsdmAppJson(personalMessageUrl)).run();
+      // The forum often answers JSON as text/html, which arrives as a string.
+      final message = switch (tsdmAppAnswerJson(answer.toNullable()?.data)) {
+        {'error': 'message', 'message': final String text} when text.trim().isNotEmpty => text.trim(),
+        _ => null,
+      };
+      if (message != null && mounted) {
+        setState(() => _pmClosedMessage = message);
+      }
+    } on Object catch (e, st) {
+      warning('failed to ask whether private messages are switched off', e, st);
     }
   }
 
