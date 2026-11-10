@@ -150,6 +150,14 @@ void main() {
       expect(await consumePendingLaunchPayload(seen.add), isFalse, reason: 'handed over once');
     });
 
+    test('the log line of the tap names the draft without its text', () {
+      // Used to print a literal "\$1…" in place of "#draft=…": String.replaceAll takes no group references.
+      expect(
+        LocalNoticeKeys.loggable(failedReply),
+        'openNotification:31#tid=100&pid=200&draft=…',
+      );
+    });
+
     test('a payload that is not of this app is never parked', () async {
       await onLocalNotificationOpened(tap('something else'));
       await onLocalNotificationOpened(tap(null));
