@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// A forum a search can be limited to: its id, its name, the group it is listed under and whether it is a subforum.
 typedef SearchForumOption = ({int fid, String name, String group, bool sub});
@@ -88,7 +89,7 @@ class _ForumPickerDialogState extends State<_ForumPickerDialog> {
           dense: true,
           contentPadding: EdgeInsets.only(left: option.sub ? 40 : 16, right: 16),
           value: _picked.contains(option.fid),
-          title: Text(option.name),
+          title: Text(context.displayText(option.name)),
           onChanged: (v) => setState(() {
             if (v ?? false) {
               _picked.add(option.fid);

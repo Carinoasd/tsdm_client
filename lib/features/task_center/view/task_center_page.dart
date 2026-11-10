@@ -15,6 +15,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -151,8 +152,8 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(task.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          if (task.description.isNotEmpty) ...[sizedBoxW4H4, Text(task.description, style: muted)],
+          Text(context.displayText(task.name), style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          if (task.description.isNotEmpty) ...[sizedBoxW4H4, Text(context.displayText(task.description), style: muted)],
           if (task.reward.isNotEmpty) ...[
             sizedBoxW8H8,
             Row(
@@ -163,7 +164,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
                   child: Icon(Icons.card_giftcard_outlined, size: 16, color: colorScheme.primary),
                 ),
                 sizedBoxW4H4,
-                Expanded(child: Text(task.reward, style: textTheme.bodyMedium)),
+                Expanded(child: Text(context.displayText(task.reward), style: textTheme.bodyMedium)),
               ],
             ),
           ],
@@ -185,14 +186,14 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
               ],
             ),
           ],
-          if (task.note case final note?) ...[sizedBoxW8H8, Text(note, style: muted)],
+          if (task.note case final note?) ...[sizedBoxW8H8, Text(context.displayText(note), style: muted)],
           if (task.action != null || task.blockedReason != null) ...[
             sizedBoxW12H12,
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: task.action != null
                   ? _button(state, tab, task, tr)
-                  : FilledButton.tonal(onPressed: null, child: Text(task.blockedReason!)),
+                  : FilledButton.tonal(onPressed: null, child: Text(context.displayText(task.blockedReason!))),
             ),
           ],
         ],

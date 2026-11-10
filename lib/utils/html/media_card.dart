@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/media_preview.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -592,7 +593,12 @@ class _MediaPreviewCardState extends State<_MediaPreviewCard> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(preview.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: textTheme.bodyMedium),
+                    Text(
+                      context.displayText(preview.title),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyMedium,
+                    ),
                     if (author != null)
                       Text(
                         author,

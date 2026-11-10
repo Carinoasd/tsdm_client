@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 
 /// Widget to show a group of medals.
@@ -44,8 +45,8 @@ class MedalGroupView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(e.name, style: nameStyle),
-                        Text(e.description, style: descriptionStyle),
+                        Text(context.displayText(e.name), style: nameStyle),
+                        Text(context.displayText(e.description), style: descriptionStyle),
                       ],
                     ),
                   ),
@@ -67,8 +68,8 @@ class MedalGroupView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(e.name, style: nameStyle),
-                    Text(e.description, style: descriptionStyle),
+                    Text(context.displayText(e.name), style: nameStyle),
+                    Text(context.displayText(e.description), style: descriptionStyle),
                   ],
                 ),
               ),

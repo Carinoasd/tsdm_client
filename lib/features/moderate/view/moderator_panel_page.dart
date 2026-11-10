@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// The moderator's panel: the pages of the forum's moderation panel the app offers, as a grid of tiles.
@@ -290,7 +291,7 @@ class _ModcpForumChooserState extends State<ModcpForumChooser> {
                     ListTile(
                       key: ValueKey('modcp-forum-${forum.fid}'),
                       leading: const Icon(Icons.forum_outlined),
-                      title: Text(forum.name),
+                      title: Text(context.displayText(forum.name)),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => widget.onPick(forum),
                     ),

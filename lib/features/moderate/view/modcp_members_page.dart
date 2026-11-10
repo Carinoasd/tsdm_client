@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -356,9 +357,13 @@ class _MemberCard extends StatelessWidget {
               children: [
                 for (final crime in member.crimes)
                   ListTile(
-                    title: Text(crime.reason.isNotEmpty ? crime.reason : crime.action),
+                    title: Text(context.displayText(crime.reason.isNotEmpty ? crime.reason : crime.action)),
                     subtitle: Text(
-                      [if (crime.reason.isNotEmpty) crime.action, crime.time, crime.operator].join(' · '),
+                      [
+                        if (crime.reason.isNotEmpty) context.displayText(crime.action),
+                        crime.time,
+                        crime.operator,
+                      ].join(' · '),
                     ),
                   ),
               ],

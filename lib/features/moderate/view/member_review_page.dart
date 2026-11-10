@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -204,7 +205,7 @@ class _MemberReviewPageState extends State<MemberReviewPage> {
                         if (item.reason.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(item.reason, style: theme.textTheme.bodyMedium),
+                            child: Text(context.displayText(item.reason), style: theme.textTheme.bodyMedium),
                           ),
                       ],
                     ),

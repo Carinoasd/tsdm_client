@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/points/bloc/points_trend_cubit.dart';
 import 'package:tsdm_client/features/points/utils/points_trend.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/charts/chart_format.dart';
 import 'package:tsdm_client/widgets/charts/net_bar_chart.dart';
@@ -82,7 +83,7 @@ class _TrendBody extends StatelessWidget {
               for (var i = 0; i < state.kinds.length; i++)
                 ChoiceChip(
                   key: ValueKey('trend-kind-$i'),
-                  label: Text(state.kinds[i]),
+                  label: Text(context.displayText(state.kinds[i])),
                   selected: i == state.selected,
                   onSelected: (_) => context.read<PointsTrendCubit>().select(i),
                 ),

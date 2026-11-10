@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/site_stats/repository/site_stats_repository
 import 'package:tsdm_client/features/site_stats/widgets/site_stats_chart_view.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
@@ -143,7 +144,7 @@ class _SiteStatsViewState extends State<_SiteStatsView> {
           onSelected: (e) async => cubit.open(e.url),
           padding: EdgeInsets.zero,
         ),
-      if (page.heading case final heading?) Text(heading, style: theme.textTheme.titleSmall),
+      if (page.heading case final heading?) Text(context.displayText(heading), style: theme.textTheme.titleSmall),
       if (chart != null && !chart.isEmpty)
         AppSurface(
           key: const ValueKey('site-stats-chart'),
@@ -162,7 +163,7 @@ class _SiteStatsViewState extends State<_SiteStatsView> {
         ),
       if (page.note case final note?)
         Text(
-          note,
+          context.displayText(note),
           key: const ValueKey('site-stats-note'),
           textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
@@ -221,7 +222,7 @@ class _LinkChips extends StatelessWidget {
         for (final (i, link) in links.indexed)
           ChoiceChip(
             key: ValueKey('$keyPrefix-$i'),
-            label: Text(link.label),
+            label: Text(context.displayText(link.label)),
             selected: isSelected(link),
             onSelected: (_) => onSelected(link),
           ),
@@ -243,7 +244,7 @@ class _TableCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final url = cell.url;
     final text = Text(
-      cell.text,
+      context.displayText(cell.text),
       style: url == null ? style : (style ?? const TextStyle()).copyWith(color: colorScheme.primary),
     );
     if (url == null) {
@@ -275,7 +276,7 @@ class _TableCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label.text, style: labelStyle),
+                      Text(context.displayText(label.text), style: labelStyle),
                       _cellText(context, value, style: valueStyle),
                     ],
                   ),

@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/points/widgets/points_card.dart';
 import 'package:tsdm_client/features/points/widgets/points_query_form.dart';
 import 'package:tsdm_client/features/points/widgets/points_trend_tab.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -341,7 +342,7 @@ class _PointsValue extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(name, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+          Text(context.displayText(name), style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
           sizedBoxW4H4,
           Text(
             value,

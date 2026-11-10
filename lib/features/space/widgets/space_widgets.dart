@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
@@ -76,7 +77,12 @@ class SpaceBlogCard extends StatelessWidget {
           ),
           if (blog.summary != null) ...[
             sizedBoxW4H4,
-            Text(blog.summary!, style: theme.textTheme.bodyMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+            Text(
+              context.displayText(blog.summary!),
+              style: theme.textTheme.bodyMedium,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
           sizedBoxW8H8,
           Wrap(

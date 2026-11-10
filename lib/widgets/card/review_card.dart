@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 
@@ -48,7 +49,10 @@ class ReviewCard extends StatelessWidget {
               children: [
                 Text(name, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 // All of it, as the web page shows it: it was cut after three lines.
-                Text(content, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                Text(
+                  context.displayText(content),
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
                 if (time != null) Text(time!, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
               ],
             ),

@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/rate_stats/utils/rate_stats.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/charts/chart_format.dart';
 import 'package:tsdm_client/widgets/charts/net_bar_chart.dart';
@@ -110,7 +111,7 @@ class RateStatsView extends StatelessWidget {
                       children: [
                         _Total(key: const ValueKey('rate-total-count'), label: tr.count, value: '${events.length}'),
                         for (final MapEntry(:key, :value) in totals.entries)
-                          _Total(label: key, value: signedNumber(value)),
+                          _Total(label: context.displayText(key), value: signedNumber(value)),
                       ],
                     ),
                   ),
@@ -137,7 +138,9 @@ class RateStatsView extends StatelessWidget {
                               RankedBarItem(
                                 label: rater.rater,
                                 value: rater.count,
-                                detail: rater.scores.entries.map((e) => '${e.key} ${signedNumber(e.value)}').join('  '),
+                                detail: rater.scores.entries
+                                    .map((e) => '${context.displayText(e.key)} ${signedNumber(e.value)}')
+                                    .join('  '),
                               ),
                           ],
                         ),

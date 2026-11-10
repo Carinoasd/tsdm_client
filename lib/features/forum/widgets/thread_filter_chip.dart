@@ -6,6 +6,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/selectable_list_tile.dart';
@@ -58,7 +59,7 @@ class ThreadChip extends StatelessWidget {
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(chipLabel, maxLines: 1),
+              Text(context.displayText(chipLabel), maxLines: 1),
               const Icon(Icons.arrow_drop_down, size: 18),
             ],
           ),
@@ -122,7 +123,7 @@ class ThreadTypeChip extends StatelessWidget {
           sheetItemBuilder: (context, state) => state.filterTypeList
               .map(
                 (e) => _filterOption(
-                  title: e.name,
+                  title: context.displayText(e.name),
                   selected: e.name == currFilter,
                   onTap: () {
                     context.read<ForumBloc>().add(
@@ -164,7 +165,7 @@ class ThreadSpecialTypeChip extends StatelessWidget {
           sheetItemBuilder: (context, state) => state.filterSpecialTypeList
               .map(
                 (e) => _filterOption(
-                  title: e.name,
+                  title: context.displayText(e.name),
                   selected: e.name == currFilter,
                   onTap: () {
                     context.read<ForumBloc>().add(
@@ -206,7 +207,7 @@ class ThreadDatelineChip extends StatelessWidget {
           sheetItemBuilder: (context, state) => state.filterDatelineList
               .map(
                 (e) => _filterOption(
-                  title: e.name,
+                  title: context.displayText(e.name),
                   selected: e.name == currFilter,
                   onTap: () {
                     context.read<ForumBloc>().add(
@@ -248,7 +249,7 @@ class ThreadOrderChip extends StatelessWidget {
           sheetItemBuilder: (context, state) => state.filterOrderList
               .map(
                 (e) => _filterOption(
-                  title: e.name,
+                  title: context.displayText(e.name),
                   selected: e.name == currFilter,
                   onTap: () {
                     context.read<ForumBloc>().add(

@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 const _webUrl = '$baseUrl/plugin.php?id=dsu_medalCenter:memcp&action=mymedal';
@@ -84,7 +85,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
         confirm: tr.myMedalsSave,
         destructive: true,
         content: [
-          AppNoticeBanner(tone: AppNoticeTone.warning, message: page.hideWarning),
+          AppNoticeBanner(tone: AppNoticeTone.warning, message: context.displayText(page.hideWarning)),
           sizedBoxW12H12,
           Text(tr.myMedalsHideConfirm(names: newlyHidden.take(10).map((m) => '「${m.name}」').join())),
         ],
@@ -129,7 +130,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(m.name, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(context.displayText(m.name), style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 Text(
                   m.expiration > 0 ? tr.expiresOn(date: toolsDate(m.expiration)) : tr.permanent,
                   style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
@@ -182,7 +183,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
               onRefresh: _load,
               children: [
                 if (page.hideWarning.isNotEmpty) ...[
-                  AppNoticeBanner(tone: AppNoticeTone.warning, message: page.hideWarning),
+                  AppNoticeBanner(tone: AppNoticeTone.warning, message: context.displayText(page.hideWarning)),
                   sizedBoxW12H12,
                 ],
                 if (page.previewLimit case final n?)
@@ -211,7 +212,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
                           ListTile(
                             dense: true,
                             leading: ToolsImage(l.imageUrl, width: 22, height: 36),
-                            title: Text(l.name.isEmpty ? '#${l.medalId}' : l.name),
+                            title: Text(l.name.isEmpty ? '#${l.medalId}' : context.displayText(l.name)),
                             subtitle: Text(toolsDateTime(l.dateline)),
                             trailing: Text(_kind(l.kind, tr)),
                           ),

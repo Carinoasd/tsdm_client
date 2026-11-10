@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_panel_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -206,13 +207,20 @@ class _LogEntryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(line([entry.action, entry.op, entry.forum]), style: theme.textTheme.titleSmall),
+            Text(
+              line([
+                context.displayText(entry.action),
+                context.displayText(entry.op),
+                context.displayText(entry.forum),
+              ]),
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: 4),
-            Text(line([entry.operator, entry.group, entry.time, entry.ip]), style: muted),
+            Text(line([entry.operator, context.displayText(entry.group), entry.time, entry.ip]), style: muted),
             if (entry.other.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: SelectableText(entry.other, style: theme.textTheme.bodySmall),
+                child: SelectableText(context.displayText(entry.other), style: theme.textTheme.bodySmall),
               ),
           ],
         ),

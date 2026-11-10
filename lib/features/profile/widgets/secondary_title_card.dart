@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/profile/bloc/my_titles_cubit.dart';
 import 'package:tsdm_client/features/profile/models/secondary_title.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// Card to show a secondary title, tap to use it.
 ///
@@ -54,7 +55,7 @@ class SecondaryTitleCard extends StatelessWidget {
                   SecondaryTitleBadge(title.imageUrl, width: badgeWidth, semanticLabel: title.name),
                   sizedBoxW8H8,
                   Text(
-                    title.name,
+                    context.displayText(title.name),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
