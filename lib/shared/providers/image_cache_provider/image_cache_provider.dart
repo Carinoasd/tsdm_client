@@ -178,8 +178,20 @@ final class ImageCacheProvider with LoggerMixin {
   final _progressListeners = <String, Set<ImageLoadProgress>>{};
 
   /// Dispose the repository.
+  ///
+  /// A load still running goes on to its end and answers its caller as usual, it only tells nobody on [response] any
+  /// more ([_tell]).
   Future<void> dispose() async {
     await _controller.close();
+  }
+
+  /// Tell [resp] on [response], unless the repository is disposed: a load that was running then (an image read from
+  /// the cache or fetched) finishes after the stream closed, and adding to it would throw, failing an image that did
+  /// load.
+  void _tell(ImageCacheResponse resp) {
+    if (!_controller.isClosed) {
+      _controller.add(resp);
+    }
   }
 
   /// Get the cache info related to [imageUrl]: looked up by its key, never by reading the whole table.
@@ -212,22 +224,22 @@ final class ImageCacheProvider with LoggerMixin {
       // which case the avatar cached for the user is what the card shows.
       switch (await _cachedAvatarInsteadOf(req.imageUrl, req.username)) {
         case Some(:final value):
-          _controller.add(ImageCacheSuccessResponse(req.imageId, ImageCacheResponseType.userAvatar, value));
+          _tell(ImageCacheSuccessResponse(req.imageId, ImageCacheResponseType.userAvatar, value));
         case None():
-          _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
+          _tell(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
       }
       return;
     }
     final cacheData = await _readCacheFile(cacheFile);
     if (cacheData == null) {
-      _controller.add(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
+      _tell(ImageCacheFailedResponse(req.imageId, ImageCacheResponseType.userAvatar));
       return;
     }
     if (cacheInfo.imageUrl != null) {
       // Update cache used time as used if cache file exists.
       _updateCacheUsedTime(cacheInfo.imageUrl!);
     }
-    _controller.add(ImageCacheSuccessResponse(req.imageId, ImageCacheResponseType.userAvatar, cacheData));
+    _tell(ImageCacheSuccessResponse(req.imageId, ImageCacheResponseType.userAvatar, cacheData));
   }
 
   /// Get the cache image data related to [req].
@@ -260,7 +272,7 @@ final class ImageCacheProvider with LoggerMixin {
 
         // Cache file may be deleted by external operations.
         // Only reply a success response when cache is valid.
-        _controller.add(ImageCacheSuccessResponse(imageId, respType, imageData));
+        _tell(ImageCacheSuccessResponse(imageId, respType, imageData));
 
         // Here the cache update progress is for some special situation:
         //
@@ -304,7 +316,7 @@ final class ImageCacheProvider with LoggerMixin {
 
     if (req is ImageCacheUserAvatarRequest && !force && isKnownMissingAvatar(imageUrl)) {
       // The server has no file there (404 earlier in this run) and the user has no avatar cached either.
-      _controller.add(ImageCacheFailedResponse(imageId, respType));
+      _tell(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
     }
 
@@ -332,7 +344,7 @@ final class ImageCacheProvider with LoggerMixin {
     if (onProgress != null) {
       (_progressListeners[imageUrl] ??= {}).add(onProgress);
     }
-    _controller.add(ImageCacheLoadingResponse(imageId, respType));
+    _tell(ImageCacheLoadingResponse(imageId, respType));
 
     try {
       final respEither = await _netClientProvider
@@ -409,7 +421,7 @@ final class ImageCacheProvider with LoggerMixin {
       };
 
       await _saveCache(imageUrl, imageData, usage: usage);
-      _controller.add(ImageCacheSuccessResponse(imageId, respType, imageData));
+      _tell(ImageCacheSuccessResponse(imageId, respType, imageData));
       return Option.of(imageData);
     } on Exception catch (e, st) {
       handleRaw(e, st);
@@ -427,14 +439,14 @@ final class ImageCacheProvider with LoggerMixin {
         if (cached case Some(:final value)) {
           // Remember the answer, otherwise the next build of the card asks the server again.
           _avatarWithoutFile[imageUrl] = username;
-          _controller.add(ImageCacheSuccessResponse(imageId, respType, value));
+          _tell(ImageCacheSuccessResponse(imageId, respType, value));
           return Option.of(value);
         }
       }
       if (req is ImageCacheUserAvatarRequest && (_isNotFound(e) || e is _EmptyImageException)) {
         _missingAvatarUrls[imageUrl] = clock();
       }
-      _controller.add(ImageCacheFailedResponse(imageId, respType));
+      _tell(ImageCacheFailedResponse(imageId, respType));
       return const Option.none();
     } finally {
       // Leave loading state.

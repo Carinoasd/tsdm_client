@@ -290,6 +290,16 @@ void main() {
   Finder placeholderOf(String url) =>
       find.descendant(of: pictureOf(url), matching: find.byKey(const ValueKey('post-image-tap-to-load')));
 
+  /// Whether [url] shows on every page it is on, those under the page on top too.
+  bool shownOnEveryPage(String url) {
+    final pictures = find.byWidgetPredicate((w) => w is PostImage && w.image.floorUrl == url, skipOffstage: false);
+    final shown = find
+        .descendant(of: pictures, matching: find.byType(RawImage, skipOffstage: false), skipOffstage: false)
+        .evaluate()
+        .where((e) => (e.widget as RawImage).image != null);
+    return pictures.evaluate().isNotEmpty && shown.length == pictures.evaluate().length;
+  }
+
   group('1. the setting', () {
     test('off by default, stored by its index; a value it does not know is off; not synced', () async {
       expect(SettingsKeys.dataSaverMode.defaultValue, DataSaverMode.off.index);
@@ -481,6 +491,12 @@ void main() {
       unawaited(router.push('/again'));
       await _settle(tester, until: () => shown(_a) && shown(_b));
       expect(shown(_a) && shown(_b), isTrue);
+      // The page under it shows them too once they are cached, fetching nothing. Waited for: read from the cache when
+      // the new page got them, they were still being read when the test ended, and the image cache was closed under
+      // them (their failure then came up in the test that ran next).
+      await _settle(tester, until: () => shownOnEveryPage(_a) && shownOnEveryPage(_b));
+      expect(shownOnEveryPage(_a) && shownOnEveryPage(_b), isTrue);
+      expect(server.requests, unorderedEquals([_a, _b]));
     });
 
     testWidgets('on Wi-Fi with "on mobile data": loads as usual', (tester) async {

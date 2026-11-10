@@ -82,6 +82,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
   /// Paths of files being moved into place: two downloads of the same name finishing at once get two names.
   final _reserved = <String>{};
 
+  /// How many running downloads use each part folder (by its path), from before they make sure it is there until their
+  /// part file is moved into place or deleted: the folder is only removed when none does ([_releasePartFolder]).
+  final _partFolderUsers = <String, int>{};
+
   /// The downloads of account [uid], the newest first; empty until [load]ed.
   List<AttachmentDownload> itemsOf(int uid) => List.unmodifiable(_items[uid] ?? const <AttachmentDownload>[]);
 
@@ -336,8 +340,11 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     await _save(uid);
     notifyListeners();
     File? part;
+    Directory? partDir;
     try {
-      final partDir = await _partDirectory();
+      partDir = await _partDirectory();
+      // Counted before the folder is asked for (nothing awaited in between): a download finishing meanwhile leaves it.
+      _partFolderUsers[partDir.path] = (_partFolderUsers[partDir.path] ?? 0) + 1;
       await partDir.create(recursive: true);
       part = File(_partPath(partDir, item));
       item = await _fetch(item, part, token);
@@ -359,7 +366,6 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         } finally {
           _reserved.remove(target.path);
         }
-        await _dropIfEmpty(part.parent);
         item = item.copyWith(path: target.path, filename: p.basename(target.path));
       }
     } on DioException catch (e) {
@@ -378,16 +384,15 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       _tokens.remove(item.id);
       _queuedAt.remove(item.id);
     }
-    if (item.status != AttachmentDownloadStatus.completed) {
-      try {
-        if (part != null && part.existsSync()) {
-          await part.delete();
-        }
-        if (part != null) {
-          await _dropIfEmpty(part.parent);
-        }
-      } on FileSystemException {
-        // Left for the next load.
+    try {
+      if (item.status != AttachmentDownloadStatus.completed && part != null && part.existsSync()) {
+        await part.delete();
+      }
+    } on FileSystemException {
+      // Left for the next load.
+    } finally {
+      if (partDir != null) {
+        _releasePartFolder(partDir);
       }
     }
     // Removed or forgotten meanwhile.
@@ -399,14 +404,25 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     _queue();
   }
 
-  /// Delete the part folder [dir] once nothing is in it (no empty folder left in the user's downloads folder).
-  static Future<void> _dropIfEmpty(Directory dir) async {
+  /// A download is done with the part folder [dir]: once no running download uses it and nothing is in it, it is
+  /// deleted (no empty folder left in the user's downloads folder).
+  ///
+  /// Looked at and deleted in one go, nothing awaited: a download that starts later asks for the folder after this, and
+  /// one that started earlier is counted in [_partFolderUsers]. Deleted across an `await`, the folder could go between
+  /// another download making sure it is there and writing its part file into it, failing that download.
+  void _releasePartFolder(Directory dir) {
+    final users = (_partFolderUsers[dir.path] ?? 0) - 1;
+    if (users > 0) {
+      _partFolderUsers[dir.path] = users;
+      return;
+    }
+    _partFolderUsers.remove(dir.path);
     try {
       if (dir.existsSync() && dir.listSync().isEmpty) {
-        await dir.delete();
+        dir.deleteSync();
       }
     } on FileSystemException {
-      // Another download is writing there.
+      // Something else was put there, or it is gone already.
     }
   }
 
