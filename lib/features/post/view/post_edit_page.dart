@@ -1598,9 +1598,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             onPicked: (source, {required edit}) async => _pickImages(source, edit: edit),
           ),
         // The attachments of the edited post, as the website's edit page lists them, to delete.
-        if ((state.content, editAttachmentsOf(state.content?.postForm)) case (
+        if ((state.content, editAttachmentsOf(state.content?.postForm), context.read<PostEditBloc>()) case (
           PostEditContent(:final tid?, :final pid?, :final formHash, :final form?),
           final attachments,
+          final bloc,
         ) when attachments.isNotEmpty && widget.editType != PostEditType.newThread)
           EditAttachmentsButton(
             attachments: attachments,
@@ -1608,7 +1609,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             pid: pid,
             formHash: formHash,
             formUid: form.uid,
-            onDeleted: (aid) => context.read<PostEditBloc>().add(PostEditAttachmentDeleted(aid)),
+            // The answer may come once the editor is gone: nothing to tell then.
+            onDeleted: (aid) {
+              if (!bloc.isClosed) bloc.add(PostEditAttachmentDeleted(aid));
+            },
           ),
         if (state.content?.permList?.isNotEmpty ?? false)
           Badge(

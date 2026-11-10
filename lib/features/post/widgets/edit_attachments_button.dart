@@ -56,7 +56,9 @@ class EditAttachmentsButton extends StatelessWidget {
       tooltip: context.t.moderateFloorOps.attachments,
       onPressed: () async => showModalBottomSheet<void>(
         context: context,
-        showDragHandle: true,
+        // Closed by a tap outside or back only: the list stays while a deletion is out (dragging it down would close it
+        // past its PopScope).
+        enableDrag: false,
         builder: (_) => _AttachmentList(
           attachments: attachments,
           tid: tid,
