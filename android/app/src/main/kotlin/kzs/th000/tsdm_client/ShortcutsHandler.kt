@@ -67,13 +67,23 @@ class ShortcutsHandler {
         }
     }
 
-    /** Push the shortcut the activity was launched with to a Dart that listens already. */
+    /**
+     * Push the shortcut the activity was launched with to a Dart that listens already. A Dart started a moment ago may
+     * not: the shortcut is kept for its question then, as at a cold start.
+     */
     fun pushPending() {
         val channel = channel ?: return
         if (!dartListening) return
         pending?.let {
             pending = null
-            channel.invokeMethod(ON_SHORTCUT, it)
+            channel.invokeMethod(ON_SHORTCUT, it, object : MethodChannel.Result {
+                override fun success(result: Any?) {}
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+                override fun notImplemented() {
+                    dartListening = false
+                    pending = it
+                }
+            })
         }
     }
 

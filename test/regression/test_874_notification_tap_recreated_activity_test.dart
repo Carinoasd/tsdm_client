@@ -10,10 +10,11 @@ import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
 import 'package:tsdm_client/instance.dart';
 
-/// A tap on a notification after the app was swiped away from the recents while its process lived on (the background
-/// service, or the player): the new activity runs on the Dart of the one before, which read the launch details once,
-/// at its boot. The tap opened the home page and nothing else, and a "reply not sent" notification was gone with its
-/// text.
+/// A tap on a notification that makes a new activity over a Dart that runs already: the app was swiped away from the
+/// recents while its process lived on (the background service, or the player), or the process was started without an
+/// activity (the background service at boot or after an update: the audio service's engine runs `main()` then). That
+/// Dart read the launch details once, at its boot: the tap brought the app to the front and opened nothing, and a
+/// "reply not sent" notification was gone with its text.
 ///
 /// The Android side (`MainActivity.kt`) hands the launch intent of such an activity to flutter_local_notifications as
 /// a new intent, which tells Dart the way it does for an activity that runs; it cannot run here, its source is read.
@@ -78,6 +79,40 @@ void main() {
       );
       expect(configure.substring(configure.indexOf('} else {')), contains('initialLaunchIntent = null'));
       expect(File('lib/main.dart').readAsStringSync(), contains('await rememberNotificationLaunch()'));
+    });
+
+    test('a Dart that runs: the engine was there before the activity, whoever made it', () {
+      // Not "the engine of the activity before": a process started by the background service runs `main()` with no
+      // activity at all, and the first activity is the one the tap makes.
+      final onCreate = bodyOf('override fun onCreate(savedInstanceState: Bundle?)');
+      const asked =
+          'engineRanBefore = FlutterEngineCache.getInstance().contains(AudioServicePlugin.getFlutterEngineId())';
+      expect(onCreate, contains(asked));
+      expect(
+        onCreate.indexOf(asked),
+        lessThan(onCreate.indexOf('super.onCreate(savedInstanceState)')),
+        reason: 'super.onCreate makes the engine when there is none',
+      );
+      expect(
+        bodyOf('override fun configureFlutterEngine(flutterEngine: FlutterEngine)'),
+        contains('val dartRunning = engineRanBefore'),
+      );
+    });
+
+    test('what a Dart started a moment ago does not take is kept for its question', () {
+      final push = bodyOf('private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine)');
+      expect(push, contains('links.invokeMethod("onDeepLink", it, unheard { initialDeepLink = it })'));
+      expect(push, contains('channel.invokeMethod(ShareIntents.ON_SHARE, payload, unheard {'));
+      expect(push.substring(push.indexOf('ShareIntents.ON_SHARE')), contains('initialShareIntent = pending'));
+      final shortcuts = File(
+        'android/app/src/main/kotlin/kzs/th000/tsdm_client/ShortcutsHandler.kt',
+      ).readAsStringSync();
+      final pushPending = shortcuts.substring(
+        shortcuts.indexOf('fun pushPending()'),
+        shortcuts.indexOf('fun onNewIntent'),
+      );
+      expect(pushPending, contains('override fun notImplemented() {'));
+      expect(pushPending.substring(pushPending.indexOf('notImplemented')), contains('pending = it'));
     });
   });
 

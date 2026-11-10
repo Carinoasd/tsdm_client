@@ -18,6 +18,7 @@ import io.flutter.Log
 import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin
@@ -32,7 +33,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
-import java.lang.ref.WeakReference
 
 // The file keeps its name (tests and the workflow path filters read it); the launcher entries named MainActivity and
 // IconDark, IconMono, IconPink are activity-aliases of this class (see the manifest and AppIconSwitcher).
@@ -82,14 +82,6 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         const val DEEP_LINK_CHANNEL = "kzs.th000.tsdm_client/deepLink"
         const val GET_INITIAL_LINK = "getInitialLink"
 
-        /**
-         * The engine the last activity ran on. The engine is the audio service's (see [provideFlutterEngine]): while
-         * it plays, the engine outlives the activity, and an activity made again (the task swiped away from the recents
-         * while playing, then opened) runs on the same Dart, which asked for its launch link, share and shortcut long
-         * ago and will not ask again.
-         */
-        private var lastEngine: WeakReference<FlutterEngine>? = null
-
         /** Whether Dart asked for the highest refresh rate: Dart tells it once, an activity made again keeps it. */
         private var preferHighRefreshRate = false
     }
@@ -123,7 +115,24 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
      */
     private var initialLaunchIntent: Intent? = null
 
+    /**
+     * Whether the engine ran before this activity was made. The engine is the audio service's (see
+     * [provideFlutterEngine]) and outlives the activities, with its Dart:
+     *
+     * * the task was swiped away from the recents while the background service or the player kept the process, then
+     *   the app is opened again;
+     * * the process was started without an activity (the background service at boot or after an update, the reply
+     *   typed in a notification): every engine made in the process brings the audio service's plugin, which binds
+     *   the audio service, which makes this engine and runs `main()` in it.
+     *
+     * That Dart asked for its launch link, share, shortcut and notification long ago (with no activity nobody answered)
+     * and will not ask again: what this activity was launched with is pushed to it, see [pushLaunchToRunningDart].
+     */
+    private var engineRanBefore = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Asked before super.onCreate, which makes the engine when there is none (AudioServiceFragmentActivity).
+        engineRanBefore = FlutterEngineCache.getInstance().contains(AudioServicePlugin.getFlutterEngineId())
         super.onCreate(savedInstanceState)
         shortcuts.onCreate(intent, savedInstanceState)
         // The intent the activity was created with, only when it is new: the recents replay the launch intent of the
@@ -163,9 +172,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        // See [lastEngine].
-        val dartRunning = lastEngine?.get() === flutterEngine
-        lastEngine = WeakReference(flutterEngine)
+        // See [engineRanBefore].
+        val dartRunning = engineRanBefore
         mainChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MAIN_CHANNEL).also {
             it.setMethodCallHandler { call, result -> handleMainChannelCall(call, result) }
         }
@@ -245,17 +253,20 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     }
 
     /**
-     * The link and the share this activity was launched with, pushed to a Dart that runs since an activity before (see
-     * [lastEngine]) as when they come to a running activity ([onNewIntent]), with the shortcut and the tap on a local
-     * notification.
+     * The link and the share this activity was launched with, pushed to a Dart that runs since before this activity
+     * (see [engineRanBefore]) as when they come to a running activity ([onNewIntent]), with the shortcut and the tap on
+     * a local notification.
+     *
+     * A Dart started a moment ago may not listen yet: what it does not take is kept for its question, as at a cold
+     * start (its `main()` asks once the app is built, and this activity answers by then).
      */
     private fun pushLaunchToRunningDart(flutterEngine: FlutterEngine) {
-        // A tap on a local notification that made this activity (the task was swiped away from the recents, the
-        // background service or the player kept the process and its Dart): flutter_local_notifications tells Dart of a
-        // tap from onNewIntent alone, and keeps the one an activity was launched with for Dart's question at its start
-        // (getNotificationAppLaunchDetails), which this Dart asked long ago: the tap opened the home page and nothing
-        // else, and the text of a reply that was not sent, kept as a draft by that tap, was lost with its notification.
-        // Handed to the plugin as the new intent it is; the plugin takes its own intents only.
+        // A tap on a local notification that made this activity: flutter_local_notifications tells Dart of a tap from
+        // onNewIntent alone, and keeps the one an activity was launched with for Dart's question at its start
+        // (getNotificationAppLaunchDetails), which this Dart asked long ago: the tap brought the app to the front and
+        // opened nothing, and the text of a reply that was not sent, kept as a draft by that tap, was lost with its
+        // notification. Handed to the plugin as the new intent it is; the plugin takes its own intents only. (A Dart
+        // that does not listen yet reads the launch details after this: the plugin has this activity by now.)
         initialLaunchIntent?.let { launch ->
             initialLaunchIntent = null
             try {
@@ -271,7 +282,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         if (links != null) {
             initialDeepLink?.let {
                 initialDeepLink = null
-                links.invokeMethod("onDeepLink", it)
+                links.invokeMethod("onDeepLink", it, unheard { initialDeepLink = it })
             }
         }
         initialShareIntent?.let { pending ->
@@ -279,9 +290,20 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
             val channel = shareChannel ?: return@let
             updateScope.launch {
                 val payload = readShare(pending) ?: return@launch
-                channel.invokeMethod(ShareIntents.ON_SHARE, payload)
+                channel.invokeMethod(ShareIntents.ON_SHARE, payload, unheard {
+                    // Read again when Dart asks: the copies made for this push are cleaned up a day later.
+                    dartTakesShares = false
+                    initialShareIntent = pending
+                })
             }
         }
+    }
+
+    /** The result of a push to Dart that only tells when Dart does not listen to the channel (yet): [kept] runs then. */
+    private fun unheard(kept: () -> Unit) = object : MethodChannel.Result {
+        override fun success(result: Any?) {}
+        override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+        override fun notImplemented() = kept()
     }
 
     /** The shared content of [intent] with its images copied into the cache (file IO off the main thread). */
