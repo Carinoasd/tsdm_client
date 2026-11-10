@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/repository/moderate_repository.dar
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
 /// What a management of the thread page changed.
@@ -25,9 +26,14 @@ IconData moderateOperationIcon(ModerateOperation operation) => switch (operation
   ModerateOperation.digest => Icons.star_outline,
   ModerateOperation.highlight => Icons.format_color_text_outlined,
   ModerateOperation.recommend => Icons.recommend_outlined,
+  ModerateOperation.stamp => Icons.approval_outlined,
+  ModerateOperation.stamplist => Icons.label_outline,
   ModerateOperation.close => Icons.lock_outline,
   ModerateOperation.open => Icons.lock_open_outlined,
   ModerateOperation.move => Icons.drive_file_move_outline,
+  ModerateOperation.type => Icons.category_outlined,
+  ModerateOperation.copy => Icons.copy_all_outlined,
+  ModerateOperation.repair => Icons.build_outlined,
   ModerateOperation.delete => Icons.delete_outline,
   ModerateOperation.bump => Icons.arrow_upward_outlined,
   ModerateOperation.down => Icons.arrow_downward_outlined,
@@ -41,31 +47,42 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
     ModerateOperation.digest => tr.digest,
     ModerateOperation.highlight => tr.highlight,
     ModerateOperation.recommend => tr.recommend,
+    ModerateOperation.stamp => tr.stamp,
+    ModerateOperation.stamplist => tr.stamplist,
     ModerateOperation.close => tr.close,
     ModerateOperation.open => tr.open,
     ModerateOperation.move => tr.move,
+    ModerateOperation.type => tr.type,
+    ModerateOperation.copy => tr.copy,
+    ModerateOperation.repair => tr.repair,
     ModerateOperation.delete => tr.delete,
     ModerateOperation.bump => tr.bump,
     ModerateOperation.down => tr.down,
   };
 }
 
-/// The operations offered on a thread: stick, digest, highlight, recommend, close or open (the one that changes it:
-/// [closed] is the lock beside the title), bump and sink, move, and delete last.
+/// The operations offered on a thread: stick, digest, highlight, recommend, stamp and icon, close or open (the one
+/// that changes it: [closed] is the lock beside the title), bump and sink, category, move, copy, repair, and delete
+/// last.
 List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
   ModerateOperation.stick,
   ModerateOperation.digest,
   ModerateOperation.highlight,
   ModerateOperation.recommend,
+  ModerateOperation.stamp,
+  ModerateOperation.stamplist,
   if (closed) ModerateOperation.open else ModerateOperation.close,
   ModerateOperation.bump,
   ModerateOperation.down,
+  ModerateOperation.type,
   ModerateOperation.move,
+  ModerateOperation.copy,
+  ModerateOperation.repair,
   ModerateOperation.delete,
 ];
 
 /// The operations offered on several threads at once: both close and open (the threads may be either), bump and sink,
-/// and delete last.
+/// category, and delete last. The stamp, the icon, copy and repair act on one thread only.
 const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.stick,
   ModerateOperation.digest,
@@ -74,6 +91,7 @@ const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.open,
   ModerateOperation.bump,
   ModerateOperation.down,
+  ModerateOperation.type,
   ModerateOperation.move,
   ModerateOperation.delete,
 ];
@@ -214,6 +232,7 @@ class ModerateDialog extends StatefulWidget {
     required this.tid,
     required this.fid,
     required this.repository,
+    this.imageBuilder,
     super.key,
   }) : tids = null;
 
@@ -224,6 +243,7 @@ class ModerateDialog extends StatefulWidget {
     required List<String> this.tids,
     required this.fid,
     required this.repository,
+    this.imageBuilder,
     super.key,
   }) : assert(tids.isNotEmpty, 'no thread to manage'),
        tid = tids.first;
@@ -242,6 +262,9 @@ class ModerateDialog extends StatefulWidget {
 
   /// Where the window comes from and goes to.
   final ModerateRepository repository;
+
+  /// Builds the picture of a stamp or an icon at its url; the app's cached image when null.
+  final Widget Function(String url)? imageBuilder;
 
   @override
   State<ModerateDialog> createState() => _ModerateDialogState();
@@ -268,6 +291,15 @@ class _ModerateDialogState extends State<ModerateDialog> {
   bool _notify = false;
   ModerateHighlight _highlight = const ModerateHighlight();
   bool _recommend = true;
+
+  /// The stamp, icon or category chosen.
+  String? _choice;
+
+  /// The categories of the forum to copy to, once loaded.
+  List<ModerateChoice>? _threadTypes;
+  String? _threadType;
+  bool _typesLoading = false;
+  bool _typesFailed = false;
   final _reason = TextEditingController();
   final _recommendTitle = TextEditingController();
 
@@ -303,10 +335,10 @@ class _ModerateDialogState extends State<ModerateDialog> {
             _took(form.window);
           case Right(value: ModerateBatchWindowRefused(:final message, :final unavailable)):
             _unavailable = unavailable;
-            _error = unavailable
-                ? context.t.moderate.unavailable
-                : message.isNotEmpty
+            _error = message.isNotEmpty
                 ? message
+                : unavailable
+                ? context.t.moderate.unavailable
                 : context.t.moderate.failed;
           case Left(:final value):
             _error = _failure(value);
@@ -325,10 +357,10 @@ class _ModerateDialogState extends State<ModerateDialog> {
           _took(form);
         case Right(value: ModerateWindowRefused(:final message, :final unavailable)):
           _unavailable = unavailable;
-          _error = unavailable
-              ? context.t.moderate.unavailable
-              : message.isNotEmpty
+          _error = message.isNotEmpty
               ? message
+              : unavailable
+              ? context.t.moderate.unavailable
               : context.t.moderate.failed;
         case Left(:final value):
           _error = _failure(value);
@@ -344,6 +376,38 @@ class _ModerateDialogState extends State<ModerateDialog> {
     _expiration = form.expiration;
     _highlight = form.highlight ?? const ModerateHighlight();
     _recommendTitle.text = form.recommendTitle ?? '';
+    // As the website's select: the thread's own, or the first (none) of a stamp or an icon; a category is picked.
+    _choice =
+        form.currentChoice?.value ??
+        (form.operation == ModerateOperation.stamp || form.operation == ModerateOperation.stamplist
+            ? form.choices.firstOrNull?.value
+            : null);
+  }
+
+  /// Copy to forum [fid]: its categories are loaded, the first chosen as the website's select does.
+  Future<void> _pickCopyTarget(String fid) async {
+    setState(() {
+      _moveTo = fid;
+      _threadTypes = null;
+      _threadType = null;
+      _typesLoading = true;
+      _typesFailed = false;
+    });
+    final answer = await widget.repository.fetchThreadTypes(int.parse(fid)).run();
+    // Another forum picked meanwhile: its own answer counts.
+    if (!mounted || _moveTo != fid) {
+      return;
+    }
+    setState(() {
+      _typesLoading = false;
+      switch (answer) {
+        case Right(:final value):
+          _threadTypes = value;
+          _threadType = value.first.value;
+        case Left():
+          _typesFailed = true;
+      }
+    });
   }
 
   String _failure(AppException e) =>
@@ -360,6 +424,8 @@ class _ModerateDialogState extends State<ModerateDialog> {
     highlight: _highlight,
     recommend: _recommend,
     recommendTitle: _form?.recommendTitle == null ? null : _recommendTitle.text,
+    choice: _choice,
+    threadType: _threadType,
   );
 
   /// Several threads are managed together.
@@ -372,7 +438,9 @@ class _ModerateDialogState extends State<ModerateDialog> {
       _form != null &&
       !_sending &&
       (_form!.levels.isEmpty || _level != null) &&
-      (_operation != ModerateOperation.move || (_moveTo ?? '').isNotEmpty);
+      (_form!.choices.isEmpty || _choice != null) &&
+      (_operation != ModerateOperation.move || (_moveTo ?? '').isNotEmpty) &&
+      (_operation != ModerateOperation.copy || ((_moveTo ?? '').isNotEmpty && _threadType != null && !_typesLoading));
 
   Future<void> _send() async {
     final form = _form;
@@ -497,6 +565,10 @@ class _ModerateDialogState extends State<ModerateDialog> {
 
   List<Widget> _fields(BuildContext context, ModerateForm form) {
     final tr = context.t.moderate;
+    // The forum takes nothing with a repair: no reason, no notice.
+    if (_operation == ModerateOperation.repair) {
+      return const [];
+    }
     return [
       if (form.levels.isNotEmpty)
         Wrap(
@@ -508,6 +580,19 @@ class _ModerateDialogState extends State<ModerateDialog> {
                 label: Text(level.label),
                 selected: _level == level.value,
                 onSelected: _sending ? null : (_) => setState(() => _level = level.value),
+              ),
+          ],
+        ),
+      if (form.choices.isNotEmpty)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final choice in form.choices)
+              ChoiceChip(
+                label: _choiceLabel(context, choice),
+                selected: _choice == choice.value,
+                onSelected: _sending ? null : (_) => setState(() => _choice = choice.value),
               ),
           ],
         ),
@@ -560,6 +645,16 @@ class _ModerateDialogState extends State<ModerateDialog> {
           ),
           onTap: _sending ? null : _pickExpiration,
         ),
+      if (_operation == ModerateOperation.copy) ...[
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: _moveTo,
+          decoration: InputDecoration(labelText: tr.copyTo),
+          items: _forumItems(context, form.forums),
+          onChanged: _sending ? null : (v) => v == null ? null : _pickCopyTarget(v),
+        ),
+        ..._copyTypeFields(context),
+      ],
       if (_operation == ModerateOperation.move) ...[
         DropdownButtonFormField<String>(
           isExpanded: true,
@@ -609,6 +704,86 @@ class _ModerateDialogState extends State<ModerateDialog> {
           value: _notify || form.notifyForced,
           onChanged: form.notifyForced || _sending ? null : (v) => setState(() => _notify = v ?? false),
         ),
+    ];
+  }
+
+  /// A stamp, icon or category: its picture when it has one, and its name (none for the empty category).
+  Widget _choiceLabel(BuildContext context, ModerateChoice choice) {
+    final label = Text(choice.label.isEmpty ? context.t.moderate.noType : choice.label);
+    final image = choice.image;
+    if (image == null) {
+      return label;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: SizedBox(
+            width: 48,
+            height: 24,
+            child: widget.imageBuilder?.call(image) ?? CachedImage(image, width: 48, height: 24, fit: BoxFit.contain),
+          ),
+        ),
+        label,
+      ],
+    );
+  }
+
+  /// The category of the copy in the forum copied to: offered when that forum has categories, none among them
+  /// unless it requires one.
+  List<Widget> _copyTypeFields(BuildContext context) {
+    final types = _threadTypes;
+    if (_typesLoading) {
+      return const [Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator())];
+    }
+    if (_typesFailed) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.t.general.failedToLoad,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: context.t.general.retry,
+                onPressed: _sending || _moveTo == null ? null : () => _pickCopyTarget(_moveTo!),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    if (types == null || types.every((e) => e.value == '0')) {
+      return const [];
+    }
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: DropdownButtonFormField<String>(
+          // A new list for each forum picked.
+          key: ValueKey(_moveTo),
+          isExpanded: true,
+          initialValue: _threadType,
+          decoration: InputDecoration(labelText: context.t.moderate.threadType),
+          items: [
+            for (final type in types)
+              DropdownMenuItem(
+                value: type.value,
+                child: Text(
+                  type.label.isEmpty ? context.t.moderate.noType : type.label,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: _sending ? null : (v) => setState(() => _threadType = v),
+        ),
+      ),
     ];
   }
 
