@@ -128,36 +128,69 @@ void main() {
     expect(failing.written.toString(), 'one\ntwo\nthree\nfour\n');
   });
 
+  test('a file that stays unwritable does not grow the memory: the held lines are given up past the limit', () async {
+    final failing = _FailingSink()..broken = true;
+    final sink = BackgroundLogSink(failing);
+    await expectLater(sink.flush(), throwsA(isA<FileSystemException>()));
+    // Nothing held yet: the first line is refused by the sink itself, as a write to a failed file always was.
+    expect(() => sink.write('lost\n'), throwsStateError);
+
+    final first = sink.flush();
+    final line = '${'x' * 1023}\n';
+    for (var i = 0; i < BackgroundLogSink.heldLimit ~/ 1024 + 8; i++) {
+      sink.write(line);
+    }
+    sink.write('last\n');
+    await expectLater(first, throwsA(isA<FileSystemException>()));
+
+    failing.broken = false;
+    await sink.flush();
+    final written = failing.written.toString();
+    expect(written, startsWith(BackgroundLogSink.droppedMark));
+    expect(written, endsWith('last\n'));
+    expect(written.length, lessThan(BackgroundLogSink.heldLimit));
+  });
+
   test('the ticks of the service, overlapping for a while: no unhandled error', () async {
     final sink = BackgroundLogSink(raw);
     final errors = <Object>[];
-    await runZonedGuarded(
-      () async {
-        Future<void> tick(String name, int steps) async {
-          try {
-            for (var i = 0; i < steps; i++) {
-              sink.write('$name $i\n');
-              await Future<void>.delayed(Duration.zero);
+    // The result is carried out of the error zone by hand: a future failing in it never completes outside.
+    final done = Completer<void>();
+    unawaited(
+      runZonedGuarded(
+        () async {
+          Future<void> tick(String name, int steps) async {
+            try {
+              for (var i = 0; i < steps; i++) {
+                sink.write('$name $i\n');
+                await Future<void>.delayed(Duration.zero);
+              }
+            } finally {
+              await sink.flush();
             }
-          } finally {
-            await sink.flush();
           }
-        }
 
-        // Not awaited one by one, as the timers of the service start them.
-        final ticks = <Future<void>>[];
-        for (var round = 0; round < 5; round++) {
-          ticks
-            ..add(tick('tick$round', 3))
-            ..add(tick('follow$round', 2))
-            ..add(tick('watch$round', 2));
-        }
-        // An error thrown in the zone may leave these undone: failed by the timeout, not hung.
-        await Future.wait(ticks).timeout(const Duration(seconds: 10));
-        await sink.flush();
-      },
-      (e, _) => errors.add(e),
+          // Not awaited one by one, as the timers of the service start them.
+          final ticks = <Future<void>>[];
+          for (var round = 0; round < 5; round++) {
+            ticks
+              ..add(tick('tick$round', 3))
+              ..add(tick('follow$round', 2))
+              ..add(tick('watch$round', 2));
+          }
+          await Future.wait(ticks);
+          await sink.flush();
+          done.complete();
+        },
+        (e, _) {
+          errors.add(e);
+          if (!done.isCompleted) {
+            done.complete();
+          }
+        },
+      ),
     );
+    await done.future.timeout(const Duration(seconds: 10));
     expect(errors, isEmpty);
     final lines = file.readAsLinesSync();
     expect(lines, hasLength(5 * (3 + 2 + 2)));

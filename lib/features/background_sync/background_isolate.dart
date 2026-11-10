@@ -101,13 +101,21 @@ final class BackgroundIsolateBase {
 ///
 /// An [IOSink] takes neither a write nor a second flush while a flush is running (`Bad state: StreamSink is bound to
 /// a stream`): here the flushes run one after another, and what is written during one is held back and written, in
-/// order, as soon as it is done. A flush that fails gives its own error to its caller; lines the file's sink would
-/// not take then stay held, in order, for the next flush.
+/// order, as soon as it is done. A flush that fails gives its own error to its caller; lines the file's sink then
+/// refuses (it throws) stay held, in order, for the next flush, up to [heldLimit]. A sink that takes them and loses
+/// them is no different from before.
 final class BackgroundLogSink {
   /// Constructor.
   BackgroundLogSink(this._sink);
 
   final IOSink _sink;
+
+  /// How much is held (in UTF-16 code units) before the held lines are given up: a file that can not be written for
+  /// hours must not grow the memory of the service.
+  static const int heldLimit = 256 * 1024;
+
+  /// What is written in place of the lines given up.
+  static const droppedMark = '[log lines dropped: the log file could not be written]\n';
 
   /// Written while a flush was running, or after lines the file's sink did not take.
   final _held = StringBuffer();
@@ -124,6 +132,11 @@ final class BackgroundLogSink {
   void write(String text) {
     // Behind the lines still held: the order of the file is the order of the calls.
     if (_flushing || _held.isNotEmpty) {
+      if (_held.length > heldLimit) {
+        _held
+          ..clear()
+          ..write(droppedMark);
+      }
       _held.write(text);
     } else {
       _sink.write(text);
