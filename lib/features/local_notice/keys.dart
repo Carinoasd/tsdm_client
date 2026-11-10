@@ -90,7 +90,7 @@ class LocalNoticeKeys {
     if (payload == null) {
       return null;
     }
-    return payload.replaceAll(RegExp('((?:^|[#&])draft=)[^&]*'), r'$1…');
+    return payload.replaceAllMapped(RegExp('((?:^|[#&])draft=)[^&]*'), (m) => '${m[1]}…');
   }
 }
 
