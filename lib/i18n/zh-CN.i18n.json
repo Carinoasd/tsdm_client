@@ -1582,7 +1582,7 @@
     "deleteConfirm": "确定删除「$name」？",
     "name": "名称",
     "description": "简介",
-    "keywords": "标签（空格分隔）",
+    "keywords": "标签",
     "save": "保存",
     "follow": "订阅",
     "unfollow": "取消订阅",

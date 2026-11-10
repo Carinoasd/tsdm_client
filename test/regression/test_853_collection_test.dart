@@ -206,6 +206,10 @@ void main() {
       expect(page.canComment, isTrue);
       expect(page.myRate, 4);
       expect(page.formHash, 'f1f2f3f4');
+      // A collection without comments: the form, the stars offered.
+      final empty = parseCollectionComments(parseHtmlDocument(_raw('comments_empty.html')));
+      expect(empty.comments, isEmpty);
+      expect((empty.ctid, empty.canComment, empty.myRate), (4, true, null));
       // Its owner has not rated it: the stars are offered.
       final owner = parseCollectionComments(parseHtmlDocument(_raw('comments_owner.html')));
       expect(owner.myRate, isNull);
@@ -335,7 +339,7 @@ void main() {
         'action=comment': 'comment_done.json',
       });
       final repository = forum.repository();
-      final created = await repository.create(viewerUid: 35, formHash: 'f1f2f3f4', title: 'CL', keywords: 'a b');
+      final created = await repository.create(viewerUid: 35, formHash: 'f1f2f3f4', title: 'CL', keywords: 'a，b  c');
       expect(createdCtid(created), 3);
       expect(forum.sent.last.body, {
         'formhash': 'f1f2f3f4',
@@ -343,7 +347,7 @@ void main() {
         'submitcollection': '1',
         'title': 'CL',
         'desc': '',
-        'keyword': 'a b',
+        'keyword': 'a b c',
       });
       final owner = parseCollectionDetail(parseHtmlDocument(_raw('view_owner.html')));
       await repository.edit(owner, title: 'N', description: 'D', keywords: 'K');

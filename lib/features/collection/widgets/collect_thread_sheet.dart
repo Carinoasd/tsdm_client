@@ -93,11 +93,11 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
             CollectionAccountChanged() => context.t.collection.accountChanged,
             _ => context.t.collection.unknown,
           };
-          if (value is CollectionNeedLogin) {
-            unawaited(_toLogin());
-          }
       }
     });
+    if (form case Left(value: CollectionNeedLogin())) {
+      await _toLogin();
+    }
   }
 
   Future<void> _toLogin() async {

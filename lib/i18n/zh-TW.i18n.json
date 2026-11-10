@@ -1582,7 +1582,7 @@
     "deleteConfirm": "確定刪除「$name」？",
     "name": "名稱",
     "description": "簡介",
-    "keywords": "標籤（空格分隔）",
+    "keywords": "標籤",
     "save": "儲存",
     "follow": "訂閱",
     "unfollow": "取消訂閱",

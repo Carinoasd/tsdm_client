@@ -1582,7 +1582,7 @@
     "deleteConfirm": "Delete \"$name\"?",
     "name": "Name",
     "description": "Description",
-    "keywords": "Tags (separated by spaces)",
+    "keywords": "Tags",
     "save": "Save",
     "follow": "Subscribe",
     "unfollow": "Unsubscribe",

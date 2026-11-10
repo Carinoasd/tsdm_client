@@ -17,6 +17,11 @@ typedef CollectionGet = Future<Either<AppException, Object?>> Function(String ur
 /// Post the form [body] to [url] once, never retried. Returns the failure of the transport as its left.
 typedef CollectionPost = Future<Either<AppException, Object?>> Function(String url, Map<String, String> body);
 
+/// [keywords] as the forum takes them, separated by spaces: a comma or an ideographic comma between two is a space
+/// too.
+String collectionKeywords(String keywords) =>
+    keywords.replaceAll(RegExp('[,，、;；]'), ' ').split(RegExp(r'\s+')).where((e) => e.isNotEmpty).join(' ');
+
 /// Fields of a form the forum reads as an array (`ctid[]`, `tids[]`, `delthread[]`), as indexed keys: PHP takes
 /// `ctid[0]=3&ctid[1]=4` as `ctid[]=3&ctid[]=4`, and a form body here maps each key to one value.
 Map<String, String> collectionArrayFields(String name, Iterable<Object> values) => {
@@ -243,7 +248,7 @@ final class CollectionRepository {
         'submitcollection': '1',
         'title': title,
         'desc': description,
-        'keyword': keywords,
+        'keyword': collectionKeywords(keywords),
       }),
     );
   }
@@ -265,7 +270,7 @@ final class CollectionRepository {
         'submitcollection': '1',
         'title': title,
         'desc': description,
-        'keyword': keywords,
+        'keyword': collectionKeywords(keywords),
       }),
     );
   }
