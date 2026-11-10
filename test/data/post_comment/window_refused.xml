@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>提示信息</em><span><a href="javascript:;" class="flbc" onclick="hideWindow('comment');" title="关闭">关闭</a></span></h3>
+<div class="c altw">
+<div class="alert_error">抱歉，您不能点评此帖或帖子尚未找到<script type="text/javascript" reload="1">if(typeof errorhandle_comment=='function') {errorhandle_comment('抱歉，您不能点评此帖或帖子尚未找到', {});}</script></div>
+</div>
+<p class="o pns">
+<button type="button" class="pn pnc" id="closebtn" onclick="hideWindow('comment');"><strong>确定</strong></button>
+<script type="text/javascript" reload="1">if($('closebtn')) {$('closebtn').focus();}</script>
+</p>
+]]></root>

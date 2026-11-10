@@ -28,6 +28,7 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
+import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/view/settings_page.dart';
@@ -231,7 +232,8 @@ void main() {
       expect(post.bbcodeOff, isFalse);
       expect(post.smileyOff, isFalse);
       expect(post.parseUrlOff, isFalse);
-      expect(post.data, raw['body_html'], reason: 'the html stays the content as the forum printed it');
+      // As the forum printed it but the comments, shown on their own (test 831).
+      expect(post.data, splitPostComments(raw['body_html'] as String, post.postID).data, reason: 'the html stays');
       expect(post.smiliesVersion, json['smilies_version']);
       expect(post.smiliesVersion, isNotEmpty);
 

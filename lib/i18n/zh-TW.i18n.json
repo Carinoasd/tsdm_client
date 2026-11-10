@@ -3925,5 +3925,20 @@
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
     "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+  },
+  "postComment": {
+    "title": "點評",
+    "menu": "點評",
+    "send": "發表",
+    "more": "更多點評",
+    "delete": "刪除",
+    "deleteTitle": "刪除點評",
+    "reason": "操作說明",
+    "done": "點評成功",
+    "deleted": "已刪除",
+    "refused": "論壇拒絕了這個操作",
+    "unknown": "結果不明，已重新載入",
+    "loadFailed": "載入失敗",
+    "accountChanged": "帳號已切換，沒有送出"
   }
 }

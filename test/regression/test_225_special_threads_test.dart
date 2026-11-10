@@ -28,6 +28,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/poll/cubit/poll_cubit.dart';
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/repository/poll_repository.dart';
+import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/special_thread/repository/special_thread_repository.dart';
@@ -167,6 +168,9 @@ final class _OfflineThreadBloc extends Fake implements ThreadBloc {
   void add(ThreadEvent event) => added.add(event);
 }
 
+/// The content of floor [p] of an answer as the floor keeps it: without its comments, which it shows on their own.
+String _withoutComments(Map<String, dynamic> p) => splitPostComments(p['body_html'] as String, '${p['pid']}').data;
+
 void main() {
   setUpAll(() {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -239,7 +243,7 @@ void main() {
         final json = _json('poll_single_before')..['special'] = value;
         final page = threadPageFromApi(json, 1);
         expect(page.special, isNull);
-        expect(page.postList.first.data, _firstFloor(json)['body_html'], reason: 'the floor stays as it was');
+        expect(page.postList.first.data, _withoutComments(_firstFloor(json)), reason: 'the floor stays as it was');
       }
 
       // Every type with nothing but its type: empty, 0 and null, no action.
@@ -562,7 +566,7 @@ void main() {
       'debate': ['id="umpirepoint"', 'class="ds"', 'class="dr"', 'class="dtm'],
     };
 
-    test('every fixture: the block html goes, the content, comment and rate places stay, other floors untouched', () {
+    test('every fixture: the block html goes, the content and rate places stay, other floors untouched', () {
       for (final name in _pages) {
         final json = _json(name);
         final page = threadPageFromApi(json, 1);
@@ -570,7 +574,7 @@ void main() {
         for (final (i, post) in page.postList.indexed) {
           final raw = raws[i];
           if (post.special == null) {
-            expect(post.data, raw['body_html'], reason: '$name floor ${post.postID} kept as it was');
+            expect(post.data, _withoutComments(raw), reason: '$name floor ${post.postID} kept as it was');
             continue;
           }
           final type = name.split('_').first;
@@ -581,7 +585,8 @@ void main() {
           }
           final pid = post.postID;
           expect(post.data, contains('id="postmessage_$pid">'), reason: '$name: the content stays');
-          expect(post.data, contains('<div id="comment_$pid" class="cm">'), reason: name);
+          // The comments are shown on their own (test 831).
+          expect(post.data, isNot(contains('<div id="comment_$pid" class="cm">')), reason: name);
           expect(post.data, contains('<div id="post_rate_div_$pid"></div>'), reason: name);
           expect(post.data, contains('<div class="pcbs">'), reason: name);
           // The content table itself is the forum's, byte for byte.
@@ -597,7 +602,7 @@ void main() {
 
     test('the same floor without the block keeps the forum html (an older plugin, the block not given)', () {
       final json = _json('activity_open_member');
-      final body = _firstFloor(json)['body_html'] as String;
+      final body = _withoutComments(_firstFloor(json));
       json.remove('special');
       expect(threadPageFromApi(json, 1).postList.single.data, body);
     });

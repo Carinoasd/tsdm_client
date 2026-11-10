@@ -69,6 +69,11 @@ Map<String, String> _samples() {
     if (path.startsWith('test/data/render_regression/')) {
       continue;
     }
+    // The comment samples of test 831: a floor's comments are shown on their own since, not munched with its content
+    // (and their avatars would need the image cache here).
+    if (path.startsWith('test/data/post_comment/')) {
+      continue;
+    }
     if (path.endsWith('.html')) {
       final raw = file.readAsStringSync();
       final document = parseHtmlDocument(raw);

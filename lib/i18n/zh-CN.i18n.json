@@ -3925,5 +3925,20 @@
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
     "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+  },
+  "postComment": {
+    "title": "点评",
+    "menu": "点评",
+    "send": "发表",
+    "more": "更多点评",
+    "delete": "删除",
+    "deleteTitle": "删除点评",
+    "reason": "操作说明",
+    "done": "点评成功",
+    "deleted": "已删除",
+    "refused": "论坛拒绝了这个操作",
+    "unknown": "结果不明，已重新载入",
+    "loadFailed": "载入失败",
+    "accountChanged": "账号已切换，没有发送"
   }
 }
