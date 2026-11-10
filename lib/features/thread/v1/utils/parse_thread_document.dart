@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
 import 'package:tsdm_client/features/post/utils/verification.dart';
 import 'package:tsdm_client/features/post_report/utils/report_page_context.dart';
@@ -45,6 +46,7 @@ final class ThreadPageInfo {
     this.postsPerPage,
     this.paginationReplies,
     this.newestFirst = false,
+    this.perms,
   });
 
   /// Thread id.
@@ -133,6 +135,10 @@ final class ThreadPageInfo {
   /// thread's author set it, the thread status bit 4); false when the page does not tell (a web page).
   final bool newestFirst;
 
+  /// What the account the page was served to may manage in the thread, as the forum's app API tells it (plugin 3.7.0,
+  /// `perms`); null when the page does not tell: a web page, an older plugin.
+  final ThreadPerms? perms;
+
   /// This page read back from an offline copy loaded at [savedAt]: without its reply form, whose form hash is from an
   /// old session and could only send a reply over a network that is not there.
   ThreadPageInfo asOffline(DateTime savedAt) => ThreadPageInfo(
@@ -162,6 +168,7 @@ final class ThreadPageInfo {
     postsPerPage: postsPerPage,
     paginationReplies: paginationReplies,
     newestFirst: newestFirst,
+    perms: perms,
   );
 }
 

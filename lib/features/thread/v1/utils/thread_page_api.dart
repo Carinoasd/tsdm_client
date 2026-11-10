@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/special_block.dart';
-import 'package:tsdm_client/features/thread_recommend/utils/thread_recommend_answer.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_medal_menu_info.dart';
@@ -74,9 +74,13 @@ Map<String, dynamic>? threadApiAnswerOf(Object? data) {
 ///   ([Post.fromApi]). Without `special` every floor is exactly what it was. Since plugin 3.5.0 (`schema: 18`)
 ///   `special` is also the red packet of a thread of the hongbao plugin ([HongbaoSpecial]), kept on the first floor
 ///   only when the plugin's card is cut out of its content.
-/// * the evaluation of the thread ("支持", "踩": [Post.recommend] of the first floor) is read from the links the app
-///   cut from the first page's `document` ([threadRecommendHtmlKey], see `threadAnswerWithRecommend`): up to plugin
-///   3.7.0 no field carries it.
+/// * since plugin 3.7.0 (`schema: 21`) `perms` is what the account may manage in the thread ([ThreadPerms],
+///   [ThreadPageInfo.perms]); each floor tells whether it is warned and carries its comments as fields
+///   ([Post.fromApi]). An older answer has no `perms`: the page tells nothing of it.
+/// * since plugin 3.8.0 (`schema: 23`) `recommend` is the evaluation of the thread ("支持", "踩":
+///   [ThreadRecommend.fromApi], kept on the first floor as [Post.recommend], where the web page prints it), and each
+///   floor tells whether it is a reply stuck under the first floor (`stick`). An older answer carries no evaluation
+///   (none is shown), and its stuck replies are told by the order of the first page ([markStuckReplies]).
 ///
 /// The forum's message (`ok` 0): `login` 1 is the login prompt of a guest (`needLogin`), 0 a member without
 /// permission (`havePermission` false, the message text as the denied message, as the page's `#messagetext p`);
@@ -139,9 +143,17 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
   // The placeholder a rush thread prints for a deleted floor (`deleted` 1: "无效楼层，该帖已经被删除", no author, no
   // content) is left out, as the page parser leaves out a floor without an author.
   final bestAnswerForm = special == null ? _rewardBestAnswerFormOf(thread, viewerUid: uid, page: currentPage) : null;
-  // The evaluation of the thread ("支持", "踩") the app cut from the first page's document (threadAnswerWithRecommend).
-  final recommend = ThreadRecommend.fromHtml(_text(json[threadRecommendHtmlKey]), viewerUid: uid > 0 ? uid : null);
-  final postList = _list(json['posts']).where((p) => _int(p['deleted']) != 1).map((p) {
+  // The evaluation of the thread ("支持", "踩"), plugin 3.8.0.
+  final recommend = ThreadRecommend.fromApi(
+    json['recommend'],
+    tid: tidValue,
+    viewerUid: uid,
+    formHash: _text(json['formhash']),
+  );
+  final floors = _list(json['posts']).where((p) => _int(p['deleted']) != 1).toList();
+  // Plugin 3.8.0 tells the stuck replies with each floor (`stick`); an older answer does not.
+  final tellsStuck = floors.any((p) => p['stick'] is num);
+  final postList = floors.map((p) {
     final first = _int(p['first']) == 1;
     var post = Post.fromApi(
       p,
@@ -251,8 +263,11 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     threadClosed:
         uid > 0 &&
         (_int(reply['allowed']) == 0 || _int(reply['fastpost']) == 0 || _int(reply['fastpost_allowed']) == 0),
-    // The forum lists stuck replies on the first page only.
-    postList: currentPage == 1 ? markStuckReplies(postList, newestFirst: _int(json['ordertype']) == 1) : postList,
+    // The forum lists stuck replies on the first page only. An answer that does not tell them (before plugin 3.8.0)
+    // has them told by the order of the page.
+    postList: currentPage == 1 && !tellsStuck
+        ? markStuckReplies(postList, newestFirst: _int(json['ordertype']) == 1)
+        : postList,
     replyParameters: replyParameters,
     threadType: threadType,
     isDraft: draft,
@@ -269,6 +284,7 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     paginationReplies: thread['replies'] is num ? _int(thread['replies']) : null,
     // The order the floors came in: the one asked, or the thread's own when none was (its author set it).
     newestFirst: _int(json['ordertype']) == 1,
+    perms: ThreadPerms.fromApi(json['perms']),
   );
 }
 
@@ -412,7 +428,8 @@ List<Map<String, dynamic>> _list(Object? value) =>
     value is List ? value.whereType<Map<String, dynamic>>().toList() : const [];
 
 /// [posts] of a page of the app API with the replies stuck under the first floor marked ([Post.stuck]), as far as the
-/// order tells: the answer (plugin 3.7.0) does not say which they are.
+/// order tells: an answer before plugin 3.8.0 does not say which they are (a later one does with each floor,
+/// `stick`, and is not read this way).
 ///
 /// The forum lists a page as its first floor, the stuck replies (on the first page only), the hot replies, then the
 /// floors in their order (`viewthread` `postarr`), a stuck reply taken out of where it was. A reply before a later

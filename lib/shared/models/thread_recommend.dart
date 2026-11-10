@@ -50,6 +50,7 @@ final class ThreadRecommend extends Equatable {
     required this.guest,
     this.add,
     this.subtract,
+    this.canEvaluate = true,
   });
 
   /// The evaluation the forum printed in [container] (the first floor, or `div#p_btn` itself), for the page served to
@@ -90,10 +91,60 @@ final class ThreadRecommend extends Equatable {
     );
   }
 
-  /// The evaluation in [html], the two links of it the forum's app API answer carries (see
-  /// `threadAnswerWithRecommend`), for the page served to [viewerUid].
-  static ThreadRecommend? fromHtml(String html, {required int? viewerUid}) =>
-      html.isEmpty ? null : fromNode(parseHtmlDocument('<div id="p_btn">$html</div>').body, viewerUid: viewerUid);
+  /// The evaluation in `recommend` of a thread page answer of the forum's app API (plugin 3.8.0, `schema` 23) for
+  /// thread [tid], served to [viewerUid] (0 for a guest) with the form hash [formHash]; null when the answer has none
+  /// (an older plugin), or the web page prints none (`shown` 0: the evaluation is off, the user group may not
+  /// evaluate; or both buttons left without a text).
+  ///
+  /// A button is the forum's `add` or `subtract` (`label` and `count`; null for one the settings left without a
+  /// text). The request's `hash` is the one of the answer's own links (`urls`), [formHash] when they name none. An
+  /// account the forum would refuse before anything is counted (`can` 0: its own thread, a group that may not
+  /// evaluate, a thread that is not a normal one) gets the buttons with their counts and nothing to send
+  /// ([canEvaluate]); a guest's open the login, as from the page.
+  static ThreadRecommend? fromApi(
+    Object? recommend, {
+    required int tid,
+    required int viewerUid,
+    required String formHash,
+  }) {
+    if (recommend is! Map<String, dynamic> || tid <= 0 || recommend['shown'] != 1) {
+      return null;
+    }
+    ThreadRecommendButton? button(Object? value) {
+      if (value is! Map<String, dynamic>) {
+        return null;
+      }
+      final label = value['label'];
+      final count = value['count'];
+      return label is String && label.trim().isNotEmpty
+          ? ThreadRecommendButton(label: label.trim(), count: count is num && count > 0 ? count.toInt() : 0)
+          : null;
+    }
+
+    final add = button(recommend['add']);
+    final subtract = button(recommend['subtract']);
+    if (add == null && subtract == null) {
+      return null;
+    }
+    String? hashOf(Object? url) {
+      final query = url is String ? Uri.tryParse(url)?.queryParameters : null;
+      final hash = query?['hash'] ?? '';
+      return query != null && query['action'] == 'recommend' && query['tid'] == '$tid' && hash.isNotEmpty ? hash : null;
+    }
+
+    final urls = recommend['urls'];
+    final hash = urls is Map<String, dynamic> ? (hashOf(urls['add']) ?? hashOf(urls['subtract'])) : null;
+    final guest = viewerUid <= 0;
+    return ThreadRecommend(
+      tid: tid,
+      hash: hash ?? formHash,
+      viewerUid: guest ? null : viewerUid,
+      guest: guest,
+      add: add,
+      subtract: subtract,
+      canEvaluate: guest || recommend['can'] == 1,
+    );
+  }
 
   /// The button [link] with its count in `span#[countId]`; null without the link or its text.
   static ThreadRecommendButton? _buttonOf(uh.Element? link, String countId) {
@@ -128,6 +179,12 @@ final class ThreadRecommend extends Equatable {
   /// "踩", when printed.
   final ThreadRecommendButton? subtract;
 
+  /// Whether an evaluation sent from this page could be counted: false when the forum's app API says it would be
+  /// refused whatever is sent (plugin 3.8.0, `can` 0 for a member: the account's own thread, a user group that may
+  /// not evaluate, a thread that is not a normal one). True for a page that does not tell (the web page), and for a
+  /// guest, whose buttons open the login.
+  final bool canEvaluate;
+
   /// The button of [side].
   ThreadRecommendButton? button(ThreadRecommendSide side) => switch (side) {
     ThreadRecommendSide.add => add,
@@ -150,9 +207,10 @@ final class ThreadRecommend extends Equatable {
       guest: guest,
       add: side == ThreadRecommendSide.add ? more(add) : add,
       subtract: side == ThreadRecommendSide.subtract ? more(subtract) : subtract,
+      canEvaluate: canEvaluate,
     );
   }
 
   @override
-  List<Object?> get props => [tid, hash, viewerUid, guest, add, subtract];
+  List<Object?> get props => [tid, hash, viewerUid, guest, add, subtract, canEvaluate];
 }

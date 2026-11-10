@@ -11,7 +11,6 @@ import 'package:tsdm_client/features/offline_thread/utils/thread_refusal.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
-import 'package:tsdm_client/features/thread_recommend/utils/thread_recommend_answer.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -146,9 +145,6 @@ class ThreadRepository {
       onlyVisibleUid: onlyVisibleUid,
       reverseOrder: reverseOrder,
       exactOrder: exactOrder,
-      // The first page asked by thread id comes with its document: the evaluation of the thread (支持, 踩) is only
-      // there (threadAnswerWithRecommend).
-      withDocument: tid != null && pageNumber == 1,
       // A deleted thread comes with 404: its message may still be a refusal that deletes the copies.
       onNotFound: offline != null && uid != null && askedTid != null
           ? (body) {
@@ -200,9 +196,7 @@ class ThreadRepository {
           }
         }
         return left(e);
-      case Right(value: final answer):
-        // Read and kept without its document: only the evaluation links are cut from it.
-        final data = threadAnswerWithRecommend(answer);
+      case Right(value: final data):
         final read = _readThreadPage(
           data,
           pageNumber: pageNumber,
@@ -234,9 +228,7 @@ class ThreadRepository {
                   orderType: orderType,
                   authorId: authorId,
                 ),
-                // Without the evaluation links: they hold the session's form hash, and an offline floor offers no
-                // evaluation.
-                threadAnswerWithoutRecommend(data),
+                data,
               );
             }
           }
@@ -363,8 +355,6 @@ class ThreadRepository {
 
   /// The body of the thread page answer: the web page, or the JSON answer of the forum's app API (which may be one
   /// without a page, see [tsdmAppAnswerWithoutPage]: the callers tell).
-  ///
-  /// [withDocument] asks the JSON mode without `nodoc=1`: the answer then carries the page's `document` as well.
   AsyncEither<Object?> _fetchAnswer({
     required String? tid,
     required String? pid,
@@ -372,7 +362,6 @@ class ThreadRepository {
     required String? onlyVisibleUid,
     required bool? reverseOrder,
     required int? exactOrder,
-    bool withDocument = false,
     void Function(Object? body)? onNotFound,
   }) => AsyncEither(() async {
     assert(tid != null || pid != null, 'tid and pid MUST not be null at the same time');
@@ -417,7 +406,7 @@ class ThreadRepository {
     final respEither = await getIt
         .get<NetClientProvider>()
         .get(
-          withTsdmAppJson(_threadUrl!, nodoc: !withDocument),
+          withTsdmAppJson(_threadUrl!),
           options: onNotFound == null
               ? null
               : Options(validateStatus: (s) => s != null && ((s >= 200 && s < 300) || s == HttpStatus.notFound)),
