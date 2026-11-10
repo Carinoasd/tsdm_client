@@ -52,7 +52,15 @@ final class ModcpRepository with LoggerMixin {
   /// Read [url] for the account logged in and hand its document to [read]; a page served to another account, or the account
   /// changed meanwhile, is an [IdentityChangedException]; the panel's login form a [ModcpNeedsLogin]; a page [read]
   /// does not know is the panel's message ([ModcpRefused]), or a failure without one.
-  Future<Either<AppException, ModcpAnswer<T>>> _page<T>(String url, T? Function(uh.Document doc, int uid) read) async {
+  Future<Either<AppException, ModcpAnswer<T>>> _page<T>(String url, T? Function(uh.Document doc, int uid) read) =>
+      _answer(url, (data, uid) => answerOf(data, uid: uid, read: read));
+
+  /// Read [url] for the account logged in and hand the answer as it came to [read], with the account that asked: a
+  /// failed request and an account that changed meanwhile ([IdentityChangedException]) never reach it.
+  Future<Either<AppException, ModcpAnswer<T>>> _answer<T>(
+    String url,
+    Either<AppException, ModcpAnswer<T>> Function(Object? data, int uid) read,
+  ) async {
     final uid = _currentUid();
     if (uid <= 0) {
       return left(IdentityChangedException());
@@ -67,7 +75,7 @@ final class ModcpRepository with LoggerMixin {
         if (_currentUid() != uid) {
           return left(IdentityChangedException());
         }
-        return answerOf(value.data, uid: uid, read: read);
+        return read(value.data, uid);
     }
   }
 
@@ -213,24 +221,12 @@ final class ModcpRepository with LoggerMixin {
   /// Asked in the JSON mode of the forum's app API: plugin 3.8.0 answers the log as fields ([logOf]), an older plugin
   /// and a forum without one leave the panel's pages alone and answer the web page, read as before. One request
   /// either way.
-  AsyncEither<ModcpAnswer<ModcpLogPage>> fetchLog({String keyword = '', int page = 1}) => AsyncEither(() async {
-    final uid = _currentUid();
-    if (uid <= 0) {
-      return left(IdentityChangedException());
-    }
-    final resp = await _get(withTsdmAppJson(ModcpLogPage.url(keyword: keyword, page: page)));
-    switch (resp) {
-      case Left(:final value):
-        return left(value);
-      case Right(:final value) when value.statusCode != HttpStatus.ok:
-        return left(HttpRequestFailedException(value.statusCode));
-      case Right(:final value):
-        if (_currentUid() != uid) {
-          return left(IdentityChangedException());
-        }
-        return logOf(value.data, uid: uid, keyword: keyword, page: page);
-    }
-  });
+  AsyncEither<ModcpAnswer<ModcpLogPage>> fetchLog({String keyword = '', int page = 1}) => AsyncEither(
+    () => _answer(
+      withTsdmAppJson(ModcpLogPage.url(keyword: keyword, page: page)),
+      (data, uid) => logOf(data, uid: uid, keyword: keyword, page: page),
+    ),
+  );
 
   /// The log in answer [data], asked by account [uid].
   ///

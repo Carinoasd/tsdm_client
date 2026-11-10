@@ -2309,7 +2309,8 @@
       "title": "$operation ($count)",
       "done": "$count threads done",
       "failed": "$count threads not done",
-      "unknown": "Result unknown, refresh to check"
+      "unknown": "Result unknown, refresh to check",
+      "noOperation": "No management operation available"
     }
   },
   "packetCard": {

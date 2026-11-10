@@ -2080,42 +2080,45 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             widgetBuilder: (context, post) => BlockAwarePost(
                               post: post,
                               postList: state.postList,
-                              builder: (context, post) => _markSearchHit(
-                                context,
-                                post,
-                                searchHits,
-                                _markSpeaking(
+                              builder: (context, post) {
+                                final management = _floorActions(state, post);
+                                return _markSearchHit(
                                   context,
                                   post,
-                                  PostCard(
-                                    // A page that tells the warned floors itself needs no memory of them.
-                                    state.perms == null ? _asWarnedByMe(post) : post,
-                                    replyCallback: replyPostCallback,
-                                    multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
-                                        ? null
-                                        : _multiQuote,
-                                    onEdited: () => _scrollToPidOnReload = post.postID,
-                                    onJoinDebate: state.replyParameters == null || state.threadClosed
-                                        ? null
-                                        : _joinDebate,
-                                    onModerate: _floorActions(state, post).offered
-                                        ? (action) => _moderateFloor(context, state, post, action)
-                                        : null,
-                                    moderateActions: _floorActions(state, post).actions,
-                                    canRemoveRate: _floorActions(state, post).removeRate,
-                                    // Not the account's own floors: the forum never lets staff ban themselves.
-                                    // Where the page tells the account's permissions, only with the one to ban.
-                                    onBanAuthor:
-                                        post.banAuthorUid != null &&
-                                            post.banAuthorUid != state.floorsUid &&
-                                            (state.perms?.allowBanUser ?? true) &&
-                                            !state.isOffline &&
-                                            state.fid != null
-                                        ? () => _banAuthor(context, state, post)
-                                        : null,
+                                  searchHits,
+                                  _markSpeaking(
+                                    context,
+                                    post,
+                                    PostCard(
+                                      // A page that tells the warned floors itself needs no memory of them.
+                                      state.perms == null ? _asWarnedByMe(post) : post,
+                                      replyCallback: replyPostCallback,
+                                      multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
+                                          ? null
+                                          : _multiQuote,
+                                      onEdited: () => _scrollToPidOnReload = post.postID,
+                                      onJoinDebate: state.replyParameters == null || state.threadClosed
+                                          ? null
+                                          : _joinDebate,
+                                      onModerate: management.offered
+                                          ? (action) => _moderateFloor(context, state, post, action)
+                                          : null,
+                                      moderateActions: management.actions,
+                                      canRemoveRate: management.removeRate,
+                                      // Not the account's own floors: the forum never lets staff ban themselves.
+                                      // Where the page tells the account's permissions, only with the one to ban.
+                                      onBanAuthor:
+                                          post.banAuthorUid != null &&
+                                              post.banAuthorUid != state.floorsUid &&
+                                              (state.perms?.allowBanUser ?? true) &&
+                                              !state.isOffline &&
+                                              state.fid != null
+                                          ? () => _banAuthor(context, state, post)
+                                          : null,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             ),
                             useDivider: true,
                             postList: state.postList,

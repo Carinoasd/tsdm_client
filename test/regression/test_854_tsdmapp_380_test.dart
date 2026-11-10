@@ -225,7 +225,6 @@ void main() {
         FloorModerateAction.warn,
         FloorModerateAction.ban,
       ]);
-      expect(superMod.allowDeleteComment, isTrue);
       expect((superMod.stickMax, superMod.digestMax), (2, 3));
 
       // The same account in a forum that recommends threads.
@@ -326,6 +325,49 @@ void main() {
       await open(_page('thread_comments_author.json').perms);
       expect(find.text(t.moderate.stick), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
+    });
+
+    testWidgets('several threads: what the forum allows; nothing allowed is said, nothing picked', (tester) async {
+      Future<void> open(ThreadPerms? perms) async {
+        await _pumpPage(
+          tester,
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async => showBatchModerateSheet(
+                  context,
+                  threads: const [('9202819', 'a'), ('9202875', 'b')],
+                  fid: 25,
+                  perms: perms,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+      }
+
+      // A moderator whose group may only move threads.
+      await open(ThreadPerms.fromApi(const {'ismoderator': 1, 'allow_move': 1}));
+      expect(find.text(t.moderate.move), findsOneWidget);
+      expect(find.text(t.moderate.stick), findsNothing);
+      expect(find.text(t.moderate.delete), findsNothing);
+
+      // One that may do none of the operations on several threads (warning floors only).
+      await tester.pumpWidget(const SizedBox());
+      await open(ThreadPerms.fromApi(const {'ismoderator': 1, 'allow_warn': 1, 'allow_banpost': 1}));
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text(t.moderate.batch.noOperation), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+
+      // No permissions told: every operation, as before.
+      await tester.pumpWidget(const SizedBox());
+      await open(null);
+      for (final operation in [t.moderate.stick, t.moderate.move, t.moderate.delete]) {
+        expect(find.text(operation), findsOneWidget, reason: operation);
+      }
     });
 
     testWidgets('a digest no higher than the account may set, the level the thread has kept', (tester) async {
@@ -626,6 +668,9 @@ void main() {
       expect(addOnly.subtract, isNull);
       // The answer's form hash when its links name none.
       expect(of(answer((r) => r.remove('urls')))!.hash, 'f1f2f3f4');
+      // Only the forum saying no turns the buttons off: an answer that does not tell leaves them on.
+      expect(of(answer((r) => r.remove('can')))!.canEvaluate, isTrue);
+      expect(of(answer((r) => r['can'] = 0))!.canEvaluate, isFalse);
       expect(of(_json('thread_recommend_member.json')..remove('recommend')), isNull);
     });
 

@@ -2309,7 +2309,8 @@
       "title": "$operation（$count）",
       "done": "已處理 $count 個主題",
       "failed": "$count 個主題未完成",
-      "unknown": "結果未知，請重新整理確認"
+      "unknown": "結果未知，請重新整理確認",
+      "noOperation": "沒有可用的管理操作"
     }
   },
   "packetCard": {

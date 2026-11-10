@@ -142,7 +142,8 @@ final class ThreadRecommend extends Equatable {
       guest: guest,
       add: add,
       subtract: subtract,
-      canEvaluate: guest || recommend['can'] == 1,
+      // Only the forum saying no turns the buttons off: an answer that does not tell leaves them as before.
+      canEvaluate: guest || recommend['can'] != 0,
     );
   }
 

@@ -44,9 +44,6 @@ final class ThreadPerms {
   /// The account may ban members from posting (`allow_banuser`: the user group's permission, whatever the forum).
   bool get allowBanUser => _allows('allow_banuser');
 
-  /// The account may delete comments of floors (`allow_delcomment`).
-  bool get allowDeleteComment => _allows('allow_delcomment');
-
   /// Whether the web page's management menu of the thread has [operation].
   bool allowsThread(ModerateOperation operation) => _allows(switch (operation) {
     ModerateOperation.stick => 'allow_stick',

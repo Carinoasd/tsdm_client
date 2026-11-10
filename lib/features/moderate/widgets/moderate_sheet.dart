@@ -146,7 +146,8 @@ Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOpe
 /// with why. Null when nothing was sent.
 ///
 /// With [perms] (what a thread page of the forum told the account lately, `ForumPermsMemory`) only the operations the
-/// forum's own management menu has are offered; without, every one, as the forum's window decides.
+/// forum's own management menu has are offered (none of them is said so, nothing picked); without, every one, as the
+/// forum's window decides.
 Future<ModerateBatchReport?> showBatchModerateSheet(
   BuildContext context, {
   required List<(String, String)> threads,
@@ -154,10 +155,13 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
   ThreadPerms? perms,
   ModerateRepository? repository,
 }) async {
-  final operation = await _pickOperation(
-    context,
-    perms?.threadOperations(moderateBatchOperations) ?? moderateBatchOperations,
-  );
+  final offered = perms?.threadOperations(moderateBatchOperations) ?? moderateBatchOperations;
+  if (offered.isEmpty) {
+    // The account moderates the forum but may do none of these: said, instead of a sheet with nothing in it.
+    showSnackBar(context: context, message: context.t.moderate.batch.noOperation);
+    return null;
+  }
+  final operation = await _pickOperation(context, offered);
   if (operation == null || !context.mounted) {
     return null;
   }
