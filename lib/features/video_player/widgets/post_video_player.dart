@@ -109,7 +109,7 @@ class PostVideoPlayer extends StatefulWidget {
   State<PostVideoPlayer> createState() => _PostVideoPlayerState();
 }
 
-class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingObserver {
+class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   _Status _status = _Status.idle;
   double? _progress;
   VideoFetchFailure? _failure;
@@ -128,6 +128,18 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
 
   /// Whether it may play now: in the foreground, on the page shown (or fullscreen).
   bool get _mayPlay => _foreground && (_onstage || _fullscreen);
+
+  /// Kept while fullscreen: the page below (offstage, laid out in another orientation) may let its floor go, which
+  /// would free the player the fullscreen page shows.
+  @override
+  bool get wantKeepAlive => _fullscreen;
+
+  void _setFullscreen(bool value) {
+    _fullscreen = value;
+    if (mounted) {
+      updateKeepAlive();
+    }
+  }
 
   @override
   void initState() {
@@ -195,7 +207,14 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
           widget.video,
           cancelToken: cancelToken,
           onProgress: (progress) {
-            if (generation == _generation && mounted && _status == _Status.loading) {
+            if (generation != _generation || !mounted || _status != _Status.loading) {
+              return;
+            }
+            // Each percent, not each chunk.
+            final shown = _progress;
+            if ((progress == null) != (shown == null) ||
+                (progress != null && shown != null && (progress - shown).abs() >= 0.01) ||
+                progress == 1) {
               setState(() => _progress = progress);
             }
           },
@@ -234,6 +253,8 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
     if (generation != _generation || !mounted) {
       return;
     }
+    // A start still opening it stops there.
+    _generation++;
     unawaited(_release());
     setState(() {
       _status = _Status.failed;
@@ -256,8 +277,10 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
 
   void _onError(String message) {
     talker.warning('video player: $message');
-    // Before it played: what is there to play cannot be played. A hiccup while it plays is left to the player.
-    if (_status == _Status.ready && !(_backend?.playing ?? false)) {
+    // Before the video is open (also while it is being opened, and after play was asked for): what is there cannot be
+    // played. Once open, a hiccup (a segment of a stream failing while it buffers) is left to the player.
+    final backend = _backend;
+    if (backend != null && !backend.loaded && (_status == _Status.loading || _status == _Status.ready)) {
       _fail(_generation, null);
     }
   }
@@ -339,16 +362,17 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final colorScheme = Theme.of(context).colorScheme;
     final content = switch (_status) {
       _Status.ready when _backend != null => _backend!.buildView(
         context,
         onEnterFullscreen: () async {
-          _fullscreen = true;
+          _setFullscreen(true);
           await defaultEnterNativeFullscreen();
         },
         onExitFullscreen: () async {
-          _fullscreen = false;
+          _setFullscreen(false);
           await defaultExitNativeFullscreen();
         },
       ),

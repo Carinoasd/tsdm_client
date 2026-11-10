@@ -105,6 +105,7 @@ final class NetVideoFetcher with LoggerMixin implements VideoFetcher {
     // One part file per request: a cancelled one still finishing does not write into the next.
     final part = File('${file.path}.${cancelToken.hashCode}.part');
     final url = video.url.toString();
+    _writing.add(part.path);
     final result = await getIt
         .get<NetClientProvider>()
         .download(
@@ -114,6 +115,7 @@ final class NetVideoFetcher with LoggerMixin implements VideoFetcher {
           onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
         )
         .run();
+    _writing.remove(part.path);
     if (result.isLeft()) {
       if (part.existsSync()) {
         await part.delete();
@@ -147,33 +149,48 @@ final class NetVideoFetcher with LoggerMixin implements VideoFetcher {
     }
   }
 
-  /// Delete the files played the longest ago until the rest fit in [maxCacheBytes].
+  /// The part files being written now, by this run: not deleted however long they take.
+  static final _writing = <String>{};
+
+  /// Delete the files played the longest ago until the rest fit in [maxCacheBytes]. A file that cannot be deleted (held
+  /// open by the player playing it, on Windows) is passed over.
   Future<void> _trim(Directory dir, {required String keep}) async {
+    final List<FileSystemEntity> entries;
     try {
-      final files = <(File, FileStat)>[];
-      // A part file left by a request the app did not live to finish is deleted.
-      final stale = DateTime.now().subtract(const Duration(hours: 1));
-      await for (final e in dir.list()) {
-        if (e is! File) {
-          continue;
-        }
-        final stat = e.statSync();
-        if (!e.path.endsWith('.part')) {
-          files.add((e, stat));
-        } else if (stat.modified.isBefore(stale)) {
-          await e.delete();
-        }
-      }
-      files.sort((a, b) => b.$2.modified.compareTo(a.$2.modified));
-      var total = 0;
-      for (final (f, stat) in files) {
-        total += stat.size;
-        if (total > maxCacheBytes && f.path != keep) {
-          await f.delete();
-        }
-      }
+      entries = await dir.list().toList();
     } on FileSystemException catch (e) {
-      warning('failed to trim the video cache: $e');
+      warning('failed to list the video cache: $e');
+      return;
+    }
+    final files = <(File, FileStat)>[];
+    // A part file left by a request the app did not live to finish is deleted.
+    final stale = DateTime.now().subtract(const Duration(hours: 1));
+    for (final e in entries) {
+      if (e is! File) {
+        continue;
+      }
+      final stat = e.statSync();
+      if (!e.path.endsWith('.part')) {
+        files.add((e, stat));
+      } else if (stat.modified.isBefore(stale) && !_writing.contains(e.path)) {
+        await _delete(e);
+      }
+    }
+    files.sort((a, b) => b.$2.modified.compareTo(a.$2.modified));
+    var total = 0;
+    for (final (f, stat) in files) {
+      total += stat.size;
+      if (total > maxCacheBytes && f.path != keep) {
+        await _delete(f);
+      }
+    }
+  }
+
+  Future<void> _delete(File file) async {
+    try {
+      await file.delete();
+    } on FileSystemException catch (e) {
+      warning('failed to delete ${file.path} from the video cache: $e');
     }
   }
 }

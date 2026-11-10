@@ -19,8 +19,11 @@ abstract interface class VideoBackend {
   /// Stop and free it; not used after.
   Future<void> dispose();
 
-  /// Whether it plays now.
+  /// Whether it plays now (asked to: it says so before the video is open).
   bool get playing;
+
+  /// Whether the video is open: its length or its picture size is known.
+  bool get loaded;
 
   /// Whether it plays, each time that changes.
   Stream<bool> get playingStream;
@@ -68,6 +71,9 @@ final class MediaKitVideoBackend implements VideoBackend {
 
   @override
   bool get playing => _player.state.playing;
+
+  @override
+  bool get loaded => _player.state.duration > Duration.zero || _player.state.width != null;
 
   @override
   Stream<bool> get playingStream => _player.stream.playing;

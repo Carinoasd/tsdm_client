@@ -48,6 +48,9 @@ final class _VideoBackend implements VideoBackend {
   @override
   bool playing = false;
 
+  @override
+  bool loaded = false;
+
   String? opened;
   bool disposed = false;
 
@@ -239,6 +242,17 @@ void main() {
       ]) {
         expect(ofHtml(html), isNull, reason: html);
       }
+      // A flash player of a video file, a frame of one: the file is played.
+      expect(
+        ofHtml(
+          '<embed src="https://example.com/player.swf" flashvars="file=https://video.example.com/v/a.mp4" />',
+        )!.url.toString(),
+        'https://video.example.com/v/a.mp4',
+      );
+      expect(
+        ofHtml('<iframe src="https://video.example.com/v/a.webm"></iframe>')!.url.toString(),
+        'https://video.example.com/v/a.webm',
+      );
       // A site's player is not taken for a file even when its path looks like one.
       expect(ofHtml('<video src="https://www.bilibili.com/x/clip.mp4"></video>'), isNull);
       expect(
@@ -391,17 +405,30 @@ void main() {
       await finish(tester);
     });
 
-    testWidgets('a stream that cannot be opened shows it cannot play', (tester) async {
+    testWidgets('a stream that cannot be opened shows it cannot play, also after play was asked for', (tester) async {
       await pump(tester, PostVideoPlayer(PostVideo(url: _stream)));
       await tester.tap(find.byType(PostVideoPlayer));
       await tester.pump();
-      // Opened, then libmpv tells it cannot be played, before it played.
-      backends.single
-        ..playing = false
-        ..fail('loading failed');
+      // Asked to play at once; libmpv tells later that it cannot open it.
+      expect(backends.single.playing, isTrue);
+      backends.single.fail('loading failed');
       await tester.pump();
       expect(find.text('无法播放'), findsOneWidget);
       expect(backends.single.disposed, isTrue);
+      await finish(tester);
+    });
+
+    testWidgets('an error once the video is open leaves the player as it is, paused or not', (tester) async {
+      await pump(tester, PostVideoPlayer(PostVideo(url: _stream)));
+      await tester.tap(find.byType(PostVideoPlayer));
+      await tester.pump();
+      backends.single.loaded = true;
+      await backends.single.pause();
+      backends.single.fail('segment failed');
+      await tester.pump();
+      expect(find.text('无法播放'), findsNothing);
+      expect(find.byKey(const ValueKey('video view')), findsOneWidget);
+      expect(backends.single.disposed, isFalse);
       await finish(tester);
     });
 
