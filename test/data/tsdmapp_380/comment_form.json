@@ -1,0 +1,36 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "comment",
+ "float": 1,
+ "ajax": 1,
+ "tid": 9202819,
+ "pid": 11263,
+ "submit": {
+  "url": "forum.php?mod=post&action=reply&comment=yes&tid=9202819&pid=11263&extra=&page=1&commentsubmit=yes&infloat=yes",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "handlekey": "comment",
+   "commentsubmit": "true"
+  }
+ },
+ "message": {
+  "name": "message",
+  "type": "textarea",
+  "value": "",
+  "max": 200,
+  "unit": "dstrlen",
+  "cut": 1
+ },
+ "items": [],
+ "seccheck": null,
+ "hook_fields": [],
+ "unsupported": []
+}

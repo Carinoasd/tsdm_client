@@ -1,0 +1,1021 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 35,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "index",
+ "schema": 5,
+ "timeoffset": 8,
+ "user": {
+  "uid": 35,
+  "username": "ag_low2",
+  "avatar": "https://forum.test/data/avatar/000/00/00/35_avatar_middle.jpg?ts=1794060683",
+  "allow_stat": 0
+ },
+ "unread": {
+  "notice": 6,
+  "pm": 0
+ },
+ "online": {
+  "total": 10,
+  "members": 8,
+  "invisible": 0,
+  "guests": 2,
+  "record": 24,
+  "record_time": 1790260268,
+  "record_date": "2026-9-24",
+  "listed": 1
+ },
+ "stats": {
+  "todayposts": 100,
+  "yesterdayposts": 50,
+  "posts": 5040,
+  "members": 5095,
+  "newest": "agperf6003"
+ },
+ "links": [
+  {
+   "title": "我的帖子",
+   "url": "home.php?mod=space&do=thread&view=me"
+  }
+ ],
+ "categories": [
+  {
+   "fid": 1,
+   "name": "🏠 論壇大廳",
+   "moderators": [],
+   "forums": [
+    {
+     "fid": 2,
+     "name": "📢 公告 & 新手報到",
+     "description": "",
+     "description_html": "",
+     "threads": 84,
+     "posts": 189,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202821,
+      "subject": "回收站測試主題 1",
+      "author": "ag_mod",
+      "authorid": 0,
+      "dateline": 1794278278
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 34,
+     "name": "CM 內容管理驗收版3",
+     "description": "",
+     "description_html": "",
+     "threads": 9,
+     "posts": 20,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202874,
+      "subject": "MX測試 圖章分類 2",
+      "author": "ag_mid",
+      "authorid": 0,
+      "dateline": 1794279913
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 33,
+     "name": "CM 內容管理驗收版2",
+     "description": "",
+     "description_html": "",
+     "threads": 5,
+     "posts": 16,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202824,
+      "subject": "MX測試 高亮推薦 2",
+      "author": "ag_t17",
+      "authorid": 0,
+      "dateline": 1794278332
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 32,
+     "name": "CM 內容管理驗收版",
+     "description": "",
+     "description_html": "",
+     "threads": 4,
+     "posts": 6,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202885,
+      "subject": "video player test",
+      "author": "ag_mid",
+      "authorid": 0,
+      "dateline": 1794283642
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 31,
+     "name": "PS 每日签到验收版",
+     "description": "",
+     "description_html": "",
+     "threads": 48,
+     "posts": 290,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202774,
+      "subject": "追踪帖子测试：新番讨论",
+      "author": "ag_mid",
+      "authorid": 0,
+      "dateline": 1794148855
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 30,
+     "name": "BD 新人报到验收版",
+     "description": "",
+     "description_html": "",
+     "threads": 11,
+     "posts": 11,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202773,
+      "subject": "貼上上傳測試",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1794147576
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    }
+   ]
+  },
+  {
+   "fid": 24,
+   "name": "BU 黑名單驗收分區",
+   "moderators": [],
+   "forums": [
+    {
+     "fid": 29,
+     "name": "BU 通知驗收版 H（1789171425534）",
+     "description": "",
+     "description_html": "",
+     "threads": 0,
+     "posts": 0,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": null,
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 25,
+     "name": "周邊交易區",
+     "description": "",
+     "description_html": "",
+     "threads": 48,
+     "posts": 187,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202875,
+      "subject": "RC測試 主題支持與踩",
+      "author": "ag_low",
+      "authorid": 0,
+      "dateline": 1794280130
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    }
+   ]
+  },
+  {
+   "fid": 3,
+   "name": "🌸 動漫番劇區",
+   "moderators": [],
+   "forums": [
+    {
+     "fid": 6,
+     "name": "新番追蹤",
+     "description": "每周新番追番、吐槽与剧情讨论",
+     "description_html": "每周新番追番、吐槽与剧情讨论",
+     "threads": 210,
+     "posts": 649,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202664,
+      "subject": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip ...",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1793101005
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 7,
+     "name": "神作殿堂",
+     "description": "经典神作回顾与安利推荐",
+     "description_html": "经典神作回顾与安利推荐",
+     "threads": 28,
+     "posts": 2301,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202808,
+      "subject": "音樂附件測試",
+      "author": "ag_admin",
+      "authorid": 0,
+      "dateline": 1794151762
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 8,
+     "name": "聲優茶話會",
+     "description": "声优情报、广播剧与作品交流",
+     "description_html": "声优情报、广播剧与作品交流",
+     "threads": 82,
+     "posts": 383,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202876,
+      "subject": "新帖提醒实测：芙莉莲 第二季讨论",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1794286913
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    }
+   ]
+  },
+  {
+   "fid": 4,
+   "name": "🎮 遊戲次元",
+   "moderators": [],
+   "forums": [
+    {
+     "fid": 9,
+     "name": "手遊情報站",
+     "description": "手机游戏攻略、抽卡与情报分享",
+     "description_html": "手机游戏攻略、抽卡与情报分享",
+     "threads": 63,
+     "posts": 96,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202777,
+      "subject": "MB批次測試1",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1794151045
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 10,
+     "name": "Galgame・美少女遊戲",
+     "description": "Galgame / 美少女游戏讨论与感想",
+     "description_html": "Galgame / 美少女游戏讨论与感想",
+     "threads": 17,
+     "posts": 45,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202768,
+      "subject": "求推荐入门 Galgame",
+      "author": "ag_mod",
+      "authorid": 0,
+      "dateline": 1794147852
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 11,
+     "name": "主機・PC 遊戲",
+     "description": "主机与 PC 游戏综合讨论",
+     "description_html": "主机与 PC 游戏综合讨论",
+     "threads": 372,
+     "posts": 386,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9199516,
+      "subject": "[MEGA] 上传 422478",
+      "author": "ag_mid",
+      "authorid": 0,
+      "dateline": 1794160011
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    }
+   ]
+  },
+  {
+   "fid": 5,
+   "name": "🎨 創作交流所",
+   "moderators": [],
+   "forums": [
+    {
+     "fid": 12,
+     "name": "繪圖・插畫",
+     "description": "原创绘画、插画作品与教程",
+     "description_html": "原创绘画、插画作品与教程",
+     "threads": 227,
+     "posts": 414,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202738,
+      "subject": "《Silent Witch -another- 一步登天的結界魔術師》[依空まつり][上][台版/简繁] ...",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1793804421
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 13,
+     "name": "COS・攝影",
+     "description": "Cosplay 与摄影作品分享",
+     "description_html": "Cosplay 与摄影作品分享",
+     "threads": 19,
+     "posts": 30,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9202886,
+      "subject": "MX測試 樓層操作",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1794284566
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    },
+    {
+     "fid": 14,
+     "name": "同人創作",
+     "description": "同人小说、漫画与二次创作",
+     "description_html": "同人小说、漫画与二次创作",
+     "threads": 7,
+     "posts": 7,
+     "todayposts": 0,
+     "icon": "",
+     "lastpost": {
+      "tid": 9199883,
+      "subject": "《测试原档65139》[八月八][1-4][青文][HyRead]",
+      "author": "ag_low2",
+      "authorid": 0,
+      "dateline": 1792302791
+     },
+     "subforums": [],
+     "redirect": "",
+     "private": 0
+    }
+   ]
+  }
+ ],
+ "favorite_forums": [],
+ "favorites": [],
+ "blocks": [
+  {
+   "id": 1,
+   "title": "最新活动",
+   "rows": [
+    {
+     "title": "预览素材：葬送的芙莉莲 第二季 01-04 网盘合集",
+     "url": "forum.php?mod=viewthread&tid=9202810",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "预览素材：十月新番你追了哪几部？",
+     "url": "forum.php?mod=viewthread&tid=9202809",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "十一月活动预告",
+     "url": "forum.php?mod=viewthread&tid=9202771",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "月末签到提醒",
+     "url": "forum.php?mod=viewthread&tid=9202770",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB批次測試3",
+     "url": "forum.php?mod=viewthread&tid=9202779",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB批次測試4",
+     "url": "forum.php?mod=viewthread&tid=9202780",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "活动：年末同人展报名",
+     "url": "forum.php?mod=viewthread&tid=9202769",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "活动：周末联机开黑",
+     "url": "forum.php?mod=viewthread&tid=9202766",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "回帖领红包：新番开播庆祝",
+     "url": "forum.php?mod=viewthread&tid=9202762",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "口令红包：晚上好",
+     "url": "forum.php?mod=viewthread&tid=9202761",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "title": "见习天使",
+   "rows": [
+    {
+     "title": "欢迎ag_low2加入~",
+     "url": "forum.php?mod=viewthread&tid=9202811",
+     "author": "ag_low2",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_area加入~",
+     "url": "forum.php?mod=viewthread&tid=9202774",
+     "author": "ag_area",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_low加入~",
+     "url": "forum.php?mod=viewthread&tid=9202772",
+     "author": "ag_low",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t21加入~",
+     "url": "forum.php?mod=viewthread&tid=9199970",
+     "author": "ag_t21",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t20加入~",
+     "url": "forum.php?mod=viewthread&tid=9199969",
+     "author": "ag_t20",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t19加入~",
+     "url": "forum.php?mod=viewthread&tid=9199968",
+     "author": "ag_t19",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t18加入~",
+     "url": "forum.php?mod=viewthread&tid=9199967",
+     "author": "ag_t18",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t14加入~",
+     "url": "forum.php?mod=viewthread&tid=9199962",
+     "author": "ag_t14",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t12加入~",
+     "url": "forum.php?mod=viewthread&tid=9199961",
+     "author": "ag_t12",
+     "author_url": "",
+     "tag": ""
+    },
+    {
+     "title": "欢迎ag_t11加入~",
+     "url": "forum.php?mod=viewthread&tid=9199960",
+     "author": "ag_t11",
+     "author_url": "",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "title": "动漫新闻",
+   "rows": [
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9202664",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "[BD][Jsum@U2][乱世千金倪亚‧利斯顿转生为娇弱千金的弑神武人华丽无双录][凶乱令嬢ニア・リストン 病弱令嬢に転生した神殺しの武人の華麗なる無双録][BDRip][1080p][TV 01-25][x265 10bit][简繁外挂][50G]",
+     "url": "forum.php?mod=viewthread&tid=9199892",
+     "author": "神代小祈",
+     "author_url": "home.php?mod=space&uid=83",
+     "tag": ""
+    },
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9199891",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9199890",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9199889",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "[BD][Jsum@U2][黑执事 -寄宿学校篇-][Kuroshitsuji: Kishuku Gakkou-hen][黒執事 -寄宿学校編-][BDRip][480i][TV 01-11 Fin+SP][H264 FLAC MKV][付相關專輯][22.6]",
+     "url": "forum.php?mod=viewthread&tid=9199888",
+     "author": "神代小祈",
+     "author_url": "home.php?mod=space&uid=83",
+     "tag": ""
+    },
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9199887",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "[BD][VCB-Studio][FX战士久留美][FX Fighter Kurumi-chan][FX戦士くるみちゃん][BDRip][1080p][TV 01-12][x265 10bit FLAC MKV][简繁内封][45.6G]",
+     "url": "forum.php?mod=viewthread&tid=9199886",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "ZHC 简繁切换测试 繁體標題",
+     "url": "forum.php?mod=viewthread&tid=9199880",
+     "author": "ag_admin",
+     "author_url": "home.php?mod=space&uid=32",
+     "tag": ""
+    },
+    {
+     "title": "紅包自領測試B543028",
+     "url": "forum.php?mod=viewthread&tid=9199455",
+     "author": "kb_new",
+     "author_url": "home.php?mod=space&uid=77",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "title": "最新主题",
+   "rows": [
+    {
+     "title": "MX測試 樓層操作",
+     "url": "forum.php?mod=viewthread&tid=9202886",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "video player test",
+     "url": "forum.php?mod=viewthread&tid=9202885",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 全選後新主題",
+     "url": "forum.php?mod=viewthread&tid=9202884",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 含首樓分割",
+     "url": "forum.php?mod=viewthread&tid=9202882",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 無回覆C",
+     "url": "forum.php?mod=viewthread&tid=9202881",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 分割新主題",
+     "url": "forum.php?mod=viewthread&tid=9202880",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 分割來源S",
+     "url": "forum.php?mod=viewthread&tid=9202879",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "MX測試 合併目標A",
+     "url": "forum.php?mod=viewthread&tid=9202877",
+     "author": "ag_mid",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "新帖提醒实测：芙莉莲 第二季讨论",
+     "url": "forum.php?mod=viewthread&tid=9202876",
+     "author": "ag_low",
+     "author_url": "home.php?mod=space&uid=31",
+     "tag": ""
+    },
+    {
+     "title": "RC測試 主題支持與踩",
+     "url": "forum.php?mod=viewthread&tid=9202875",
+     "author": "ag_low",
+     "author_url": "home.php?mod=space&uid=31",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "title": "今日话题",
+   "rows": [
+    {
+     "title": "MB量測1",
+     "url": "forum.php?mod=viewthread&tid=9202783",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB批次測試1",
+     "url": "forum.php?mod=viewthread&tid=9202777",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測2",
+     "url": "forum.php?mod=viewthread&tid=9202784",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB批次測試2",
+     "url": "forum.php?mod=viewthread&tid=9202778",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測3",
+     "url": "forum.php?mod=viewthread&tid=9202785",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測4",
+     "url": "forum.php?mod=viewthread&tid=9202786",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測5",
+     "url": "forum.php?mod=viewthread&tid=9202787",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測6",
+     "url": "forum.php?mod=viewthread&tid=9202788",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測7",
+     "url": "forum.php?mod=viewthread&tid=9202789",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "MB量測8",
+     "url": "forum.php?mod=viewthread&tid=9202790",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "title": "动漫讨论",
+   "rows": [
+    {
+     "title": "《Silent Witch -another- 一步登天的結界魔術師》[依空まつり][上][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202738",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《擁有超常技能的異世界流浪美食家》[江口連][01-12][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202737",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《幼女戰記》[カルロ・ゼン][13][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202736",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《精灵渡边》[和ヶ原聡司][01][日翻/简]",
+     "url": "forum.php?mod=viewthread&tid=9202735",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《Silent Witch -another- 一步登天的結界魔術師》[依空まつり][上][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202734",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《擁有超常技能的異世界流浪美食家》[江口連][01-12][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202733",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《幼女戰記》[カルロ・ゼン][13][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202732",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《精灵渡边》[和ヶ原聡司][01][日翻/简]",
+     "url": "forum.php?mod=viewthread&tid=9202731",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《Silent Witch -another- 一步登天的結界魔術師》[依空まつり][上][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202730",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "《擁有超常技能的異世界流浪美食家》[江口連][01-12][台版/简繁]",
+     "url": "forum.php?mod=viewthread&tid=9202729",
+     "author": "ag_low2",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "title": "发帖排行",
+   "rows": [
+    {
+     "title": "ag_mid",
+     "url": "home.php?mod=space&uid=33",
+     "author": "共发587贴",
+     "author_url": "home.php?mod=space&uid=33",
+     "tag": ""
+    },
+    {
+     "title": "ag_low2",
+     "url": "home.php?mod=space&uid=35",
+     "author": "共发429贴",
+     "author_url": "home.php?mod=space&uid=35",
+     "tag": ""
+    },
+    {
+     "title": "ag_admin",
+     "url": "home.php?mod=space&uid=32",
+     "author": "共发340贴",
+     "author_url": "home.php?mod=space&uid=32",
+     "tag": ""
+    },
+    {
+     "title": "ag_low",
+     "url": "home.php?mod=space&uid=31",
+     "author": "共发280贴",
+     "author_url": "home.php?mod=space&uid=31",
+     "tag": ""
+    },
+    {
+     "title": "ag_area",
+     "url": "home.php?mod=space&uid=34",
+     "author": "共发49贴",
+     "author_url": "home.php?mod=space&uid=34",
+     "tag": ""
+    },
+    {
+     "title": "ag_t01",
+     "url": "home.php?mod=space&uid=37",
+     "author": "共发28贴",
+     "author_url": "home.php?mod=space&uid=37",
+     "tag": ""
+    },
+    {
+     "title": "kb_new",
+     "url": "home.php?mod=space&uid=77",
+     "author": "共发23贴",
+     "author_url": "home.php?mod=space&uid=77",
+     "tag": ""
+    },
+    {
+     "title": "ag_t06",
+     "url": "home.php?mod=space&uid=42",
+     "author": "共发23贴",
+     "author_url": "home.php?mod=space&uid=42",
+     "tag": ""
+    },
+    {
+     "title": "ag_t02",
+     "url": "home.php?mod=space&uid=38",
+     "author": "共发23贴",
+     "author_url": "home.php?mod=space&uid=38",
+     "tag": ""
+    },
+    {
+     "title": "ag_t08",
+     "url": "home.php?mod=space&uid=44",
+     "author": "共发20贴",
+     "author_url": "home.php?mod=space&uid=44",
+     "tag": ""
+    }
+   ]
+  }
+ ],
+ "blocks_html": "",
+ "slides": [
+  {
+   "id": 1,
+   "image": "https://tu.ts-dm.net/imgs/2026/03/ca31774678af2f49.png",
+   "url": "forum.php?mod=viewthread&tid=1123",
+   "label": "1"
+  },
+  {
+   "id": 2,
+   "image": "https://tu.ts-dm.net/imgs/2026/02/67534c04ee6d583f.png",
+   "url": "forum.php?mod=viewthread&tid=1258888",
+   "label": "2"
+  },
+  {
+   "id": 3,
+   "image": "https://tu.ts-dm.net/imgs/2026/03/ca31774678af2f49.png",
+   "url": "forum.php?mod=viewthread&tid=1262999",
+   "label": "3"
+  },
+  {
+   "id": 4,
+   "image": "https://tu.ts-dm.net/imgs/2026/02/67534c04ee6d583f.png",
+   "url": "forum.php?mod=viewthread&tid=1258888",
+   "label": "4"
+  },
+  {
+   "id": 5,
+   "image": "https://tu.ts-dm.net/imgs/2026/03/ca31774678af2f49.png",
+   "url": "forum.php?mod=viewthread&tid=1262999",
+   "label": "5"
+  },
+  {
+   "id": 6,
+   "image": "https://tu.ts-dm.net/imgs/2026/02/67534c04ee6d583f.png",
+   "url": "forum.php?mod=viewthread&tid=1258888",
+   "label": "6"
+  },
+  {
+   "id": 7,
+   "image": "https://tu.ts-dm.net/imgs/2026/03/ca31774678af2f49.png",
+   "url": "forum.php?mod=viewthread&tid=1262999",
+   "label": "7"
+  },
+  {
+   "id": 8,
+   "image": "https://tu.ts-dm.net/imgs/2026/02/67534c04ee6d583f.png",
+   "url": "forum.php?mod=viewthread&tid=1258888",
+   "label": "8"
+  },
+  {
+   "id": 9,
+   "image": "https://tu.ts-dm.net/imgs/2026/03/ca31774678af2f49.png",
+   "url": "forum.php?mod=viewthread&tid=1262999",
+   "label": "9"
+  },
+  {
+   "id": 10,
+   "image": "https://tu.ts-dm.net/imgs/2026/02/67534c04ee6d583f.png",
+   "url": "forum.php?mod=viewthread&tid=1258888",
+   "label": "10"
+  }
+ ],
+ "red_packet": {
+  "entry": 1,
+  "dateflag": 20261001,
+  "from": "系統 每日紅包",
+  "bless": "今日登入紅包,明天還可以再領",
+  "unit": "威望"
+ }
+}
