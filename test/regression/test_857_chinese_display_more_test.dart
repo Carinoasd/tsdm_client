@@ -203,10 +203,11 @@ void main() {
     );
   });
 
-  testWidgets('the comment of a floor: the content converted, the author as it is', (tester) async {
+  testWidgets('the comment of a floor: selectable, so the content and the author stay as they are', (tester) async {
     const comment = PostComment(authorName: '软件开发者', content: '软件开发讨论');
     await pump(tester, ChineseDisplayMode.traditional, const PostCommentTile(comment));
-    expect(find.text('軟件開發討論'), findsOneWidget);
+    expect(find.text('软件开发讨论'), findsOneWidget);
+    expect(find.text('軟件開發討論'), findsNothing);
     expect(_shown('软件开发者'), findsWidgets);
     await pump(tester, ChineseDisplayMode.off, const PostCommentTile(comment));
     expect(find.text('软件开发讨论'), findsOneWidget);

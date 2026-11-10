@@ -266,7 +266,7 @@ class _QueueItemCard extends StatelessWidget {
             if (item.message.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8, right: 8),
-                child: SelectableText(context.displayText(item.message)),
+                child: SelectableText(item.message),
               ),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

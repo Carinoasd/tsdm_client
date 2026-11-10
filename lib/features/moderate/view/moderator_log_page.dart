@@ -220,7 +220,7 @@ class _LogEntryCard extends StatelessWidget {
             if (entry.other.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: SelectableText(context.displayText(entry.other), style: theme.textTheme.bodySmall),
+                child: SelectableText(entry.other, style: theme.textTheme.bodySmall),
               ),
           ],
         ),
