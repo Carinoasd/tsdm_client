@@ -25,6 +25,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/html/link_gesture_recognizer.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -124,11 +125,12 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
   /// A tap on the card: the floor (or thread) the notice links, else the profile of the user of a friend, poke or wall
   /// notice; the notice is read either way.
   ///
-  /// A touch on a link in the content opens that link and reaches here too, on mobile: the link is a long press
-  /// recognizer that opens its page when the touch ends before the long press (`onLongPressCancel`), which is not a
-  /// claim on the gesture, so the card's ink well wins the touch as a tap right after, in the same pointer event.
-  /// The link's page is already pushed and the notice read by then (GitHub #339: the thread page twice, two backs
-  /// to leave it): nothing is done again.
+  /// A touch on a link in the content opened that link and reached here too, on mobile: the link was a long press
+  /// recognizer that opened its page when the touch ended before the long press (`onLongPressCancel`), which is not a
+  /// claim on the gesture, so the card's ink well won the touch as a tap right after, in the same pointer event
+  /// (GitHub #339: the thread page twice, two backs to leave it). The link's recognizer now wins the touch it opens
+  /// the link with ([LinkTapGestureRecognizer]) and this tap does not come; the flag stays as a second guard: nothing
+  /// is done again.
   Future<void> _onTap() async {
     if (_contentLinkOpened) {
       return;
