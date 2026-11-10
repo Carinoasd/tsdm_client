@@ -84,6 +84,7 @@ void main() {
       // Dark modules on white whatever the theme: what scanners read.
       expect(tester.widget<Container>(find.byKey(const ValueKey('share-qr-card'))).color, Colors.white);
       expect(code.eyeStyle.color, Colors.black);
+      expect(code.dataModuleStyle.color, Colors.black);
       expect(tester.takeException(), isNull);
     });
   }
